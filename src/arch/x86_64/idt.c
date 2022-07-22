@@ -36,6 +36,4 @@ void idt_bspinit(){
 	
 	idt_reload();
 
-	asm("int $0x0");
-
 }

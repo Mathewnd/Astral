@@ -1,11 +1,41 @@
 #include <arch/panic.h>
+#include <arch/regs.h>
 #include <stdio.h>
+#include <stddef.h>
 
-__attribute((noreturn)) void _panic(char* reason){
+#define TRACE_MAXDEPTH 10
+
+// TODO trace names
+
+static void tracestack(uint64_t** addr){
 	
-	// TODO stack trace and register print
+	for(size_t depth = 0; depth < TRACE_MAXDEPTH; ++depth){
+
+		uint64_t *calleeaddr = *(addr + 1);
+		addr = (uint64_t**)*addr;
+
+		printf("%lu: %p\n", depth, calleeaddr);
+
+		if(depth == TRACE_MAXDEPTH || calleeaddr == 0) break;
+	}
+}
+
+__attribute((noreturn)) void _panic(char* reason, arch_regserror *reg){
 	
-	printf("Kernel panic.\nWhy: %s\nWhere: TODO\nWho: TODO\n", reason);
+	printf("PANIC: %s.\n", reason);
+	
+	if(reg){
+		printf("Register dump:\nRAX: %p RBX: %p RCX: %p RDX: %p R8: %p R9: %p R10: %p R11: %p R12: %p R13: %p R14: %p R15: %p RDI: %p RSP: %p RBP: %p DS: %p ES: %p FS: %p GS: %p CR2: %p ERR: %p RIP: %p CS: %p RFLAGS: %p SS: %p\n",
+		reg->rax, reg->rbx, reg->rcx, reg->rdx, reg->r8, reg->r9, reg->r10,
+		reg->r11, reg->r12, reg->r13, reg->r14, reg->r15, reg->rdi, reg->rsp, reg->rbp, reg->ds, reg->es, reg->fs, reg->gs, reg->cr2, reg->error, reg->rip, reg->cs, reg->rflags, reg->ss
+		);
+
+		printf("Panic location: %p\n", reg->rip);
+		printf("Stack trace:\n");
+		tracestack((uint64_t**)reg->rbp);
+
+	}
+	
 
 	while(1){
 		asm("cli;hlt;");
