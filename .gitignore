@@ -1,0 +1,6 @@
+/sysdisk.iso
+*.o
+/bin
+*.swp
+/boot/**/iso/kernel
+/boot/**/iso/initrd
