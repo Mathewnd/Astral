@@ -51,6 +51,8 @@ typedef struct{
 	segdesc kdata32;
 	segdesc kcode64;
 	segdesc kdata64;
+	segdesc ucode64;
+	segdesc udata64;
 	sys64 ist;
 } gdt_t;
 
