@@ -56,4 +56,6 @@ typedef struct{
 	sys64 ist;
 } gdt_t;
 
+void gdt_bspinit();
+
 #endif

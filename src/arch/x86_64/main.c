@@ -1,5 +1,7 @@
 #include <limine.h>
 #include <kernel/console.h>
+#include <arch/gdt.h>
+#include <arch/idt.h>
 #include <arch/cls.h>
 
 static volatile struct limine_terminal_request liminettyr = {
