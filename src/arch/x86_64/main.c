@@ -25,7 +25,8 @@ void kmain(){
 	console_setwritehook(liminewrite);
 	
 	bsp_setcls();
-
+	gdt_bspinit();
+	idt_bspinit();
 
 
 }

@@ -1,4 +1,4 @@
-objects := $(patsubst %.c,%.o,$(wildcard *.c))
+objects := $(patsubst %.c,%.o,$(wildcard *.c)) israsm.o
 subdirs=boot
 OBJPATH=$(OBJDIR)/arch/${TARGET}/
 export
@@ -11,3 +11,7 @@ all: $(objects) $(subdirs)
 	mkdir -p $(OBJPATH) 
 	cp $@ $(OBJPATH)/$@
 
+israsm.o: isr.asm
+	nasm -f elf64 -o $@ $<
+	mkdir -p $(OBJPATH)
+	cp $@ $(OBJPATH)/$@
