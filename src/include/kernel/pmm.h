@@ -10,5 +10,6 @@ void pmm_free(void*, size_t);
 void pmm_setused(void*, size_t);
 
 extern void* limine_hhdm_offset;
+extern void* pmm_usabletop;
 
 #endif

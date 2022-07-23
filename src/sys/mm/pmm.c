@@ -28,6 +28,7 @@ size_t* bitmap = 0;
 size_t usablememsize = 0;
 size_t totalmemsize  = 0;
 void* lastfree = PAGE_SIZE;
+void* pmm_usabletop;
 int lock = 0;
 
 static int getstate(void* addr){
@@ -235,5 +236,7 @@ void pmm_init(){
 	bitmappages = (size_t)bitmaptop / PAGE_SIZE + 1;
 
 	pmm_setused(bitmap, bitmappages);
+
+	pmm_usabletop = bitmaptop;
 
 }
