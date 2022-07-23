@@ -1,5 +1,5 @@
 objects := $(patsubst %.c,%.o,$(wildcard *.c))
-subdirs := arch/$(TARGET)/ include video sys
+subdirs := mm
 OBJPATH=$(OBJDIR)
 export
 

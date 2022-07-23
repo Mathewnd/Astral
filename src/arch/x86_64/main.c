@@ -3,6 +3,7 @@
 #include <arch/gdt.h>
 #include <arch/idt.h>
 #include <arch/cls.h>
+#include <kernel/pmm.h>
 
 static volatile struct limine_terminal_request liminettyr = {
     .id = LIMINE_TERMINAL_REQUEST,
@@ -29,7 +30,8 @@ void kmain(){
 	bsp_setcls();
 	gdt_bspinit();
 	idt_bspinit();
-
+	
+	pmm_init();
 
 }
 
