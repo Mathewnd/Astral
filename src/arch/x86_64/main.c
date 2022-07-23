@@ -32,7 +32,14 @@ void kmain(){
 	idt_bspinit();
 	
 	pmm_init();
+	
+	//set from 0xA0000 to 0x100000 as used
+	//as sometimes the bootloader doesn't pass this region as being used
 
+	pmm_setused(0xA0000, 0x60);
+	
+	
+	
 }
 
 

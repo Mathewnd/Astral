@@ -2,6 +2,7 @@
 #include <arch/panic.h>
 #include <limine.h>
 #include <stdio.h>
+#include <string.h>
 #include <kernel/spinlock.h>
 
 #define PAGE_SIZE 4096
@@ -9,7 +10,7 @@
 #define STATE_USED 1
 #define STATE_FREE 0
 
-void* limine_hddm_offset;
+void* limine_hhdm_offset;
 
 volatile struct limine_hhdm_request hhdm_req = {
     .id = LIMINE_HHDM_REQUEST,
@@ -21,17 +22,35 @@ volatile struct limine_memmap_request memmap_req = {
     .revision = 0
 };
 
-void* hhdmoffset;
 size_t bitmappages;
+void*   bitmaptop;
 size_t* bitmap = 0;
 size_t usablememsize = 0;
 size_t totalmemsize  = 0;
-void* lastfree = 0;
+void* lastfree = PAGE_SIZE;
 int lock = 0;
 
+static int getstate(void* addr){
+	if(addr > bitmaptop) return STATE_USED;
+	if(addr >= limine_hhdm_offset) addr -= limine_hhdm_offset;
+	
+	
+	size_t page = (size_t)addr / PAGE_SIZE;
+
+	// find the exact size_t sized chunk that the entry resides in	
+	size_t chunk = page / 8 / sizeof(size_t);
+	
+	// where inside the size_t is it
+
+	size_t offset = page % (sizeof(size_t)*8);
+
+	return bitmap[chunk] & ((size_t)1 << offset) ? 1 : 0;// the cast is here so the compiler doesn't optimise it as a 32 constant
+
+}
+
 static void setstate(void* addr, size_t state){
-	if(addr > (void*)totalmemsize) return;
-	if(addr >= hhdmoffset) addr -= hhdmoffset;
+	if(addr > bitmaptop) return;
+	if(addr >= limine_hhdm_offset) addr -= limine_hhdm_offset;
 	
 	size_t page = (size_t)addr / PAGE_SIZE;
 
@@ -43,10 +62,10 @@ static void setstate(void* addr, size_t state){
 	size_t offset = page % (sizeof(size_t)*8);
 
 	size_t entry = bitmap[chunk];
-	entry &= ~(1 << offset);
+	entry &= ~((size_t)1 << offset); // the cast is here so the compiler doesn't optimise it as a 32 constant
 	entry |= (state & 1) << offset;
 	bitmap[chunk] = entry;
-	
+
 }
 
 void pmm_setused(void* addr, size_t count){
@@ -59,7 +78,7 @@ void pmm_setused(void* addr, size_t count){
 	spinlock_release(&lock);
 }
 
-void pmm_setfree(void* addr, size_t count){
+void pmm_free(void* addr, size_t count){
 	if(count == 0) return;
 	spinlock_acquire(&lock);
 	
@@ -71,6 +90,62 @@ void pmm_setfree(void* addr, size_t count){
 	spinlock_release(&lock);
 }
 
+
+
+void* pmm_alloc(size_t count){
+	if(count == 0) return NULL;
+	spinlock_acquire(&lock);
+	
+	void* addr = lastfree;
+	
+	for(; addr < bitmaptop; addr += PAGE_SIZE){
+		
+		if(getstate(addr) == STATE_USED)
+			continue;
+		
+		void* base = addr;
+		for(size_t i = 0; i < count; ++i){
+			if(getstate(base) == STATE_USED) break;
+			base += PAGE_SIZE;
+		}
+		
+		// if the loop was successful, base will point to a free page
+
+		if(getstate(base) == STATE_FREE)
+			break;
+
+		// nope, skip the entire thing
+		addr = base;
+	}
+	
+
+	if(addr >= bitmaptop) addr = NULL;
+	
+	if(addr) for(size_t i = 0; i < count; ++i) setstate(addr + i * PAGE_SIZE, STATE_USED);
+
+	spinlock_release(&lock);
+
+	return addr;
+
+}
+
+void* pmm_hhdmalloc(size_t count){
+	void* alloc = pmm_alloc(count);
+	if(!alloc) return NULL;
+	return alloc + (size_t)limine_hhdm_offset;
+}
+
+char* typesstr[] = {
+	"Usable",
+	"Reserved",
+	"ACPI Reclaimable",
+	"ACPI NVS",
+	"Bad mememory",
+	"Bootloader reclaimable",
+	"Kernel/Module",
+	"Framebuffer"
+};
+
 void pmm_init(){
 	
 	if(!hhdm_req.response)
@@ -78,9 +153,9 @@ void pmm_init(){
 	if(!memmap_req.response)
 		_panic("No memmap request response", 0);
 	
-	hhdmoffset = hhdm_req.response->offset;
+	limine_hhdm_offset = hhdm_req.response->offset;
 	
-	printf("Limine hhdm at %p\n", hhdmoffset);
+	printf("Limine hhdm at %p\n", limine_hhdm_offset);
 
 	// find usable memory size
 	
@@ -95,14 +170,15 @@ void pmm_init(){
 			continue;
 
 		usablememsize += current->length;
-
+		void* top = current->base + current->length;
+		bitmaptop = top > bitmaptop ? top : bitmaptop;
 	}
 
 	
 	printf("Memory Size: %lu pages (%lu MB)\n", usablememsize / PAGE_SIZE, usablememsize / 1024 / 1024);
 	size_t totalpages = totalmemsize / PAGE_SIZE;
 	printf("Total handled size %lu pages (%lu MB)\n", totalpages, totalmemsize / 1024 / 1024);
-	size_t bitmapsize = totalpages / 8;
+	size_t bitmapsize = (size_t)bitmaptop / PAGE_SIZE / 8;
 	printf("Bitmap will use %lu pages (%lu KB)\n", bitmapsize / PAGE_SIZE, bitmapsize / 1024);
 
 	// find where to put the bitmap in	
@@ -114,7 +190,9 @@ void pmm_init(){
 		
 		if(!current->type == LIMINE_MEMMAP_USABLE) continue;
 
-		if(current->length < bitmapsize) continue;
+		// don't put it in low memory
+
+		if(current->length < bitmapsize || current->base < 0x100000) continue;
 		
 		bitmap = (size_t*)current->base;
 		
@@ -136,16 +214,17 @@ void pmm_init(){
 		struct limine_memmap_entry *current = memmap_req.response->entries[i];
 		
 	
-		printf("\033[93mP: %016p\033[0m -> \033[92mL: %016p\033[0m \033[94mT:%02lu", current->base,  current->base + current->length, current->type);
+		printf("\033[93mA: %016p\033[0m -> \033[93m%016p \033[94mT:%s  ", current->base,  current->base + current->length, typesstr[current->type]);
+		
 
-		if(i % 3 == 2) printf("\n\033[0m");
+		for(size_t i = 0; i < 22 - strlen(typesstr[current->type]); ++i)
+			printf(" ");
+
+		if(i % 2) printf("\n\033[0m");
 
 		if(current->type == LIMINE_MEMMAP_USABLE) continue;
 		
 		pmm_setused((void*)current->base, current->length / PAGE_SIZE + 1);
-		
-
-
 
 	}
 	
@@ -153,7 +232,7 @@ void pmm_init(){
 
 	// mark the bitmap itself as used
 	
-	bitmappages = totalmemsize / PAGE_SIZE + 1;
+	bitmappages = (size_t)bitmaptop / PAGE_SIZE + 1;
 
 	pmm_setused(bitmap, bitmappages);
 
