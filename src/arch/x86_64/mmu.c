@@ -9,7 +9,7 @@
 #include <string.h>
 #include <arch/cls.h>
 
-static volatile struct limine_kernel_address_request kaddrreq = {
+volatile struct limine_kernel_address_request kaddrreq = {
 	.id = LIMINE_KERNEL_ADDRESS_REQUEST,
 	.revision = 0
 };
@@ -101,8 +101,20 @@ void arch_mmu_init(){
 	arch_mmu_tableptr context;
 	
 	context = pmm_alloc(1);
-	memset(context, 0, PAGE_SIZE);
 	if(!context) _panic ("Out of memory", 0);
+	memset(context, 0, PAGE_SIZE);
+
+	// make sure to have all the kernel memory point to something so they
+	// can be all equal
+	
+	for(size_t i = 256; i < 512; ++i){
+		void* addr = pmm_alloc(1);
+		if(!addr) _panic("Out of memory", 0);
+		memset(addr, 0, PAGE_SIZE);
+		size_t entry;
+		changeentry(&entry, addr, ARCH_MMU_MAP_READ | ARCH_MMU_MAP_WRITE | ARCH_MMU_MAP_NOEXEC);
+		context[i] = entry;
+	}
 
 	// TODO use big pages (huge pages if processor supports it) for this
 	
