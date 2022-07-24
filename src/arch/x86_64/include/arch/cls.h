@@ -5,6 +5,7 @@
 #include <arch/ist.h>
 #include <arch/ist.h>
 #include <arch/regs.h>
+#include <arch/mmu.h>
 
 // cpu level storage
 // this will be pointed to by GS and will contain per cpu info

@@ -38,6 +38,8 @@ void kmain(){
 
 	pmm_setused(0xA0000, 0x60);
 	
+	arch_mmu_init();
+	
 	
 	
 }
