@@ -32,9 +32,8 @@ void* pmm_usabletop;
 int lock = 0;
 
 static int getstate(void* addr){
-	if(addr > bitmaptop) return STATE_USED;
 	if(addr >= limine_hhdm_offset) addr -= limine_hhdm_offset;
-	
+	if(addr > bitmaptop) return STATE_USED;
 	
 	size_t page = (size_t)addr / PAGE_SIZE;
 
@@ -50,9 +49,9 @@ static int getstate(void* addr){
 }
 
 static void setstate(void* addr, size_t state){
-	if(addr > bitmaptop) return;
 	if(addr >= limine_hhdm_offset) addr -= limine_hhdm_offset;
-	
+	if(addr > bitmaptop) return;
+
 	size_t page = (size_t)addr / PAGE_SIZE;
 
 	// find the exact size_t sized chunk that the entry resides in	
@@ -99,6 +98,8 @@ void* pmm_alloc(size_t count){
 	
 	void* addr = lastfree;
 	
+
+
 	for(; addr < bitmaptop; addr += PAGE_SIZE){
 		
 		if(getstate(addr) == STATE_USED)
@@ -114,15 +115,21 @@ void* pmm_alloc(size_t count){
 
 		if(getstate(base) == STATE_FREE)
 			break;
+		
+		
 
 		// nope, skip the entire thing
 		addr = base;
 	}
 	
 
-	if(addr >= bitmaptop) addr = NULL;
+	if(addr >= bitmaptop){
+		spinlock_release(&lock);
+		return NULL;
+	}
 	
-	if(addr) for(size_t i = 0; i < count; ++i) setstate(addr + i * PAGE_SIZE, STATE_USED);
+	for(size_t i = 0; i < count; ++i) setstate(addr + i * PAGE_SIZE, STATE_USED);
+
 
 	spinlock_release(&lock);
 
@@ -205,7 +212,9 @@ void pmm_init(){
 		_panic("No available memory for bitmap", 0);
 
 	printf("Bitmap at %p\n", bitmap);
-	
+
+	memset(bitmap, 0, bitmapsize);
+
 	// mark needed entries as used now
 	
 	printf("Ranges: \n");
@@ -235,7 +244,7 @@ void pmm_init(){
 	
 	bitmappages = (size_t)bitmaptop / PAGE_SIZE + 1;
 
-	pmm_setused(bitmap, bitmappages);
+	pmm_setused(bitmap, bitmapsize / 4096);
 
 	pmm_usabletop = bitmaptop;
 
