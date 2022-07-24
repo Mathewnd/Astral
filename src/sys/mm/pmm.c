@@ -237,8 +237,8 @@ void pmm_init(){
 		pmm_setused((void*)current->base, current->length / PAGE_SIZE + 1);
 
 	}
-	
-	printf("\n");
+
+	printf("\033[0m\n");
 
 	// mark the bitmap itself as used
 	
