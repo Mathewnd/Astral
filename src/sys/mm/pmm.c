@@ -137,6 +137,10 @@ void* pmm_alloc(size_t count){
 
 }
 
+void pmm_hhdmfree(void* addr, size_t count){
+	pmm_free(addr - (size_t)limine_hhdm_offset, count);
+}
+
 void* pmm_hhdmalloc(size_t count){
 	void* alloc = pmm_alloc(count);
 	if(!alloc) return NULL;
