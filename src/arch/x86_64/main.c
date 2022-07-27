@@ -4,6 +4,7 @@
 #include <arch/idt.h>
 #include <arch/cls.h>
 #include <kernel/pmm.h>
+#include <kernel/vmm.h>
 
 static volatile struct limine_terminal_request liminettyr = {
     .id = LIMINE_TERMINAL_REQUEST,
@@ -40,8 +41,8 @@ void kmain(){
 	
 	arch_mmu_init();
 	
-	
-	
+	vmm_init();	
+
 }
 
 

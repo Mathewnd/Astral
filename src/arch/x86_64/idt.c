@@ -34,6 +34,8 @@ void idt_bspinit(){
 		idt_setentry(&idt[i], asmisr_except, 0x28, FLAGS_PRESENT | FLAGS_TYPE_TRAP, 0);
 	}
 	
+	idt_setentry(&idt[VECTOR_PF], asmisr_pagefault, 0x28, FLAGS_PRESENT | FLAGS_TYPE_TRAP, 0);
+
 	idt_reload();
 
 }

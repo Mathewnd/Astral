@@ -44,6 +44,7 @@ static bool setpage(arch_mmu_tableptr context, void* vaddr, uint64_t entry){
 
 	// TODO unallocate in case of failure	
 	
+
 	if(!pdptaddr){
 		pdptaddr = pmm_alloc(1);
 		changeentry(&context[pdpt], pdptaddr, PTR_FLAGS);
@@ -53,7 +54,7 @@ static bool setpage(arch_mmu_tableptr context, void* vaddr, uint64_t entry){
 	pdptaddr = (void*)pdptaddr + (size_t)limine_hhdm_offset;
 
 	uint64_t* pdaddr = pdptaddr[pd] & ~0xFFF;
-	
+
 	if(!pdaddr){
 		pdaddr = pmm_alloc(1);
 		changeentry(&pdptaddr[pd],  pdaddr, PTR_FLAGS);
@@ -63,8 +64,6 @@ static bool setpage(arch_mmu_tableptr context, void* vaddr, uint64_t entry){
 	pdaddr = (void*)pdaddr + (size_t)limine_hhdm_offset;
 
 	uint64_t* ptaddr = pdaddr[pt]& ~0xFFF;
-
-
 
 	if(!ptaddr){
 		ptaddr = pmm_alloc(1);
@@ -87,7 +86,8 @@ int arch_mmu_map(arch_mmu_tableptr context, void* paddr, void* vaddr, size_t fla
 	changeentry(&entry, paddr, flags);
 
 	int ret = setpage(context, vaddr, entry);
-	
+
+
 	if(ret) invalidate(vaddr);
 
 	return ret;
@@ -128,13 +128,13 @@ void arch_mmu_init(){
 	for(size_t entry = 0; entry < count; ++entry){
 		void* addr = entries[entry]->base;
 		
-		for(size_t offset = 0; offset < entries[entry]->length; offset += PAGE_SIZE){
+		for(size_t pageoffset = 0; pageoffset < entries[entry]->length / PAGE_SIZE; ++pageoffset){
 			uint64_t entry;
 
-			changeentry(&entry, addr + offset, ARCH_MMU_MAP_READ | ARCH_MMU_MAP_WRITE);
+			changeentry(&entry, addr + pageoffset*PAGE_SIZE, ARCH_MMU_MAP_READ | ARCH_MMU_MAP_WRITE);
 
-			setpage(context, addr + offset, entry);
-			setpage(context, addr + offset + (size_t)limine_hhdm_offset, entry);
+			setpage(context, addr + pageoffset*PAGE_SIZE, entry);
+			setpage(context, addr + pageoffset*PAGE_SIZE + (size_t)limine_hhdm_offset, entry);
 			
 		}
 
@@ -190,6 +190,8 @@ void arch_mmu_init(){
 
 	switchcontext(context);
 	
+	arch_getcls()->context->context = context;
+
 	printf("In bootstrap context\n");
 
 }

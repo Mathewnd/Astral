@@ -6,11 +6,11 @@
 
 #define PAGE_SIZE 4096
 
-#define ARCH_MMU_MAP_READ         (1 << 0)
-#define ARCH_MMU_MAP_WRITE        (1 << 1)
-#define ARCH_MMU_MAP_USER         (1 << 2)
-#define ARCH_MMU_MAP_NOEXEC       (1 << 63)
-#define ARCH_MMU_MAP_PAGESIZE     (1 << 7)
+#define ARCH_MMU_MAP_READ         (uint64_t)(1 << 0)
+#define ARCH_MMU_MAP_WRITE        (uint64_t)(1 << 1)
+#define ARCH_MMU_MAP_USER         (uint64_t)(1 << 2)
+#define ARCH_MMU_MAP_NOEXEC       (uint64_t)(1 << 63)
+#define ARCH_MMU_MAP_PAGESIZE     (uint64_t)(1 << 7)
 
 typedef uint64_t* arch_mmu_tableptr;
 

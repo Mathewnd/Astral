@@ -2,6 +2,8 @@ section .text
 
 %macro pushregs 0
 
+
+
 	push rbp
 	push rsi
 	push rdi
@@ -27,6 +29,11 @@ section .text
 	mov rax, gs
 	push rax
 
+	cmp rax,0x30
+	jmp .noswapgs
+	swapgs
+	.noswapgs:
+
 	mov rdi,cr2
 	push rdi
 
@@ -36,8 +43,10 @@ section .text
 %macro popregs 0 
 	
 	add rsp, 8 ; cr2
-
+	
 	pop rax
+	cmp rax,0x30
+	je .dontpopsegs
 	mov gs,rax
 	pop rax
 	mov fs,rax
@@ -45,7 +54,12 @@ section .text
 	mov es,rax
 	pop rax
 	mov ds,rax
-
+	swapgs
+	jmp .poprest
+	.dontpopsegs:
+	add rsp,24
+	
+	.poprest:
 	pop rax
 	pop rbx
 	pop rcx
@@ -89,7 +103,7 @@ section .text
 
 
 %macro except 2
-	
+
 	global %1
 	%1:
 
