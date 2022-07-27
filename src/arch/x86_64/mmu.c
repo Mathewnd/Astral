@@ -31,6 +31,22 @@ static void invalidate(void* addr){
 	asm("invlpg (%%rax)" : : "a"(addr));
 }
 
+
+static uint64_t* next(uint64_t* table, size_t offset){
+	
+	table = (uint64_t)table & ~(0xFFF);
+	
+	if(table < limine_hhdm_offset){
+		table = (uint64_t)table & ~(1 << 63); // remove NX
+		table = (uint64_t)table + (uint64_t)limine_hhdm_offset;
+	}
+	
+	return table[offset];
+
+}
+
+// FIXME make the accessed addresses be in the limine hhdm
+
 static bool setpage(arch_mmu_tableptr context, void* vaddr, uint64_t entry){
 	uint64_t addr = (uint64_t)vaddr;
 	size_t pdpt = (addr >> 39) & 0b111111111;
@@ -80,6 +96,40 @@ static bool setpage(arch_mmu_tableptr context, void* vaddr, uint64_t entry){
 }
 
 
+
+static uint64_t getmapping(arch_mmu_tableptr context, void* vaddr){
+	uint64_t addr = (uint64_t)vaddr;
+        size_t pdpt = (addr >> 39) & 0b111111111;
+        size_t pd   = (addr >> 30) & 0b111111111;
+        size_t pt   = (addr >> 21) & 0b111111111;
+        size_t page = (addr >> 12) & 0b111111111;
+
+	if(!context[pdpt]) return 0;
+	
+	uint64_t* table = next(context, pd);
+	
+	if(!table) return 0;
+
+	table = next(table, pt);
+
+	if(!table) return 0;
+
+	table = next(table, page);
+
+	return table;
+
+}
+
+void* arch_mmu_getphysicaladdr(arch_mmu_tableptr context, void* addr){
+	uint64_t paddr = getmapping(context, addr);
+	paddr &= ~(0xFFF);
+	paddr &= ~ARCH_MMU_MAP_NOEXEC;
+	return paddr;
+}
+
+bool arch_mmu_isaccessed(arch_mmu_tableptr context, void* addr){
+	return (getmapping(context, addr) & ARCH_MMU_MAP_ACCESSED) != 0;
+}
 
 int arch_mmu_map(arch_mmu_tableptr context, void* paddr, void* vaddr, size_t flags){
 	uint64_t entry;

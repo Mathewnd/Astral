@@ -55,5 +55,5 @@ bool 		vmm_setused(void* addr, size_t pagec, size_t mmuflags);
 bool		vmm_unmap(void* addr, size_t pagec);
 bool		vmm_map(void* paddr, void* vaddr, size_t pagec, size_t mmuflags);
 void*		vmm_alloc(size_t pagec, size_t mmuflags);
-
+bool		vmm_setfree(void* addr, size_t pagec);
 #endif

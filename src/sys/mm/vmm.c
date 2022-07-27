@@ -303,8 +303,36 @@ static void* findfirstfreearea(vmm_mapping* map, size_t pagec){
 }
 
 
-static bool unmap(vmm_mapping* start, void* addr, size_t pagec){
+static bool unmap(vmm_mapping** mapstart, void* addr, size_t pagec){
+	if(pagec == 0) return true;
+	vmm_mapping *map = *mapstart;
+	void* savedaddr = addr;
+	arch_mmu_tableptr context = arch_getcls()->context->context;
 	
+	for(size_t page = 0; page < pagec; ++page, addr += PAGE_SIZE){
+		map = findmappingfromaddr(map, addr);
+		switch(map->type){
+			case VMM_TYPE_ANON:
+				if(arch_mmu_isaccessed(context, addr)){
+					void* paddr = arch_mmu_getphysicaladdr(context, addr);
+					pmm_free(paddr, 1);
+				}		
+				break;
+
+			case VMM_TYPE_FILE:
+				_panic("File mappings not supported!", 0);
+
+			default:
+				continue;
+
+		}
+	}
+	
+
+	setmap(mapstart, savedaddr, pagec, 0, VMM_TYPE_FREE, 0, 0);
+
+	return true;
+
 }
 
 
@@ -338,6 +366,35 @@ bool vmm_unmap(void* addr, size_t pagec){
 
 	spinlock_release(&klock);
 
+}
+
+bool vmm_setused(void* addr, size_t pagec, size_t mmuflags){
+	spinlock_acquire(&klock);
+	
+	bool result = setmap(&kmapstart, addr, pagec, mmuflags, VMM_TYPE_ANON, 0, 0);
+	
+	spinlock_release(&klock);
+	return result;
+}
+
+bool vmm_setfree(void* addr, size_t pagec){
+	spinlock_acquire(&klock);
+
+	bool result = setmap(&kmapstart, addr, pagec, 0, VMM_TYPE_FREE, 0, 0);
+	
+	spinlock_release(&klock);
+	return result;
+}
+
+bool vmm_map(void* paddr, void* vaddr, size_t pagec, size_t mmuflags){
+	spinlock_acquire(&klock);
+	bool result = setmap(&kmapstart, vaddr, pagec, mmuflags, VMM_TYPE_ANON, 0, 0);
+
+	for(size_t page = 0; page < pagec && result; ++page)
+		result = arch_mmu_map(arch_getcls()->context->context, paddr + page*PAGE_SIZE, vaddr + page*PAGE_SIZE, mmuflags);
+
+	spinlock_release(&klock);
+	return result;
 }
 
 // called by the page fault handler
@@ -425,20 +482,8 @@ void vmm_init(){
 
 	setmap(&kmapstart, datastart, (dataend - datastart) / PAGE_SIZE, ARCH_MMU_MAP_READ | ARCH_MMU_MAP_WRITE | ARCH_MMU_MAP_NOEXEC, VMM_TYPE_ANON, 0, 0);
 
-
-	
 	debug_dumpkernelmappings();
-	
-	printf("Writing to 10 demand paged pages\n");
-
-	volatile char* all = vmm_alloc(10, ARCH_MMU_MAP_READ | ARCH_MMU_MAP_WRITE);
-	printf("Alloc at %p\n", all);
+		
 	
 	
-	for(size_t i = 0; i < PAGE_SIZE*10; ++i)
-	*(all + i) = 0;
-
-
-	printf("WOOOOOO!!!\n");
-
 }
