@@ -316,6 +316,7 @@ static bool unmap(vmm_mapping** mapstart, void* addr, size_t pagec){
 				if(arch_mmu_isaccessed(context, addr)){
 					void* paddr = arch_mmu_getphysicaladdr(context, addr);
 					pmm_free(paddr, 1);
+					arch_mmu_unmap(context, addr);
 				}		
 				break;
 

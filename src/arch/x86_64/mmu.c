@@ -57,12 +57,11 @@ static bool setpage(arch_mmu_tableptr context, void* vaddr, uint64_t entry){
 	context = (void*)context + (size_t)limine_hhdm_offset;
 
 	uint64_t* pdptaddr = context[pdpt] & ~0xFFF;
-
-	// TODO unallocate in case of failure	
 	
 
 	if(!pdptaddr){
 		pdptaddr = pmm_alloc(1);
+		if(!pdptaddr) return false;
 		changeentry(&context[pdpt], pdptaddr, PTR_FLAGS);
 		memset((void*)pdptaddr + (size_t)limine_hhdm_offset, 0, PAGE_SIZE);
 	}
@@ -73,6 +72,7 @@ static bool setpage(arch_mmu_tableptr context, void* vaddr, uint64_t entry){
 
 	if(!pdaddr){
 		pdaddr = pmm_alloc(1);
+		if(!pdaddr) return false;
 		changeentry(&pdptaddr[pd],  pdaddr, PTR_FLAGS);
 		memset((void*)pdaddr + (size_t)limine_hhdm_offset, 0, PAGE_SIZE);
 	}
@@ -83,6 +83,7 @@ static bool setpage(arch_mmu_tableptr context, void* vaddr, uint64_t entry){
 
 	if(!ptaddr){
 		ptaddr = pmm_alloc(1);
+		if(!ptaddr) return false;
 		changeentry(&pdaddr[pt],  ptaddr, PTR_FLAGS);
 		memset((void*)ptaddr + (size_t)limine_hhdm_offset, 0, PAGE_SIZE);
 	}
@@ -144,7 +145,13 @@ int arch_mmu_map(arch_mmu_tableptr context, void* paddr, void* vaddr, size_t fla
 
 }
 
-// TODO unmap
+void arch_mmu_unmap(arch_mmu_tableptr context, void* vaddr){
+	
+	if(!getmapping(context, vaddr)) return;
+
+	arch_mmu_map(context, 0, vaddr, 0);
+	
+}
 
 void arch_mmu_init(){
 	
