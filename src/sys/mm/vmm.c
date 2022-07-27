@@ -32,7 +32,10 @@ static void freeentry(vmm_mapping* entry){
 	++entry->cache->freecount;
 	memset(entry, 0, sizeof(vmm_mapping));
 
-	// TODO set first free
+	size_t n = ((size_t)entry - (size_t)cache + sizeof(vmm_cacheheader)) / sizeof(vmm_mapping);
+	
+	if(n < cache->firstfree)
+		cache->firstfree = n;
 
 	spinlock_release(&cache->lock);
 }
@@ -47,22 +50,19 @@ static vmm_mapping* allocentry(vmm_cache* cache){
 		spinlock_release(&cache->header.lock);
 		return NULL;
 	}
-
-	// TODO keep first free in cache header
 	
-	for(size_t i = 0; i < VMM_CACHE_ENTRY_COUNT; ++i){
+	for(size_t i = cache->header.firstfree; i < VMM_CACHE_ENTRY_COUNT; ++i){
 		if(!cache->mappings[i].cache){
 			found = &cache->mappings[i];
-			goto _found;
+			found->cache = cache;
+			cache->header.firstfree = i;
+			goto done;
 		}
 	}
 
-	_found:
+	done:
 	
 	--cache->header.freecount;
-	if(found)
-		found->cache = &cache->header;
-
 	spinlock_release(&cache->header.lock);
 	
 	return found;

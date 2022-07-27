@@ -16,6 +16,7 @@ struct vmm_cacheheader;
 
 typedef struct{
 	int lock;
+	size_t firstfree;
 	struct vmm_cacheheader* next;
 	size_t freecount;
 } vmm_cacheheader;
