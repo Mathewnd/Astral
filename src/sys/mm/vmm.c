@@ -2,7 +2,7 @@
 #include <kernel/pmm.h>
 #include <arch/panic.h>
 #include <string.h>
-#include <kernel/spinlock.h>
+#include <arch/spinlock.h>
 #include <stdio.h>
 #include <stdbool.h>
 #include <limine.h>

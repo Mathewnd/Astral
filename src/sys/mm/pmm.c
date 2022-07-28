@@ -3,7 +3,7 @@
 #include <limine.h>
 #include <stdio.h>
 #include <string.h>
-#include <kernel/spinlock.h>
+#include <arch/spinlock.h>
 
 #define PAGE_SIZE 4096
 
