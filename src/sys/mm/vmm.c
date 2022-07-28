@@ -69,8 +69,6 @@ static vmm_mapping* allocentry(vmm_cache* cache){
 }
 
 static vmm_mapping* allocatefirst(){
-	
-	// FIXME there's a possible race condition here I think
 
 	vmm_mapping *map = NULL;
 	vmm_cache   *cache = caches;
@@ -82,13 +80,19 @@ static vmm_mapping* allocatefirst(){
 		map = allocentry(cache);
 	}
 	
+	spinlock_acquire(&cache->header.lock);
+
 	if(!map){
 		// try allocating new cache
 		vmm_cache* new = newcache();
-		if(!new) return NULL;
+		if(!new) goto done;
 		map = allocentry(new);
 		cache->header.next = new;
 	}
+	
+	done:
+
+	spinlock_release(&cache->header.lock);
 
 
 	return map;
@@ -138,8 +142,7 @@ static void fragcheck(vmm_mapping* map){
 	
 }
 
-// FIXME I snatched this from the old codebase. This is ugly and it should definetively be
-// rewritten
+// this could be rewritten later
 
 static bool setmap(vmm_mapping** mapstart, void* addr, size_t pagec, size_t mmuflags, size_t type, void* data, size_t offset){
 
@@ -238,6 +241,7 @@ static bool setmap(vmm_mapping** mapstart, void* addr, size_t pagec, size_t mmuf
 	}
 	
 	if(map->start == newmap->start){
+		//start
 		newmap->next = map;
 		newmap->prev = map->prev;
 		if(newmap->prev){
@@ -285,10 +289,9 @@ static bool setmap(vmm_mapping** mapstart, void* addr, size_t pagec, size_t mmuf
 }
 
 static vmm_mapping* findmappingfromaddr(vmm_mapping* map, void* addr){
-	
-	while(map && !(addr > map->start && addr <= map->end))
+	while(map && !(addr >= map->start && addr <= map->end))
 		map = map->next;
-	
+		
 	return map;
 
 }
@@ -336,8 +339,20 @@ static bool unmap(vmm_mapping** mapstart, void* addr, size_t pagec){
 
 }
 
+static void getcontextinfo(void* addr, int** lock, vmm_mapping*** start){
+	
+	if(addr >= KERNEL_SPACE_START){
+		*lock = &klock;
+		*start = &kmapstart;
+		return;
+	}
 
-// TODO do it in the lower half of memory as well
+	vmm_context *context = arch_getcls()->context;
+	
+	*lock = &context->lock;
+	*start = context->userstart;
+	
+}
 
 void* vmm_alloc(size_t pagec, size_t mmuflags){
 	spinlock_acquire(&klock);
@@ -361,40 +376,61 @@ void* vmm_alloc(size_t pagec, size_t mmuflags){
 
 bool vmm_unmap(void* addr, size_t pagec){
 	
-	spinlock_acquire(&klock);
+	int* lock;
+	vmm_mapping** start;
+	
+	getcontextinfo(addr, &lock, &start);
+	
+	spinlock_acquire(lock);
 
-	unmap(kmapstart, addr, pagec);
+	unmap(start, addr, pagec);
 
-	spinlock_release(&klock);
+	spinlock_release(lock);
 
 }
 
 bool vmm_setused(void* addr, size_t pagec, size_t mmuflags){
-	spinlock_acquire(&klock);
+
+	int* lock;
+	vmm_mapping** start;
 	
-	bool result = setmap(&kmapstart, addr, pagec, mmuflags, VMM_TYPE_ANON, 0, 0);
+	getcontextinfo(addr, &lock, &start);
 	
-	spinlock_release(&klock);
+	spinlock_acquire(lock);
+
+	bool result = setmap(start, addr, pagec, mmuflags, VMM_TYPE_ANON, 0, 0);
+	
+	spinlock_release(lock);
 	return result;
 }
 
 bool vmm_setfree(void* addr, size_t pagec){
-	spinlock_acquire(&klock);
-
-	bool result = setmap(&kmapstart, addr, pagec, 0, VMM_TYPE_FREE, 0, 0);
+	int* lock;
+	vmm_mapping** start;
 	
-	spinlock_release(&klock);
+	getcontextinfo(addr, &lock, &start);
+
+	spinlock_acquire(lock);
+
+	bool result = setmap(start, addr, pagec, 0, VMM_TYPE_FREE, 0, 0);
+	
+	spinlock_release(lock);
 	return result;
 }
 
 bool vmm_map(void* paddr, void* vaddr, size_t pagec, size_t mmuflags){
-	spinlock_acquire(&klock);
-	bool result = setmap(&kmapstart, vaddr, pagec, mmuflags, VMM_TYPE_ANON, 0, 0);
+	int* lock;
+	vmm_mapping** start;
+	
+	getcontextinfo(vaddr, &lock, &start);
+
+	spinlock_acquire(lock);
+	bool result = setmap(start, vaddr, pagec, mmuflags, VMM_TYPE_ANON, 0, 0);
 
 	for(size_t page = 0; page < pagec && result; ++page)
 		result = arch_mmu_map(arch_getcls()->context->context, paddr + page*PAGE_SIZE, vaddr + page*PAGE_SIZE, mmuflags);
 
-	spinlock_release(&klock);
+	spinlock_release(lock);
 	return result;
 }
 
@@ -402,11 +438,15 @@ bool vmm_map(void* paddr, void* vaddr, size_t pagec, size_t mmuflags){
 
 bool vmm_dealwithrequest(void* addr){
 	
-	spinlock_acquire(&klock);
+	int* lock;
+	vmm_mapping** start;
+	
+	getcontextinfo(addr, &lock, &start);
+	
+	spinlock_acquire(lock);
 	
 	bool status;
-
-	vmm_mapping* map = findmappingfromaddr(kmapstart, addr);
+	vmm_mapping* map = findmappingfromaddr(*start, addr);
 	void* paddr;
 
 	if((!map) || map->type == VMM_TYPE_FREE){
@@ -440,7 +480,7 @@ bool vmm_dealwithrequest(void* addr){
 	
 	done:
 
-	spinlock_release(&klock);
+	spinlock_release(lock);
 
 	return status;
 
@@ -482,6 +522,12 @@ void vmm_init(){
 	setmap(&kmapstart, rodatastart, (rodataend - rodatastart) / PAGE_SIZE, ARCH_MMU_MAP_READ | ARCH_MMU_MAP_NOEXEC, VMM_TYPE_ANON, 0, 0);
 
 	setmap(&kmapstart, datastart, (dataend - datastart) / PAGE_SIZE, ARCH_MMU_MAP_READ | ARCH_MMU_MAP_WRITE | ARCH_MMU_MAP_NOEXEC, VMM_TYPE_ANON, 0, 0);
+	
+	volatile char* a = vmm_alloc(1, ARCH_MMU_MAP_READ | ARCH_MMU_MAP_WRITE);
+	*a = 0;
+	vmm_unmap(a, 1);
+
+	
 
 	debug_dumpkernelmappings();
 		
