@@ -165,8 +165,6 @@ void arch_mmu_init(){
 		context[i] = entry;
 	}
 
-	// TODO use big pages (huge pages if processor supports it) for this
-	
 	// map hhdm and lower memory (limine terminal needs this. later we'll
 	// use another layout and only switch to it on a limine tty call)
 	
