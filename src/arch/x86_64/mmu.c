@@ -36,10 +36,10 @@ static uint64_t* next(uint64_t* table, size_t offset){
 	
 	table = (uint64_t)table & ~(0xFFF);
 	
-	//if(table < limine_hhdm_offset){
-	//	table = (uint64_t)table & ~(1 << 63); // remove NX
-	//	table = (uint64_t)table + (uint64_t)limine_hhdm_offset;
-	//}
+	if(table < limine_hhdm_offset){
+		table = (uint64_t)table & ~(1 << 63); // remove NX
+		table = (uint64_t)table + (uint64_t)limine_hhdm_offset;
+	}
 	
 	return table[offset] & ~(0xFFF);
 
