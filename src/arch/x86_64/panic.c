@@ -5,8 +5,6 @@
 
 #define TRACE_MAXDEPTH 10
 
-// TODO trace names
-
 static void tracestack(uint64_t** addr){
 	
 	for(size_t depth = 0; depth < TRACE_MAXDEPTH; ++depth){
