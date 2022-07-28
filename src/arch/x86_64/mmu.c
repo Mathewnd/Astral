@@ -36,16 +36,14 @@ static uint64_t* next(uint64_t* table, size_t offset){
 	
 	table = (uint64_t)table & ~(0xFFF);
 	
-	if(table < limine_hhdm_offset){
-		table = (uint64_t)table & ~(1 << 63); // remove NX
-		table = (uint64_t)table + (uint64_t)limine_hhdm_offset;
-	}
+	//if(table < limine_hhdm_offset){
+	//	table = (uint64_t)table & ~(1 << 63); // remove NX
+	//	table = (uint64_t)table + (uint64_t)limine_hhdm_offset;
+	//}
 	
-	return table[offset];
+	return table[offset] & ~(0xFFF);
 
 }
-
-// FIXME make the accessed addresses be in the limine hhdm
 
 static bool setpage(arch_mmu_tableptr context, void* vaddr, uint64_t entry){
 	uint64_t addr = (uint64_t)vaddr;
@@ -53,11 +51,9 @@ static bool setpage(arch_mmu_tableptr context, void* vaddr, uint64_t entry){
 	size_t pd   = (addr >> 30) & 0b111111111;
 	size_t pt   = (addr >> 21) & 0b111111111;
 	size_t page = (addr >> 12) & 0b111111111;
-
-	context = (void*)context + (size_t)limine_hhdm_offset;
-
-	uint64_t* pdptaddr = context[pdpt] & ~0xFFF;
 	
+
+	uint64_t* pdptaddr = next(context ,pdpt);
 
 	if(!pdptaddr){
 		pdptaddr = pmm_alloc(1);
@@ -66,9 +62,7 @@ static bool setpage(arch_mmu_tableptr context, void* vaddr, uint64_t entry){
 		memset((void*)pdptaddr + (size_t)limine_hhdm_offset, 0, PAGE_SIZE);
 	}
 
-	pdptaddr = (void*)pdptaddr + (size_t)limine_hhdm_offset;
-
-	uint64_t* pdaddr = pdptaddr[pd] & ~0xFFF;
+	uint64_t* pdaddr = next(pdptaddr, pd);
 
 	if(!pdaddr){
 		pdaddr = pmm_alloc(1);
@@ -77,9 +71,7 @@ static bool setpage(arch_mmu_tableptr context, void* vaddr, uint64_t entry){
 		memset((void*)pdaddr + (size_t)limine_hhdm_offset, 0, PAGE_SIZE);
 	}
 	
-	pdaddr = (void*)pdaddr + (size_t)limine_hhdm_offset;
-
-	uint64_t* ptaddr = pdaddr[pt]& ~0xFFF;
+	uint64_t* ptaddr = next(pdaddr, pt);
 
 	if(!ptaddr){
 		ptaddr = pmm_alloc(1);
