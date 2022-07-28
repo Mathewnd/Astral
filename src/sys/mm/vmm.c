@@ -522,12 +522,6 @@ void vmm_init(){
 	setmap(&kmapstart, rodatastart, (rodataend - rodatastart) / PAGE_SIZE, ARCH_MMU_MAP_READ | ARCH_MMU_MAP_NOEXEC, VMM_TYPE_ANON, 0, 0);
 
 	setmap(&kmapstart, datastart, (dataend - datastart) / PAGE_SIZE, ARCH_MMU_MAP_READ | ARCH_MMU_MAP_WRITE | ARCH_MMU_MAP_NOEXEC, VMM_TYPE_ANON, 0, 0);
-	
-	volatile char* a = vmm_alloc(1, ARCH_MMU_MAP_READ | ARCH_MMU_MAP_WRITE);
-	*a = 0;
-	vmm_unmap(a, 1);
-
-	
 
 	debug_dumpkernelmappings();
 		
