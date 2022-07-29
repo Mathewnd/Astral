@@ -42,7 +42,8 @@ void kmain(){
 	arch_mmu_init();
 	
 	vmm_init();	
-
+	
+	alloc_init();
 }
 
 
