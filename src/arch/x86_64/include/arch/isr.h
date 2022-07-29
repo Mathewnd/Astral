@@ -3,9 +3,9 @@
 
 #include <arch/regs.h>
 
-extern void asmisr_general(arch_regsnoerror*);
-extern void asmisr_except(arch_regserror*);
-extern void asmisr_pagefault(arch_regserror*);
+extern void asmisr_general(arch_regs*);
+extern void asmisr_except(arch_regs*);
+extern void asmisr_pagefault(arch_regs*);
 
 
 #endif

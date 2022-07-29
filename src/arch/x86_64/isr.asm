@@ -83,6 +83,8 @@ section .text
 	
 	global %1
 	%1:
+	
+	push qword 0 ; error code for regs struct
 
 	pushregs
 
@@ -93,6 +95,8 @@ section .text
 	call %2
 	
 	popregs
+	
+	add rsp,8 ; remove error code
 
 	iretq
 	

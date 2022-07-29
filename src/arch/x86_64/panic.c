@@ -18,7 +18,7 @@ static void tracestack(uint64_t** addr){
 	}
 }
 
-__attribute((noreturn)) void _panic(char* reason, arch_regserror *reg){
+__attribute((noreturn)) void _panic(char* reason, arch_regs *reg){
 	
 	printf("PANIC: %s.\n", reason);
 	
