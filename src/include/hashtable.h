@@ -18,6 +18,7 @@ typedef struct{
 bool hashtable_init(hashtable*, size_t);
 bool hashtable_insert(hashtable*, char*, void*);
 bool hashtable_remove(hashtable*, char*);
+void hashtable_destroy(hashtable*);
 void* hashtable_get(hashtable*, char*);
 
 #endif

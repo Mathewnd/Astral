@@ -112,3 +112,12 @@ void* hashtable_get(hashtable* table, char* key){
 	
 	return entry->val;
 }
+
+void hashtable_destroy(hashtable* table){
+	
+	// would be cool if this also deleted non removed entries
+
+	free(table->entries);
+
+
+}
