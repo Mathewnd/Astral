@@ -1,10 +1,9 @@
 objects := $(patsubst %.c,%.o,$(wildcard *.c))
-subdirs := stdio string hashtable
-OBJPATH=$(OBJDIR)/include
+subdirs := 
+OBJPATH=$(OBJDIR)/include/hashtable/
 export
 
 all: $(subdirs) $(objects)
-	for subdir in $(subdirs) ; do $(MAKE) -C $${subdir} ; done
 
 %.o: %.c
 	$(CC) $(CFLAGS) -o $@ $<

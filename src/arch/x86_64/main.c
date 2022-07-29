@@ -5,6 +5,8 @@
 #include <arch/cls.h>
 #include <kernel/pmm.h>
 #include <kernel/vmm.h>
+#include <kernel/alloc.h>
+#include <arch/panic.h>
 
 static volatile struct limine_terminal_request liminettyr = {
     .id = LIMINE_TERMINAL_REQUEST,
@@ -37,13 +39,16 @@ void kmain(){
 	//set from 0xA0000 to 0x100000 as used
 	//as sometimes the bootloader doesn't pass this region as being used
 
-	pmm_setused(0xA0000, 0x60);
+	pmm_setused((void*)0xA0000, 0x60);
 	
 	arch_mmu_init();
 	
 	vmm_init();	
 	
 	alloc_init();
+	
+	_panic("End of kmain()", 0);
+
 }
 
 
