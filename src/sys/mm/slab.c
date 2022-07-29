@@ -9,6 +9,11 @@
 #define SLAB_SIZE PAGE_SIZE
 
 // TODO have the slabs be in virtual memory rather than in the hhdm
+<<<<<<< HEAD
+=======
+// this isn't great but enough for an initial implementation
+// redo this later
+>>>>>>> 3e78844 (Initial slab implementation)
 
 // the layout of a slab in this implementation:
 // header (slab_t)
