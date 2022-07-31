@@ -7,6 +7,7 @@
 #include <kernel/vmm.h>
 #include <kernel/alloc.h>
 #include <arch/panic.h>
+#include <kernel/vfs.h>
 
 static volatile struct limine_terminal_request liminettyr = {
     .id = LIMINE_TERMINAL_REQUEST,
@@ -47,6 +48,8 @@ void kmain(){
 	
 	alloc_init();
 	
+	vfs_init();
+
 	_panic("End of kmain()", 0);
 
 }
