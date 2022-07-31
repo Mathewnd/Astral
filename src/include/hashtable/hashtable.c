@@ -2,8 +2,6 @@
 #include <string.h>
 #include <kernel/alloc.h>
 
-// temporary for testing
-
 size_t hash(char* ptr, size_t size){
 	size_t hash = 0;
 	for(size_t i = 0; i < size; ++i){
@@ -96,6 +94,22 @@ bool hashtable_remove(hashtable* table, char* key){
 
 	return true;
 
+}
+
+bool hashtable_set(hashtable* table, char* key, void* value){
+	hashtableentry* entry = getentry(table, key);
+	
+	if(!entry->key)
+		return false;
+
+	while(entry && strcmp(entry->key, key))
+		entry = entry->next;
+
+	if(!entry) return false;
+	
+	entry->val = value;
+
+	return true;
 }
 
 void* hashtable_get(hashtable* table, char* key){
