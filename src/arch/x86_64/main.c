@@ -49,6 +49,11 @@ void kmain(){
 	alloc_init();
 	
 	vfs_init();
+	
+	printf("Mounting tmpfs in /\n");
+
+	if(vfs_mount(vfs_root(), NULL, "", "tmpfs", 0, NULL))
+		_panic("Failed to mount tmpfs", 0);
 
 	_panic("End of kmain()", 0);
 
