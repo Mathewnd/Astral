@@ -52,7 +52,8 @@ bool hashtable_insert(hashtable* table, char* key, void* val){
 	
 	entry->key = keysave;
 	entry->val = val;
-	
+	++table->entrycount;
+
 	return true;
 
 }
@@ -88,9 +89,9 @@ bool hashtable_remove(hashtable* table, char* key){
 		else{
 			memset(entry, 0, sizeof(hashtableentry));
 		}
-		return true;
 	}
 
+	--table->entrycount;
 
 	return true;
 
