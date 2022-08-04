@@ -2,7 +2,7 @@ CC=x86_64-elf-gcc
 TARGET=x86_64
 SRCDIR=$(PWD)/src/
 OBJDIR=$(PWD)/bin/
-ISO=$(PWD)/boot/$(TARGET)/iso/
+ISO=$(PWD)/boot/$(TARGET)/iso
 KERNEL=$(ISO)/kernel
 INITRD=$(ISO)/initrd
 rwildcard=$(foreach d,$(wildcard $(1:=/*)),$(call rwildcard,$d,$2) $(filter $(subst *,%,$2),$d))
@@ -29,9 +29,9 @@ $(KERNEL): srcdir $(KERNELSRCDEPS) kernel.ld
 	$(CC) $(LDFLAGS) -o $@ $(call rwildcard,bin,*.o)
 
 $(INITRD): $(call rwildcard,initrd,*)
-	cd initrd;tar -cf $(INITRD) .
+	cd initrd;tar -cf $(INITRD) *
 
-sysdisk.iso: $(ISO)
+sysdisk.iso: $(ISO) $(INITRD)
 	cp liminebg.bmp limine.cfg limine/limine.sys limine/limine-cd.bin limine/limine-cd-efi.bin $(ISO)
 	xorriso -as mkisofs -b limine-cd.bin -no-emul-boot -boot-load-size 4 -boot-info-table --efi-boot limine-cd-efi.bin -efi-boot-part --efi-boot-image --protective-msdos-label $(ISO) -o sysdisk.iso
 	

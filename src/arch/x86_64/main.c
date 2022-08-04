@@ -54,6 +54,8 @@ void kmain(){
 
 	if(vfs_mount(vfs_root(), NULL, "", "tmpfs", 0, NULL))
 		_panic("Failed to mount tmpfs", 0);
+	
+	initrd_parse();
 
 	_panic("End of kmain()", 0);
 
