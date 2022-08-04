@@ -37,7 +37,7 @@ typedef struct _dirnode_t{
 
 typedef struct _fscalls_t {
 	// prepares the filesystem using a filesystem data pointer and device, returning the root node in rootptr
-	int (*mount)(dirnode_t** rootptr, vnode_t* device, int mountflags, void* fsinfo);
+	int (*mount)(dirnode_t* mountpoint, vnode_t* device, int mountflags, void* fsinfo);
 	// cleanup of the filesystem
 	int	 (*umount)(fs_t* fs);
 	//	 opens a file under a dirnode
@@ -70,6 +70,8 @@ void vfs_releasenode(vnode_t* node);
 vnode_t* vfs_newnode(char* name, fs_t* fs, void* fsdata);
 dirnode_t* vfs_newdirnode(char* name, fs_t* fs, void* fsdata);
 void vfs_destroynode(vnode_t* node);
-int  vfs_resolvepath(vnode_t** result, dirnode_t* ref, char* path);
+int  vfs_resolvepath(vnode_t** result, dirnode_t** parent, dirnode_t* ref, char* path, char* name);
+
+#define UNIMPLEMENTED { return ENOSYS; }
 
 #endif
