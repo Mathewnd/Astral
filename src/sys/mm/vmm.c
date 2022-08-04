@@ -439,12 +439,15 @@ bool vmm_map(void* paddr, void* vaddr, size_t pagec, size_t mmuflags){
 bool vmm_dealwithrequest(void* addr){
 	
 	int* lock;
-	vmm_mapping** start;
+	vmm_mapping** start = NULL;
 	
 	getcontextinfo(addr, &lock, &start);
 	
+	if(!start) return false;
+
 	spinlock_acquire(lock);
 	
+
 	bool status;
 	vmm_mapping* map = findmappingfromaddr(*start, addr);
 	void* paddr;

@@ -20,7 +20,7 @@ static void tracestack(uint64_t** addr){
 
 __attribute((noreturn)) void _panic(char* reason, arch_regs *reg){
 	
-	printf("PANIC: %s.\n", reason);
+	printf("PANIC: %s\n", reason);
 	
 	if(reg){
 		printf("Register dump:\nRAX: %p RBX: %p RCX: %p RDX: %p R8: %p R9: %p R10: %p R11: %p R12: %p R13: %p R14: %p R15: %p RDI: %p RSP: %p RBP: %p DS: %p ES: %p FS: %p GS: %p CR2: %p ERR: %p RIP: %p CS: %p RFLAGS: %p SS: %p\n",
