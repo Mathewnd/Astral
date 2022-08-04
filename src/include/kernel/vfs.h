@@ -53,7 +53,7 @@ typedef struct _fscalls_t {
 	//	 args: parent, name, mode
 	int	 (*create)(dirnode_t* parent, char* name, mode_t mode);
 	//	 write to a file
-	int	 (*write)(vnode_t* node, void* buff, size_t count, size_t offset);
+	int	 (*write)(int* error, vnode_t* node, void* buff, size_t count, size_t offset);
 } fscalls_t;
 
 
@@ -63,7 +63,7 @@ int vfs_open(vnode_t** buf, dirnode_t* ref, char* path);
 int vfs_close(vnode_t* node);
 int vfs_mkdir(dirnode_t* ref, char* path, mode_t mode);
 int vfs_create(dirnode_t* ref, char* path, mode_t mode);
-int vfs_write(vnode_t* node, void* buff, size_t count, size_t offset);
+int vfs_write(int* error, vnode_t* node, void* buff, size_t count, size_t offset);
 
 void vfs_init();
 dirnode_t* vfs_root();

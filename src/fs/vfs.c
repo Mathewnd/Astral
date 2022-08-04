@@ -14,21 +14,61 @@ static inline dirnode_t* mountpoint(dirnode_t* node){
 	return ret;
 }
 
-int vfs_write(vnode_t* node, void* buff, size_t count, size_t offset){
+void vfs_debugdumptree(dirnode_t* node, size_t depth, size_t maxdepth){
 	
-	int type = GETTYPE(node->st.st_mode);
+	if(depth > maxdepth)
+		return;
+	
+	printf("Directory node: %s Children: ", node->vnode.name);
 
+	// print all children first
+	
+	node = mountpoint(node);
+
+	for(size_t i = 0; i < node->children.size; ++i){
+		hashtableentry* entry = &node->children.entries[i];
+
+		while(entry && entry->key){
+			printf("%s ", entry->key);
+			entry = entry->next;
+		}
+		
+	}
+	// now recurse into directories
+	
+	printf("\n");
+
+	for(size_t i = 0; i < node->children.size; ++i){
+		hashtableentry* entry = &node->children.entries[i];
+		
+		while(entry && entry->val){
+			vnode_t* chnode = entry->val;
+			
+			if(GETTYPE(chnode->st.st_mode) == TYPE_DIR)
+				vfs_debugdumptree((dirnode_t*)chnode, depth + 1, maxdepth);
+			entry = entry->next;
+		}
+
+		
+	}
+
+
+}
+
+int vfs_write(int* error, vnode_t* node, void* buff, size_t count, size_t offset){
+
+
+	int type = GETTYPE(node->st.st_mode);
+	
 	if(type == TYPE_DIR || type == TYPE_LINK)
 		return EINVAL;
 	
 	if(type == TYPE_BLOCKDEV || type == TYPE_CHARDEV)
 		return ENOSYS; // TODO change this when the device manager is implemented :)
-	
-	
-	int status = node->fs->calls->write(node, buff, count, offset);
-	
-	
-	return 0;
+
+	int writecount = node->fs->calls->write(error, node, buff, count, offset);
+
+	return writecount;
 	
 }
 

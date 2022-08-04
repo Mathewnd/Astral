@@ -165,9 +165,13 @@ void initrd_parse(){
 		if(entry.type != TAR_FILE) continue;
 		
 		vnode_t *node;
+		int error;
 		vfs_open(&node, vfs_root(), entry.name);
-		vfs_write(&node, datastart, entry.size, 0);
-		vfs_close(&node);
+		if(vfs_write(&error, node, datastart, entry.size, 0) == -1){
+			printf("WRITE ERROR %lu\n", error);
+			_panic("Failed to write from initrd", 0);
+}
+		vfs_close(node);
 	
 	}
 	

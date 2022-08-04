@@ -28,7 +28,7 @@ $(KERNEL): srcdir $(KERNELSRCDEPS) kernel.ld
 	mkdir -p $(ISO)
 	$(CC) $(LDFLAGS) -o $@ $(call rwildcard,bin,*.o)
 
-$(INITRD): $(call rwildcard,initrd,*)
+$(INITRD): initrd
 	cd initrd;tar -cf $(INITRD) *
 
 sysdisk.iso: $(ISO) $(INITRD)
