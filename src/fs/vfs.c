@@ -14,6 +14,53 @@ static inline dirnode_t* mountpoint(dirnode_t* node){
 	return ret;
 }
 
+int vfs_write(vnode_t* node, void* buff, size_t count, size_t offset){
+	
+	int type = GETTYPE(node->st.st_mode);
+
+	if(type == TYPE_DIR || type == TYPE_LINK)
+		return EINVAL;
+	
+	if(type == TYPE_BLOCKDEV || type == TYPE_CHARDEV)
+		return ENOSYS; // TODO change this when the device manager is implemented :)
+	
+	
+	int status = node->fs->calls->write(node, buff, count, offset);
+	
+	
+	return 0;
+	
+}
+
+int vfs_close(vnode_t* node){
+	
+	vfs_releasenode(node);
+
+	int status = 0;
+
+	if(node->refcount == 0)
+		status = node->fs->calls->close(node);
+	
+	return status;
+}
+
+int vfs_open(vnode_t** buff, dirnode_t* ref, char* path){
+	
+	vnode_t* node;
+	
+	int res = vfs_resolvepath(&node, NULL, ref, path, NULL);
+	
+	if(res)
+		return res;
+
+	vfs_acquirenode(node);
+
+	*buff = node;
+
+	return 0;
+	
+}
+
 int vfs_create(dirnode_t* ref, char* path, mode_t mode){
 	
 	dirnode_t* parent = NULL;
@@ -183,7 +230,8 @@ int vfs_resolvepath(vnode_t** result, dirnode_t** resultparent, dirnode_t* ref, 
 				if(!path[nameoffset]){
 					if(namebuff)
 						strcpy(namebuff, name);
-					*resultparent = iterator;
+					if(resultparent)
+						*resultparent = iterator;
 				}
 				return status;
 			}
@@ -199,7 +247,8 @@ int vfs_resolvepath(vnode_t** result, dirnode_t** resultparent, dirnode_t* ref, 
 	if(namebuff)
 		strcpy(namebuff, name);
 
-	*resultparent = iterator->vnode.parent;
+	if(resultparent)
+		*resultparent = iterator->vnode.parent;
 	*result = (vnode_t*)iterator;
 
 	return 0;

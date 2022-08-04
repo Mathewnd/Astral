@@ -8,8 +8,8 @@
 #define TYPE_DIR 4
 #define TYPE_BLOCKDEV 6
 #define TYPE_REGULAR 8
-#define TYPE_IFLNK 10
-#define TYPE_IFSOCK 12
+#define TYPE_LINK 10
+#define TYPE_SOCKET 12
 
 #define GETMODE(m) (0xFFF & m)
 #define GETTYPE(m) ((m >> 12) & 0xF)

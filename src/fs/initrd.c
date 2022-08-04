@@ -7,6 +7,14 @@
 
 #define TAR_BLOCKSIZE 512
 
+#define TAR_FILE 0
+#define TAR_HARDLINK 1
+#define TAR_SYMLINK 2
+#define TAR_CHARDEV 3
+#define TAR_BLOCK 4
+#define TAR_DIR 5
+#define TAR_FIFO 6
+
 static volatile struct limine_module_request modreq = {
 	.id = LIMINE_MODULE_REQUEST,
 	.revision = 0
@@ -137,11 +145,30 @@ void initrd_parse(){
 
 		if(strncmp("ustar", entry.indicator, 5))
 			break;
-
-		printf("NAME: %s SIZE: %lu\n", entry.name, entry.size);
 		
+		void* datastart = addr + TAR_BLOCKSIZE;
+
 		addr += TAR_BLOCKSIZE + TAR_BLOCKSIZE * (entry.size / TAR_BLOCKSIZE) + (entry.size % TAR_BLOCKSIZE > 0 ? TAR_BLOCKSIZE : 0);
 
-	}
+		switch(entry.type){
+			case TAR_FILE:
+				vfs_create(vfs_root(), entry.name, entry.mode);
+				break;
+			case TAR_DIR:
+				vfs_mkdir(vfs_root(), entry.name, entry.mode);
+				break;
+			default:
+				_panic("Unsupported file type in initrd!", 0);
+		}
 
+
+		if(entry.type != TAR_FILE) continue;
+		
+		vnode_t *node;
+		vfs_open(&node, vfs_root(), entry.name);
+		vfs_write(&node, datastart, entry.size, 0);
+		vfs_close(&node);
+	
+	}
+	
 }
