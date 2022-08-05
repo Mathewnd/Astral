@@ -8,6 +8,7 @@
 #include <kernel/alloc.h>
 #include <arch/panic.h>
 #include <kernel/vfs.h>
+#include <arch/acpi.h>
 
 static volatile struct limine_terminal_request liminettyr = {
     .id = LIMINE_TERMINAL_REQUEST,
@@ -56,6 +57,8 @@ void kmain(){
 		_panic("Failed to mount tmpfs", 0);
 	
 	initrd_parse();
+	
+	acpi_init();
 
 	_panic("End of kmain()", 0);
 
