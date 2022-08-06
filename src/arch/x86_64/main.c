@@ -11,6 +11,7 @@
 #include <arch/acpi.h>
 #include <arch/apic.h>
 #include <kernel/initrd.h>
+#include <arch/spinlock.h>
 #include <stdio.h>
 
 static volatile struct limine_terminal_request liminettyr = {
@@ -20,8 +21,10 @@ static volatile struct limine_terminal_request liminettyr = {
 
 struct limine_terminal_response* liminetty;
 
+int  ttylock = 0;
+
 void liminewrite(char* str, size_t c){
-	
+
 	liminetty->write(liminetty->terminals[0], str, c);
 
 }
@@ -36,7 +39,7 @@ void kmain(){
 	console_setwritehook(liminewrite);
 	
 	bsp_setcls();
-	gdt_bspinit();
+	gdt_init();
 	idt_bspinit();
 	
 	pmm_init();
@@ -60,6 +63,10 @@ void kmain(){
 	acpi_init();
 	
 	apic_init();
+	
+	apic_lapicinit();
+
+	smp_init();
 
 	_panic("End of kmain()", 0);
 

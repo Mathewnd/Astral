@@ -4,6 +4,11 @@
 #include <kernel/pmm.h>
 #include <arch/panic.h>
 #include <stdio.h>
+#include <arch/cls.h>
+
+#define APIC_REGISTER_ID 0x20
+#define APIC_REGISTER_EOI 0xB0
+#define APIC_REGISTER_SPURIOUS 0xF0
 
 
 #define TYPE_LAPIC 0
@@ -140,6 +145,23 @@ static void ioapic_writeiored(ioapic_descriptor* ioapic, uint8_t irq, uint8_t ve
 	ioapic_writereg(ioapic, 0x10 + irq * 2, val & 0xFFFFFFFF);
 	ioapic_writereg(ioapic, 0x10 + irq * 2 + 1, dest << 24);
 
+}
+
+static inline uint32_t lapic_readreg(size_t reg){
+	return *(uint32_t* volatile)(lapicaddr + reg);
+}
+
+static inline void lapic_writereg(size_t reg, uint32_t data){
+	*(uint32_t* volatile)(lapicaddr + reg) = data;
+}
+
+void apic_lapicinit(){
+	
+	arch_getcls()->lapicid = (lapic_readreg(APIC_REGISTER_ID));
+	arch_getcls()->lapicid >>= 24;
+	
+	lapic_writereg(APIC_REGISTER_SPURIOUS, 0x1FF);
+	
 }
 
 void apic_init(){

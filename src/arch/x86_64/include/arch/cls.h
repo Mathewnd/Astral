@@ -13,6 +13,7 @@
 typedef struct{
 	gdt_t gdt;
 	ist_t ist;
+	int lapicid;
 	arch_regs *laststate;
 	vmm_context *context;
 } cls_t;

@@ -41,5 +41,6 @@ typedef struct{
 } __attribute__((packed)) idtentry_t;
 
 void idt_bspinit();
+void idt_init();
 
 #endif

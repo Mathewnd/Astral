@@ -145,9 +145,9 @@ void arch_mmu_unmap(arch_mmu_tableptr context, void* vaddr){
 	
 }
 
+static arch_mmu_tableptr context; //boostrap context
+
 void arch_mmu_init(){
-	
-	arch_mmu_tableptr context;
 	
 	context = pmm_alloc(1);
 	if(!context) _panic ("Out of memory", 0);
@@ -240,5 +240,15 @@ void arch_mmu_init(){
 	arch_getcls()->context->context = context;
 
 	printf("In bootstrap context\n");
+
+}
+
+void arch_mmu_apinit(){
+	
+	switchcontext(context);
+
+	arch_getcls()->context = pmm_hhdmalloc(1);
+
+	arch_getcls()->context->context = context;
 
 }

@@ -39,3 +39,9 @@ void idt_bspinit(){
 	idt_reload();
 
 }
+
+void idt_init(){
+	
+	idt_reload();
+
+}

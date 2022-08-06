@@ -37,8 +37,8 @@ gdtr.size   = sizeof(gdt_t) - 1;
 	asm("lgdt (%%rax)" : : "a"(&gdtr) : "memory");
 }
 
-void gdt_bspinit(){
-
+void gdt_init(){
+	
 	gdt_t __seg_gs *gdt = &cls->gdt;
 	
 	setseg(&gdt->null, 0, 0, 0, 0);
