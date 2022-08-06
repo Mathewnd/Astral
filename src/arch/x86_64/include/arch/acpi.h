@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 typedef struct {
 	char signature[8];
@@ -38,7 +39,14 @@ typedef struct {
 	uint32_t pointers[];
 } __attribute__((packed)) rsdt_t;
 
+typedef struct {
+	sdt_t header;
+	uint32_t apicaddr;
+	uint32_t flags;
+} __attribute__((packed)) madt_t;
+
 void* acpi_gettable(char* sig, size_t n);
 void  acpi_init();
+bool  acpi_checksumok(sdt_t* table);
 
 #endif

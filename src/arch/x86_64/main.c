@@ -9,6 +9,9 @@
 #include <arch/panic.h>
 #include <kernel/vfs.h>
 #include <arch/acpi.h>
+#include <arch/apic.h>
+#include <kernel/initrd.h>
+#include <stdio.h>
 
 static volatile struct limine_terminal_request liminettyr = {
     .id = LIMINE_TERMINAL_REQUEST,
@@ -38,10 +41,6 @@ void kmain(){
 	
 	pmm_init();
 	
-	//set from 0xA0000 to 0x100000 as used
-	//as sometimes the bootloader doesn't pass this region as being used
-
-	pmm_setused((void*)0xA0000, 0x60);
 	
 	arch_mmu_init();
 	
@@ -59,6 +58,8 @@ void kmain(){
 	initrd_parse();
 	
 	acpi_init();
+	
+	apic_init();
 
 	_panic("End of kmain()", 0);
 

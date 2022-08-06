@@ -7,8 +7,8 @@
 
 #define PAGE_SIZE 4096
 
-#define STATE_USED 1
-#define STATE_FREE 0
+#define STATE_USED 0
+#define STATE_FREE 1
 
 void* limine_hhdm_offset;
 
@@ -219,7 +219,7 @@ void pmm_init(){
 
 	memset(bitmap, 0, bitmapsize);
 
-	// mark needed entries as used now
+	// mark needed entries as free now
 	
 	printf("Ranges: \n");
 	
@@ -236,9 +236,9 @@ void pmm_init(){
 
 		if(i % 2) printf("\n\033[0m");
 
-		if(current->type == LIMINE_MEMMAP_USABLE) continue;
+		if(!current->type == LIMINE_MEMMAP_USABLE) continue;
 		
-		pmm_setused((void*)current->base, current->length / PAGE_SIZE + 1);
+		pmm_free((void*)current->base, current->length / PAGE_SIZE + 1);
 
 	}
 

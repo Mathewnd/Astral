@@ -16,13 +16,12 @@ static volatile struct limine_rsdp_request rsdpreq = {
 	.revision = 0
 };
 
-static bool checksumok(sdt_t* table){
+bool acpi_checksumok(sdt_t* table){
 	uint8_t sum;
 	uint8_t* ptr = (uint8_t*)table;
 	
 	for(size_t i = 0; i < table->length; ++i)
 		sum += *ptr++;
-
 	return sum == 0;
 }
 
@@ -35,12 +34,11 @@ void* acpi_gettable(char* sig, size_t n){
 	for(size_t i = 0; i < sdtentrycount; ++i){
 		
 		sdt_t* table = usersdt ? (*(uint32_t*)ptr & 0xFFFFFFFF) : *(uint64_t*)ptr;
-		
 		table = (uint8_t*)table + (size_t)limine_hhdm_offset;
 
 		if(!strncmp(sig, table->signature, 4)){
 			if(n-- == 0)
-				return (uint8_t*)table + (size_t) limine_hhdm_offset;
+				return table;
 				
 		}
 		
@@ -76,7 +74,7 @@ void acpi_init(){
 
 	printf("Root System Description Table address: %p with %lu tables\n", sdt, sdtentrycount);
 
-	if(!checksumok(sdt))
+	if(!acpi_checksumok(sdt))
 		_panic("Invalid RSDT checksum!", 0);
 
 }
