@@ -5,6 +5,7 @@
 
 void* alloc(size_t);
 void  free(void*);
+void* realloc(void*, size_t);
 
 void alloc_init();
 

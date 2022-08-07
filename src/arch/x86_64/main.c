@@ -53,7 +53,17 @@ void kmain(){
 	vmm_init();	
 	
 	alloc_init();
+
+	acpi_init();
 	
+	apic_init();
+	
+	apic_lapicinit();
+
+	hpet_init();
+	
+	arch_schedtimer_calibrate();
+
 	vfs_init();
 	
 	printf("Mounting tmpfs in /\n");
@@ -63,17 +73,9 @@ void kmain(){
 	
 	initrd_parse();
 	
-	acpi_init();
-	
-	apic_init();
-	
-	apic_lapicinit();
-	
+	devman_init();
+
 	pci_enumerate();
-	
-	hpet_init();
-	
-	arch_schedtimer_calibrate();
 
 	smp_init();
 

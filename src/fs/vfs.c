@@ -3,6 +3,7 @@
 #include <hashtable.h>
 #include <stdio.h>
 #include <string.h>
+#include <kernel/devman.h>
 
 dirnode_t* vfsroot;
 hashtable  fsfuncs;
@@ -66,8 +67,9 @@ int vfs_write(int* error, vnode_t* node, void* buff, size_t count, size_t offset
 	}
 
 	if(type == TYPE_BLOCKDEV || type == TYPE_CHARDEV){
-		*error = ENOSYS;
-		return -1; // TODO change this when the device manager is implemented :)
+		int writecount = devman_write(error, node->st.st_rdev, buff, count, offset);
+		
+		return writecount;
 	}
 
 	int writecount = node->fs->calls->write(error, node, buff, count, offset);
@@ -86,8 +88,8 @@ int vfs_read(int* error, vnode_t* node, void* buff, size_t count, size_t offset)
 	}
 
 	if(type == TYPE_BLOCKDEV || type == TYPE_CHARDEV){
-		*error = ENOSYS;
-		return -1; // TODO change this when the device manager is implemented :)
+		int readcount = devman_read(error, node->st.st_rdev, buff, count, offset);
+		return readcount;
 	}
 
 	int readcount = node->fs->calls->read(error, node, buff, count, offset);
