@@ -178,7 +178,7 @@ int vfs_mount(dirnode_t* ref, char* device, char* mountpoint, char* fs, int moun
 
 	vnode_t* dev = NULL;
 	dirnode_t* mountdir = ref;
-	dirnode_t* parent;
+	dirnode_t* parent = NULL;
 
 	if(device){
 		dev = ref;
@@ -341,6 +341,7 @@ void vfs_releasenode(vnode_t* node){
 }
 
 #include <kernel/tmpfs.h>
+#include <kernel/devfs.h>
 
 void vfs_init(){
 	printf("Creating a fake root for the VFS\n");
@@ -350,6 +351,6 @@ void vfs_init(){
 	hashtable_init(&fsfuncs, 10);
 
 	hashtable_insert(&fsfuncs, "tmpfs", (void*)tmpfs_getfuncs());
-		
+	hashtable_insert(&fsfuncs, "devfs", (void*)devfs_getfuncs());
 	
 }

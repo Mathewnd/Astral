@@ -7,5 +7,7 @@
 #define EINVAL  4
 #define ENOSYS  5
 #define EEXIST  6
+#define ENOENT  7
+
 
 #endif

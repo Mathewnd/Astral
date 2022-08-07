@@ -21,6 +21,7 @@ static int tmpfs_mount(dirnode_t* mountpoint, vnode_t* device, int mountflags, v
 	
 	desc->calls = tmpfs_getfuncs();
 	mountpoint->mount = root;
+	root->vnode.parent = mountpoint->vnode.parent;
 
 	return 0;
 }
