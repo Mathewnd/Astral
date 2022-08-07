@@ -238,7 +238,7 @@ void pmm_init(){
 
 		if(!current->type == LIMINE_MEMMAP_USABLE) continue;
 		
-		pmm_free((void*)current->base, current->length / PAGE_SIZE + 1);
+		pmm_free((void*)current->base, current->length / PAGE_SIZE);
 
 	}
 

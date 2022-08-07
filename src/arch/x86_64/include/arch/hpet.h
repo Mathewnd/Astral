@@ -1,6 +1,8 @@
 #ifndef _HPET_H_INCLUDE
 #define _HPET_H_INCLUDE
 
+#include <stddef.h>
+
 void hpet_init();
 
 void hpet_wait_us(size_t us);
