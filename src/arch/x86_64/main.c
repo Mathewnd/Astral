@@ -13,6 +13,9 @@
 #include <kernel/initrd.h>
 #include <arch/spinlock.h>
 #include <stdio.h>
+#include <arch/pci.h>
+#include <arch/hpet.h>
+#include <arch/smp.h>
 
 static volatile struct limine_terminal_request liminettyr = {
     .id = LIMINE_TERMINAL_REQUEST,
@@ -67,6 +70,8 @@ void kmain(){
 	apic_lapicinit();
 	
 	pci_enumerate();
+	
+	hpet_init();
 
 	smp_init();
 

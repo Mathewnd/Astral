@@ -60,6 +60,22 @@ typedef struct {
 	mcfgentry entries[];
 } __attribute__((packed)) mcfg_t;
 
+
+typedef struct {
+	sdt_t header;
+	uint8_t revid;
+	uint8_t flags;
+	uint16_t vendor;
+	uint8_t spacetype;
+	uint8_t bitwidth;
+	uint8_t bitoffset;
+	uint8_t reserved;
+	uint64_t address;
+	uint8_t hpetnum;
+	uint16_t mintick;
+	uint8_t protection;
+} __attribute__((packed)) hpet_t;
+
 void* acpi_gettable(char* sig, size_t n);
 void  acpi_init();
 bool  acpi_checksumok(sdt_t* table);

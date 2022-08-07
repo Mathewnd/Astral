@@ -50,7 +50,7 @@ typedef struct _pci_enumeration{
 	pci_common* header;
 } pci_enumeration;
 
-
+uint64_t pci_msi_build(uint64_t* data, uint8_t vector, uint8_t processor, uint8_t edgetrigger, uint8_t deassert);
 void pci_enumerate();
 
 #endif

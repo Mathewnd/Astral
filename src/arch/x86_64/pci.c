@@ -122,7 +122,10 @@ static void legacy_enumeration(){
 	
 }
 
-
+uint64_t pci_msi_build(uint64_t* data, uint8_t vector, uint8_t processor, uint8_t edgetrigger, uint8_t deassert){
+	*data = vector | (edgetrigger << 15) | (deassert << 14);
+	return (0xFEE00000 | (processor << 12));
+}
 
 void pci_enumerate(){
 	
