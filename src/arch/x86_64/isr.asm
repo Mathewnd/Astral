@@ -126,6 +126,7 @@ section .text
 	iretq
 %endmacro
 
-except asmisr_pagefault, isr_pagefault
-isr    asmisr_general, isr_general
-except asmisr_except, isr_except
+except	asmisr_pagefault, isr_pagefault
+isr	asmisr_general, isr_general
+except	asmisr_except, isr_except
+isr	asmisr_schedtimer, isr_schedtimer

@@ -9,7 +9,10 @@
 #define APIC_REGISTER_ID 0x20
 #define APIC_REGISTER_EOI 0xB0
 #define APIC_REGISTER_SPURIOUS 0xF0
-
+#define APIC_TIMER_LVT 0x320
+#define APIC_TIMER_INITIALCOUNT 0x380
+#define APIC_TIMER_COUNT 0x390
+#define APIC_TIMER_DIVIDE 0x3E0
 
 #define TYPE_LAPIC 0
 #define TYPE_IOAPIC 1
@@ -148,11 +151,38 @@ static void ioapic_writeiored(ioapic_descriptor* ioapic, uint8_t irq, uint8_t ve
 }
 
 static inline uint32_t lapic_readreg(size_t reg){
-	return *(uint32_t* volatile)(lapicaddr + reg);
+	return *(uint32_t volatile*)(lapicaddr + reg);
 }
 
 static inline void lapic_writereg(size_t reg, uint32_t data){
-	*(uint32_t* volatile)(lapicaddr + reg) = data;
+	*(uint32_t volatile*)(lapicaddr + reg) = data;
+}
+
+void apic_timerstart(size_t ticks){
+	lapic_writereg(APIC_TIMER_INITIALCOUNT, ticks);
+}
+
+void apic_timerinterruptset(uint8_t vector){
+	lapic_writereg(APIC_TIMER_LVT, vector);
+}
+
+void apic_timerstop(){
+	lapic_writereg(APIC_TIMER_INITIALCOUNT, 0);
+}
+
+size_t apic_timercalibrate(size_t ms){
+	
+	lapic_writereg(APIC_TIMER_INITIALCOUNT, 0xFFFFFFFF);
+	lapic_writereg(APIC_TIMER_DIVIDE, 0b111); // no divider
+
+	hpet_wait_ms(ms);
+
+	size_t ticks = 0xFFFFFFFF - lapic_readreg(APIC_TIMER_COUNT);
+
+	apic_timerstop();
+
+	return ticks;
+
 }
 
 void apic_lapicinit(){
@@ -161,7 +191,10 @@ void apic_lapicinit(){
 	arch_getcls()->lapicid >>= 24;
 	
 	lapic_writereg(APIC_REGISTER_SPURIOUS, 0x1FF);
+	lapic_writereg(APIC_TIMER_LVT, 1 << 16); // mask timer interrupt off
 	
+
+
 }
 
 void apic_init(){

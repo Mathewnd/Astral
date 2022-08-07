@@ -72,6 +72,8 @@ void kmain(){
 	pci_enumerate();
 	
 	hpet_init();
+	
+	arch_schedtimer_calibrate();
 
 	smp_init();
 

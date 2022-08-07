@@ -18,8 +18,6 @@ static size_t cpucount = 1;
 
 static void apstartup(struct limine_smp_info *info){
 	
-	spinlock_acquire(&lock);
-	
 	arch_setcls(&apcls[info->processor_id]);
 	
 	gdt_init();
@@ -29,11 +27,10 @@ static void apstartup(struct limine_smp_info *info){
 	arch_mmu_apinit();
 	
 	apic_lapicinit();
+	
+	arch_schedtimer_calibrate();
 
 	printf("CPU %lu ready!\n", info->lapic_id);
-
-	spinlock_release(&lock);
-	
 
 
 	asm("cli;hlt");

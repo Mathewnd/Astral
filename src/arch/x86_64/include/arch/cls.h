@@ -16,6 +16,7 @@ typedef struct{
 	int lapicid;
 	arch_regs *laststate;
 	vmm_context *context;
+	size_t schedtimerticksperms;
 } cls_t;
 
 void bsp_setcls();

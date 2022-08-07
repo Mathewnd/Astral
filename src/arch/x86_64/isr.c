@@ -2,6 +2,10 @@
 #include <arch/panic.h>
 #include <kernel/vmm.h>
 
+void isr_schedtimer(arch_regs *reg){
+	printf("schedtimer irq\n");
+}
+
 void isr_general(arch_regs *reg){
 	_panic("Unhandled interrupt", reg);
 	asm("hlt");
