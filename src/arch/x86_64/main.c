@@ -65,6 +65,8 @@ void kmain(){
 	apic_init();
 	
 	apic_lapicinit();
+	
+	pci_enumerate();
 
 	smp_init();
 
