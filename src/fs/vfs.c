@@ -60,16 +60,40 @@ int vfs_write(int* error, vnode_t* node, void* buff, size_t count, size_t offset
 
 	int type = GETTYPE(node->st.st_mode);
 	
-	if(type == TYPE_DIR || type == TYPE_LINK)
-		return EINVAL;
-	
-	if(type == TYPE_BLOCKDEV || type == TYPE_CHARDEV)
-		return ENOSYS; // TODO change this when the device manager is implemented :)
+	if(type == TYPE_DIR || type == TYPE_LINK){
+		*error = EINVAL;
+		return -1;
+	}
+
+	if(type == TYPE_BLOCKDEV || type == TYPE_CHARDEV){
+		*error = ENOSYS;
+		return -1; // TODO change this when the device manager is implemented :)
+	}
 
 	int writecount = node->fs->calls->write(error, node, buff, count, offset);
 
 	return writecount;
 	
+}
+
+int vfs_read(int* error, vnode_t* node, void* buff, size_t count, size_t offset){
+	
+	int type = GETTYPE(node->st.st_mode);
+	
+	if(type == TYPE_DIR || type == TYPE_LINK){
+		*error = EINVAL;
+		return -1;
+	}
+
+	if(type == TYPE_BLOCKDEV || type == TYPE_CHARDEV){
+		*error = ENOSYS;
+		return -1; // TODO change this when the device manager is implemented :)
+	}
+
+	int readcount = node->fs->calls->read(error, node, buff, count, offset);
+
+	return readcount;
+
 }
 
 int vfs_close(vnode_t* node){

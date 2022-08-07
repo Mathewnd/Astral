@@ -53,6 +53,19 @@ static int tmpfs_write(int* error, vnode_t* node, void* buff, size_t count, size
 	return count;
 }
 
+static int tmpfs_read(int *error, vnode_t* node, void* buff, size_t count, size_t offset){
+	
+	size_t sizemax = node->st.st_size - offset;
+	
+	if(count > sizemax)
+		count = sizemax;
+	
+	memcpy(buff, node->fsdata, count);
+
+	return count;
+	
+}
+
 static int tmpfs_unmount(fs_t* fs) UNIMPLEMENTED
 static int tmpfs_open(dirnode_t* parent, char* name) UNIMPLEMENTED
 static int tmpfs_close(vnode_t* node) UNIMPLEMENTED
@@ -110,7 +123,7 @@ static int tmpfs_create(dirnode_t* parent, char* name, mode_t mode){
 }
 
 static fscalls_t funcs = {
-	tmpfs_mount, tmpfs_unmount, tmpfs_open, tmpfs_close, tmpfs_mkdir, tmpfs_create, tmpfs_write
+	tmpfs_mount, tmpfs_unmount, tmpfs_open, tmpfs_close, tmpfs_mkdir, tmpfs_create, tmpfs_write, tmpfs_read
 };
 
 
