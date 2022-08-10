@@ -61,8 +61,6 @@ void kmain(){
 	apic_lapicinit();
 
 	hpet_init();
-	
-	arch_schedtimer_calibrate();
 
 	vfs_init();
 	
@@ -78,7 +76,7 @@ void kmain(){
 	pci_enumerate();
 
 	smp_init();
-
+	
 	_panic("End of kmain()", 0);
 
 }

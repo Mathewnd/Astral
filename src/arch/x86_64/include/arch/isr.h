@@ -3,10 +3,13 @@
 
 #include <arch/regs.h>
 
-extern void asmisr_schedtimer(arch_regs*);
-extern void asmisr_general(arch_regs*);
-extern void asmisr_except(arch_regs*);
-extern void asmisr_pagefault(arch_regs*);
-
+extern void asmisr_timer();
+extern void asmisr_general();
+extern void asmisr_except();
+extern void asmisr_pagefault();
+extern void asmisr_panic();
+extern void asmisr_lapicnmi();
+extern void asmisr_mmuinval();
+extern void asmisr_timer();
 
 #endif

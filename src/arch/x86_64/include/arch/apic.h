@@ -4,6 +4,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+void apic_sendipi(uint8_t cpu, uint8_t vec, uint8_t dest, uint8_t mode, uint8_t level);
+void apic_eoi();
 void apic_timerstop();
 void apic_timerstart(size_t ticks);
 void apic_timerinterruptset(uint8_t vector);

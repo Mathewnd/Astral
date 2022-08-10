@@ -5,14 +5,25 @@
 #include <arch/panic.h>
 #include <stdio.h>
 #include <arch/cls.h>
+#include <arch/hpet.h>
 
 #define APIC_REGISTER_ID 0x20
 #define APIC_REGISTER_EOI 0xB0
 #define APIC_REGISTER_SPURIOUS 0xF0
+#define APIC_REGISTER_ICR_LO 0x300
+#define APIC_REGISTER_ICR_HI 0x310
 #define APIC_TIMER_LVT 0x320
+#define APIC_THERMAL_LVT 0x330
+#define APIC_PERFORMANCE_LVT 0x340
+#define APIC_LINT0_LVT 0x350
+#define APIC_LINT1_LVT 0x360
+#define APIC_ERROR_LVT 0x370
 #define APIC_TIMER_INITIALCOUNT 0x380
 #define APIC_TIMER_COUNT 0x390
 #define APIC_TIMER_DIVIDE 0x3E0
+
+#define LVT_DELIVERY_NMI (0b100 << 8)
+#define LVT_MASK (1 << 16)
 
 #define TYPE_LAPIC 0
 #define TYPE_IOAPIC 1
@@ -95,6 +106,7 @@ static size_t localnmi_count = 0;
 static size_t x2apic_count = 0;
 
 void* lapicaddr;
+bool  done = false;
 ioapic_descriptor* ioapics;
 
 void*  tablestart;
@@ -158,6 +170,18 @@ static inline void lapic_writereg(size_t reg, uint32_t data){
 	*(uint32_t volatile*)(lapicaddr + reg) = data;
 }
 
+void apic_sendipi(uint8_t cpu, uint8_t vec, uint8_t dest, uint8_t mode, uint8_t level){
+
+	if(!done) return; // this function will be called before the apic initialization code is run so we need this safeguard
+
+	lapic_writereg(APIC_REGISTER_ICR_HI, (uint32_t)cpu << 24);
+	lapic_writereg(APIC_REGISTER_ICR_LO, vec | (level << 14) | (mode << 15) | (dest << 18));
+}
+
+void apic_eoi(){
+	lapic_writereg(APIC_REGISTER_EOI, 0);
+}
+
 void apic_timerstart(size_t ticks){
 	lapic_writereg(APIC_TIMER_INITIALCOUNT, ticks);
 }
@@ -187,13 +211,40 @@ size_t apic_timercalibrate(size_t ms){
 
 void apic_lapicinit(){
 	
+	// mask everything off besides the timer
+	
+	lapic_writereg(APIC_THERMAL_LVT, LVT_MASK);
+	lapic_writereg(APIC_PERFORMANCE_LVT, LVT_MASK);
+	lapic_writereg(APIC_LINT0_LVT, LVT_MASK);
+	lapic_writereg(APIC_LINT1_LVT, LVT_MASK);
+	lapic_writereg(APIC_ERROR_LVT, LVT_MASK);
+
+
 	arch_getcls()->lapicid = (lapic_readreg(APIC_REGISTER_ID));
 	arch_getcls()->lapicid >>= 24;
+
+	lapic_entry* current;
+	// get the acpi id for the local nmi sources
 	
+	for(size_t i = 0; i < lapic_count; ++i){
+		current = findstructure(TYPE_LAPIC, i);
+		if(arch_getcls()->lapicid == current->apicid)
+			break;
+	}
+
+	arch_getcls()->acpi_id = current->acpi_id;
+
 	lapic_writereg(APIC_REGISTER_SPURIOUS, 0x1FF);
 	lapic_writereg(APIC_TIMER_LVT, 1 << 16); // mask timer interrupt off
-	
 
+	for(size_t i = 0; i < localnmi_count; ++i){
+		lapicnmi_entry* e = findstructure(TYPE_LAPICNMI, i);
+		if(e->acpi_id == current->acpi_id || e->acpi_id == 0xFF){
+			lapic_writereg(APIC_LINT0_LVT + 0x10*e->lint, 0x30 | LVT_DELIVERY_NMI | (e->flags << 12));
+		}
+	}
+
+	asm("sti");
 
 }
 
@@ -275,6 +326,6 @@ void apic_init(){
 			ioapic_writeiored(&ioapics[i], j, 0, 0, 0, 0, 0, 0, 1, 0);
 	}
 
-
+	done = true;
 
 }

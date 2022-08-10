@@ -24,6 +24,10 @@
 #define VECTOR_GPF 13
 #define VECTOR_PF 14
 
+#define VECTOR_PANIC 0x20
+#define VECTOR_LAPICNMI 0x21
+#define VECTOR_MMUINVAL 0x22
+#define VECTOR_TIMER 0x80
 
 typedef struct{
 	uint16_t size;

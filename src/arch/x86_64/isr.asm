@@ -126,7 +126,18 @@ section .text
 	iretq
 %endmacro
 
+extern asmisr_panic
+asmisr_panic:
+	
+	cli
+	.hlt:
+	hlt
+	jmp .hlt ; NMI stuff
+
 except	asmisr_pagefault, isr_pagefault
 isr	asmisr_general, isr_general
 except	asmisr_except, isr_except
 isr	asmisr_schedtimer, isr_schedtimer
+isr	asmisr_lapicnmi, isr_lapicnmi
+isr	asmisr_mmuinval, isr_mmuinval
+isr	asmisr_timer, isr_timer

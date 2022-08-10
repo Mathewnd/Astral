@@ -13,6 +13,8 @@
 
 cls_t* apcls;
 
+
+size_t oncpucount = 1;
 static int lock = 0;
 static size_t cpucount = 1;
 
@@ -27,14 +29,15 @@ static void apstartup(struct limine_smp_info *info){
 	arch_mmu_apinit();
 	
 	apic_lapicinit();
-	
-	arch_schedtimer_calibrate();
 
 	printf("CPU %lu ready!\n", info->lapic_id);
+	
+	for(;;) asm("hlt");
 
+}
 
-	asm("cli;hlt");
-
+void arch_smp_sendipi(int processor, int vector, int mode){
+	apic_sendipi(processor, vector, mode, 0, 1);
 }
 
 static volatile struct limine_smp_request smpreq = {

@@ -6,6 +6,7 @@
 #include <arch/ist.h>
 #include <arch/regs.h>
 #include <kernel/vmm.h>
+#include <kernel/sched.h>
 
 // cpu level storage
 // this will be pointed to by GS and will contain per cpu info
@@ -14,8 +15,10 @@ typedef struct{
 	gdt_t gdt;
 	ist_t ist;
 	int lapicid;
+	int acpi_id;
 	arch_regs *laststate;
 	vmm_context *context;
+	thread_t* thread;
 	size_t schedtimerticksperms;
 } cls_t;
 

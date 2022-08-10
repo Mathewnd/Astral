@@ -1,7 +1,9 @@
 #include <arch/panic.h>
+#include <arch/idt.h>
 #include <arch/regs.h>
 #include <stdio.h>
 #include <stddef.h>
+#include <arch/smp.h>
 
 #define TRACE_MAXDEPTH 10
 
@@ -19,8 +21,11 @@ static void tracestack(uint64_t** addr){
 }
 
 __attribute((noreturn)) void _panic(char* reason, arch_regs *reg){
-	
+
 	printf("PANIC: %s\n", reason);
+
+	// XXX maybe this should be an NMI?
+	arch_smp_sendipi(0, VECTOR_PANIC, IPI_CPU_ALLBUTSELF);	
 	
 	if(reg){
 		printf("Register dump:\nRAX: %p RBX: %p RCX: %p RDX: %p R8: %p R9: %p R10: %p R11: %p R12: %p R13: %p R14: %p R15: %p RDI: %p RSP: %p RBP: %p DS: %p ES: %p FS: %p GS: %p CR2: %p ERR: %p RIP: %p CS: %p RFLAGS: %p SS: %p\n",

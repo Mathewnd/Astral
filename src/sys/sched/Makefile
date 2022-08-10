@@ -1,5 +1,5 @@
 objects := $(patsubst %.c,%.o,$(wildcard *.c))
-subdirs := mm sched
+subdirs :=
 OBJPATH=$(OBJDIR)
 export
 

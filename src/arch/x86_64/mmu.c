@@ -8,6 +8,8 @@
 #include <stdbool.h>
 #include <string.h>
 #include <arch/cls.h>
+#include <arch/idt.h>
+#include <arch/smp.h>
 
 volatile struct limine_kernel_address_request kaddrreq = {
 	.id = LIMINE_KERNEL_ADDRESS_REQUEST,
@@ -27,8 +29,20 @@ static void switchcontext(arch_mmu_tableptr context){
 	asm("mov %%rax, %%cr3" : : "a"(context));
 }
 
+// FIXME add a semaphore here
+
+// XXX only do this on an unmap or other specific situations
+
+void* inv = NULL;
+
+void arch_mmu_invalidateipi(){
+	asm("invlpg (%%rax)" : : "a"(inv));
+}
+
 static void invalidate(void* addr){
 	asm("invlpg (%%rax)" : : "a"(addr));
+	inv = addr;
+	arch_smp_sendipi(0, VECTOR_MMUINVAL, IPI_CPU_ALLBUTSELF);
 }
 
 
@@ -236,7 +250,6 @@ void arch_mmu_init(){
 	
 
 	switchcontext(context);
-	
 	arch_getcls()->context->context = context;
 
 	printf("In bootstrap context\n");

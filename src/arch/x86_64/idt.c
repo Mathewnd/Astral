@@ -2,7 +2,15 @@
 #include <arch/isr.h>
 #include <stdint.h>
 #include <stddef.h>
-#include <arch/schedtimer.h>
+
+// the IDT should look like this:
+// 
+// 0-0x19 -> exceptions
+// 0x20 -> panic ipi
+// 0x21 -> lapic nmi 
+// 0x22 -> mmu invalidate page ipi
+// ...
+// 0x80 -> timer
 
 idtentry_t idt[256];
 
@@ -37,8 +45,14 @@ void idt_bspinit(){
 	
 	idt_setentry(&idt[VECTOR_PF], asmisr_pagefault, 0x28, FLAGS_PRESENT | FLAGS_TYPE_TRAP, 0);
 	
-	idt_setentry(&idt[SCHEDTIMER_VECTOR], asmisr_schedtimer, 0x28, FLAGS_PRESENT | FLAGS_TYPE_INTERRUPT, 0);
+	idt_setentry(&idt[VECTOR_PANIC], asmisr_panic, 0x28, FLAGS_PRESENT | FLAGS_TYPE_INTERRUPT, 0);
 
+	idt_setentry(&idt[VECTOR_MMUINVAL], asmisr_mmuinval, 0x28, FLAGS_PRESENT | FLAGS_TYPE_INTERRUPT, 0);
+
+	idt_setentry(&idt[VECTOR_LAPICNMI], asmisr_lapicnmi, 0x28, FLAGS_PRESENT | FLAGS_TYPE_INTERRUPT, 0);
+
+	idt_setentry(&idt[VECTOR_TIMER], asmisr_timer, 0x28, FLAGS_PRESENT | FLAGS_TYPE_INTERRUPT, 0);
+	
 	idt_reload();
 
 }
