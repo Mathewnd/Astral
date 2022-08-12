@@ -10,13 +10,12 @@
 #include <arch/mmu.h>
 #include <arch/apic.h>
 #include <kernel/pmm.h>
+#include <kernel/semaphore.h>
 
-cls_t* apcls;
+static cls_t* apcls;
+static semaphore_t* sem;
 
-
-size_t oncpucount = 1;
-static int lock = 0;
-static size_t cpucount = 1;
+static size_t cpucount = 0;
 
 static void apstartup(struct limine_smp_info *info){
 	
@@ -31,9 +30,15 @@ static void apstartup(struct limine_smp_info *info){
 	apic_lapicinit();
 
 	printf("CPU %lu ready!\n", info->lapic_id);
+
+	sem_signal(sem);
 	
 	for(;;) asm("hlt");
 
+}
+
+size_t arch_smp_cpucount(){
+	return cpucount;
 }
 
 void arch_smp_sendipi(int processor, int vector, int mode){
@@ -59,6 +64,8 @@ void smp_init(){
 
 	printf("System has %lu CPUs\n", cpucount);
 	
+	sem = sem_init(-cpucount + 2, 0);
+
 	for(size_t i = 0; i < cpucount; ++i){
 		if(cpus[i]->lapic_id == r->bsp_lapic_id) continue;
 		printf("Dispatching CPU %lu\n", i);	
@@ -69,4 +76,7 @@ void smp_init(){
 			: "b"(&cpus[i]->goto_address), "a"(apstartup));
 	}
 
+	while(!sem_tryacquire(sem)) asm volatile("pause");
+
+	printf("All processors ready!\n");
 }

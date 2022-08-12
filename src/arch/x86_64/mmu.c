@@ -10,6 +10,7 @@
 #include <arch/cls.h>
 #include <arch/idt.h>
 #include <arch/smp.h>
+#include <kernel/semaphore.h>
 
 volatile struct limine_kernel_address_request kaddrreq = {
 	.id = LIMINE_KERNEL_ADDRESS_REQUEST,
@@ -29,20 +30,23 @@ static void switchcontext(arch_mmu_tableptr context){
 	asm("mov %%rax, %%cr3" : : "a"(context));
 }
 
-// FIXME add a semaphore here
-
-// XXX only do this on an unmap or other specific situations
-
 void* inv = NULL;
+
+semaphore_t sem;
 
 void arch_mmu_invalidateipi(){
 	asm("invlpg (%%rax)" : : "a"(inv));
+	sem_signal(&sem);
 }
 
 static void invalidate(void* addr){
 	asm("invlpg (%%rax)" : : "a"(addr));
+	sem.count = -arch_smp_cpucount();
+	if(!sem.count) return;
+	sem.count += 2;
 	inv = addr;
 	arch_smp_sendipi(0, VECTOR_MMUINVAL, IPI_CPU_ALLBUTSELF);
+	while(!sem_tryacquire(&sem));
 }
 
 
@@ -145,8 +149,6 @@ int arch_mmu_map(arch_mmu_tableptr context, void* paddr, void* vaddr, size_t fla
 	int ret = setpage(context, vaddr, entry);
 
 
-	if(ret) invalidate(vaddr);
-
 	return ret;
 
 }
@@ -156,6 +158,7 @@ void arch_mmu_unmap(arch_mmu_tableptr context, void* vaddr){
 	if(!getmapping(context, vaddr)) return;
 
 	arch_mmu_map(context, 0, vaddr, 0);
+	invalidate(vaddr);
 	
 }
 

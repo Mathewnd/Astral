@@ -3,13 +3,6 @@
 #include <kernel/vmm.h>
 #include <arch/apic.h>
 
-void isr_schedtimer(arch_regs *reg){
-	printf("schedtimer irq\n");
-
-	apic_eoi();
-
-}
-
 void isr_general(arch_regs *reg){
 	_panic("Unhandled interrupt", reg);
 	asm("hlt");
@@ -33,8 +26,9 @@ void isr_lapicnmi(){
 
 void isr_mmuinval(){
 	arch_mmu_invalidateipi();
+	apic_eoi();
 }
 
 void isr_timer(arch_regs* reg){
-	
+	apic_eoi();
 }
