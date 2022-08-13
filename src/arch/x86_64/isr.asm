@@ -75,7 +75,7 @@ section .text
 	pop rdi
 	pop rsi
 	pop rbp
-
+	add rsp,8 ; remove error code
 
 %endmacro
 
@@ -95,8 +95,6 @@ section .text
 	call %2
 	
 	popregs
-	
-	add rsp,8 ; remove error code
 
 	iretq
 	
@@ -120,9 +118,7 @@ section .text
 	call %2
 	
 	popregs
-
-	add rsp,8 ; remove error code
-
+	
 	iretq
 %endmacro
 

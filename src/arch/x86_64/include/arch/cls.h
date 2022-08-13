@@ -22,6 +22,7 @@ typedef struct{
 	thread_t* thread;
 	size_t timerticksperus;
 	timer_req* timerfirstreq;
+	timer_req  schedreq;
 } cls_t;
 
 void bsp_setcls();

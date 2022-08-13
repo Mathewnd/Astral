@@ -28,9 +28,7 @@ struct limine_terminal_response* liminetty;
 int  ttylock = 0;
 
 void liminewrite(char* str, size_t c){
-
 	liminetty->write(liminetty->terminals[0], str, c);
-
 }
 
 void kmain(){
@@ -79,6 +77,8 @@ void kmain(){
 	devman_init();
 
 	pci_enumerate();
+
+	sched_init();
 
 	smp_init();
 

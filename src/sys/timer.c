@@ -43,7 +43,7 @@ void timer_stop(){
 	}
 }
 
-void timer_add(timer_req* req, size_t us){
+void timer_add(timer_req* req, size_t us, bool start){
 	
 	size_t remainingticks = arch_cputimer_stop();
 
@@ -55,8 +55,8 @@ void timer_add(timer_req* req, size_t us){
 	if(!iter){
 		arch_getcls()->timerfirstreq = req;
 		req->next = NULL;
-		arch_cputimer_fire(req->ticks);
-		printf("ticks3: %lu", req->ticks);
+		if(start);
+			arch_cputimer_fire(req->ticks);
 		return;
 	}
 	
@@ -72,8 +72,8 @@ void timer_add(timer_req* req, size_t us){
 	if(iter->ticks > req->ticks){
 		req->next = arch_getcls()->timerfirstreq;
 		arch_getcls()->timerfirstreq = req;
-		arch_cputimer_fire(req->ticks);
-		printf("ticks2: %lu", req->ticks);
+		if(start)
+			arch_cputimer_fire(req->ticks);
 		return;
 	}
 
@@ -83,7 +83,7 @@ void timer_add(timer_req* req, size_t us){
 	req->next = iter->next;
 	iter->next = req;
 
-	printf("ticks: %lu", arch_getcls()->timerfirstreq->ticks);
-	arch_cputimer_fire(arch_getcls()->timerfirstreq->ticks);
+	if(start)
+		arch_cputimer_fire(arch_getcls()->timerfirstreq->ticks);
 	
 }

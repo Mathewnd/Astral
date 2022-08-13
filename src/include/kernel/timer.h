@@ -1,6 +1,7 @@
 #ifndef _TIMER_H_INCLUDE
 #define _TIMER_H_INCLUDE
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <arch/regs.h>
 
@@ -14,7 +15,7 @@ typedef struct _timer_req{
 } timer_req;
 
 void timer_init();
-void timer_add(timer_req* req, size_t us);
+void timer_add(timer_req* req, size_t us, bool start);
 void timer_resume();
 void timer_stop();
 void timer_irq(arch_regs* ctx);

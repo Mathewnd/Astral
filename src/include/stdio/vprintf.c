@@ -11,7 +11,6 @@
 
 typedef int wint_t;
 
-bool ignoresign = false;
 
 char* __int_str(uintmax_t i, char b[], int base, bool plusSignIfNeeded, bool spaceSignIfNeeded,
                 int paddingNo, bool justify, bool zeroPad) {
@@ -262,10 +261,8 @@ int vprintf (const char* format, va_list list)
                         {
 
                             size_t integer = va_arg(list, size_t);
-                        ignoresign = true;
 			__int_str(integer, intStrBuffer, base, plusSign, spaceNoSign, lengthSpec, leftJustify, zeroPad);
                             displayString(intStrBuffer, &chars);
-                            ignoresign = false;
 			    break;
                         }
                         case 't':
