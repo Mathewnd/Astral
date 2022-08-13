@@ -28,6 +28,8 @@ static void apstartup(struct limine_smp_info *info){
 	arch_mmu_apinit();
 	
 	apic_lapicinit();
+	
+	timer_init();
 
 	printf("CPU %lu ready!\n", info->lapic_id);
 
@@ -61,6 +63,8 @@ void smp_init(){
 	struct limine_smp_info** cpus = r->cpus;
 	
 	apcls = pmm_hhdmalloc(sizeof(cls_t)*cpucount/PAGE_SIZE+1);
+
+	memset(apcls, 0, sizeof(cls_t)*cpucount/PAGE_SIZE+1);
 
 	printf("System has %lu CPUs\n", cpucount);
 	

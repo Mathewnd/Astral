@@ -2,6 +2,7 @@
 #include <arch/panic.h>
 #include <kernel/vmm.h>
 #include <arch/apic.h>
+#include <kernel/timer.h>
 
 void isr_general(arch_regs *reg){
 	_panic("Unhandled interrupt", reg);
@@ -30,5 +31,6 @@ void isr_mmuinval(){
 }
 
 void isr_timer(arch_regs* reg){
+	timer_irq(reg);
 	apic_eoi();
 }

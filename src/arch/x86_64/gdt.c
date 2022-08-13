@@ -2,7 +2,7 @@
 #include <arch/gdt.h>
 #include <arch/ist.h>
 
-static void setseg(segdesc __seg_gs *seg, uint32_t limit, uint32_t offset, uint8_t flags, uint8_t access){
+static void setseg(segdesc *seg, uint32_t limit, uint32_t offset, uint8_t flags, uint8_t access){
 	
 	seg->limit = limit & 0xFFFF;
 	seg->offset1 = offset & 0xFFFF;
@@ -14,7 +14,7 @@ static void setseg(segdesc __seg_gs *seg, uint32_t limit, uint32_t offset, uint8
 
 }
 
-static void setsys64(sys64 __seg_gs *e, uint32_t limit, uint64_t offset, uint8_t flags, uint8_t access){
+static void setsys64(sys64 *e, uint32_t limit, uint64_t offset, uint8_t flags, uint8_t access){
 
 	e->limit = limit & 0xFFFF;
 	e->offset1 = offset & 0xFFFF;
@@ -32,14 +32,14 @@ gdtr_t gdtr;
 
 static void reloadgdtr(){
 	
-gdtr.offset = (uint64_t)&cls->gdt + arch_getcls();
+gdtr.offset = &arch_getcls()->gdt;
 gdtr.size   = sizeof(gdt_t) - 1;
 	asm("lgdt (%%rax)" : : "a"(&gdtr) : "memory");
 }
 
 void gdt_init(){
 	
-	gdt_t __seg_gs *gdt = &cls->gdt;
+	gdt_t* gdt = &arch_getcls()->gdt;
 	
 	setseg(&gdt->null, 0, 0, 0, 0);
 

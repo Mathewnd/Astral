@@ -7,6 +7,7 @@
 #include <arch/regs.h>
 #include <kernel/vmm.h>
 #include <kernel/sched.h>
+#include <kernel/timer.h>
 
 // cpu level storage
 // this will be pointed to by GS and will contain per cpu info
@@ -19,7 +20,8 @@ typedef struct{
 	arch_regs *laststate;
 	vmm_context *context;
 	thread_t* thread;
-	size_t schedtimerticksperms;
+	size_t timerticksperus;
+	timer_req* timerfirstreq;
 } cls_t;
 
 void bsp_setcls();

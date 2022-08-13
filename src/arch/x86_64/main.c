@@ -16,6 +16,7 @@
 #include <arch/pci.h>
 #include <arch/hpet.h>
 #include <arch/smp.h>
+#include <kernel/timer.h>
 
 static volatile struct limine_terminal_request liminettyr = {
     .id = LIMINE_TERMINAL_REQUEST,
@@ -42,7 +43,9 @@ void kmain(){
 	console_setwritehook(liminewrite);
 	
 	bsp_setcls();
+
 	gdt_init();
+
 	idt_bspinit();
 	
 	pmm_init();
@@ -62,6 +65,8 @@ void kmain(){
 
 	hpet_init();
 
+	timer_init();
+
 	vfs_init();
 	
 	printf("Mounting tmpfs in /\n");
@@ -76,7 +81,7 @@ void kmain(){
 	pci_enumerate();
 
 	smp_init();
-	
+
 	_panic("End of kmain()", 0);
 
 }

@@ -190,22 +190,27 @@ void apic_timerinterruptset(uint8_t vector){
 	lapic_writereg(APIC_TIMER_LVT, vector);
 }
 
-void apic_timerstop(){
+size_t apic_timerstop(){
+
+	size_t ticksremaining = lapic_readreg(APIC_TIMER_COUNT);
+
 	lapic_writereg(APIC_TIMER_INITIALCOUNT, 0);
+
+	return ticksremaining;
 }
 
-size_t apic_timercalibrate(size_t ms){
-	
+size_t apic_timercalibrate(size_t us){
+
 	lapic_writereg(APIC_TIMER_INITIALCOUNT, 0xFFFFFFFF);
 	lapic_writereg(APIC_TIMER_DIVIDE, 0b111); // no divider
 
-	hpet_wait_ms(ms);
+	hpet_wait_ms(us);
 
 	size_t ticks = 0xFFFFFFFF - lapic_readreg(APIC_TIMER_COUNT);
 
 	apic_timerstop();
 
-	return ticks;
+	return ticks / 1000;
 
 }
 
