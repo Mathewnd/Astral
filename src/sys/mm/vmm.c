@@ -150,7 +150,7 @@ static bool setmap(vmm_mapping** mapstart, void* addr, size_t pagec, size_t mmuf
 	vmm_mapping* map = *mapstart;
 	while(map && addr > map->end)
 		map = map->next;
-	
+
 	if(!map) return false;
 
 	vmm_mapping* newmap = allocatefirst();
@@ -351,7 +351,7 @@ static void getcontextinfo(void* addr, int** lock, vmm_mapping*** start){
 	vmm_context *context = arch_getcls()->context;
 	
 	*lock = &context->lock;
-	*start = context->userstart;
+	*start = &context->userstart;
 	
 }
 
@@ -433,6 +433,39 @@ bool vmm_map(void* paddr, void* vaddr, size_t pagec, size_t mmuflags){
 
 	spinlock_release(lock);
 	return result;
+}
+
+bool vmm_allocnowat(void* addr, size_t mmuflags, size_t size){
+	int* lock;
+	vmm_mapping** start;
+	bool result = true;
+	
+	addr = addr - ((uintptr_t)addr % PAGE_SIZE);
+
+	getcontextinfo(addr, &lock, &start);
+	
+	size = size / PAGE_SIZE + (size % PAGE_SIZE ? 1 : 0);
+
+	spinlock_acquire(lock);
+	
+	// XXX allocate 1 page at a time to reduce fragmentation
+
+	void* paddr = pmm_alloc(size);
+	if(!paddr)
+		result = false;
+	else
+		result = setmap(start, addr, size, mmuflags, VMM_TYPE_ANON, 0, 0);
+
+	for(size_t page = 0; page < size && result; ++page)
+		result = arch_mmu_map(arch_getcls()->context->context, paddr + page*PAGE_SIZE, addr + page*PAGE_SIZE, mmuflags);
+	
+	if(!result)
+		pmm_free(paddr, size);
+
+	spinlock_release(lock);
+
+	return result;
+
 }
 
 // called by the page fault handler

@@ -226,6 +226,7 @@ thread_t* sched_newuthread(void* ip, size_t kstacksize, void* stack, proc_t* pro
 	}
 	
 	thread->priority = prio;
+	thread->proc = proc;
 	arch_regs_setupuser(thread->regs, ip, stack, true);
 
 	if(run)
@@ -268,18 +269,21 @@ void sched_runinit(){
 
 	proc_t* proc = thread->proc;
 
+	vmm_switchcontext(proc->context);
+
 	proc->root = vfs_root();
 	proc->cwd  = vfs_root();
 	proc->pid  = 1;
 
 	vnode_t* node;
 	size_t ret = vfs_open(&node, vfs_root(), "sbin/init");
+
 	if(ret){
 		printf("Open failed: %s\n", strerror(ret));
 		_panic("Could not load init", 0);
 	}
-	char** argv = {"/sbin/init", ""};
-	char** env  = {""};
+	char* argv[] = {"/sbin/init", NULL};
+	char* env[]  = {NULL};
 
 	ret = elf_load(thread, node, argv, env);
 	
@@ -287,6 +291,7 @@ void sched_runinit(){
 		printf("ELF load error: %s\n", strerror(ret));
 		_panic("Could not load init", 0);
 	}
+
 	switch_thread(thread);
 	
 }

@@ -26,6 +26,7 @@
 #define ELF_FLAG_WRITABLE 2
 #define ELF_FLAG_READABLE 4
 
+#define STACK_TOP 0x800000000000
 
 typedef struct{
 	uint32_t magic;

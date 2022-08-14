@@ -35,6 +35,7 @@ static void reloadgdtr(){
 gdtr.offset = &arch_getcls()->gdt;
 gdtr.size   = sizeof(gdt_t) - 1;
 	asm("lgdt (%%rax)" : : "a"(&gdtr) : "memory");
+	asm("ltr %%ax" : : "a"(0x48));
 }
 
 void gdt_init(){

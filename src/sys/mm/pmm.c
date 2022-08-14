@@ -206,7 +206,7 @@ void pmm_init(){
 
 		if(current->length < bitmapsize || current->base < 0x100000) continue;
 		
-		bitmap = (size_t*)current->base;
+		bitmap = (void*)current->base + (size_t)limine_hhdm_offset;
 		
 		break;
 

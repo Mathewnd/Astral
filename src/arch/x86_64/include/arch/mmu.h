@@ -24,5 +24,6 @@ void arch_mmu_init();
 void arch_mmu_apinit();
 arch_mmu_tableptr arch_mmu_newcontext();
 void arch_mmu_switchcontext(arch_mmu_tableptr);
+void arch_mmu_changeflags(arch_mmu_tableptr context, void* addr, size_t flags, size_t count);
 
 #endif

@@ -8,7 +8,6 @@
 #define TRACE_MAXDEPTH 10
 
 static void tracestack(uint64_t** addr){
-	
 	for(size_t depth = 0; depth < TRACE_MAXDEPTH; ++depth){
 
 		uint64_t *calleeaddr = *(addr + 1);
@@ -34,8 +33,11 @@ __attribute((noreturn)) void _panic(char* reason, arch_regs *reg){
 		);
 
 		printf("Panic location: %p\n", reg->rip);
-		printf("Stack trace:\n");
-		tracestack((uint64_t**)reg->rbp);
+		
+		if(reg->rbp != 0){
+			printf("Stack trace:\n");
+			tracestack((uint64_t**)reg->rbp);
+		}
 
 	}
 	

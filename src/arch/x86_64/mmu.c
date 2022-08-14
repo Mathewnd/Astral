@@ -114,11 +114,13 @@ static uint64_t getmapping(arch_mmu_tableptr context, void* vaddr){
         size_t pd   = (addr >> 30) & 0b111111111;
         size_t pt   = (addr >> 21) & 0b111111111;
         size_t page = (addr >> 12) & 0b111111111;
+	
+	uint64_t* table = next(context, pdpt);
+	
+	if(!table) return 0;
+	
+	table = next(table, pd);
 
-	if(!context[pdpt]) return 0;
-	
-	uint64_t* table = next(context, pd);
-	
 	if(!table) return 0;
 
 	table = next(table, pt);
@@ -140,6 +142,20 @@ void* arch_mmu_getphysicaladdr(arch_mmu_tableptr context, void* addr){
 
 bool arch_mmu_isaccessed(arch_mmu_tableptr context, void* addr){
 	return (getmapping(context, addr) & ARCH_MMU_MAP_ACCESSED) != 0;
+}
+
+void arch_mmu_changeflags(arch_mmu_tableptr context, void* addr, size_t flags, size_t count){
+	for(size_t i = 0; i < count; ++i){
+		uint64_t mapping = getmapping(context, addr);
+		if(!mapping)
+			continue;
+		mapping &= ~(0xFFF); // get addr
+		mapping &= ~ARCH_MMU_MAP_NOEXEC;
+		mapping |= flags;
+		setpage(context, addr, mapping);
+		addr += PAGE_SIZE;
+	}
+	
 }
 
 int arch_mmu_map(arch_mmu_tableptr context, void* paddr, void* vaddr, size_t flags){
