@@ -9,5 +9,6 @@ typedef struct{
 } arch_regs;
 
 void arch_regs_setupkernel(arch_regs* regs, void* ip, void* stack, bool interrupts);
+void arch_regs_setupuser(arch_regs* regs, void* ip, void* stack, bool interrupts);
 
 #endif

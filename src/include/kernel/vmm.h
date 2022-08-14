@@ -7,6 +7,8 @@
 
 #define KERNEL_SPACE_START 0xFFFF800000000000
 #define KERNEL_SPACE_END   0xFFFFFFFFFFFFFFFF
+#define USER_SPACE_START   0
+#define USER_SPACE_END     0x00007FFFFFFFFFFF
 
 #define VMM_TYPE_FREE 0
 #define VMM_TYPE_ANON 1
@@ -57,4 +59,5 @@ bool		vmm_unmap(void* addr, size_t pagec);
 bool		vmm_map(void* paddr, void* vaddr, size_t pagec, size_t mmuflags);
 void*		vmm_alloc(size_t pagec, size_t mmuflags);
 bool		vmm_setfree(void* addr, size_t pagec);
+vmm_context*	vmm_newcontext();
 #endif

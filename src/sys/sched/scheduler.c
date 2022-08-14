@@ -6,6 +6,8 @@
 #include <arch/mmu.h>
 #include <kernel/pmm.h>
 #include <kernel/timer.h>
+#include <string.h>
+#include <kernel/elf.h>
 
 #define THREAD_QUANTUM 10000
 
@@ -18,6 +20,31 @@
 sched_queue queues[QUEUE_COUNT];
 sched_queue running;
 sched_queue blocked;
+
+static proc_t* allocproc(size_t threadcount){
+	
+	proc_t* proc = alloc(sizeof(proc_t));
+	if(!proc)
+		return NULL;
+
+	proc->threads = alloc(sizeof(thread_t*) * threadcount);
+	
+	if(!proc->threads){
+		free(proc);
+		return NULL;
+	}
+
+	proc->context = vmm_newcontext();
+
+	if(!proc->context){
+		free(proc->threads);
+		free(proc);
+		return NULL;
+	}
+	
+	return proc;
+	
+}
 
 static thread_t* allocthread(proc_t* proc, state_t state, pid_t tid, size_t kstacksize){
 	
@@ -55,6 +82,13 @@ static thread_t* allocthread(proc_t* proc, state_t state, pid_t tid, size_t ksta
 	
 	return thread;
 
+}
+
+static thread_t* freethread(thread_t* thread){
+	free(thread->regs);
+	// XXX use free() when it's better
+	pmm_free(thread->kernelstackbase, thread->stacksize / PAGE_SIZE + 1);
+	free(thread);
 }
 
 static void queue_add(sched_queue* queue, thread_t* thread){
@@ -158,7 +192,7 @@ static void switch_thread(thread_t* thread){
 	
 	if(current->proc != thread->proc){
 		
-		// TODO change proc specific stuff
+		vmm_switchcontext(thread->proc->context);
 
 	}
 
@@ -167,6 +201,37 @@ static void switch_thread(thread_t* thread){
 	arch_switchcontext(thread->regs);
 	
 	__builtin_unreachable();
+
+}
+
+thread_t* sched_newuthread(void* ip, size_t kstacksize, void* stack, proc_t* proc, bool run, int prio){
+
+	thread_t* thread = allocthread(NULL, THREAD_STATE_WAITING, 0, kstacksize);
+	
+	if(!proc){
+		proc = allocproc(1);
+		if(!proc){
+			freethread(thread);
+			return NULL;
+		}
+	}
+	else{
+		thread_t** tmp = realloc(proc->threads, sizeof(thread_t*) * (proc->threadcount + 1));
+		if(!tmp){
+			freethread(thread);
+			return NULL;
+		}
+		proc->threads = tmp;
+		++proc->threadcount;
+	}
+	
+	thread->priority = prio;
+	arch_regs_setupuser(thread->regs, ip, stack, true);
+
+	if(run)
+		queue_add(&queues[prio], thread);
+
+	return thread;
 
 }
 
@@ -195,3 +260,33 @@ void sched_init(){
 
 }
 
+void sched_runinit(){
+	
+	printf("Loading /sbin/init\n");
+
+	thread_t* thread = sched_newuthread(NULL, PAGE_SIZE*3, NULL, NULL, true, THREAD_PRIORITY_USER);
+
+	proc_t* proc = thread->proc;
+
+	proc->root = vfs_root();
+	proc->cwd  = vfs_root();
+	proc->pid  = 1;
+
+	vnode_t* node;
+	size_t ret = vfs_open(&node, vfs_root(), "sbin/init");
+	if(ret){
+		printf("Open failed: %s\n", strerror(ret));
+		_panic("Could not load init", 0);
+	}
+	char** argv = {"/sbin/init", ""};
+	char** env  = {""};
+
+	ret = elf_load(thread, node, argv, env);
+	
+	if(ret){
+		printf("ELF load error: %s\n", strerror(ret));
+		_panic("Could not load init", 0);
+	}
+	switch_thread(thread);
+	
+}

@@ -27,8 +27,20 @@ struct limine_terminal_response* liminetty;
 
 int  ttylock = 0;
 
+static vmm_context* liminettyctx;
+
 void liminewrite(char* str, size_t c){
+
+	vmm_context* old = arch_getcls()->context;
+	
+	if(liminettyctx)
+		vmm_switchcontext(liminettyctx);
+	
 	liminetty->write(liminetty->terminals[0], str, c);
+	
+	if(liminettyctx)
+		vmm_switchcontext(old);
+	
 }
 
 void kmain(){
@@ -52,6 +64,8 @@ void kmain(){
 	arch_mmu_init();
 	
 	vmm_init();	
+
+	liminettyctx = arch_getcls()->context;
 	
 	alloc_init();
 
@@ -81,6 +95,8 @@ void kmain(){
 	sched_init();
 
 	smp_init();
+
+	sched_runinit();
 
 	_panic("End of kmain()", 0);
 

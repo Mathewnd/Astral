@@ -7,6 +7,7 @@
 #include <stdbool.h>
 #include <limine.h>
 #include <arch/cls.h>
+#include <kernel/alloc.h>
 
 vmm_cache* caches;
 int klock;
@@ -486,6 +487,38 @@ bool vmm_dealwithrequest(void* addr){
 	spinlock_release(lock);
 
 	return status;
+
+}
+
+void vmm_switchcontext(vmm_context* context){
+	arch_getcls()->context = context;
+	arch_mmu_switchcontext(context->context);
+}
+
+vmm_context* vmm_newcontext(){
+
+	vmm_context* context = alloc(sizeof(vmm_context));
+	if(!context)
+		return NULL;
+	vmm_mapping* map = allocatefirst(caches);
+	if(!map){
+		free(context);
+		return NULL;
+	}
+
+	context->context = arch_mmu_newcontext();
+	if(!context->context){
+		free(context);
+		freeentry(map);
+		return NULL;
+	}
+
+	map->start = USER_SPACE_START;
+	map->end = USER_SPACE_END;
+
+	context->userstart = map;
+
+	return context;
 
 }
 

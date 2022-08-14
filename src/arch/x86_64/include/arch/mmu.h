@@ -22,5 +22,7 @@ void* arch_mmu_getphysicaladdr(arch_mmu_tableptr, void*);
 void arch_mmu_unmap(arch_mmu_tableptr, void*);
 void arch_mmu_init();
 void arch_mmu_apinit();
+arch_mmu_tableptr arch_mmu_newcontext();
+void arch_mmu_switchcontext(arch_mmu_tableptr);
 
 #endif

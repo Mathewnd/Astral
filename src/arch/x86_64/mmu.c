@@ -26,8 +26,8 @@ static void changeentry(uint64_t* entry, void* paddr, uint64_t flags){
 
 #define PTR_FLAGS ARCH_MMU_MAP_READ | ARCH_MMU_MAP_WRITE | ARCH_MMU_MAP_USER | ARCH_MMU_MAP_NOEXEC
 
-static void switchcontext(arch_mmu_tableptr context){
-	asm("mov %%rax, %%cr3" : : "a"(context));
+void arch_mmu_switchcontext(arch_mmu_tableptr context){
+	asm("mov %%rax, %%cr3" : : "a"(context) : "memory");
 }
 
 void* inv = NULL;
@@ -162,7 +162,21 @@ void arch_mmu_unmap(arch_mmu_tableptr context, void* vaddr){
 	
 }
 
-static arch_mmu_tableptr context; //boostrap context
+static arch_mmu_tableptr context; //boostrap context; also holds the kernel page tables
+
+arch_mmu_tableptr arch_mmu_newcontext(){
+	
+	arch_mmu_tableptr newcontext = pmm_alloc(1);
+	if(!newcontext)
+		return NULL;
+
+	memcpy((void*)newcontext + (size_t)limine_hhdm_offset, context, PAGE_SIZE);
+
+	memset((void*)newcontext + (size_t)limine_hhdm_offset, 0, PAGE_SIZE / 2);
+	
+	return newcontext;
+
+}
 
 void arch_mmu_init(){
 	
@@ -252,7 +266,7 @@ void arch_mmu_init(){
 	}
 	
 
-	switchcontext(context);
+	arch_mmu_switchcontext(context);
 	arch_getcls()->context->context = context;
 
 	printf("In bootstrap context\n");
@@ -261,7 +275,7 @@ void arch_mmu_init(){
 
 void arch_mmu_apinit(){
 	
-	switchcontext(context);
+	arch_mmu_switchcontext(context);
 
 	arch_getcls()->context = pmm_hhdmalloc(1);
 
