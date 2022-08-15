@@ -92,6 +92,8 @@ void kmain(){
 
 	pci_enumerate();
 
+	cpu_state_init();
+
 	sched_init();
 
 	smp_init();

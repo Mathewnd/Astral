@@ -30,6 +30,8 @@ static void apstartup(struct limine_smp_info *info){
 	apic_lapicinit();
 	
 	timer_init();
+	
+	cpu_state_init();
 
 	printf("CPU %lu ready!\n", info->lapic_id);
 
