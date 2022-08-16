@@ -20,6 +20,8 @@ bool hashtable_init(hashtable* table, size_t size){
 }
 
 static inline hashtableentry* getentry(hashtable* table, char* key){
+	if(!table->size)
+		return NULL;
 	size_t entryn = hash(key, strlen(key)) % table->size;
 
 	return &table->entries[entryn];
@@ -29,6 +31,9 @@ bool hashtable_insert(hashtable* table, char* key, void* val){
 
 	
 	hashtableentry* entry = getentry(table, key);
+
+	if(!entry)
+		return NULL;
 
 	char* keysave = alloc(strlen(key)+1);
 
@@ -62,6 +67,8 @@ bool hashtable_remove(hashtable* table, char* key){
 	
 	hashtableentry* entry = getentry(table, key);
 	
+	if(!entry) return false;
+
 	if(!entry->key) return false;
 	
 	hashtableentry* prev = NULL;
@@ -100,6 +107,9 @@ bool hashtable_remove(hashtable* table, char* key){
 bool hashtable_set(hashtable* table, char* key, void* value){
 	hashtableentry* entry = getentry(table, key);
 	
+	if(!entry)
+		return false;
+
 	if(!entry->key)
 		return false;
 
@@ -117,6 +127,9 @@ void* hashtable_get(hashtable* table, char* key){
 	
 	hashtableentry* entry = getentry(table, key);
 	
+	if(!entry)
+		return NULL;
+
 	if(!entry->key)
 		return NULL;
 

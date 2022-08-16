@@ -23,9 +23,8 @@ section .text
 
 
 	mov rax, ds
-
-	cmp rax,0x43
-	je .noswapgs
+	cmp rax,0x40
+	jne .noswapgs
 	swapgs
 	.noswapgs:
 

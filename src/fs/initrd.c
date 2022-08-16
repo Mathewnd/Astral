@@ -152,10 +152,16 @@ void initrd_parse(){
 
 		switch(entry.type){
 			case TAR_FILE:
-				vfs_create(vfs_root(), entry.name, entry.mode);
+				int err = vfs_create(vfs_root(), entry.name, entry.mode);
+				if(err){
+					
+					printf("Failed creating %s: ERROR %lu\n", entry.name, err);
+				}
 				break;
 			case TAR_DIR:
-				vfs_mkdir(vfs_root(), entry.name, entry.mode);
+				err = vfs_mkdir(vfs_root(), entry.name, entry.mode);
+				if(err)
+					printf("Failed creating %s: ERROR %lu\n", entry.name, err);
 				break;
 			default:
 				_panic("Unsupported file type in initrd!", 0);
