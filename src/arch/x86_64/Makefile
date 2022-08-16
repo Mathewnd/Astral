@@ -1,4 +1,4 @@
-objects := $(patsubst %.c,%.o,$(wildcard *.c)) israsm.o context.o
+objects := $(patsubst %.c,%.o,$(wildcard *.c)) israsm.o context.o syscall.o
 subdirs=boot
 OBJPATH=$(OBJDIR)/arch/${TARGET}/
 export
@@ -16,6 +16,10 @@ israsm.o: isr.asm
 	mkdir -p $(OBJPATH)
 	cp $@ $(OBJPATH)/$@
 context.o: context.asm
+	nasm -f elf64 -o $@ $<
+	mkdir -p $(OBJPATH)
+	cp $@ $(OBJPATH)/$@
+syscall.o: syscall.asm
 	nasm -f elf64 -o $@ $<
 	mkdir -p $(OBJPATH)
 	cp $@ $(OBJPATH)/$@

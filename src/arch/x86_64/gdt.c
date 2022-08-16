@@ -34,8 +34,10 @@ static void reloadgdtr(){
 	
 gdtr.offset = &arch_getcls()->gdt;
 gdtr.size   = sizeof(gdt_t) - 1;
-	asm("lgdt (%%rax)" : : "a"(&gdtr) : "memory");
-	asm("ltr %%ax" : : "a"(0x48));
+	asm volatile("lgdt (%%rax)" : : "a"(&gdtr) : "memory");
+	asm volatile("ltr %%ax" : : "a"(0x48));
+	asm volatile("swapgs;mov $0, %%ax;mov %%ax, %%gs;mov %%ax, %%fs;swapgs;" : : : "ax");
+
 }
 
 void gdt_init(){

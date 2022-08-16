@@ -1,4 +1,17 @@
 #include <arch/regs.h>
+#include <arch/msr.h>
+
+void arch_regs_saveextra(arch_extraregs* regs){
+	// user gs was swapped
+	regs->gsbase = rdmsr(MSR_KERNELGSBASE);
+	regs->fsbase = rdmsr(MSR_FSBASE);
+}
+
+void arch_regs_setupextra(arch_extraregs* regs){
+	// gs will be swapped later
+	wrmsr(MSR_KERNELGSBASE, regs->gsbase);
+	wrmsr(MSR_FSBASE, regs->fsbase);
+}
 
 void arch_regs_setupkernel(arch_regs* regs, void* ip, void* stack, bool interrupts){
         regs->rip = ip;

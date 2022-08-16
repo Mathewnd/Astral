@@ -23,6 +23,7 @@ typedef struct _thread_t{
 	struct _thread_t* prev;
 	struct _proc_t* proc;
 	arch_regs* regs;
+	arch_extraregs extraregs;
 	state_t state;
 	void* kernelstack;
 	void* kernelstackbase;

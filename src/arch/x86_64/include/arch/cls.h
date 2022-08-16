@@ -13,6 +13,7 @@
 // this will be pointed to by GS and will contain per cpu info
 
 typedef struct{
+	void* kstack;
 	gdt_t gdt;
 	ist_t ist;
 	int lapicid;

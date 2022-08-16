@@ -8,6 +8,8 @@
 // syscall, sse, etc
 // for the current cpu
 
+extern void asm_syscall_entry();
+
 void cpu_state_init(){
 	
 	// syscall
@@ -28,7 +30,7 @@ void cpu_state_init(){
 		star |= (uint64_t)0x28 << 32;
 		
 		wrmsr(MSR_STAR, star);
-		wrmsr(MSR_LSTAR, 0xDEADBEEF); // FIXME add 64 bit handler here
+		wrmsr(MSR_LSTAR, asm_syscall_entry);
 		wrmsr(MSR_CSTAR, 0); // no compat mode syscall handler
 		wrmsr(MSR_FMASK, 0x200); // disable interrupts on syscall
 	}

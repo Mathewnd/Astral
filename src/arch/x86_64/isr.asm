@@ -29,7 +29,7 @@ section .text
 	mov rax, gs
 	push rax
 
-	cmp rax,0x30
+	cmp rax,0x43
 	jmp .noswapgs
 	swapgs
 	.noswapgs:
@@ -42,22 +42,18 @@ section .text
 
 %macro popregs 0 
 	
-	add rsp, 8 ; cr2
-	
+	add rsp, 24 ; cr2 gs fs
+
 	pop rax
-	cmp rax,0x30
+	cmp rax,0x43
 	je .dontpopsegs
-	mov gs,rax
-	pop rax
-	mov fs,rax
-	pop rax
 	mov es,rax
 	pop rax
 	mov ds,rax
 	swapgs
 	jmp .poprest
 	.dontpopsegs:
-	add rsp,24
+	add rsp,8 ; ds
 	
 	.poprest:
 	pop rax

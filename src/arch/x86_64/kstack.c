@@ -5,4 +5,5 @@
 void arch_setkernelstack(void* stack){
 	
 	arch_getcls()->ist.rsp0 = (uint64_t)stack;
+	arch_getcls()->kstack = stack;
 }

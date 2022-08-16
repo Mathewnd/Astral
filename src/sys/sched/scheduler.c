@@ -162,9 +162,9 @@ void sched_timerhook(arch_regs* regs){
 
 	spinlock_release(&running.lock);
 
-
+	
 	memcpy(current->regs, regs, sizeof(arch_regs));
-
+	arch_regs_saveextra(&current->extraregs);
 
 	spinlock_acquire(&currentqueue->lock);
 
@@ -198,6 +198,8 @@ static void switch_thread(thread_t* thread){
 
 	arch_setkernelstack(thread->kernelstack);
 
+	arch_regs_setupextra(&thread->extraregs);
+	
 	arch_switchcontext(thread->regs);
 	
 	__builtin_unreachable();
@@ -291,6 +293,8 @@ void sched_runinit(){
 		printf("ELF load error: %s\n", strerror(ret));
 		_panic("Could not load init", 0);
 	}
+	
+	thread->extraregs.gsbase = 0xFFFFFFFFDEADBEEF;
 
 	switch_thread(thread);
 	

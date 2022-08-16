@@ -1,15 +1,21 @@
 global arch_switchcontext
 arch_switchcontext:
 	mov rsp,rdi
-	add rsp, 8 ; cr2
-        pop rax
-        mov gs,rax
-        pop rax
-        mov fs,rax
-        pop rax
+	add rsp, 24 ; cr2 gs fs
+
+	mov rbx,es
+	pop rax
+	cmp rax,rbx
+	jne .segswap
+	add rsp,8 ; ds
+	jmp .genreg
+	.segswap:
+	swapgs
         mov es,rax
-        pop rax
+	pop rax
         mov ds,rax
+	
+	.genreg:
         pop rax
         pop rbx
         pop rcx
@@ -26,7 +32,5 @@ arch_switchcontext:
         pop rsi
         pop rbp
         add rsp,8 ; remove error code
-	
-	swapgs
 	
 	iretq
