@@ -68,7 +68,7 @@ static int tmpfs_read(int *error, vnode_t* node, void* buff, size_t count, size_
 }
 
 static int tmpfs_unmount(fs_t* fs) UNIMPLEMENTED
-static int tmpfs_open(dirnode_t* parent, char* name) UNIMPLEMENTED
+static int tmpfs_open(dirnode_t* parent, char* name){ return ENOENT;} // tmpfs open should never be called if a file exists
 static int tmpfs_close(vnode_t* node) UNIMPLEMENTED
 
 static int tmpfs_mkdir(dirnode_t* parent, char* name, mode_t mode){

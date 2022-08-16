@@ -8,6 +8,7 @@
 #define ENOSYS  5
 #define EEXIST  6
 #define ENOENT  7
-
+#define EACCES  8
+#define EAGAIN  9
 
 #endif

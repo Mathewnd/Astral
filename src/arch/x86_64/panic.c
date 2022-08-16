@@ -34,7 +34,7 @@ __attribute((noreturn)) void _panic(char* reason, arch_regs *reg){
 
 		printf("Panic location: %p\n", reg->rip);
 		
-		if(reg->rbp != 0){
+		if(reg->rbp != 0 && reg->cs == 0x28){
 			printf("Stack trace:\n");
 			tracestack((uint64_t**)reg->rbp);
 		}

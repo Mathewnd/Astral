@@ -14,7 +14,7 @@ typedef id_t	pid_t;
 typedef id_t	uid_t;
 typedef id_t	tid_t;
 typedef size_t	ino_t;
-typedef size_t	mode_t;
+typedef int	mode_t;
 typedef	int	dev_t;
 typedef	ssize_t	off_t;
 typedef size_t	nlink_t;

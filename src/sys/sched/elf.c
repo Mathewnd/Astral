@@ -100,12 +100,17 @@ static void* stacksetup(char* interp, char** argv, char** env){
 	char** argstart = (void*)envstart - (argc + 1)*sizeof(char*);
 	if(interp)
 		--argstart;
-	size_t* argcptr = (void*)argstart - sizeof(size_t);
+	char*** envpptr = (void*)argstart - sizeof(char**);
+	char*** argvptr = (void*)envpptr - sizeof(char**);
+	size_t* argcptr = (void*)argvptr - sizeof(size_t);
 	
 	// XXX auxv
 
 	// copy the data
-	
+
+	*envpptr = envstart;
+	*argvptr = argstart;
+
 	if(interp){
 		strcpy(argdatastart, interp);
 		*argstart++ = argdatastart;
@@ -126,9 +131,13 @@ static void* stacksetup(char* interp, char** argv, char** env){
 		envdatastart += strlen(env[i]) + 1;
 	}
 
+	*envstart = NULL;
+
 	if(interp)
 		argc++;
+	
 	*argcptr = argc;
+
 	
 
 	return argcptr;

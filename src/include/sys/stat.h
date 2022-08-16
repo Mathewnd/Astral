@@ -24,7 +24,7 @@ typedef struct {
 	gid_t	st_gid;
 	dev_t	st_rdev;
 	off_t	st_size;
-
+	
 	blksize_t st_blksize;
 	blkcnt_t  st_blocks;
 } stat;

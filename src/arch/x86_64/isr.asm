@@ -20,7 +20,15 @@ section .text
 	push rbx
 	push rax
 	
+
+
 	mov rax, ds
+
+	cmp rax,0x43
+	je .noswapgs
+	swapgs
+	.noswapgs:
+
 	push rax
 	mov rax, es
 	push rax
@@ -28,12 +36,13 @@ section .text
 	push rax
 	mov rax, gs
 	push rax
+	
+	; now use kernel segments for data
 
-	cmp rax,0x43
-	jmp .noswapgs
-	swapgs
-	.noswapgs:
-
+	mov rax, 0x30
+	mov ds, rax
+	mov es, rax
+	mov ss, rax
 	mov rdi,cr2
 	push rdi
 

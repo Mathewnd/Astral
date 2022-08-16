@@ -28,7 +28,12 @@ $(KERNEL): srcdir $(KERNELSRCDEPS) kernel.ld
 	mkdir -p $(ISO)
 	$(CC) $(LDFLAGS) -o $@ $(call rwildcard,bin,*.o)
 
-$(INITRD): initrd
+.phony: rebuildinitrd
+rebuildinitrd:
+	rm $(INITRD)
+	cd initrd;tar -cf $(INITRD) *
+
+$(INITRD): $(shell find initrd)
 	cd initrd;tar -cf $(INITRD) *
 
 sysdisk.iso: $(ISO) $(INITRD)
