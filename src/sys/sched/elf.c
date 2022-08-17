@@ -11,8 +11,8 @@ typedef struct{
 } auxv64_t;
 
 typedef struct {
-	
-	
+	auxv64_t phdr;
+	auxv64_t null;
 } auxv64_list;
 
 static size_t phflagtommuflag(size_t phflags){
@@ -51,13 +51,13 @@ static bool check_header64(elf_header64* header){
 
 }
 
-static void* stacksetup(char* interp, char** argv, char** env){
+static void* stacksetup(char* interp, char** argv, char** env, elf_header64 header, elf_ph64* phs){
 	size_t argc = 0;
 	size_t envc = 0;
 	size_t initialsize = 0;
 	size_t argdatasize = 0;
 	size_t envdatasize = 0;
-	size_t auxvsize    = 8;
+	size_t auxvsize    = 5*8; // FIXME better way of keeping track of this
 
 	while(argv[argc]){
 		argdatasize += strlen(argv[argc]) + 1;
@@ -81,35 +81,61 @@ static void* stacksetup(char* interp, char** argv, char** env){
 
 	initialsize += argc*sizeof(char*); //args
 	initialsize += envc*sizeof(char*); //envs
-	initialsize += 2*sizeof(char**); //argv envp
 	initialsize += sizeof(size_t);   //argc	
 	
 	// allocate memory for the initial section of the stack
 	
-
-	if(!vmm_allocnowat(STACK_TOP - initialsize, ARCH_MMU_MAP_READ | ARCH_MMU_MAP_WRITE | ARCH_MMU_MAP_NOEXEC | ARCH_MMU_MAP_USER, initialsize)) return NULL;
+	// XXX demand alloc the non initialised stack pages
+	if(!vmm_allocnowat(STACK_TOP - initialsize - PAGE_SIZE*200, ARCH_MMU_MAP_READ | ARCH_MMU_MAP_WRITE | ARCH_MMU_MAP_NOEXEC | ARCH_MMU_MAP_USER, initialsize + PAGE_SIZE*200)) return NULL;
 
 	// get the addresses to copy the data to
 
-	char* argdatastart = STACK_TOP - argdatasize;
+	elf_ph64* phdrdatastart = STACK_TOP - header.ph_count * header.ph_size;
+	char* argdatastart = (void*) phdrdatastart - argdatasize;
 	char* envdatastart = argdatastart - envdatasize;
-	// auxvstart will be aligned
-	void* auxvstart = (void*)(((uintptr_t)envdatastart & (~0xF)) - auxvsize);
+	
+	auxv64_t* auxvstart = (void*)(((uintptr_t)envdatastart & (~0xF)) - auxvsize);
 	// count + 1 because of a null entry
-	char** envstart = auxvstart - (envc + 1)*sizeof(char*);
+	char** envstart = (void*)auxvstart - (envc + 1)*sizeof(char*);
 	char** argstart = (void*)envstart - (argc + 1)*sizeof(char*);
 	if(interp)
 		--argstart;
-	char*** envpptr = (void*)argstart - sizeof(char**);
-	char*** argvptr = (void*)envpptr - sizeof(char**);
-	size_t* argcptr = (void*)argvptr - sizeof(size_t);
 	
-	// XXX auxv
+	size_t* argcptr = (void*)argstart - sizeof(size_t);
+	
+	// auxv
+
+	// AT_PHDR
+	
+	auxvstart->a_type = AT_PHDR;
+	auxvstart->a_val = (uint64_t)phdrdatastart;
+	auxvstart++;
+	
+	memcpy(phdrdatastart, phs, header.ph_count * header.ph_size);
+
+	// AT_PHENT
+
+	auxvstart->a_type = AT_PHENT;
+	auxvstart->a_val = header.ph_size;
+	auxvstart++;
+
+	// AT_PHNUM
+
+	auxvstart->a_type = AT_PHNUM;
+	auxvstart->a_val = header.ph_count;
+
+	// AT_ENTRY
+	
+	auxvstart->a_type = AT_ENTRY;
+	auxvstart->a_val = header.entry;
+	auxvstart++;
+
+	// AT_NULL
+
+	auxvstart->a_type = AT_NULL;
 
 	// copy the data
 
-	*envpptr = envstart;
-	*argvptr = argstart;
 
 	if(interp){
 		strcpy(argdatastart, interp);
@@ -147,7 +173,9 @@ static void* stacksetup(char* interp, char** argv, char** env){
 int elf_load(thread_t* thread, vnode_t* node, char** argv, char** env){
 	
 	elf_header64 header;	
-	elf_ph64 ph;
+	elf_header64 progheader;
+	elf_ph64 ph; 
+
 	int err = 0;
 	int readc = vfs_read(&err, node, &header, sizeof(elf_header64), 0);
 	char* interp = NULL;
@@ -159,8 +187,13 @@ int elf_load(thread_t* thread, vnode_t* node, char** argv, char** env){
 	if(readc != sizeof(elf_header64) || (!check_header64(&header)))
 		return EINVAL;
 	
+	progheader = header; // incase an interpreter exists
 	
 	// find out if this needs an interpreter
+	// and also save the executable's program headers
+	// for auxv
+
+	elf_ph64 progphs[header.ph_count];
 
 	for(size_t currentph = 0; currentph < header.ph_count; ++currentph){	
 		readc = vfs_read(&err, node, &ph, header.ph_size, header.ph_pos + currentph*header.ph_size);
@@ -169,9 +202,13 @@ int elf_load(thread_t* thread, vnode_t* node, char** argv, char** env){
 		if(readc != header.ph_size)
 			return EINVAL;
 		
+		memcpy(progphs+currentph, &ph, sizeof(elf_ph64));
+
 		if(ph.type == PH_TYPE_INTERPRETER){
 
 			// load the name and elf header of the interpreter
+
+			progheader = header;
 
 			char* interp = alloc(ph.fsize + 1);
 			if(!interp)
@@ -203,8 +240,6 @@ int elf_load(thread_t* thread, vnode_t* node, char** argv, char** env){
 				err = EINVAL;
 				goto _fail;
 			}
-
-			break;
 
 		}
 		
@@ -265,7 +300,11 @@ int elf_load(thread_t* thread, vnode_t* node, char** argv, char** env){
 
 	}
 	
-	void* stack = stacksetup(interp, argv, env);
+	
+
+	
+
+	void* stack = stacksetup(interp, argv, env, progheader, progphs);
 	
 	arch_regs_setupuser(thread->regs, (void*)header.entry, stack, true);
 
