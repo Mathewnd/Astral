@@ -17,7 +17,7 @@ syscallret syscall_libc_log(char* str){
 
 	strcpy(buf, str);
 
-	printf("%s", str);
+	printf("%s\n", str);
 
 	ret.errno = 0;
 	ret.ret = 0;

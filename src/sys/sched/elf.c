@@ -57,7 +57,7 @@ static void* stacksetup(char* interp, char** argv, char** env, elf_header64 head
 	size_t initialsize = 0;
 	size_t argdatasize = 0;
 	size_t envdatasize = 0;
-	size_t auxvsize    = 5*8; // FIXME better way of keeping track of this
+	size_t auxvsize    = 5*16; // FIXME better way of keeping track of this
 
 	while(argv[argc]){
 		argdatasize += strlen(argv[argc]) + 1;
@@ -90,8 +90,7 @@ static void* stacksetup(char* interp, char** argv, char** env, elf_header64 head
 
 	// get the addresses to copy the data to
 
-	elf_ph64* phdrdatastart = STACK_TOP - header.ph_count * header.ph_size;
-	char* argdatastart = (void*) phdrdatastart - argdatasize;
+	char* argdatastart = STACK_TOP  - argdatasize;
 	char* envdatastart = argdatastart - envdatasize;
 	
 	auxv64_t* auxvstart = (void*)(((uintptr_t)envdatastart & (~0xF)) - auxvsize);
@@ -108,10 +107,8 @@ static void* stacksetup(char* interp, char** argv, char** env, elf_header64 head
 	// AT_PHDR
 	
 	auxvstart->a_type = AT_PHDR;
-	auxvstart->a_val = (uint64_t)phdrdatastart;
+	auxvstart->a_val = (uint64_t)phs;
 	auxvstart++;
-	
-	memcpy(phdrdatastart, phs, header.ph_count * header.ph_size);
 
 	// AT_PHENT
 
@@ -123,6 +120,7 @@ static void* stacksetup(char* interp, char** argv, char** env, elf_header64 head
 
 	auxvstart->a_type = AT_PHNUM;
 	auxvstart->a_val = header.ph_count;
+	auxvstart++;
 
 	// AT_ENTRY
 	
@@ -133,6 +131,7 @@ static void* stacksetup(char* interp, char** argv, char** env, elf_header64 head
 	// AT_NULL
 
 	auxvstart->a_type = AT_NULL;
+	auxvstart->a_val  = 0;
 
 	// copy the data
 
@@ -174,6 +173,7 @@ int elf_load(thread_t* thread, vnode_t* node, char** argv, char** env){
 	
 	elf_header64 header;	
 	elf_header64 progheader;
+	vnode_t* prognode = node;
 	elf_ph64 ph; 
 
 	int err = 0;
@@ -193,7 +193,7 @@ int elf_load(thread_t* thread, vnode_t* node, char** argv, char** env){
 	// and also save the executable's program headers
 	// for auxv
 
-	elf_ph64 progphs[header.ph_count];
+	elf_ph64* progphs;
 
 	for(size_t currentph = 0; currentph < header.ph_count; ++currentph){	
 		readc = vfs_read(&err, node, &ph, header.ph_size, header.ph_pos + currentph*header.ph_size);
@@ -202,15 +202,16 @@ int elf_load(thread_t* thread, vnode_t* node, char** argv, char** env){
 		if(readc != header.ph_size)
 			return EINVAL;
 		
-		memcpy(progphs+currentph, &ph, sizeof(elf_ph64));
-
+		if(ph.type == PH_TYPE_PHDR)
+			progphs = (elf_ph64*)ph.memaddr;
+		
 		if(ph.type == PH_TYPE_INTERPRETER){
 
 			// load the name and elf header of the interpreter
 
 			progheader = header;
 
-			char* interp = alloc(ph.fsize + 1);
+			interp = alloc(ph.fsize + 1);
 			if(!interp)
 				return ENOMEM;
 
@@ -300,12 +301,66 @@ int elf_load(thread_t* thread, vnode_t* node, char** argv, char** env){
 
 	}
 	
+	// also load the executable memory image if we're using an interpreter
 	
+	if(interp){
+		for(size_t currentph = 0; currentph < header.ph_count; ++currentph){
 
+			// read ph
+
+			readc = vfs_read(&err, prognode, &ph, progheader.ph_size, progheader.ph_pos + currentph*progheader.ph_size);
+
+			if(err) goto _fail;
+
+			if(readc != progheader.ph_size){
+				err = EINVAL;
+				goto _fail;
+			}
+
+			if(ph.type != PH_TYPE_LOAD)
+				continue;
+
+			if(!vmm_allocnowat((void*)ph.memaddr, phflagtommuflag(ph.flags), ph.msize)){
+				err = ENOMEM;
+				goto _fail;
+			}
+
+			// set up temporary mmu flags to copy data
+
+			arch_mmu_changeflags(arch_getcls()->context->context, ph.memaddr, ARCH_MMU_MAP_READ | ARCH_MMU_MAP_WRITE, ph.msize / PAGE_SIZE + (ph.msize % PAGE_SIZE ? 1 : 0));
+
+			// read program data
+
+			readc = vfs_read(&err, prognode, (void*)ph.memaddr, ph.fsize, ph.offset);
+
+			if(err)
+				goto _fail;
+
+			if(readc != ph.fsize){
+				err = EINVAL;
+				goto _fail;
+			}
+
+			// zero if needed
+
+			size_t zerocount = ph.msize - ph.fsize;
+
+			if(zerocount){
+				void* zeroaddr = ph.memaddr + ph.fsize;
+				memset(zeroaddr, 0, zerocount);
+			}
+
+			// reset proper mmu flags
+
+			arch_mmu_changeflags(arch_getcls()->context->context, ph.memaddr, phflagtommuflag(ph.flags), ph.msize / PAGE_SIZE + (ph.msize % PAGE_SIZE ? 1 : 0));
+
+
+        	}
 	
+	}
 
 	void* stack = stacksetup(interp, argv, env, progheader, progphs);
-	
+
 	arch_regs_setupuser(thread->regs, (void*)header.entry, stack, true);
 
 	return 0;

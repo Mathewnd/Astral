@@ -60,6 +60,8 @@ typedef struct{
 #define PH_TYPE_DYNAMIC 2
 #define PH_TYPE_INTERPRETER 3
 #define PH_TYPE_NOTE 4
+#define PH_TYPE_SHLIB 5
+#define PH_TYPE_PHDR 6
 
 typedef struct{
 	uint32_t type;

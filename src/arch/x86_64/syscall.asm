@@ -2,12 +2,13 @@ section .rodata
 
 
 extern syscall_libc_log
-func_count equ 1
+extern syscall_mmap
+func_count equ 2
 
 
 func_table:
 	dq syscall_libc_log
-
+	dq syscall_mmap
 section .text
 global asm_syscall_entry
 
@@ -45,11 +46,14 @@ asm_syscall_entry:
 	push r8
 	push r9
 	push r10
-	
+
+
+
 	; system V C abi expects the third param to be in rcx
 	; but the param is in rdx because of the syscall instruction
 
-	mov rcx, rdx
+	mov rcx, r10
+
 
 	call [func_table + rax * 8]
 

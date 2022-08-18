@@ -5,6 +5,12 @@ section .text
 
 
 	push rbp
+	mov  rbp, [rsp+24] ; save CS for usermode checking
+	; check and patch ss if it is invalid because of the syscall instruction
+	cmp qword [rsp+48], 0x33
+	jne .keepgoing
+	mov qword [rsp+48], 0x43
+	.keepgoing:
 	push rsi
 	push rdi
 	push r15
@@ -22,12 +28,13 @@ section .text
 	
 
 
-	mov rax, ds
-	cmp rax,0x40
+	
+	cmp rbp,0x3b
 	jne .noswapgs
 	swapgs
 	.noswapgs:
 
+	mov rax, ds
 	push rax
 	mov rax, es
 	push rax
@@ -38,10 +45,10 @@ section .text
 	
 	; now use kernel segments for data
 
-	mov rax, 0x30
-	mov ds, rax
-	mov es, rax
-	mov ss, rax
+	;mov rax, 0x38
+	;mov ds, rax
+	;mov es, rax
+	;mov ss, rax
 	mov rdi,cr2
 	push rdi
 
@@ -52,18 +59,15 @@ section .text
 	
 	add rsp, 24 ; cr2 gs fs
 
+	cmp rbp,0x3b
+	jne .noswapgspop
+	swapgs
+	.noswapgspop:
+	
 	pop rax
-	cmp rax,0x43
-	je .dontpopsegs
 	mov es,rax
 	pop rax
 	mov ds,rax
-	swapgs
-	jmp .poprest
-	.dontpopsegs:
-	add rsp,8 ; ds
-	
-	.poprest:
 	pop rax
 	pop rbx
 	pop rcx

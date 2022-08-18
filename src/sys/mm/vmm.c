@@ -106,6 +106,17 @@ static char* debugnames[] = {
 	"FILE"
 };
 
+static void debug_dumpusermappings(){
+	vmm_mapping* map = arch_getcls()->context->userstart;
+	
+	printf("User mappings:\n");
+
+	while(map != NULL){
+		printf("START: %016p END: %016p MMUFLAGS: %016p DATA: %016p OFFSET: %lu TYPE: %s\n", map->start, map->end, map->mmuflags, map->data, map->offset, debugnames[map->type]);
+		map = map->next;
+	}
+
+}
 static void debug_dumpkernelmappings(){
 	vmm_mapping* map = kmapstart;
 	
@@ -375,6 +386,31 @@ void* vmm_alloc(size_t pagec, size_t mmuflags){
 	return addr;
 }
 
+void* vmm_allocfrom(void* addr, size_t mmuflags, size_t pagec){
+	
+	int* lock;
+	vmm_mapping** start;
+	
+	getcontextinfo(addr, &lock, &start);
+
+	spinlock_acquire(lock);
+	
+	addr = findfirstfreearea(findmappingfromaddr(*start, addr), pagec);
+
+	if(!addr)
+		goto _done;
+	
+	if(!setmap(start, addr, pagec, mmuflags, VMM_TYPE_ANON, 0, 0))
+		addr = NULL;
+
+	_done:
+	
+	spinlock_release(lock);
+
+	return addr;
+	
+}
+
 bool vmm_unmap(void* addr, size_t pagec){
 	
 	int* lock;
@@ -448,6 +484,14 @@ bool vmm_allocnowat(void* addr, size_t mmuflags, size_t size){
 
 	spinlock_acquire(lock);
 	
+	vmm_mapping* m = findmappingfromaddr(*start, addr);
+
+	if(m->type != VMM_TYPE_FREE || (addr + size*PAGE_SIZE-1) > m->end){
+		spinlock_release(lock);
+		return false;
+	}
+
+
 	// XXX allocate 1 page at a time to reduce fragmentation
 
 	void* paddr = pmm_alloc(size);
@@ -480,7 +524,6 @@ bool vmm_dealwithrequest(void* addr){
 	if(!start) return false;
 
 	spinlock_acquire(lock);
-	
 
 	bool status;
 	vmm_mapping* map = findmappingfromaddr(*start, addr);
@@ -498,7 +541,7 @@ bool vmm_dealwithrequest(void* addr){
 
 	addr = (size_t)addr & ~(0xFFF);
 
-	printf("Demand paging %p\n", addr);
+	//printf("Demand paging %p\n", addr);
 	
 	
 
