@@ -1,6 +1,9 @@
 #ifndef _SYSCALLS_H_INCLUDE
 #define _SYSCALLS_H_INCLUDE
 
+#include <stddef.h>
+#include <sys/types.h>
+
 typedef struct {
         long ret;
         long errno;
