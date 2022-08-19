@@ -5,6 +5,7 @@
 #include <arch/regs.h>
 #include <kernel/vfs.h>
 #include <kernel/vmm.h>
+#include <kernel/fd.h>
 
 #define THREAD_PRIORITY_INTERRUPT 0
 #define THREAD_PRIORITY_KERNEL 1
@@ -39,6 +40,9 @@ typedef struct _proc_t{
 	pid_t pid;
 	gid_t gid;
 	uid_t uid;
+	fd_t* fds;
+	size_t fdcount;
+	off_t  firstfreefd;
 	vmm_context* context;
 	thread_t** threads;
 	size_t threadcount;

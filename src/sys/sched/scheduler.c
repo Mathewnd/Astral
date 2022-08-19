@@ -9,6 +9,7 @@
 #include <string.h>
 #include <kernel/elf.h>
 
+#define PROC_START_FD_COUNT 3
 #define THREAD_QUANTUM 10000
 
 // queue 0: interrupt threads
@@ -33,6 +34,17 @@ static proc_t* allocproc(size_t threadcount){
 		free(proc);
 		return NULL;
 	}
+
+	proc->fds = alloc(sizeof(fd_t) * PROC_START_FD_COUNT);
+
+	if(!proc->fds){
+		free(proc->threads);
+		free(proc);
+		return NULL;
+	}
+
+	proc->fdcount = PROC_START_FD_COUNT;
+	proc->firstfreefd = PROC_START_FD_COUNT;
 
 	proc->context = vmm_newcontext();
 
@@ -277,8 +289,47 @@ void sched_runinit(){
 	proc->cwd  = vfs_root();
 	proc->pid  = 1;
 
+	fd_t* stdinfd = &proc->fds[0];
+	fd_t* stdoutfd = &proc->fds[1];
+	fd_t* stderrfd = &proc->fds[2];
+	
+	// dummy file before console actually gets implemented and a devfs node
+	
+	#define CONSOLE_DUMMY "etc/consoledummy"
+
+	size_t ret = vfs_create(vfs_root(), CONSOLE_DUMMY, 0777);
+
+	if(ret){
+		printf("Create failed: %s\n", strerror(ret));
+		_panic("Failed to create dummy console", 0);
+	}
+	ret = vfs_open(&stdinfd->node, vfs_root(), CONSOLE_DUMMY);
+
+	if(ret){
+		printf("Open failed: %s\n", strerror(ret));
+		_panic("Could not open stdin for init", 0);
+	}
+
+	ret = vfs_open(&stdoutfd->node, vfs_root(), CONSOLE_DUMMY);
+
+	if(ret){
+		printf("Open failed: %s\n", strerror(ret));
+		_panic("Could not open stdout for init", 0);
+	}
+
+	ret = vfs_open(&stderrfd->node, vfs_root(), CONSOLE_DUMMY);
+
+	if(ret){
+		printf("Open failed: %s\n", strerror(ret));
+		_panic("Could not open stderr for init", 0);
+	}
+	
+	stdinfd->offset = stdoutfd->offset = stderrfd->offset = 0;
+	stdinfd->flags = O_RDONLY;
+	stdoutfd->flags = stderrfd->flags = O_WRONLY;
+
 	vnode_t* node;
-	size_t ret = vfs_open(&node, vfs_root(), "sbin/init");
+	ret = vfs_open(&node, vfs_root(), "sbin/init");
 
 	if(ret){
 		printf("Open failed: %s\n", strerror(ret));
@@ -293,8 +344,6 @@ void sched_runinit(){
 		printf("ELF load error: %s\n", strerror(ret));
 		_panic("Could not load init", 0);
 	}
-	
-	thread->extraregs.gsbase = 0xFFFFFFFFDEADBEEF;
 
 	switch_thread(thread);
 	
