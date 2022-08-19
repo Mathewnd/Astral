@@ -304,7 +304,7 @@ int elf_load(thread_t* thread, vnode_t* node, char** argv, char** env){
 	// also load the executable memory image if we're using an interpreter
 	
 	if(interp){
-		for(size_t currentph = 0; currentph < header.ph_count; ++currentph){
+		for(size_t currentph = 0; currentph < progheader.ph_count; ++currentph){
 
 			// read ph
 

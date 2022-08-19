@@ -45,6 +45,7 @@
 #define MFD_ALLOW_SEALING 2U
 
 syscallret syscall_mmap(void* hint, size_t len, int prot, int flags, int fd, off_t offset){
+
 	syscallret retv;
 	
 	retv.ret = -1;
@@ -79,10 +80,10 @@ syscallret syscall_mmap(void* hint, size_t len, int prot, int flags, int fd, off
 	void* ret = NULL;
 
 	if(hint)
-		ret = vmm_allocnowat(hint, mmuflags, plen) ? hint : NULL; // TODO demand page
+		ret = vmm_allocnowat(hint, mmuflags, len) ? hint : NULL; // TODO demand page
 	
 	if(!ret && !(flags & MAP_FIXED))
-		ret = vmm_allocfrom(USER_ALLOC_START, mmuflags, len);
+		ret = vmm_allocfrom(USER_ALLOC_START, mmuflags, plen);
 
 	if(!ret){
 		retv.errno = ENOMEM;

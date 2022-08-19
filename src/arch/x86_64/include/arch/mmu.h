@@ -14,6 +14,11 @@
 #define ARCH_MMU_MAP_PAGESIZE     (uint64_t)(1 << 7)
 #define ARCH_MMU_MAP_ACCESSED	  (uint64_t)(1 << 5)
 
+#define ARCH_MMU_ERROR_WRITE 2
+#define ARCH_MMU_ERROR_PRESENT 1
+#define ARCH_MMU_ERROR_USER 4
+#define ARCH_MMU_ERROR_INSTFETCH 16
+
 typedef uint64_t* arch_mmu_tableptr;
 
 int arch_mmu_map(arch_mmu_tableptr, void*, void*, size_t);

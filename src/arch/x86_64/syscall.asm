@@ -4,13 +4,15 @@ section .rodata
 extern syscall_libc_log
 extern syscall_mmap
 extern syscall_arch_ctl
-func_count equ 3
+extern syscall_gettid
+func_count equ 4
 
 
 func_table:
 	dq syscall_libc_log
 	dq syscall_mmap
 	dq syscall_arch_ctl
+	dq syscall_gettid
 section .text
 global asm_syscall_entry
 

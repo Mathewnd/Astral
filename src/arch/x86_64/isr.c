@@ -16,7 +16,7 @@ void isr_except(arch_regs *reg){
 
 void isr_pagefault(arch_regs *reg){
 	
-	if(!vmm_dealwithrequest(reg->cr2))
+	if(!vmm_dealwithrequest(reg->cr2, reg->error, reg->cs == 0x3b))
 		_panic("Page fault!", reg);
 	
 }

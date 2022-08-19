@@ -395,14 +395,16 @@ void* vmm_allocfrom(void* addr, size_t mmuflags, size_t pagec){
 
 	spinlock_acquire(lock);
 	
-	addr = findfirstfreearea(findmappingfromaddr(*start, addr), pagec);
+	vmm_mapping* map = findmappingfromaddr(*start, addr);
+
+	addr = findfirstfreearea(map, pagec);
 
 	if(!addr)
 		goto _done;
 	
 	if(!setmap(start, addr, pagec, mmuflags, VMM_TYPE_ANON, 0, 0))
 		addr = NULL;
-
+	
 	_done:
 	
 	spinlock_release(lock);
@@ -514,8 +516,11 @@ bool vmm_allocnowat(void* addr, size_t mmuflags, size_t size){
 
 // called by the page fault handler
 
-bool vmm_dealwithrequest(void* addr){
+bool vmm_dealwithrequest(void* addr, long error, bool user){
 	
+	if(user && addr > USER_SPACE_END)
+		return false;
+
 	int* lock;
 	vmm_mapping** start = NULL;
 	
@@ -533,9 +538,26 @@ bool vmm_dealwithrequest(void* addr){
 		status = false;
 		goto done;
 	}
-	
+
 	if(map->type == VMM_TYPE_FILE)
 		_panic("File mappings are not supported (yet)", 0);
+
+	size_t goodmmuflags = 1;
+
+	if(error & ARCH_MMU_ERROR_WRITE)
+		goodmmuflags |= ARCH_MMU_MAP_WRITE;
+	
+	if(error & ARCH_MMU_ERROR_USER)
+		goodmmuflags |= ARCH_MMU_MAP_USER;
+	
+	if(error & ARCH_MMU_ERROR_INSTFETCH == 0)
+		goodmmuflags |= ARCH_MMU_MAP_NOEXEC;
+
+
+	if(goodmmuflags != (map->mmuflags & goodmmuflags))
+		return false;
+	
+
 
 	// allocate a page
 
