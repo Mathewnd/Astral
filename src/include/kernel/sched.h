@@ -41,6 +41,7 @@ typedef struct _proc_t{
 	gid_t gid;
 	uid_t uid;
 	fd_t* fds;
+	int fdlock;
 	size_t fdcount;
 	off_t  firstfreefd;
 	vmm_context* context;

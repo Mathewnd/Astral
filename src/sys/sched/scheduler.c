@@ -207,6 +207,8 @@ static void switch_thread(thread_t* thread){
 		vmm_switchcontext(thread->proc->context);
 
 	}
+	
+	arch_getcls()->thread = thread;
 
 	arch_setkernelstack(thread->kernelstack);
 
@@ -335,6 +337,7 @@ void sched_runinit(){
 		printf("Open failed: %s\n", strerror(ret));
 		_panic("Could not load init", 0);
 	}
+
 	char* argv[] = {"/sbin/init", NULL};
 	char* env[]  = {NULL};
 

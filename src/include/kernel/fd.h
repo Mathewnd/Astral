@@ -1,6 +1,11 @@
 #ifndef _FD_H_INCLUDE
 #define _FD_H_INCLUDE
 
+#include <kernel/vfs.h>
+#include <sys/types.h>
+
+#define FD_FLAGS_READ 1
+#define FD_FLAGS_WRITE 2
 
 #define O_RDONLY 00
 #define O_WRONLY 01
@@ -30,6 +35,7 @@ typedef struct {
         vnode_t* node;
         off_t offset;
         int flags;
+	int lock;
 } fd_t;
 
 

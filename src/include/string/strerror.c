@@ -1,7 +1,7 @@
 #include <string.h>
 
 static char* strs[] = {
-	"No error",
+	"Unknown error",
 	"Not a directory",
 	"No such device",
 	"Out of memory",
@@ -12,5 +12,5 @@ static char* strs[] = {
 };
 
 char* strerror(int errnum){
-	return strs[errnum];
+	return strs[0]; // FIXME 0 for now because ABI change
 }

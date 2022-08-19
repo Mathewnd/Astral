@@ -5,7 +5,8 @@ extern syscall_libc_log
 extern syscall_mmap
 extern syscall_arch_ctl
 extern syscall_gettid
-func_count equ 4
+extern syscall_open
+func_count equ 5
 
 
 func_table:
@@ -13,6 +14,7 @@ func_table:
 	dq syscall_mmap
 	dq syscall_arch_ctl
 	dq syscall_gettid
+	dq syscall_open
 section .text
 global asm_syscall_entry
 
