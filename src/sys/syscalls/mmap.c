@@ -56,7 +56,7 @@ syscallret syscall_mmap(void* hint, size_t len, int prot, int flags, int fd, off
 		return retv;
 	}
 
-	if(flags != (MAP_ANON | MAP_PRIVATE)){
+	if((flags & (MAP_ANON | MAP_PRIVATE)) != (MAP_ANON | MAP_PRIVATE)){
 		retv.errno = ENOSYS;
 		return retv;
 		
@@ -81,8 +81,7 @@ syscallret syscall_mmap(void* hint, size_t len, int prot, int flags, int fd, off
 
 	if(hint)
 		ret = vmm_allocnowat(hint, mmuflags, len) ? hint : NULL; // TODO demand page
-	
-	if(!ret && !(flags & MAP_FIXED))
+	if(ret == NULL && (flags & MAP_FIXED) == 0)
 		ret = vmm_allocfrom(USER_ALLOC_START, mmuflags, plen);
 
 	if(!ret){
