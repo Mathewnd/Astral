@@ -327,8 +327,8 @@ void sched_runinit(){
 	}
 	
 	stdinfd->offset = stdoutfd->offset = stderrfd->offset = 0;
-	stdinfd->flags = O_RDONLY;
-	stdoutfd->flags = stderrfd->flags = O_WRONLY;
+	stdinfd->flags = O_RDONLY + 1;
+	stdoutfd->flags = stderrfd->flags = O_WRONLY + 1;
 
 	vnode_t* node;
 	ret = vfs_open(&node, vfs_root(), "sbin/init");

@@ -19,7 +19,7 @@ syscallret syscall_lseek(int ifd, off_t offset, int whence){
 
         spinlock_acquire(&proc->fdlock);
 
-        if(proc->fdcount <= ifd || fd->node == NULL || (fd->flags & FD_FLAGS_READ) == 0){
+        if(proc->fdcount <= ifd || fd->node == NULL){
                 spinlock_release(&proc->fdlock);
                 retv.errno = EBADF;
                 return retv;
