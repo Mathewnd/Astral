@@ -47,6 +47,15 @@ int devman_read(int *error, int dev, void* buff, size_t count, size_t offset){
 
 }
 
+int devman_isatty(int dev){
+	
+	if(major(dev) > highestmajor)
+		return ENOTTY;
+	
+	return majorcalls[major(dev)]->isatty(minor(dev));
+	
+}
+
 void devman_init(){
 	
 	devfs_init();

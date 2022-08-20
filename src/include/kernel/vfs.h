@@ -67,6 +67,7 @@ int vfs_mkdir(dirnode_t* ref, char* path, mode_t mode);
 int vfs_create(dirnode_t* ref, char* path, mode_t mode);
 int vfs_write(int* error, vnode_t* node, void* buff, size_t count, size_t offset);
 int vfs_read(int* error, vnode_t* node, void* buff, size_t count, size_t offset);
+int vfs_isatty(vnode_t* node);
 
 void vfs_init();
 dirnode_t* vfs_root();

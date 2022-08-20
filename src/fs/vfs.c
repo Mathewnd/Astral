@@ -78,6 +78,15 @@ int vfs_write(int* error, vnode_t* node, void* buff, size_t count, size_t offset
 	
 }
 
+int vfs_isatty(vnode_t* node){
+	
+	if(GETTYPE(node->st.st_mode) != TYPE_CHARDEV)
+		return ENOTTY;
+	
+	return devman_isatty(node->st.st_rdev);
+	
+}
+
 int vfs_read(int* error, vnode_t* node, void* buff, size_t count, size_t offset){
 	
 	int type = GETTYPE(node->st.st_mode);

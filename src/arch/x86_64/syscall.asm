@@ -9,7 +9,8 @@ extern syscall_open
 extern syscall_read
 extern syscall_lseek
 extern syscall_close
-func_count equ 8
+extern syscall_isatty
+func_count equ 9
 
 
 func_table:
@@ -21,6 +22,7 @@ func_table:
 	dq syscall_read
 	dq syscall_lseek
 	dq syscall_close
+	dq syscall_isatty
 section .text
 global asm_syscall_entry
 
