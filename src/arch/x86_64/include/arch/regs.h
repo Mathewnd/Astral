@@ -6,6 +6,7 @@
 
 typedef struct{
 	uint64_t gsbase, fsbase;
+	uint8_t  fx[512];
 } arch_extraregs;
 
 typedef struct{

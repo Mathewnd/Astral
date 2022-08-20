@@ -37,4 +37,15 @@ void cpu_state_init(){
 	// undefined opcode exception will handle system calls then
 	else printf("CPU%lu: syscall instruction not supported\n", arch_getcls()->lapicid);
 
+	// enable SSE	
+	
+	asm volatile(	
+		"mov %%cr0, %%rax;"
+		"and $0xFFFB, %%ax;"
+		"or  $2, %%eax;"
+		"mov %%rax, %%cr0;"
+		"mov %%cr4, %%rax;"
+		"or  $0b11000000000, %%rax;"
+		"mov %%rax, %%cr4;"
+		: : : "rax");
 }
