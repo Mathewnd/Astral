@@ -50,6 +50,11 @@ static inline slabdesc* getslabdesc(size_t size){
 
 }
 
+size_t slab_getentrysize(void* addr){
+	slab_t *slab = (size_t)addr & ~(0xFFF);
+        return slab->entrysize;
+}
+
 static void free(void* addr){
 	
 	// align down to page size
