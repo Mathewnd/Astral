@@ -18,6 +18,8 @@
 #include <arch/smp.h>
 #include <kernel/timer.h>
 
+/*
+
 static volatile struct limine_terminal_request liminettyr = {
     .id = LIMINE_TERMINAL_REQUEST,
     .revision = 0
@@ -43,15 +45,12 @@ void liminewrite(char* str, size_t c){
 	
 }
 
-void kmain(){
-	if(!liminettyr.response)
-		return;
+*/
 
-	liminetty = liminettyr.response;
-	liminetty->write += 0xFFFF800000000000;
-	
-	console_setwritehook(liminewrite);
-	
+void kmain(){
+
+	liminetty_init();
+
 	bsp_setcls();
 
 	gdt_init();
@@ -65,7 +64,7 @@ void kmain(){
 	
 	vmm_init();	
 
-	liminettyctx = arch_getcls()->context;
+	liminetty_setcontext(arch_getcls()->context);
 	
 	alloc_init();
 

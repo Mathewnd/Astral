@@ -64,4 +64,5 @@ bool		vmm_setfree(void* addr, size_t pagec);
 bool		vmm_allocnowat(void* addr, size_t mmuflags, size_t size);
 void*		vmm_allocfrom(void* addr, size_t mmuflags, size_t size);
 vmm_context*	vmm_newcontext();
+void		vmm_switchcontext(vmm_context*);
 #endif
