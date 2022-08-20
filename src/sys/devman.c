@@ -17,6 +17,7 @@ int devman_newdevice(char* name, int type, int major, int minor, devcalls* calls
 		if(!addr)
 			return ENOMEM;
 		majorcalls = addr;
+		highestmajor = major;
 	}
 	
 	majorcalls[major] = calls;
@@ -26,10 +27,9 @@ int devman_newdevice(char* name, int type, int major, int minor, devcalls* calls
 }
 
 int devman_write(int *error, int dev, void* buff, size_t count, size_t offset){
-	
+
 	if(major(dev) > highestmajor)
 		return ENODEV;
-	
 
 	return majorcalls[major(dev)]->write(error, minor(dev), buff, count, offset);
 	

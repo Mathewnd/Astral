@@ -295,31 +295,23 @@ void sched_runinit(){
 	fd_t* stdoutfd = &proc->fds[1];
 	fd_t* stderrfd = &proc->fds[2];
 	
-	// dummy file before console actually gets implemented and a devfs node
-	
-	#define CONSOLE_DUMMY "etc/consoledummy"
+	#define CONSOLE_PATH "dev/console"
 
-	size_t ret = vfs_create(vfs_root(), CONSOLE_DUMMY, 0777);
-
-	if(ret){
-		printf("Create failed: %s\n", strerror(ret));
-		_panic("Failed to create dummy console", 0);
-	}
-	ret = vfs_open(&stdinfd->node, vfs_root(), CONSOLE_DUMMY);
+	int ret = vfs_open(&stdinfd->node, vfs_root(), CONSOLE_PATH);
 
 	if(ret){
 		printf("Open failed: %s\n", strerror(ret));
 		_panic("Could not open stdin for init", 0);
 	}
 
-	ret = vfs_open(&stdoutfd->node, vfs_root(), CONSOLE_DUMMY);
+	ret = vfs_open(&stdoutfd->node, vfs_root(), CONSOLE_PATH);
 
 	if(ret){
 		printf("Open failed: %s\n", strerror(ret));
 		_panic("Could not open stdout for init", 0);
 	}
 
-	ret = vfs_open(&stderrfd->node, vfs_root(), CONSOLE_DUMMY);
+	ret = vfs_open(&stderrfd->node, vfs_root(), CONSOLE_PATH);
 
 	if(ret){
 		printf("Open failed: %s\n", strerror(ret));

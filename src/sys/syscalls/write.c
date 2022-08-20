@@ -59,6 +59,9 @@ syscallret syscall_write(int ifd, void* buff, size_t count){
 
 	fd->offset += writec;
 	
+	if(fd->node->st.st_size < fd->offset)
+		fd->offset = fd->node->st.st_size;
+
 	retv.errno = 0;
 	retv.ret = writec;
 

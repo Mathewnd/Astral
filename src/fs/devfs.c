@@ -39,6 +39,8 @@ static int devfs_open(dirnode_t* parent, char* name){
 		return ENOMEM;
 	}
 
+	node->st = devnode->st;
+
 	return 0;
 
 }
