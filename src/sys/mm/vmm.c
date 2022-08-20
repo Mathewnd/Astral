@@ -580,6 +580,8 @@ bool vmm_dealwithrequest(void* addr, long error, bool user){
 	
 	status = true;
 	
+	memset(addr, 0, PAGE_SIZE);
+
 	done:
 
 	spinlock_release(lock);

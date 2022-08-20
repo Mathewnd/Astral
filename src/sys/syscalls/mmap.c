@@ -84,14 +84,14 @@ syscallret syscall_mmap(void* hint, size_t len, int prot, int flags, int fd, off
 	if(ret == NULL && (flags & MAP_FIXED) == 0)
 		ret = vmm_allocfrom(USER_ALLOC_START, mmuflags, plen);
 
-	if(!ret){
+	if(!ret)
 		retv.errno = ENOMEM;
-		if(flags & MAP_ANON)
-			memset(ret, 0, plen);
-	}
-	else
+	else{
 		retv.ret = ret;
-
+		if(hint && (flags & MAP_ANON))
+			memset(ret, 0, plen*PAGE_SIZE);
+	}
+	
 	return retv;
 
 }
