@@ -43,6 +43,8 @@ void* pageallocator_alloc(size_t size){
 	
 	spinlock_release(&lock);
 	
+	memset(alloc->start, 0, pagec*PAGE_SIZE);
+
 	return alloc->start;
 	
 }
