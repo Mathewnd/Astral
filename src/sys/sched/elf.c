@@ -71,12 +71,6 @@ static void* stacksetup(char* interp, char** argv, char** env, elf_header64 head
 		++envc;
 	}
 	
-	if(interp){
-		argdatasize += strlen(interp) + 1;
-		initialsize += strlen(interp) + 1;
-		initialsize += sizeof(char*); // interpreter ptr
-	}
-	
 	// pointers to args and envs
 
 	initialsize += argc*sizeof(char*); //args
@@ -97,8 +91,6 @@ static void* stacksetup(char* interp, char** argv, char** env, elf_header64 head
 	// count + 1 because of a null entry
 	char** envstart = (void*)auxvstart - (envc + 1)*sizeof(char*);
 	char** argstart = (void*)envstart - (argc + 1)*sizeof(char*);
-	if(interp)
-		--argstart;
 	
 	size_t* argcptr = (void*)argstart - sizeof(size_t);
 	
@@ -136,12 +128,6 @@ static void* stacksetup(char* interp, char** argv, char** env, elf_header64 head
 	// copy the data
 
 
-	if(interp){
-		strcpy(argdatastart, interp);
-		*argstart++ = argdatastart;
-		argdatastart += strlen(interp) + 1;
-	}
-
 	for(size_t i = 0; i < argc; ++i){
 		strcpy(argdatastart, argv[i]);
 		*argstart++ = argdatastart;
@@ -158,9 +144,6 @@ static void* stacksetup(char* interp, char** argv, char** env, elf_header64 head
 
 	*envstart = NULL;
 
-	if(interp)
-		argc++;
-	
 	*argcptr = argc;
 
 	

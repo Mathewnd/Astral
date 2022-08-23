@@ -11,7 +11,7 @@ void* alloc(size_t size){
 }
 
 void free(void* addr){
-	if(pageallocator_free(addr))
+	if(!pageallocator_free(addr))
 		slab_free(addr);
 }
 

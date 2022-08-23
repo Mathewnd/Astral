@@ -69,7 +69,7 @@ syscallret syscall_open(const char* pathname, int flags, mode_t mode){
 	fd->flags = flags + 1; // 1 is added to make O_RDONLY etc easier to lookup
 	fd->offset = 0;
 	
-	vnode_t* file;
+	vnode_t* file = NULL;
 
 	size_t ret = vfs_open(&file, 
 		*name == '/' ? proc->root : proc->cwd,

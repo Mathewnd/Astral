@@ -57,6 +57,8 @@ syscallret syscall_read(int ifd, void* buff, size_t count){
 
 	retv.errno = 0;
 	retv.ret = readc;
+
+	free(kbuff);
 	
 	return retv;
 }

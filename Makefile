@@ -44,5 +44,8 @@ sysdisk.iso: $(ISO) $(INITRD)
 test: $(KERNEL) sysdisk.iso
 	qemu-system-x86_64 -monitor stdio -cdrom sysdisk.iso -d int -no-reboot -no-shutdown -m 8G -smp cpus=6
 
+kvm: $(KERNEL) sysdisk.iso
+	qemu-system-x86_64 -monitor stdio -cdrom sysdisk.iso -no-reboot -no-shutdown -m 8G -smp cpus=6 -enable-kvm
+
 clean:
 	rm $(call rwildcard,src,*.o) $(KERNELDEPS)

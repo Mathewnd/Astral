@@ -56,7 +56,8 @@ size_t slab_getentrysize(void* addr){
 }
 
 static void free(void* addr){
-	
+	if(addr == 0)
+		return;
 	// align down to page size
 	
 	slab_t *slab = (size_t)addr & ~(0xFFF);

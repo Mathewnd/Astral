@@ -5,7 +5,6 @@
 #include <arch/spinlock.h>
 
 syscallret syscall_close(int ifd){
-
         syscallret retv;
         retv.ret = -1;
 

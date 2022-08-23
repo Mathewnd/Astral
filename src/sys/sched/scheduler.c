@@ -72,12 +72,8 @@ static thread_t* allocthread(proc_t* proc, state_t state, pid_t tid, size_t ksta
 		return NULL;
 	}
 
-
-	// XXX use alloc() when it's better
 	
-	size_t pagec = kstacksize / PAGE_SIZE + 1;
-	
-	thread->kernelstackbase = pmm_hhdmalloc(pagec);
+	thread->kernelstackbase = alloc(kstacksize);
 
 
 	if(!thread->kernelstackbase){
@@ -98,8 +94,7 @@ static thread_t* allocthread(proc_t* proc, state_t state, pid_t tid, size_t ksta
 
 static thread_t* freethread(thread_t* thread){
 	free(thread->regs);
-	// XXX use free() when it's better
-	pmm_free(thread->kernelstackbase, thread->stacksize / PAGE_SIZE + 1);
+	free(thread->kernelstack);
 	free(thread);
 }
 
@@ -330,7 +325,7 @@ void sched_runinit(){
 		_panic("Could not load init", 0);
 	}
 
-	char* argv[] = {"/sbin/init", NULL};
+	char* argv[] = {"/usr/bin/bash", NULL};
 	char* env[]  = {NULL};
 
 	ret = elf_load(thread, node, argv, env);
