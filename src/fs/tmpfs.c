@@ -62,6 +62,7 @@ static int tmpfs_read(int *error, vnode_t* node, void* buff, size_t count, size_
 		count = sizemax;
 	
 	memcpy(buff, node->fsdata + offset, count);
+	*error = 0;
 
 	return count;
 	
