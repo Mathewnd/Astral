@@ -42,18 +42,21 @@ syscallret syscall_read(int ifd, void* buff, size_t count){
 
 	int err;
 	size_t readc = vfs_read(&err, fd->node, kbuff, count, fd->offset);
-	
-	spinlock_release(&fd->lock);
 
 
-	if(err){
+
+	if(err){	
+		spinlock_release(&fd->lock);
 		free(kbuff);
 		retv.errno = err;
 		return retv;
 	}
 
-	memcpy(buff, kbuff, count); // XXX user version for safety
+	fd->offset += readc;
+	
+	spinlock_release(&fd->lock);
 
+	memcpy(buff, kbuff, count); // XXX user version for safety
 
 	retv.errno = 0;
 	retv.ret = readc;
