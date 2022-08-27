@@ -7,9 +7,6 @@
 #include <stdint.h>
 
 #define ELF_MAGIC 0x464c457f // 0x7F ELF
-#define ELF_BITS_64 2
-#define ELF_ISA_X86_64 0x3E
-#define ELF_ENDIANNESS_LITTLE 1
 
 #define ELF_RELOCATABLE 1
 #define ELF_EXECUTABLE 2
@@ -26,13 +23,26 @@
 #define ELF_FLAG_WRITABLE 2
 #define ELF_FLAG_READABLE 4
 
-#define STACK_TOP 0x800000000000
+#define STACK_TOP (void*)0x800000000000
 
 #define AT_NULL 0
 #define AT_PHDR 3
 #define AT_PHENT 4
 #define AT_PHNUM 5
 #define AT_ENTRY 9
+
+typedef struct{
+	uint64_t a_type;
+	uint64_t a_val;
+} auxv64_t;
+
+typedef struct {
+	auxv64_t phdr;
+	auxv64_t phnum;
+	auxv64_t phent;
+	auxv64_t entry;
+	auxv64_t null;
+} auxv64_list;
 
 typedef struct{
 	uint32_t magic;

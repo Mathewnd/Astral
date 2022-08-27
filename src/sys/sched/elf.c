@@ -4,16 +4,7 @@
 #include <errno.h>
 #include <string.h>
 #include <arch/cls.h>
-
-typedef struct{
-	uint64_t a_type;
-	uint64_t a_val;
-} auxv64_t;
-
-typedef struct {
-	auxv64_t phdr;
-	auxv64_t null;
-} auxv64_list;
+#include <arch/elfmagic.h>
 
 static size_t phflagtommuflag(size_t phflags){
 	
@@ -33,31 +24,71 @@ static size_t phflagtommuflag(size_t phflags){
 }
 
 static bool check_header64(elf_header64* header){
-	// XXX throw this into arch
-
+	
 	if(header->magic != ELF_MAGIC)
 		return false;
 	
-	if(header->bits != ELF_BITS_64)
+	if(header->bits != ARCH_ELF_BITS)
 		return false;
 	
-	if(header->endianness != ELF_ENDIANNESS_LITTLE)
+	if(header->endianness != ARCH_ELF_ENDIANNESS)
 		return false;
 
-	if(header->isa != ELF_ISA_X86_64)
+	if(header->isa != ARCH_ELF_ISA)
 		return false;
 	
 	return true;
 
 }
 
-static void* stacksetup(char* interp, char** argv, char** env, elf_header64 header, elf_ph64* phs){
+static int load(vnode_t* node, elf_ph64 ph){
+
+	size_t mmuflags = phflagtommuflag(ph.flags);
+
+	// allocate memory for the section
+
+	if(!vmm_allocnowat((void*)ph.memaddr, mmuflags, ph.msize))
+		return ENOMEM;
+	
+	// set up temporary mmu flags to copy data
+
+	size_t pagesize = ph.msize / PAGE_SIZE + (ph.msize % PAGE_SIZE ? 1 : 0);
+
+	arch_mmu_changeflags(arch_getcls()->context->context, (void*)ph.memaddr, ARCH_MMU_MAP_READ | ARCH_MMU_MAP_WRITE, pagesize);
+	
+	int err;
+
+	size_t readc = vfs_read(&err, node, (void*)ph.memaddr, ph.fsize, ph.offset);
+	
+	if(err)
+		return err;
+	
+	if(readc != ph.fsize)
+		return EINVAL;
+	
+			// zero if needed
+
+	size_t zerocount = ph.msize - ph.fsize;
+
+	if(zerocount){
+		void* zeroaddr = (void*)ph.memaddr + ph.fsize;
+		memset(zeroaddr, 0, zerocount);
+	}
+
+	// reset proper mmu flags
+
+	arch_mmu_changeflags(arch_getcls()->context->context, (void*)ph.memaddr, mmuflags, pagesize);
+	
+	return 0;
+
+}
+
+static void* stacksetup(char** argv, char** env, auxv64_list auxv){
 	size_t argc = 0;
 	size_t envc = 0;
 	size_t initialsize = 0;
 	size_t argdatasize = 0;
 	size_t envdatasize = 0;
-	size_t auxvsize    = 5*16; // FIXME better way of keeping track of this
 
 	while(argv[argc]){
 		argdatasize += strlen(argv[argc]) + 1;
@@ -87,45 +118,17 @@ static void* stacksetup(char* interp, char** argv, char** env, elf_header64 head
 	char* argdatastart = STACK_TOP  - argdatasize;
 	char* envdatastart = argdatastart - envdatasize;
 	
-	auxv64_t* auxvstart = (void*)(((uintptr_t)envdatastart & (~0xF)) - auxvsize);
+	auxv64_list* auxvstart = (void*)(((uintptr_t)envdatastart & (~0xF)) - sizeof(auxv));
+	
 	// count + 1 because of a null entry
 	char** envstart = (void*)auxvstart - (envc + 1)*sizeof(char*);
 	char** argstart = (void*)envstart - (argc + 1)*sizeof(char*);
-	
+
 	size_t* argcptr = (void*)argstart - sizeof(size_t);
 	
-	// auxv
-
-	// AT_PHDR
-	
-	auxvstart->a_type = AT_PHDR;
-	auxvstart->a_val = (uint64_t)phs;
-	auxvstart++;
-
-	// AT_PHENT
-
-	auxvstart->a_type = AT_PHENT;
-	auxvstart->a_val = header.ph_size;
-	auxvstart++;
-
-	// AT_PHNUM
-
-	auxvstart->a_type = AT_PHNUM;
-	auxvstart->a_val = header.ph_count;
-	auxvstart++;
-
-	// AT_ENTRY
-	
-	auxvstart->a_type = AT_ENTRY;
-	auxvstart->a_val = header.entry;
-	auxvstart++;
-
-	// AT_NULL
-
-	auxvstart->a_type = AT_NULL;
-	auxvstart->a_val  = 0;
-
 	// copy the data
+	
+	memcpy(auxvstart, &auxv, sizeof(auxv));
 
 
 	for(size_t i = 0; i < argc; ++i){
@@ -154,206 +157,116 @@ static void* stacksetup(char* interp, char** argv, char** env, elf_header64 head
 
 int elf_load(thread_t* thread, vnode_t* node, char** argv, char** env){
 	
-	elf_header64 header;	
-	elf_header64 progheader;
-	vnode_t* prognode = node;
-	elf_ph64 ph; 
-
+	elf_header64 header;
+	elf_ph64 phbuff;
+	
 	int err = 0;
 	int readc = vfs_read(&err, node, &header, sizeof(elf_header64), 0);
-	char* interp = NULL;
 
 	if(err)
 		return err;
-	
 
 	if(readc != sizeof(elf_header64) || (!check_header64(&header)))
 		return EINVAL;
 	
-	progheader = header; // incase an interpreter exists
+	auxv64_list auxv;
+
+	auxv.null.a_type = AT_NULL;
+	auxv.phdr.a_type = AT_PHDR;
+	auxv.phnum.a_type = AT_PHNUM;
+	auxv.phent.a_type = AT_PHENT;
+	auxv.entry.a_type = AT_ENTRY;
 	
-	// find out if this needs an interpreter
-	// and also save the executable's program headers
-	// for auxv
+	auxv.phnum.a_val = header.ph_count;
+	auxv.phent.a_val = header.ph_size;
+	auxv.entry.a_val = header.entry;
 
-	elf_ph64* progphs;
-
-	for(size_t currentph = 0; currentph < header.ph_count; ++currentph){	
-		readc = vfs_read(&err, node, &ph, header.ph_size, header.ph_pos + currentph*header.ph_size);
+	char* interp = NULL; // interpreter name location in program image
+	
+	for(size_t pos = header.ph_pos, ph = 0; ph < header.ph_count; ++ph, pos += header.ph_size){
+		
+		readc = vfs_read(&err, node, &phbuff, header.ph_size, pos);
+		
 		if(err)
 			return err;
+
 		if(readc != header.ph_size)
 			return EINVAL;
-		
-		if(ph.type == PH_TYPE_PHDR)
-			progphs = (elf_ph64*)ph.memaddr;
-		
-		if(ph.type == PH_TYPE_INTERPRETER){
 
-			// load the name and elf header of the interpreter
-
-			progheader = header;
-
-			interp = alloc(ph.fsize + 1);
-			if(!interp)
-				return ENOMEM;
-
-			readc = vfs_read(&err, node, interp, ph.fsize, ph.offset);
-			if(err){
-				free(interp);
-				return err;
-			}
-			if(ph.fsize != readc){
-				free(interp);
-				return EINVAL;
-			}
-
-			err = vfs_open(&node, thread->proc->root, interp);
-
-			if(err){
-				free(interp);
-				return err;
-			}
-
-			readc = vfs_read(&err, node, &header, sizeof(elf_header64), 0);
-
-			if(err)
-				goto _fail;
-
-			if(readc != sizeof(elf_header64) || (!check_header64(&header))){
-				err = EINVAL;
-				goto _fail;
-			}
-
+		switch(phbuff.type){
+			case PH_TYPE_INTERPRETER:
+				interp = (char*)phbuff.memaddr;
+				break;
+			case PH_TYPE_PHDR:
+				auxv.phdr.a_val = phbuff.memaddr;
+				break;
+			case PH_TYPE_LOAD:
+				err = load(node, phbuff);
+				if(err)
+					return err;
+				break;
 		}
-		
+
+
+
 	}
-
-	// load program into memory
-
-	for(size_t currentph = 0; currentph < header.ph_count; ++currentph){
+	
+	// load the interpreter if needed
 		
-		// read ph
+	vnode_t* interfile;
 
-		readc = vfs_read(&err, node, &ph, header.ph_size, header.ph_pos + currentph*header.ph_size);
+	if(interp){
+
+		err = vfs_open(&interfile, thread->proc->root, interp);
+
+		if(err)
+			return err;
 		
-		if(err) goto _fail;
-
-		if(readc != header.ph_size){
-			err = EINVAL;
-			goto _fail;
-		}
-		
-		if(ph.type != PH_TYPE_LOAD)
-			continue;
-
-		if(!vmm_allocnowat((void*)ph.memaddr, phflagtommuflag(ph.flags), ph.msize)){
-			err = ENOMEM;
-			goto _fail;
-		}
-
-		// set up temporary mmu flags to copy data
-		
-		arch_mmu_changeflags(arch_getcls()->context->context, ph.memaddr, ARCH_MMU_MAP_READ | ARCH_MMU_MAP_WRITE, ph.msize / PAGE_SIZE + (ph.msize % PAGE_SIZE ? 1 : 0));
-
-		// read program data
-		
-		readc = vfs_read(&err, node, (void*)ph.memaddr, ph.fsize, ph.offset);
+		readc = vfs_read(&err, interfile, &header, sizeof(elf_header64), 0);
 		
 		if(err)
-			goto _fail;
-
-		if(readc != ph.fsize){
+			goto _interpfail;
+	
+		if(readc != sizeof(elf_header64)){
 			err = EINVAL;
-			goto _fail;
-		}
-
-		// zero if needed
-		
-		size_t zerocount = ph.msize - ph.fsize;
-
-		if(zerocount){
-			void* zeroaddr = ph.memaddr + ph.fsize;
-			memset(zeroaddr, 0, zerocount);
+			goto _interpfail;
 		}
 		
-		// reset proper mmu flags
-		
-		arch_mmu_changeflags(arch_getcls()->context->context, ph.memaddr, phflagtommuflag(ph.flags), ph.msize / PAGE_SIZE + (ph.msize % PAGE_SIZE ? 1 : 0));
+		for(size_t pos = header.ph_pos, ph = 0; ph < header.ph_count; ++ph, pos += header.ph_size){
 
+			readc = vfs_read(&err, interfile, &phbuff, header.ph_size, pos);
+			
+			if(err)
+				goto _interpfail;
 
-	}
-	
-	// also load the executable memory image if we're using an interpreter
-	
-	if(interp){
-		for(size_t currentph = 0; currentph < progheader.ph_count; ++currentph){
-
-			// read ph
-
-			readc = vfs_read(&err, prognode, &ph, progheader.ph_size, progheader.ph_pos + currentph*progheader.ph_size);
-
-			if(err) goto _fail;
-
-			if(readc != progheader.ph_size){
+			if(readc != header.ph_size){
 				err = EINVAL;
-				goto _fail;
+				goto _interpfail;
 			}
-
-			if(ph.type != PH_TYPE_LOAD)
+			
+			if(phbuff.type != PH_TYPE_LOAD)
 				continue;
 
-			if(!vmm_allocnowat((void*)ph.memaddr, phflagtommuflag(ph.flags), ph.msize)){
-				err = ENOMEM;
-				goto _fail;
-			}
-
-			// set up temporary mmu flags to copy data
-
-			arch_mmu_changeflags(arch_getcls()->context->context, ph.memaddr, ARCH_MMU_MAP_READ | ARCH_MMU_MAP_WRITE, ph.msize / PAGE_SIZE + (ph.msize % PAGE_SIZE ? 1 : 0));
-
-			// read program data
-
-			readc = vfs_read(&err, prognode, (void*)ph.memaddr, ph.fsize, ph.offset);
+			err = load(interfile, phbuff);
 
 			if(err)
-				goto _fail;
+				goto _interpfail;
+			
+		}
+		
+		vfs_close(interfile);
 
-			if(readc != ph.fsize){
-				err = EINVAL;
-				goto _fail;
-			}
-
-			// zero if needed
-
-			size_t zerocount = ph.msize - ph.fsize;
-
-			if(zerocount){
-				void* zeroaddr = ph.memaddr + ph.fsize;
-				memset(zeroaddr, 0, zerocount);
-			}
-
-			// reset proper mmu flags
-
-			arch_mmu_changeflags(arch_getcls()->context->context, ph.memaddr, phflagtommuflag(ph.flags), ph.msize / PAGE_SIZE + (ph.msize % PAGE_SIZE ? 1 : 0));
-
-
-        	}
-	
 	}
 
-	void* stack = stacksetup(interp, argv, env, progheader, progphs);
+	void* stack = stacksetup(argv, env, auxv);
 
 	arch_regs_setupuser(thread->regs, (void*)header.entry, stack, true);
-
-	return 0;
-
-	_fail:
-		if(interp){
-			free(interp);
-			vfs_close(node);
-		}
 	
-	return err;
+	return 0;
+	
+	_interpfail:
+		vfs_close(interfile);
+		return err;
+
 
 }

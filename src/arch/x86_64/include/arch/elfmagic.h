@@ -1,0 +1,9 @@
+#ifndef _ARCH_ELFMAGIC_INCLUDE
+#define _ARCH_ELFMAGIC_INCLUDE
+
+#define ARCH_ELF_BITS 2
+#define ARCH_ELF_ISA 0x3E
+#define ARCH_ELF_ENDIANNESS 1
+
+
+#endif
