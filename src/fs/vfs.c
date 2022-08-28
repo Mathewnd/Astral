@@ -276,7 +276,7 @@ vnode_t* vfs_newnode(char* name, fs_t* fs, void* fsdata){
 }
 
 
-dirnode_t* vfs_newdirnode(char* name, fs_t* fs, void* fsdata){
+dirnode_t* vfs_newdirnode(char* name, fs_t* fs, void* fsdata, dirnode_t* parent){
 	
 	dirnode_t* node = alloc(sizeof(dirnode_t));
 	if(!node) return NULL;
@@ -289,12 +289,15 @@ dirnode_t* vfs_newdirnode(char* name, fs_t* fs, void* fsdata){
 		return NULL;
 	}
 
-	if(!hashtable_init(&node->children, 10)){ // add more here later
+	if(!hashtable_init(&node->children, 25)){ // add more here later
 		free(vnode->name);
 		free(node);
 		return NULL;
 	}
-	
+
+	hashtable_insert(&node->children, ".", node);
+	hashtable_insert(&node->children, "..", parent);
+
 	vnode->st.st_mode = MAKETYPE(TYPE_DIR);
 	vnode->fs = fs;
 	vnode->fsdata = fsdata;
@@ -401,7 +404,7 @@ void vfs_releasenode(vnode_t* node){
 void vfs_init(){
 	printf("Creating a fake root for the VFS\n");
 	
-	vfsroot = vfs_newdirnode("/", NULL, NULL);
+	vfsroot = vfs_newdirnode("/", NULL, NULL, NULL);
 
 	hashtable_init(&fsfuncs, 10);
 

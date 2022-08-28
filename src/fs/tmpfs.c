@@ -12,7 +12,7 @@ static int tmpfs_mount(dirnode_t* mountpoint, vnode_t* device, int mountflags, v
 	if(!desc)
 		return ENOMEM;
 
-	dirnode_t* root = vfs_newdirnode(mountpoint->vnode.name, desc, NULL);
+	dirnode_t* root = vfs_newdirnode(mountpoint->vnode.name, desc, NULL, mountpoint->vnode.parent);
 
 	if(!root){
 		free(desc);
@@ -21,7 +21,6 @@ static int tmpfs_mount(dirnode_t* mountpoint, vnode_t* device, int mountflags, v
 	
 	desc->calls = tmpfs_getfuncs();
 	mountpoint->mount = root;
-	root->vnode.parent = mountpoint->vnode.parent;
 
 	return 0;
 }
@@ -74,7 +73,7 @@ static int tmpfs_close(vnode_t* node){return 0;} // nothing to do really
 
 static int tmpfs_mkdir(dirnode_t* parent, char* name, mode_t mode){
 	
-	dirnode_t* node = vfs_newdirnode(name, parent->vnode.fs, NULL);
+	dirnode_t* node = vfs_newdirnode(name, parent->vnode.fs, NULL, parent);
 	
 	if(!node) 
 		return ENOMEM;
@@ -84,7 +83,6 @@ static int tmpfs_mkdir(dirnode_t* parent, char* name, mode_t mode){
 		return ENOMEM;
 	}
 	
-	node->vnode.parent = parent;	
 	stat* st = &node->vnode.st;
 	st->st_mode = MAKETYPE(TYPE_DIR) | GETMODE(mode);
 	st->st_blksize = PAGE_SIZE;

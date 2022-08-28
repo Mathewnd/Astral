@@ -10,13 +10,12 @@ static fs_t* fs;
 
 static int devfs_mount(dirnode_t* mountpoint, vnode_t* device, int mountflags, void* fsinfo){
 	
-	dirnode_t* node = vfs_newdirnode(mountpoint->vnode.name, fs, 0);
+	dirnode_t* node = vfs_newdirnode(mountpoint->vnode.name, fs, NULL, mountpoint->vnode.parent);
 	
 	if(!node)
 		return ENOMEM;
 	
 	mountpoint->mount = node;
-	node->vnode.parent = mountpoint->vnode.parent;
 	
 	return 0;
 }

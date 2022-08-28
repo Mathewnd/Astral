@@ -74,7 +74,7 @@ dirnode_t* vfs_root();
 void vfs_acquirenode(vnode_t* node);
 void vfs_releasenode(vnode_t* node);
 vnode_t* vfs_newnode(char* name, fs_t* fs, void* fsdata);
-dirnode_t* vfs_newdirnode(char* name, fs_t* fs, void* fsdata);
+dirnode_t* vfs_newdirnode(char* name, fs_t* fs, void* fsdata, dirnode_t* parent);
 void vfs_destroynode(vnode_t* node);
 int  vfs_resolvepath(vnode_t** result, dirnode_t** parent, dirnode_t* ref, char* path, char* name);
 
