@@ -122,9 +122,11 @@ section .text
 	mov rdi,rsp
 	
 	cld
+	sti
 	extern %2
 	call %2
-	
+	cli
+
 	popregs
 	
 	iretq

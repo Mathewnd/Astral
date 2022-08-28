@@ -42,13 +42,13 @@ void idt_bspinit(){
 
 	// set error code pushers as exceptions
 
-	idt_setentry(&idt[VECTOR_DOUBLEFAULT], asmisr_except, 0x28, FLAGS_PRESENT | FLAGS_TYPE_TRAP, 0);
-	idt_setentry(&idt[VECTOR_GPF], asmisr_except, 0x28, FLAGS_PRESENT | FLAGS_TYPE_TRAP, 0);
-	idt_setentry(&idt[VECTOR_INVALIDTSS], asmisr_except, 0x28, FLAGS_PRESENT | FLAGS_TYPE_TRAP, 0);
-	idt_setentry(&idt[VECTOR_SEGMENTNOTPRESENT], asmisr_except, 0x28, FLAGS_PRESENT | FLAGS_TYPE_TRAP, 0);
-	idt_setentry(&idt[VECTOR_STACK], asmisr_except, 0x28, FLAGS_PRESENT | FLAGS_TYPE_TRAP, 0);
+	idt_setentry(&idt[VECTOR_DOUBLEFAULT], asmisr_except, 0x28, FLAGS_PRESENT | FLAGS_TYPE_INTERRUPT, 0);
+	idt_setentry(&idt[VECTOR_GPF], asmisr_except, 0x28, FLAGS_PRESENT | FLAGS_TYPE_INTERRUPT, 0);
+	idt_setentry(&idt[VECTOR_INVALIDTSS], asmisr_except, 0x28, FLAGS_PRESENT | FLAGS_TYPE_INTERRUPT, 0);
+	idt_setentry(&idt[VECTOR_SEGMENTNOTPRESENT], asmisr_except, 0x28, FLAGS_PRESENT | FLAGS_TYPE_INTERRUPT, 0);
+	idt_setentry(&idt[VECTOR_STACK], asmisr_except, 0x28, FLAGS_PRESENT | FLAGS_TYPE_INTERRUPT, 0);
 
-	idt_setentry(&idt[VECTOR_PF], asmisr_pagefault, 0x28, FLAGS_PRESENT | FLAGS_TYPE_TRAP, 0);
+	idt_setentry(&idt[VECTOR_PF], asmisr_pagefault, 0x28, FLAGS_PRESENT | FLAGS_TYPE_INTERRUPT, 0);
 	
 	idt_setentry(&idt[VECTOR_PANIC], asmisr_panic, 0x28, FLAGS_PRESENT | FLAGS_TYPE_INTERRUPT, 0);
 
