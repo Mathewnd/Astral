@@ -4,9 +4,11 @@
 #include <stdio.h>
 #include <string.h>
 #include <kernel/devman.h>
+#include <arch/spinlock.h>
 
 dirnode_t* vfsroot;
 hashtable  fsfuncs;
+static int lock;
 
 static inline dirnode_t* mountpoint(dirnode_t* node){
 	dirnode_t* ret = node;
@@ -16,7 +18,7 @@ static inline dirnode_t* mountpoint(dirnode_t* node){
 }
 
 void vfs_debugdumptree(dirnode_t* node, size_t depth, size_t maxdepth){
-	
+
 	if(depth > maxdepth)
 		return;
 	
@@ -72,7 +74,12 @@ int vfs_write(int* error, vnode_t* node, void* buff, size_t count, size_t offset
 		return writecount;
 	}
 
+	
+	spinlock_acquire(&lock);
+	
 	int writecount = node->fs->calls->write(error, node, buff, count, offset);
+	
+	spinlock_release(&lock);
 
 	return writecount;
 	
@@ -100,14 +107,20 @@ int vfs_read(int* error, vnode_t* node, void* buff, size_t count, size_t offset)
 		int readcount = devman_read(error, node->st.st_rdev, buff, count, offset);
 		return readcount;
 	}
-
+	
+	spinlock_acquire(&lock);
+	
 	int readcount = node->fs->calls->read(error, node, buff, count, offset);
+	
+	spinlock_release(&lock);
 
 	return readcount;
 
 }
 
 int vfs_close(vnode_t* node){
+		
+	spinlock_acquire(&lock);
 	
 	vfs_releasenode(node);
 
@@ -116,19 +129,26 @@ int vfs_close(vnode_t* node){
 	if(node->refcount == 0)
 		status = node->fs->calls->close(node);
 	
+	spinlock_release(&lock);
+	
 	return status;
 }
 
 int vfs_open(vnode_t** buff, dirnode_t* ref, char* path){
-	
+
 	vnode_t* node;
+	
+	spinlock_acquire(&lock);
 	
 	int res = vfs_resolvepath(&node, NULL, ref, path, NULL);
 	
-	if(res)
+	if(res){
+		spinlock_release(&lock);
 		return res;
-
+	}
 	vfs_acquirenode(node);
+	
+	spinlock_release(&lock);
 
 	*buff = node;
 
@@ -142,16 +162,23 @@ int vfs_create(dirnode_t* ref, char* path, mode_t mode){
 	dirnode_t* buff   = NULL;
 
 	char name[512];
+	
+	spinlock_acquire(&lock);
 
 	int result = vfs_resolvepath(&buff, &parent, ref, path, name);
 
-	if(!parent)
+	if(!parent){
+		spinlock_release(&lock);
 		return result;
+	}
 
-	if(buff)
+	if(buff){
+		spinlock_release(&lock);
 		return EEXIST;
-
+	}
 	result = parent->vnode.fs->calls->create(parent, name, NULL);
+	
+	spinlock_release(&lock);
 	
 	if(result) return result;
 	
@@ -164,16 +191,23 @@ int vfs_mkdir(dirnode_t* ref, char* path, mode_t mode){
 	dirnode_t* buff = NULL;
 
 	char name[512];
+	
+	spinlock_acquire(&lock);
 
 	int result = vfs_resolvepath(&buff, &parent, ref, path, name);
 
-	if(!parent)
+	if(!parent){
+		spinlock_release(&lock);
 		return result;
-
-	if(buff)
+	}
+	if(buff){
+		spinlock_release(&lock);
 		return EEXIST;
-
+	}
+	
 	result = parent->vnode.fs->calls->mkdir(parent, name, NULL);
+	
+	spinlock_release(&lock);
 	
 	if(result) return result;
 	
@@ -190,27 +224,37 @@ int vfs_mount(dirnode_t* ref, char* device, char* mountpoint, char* fs, int moun
 	vnode_t* dev = NULL;
 	dirnode_t* mountdir = ref;
 	dirnode_t* parent = NULL;
+	
+	spinlock_acquire(&lock);
 
 	if(device){
 		dev = ref;
 		if(*device){
 			int result = vfs_resolvepath(&dev, &parent, ref, device, NULL);
 			
-			if(result)
+			if(result){
+				spinlock_release(&lock);
 				return result;
+			}
 		}
 	}
 
 
 	int result = vfs_resolvepath(&mountdir, &parent, ref, mountpoint, NULL);
 	
-	if(result)
+	if(result){
+		spinlock_release(&lock);
 		return result;
-	
-	if(GETTYPE(mountdir->vnode.st.st_mode) != TYPE_DIR)
+	}
+
+	if(GETTYPE(mountdir->vnode.st.st_mode) != TYPE_DIR){
+		spinlock_release(&lock);
 		return ENOTDIR;
+	}
 
 	result = fscalls->mount(mountdir, dev, mountflags, fsinfo);
+	
+	spinlock_release(&lock);
 
 	return result;
 }
