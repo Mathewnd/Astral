@@ -327,6 +327,10 @@ int vfs_resolvepath(vnode_t** result, dirnode_t** resultparent, dirnode_t* ref, 
 		while(path[nameoffset] && path[nameoffset] != '/')
 			name[offset++] = path[nameoffset++];
 	
+		// if there are only separators in the filename
+
+		if(!offset) break;
+
 		while(path[nameoffset] == '/')
 			++nameoffset;
 
