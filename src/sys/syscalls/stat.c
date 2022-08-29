@@ -9,9 +9,9 @@
 #include <string.h>
 
 syscallret syscall_stat(const char* path, stat* st){
-	
-	syscallret retv;
+	syscallret retv;	
 	retv.ret = -1;
+	
 	if(st > USER_SPACE_END || path > USER_SPACE_END){
 		retv.errno = EFAULT;
 		return retv;
@@ -19,7 +19,7 @@ syscallret syscall_stat(const char* path, stat* st){
 
 	char* kpath = alloc(strlen(path)); // XXX use proper user strlen func
 	
-	if(!path){
+	if(!kpath){
 		retv.errno = ENOMEM;
 		return retv;
 	}
@@ -32,6 +32,7 @@ syscallret syscall_stat(const char* path, stat* st){
 
 	int ret = vfs_open(&file, *kpath == '/' ? proc->root : proc->cwd, kpath);
 
+
 	if(ret){
 		retv.errno = ret;
 		goto _ret;
@@ -42,7 +43,9 @@ syscallret syscall_stat(const char* path, stat* st){
 	vfs_close(file);
 
 	memcpy(st, &stbuff, sizeof(stat)); // XXX use user memcpy
-
+	
+	retv.ret = 0;
+	retv.errno = 0;
 	_ret:
 	free(kpath);
 	return retv;
