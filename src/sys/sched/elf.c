@@ -117,8 +117,12 @@ static void* stacksetup(char** argv, char** env, auxv64_list auxv){
 
 	char* argdatastart = STACK_TOP  - argdatasize;
 	char* envdatastart = argdatastart - envdatasize;
-	
-	auxv64_list* auxvstart = (void*)(((uintptr_t)envdatastart & (~0xF)) - sizeof(auxv));
+
+	// if the final stack address wouldn't be 16 byte aligned (odd stack entry count), align it
+
+	int alignment = ((argc+1) + (envc+1) + 1) & 1 ? 8 : 0;
+
+	auxv64_list* auxvstart = (void*)(((uintptr_t)envdatastart & (~0xF)) - sizeof(auxv)) + alignment;
 	
 	// count + 1 because of a null entry
 	char** envstart = (void*)auxvstart - (envc + 1)*sizeof(char*);
