@@ -12,8 +12,7 @@ syscallret syscall_stat(const char* path, stat* st){
 	
 	syscallret retv;
 	retv.ret = -1;
-
-	if(st > USER_SPACE_END){
+	if(st > USER_SPACE_END || path > USER_SPACE_END){
 		retv.errno = EFAULT;
 		return retv;
 	}
