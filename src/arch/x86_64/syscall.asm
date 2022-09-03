@@ -46,6 +46,8 @@ asm_syscall_entry:
 	push qword [gs:0] ; save old stack
 	mov [gs:0], rsp ; return back the kernel stack
 	add qword [gs:0], 8 ; fix it
+	
+	sti
 
 	push rcx ; old rip
 	push r11 ; old rflags
@@ -89,6 +91,8 @@ asm_syscall_entry:
 	mov r11, 0x40 ; user data
 	mov es,r11
 	mov ds,r11
+
+	cli
 
 	pop r11
 	pop rcx
