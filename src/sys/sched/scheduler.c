@@ -8,6 +8,7 @@
 #include <kernel/timer.h>
 #include <string.h>
 #include <kernel/elf.h>
+#include <arch/interrupt.h>
 
 #define PROC_START_FD_COUNT 3
 #define THREAD_QUANTUM 10000
@@ -19,8 +20,6 @@
 #define QUEUE_COUNT 3
 
 sched_queue queues[QUEUE_COUNT];
-sched_queue running;
-sched_queue blocked;
 
 static proc_t* allocproc(size_t threadcount){
 	
@@ -140,35 +139,15 @@ static thread_t* getnext(){
 
 	}
 
-	if(thread){
-
-		spinlock_acquire(&running.lock);
-		
-		queue_add(&running, thread);
-		
-		spinlock_release(&running.lock);
-
-	}
-
 	return thread;
 
 }
-
-int a = 0;
 
 void sched_timerhook(arch_regs* regs){
 
 	thread_t* current = arch_getcls()->thread;
 
 	sched_queue* currentqueue = &queues[current->priority];
-
-
-	spinlock_acquire(&running.lock);
-
-	queue_remove(&running, current);
-
-	spinlock_release(&running.lock);
-
 	
 	memcpy(current->regs, regs, sizeof(arch_regs));
 	arch_regs_saveextra(&current->extraregs);
@@ -189,14 +168,16 @@ void sched_timerhook(arch_regs* regs){
 
 	arch_getcls()->thread = next;
 
+	next->state = THREAD_STATE_RUNNING;
+
 }
 
-static void switch_thread(thread_t* thread){
+void switch_thread(thread_t* thread){
 	
 	thread_t* current = arch_getcls()->thread;
 	
 	// if we don't have to change processes don't waste time
-	
+
 	if(current->proc != thread->proc){
 		
 		vmm_switchcontext(thread->proc->context);
@@ -240,9 +221,13 @@ thread_t* sched_newuthread(void* ip, size_t kstacksize, void* stack, proc_t* pro
 	thread->proc = proc;
 	arch_regs_setupuser(thread->regs, ip, stack, true);
 
-	if(run)
+	if(run){
+		arch_interrupt_disable();
+		spinlock_acquire(&queues[prio].lock);
 		queue_add(&queues[prio], thread);
-
+		spinlock_release(&queues[prio].lock);
+		arch_interrupt_enable();
+	}
 	return thread;
 
 }
@@ -256,20 +241,55 @@ thread_t* sched_newkthread(void* ip, size_t stacksize, bool run, int prio){
 
 	arch_regs_setupkernel(thread->regs, ip, thread->kernelstack, true);
 
-	if(run)
+	if(run){
+		arch_interrupt_disable();
+		spinlock_acquire(&queues[prio].lock);
 		queue_add(&queues[prio], thread);
-
+		spinlock_release(&queues[prio].lock);
+		arch_interrupt_enable();
+	}
 	return thread;
 }
 
+void sched_yieldtrampoline(thread_t* thread){
+	
+	arch_regs_saveextra(&thread->extraregs);
+	
+	if(thread->state == THREAD_STATE_RUNNING){
+		spinlock_acquire(&queues[thread->priority].lock);
+		queue_add(&queues[thread->priority], thread);
+		spinlock_release(&queues[thread->priority].lock);
+		thread->state = THREAD_STATE_WAITING;
+	}
+	
+	thread = getnext();
+	thread->state = THREAD_STATE_RUNNING;	
+	switch_thread(thread);
+
+}
+
+void arch_sched_yieldtrampoline(thread_t* thread, arch_regs* regs);
+
+// these 3 expect interrupts to be disabled in entry
+
+void sched_yield(){
+	
+	thread_t* thread = arch_getcls()->thread;
+
+	arch_sched_yieldtrampoline(thread, thread->regs);
+
+}
+
 void sched_eventsignal(event_t* event, thread_t* thread){
-	if((thread->state == THREAD_STATE_BLOCKED_INTR || (thread->state == THREAD_STATE_BLOCKED && event != &thread->sigevent)))
+	if((thread->state == THREAD_STATE_BLOCKED_INTR || (thread->state == THREAD_STATE_BLOCKED && event == &thread->sigevent)))
 		return;
 		
 	thread->state = THREAD_STATE_WAITING;
 	thread->awokenby = event;
-	queue_remove(&blocked, thread);
+	
+	spinlock_acquire(&queues[thread->priority].lock);
 	queue_add(&queues[thread->priority], thread);
+	spinlock_release(&queues[thread->priority].lock);
 	
 }
 
@@ -277,10 +297,12 @@ void sched_block(bool interruptible){
 	
 	thread_t* thread = arch_getcls()->thread;
 
+	spinlock_acquire(&queues[thread->priority].lock);
 	queue_remove(&queues[thread->priority], thread);
-	queue_add(&blocked, thread);
+	spinlock_release(&queues[thread->priority].lock);
+	
 	thread->state = interruptible ? THREAD_STATE_BLOCKED_INTR : THREAD_STATE_BLOCKED;
-
+	
 	sched_yield();
 
 }
@@ -300,7 +322,7 @@ void sched_runinit(){
 	printf("Loading /sbin/init\n");
 
 	thread_t* thread = sched_newuthread(NULL, PAGE_SIZE*3, NULL, NULL, true, THREAD_PRIORITY_USER);
-
+	
 	proc_t* proc = thread->proc;
 
 	vmm_switchcontext(proc->context);
