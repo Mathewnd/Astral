@@ -1,6 +1,8 @@
 #ifndef _SCHED_H_INCLUDE
 #define _SCHED_H_INCLUDE
 
+
+#include <kernel/event.h>
 #include <sys/types.h>
 #include <arch/regs.h>
 #include <kernel/vfs.h>
@@ -14,6 +16,7 @@
 #define THREAD_STATE_WAITING 0
 #define THREAD_STATE_RUNNING 1
 #define THREAD_STATE_BLOCKED 2
+#define THREAD_STATE_BLOCKED_INTR 3
 
 typedef unsigned long state_t;
 
@@ -26,6 +29,8 @@ typedef struct _thread_t{
 	arch_regs* regs;
 	arch_extraregs extraregs;
 	state_t state;
+	event_t  sigevent;
+	event_t* awokenby;
 	void* kernelstack;
 	void* kernelstackbase;
 	size_t stacksize;
@@ -59,5 +64,8 @@ typedef struct{
 } sched_queue;
 
 void sched_init();
-
+void sched_runinit();
+void sched_eventsignal(event_t* event, thread_t* thread);
+void sched_block(bool interruptible);
+void sched_yield();
 #endif

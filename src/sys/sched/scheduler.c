@@ -262,12 +262,35 @@ thread_t* sched_newkthread(void* ip, size_t stacksize, bool run, int prio){
 	return thread;
 }
 
+void sched_eventsignal(event_t* event, thread_t* thread){
+	if((thread->state == THREAD_STATE_BLOCKED_INTR || (thread->state == THREAD_STATE_BLOCKED && event != &thread->sigevent)))
+		return;
+		
+	thread->state = THREAD_STATE_WAITING;
+	thread->awokenby = event;
+	queue_remove(&blocked, thread);
+	queue_add(&queues[thread->priority], thread);
+	
+}
+
+void sched_block(bool interruptible){
+	
+	thread_t* thread = arch_getcls()->thread;
+
+	queue_remove(&queues[thread->priority], thread);
+	queue_add(&blocked, thread);
+	thread->state = interruptible ? THREAD_STATE_BLOCKED_INTR : THREAD_STATE_BLOCKED;
+
+	sched_yield();
+
+}
+
 void sched_init(){
 	arch_getcls()->thread = allocthread(NULL, THREAD_STATE_RUNNING, 0, 0);
 	arch_getcls()->thread->priority = THREAD_PRIORITY_KERNEL;
 
 	timer_req* req = &arch_getcls()->schedreq;
-
+	
 	req->func = sched_timerhook;
 
 }
@@ -327,13 +350,19 @@ void sched_runinit(){
 
 	char* argv[] = {"/usr/bin/bash", NULL};
 	char* env[]  = {NULL};
+	
+	void *entry, *stack;
 
-	ret = elf_load(thread, node, argv, env);
+	ret = elf_load(thread, node, argv, env, &stack, &entry);
 	
 	if(ret){
 		printf("ELF load error: %s\n", strerror(ret));
 		_panic("Could not load init", 0);
 	}
+
+	arch_regs_setupuser(thread->regs, entry, stack, true);
+
+	timer_add(&arch_getcls()->schedreq, THREAD_QUANTUM, true);
 
 	switch_thread(thread);
 	
