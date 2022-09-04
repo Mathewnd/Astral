@@ -159,7 +159,7 @@ static void* stacksetup(char** argv, char** env, auxv64_list auxv){
 	
 }
 
-int elf_load(thread_t* thread, vnode_t* node, char** argv, char** env){
+int elf_load(thread_t* thread, vnode_t* node, char** argv, char** env, void** stack, void** entry){
 	
 	elf_header64 header;
 	elf_ph64 phbuff;
@@ -262,9 +262,12 @@ int elf_load(thread_t* thread, vnode_t* node, char** argv, char** env){
 
 	}
 
-	void* stack = stacksetup(argv, env, auxv);
+	*stack = stacksetup(argv, env, auxv);
+	
+	if(!(*stack))
+		return ENOMEM;
 
-	arch_regs_setupuser(thread->regs, (void*)header.entry, stack, true);
+	*entry = (void*)header.entry;
 	
 	return 0;
 	

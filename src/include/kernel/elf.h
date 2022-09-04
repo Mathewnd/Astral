@@ -84,10 +84,9 @@ typedef struct{
 	uint64_t alignment;
 } elf_ph64;
 
-// loads an elf executable from file, setting target thread with appropriate
-// values for it
+// loads an elf executable from file
 // also sets up the stack for said executable
 
-int elf_load(thread_t* thread, vnode_t* node, char** argv, char** env);
+int elf_load(thread_t* thread, vnode_t* node, char** argv, char** env, void** entry, void** stack);
 
 #endif
