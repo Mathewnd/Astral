@@ -49,7 +49,7 @@ int event_wait(event_t* event, bool interruptible){
 	addtoevent(thread, event);
 
 	
-	// ...
+	sched_block(interruptible);
 	
 	
 	int ret = 0;
@@ -87,7 +87,7 @@ int event_signal(event_t* event, bool interruptson){
 		if(!thread)
 			continue;
 		
-		// ...
+		sched_eventsignal(event, thread);
 
 		
 	}

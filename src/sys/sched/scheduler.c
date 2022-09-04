@@ -296,10 +296,6 @@ void sched_eventsignal(event_t* event, thread_t* thread){
 void sched_block(bool interruptible){
 	
 	thread_t* thread = arch_getcls()->thread;
-
-	spinlock_acquire(&queues[thread->priority].lock);
-	queue_remove(&queues[thread->priority], thread);
-	spinlock_release(&queues[thread->priority].lock);
 	
 	thread->state = interruptible ? THREAD_STATE_BLOCKED_INTR : THREAD_STATE_BLOCKED;
 	
@@ -314,7 +310,6 @@ void sched_init(){
 	timer_req* req = &arch_getcls()->schedreq;
 	
 	req->func = sched_timerhook;
-
 }
 
 void sched_runinit(){
