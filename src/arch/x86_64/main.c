@@ -17,6 +17,7 @@
 #include <arch/hpet.h>
 #include <arch/smp.h>
 #include <kernel/timer.h>
+#include <kernel/keyboard.h>
 
 void kmain(){
 
@@ -69,6 +70,8 @@ void kmain(){
 	sched_init();
 
 	smp_init();
+
+	keyboard_init();
 
 	sched_runinit();
 
