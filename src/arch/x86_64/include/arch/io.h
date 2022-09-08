@@ -1,6 +1,9 @@
 #ifndef _IO_H_INCLUDE
 #define _IO_H_INCLUDE
 
+#include <stddef.h>
+#include <stdint.h>
+
 static inline void outd(uint16_t port, uint32_t data){
 	asm volatile("out %%eax, %%dx" : : "a"(data), "d"(port));
 }
