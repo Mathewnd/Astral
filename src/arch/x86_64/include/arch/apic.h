@@ -12,5 +12,6 @@ void apic_timerinterruptset(uint8_t vector);
 size_t apic_timercalibrate(size_t us);
 void apic_lapicinit();
 void apic_init();
+void ioapic_setlegacyirq(uint8_t irq, uint8_t vector, uint8_t proc);
 
 #endif

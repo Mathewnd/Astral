@@ -105,12 +105,25 @@ static size_t ionmi_count = 0;
 static size_t localnmi_count = 0;
 static size_t x2apic_count = 0;
 
-void* lapicaddr;
-bool  done = false;
-ioapic_descriptor* ioapics;
+static void* lapicaddr;
+static bool  done = false;
+static ioapic_descriptor* ioapics;
 
-void*  tablestart;
-void*  tableend;
+static void*  tablestart;
+static void*  tableend;
+
+static ioapic_descriptor* ioapicforgsi(uint8_t gsi){
+	
+	ioapic_descriptor* ioapic = ioapics;
+
+	for(uintmax_t i = 0; i < ioapic_count; ++i){
+		if(ioapics[i].gsi > ioapic->gsi)
+			ioapic = &ioapics[i];
+	}
+
+	return ioapic;
+
+}
 
 static inline entry_head* next(entry_head* entry){
 	return (void*)entry + entry->length;
@@ -148,18 +161,48 @@ static inline uint32_t ioapic_readreg(ioapic_descriptor* ioapic, uint32_t offset
 
 }
 
-static void ioapic_writeiored(ioapic_descriptor* ioapic, uint8_t irq, uint8_t vector, uint8_t delivery, uint8_t destmode, uint8_t polarity, uint8_t irr, uint8_t mode, uint8_t mask, uint8_t dest){
+static void ioapic_writeiored(ioapic_descriptor* ioapic, uint8_t irq, uint8_t vector, uint8_t delivery, uint8_t destmode, uint8_t polarity, uint8_t mode, uint8_t mask, uint8_t dest){
 	uint32_t val = vector;
 	val |= (delivery & 0b111) << 8;
 	val |= (destmode & 1) << 11;
 	val |= (polarity & 1) << 13;
-	val |= (irr & 1) << 14;
 	val |= (mode & 1) << 15;
 	val |= (mask & 1) << 16;
 	
 	ioapic_writereg(ioapic, 0x10 + irq * 2, val & 0xFFFFFFFF);
 	ioapic_writereg(ioapic, 0x10 + irq * 2 + 1, dest << 24);
 
+}
+
+void ioapic_setlegacyirq(uint8_t irq, uint8_t vector, uint8_t proc){
+	
+	// default settings for ISA irqs
+	
+	uint8_t polarity = 1;
+	uint8_t trigger  = 0;
+	
+	for(uintmax_t i = 0; i < override_count; ++i){
+		override_entry* override = findstructure(TYPE_OVERRIDE, i);
+		
+		if(override->irq != irq)
+			continue;
+		
+		polarity = override->flags & 2 ? 1 : 0; // active low
+		trigger  = override->flags & 8 ? 1 : 0; // level triggered
+		irq = override->irq;
+
+
+		break;
+
+
+	}
+
+	ioapic_descriptor* ioapic = ioapicforgsi(irq);
+
+	irq = irq - ioapic->gsi;
+
+	ioapic_writeiored(ioapic, irq, vector, 0, 0, polarity, trigger, 1, proc);
+	
 }
 
 static inline uint32_t lapic_readreg(size_t reg){
@@ -328,7 +371,7 @@ void apic_init(){
 		ioapics[i].mre = (ioapic_readreg(&ioapics[i], 1) >> 16) & 0xFF;
 		
 		for(size_t j = 0; j <= ioapics[i].mre; ++j)
-			ioapic_writeiored(&ioapics[i], j, 0, 0, 0, 0, 0, 0, 1, 0);
+			ioapic_writeiored(&ioapics[i], j, 0, 0, 0, 0, 0, 1, 0);
 	}
 
 	done = true;
