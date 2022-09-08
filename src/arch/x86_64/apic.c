@@ -174,7 +174,7 @@ static void ioapic_writeiored(ioapic_descriptor* ioapic, uint8_t irq, uint8_t ve
 
 }
 
-void ioapic_setlegacyirq(uint8_t irq, uint8_t vector, uint8_t proc){
+void ioapic_setlegacyirq(uint8_t irq, uint8_t vector, uint8_t proc, bool masked){
 	
 	// default settings for ISA irqs
 	
@@ -201,7 +201,7 @@ void ioapic_setlegacyirq(uint8_t irq, uint8_t vector, uint8_t proc){
 
 	irq = irq - ioapic->gsi;
 
-	ioapic_writeiored(ioapic, irq, vector, 0, 0, polarity, trigger, 1, proc);
+	ioapic_writeiored(ioapic, irq, vector, 0, 0, polarity, trigger, masked ? 1 : 0, proc);
 	
 }
 
