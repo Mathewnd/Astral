@@ -145,4 +145,5 @@ isr	asmisr_general, isr_general
 except	asmisr_except, isr_except
 isr	asmisr_lapicnmi, isr_lapicnmi
 isr	asmisr_mmuinval, isr_mmuinval
+isr 	asmisr_ps2kbd, isr_ps2kbd
 isr	asmisr_timer, isr_timer

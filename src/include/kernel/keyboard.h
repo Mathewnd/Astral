@@ -1,6 +1,8 @@
 #ifndef _KEYBOARD_H_INCLUDE
 #define _KEYBOARD_H_INCLUDE
 
+#define KBPACKET_FLAGS_RELEASED 1
+
 #include <ringbuffer.h>
 #include <kernel/event.h>
 

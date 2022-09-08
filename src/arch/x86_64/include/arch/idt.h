@@ -27,6 +27,7 @@
 #define VECTOR_PANIC 0x20
 #define VECTOR_LAPICNMI 0x21
 #define VECTOR_MMUINVAL 0x22
+#define VECTOR_PS2KBD   0x40
 #define VECTOR_TIMER 0x80
 
 typedef struct{

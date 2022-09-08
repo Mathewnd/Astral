@@ -10,7 +10,10 @@
 // 0x21 -> lapic nmi 
 // 0x22 -> mmu invalidate page ipi
 // ...
+// 0x40 -> ps2 keyboard isr
+// ...
 // 0x80 -> timer
+// ...
 
 idtentry_t idt[256];
 
@@ -57,6 +60,8 @@ void idt_bspinit(){
 	idt_setentry(&idt[VECTOR_LAPICNMI], asmisr_lapicnmi, 0x28, FLAGS_PRESENT | FLAGS_TYPE_INTERRUPT, 0);
 
 	idt_setentry(&idt[VECTOR_TIMER], asmisr_timer, 0x28, FLAGS_PRESENT | FLAGS_TYPE_INTERRUPT, 0);
+
+	idt_setentry(&idt[VECTOR_PS2KBD], asmisr_ps2kbd, 0x28, FLAGS_PRESENT | FLAGS_TYPE_INTERRUPT, 0);
 	
 	idt_reload();
 
