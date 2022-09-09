@@ -9,4 +9,8 @@ static inline void arch_interrupt_enable(){
 	asm("sti");
 }
 
+static inline void arch_halt(){
+	asm("hlt");
+}
+
 #endif
