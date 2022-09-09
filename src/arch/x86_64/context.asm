@@ -3,19 +3,11 @@ arch_switchcontext:
 	mov rsp,rdi
 	add rsp, 24 ; cr2 gs fs
 
-	mov rbx,es
 	pop rax
-	cmp rax,rbx
-	jne .segswap
-	add rsp,8 ; ds
-	jmp .genreg
-	.segswap:
-	swapgs
-        mov es,rax
+	mov es,rax
 	pop rax
-        mov ds,rax
+	mov ds,rax
 	
-	.genreg:
         pop rax
         pop rbx
         pop rcx
@@ -33,4 +25,11 @@ arch_switchcontext:
         pop rbp
         add rsp,8 ; remove error code
 	
+	cmp qword [rsp+8], 0x3b ; user cs
+	jne .noswap
+
+	swapgs
+
+	.noswap:
+
 	iretq
