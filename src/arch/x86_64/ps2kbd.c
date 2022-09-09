@@ -55,7 +55,7 @@ void ps2kbd_irq(){
 
 	packet.ascii = asciitable[scancode];
 
-	keyboard_packet(kb, &packet);
+	keyboard_packet(kb, packet);
 
 }
 
