@@ -591,6 +591,8 @@ bool vmm_dealwithrequest(void* addr, long error, bool user){
 }
 
 void vmm_switchcontext(vmm_context* context){
+	if(arch_getcls()->thread)
+		arch_getcls()->thread->ctx = context;
 	arch_getcls()->context = context;
 	arch_mmu_switchcontext(context->context);
 }
