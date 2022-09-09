@@ -34,6 +34,7 @@ typedef struct _thread_t{
 	void* kernelstack;
 	void* kernelstackbase;
 	size_t stacksize;
+	vmm_context* ctx;
 	pid_t tid;
 	int priority;
 } thread_t;
@@ -49,7 +50,6 @@ typedef struct _proc_t{
 	int fdlock;
 	size_t fdcount;
 	off_t  firstfreefd;
-	vmm_context* context;
 	thread_t** threads;
 	size_t threadcount;
 	dirnode_t* root;
@@ -63,6 +63,7 @@ typedef struct{
 	int lock;
 } sched_queue;
 
+thread_t* sched_newkthread(void* ip, size_t stacksize, bool run, int prio);
 void sched_init();
 void sched_runinit();
 void sched_eventsignal(event_t* event, thread_t* thread);

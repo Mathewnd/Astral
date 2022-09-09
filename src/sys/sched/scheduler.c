@@ -45,13 +45,7 @@ static proc_t* allocproc(size_t threadcount){
 	proc->fdcount = PROC_START_FD_COUNT;
 	proc->firstfreefd = PROC_START_FD_COUNT;
 
-	proc->context = vmm_newcontext();
 
-	if(!proc->context){
-		free(proc->threads);
-		free(proc);
-		return NULL;
-	}
 	
 	return proc;
 	
@@ -76,6 +70,16 @@ static thread_t* allocthread(proc_t* proc, state_t state, pid_t tid, size_t ksta
 
 
 	if(!thread->kernelstackbase){
+		free(thread->regs);
+		free(thread);
+		return NULL;
+	}
+
+
+	thread->ctx = vmm_newcontext();
+
+	if(!thread->ctx){
+		free(thread->kernelstackbase);
 		free(thread->regs);
 		free(thread);
 		return NULL;
@@ -123,32 +127,53 @@ static void queue_remove(sched_queue* queue, thread_t* thread){
 }
 
 static thread_t* getnext(){
+
 	
+
 	thread_t* thread = NULL;
 
-	for(int i = 0; i < QUEUE_COUNT && thread == NULL; ++i){
-		
-		spinlock_acquire(&queues[i].lock);
-		
-		if(queues[i].start){
-			thread = queues[i].start;
-			queue_remove(&queues[i], thread);
+	while(thread == NULL){
+
+		for(int i = 0; i < QUEUE_COUNT && thread == NULL; ++i){
+			
+			spinlock_acquire(&queues[i].lock);
+			
+			if(queues[i].start){
+				thread = queues[i].start;
+				queue_remove(&queues[i], thread);
+			}
+
+			spinlock_release(&queues[i].lock);
+
 		}
 
-		spinlock_release(&queues[i].lock);
+		if(!thread){
+			arch_interrupt_enable();
+			arch_halt();
+			arch_interrupt_disable();
+
+		}
 
 	}
-
+	
 	return thread;
 
 }
 
+int aa = 0;
+
 void sched_timerhook(arch_regs* regs){
+
+	#ifdef __X86_64__
+	
+	apic_eoi();
+
+	#endif
 
 	thread_t* current = arch_getcls()->thread;
 
 	sched_queue* currentqueue = &queues[current->priority];
-	
+		
 	memcpy(current->regs, regs, sizeof(arch_regs));
 	arch_regs_saveextra(&current->extraregs);
 
@@ -157,18 +182,24 @@ void sched_timerhook(arch_regs* regs){
 	queue_add(currentqueue, current);
 
 	spinlock_release(&currentqueue->lock);
-	
 
 	thread_t* next = getnext();
-	
+
 	if(next)
 		memcpy(regs, next->regs, sizeof(arch_regs));
+		
+
+	arch_getcls()->thread = next;
+	
+	arch_setkernelstack(next->kernelstack);
+	arch_regs_setupextra(&next->extraregs);
+
+	next->state = THREAD_STATE_RUNNING;
 
 	timer_add(&arch_getcls()->schedreq, THREAD_QUANTUM, false);
 
-	arch_getcls()->thread = next;
 
-	next->state = THREAD_STATE_RUNNING;
+
 
 }
 
@@ -176,15 +207,12 @@ void switch_thread(thread_t* thread){
 	
 	thread_t* current = arch_getcls()->thread;
 	
-	// if we don't have to change processes don't waste time
-
-	if(current->proc != thread->proc){
-		
-		vmm_switchcontext(thread->proc->context);
-
-	}
+	// if we don't have to change address spaces don't waste time
 	
 	arch_getcls()->thread = thread;
+	
+	if(current->ctx != thread->ctx)
+		vmm_switchcontext(thread->ctx);
 
 	arch_setkernelstack(thread->kernelstack);
 
@@ -254,7 +282,7 @@ thread_t* sched_newkthread(void* ip, size_t stacksize, bool run, int prio){
 void sched_yieldtrampoline(thread_t* thread){
 	
 	arch_regs_saveextra(&thread->extraregs);
-	
+		
 	if(thread->state == THREAD_STATE_RUNNING){
 		spinlock_acquire(&queues[thread->priority].lock);
 		queue_add(&queues[thread->priority], thread);
@@ -262,8 +290,14 @@ void sched_yieldtrampoline(thread_t* thread){
 		thread->state = THREAD_STATE_WAITING;
 	}
 	
+
 	thread = getnext();
-	thread->state = THREAD_STATE_RUNNING;	
+	
+	thread->state = THREAD_STATE_RUNNING;
+	
+	timer_resume();
+
+	
 	switch_thread(thread);
 
 }
@@ -274,6 +308,8 @@ void arch_sched_yieldtrampoline(thread_t* thread, arch_regs* regs);
 
 void sched_yield(){
 	
+	timer_stop();
+
 	thread_t* thread = arch_getcls()->thread;
 
 	arch_sched_yieldtrampoline(thread, thread->regs);
@@ -281,16 +317,19 @@ void sched_yield(){
 }
 
 void sched_eventsignal(event_t* event, thread_t* thread){
-	if((thread->state == THREAD_STATE_BLOCKED_INTR || (thread->state == THREAD_STATE_BLOCKED && event == &thread->sigevent)))
+	
+	if(thread->state != THREAD_STATE_BLOCKED && thread->state != THREAD_STATE_BLOCKED_INTR)
 		return;
-		
+
+	if(thread->state == THREAD_STATE_BLOCKED_INTR && event == &thread->sigevent)
+		return;
+
 	thread->state = THREAD_STATE_WAITING;
 	thread->awokenby = event;
 	
 	spinlock_acquire(&queues[thread->priority].lock);
 	queue_add(&queues[thread->priority], thread);
 	spinlock_release(&queues[thread->priority].lock);
-	
 }
 
 void sched_block(bool interruptible){
@@ -316,11 +355,13 @@ void sched_runinit(){
 	
 	printf("Loading /sbin/init\n");
 
-	thread_t* thread = sched_newuthread(NULL, PAGE_SIZE*3, NULL, NULL, true, THREAD_PRIORITY_USER);
+	thread_t* thread = sched_newuthread(NULL, PAGE_SIZE*10, NULL, NULL, false, THREAD_PRIORITY_USER);
 	
 	proc_t* proc = thread->proc;
 
-	vmm_switchcontext(proc->context);
+	arch_getcls()->thread = thread;
+
+	vmm_switchcontext(thread->ctx);
 
 	proc->root = vfs_root();
 	proc->cwd  = vfs_root();
@@ -380,6 +421,8 @@ void sched_runinit(){
 	arch_regs_setupuser(thread->regs, entry, stack, true);
 
 	timer_add(&arch_getcls()->schedreq, THREAD_QUANTUM, true);
+
+	thread->extraregs.gsbase = 0xDEAD000C0FFE0000;
 
 	switch_thread(thread);
 	
