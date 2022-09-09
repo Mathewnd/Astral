@@ -8,7 +8,9 @@ syscallret syscall_libc_log(char* str){
 	
 	syscallret ret;
 
-	char* buf = alloc(strlen(str) + 1);
+	size_t len = strlen(str);
+
+	char* buf = alloc(len + 2); // user strlen
 	if(!buf){
 		ret.errno = ENOMEM;
 		ret.ret = -1;
@@ -17,7 +19,9 @@ syscallret syscall_libc_log(char* str){
 
 	strcpy(buf, str);
 
-	printf("%s\n", str);
+	buf[len] = '\n';
+
+	console_write(buf, len+1);
 
 	ret.errno = 0;
 	ret.ret = 0;
