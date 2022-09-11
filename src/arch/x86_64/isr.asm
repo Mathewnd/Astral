@@ -58,11 +58,6 @@ section .text
 %macro popregs 0 
 	
 	add rsp, 24 ; cr2 gs fs
-
-	cmp rbp,0x3b
-	jne .noswapgspop
-	swapgs
-	.noswapgspop:
 	
 	pop rax
 	mov es,rax
@@ -84,6 +79,13 @@ section .text
 	pop rsi
 	pop rbp
 	add rsp,8 ; remove error code
+
+	cmp qword [rsp+8], 0x3b ; user cs
+	jne .noswap
+
+	swapgs
+
+	.noswap:
 
 %endmacro
 
