@@ -155,6 +155,8 @@ void arch_mmu_changeflags(arch_mmu_tableptr context, void* addr, size_t flags, s
 		setpage(context, addr, mapping);
 		addr += PAGE_SIZE;
 	}
+
+	invalidate(addr);
 	
 }
 
@@ -163,8 +165,8 @@ int arch_mmu_map(arch_mmu_tableptr context, void* paddr, void* vaddr, size_t fla
 	changeentry(&entry, paddr, flags);
 
 	int ret = setpage(context, vaddr, entry);
-
-
+	
+	
 	return ret;
 
 }
