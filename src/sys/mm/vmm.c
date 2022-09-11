@@ -530,6 +530,7 @@ bool vmm_dealwithrequest(void* addr, long error, bool user){
 
 	spinlock_acquire(lock);
 
+
 	bool status;
 	vmm_mapping* map = findmappingfromaddr(*start, addr);
 	void* paddr;
@@ -554,10 +555,11 @@ bool vmm_dealwithrequest(void* addr, long error, bool user){
 		goodmmuflags |= ARCH_MMU_MAP_NOEXEC;
 
 
-	if(goodmmuflags != (map->mmuflags & goodmmuflags))
-		return false;
+	if(goodmmuflags != (map->mmuflags & goodmmuflags)){
+		status = false;
+		goto done;
+	}
 	
-
 
 	// allocate a page
 
@@ -574,16 +576,16 @@ bool vmm_dealwithrequest(void* addr, long error, bool user){
 
 
 	if(addr == NULL || arch_mmu_map(cls->context->context, paddr, addr, map->mmuflags) == false){
-		status = false;
+		status = false;	
 		goto done;
 	}
 	
 	status = true;
 	
 	memset(addr, 0, PAGE_SIZE);
-
+	
 	done:
-
+	
 	spinlock_release(lock);
 
 	return status;
