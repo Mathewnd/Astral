@@ -211,6 +211,7 @@ void switch_thread(thread_t* thread){
 	
 	arch_getcls()->thread = thread;
 	
+
 	if(current->ctx != thread->ctx)
 		vmm_switchcontext(thread->ctx);
 
@@ -289,14 +290,13 @@ void sched_yieldtrampoline(thread_t* thread){
 		spinlock_release(&queues[thread->priority].lock);
 		thread->state = THREAD_STATE_WAITING;
 	}
-	
+
 
 	thread = getnext();
-	
+
 	thread->state = THREAD_STATE_RUNNING;
 	
 	timer_resume();
-
 	
 	switch_thread(thread);
 
@@ -422,8 +422,10 @@ void sched_runinit(){
 
 	timer_add(&arch_getcls()->schedreq, THREAD_QUANTUM, true);
 
-	thread->extraregs.gsbase = 0xDEAD000C0FFE0000;
+	printf("Switching to init thread\n");
 
 	switch_thread(thread);
 	
+	__builtin_unreachable();
+
 }
