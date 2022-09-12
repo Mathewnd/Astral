@@ -52,14 +52,14 @@ static void invalidate(void* addr){
 
 static uint64_t* next(uint64_t* table, size_t offset){
 	
-	table = (uint64_t)table & ~(0xFFF);
+	table = (uint64_t)table & ~((uint64_t)0xFFF);
 	
 	if(table < limine_hhdm_offset){
-		table = (uint64_t)table & ~(1 << 63); // remove NX
+		table = (uint64_t)table & ~(1 << (uint64_t)63); // remove NX
 		table = (uint64_t)table + (uint64_t)limine_hhdm_offset;
 	}
 	
-	return table[offset] & ~(0xFFF);
+	return table[offset] & ~((uint64_t)0xFFF);
 
 }
 
@@ -135,8 +135,8 @@ static uint64_t getmapping(arch_mmu_tableptr context, void* vaddr){
 
 void* arch_mmu_getphysicaladdr(arch_mmu_tableptr context, void* addr){
 	uint64_t paddr = getmapping(context, addr);
-	paddr &= ~(0xFFF);
-	paddr &= ~ARCH_MMU_MAP_NOEXEC;
+	paddr &= ~((uint64_t)0xFFF);
+	paddr &= ~(uint64_t)ARCH_MMU_MAP_NOEXEC;
 	return paddr;
 }
 
@@ -145,12 +145,14 @@ bool arch_mmu_isaccessed(arch_mmu_tableptr context, void* addr){
 }
 
 void arch_mmu_changeflags(arch_mmu_tableptr context, void* addr, size_t flags, size_t count){
+	
 	for(size_t i = 0; i < count; ++i){
 		uint64_t mapping = getmapping(context, addr);
 		if(!mapping)
 			continue;
-		mapping &= ~(0xFFF); // get addr
-		mapping &= ~ARCH_MMU_MAP_NOEXEC;
+
+		mapping &= ~((uint64_t)0xFFF); // get addr
+		mapping &= ~((uint64_t)1 << 63);
 		mapping |= flags;
 		setpage(context, addr, mapping);
 		addr += PAGE_SIZE;
@@ -165,7 +167,6 @@ int arch_mmu_map(arch_mmu_tableptr context, void* paddr, void* vaddr, size_t fla
 	changeentry(&entry, paddr, flags);
 
 	int ret = setpage(context, vaddr, entry);
-	
 	
 	return ret;
 
