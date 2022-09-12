@@ -422,8 +422,6 @@ void sched_runinit(){
 
 	timer_add(&arch_getcls()->schedreq, THREAD_QUANTUM, true);
 
-	printf("Switching to init thread\n");
-
 	switch_thread(thread);
 	
 	__builtin_unreachable();

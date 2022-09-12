@@ -155,10 +155,10 @@ void arch_mmu_changeflags(arch_mmu_tableptr context, void* addr, size_t flags, s
 		mapping &= ~((uint64_t)1 << 63);
 		mapping |= flags;
 		setpage(context, addr, mapping);
+		invalidate(addr);
 		addr += PAGE_SIZE;
 	}
 
-	invalidate(addr);
 	
 }
 
