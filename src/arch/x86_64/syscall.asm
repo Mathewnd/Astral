@@ -12,7 +12,8 @@ extern syscall_close
 extern syscall_isatty
 extern syscall_write
 extern syscall_stat
-func_count equ 11
+extern syscall_fstat
+func_count equ 12
 
 
 func_table:
@@ -27,6 +28,7 @@ func_table:
 	dq syscall_isatty
 	dq syscall_write
 	dq syscall_stat
+	dq syscall_fstat
 section .text
 global asm_syscall_entry
 
