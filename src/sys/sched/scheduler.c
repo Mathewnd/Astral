@@ -199,8 +199,6 @@ void sched_timerhook(arch_regs* regs){
 	timer_add(&arch_getcls()->schedreq, THREAD_QUANTUM, false);
 
 
-
-
 }
 
 void switch_thread(thread_t* thread){
@@ -211,9 +209,7 @@ void switch_thread(thread_t* thread){
 	
 	arch_getcls()->thread = thread;
 	
-
-	if(current->ctx != thread->ctx)
-		vmm_switchcontext(thread->ctx);
+	vmm_switchcontext(thread->ctx);
 
 	arch_setkernelstack(thread->kernelstack);
 
@@ -421,8 +417,6 @@ void sched_runinit(){
 	arch_regs_setupuser(thread->regs, entry, stack, true);
 
 	timer_add(&arch_getcls()->schedreq, THREAD_QUANTUM, true);
-
-	printf("Switching to init thread\n");
 
 	switch_thread(thread);
 	
