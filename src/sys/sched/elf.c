@@ -10,7 +10,7 @@ static size_t phflagtommuflag(size_t phflags){
 	
 	size_t mmuflags = 0;
 	
-	if(phflags & ELF_FLAG_EXECUTABLE == 0)
+	if((phflags & ELF_FLAG_EXECUTABLE) == 0)
 		mmuflags |= ARCH_MMU_MAP_NOEXEC;
 	
 	if(phflags & ELF_FLAG_WRITABLE)
@@ -56,7 +56,7 @@ static int load(vnode_t* node, elf_ph64 ph){
 
 	arch_mmu_changeflags(arch_getcls()->context->context, (void*)ph.memaddr, ARCH_MMU_MAP_READ | ARCH_MMU_MAP_WRITE, pagesize);
 	
-	int err;
+	int err = 0;
 
 	size_t readc = vfs_read(&err, node, (void*)ph.memaddr, ph.fsize, ph.offset);
 	
@@ -78,7 +78,7 @@ static int load(vnode_t* node, elf_ph64 ph){
 	// reset proper mmu flags
 
 	arch_mmu_changeflags(arch_getcls()->context->context, (void*)ph.memaddr, mmuflags, pagesize);
-	
+
 	return 0;
 
 }
@@ -268,7 +268,6 @@ int elf_load(thread_t* thread, vnode_t* node, char** argv, char** env, void** st
 		return ENOMEM;
 
 	*entry = (void*)header.entry;
-	
 	return 0;
 	
 	_interpfail:
