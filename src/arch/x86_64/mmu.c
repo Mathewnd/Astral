@@ -46,7 +46,7 @@ static void invalidate(void* addr){
 	sem.count += 2;
 	inv = addr;
 	arch_smp_sendipi(0, VECTOR_MMUINVAL, IPI_CPU_ALLBUTSELF);
-	while(!sem_tryacquire(&sem));
+	while(!sem_tryacquire(&sem)) asm("pause");
 }
 
 
