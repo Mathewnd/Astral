@@ -22,6 +22,7 @@ static uint8_t ps2cmd(uint8_t cmd){
 
 	for(size_t i = 0; i < 3; ++i){
 		outb(PS2_PORT_DATA, cmd);
+		
 		response = inb(PS2_PORT_DATA);
 		
 		if(response != RESEND)
@@ -69,11 +70,6 @@ void ps2kbd_init(){
 	// clear keyboard buffer data
 
 	inb(PS2_PORT_DATA);
-	
-	if(ps2cmd(ECHO) != ECHO){
-		printf("No PS/2 keyboard found.\n");
-		return;
-	}
 	
 	ioapic_setlegacyirq(KEYBOARDIRQ, VECTOR_PS2KBD, arch_getcls()->lapicid, false);
 	
