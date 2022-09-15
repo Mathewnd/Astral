@@ -1,8 +1,8 @@
-.phony: all kernel
+.phony: all kernel initrd
 all: jinx
 	LDFLAGS="" CFLAGS="" ./jinx build-all
 	./jinx sysroot
-	make sysroot
+	make initrd
 	make sysdisk.iso
 	
 jinx:
@@ -26,7 +26,7 @@ ISO=$(PWD)/boot/$(TARGET)/iso
 SRCDIR=$(PWD)/src/
 OBJDIR=$(PWD)/bin/
 
-sysroot:
+initrd:
 	rm -f $(INITRD)
 	cd sysroot; tar -cf $(INITRD) *
 
