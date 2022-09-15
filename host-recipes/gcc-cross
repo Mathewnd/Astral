@@ -1,0 +1,24 @@
+name=gcc-cross
+revision=1
+from_source=gcc-cross
+imagedeps="base-devel"
+hostdeps="automake autoconf binutils-cross"
+deps="mlibc-headers"
+
+configure() {
+	
+	${source_dir}/configure --target=x86_64-astral --prefix=${prefix} --with-sysroot=${sysroot_dir} --enable-languages=c,c++
+
+}
+
+build() {
+	
+	make all-gcc all-target-libgcc -j7
+
+}
+
+install(){
+	
+	make DESTDIR="${dest_dir}" install-gcc install-target-libgcc
+	
+}

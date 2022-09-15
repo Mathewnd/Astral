@@ -1,0 +1,10 @@
+name=gcc-cross
+version=12.1.0
+source_method=tarball
+tarball_url="https://ftp.gnu.org/gnu/gcc/gcc-${version}/gcc-${version}.tar.xz"
+tarball_sha512=2121d295292814a6761edf1fba08c5f633ebe16f52b80e7b73a91050e71e1d2ed98bf17eebad263e191879561c02b48906c53faa4c4670c486a26fc75df23900
+hostdeps="automake autoconf"
+
+regenerate() {
+	(cd libstdc++-v3 && autoconf)
+}

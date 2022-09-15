@@ -1,0 +1,345 @@
+diff -ruN --no-dereference mlibc-2.3.0/sysdeps/astral/crt-x86_64/crt0.S mlibc-fixed/sysdeps/astral/crt-x86_64/crt0.S
+--- mlibc-2.3.0/sysdeps/astral/crt-x86_64/crt0.S	1969-12-31 21:00:00.000000000 -0300
++++ mlibc-fixed/sysdeps/astral/crt-x86_64/crt0.S	2022-09-15 10:41:51.696638158 -0300
+@@ -0,0 +1,7 @@
++
++.section .text
++.global _start
++_start:
++    mov $main, %rdi
++    call __mlibc_entry
++
+diff -ruN --no-dereference mlibc-2.3.0/sysdeps/astral/generic/astral.cpp mlibc-fixed/sysdeps/astral/generic/astral.cpp
+--- mlibc-2.3.0/sysdeps/astral/generic/astral.cpp	1969-12-31 21:00:00.000000000 -0300
++++ mlibc-fixed/sysdeps/astral/generic/astral.cpp	2022-09-15 10:41:51.696638158 -0300
+@@ -0,0 +1,6 @@
++#include <astral/syscall.h>
++
++int arch_ctl(int func, void* arg){
++	long ret;
++	return syscall(SYSCALL_ARCH_CTL, &ret, func, (uint64_t)arg);
++}
+diff -ruN --no-dereference mlibc-2.3.0/sysdeps/astral/generic/entry.cpp mlibc-fixed/sysdeps/astral/generic/entry.cpp
+--- mlibc-2.3.0/sysdeps/astral/generic/entry.cpp	1969-12-31 21:00:00.000000000 -0300
++++ mlibc-fixed/sysdeps/astral/generic/entry.cpp	2022-09-15 10:41:51.696638158 -0300
+@@ -0,0 +1,34 @@
++
++#include <stdint.h>
++#include <stdlib.h>
++#include <bits/ensure.h>
++#include <mlibc/elf/startup.h>
++
++// defined by the POSIX library
++void __mlibc_initLocale();
++
++extern "C" uintptr_t *__dlapi_entrystack();
++
++extern char **environ;
++static mlibc::exec_stack_data __mlibc_stack_data;
++
++struct LibraryGuard {
++	LibraryGuard();
++};
++
++static LibraryGuard guard;
++
++LibraryGuard::LibraryGuard() {
++	__mlibc_initLocale();
++
++	// Parse the exec() stack.
++	mlibc::parse_exec_stack(__dlapi_entrystack(), &__mlibc_stack_data);
++	mlibc::set_startup_data(__mlibc_stack_data.argc, __mlibc_stack_data.argv,
++			__mlibc_stack_data.envp);
++}
++
++extern "C" void __mlibc_entry(int (*main_fn)(int argc, char *argv[], char *env[])) {
++	auto result = main_fn(__mlibc_stack_data.argc, __mlibc_stack_data.argv, environ);
++	exit(result);
++}
++
+diff -ruN --no-dereference mlibc-2.3.0/sysdeps/astral/generic/generic.cpp mlibc-fixed/sysdeps/astral/generic/generic.cpp
+--- mlibc-2.3.0/sysdeps/astral/generic/generic.cpp	1969-12-31 21:00:00.000000000 -0300
++++ mlibc-fixed/sysdeps/astral/generic/generic.cpp	2022-09-15 10:41:51.696638158 -0300
+@@ -0,0 +1,167 @@
++#include <bits/ensure.h>
++#include <mlibc/debug.hpp>
++#include <mlibc/all-sysdeps.hpp>
++#include <errno.h>
++#include <astral/syscall.h>
++#include <astral/archctl.h>
++
++#define STUB_ONLY { __ensure(!"STUB_ONLY function was called"); __builtin_unreachable(); }
++
++namespace mlibc {
++	
++	// stub
++
++	uid_t sys_getuid(){
++		return 0;
++	}
++
++	// stub
++
++	gid_t sys_getgid(){
++		return 0;
++	}
++
++	// stub
++
++	uid_t sys_geteuid(){
++		return 0;
++	}
++
++	// stub
++
++	gid_t sys_getegid(){
++		return 0;
++	}
++	
++	// stub
++
++	pid_t sys_getpid(){
++		return 1;
++	}
++
++	// stub
++	
++	pid_t sys_getppid(){
++		return 1;
++	}
++	
++	// stub
++
++	int sys_getpgid(pid_t pid, pid_t* pgid){
++		*pgid = 1;
++		return 0;
++	}
++
++	// stub
++
++	int sys_clock_get(int clock, time_t *secs, long *nanos){
++		*secs = 0;
++		*nanos = 0;
++		return 0;
++	}
++
++	// stub
++
++	int sys_ioctl(int fd, unsigned long request, void *arg, int *result){
++		return ENOSYS;
++	}
++
++	// stub
++
++	int sys_sigaction(int, const struct sigaction *__restrict,
++                struct sigaction *__restrict){
++		return ENOSYS;
++	}
++	
++	// stub
++	
++	int sys_sigprocmask(int how, const sigset_t *__restrict set, sigset_t *__restrict retrieve){
++		return ENOSYS;
++	}
++	
++
++	void sys_libc_log(const char *message){
++		long ret;
++		syscall(SYSCALL_LIBC_LOG, &ret, (uint64_t)message);
++	}
++	
++	[[noreturn]] void sys_libc_panic(){
++		for(;;);
++		sys_libc_log("LIBC PANIC!");
++		sys_exit(1);
++	}
++	
++
++
++	[[noreturn]] void sys_exit(int status){
++		sys_libc_log("libc: Program requested exit");
++		while(1);
++	}
++
++	int sys_tcb_set(void* pointer){
++		return arch_ctl(ARCH_CTL_FSBASE, pointer);
++	}
++	[[gnu::weak]] int sys_futex_tid(){
++		long ret;
++		syscall(SYSCALL_GETTID, &ret);
++		return ret;
++	}
++	int sys_futex_wait(int *pointer, int expected, const struct timespec *time) STUB_ONLY
++	int sys_futex_wake(int *pointer) STUB_ONLY
++	int sys_anon_allocate(size_t size, void **pointer){
++		return sys_vm_map(NULL, size, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, 0, 0, pointer);
++	}
++	int sys_anon_free(void* pointer, size_t size){
++		sys_libc_log("libc: sys_anon_free is not implemented");
++		return 0;
++	}
++	
++	int sys_open(const char* pathname, int flags, mode_t mode, int* fd){
++		long ret;
++		long err = syscall(SYSCALL_OPEN, &ret, (uint64_t)pathname, flags, mode);
++		*fd = (int)ret;
++		return err;
++	};
++	int sys_read(int fd, void* buff, size_t count, ssize_t *bytes_read){
++		return syscall(SYSCALL_READ, bytes_read, fd, (uint64_t)buff, count);
++	}
++	int sys_write(int fd, const void* buff, size_t count, ssize_t *bytes_written){
++		return syscall(SYSCALL_WRITE, bytes_written, fd, (uint64_t)buff, count);
++	}
++	int sys_seek(int fd, off_t offset, int whence, off_t *new_offset){
++		return syscall(SYSCALL_LSEEK, new_offset, fd, offset, whence);
++	}
++	
++	int sys_close(int fd){
++		long ret;
++		return syscall(SYSCALL_CLOSE, &ret, fd);
++	}
++
++
++	[[gnu::weak]] int sys_stat(fsfd_target fsfdt, int fd, const char* path, int flags, struct stat *statbuf){
++		long ret;
++		switch(fsfdt){
++			case fsfd_target::path:
++				return syscall(SYSCALL_STAT, &ret, (uint64_t)path, (uint64_t)statbuf);
++			case fsfd_target::fd:
++				return syscall(SYSCALL_FSTAT, &ret, (uint64_t)path, (uint64_t)statbuf);
++			default:
++				sys_libc_log("libc: sys_stat: Unknown fsfd target");
++				return ENOSYS;
++		}
++	}
++
++	int sys_vm_map(void *hint, size_t size, int prot, int flags, int fd, off_t offset, void** window){	
++		long ret = syscall(SYSCALL_MMAP, (int64_t*)window, (uint64_t)hint, size, prot, flags, fd, offset);
++		return ret;
++	}
++
++	int sys_vm_unmap(void* pointer, size_t size) STUB_ONLY
++	
++	int sys_isatty(int fd){
++		long ret;
++		return syscall(SYSCALL_ISATTY, &ret, fd);
++	}
++
++} // namespace mlibc
++
+diff -ruN --no-dereference mlibc-2.3.0/sysdeps/astral/include/astral/archctl.h mlibc-fixed/sysdeps/astral/include/astral/archctl.h
+--- mlibc-2.3.0/sysdeps/astral/include/astral/archctl.h	1969-12-31 21:00:00.000000000 -0300
++++ mlibc-fixed/sysdeps/astral/include/astral/archctl.h	2022-09-15 10:41:51.696638158 -0300
+@@ -0,0 +1,11 @@
++#ifndef _ASTRAL_SYSCALL_ARCHCTL_INCLUDE
++#define _ASTRAL_SYSCALL_ARCHCTL_INCLUDE
++
++#include <astral/syscall.h>
++
++#define ARCH_CTL_GSBASE 0
++#define ARCH_CTL_FSBASE 1
++
++int arch_ctl(int func, void* arg);
++
++#endif
+diff -ruN --no-dereference mlibc-2.3.0/sysdeps/astral/include/astral/syscall.h mlibc-fixed/sysdeps/astral/include/astral/syscall.h
+--- mlibc-2.3.0/sysdeps/astral/include/astral/syscall.h	1969-12-31 21:00:00.000000000 -0300
++++ mlibc-fixed/sysdeps/astral/include/astral/syscall.h	2022-09-15 10:41:51.696638158 -0300
+@@ -0,0 +1,37 @@
++#ifndef _SYSCALL_H_INCLUDE
++#define _SYSCALL_H_INCLUDE
++
++#define SYSCALL_LIBC_LOG 0
++#define SYSCALL_MMAP 1
++#define SYSCALL_ARCH_CTL 2
++#define SYSCALL_GETTID 3
++#define SYSCALL_OPEN 4
++#define SYSCALL_READ 5
++#define SYSCALL_LSEEK 6
++#define SYSCALL_CLOSE 7
++#define SYSCALL_ISATTY 8
++#define SYSCALL_WRITE 9
++#define SYSCALL_STAT 10
++#define SYSCALL_FSTAT 11
++
++#include <stddef.h>
++#include <stdint.h>
++
++static long syscall(long func, long* ret, uint64_t p1 = 0, uint64_t p2 = 0, uint64_t p3 = 0, uint64_t p4 = 0, uint64_t p5 = 0, uint64_t p6 = 0){
++	
++	volatile long err;
++
++	register uint64_t r4 asm("r10") = p4;
++	register uint64_t r5 asm("r8") = p5;
++	register uint64_t r6 asm("r9") = p6;
++	
++	asm volatile("syscall"
++		: "=a"(*ret), "=d"(err)
++		: "a"(func), "D"(p1), "S"(p2), "d"(p3), "r"(r4),
++		"r"(r5), "r"(r6)
++		: "memory", "rcx", "r11");
++    return err;
++	
++}
++
++#endif
+diff -ruN --no-dereference mlibc-2.3.0/sysdeps/astral/meson.build mlibc-fixed/sysdeps/astral/meson.build
+--- mlibc-2.3.0/sysdeps/astral/meson.build	1969-12-31 21:00:00.000000000 -0300
++++ mlibc-fixed/sysdeps/astral/meson.build	2022-09-15 10:41:51.696638158 -0300
+@@ -0,0 +1,55 @@
++
++rtdl_sources += files(
++	'generic/generic.cpp',
++        'generic/astral.cpp',
++)
++
++libc_sources += files(
++	'generic/entry.cpp',
++        'generic/astral.cpp',
++	'generic/generic.cpp',
++)
++
++if not no_headers
++	install_headers(
++		'include/abi-bits/abi.h',
++		'include/abi-bits/auxv.h',
++		'include/abi-bits/seek-whence.h',
++		'include/abi-bits/vm-flags.h',
++		'include/abi-bits/errno.h',
++		'include/abi-bits/fcntl.h',
++		'include/abi-bits/in.h',
++		'include/abi-bits/resource.h',
++		'include/abi-bits/stat.h',
++		'include/abi-bits/signal.h',
++		'include/abi-bits/socket.h',
++		'include/abi-bits/termios.h',
++		'include/abi-bits/time.h',
++		'include/abi-bits/blkcnt_t.h',
++		'include/abi-bits/blksize_t.h',
++		'include/abi-bits/dev_t.h',
++		'include/abi-bits/gid_t.h',
++		'include/abi-bits/ino_t.h',
++		'include/abi-bits/mode_t.h',
++		'include/abi-bits/nlink_t.h',
++		'include/abi-bits/pid_t.h',
++		'include/abi-bits/uid_t.h',
++		'include/abi-bits/access.h',
++		'include/abi-bits/wait.h',
++		'include/abi-bits/utsname.h',
++                'include/abi-bits/limits.h',
++		subdir: 'abi-bits'
++	)
++endif
++
++if not headers_only
++	crt = custom_target('crt0',
++		build_by_default: true,
++		command: c_compiler.cmd_array() + ['-c', '-o', '@OUTPUT@', '@INPUT@'],
++		input: 'crt-x86_64/crt0.S',
++		output: 'crt0.o',
++		install: true,
++		install_dir: get_option('libdir')
++	)
++endif
++

@@ -1,0 +1,13 @@
+--- mlibc-2.3.0/meson.build	2022-06-20 06:58:47.000000000 -0300
++++ mlibc-2.3.0-patched/meson.build	2022-09-14 17:04:01.893118263 -0300
+@@ -142,6 +142,10 @@
+ 	rtdl_include_dirs += include_directories('sysdeps/dripos/include')
+ 	libc_include_dirs += include_directories('sysdeps/dripos/include')
+ 	subdir('sysdeps/dripos')
++elif host_machine.system() == 'astral'
++        rtdl_include_dirs += include_directories('sysdeps/astral/include')
++        libc_include_dirs += include_directories('sysdeps/astral/include')
++        subdir('sysdeps/astral')
+ else
+ 	error('No sysdeps defined for OS: ' + host_machine.system())
+ endif

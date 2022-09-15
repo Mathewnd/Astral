@@ -1,57 +1,68 @@
-CC=x86_64-elf-gcc
+.phony: all kernel
+all: jinx
+	LDFLAGS="" CFLAGS="" ./jinx build-all
+	./jinx sysroot
+	make sysroot
+	make sysdisk.iso
+	
+jinx:
+	curl https://raw.githubusercontent.com/mintsuki/jinx/trunk/jinx > jinx
+	chmod +x jinx
+
+
+
+XCC=x86_64-elf-gcc
 TARGET=x86_64
-SRCDIR=$(PWD)/src/
-OBJDIR=$(PWD)/bin/
-ISO=$(PWD)/boot/$(TARGET)/iso
-KERNEL=$(ISO)/kernel
-INITRD=$(ISO)/initrd
 rwildcard=$(foreach d,$(wildcard $(1:=/*)),$(call rwildcard,$d,$2) $(filter $(subst *,%,$2),$d))
 KERNELDEPS=$(call rwildcard,bin,*.o)
 KERNELSRCDEPS=$(call rwildcard,src,*.c)
 INCLUDEDIR=$(SRCDIR)/include
 ARCHINCLUDE=$(SRCDIR)/arch/$(TARGET)/include
+KERNEL=$(ISO)/kernel
+INITRD=$(ISO)/initrd
 CFLAGS=-c -ffreestanding -mcmodel=kernel -O2 -mno-red-zone -mno-mmx -mno-sse -mno-sse2 -nostdlib -I$(INCLUDEDIR) -I$(ARCHINCLUDE) --debug
 LDFLAGS=-ffreestanding -nostdlib -lgcc -Wl,-T,kernel.ld -debug
+ISO=$(PWD)/boot/$(TARGET)/iso
+SRCDIR=$(PWD)/src/
+OBJDIR=$(PWD)/bin/
 
+sysroot:
+	rm -f $(INITRD)
+	cd sysroot; tar -cf $(INITRD) *
 
 #TODO make it so we don't need to rebuild everything when a header is changed
 
-export OBJDIR SRCDIR LDFLAGS CFLAGS INCLUDEDIR TARGET CC
+export OBJDIR SRCDIR LDFLAGS CFLAGS INCLUDEDIR TARGET XCC
 
-.phony: all
-all: $(KERNEL)
+kernel: $(KERNEL)
 
 srcdir:
 	$(MAKE) -C src
 
 $(KERNEL): srcdir $(KERNELSRCDEPS) kernel.ld
 	mkdir -p $(ISO)
-	$(CC) $(LDFLAGS) -o $@ $(call rwildcard,bin,*.o)
+	$(XCC) $(LDFLAGS) -o $@ $(call rwildcard,bin,*.o)
 
-.phony: rebuildinitrd
-rebuildinitrd:
-	rm $(INITRD)
-	cd initrd;tar -cf $(INITRD) *
-
-$(INITRD): $(shell find initrd)
-	cd initrd;tar -cf $(INITRD) *
-
-sysdisk.iso: $(ISO) $(INITRD)
+sysdisk.iso: $(ISO)
 	mkdir -p $(ISO)
 	cp liminebg.bmp limine.cfg limine/limine.sys limine/limine-cd.bin limine/limine-cd-efi.bin $(ISO)
 	xorriso -as mkisofs -b limine-cd.bin -no-emul-boot -boot-load-size 4 -boot-info-table --efi-boot limine-cd-efi.bin -efi-boot-part --efi-boot-image --protective-msdos-label $(ISO) -o sysdisk.iso
 	
-run: $(KERNEL) sysdisk.iso
+run:
 	qemu-system-x86_64 -cdrom sysdisk.iso -m 8G -smp cpus=6
 
-run-kvm: $(KERNEL) sysdisk.iso
+run-kvm: $(KERNEL)
 	qemu-system-x86_64 -cdrom sysdisk.iso -m 8G -smp cpus=6 -enable-kvm
 
-test: $(KERNEL) sysdisk.iso
+test: $(KERNEL)
 	qemu-system-x86_64 -monitor stdio -cdrom sysdisk.iso -d int -no-reboot -no-shutdown -m 8G -smp cpus=6
 
-test-kvm: $(KERNEL) sysdisk.iso
+test-kvm: $(KERNEL)
 	qemu-system-x86_64 -monitor stdio -cdrom sysdisk.iso -no-reboot -no-shutdown -m 8G -smp cpus=6 -enable-kvm
 
 clean:
+	./jinx clean
+	rm -f jinx
 	rm $(call rwildcard,src,*.o) $(KERNELDEPS)
+
+	

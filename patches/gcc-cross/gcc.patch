@@ -1,0 +1,109 @@
+diff -ruN gcc-12.1.0/config.sub gcc-12.1.0-patched/config.sub
+--- gcc-12.1.0/config.sub	2022-05-06 04:30:56.000000000 -0300
++++ gcc-12.1.0-patched/config.sub	2022-09-14 19:57:47.513031678 -0300
+@@ -1749,7 +1749,7 @@
+ 	     | onefs* | tirtos* | phoenix* | fuchsia* | redox* | bme* \
+ 	     | midnightbsd* | amdhsa* | unleashed* | emscripten* | wasi* \
+ 	     | nsk* | powerunix* | genode* | zvmoe* | qnx* | emx* | zephyr* \
+-	     | fiwix* )
++	     | fiwix* | astral* )
+ 		;;
+ 	# This one is extra strict with allowed versions
+ 	sco3.2v2 | sco3.2v[4-9]* | sco5v6*)
+diff -ruN gcc-12.1.0/fixincludes/mkfixinc.sh gcc-12.1.0-patched/fixincludes/mkfixinc.sh
+--- gcc-12.1.0/fixincludes/mkfixinc.sh	2022-05-06 04:30:56.000000000 -0300
++++ gcc-12.1.0-patched/fixincludes/mkfixinc.sh	2022-09-14 19:59:55.153030645 -0300
+@@ -11,6 +11,8 @@
+ 
+ # Check for special fix rules for particular targets
+ case $machine in
++    *-astral* | \
++    *-*-astral* | \
+     i?86-*-cygwin* | \
+     i?86-*-mingw32* | \
+     x86_64-*-mingw32* | \
+diff -ruN gcc-12.1.0/gcc/config/astral.h gcc-12.1.0-patched/gcc/config/astral.h
+--- gcc-12.1.0/gcc/config/astral.h	1969-12-31 21:00:00.000000000 -0300
++++ gcc-12.1.0-patched/gcc/config/astral.h	2022-09-14 19:58:16.803031441 -0300
+@@ -0,0 +1,24 @@
++#undef TARGET_ASTRAL
++#define TARGET_ASTRAL 1
++ 
++#undef LIB_SPEC
++#define LIB_SPEC "-lc"
++
++#undef LINK_SPEC
++#define LINK_SPEC "%{shared:-shared} %{static:-static} %{!shared: %{!static: %{rdynamic:-export-dynamic}}} %{!dynamic-linker:-dynamic-linker /usr/lib/ld.so}"
++
++#undef STARTFILE_SPEC
++#define STARTFILE_SPEC "crt0.o%s crti.o%s crtbegin.o%s"
++
++#undef ENDFILE_SPEC
++#define ENDFILE_SPEC "crtend.o%s crtn.o%s"
++ 
++#undef TARGET_OS_CPP_BUILTINS
++#define TARGET_OS_CPP_BUILTINS()      \
++  do {                                \
++    builtin_define ("__astral__");      \
++    builtin_define ("__unix__");      \
++    builtin_assert ("system=astral");   \
++    builtin_assert ("system=unix");   \
++    builtin_assert ("system=posix");   \
++  } while(0);
+diff -ruN gcc-12.1.0/gcc/config.gcc gcc-12.1.0-patched/gcc/config.gcc
+--- gcc-12.1.0/gcc/config.gcc	2022-05-06 04:30:56.000000000 -0300
++++ gcc-12.1.0-patched/gcc/config.gcc	2022-09-14 19:57:58.466364923 -0300
+@@ -773,6 +773,12 @@
+   tmake_file="${tmake_file} t-dragonfly"
+   target_has_targetdm=yes
+   ;;
++*-*-astral*)
++  gas=yes
++  gnu_ld=yes
++  default_use_cxa_atexit=yes
++  use_gcc_stdint=provide
++  ;;
+ *-*-freebsd*)
+   # This is the generic ELF configuration of FreeBSD.  Later
+   # machine-specific sections may refine and add to this
+@@ -1087,6 +1093,9 @@
+ esac
+ 
+ case ${target} in
++x86_64-*-astral*)
++    tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h glibc-stdint.h i386/i386elf.h i386/x86-64.h astral.h"
++    ;;
+ aarch64*-*-elf | aarch64*-*-fuchsia* | aarch64*-*-rtems*)
+ 	tm_file="${tm_file} dbxelf.h elfos.h newlib-stdint.h"
+ 	tm_file="${tm_file} aarch64/aarch64-elf.h aarch64/aarch64-errata.h aarch64/aarch64-elf-raw.h"
+diff -ruN gcc-12.1.0/libgcc/config.host gcc-12.1.0-patched/libgcc/config.host
+--- gcc-12.1.0/libgcc/config.host	2022-05-06 04:30:59.000000000 -0300
++++ gcc-12.1.0-patched/libgcc/config.host	2022-09-14 19:59:26.003030881 -0300
+@@ -751,6 +751,10 @@
+ 	;;
+ x86_64-*-openbsd*)
+ 	;;
++x86_64-*-astral*)
++	extra_parts="$extra_parts crti.o crtbegin.o crtend.o crtn.o"
++	tmake_file="$tmake_file i386/t-crtstuff t-crtstuff-pic t-libgcc-pic"
++	;;
+ i[34567]86-*-linux*)
+ 	extra_parts="$extra_parts crtprec32.o crtprec64.o crtprec80.o crtfastmath.o"
+ 	tmake_file="${tmake_file} i386/t-crtpc t-crtfm i386/t-crtstuff t-dfprules"
+diff -ruN gcc-12.1.0/libstdc++-v3/crossconfig.m4 gcc-12.1.0-patched/libstdc++-v3/crossconfig.m4
+--- gcc-12.1.0/libstdc++-v3/crossconfig.m4	2022-05-06 04:31:00.000000000 -0300
++++ gcc-12.1.0-patched/libstdc++-v3/crossconfig.m4	2022-09-14 19:58:39.359697928 -0300
+@@ -8,7 +8,12 @@
+   arm*-*-symbianelf*)
+     # This is a freestanding configuration; there is nothing to do here.
+     ;;
+-
++  *-astral*)
++    GLIBCXX_CHECK_COMPILER_FEATURES
++    GLIBCXX_CHECK_LINKER_FEATURES
++    GLIBCXX_CHECK_MATH_SUPPORT
++    GLIBCXX_CHECK_STDLIB_SUPPORT
++    ;;
+   avr*-*-*)
+     AC_DEFINE(HAVE_ACOSF)
+     AC_DEFINE(HAVE_ASINF)

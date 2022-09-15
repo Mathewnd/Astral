@@ -1,0 +1,11 @@
+--- gcc-12.1.0/libgcc/libgcov.h	2022-05-06 04:30:59.000000000 -0300
++++ gcc-12.1.0-patched/libgcc/libgcov.h	2022-09-15 17:13:09.406451175 -0300
+@@ -25,6 +25,8 @@
+ #ifndef GCC_LIBGCOV_H
+ #define GCC_LIBGCOV_H
+ 
++#include <stdint.h>
++
+ /* work around the poisoned malloc/calloc in system.h.  */
+ #ifndef xmalloc
+ #define xmalloc malloc

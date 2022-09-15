@@ -1,0 +1,21 @@
+name=astral
+revision=1
+from_source=astral
+hostdeps="gcc-cross binutils-cross"
+imagedeps="base-devel nasm"
+
+configure() {
+	true
+}
+
+build() {
+	
+	pushd ${base_dir}
+	make kernel XCC=x86_64-astral-gcc
+	popd
+
+}
+
+install() {
+	true
+}

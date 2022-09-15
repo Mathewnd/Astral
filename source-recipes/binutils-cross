@@ -1,0 +1,11 @@
+name=binutils-cross
+version=2.39
+source_method=tarball
+tarball_url="https://ftpmirror.gnu.org/binutils/binutils-${version}.tar.xz"
+tarball_sha512=68e038f339a8c21faa19a57bbc447a51c817f47c2e06d740847c6e9cc3396c025d35d5369fa8c3f8b70414757c89f0e577939ddc0d70f283182504920f53b0a3
+hostdeps="autoconf automake"
+
+regenerate() {
+        (cd ld && automake)
+}
+

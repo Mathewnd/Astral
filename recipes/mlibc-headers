@@ -1,0 +1,18 @@
+name=mlibc-headers
+from_source=mlibc
+revision=1
+imagedeps="ninja meson base-devel"
+
+configure() {
+	meson --cross-file ${base_dir}/util/crossfile --prefix=${prefix} -Dheaders_only=true ${source_dir}
+}
+
+build() {
+	
+	ninja
+
+}
+
+install() {
+	DESTDIR=${dest_dir} ninja install
+}

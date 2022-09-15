@@ -1,0 +1,11 @@
+[host_machine]
+system = 'astral'
+cpu_family = 'x86_64'
+cpu = 'x86_64'
+endian = 'little'
+[binaries]
+c = 'x86_64-astral-gcc'
+cpp = 'x86_64-astral-g++'
+ar = 'x86_64-astral-ar'
+strip = 'x86_64-astral-strip'
+ld = 'x86_64-astral-ld'

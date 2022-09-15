@@ -1,16 +1,25 @@
 # Astral
+
 Astral is a 64 bit operating system for the x86-64 architecture written in C.
 
-It's early in its development and is not production ready.
+As of now it has a few ports like bash and mlibc.
 
 ## Building
 
-You will need an x86-64-elf-gcc cross compiler and nasm.
+The build process needs xorriso and curl on the host.
 
-To build the kernel run ``make``
-To build the iso run ``make sysdisk.iso``
+To build the ISO, run ``make``. This will create a file named ``sysdisk.iso``
 
 ## Testing
 
-There is a make target to run Astral under qemu with kvm. Run ``make test``
+There are a few targets in the makefile to run Astral with qemu:
 
+``make run``
+
+``make run-kvm``
+
+If you wish to use the qemu monitor, use the test targets:
+
+``make test``
+
+``make test-kvm``

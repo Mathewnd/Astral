@@ -1,0 +1,7 @@
+name=astral
+version=0
+source_dir="src"
+
+regenerate() {
+	true
+}

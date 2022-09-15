@@ -1,6 +1,7 @@
 objects := $(patsubst %.c,%.o,$(wildcard *.c))
 subdirs := arch/$(TARGET)/ include video sys fs
 OBJPATH=$(OBJDIR)
+CC=$(XCC)
 export
 
 all: $(subdirs) $(objects)

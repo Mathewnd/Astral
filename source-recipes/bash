@@ -1,0 +1,8 @@
+name=bash
+version=5.1
+source_method=tarball
+tarball_url="https://ftp.gnu.org/gnu/bash/bash-${version}.tar.gz"
+tarball_sha512=c44a0ce381469219548a3a27589af3fea4f22eda1ca4e9434b59fc16da81b471c29ce18e31590e0860a6a251a664b68c2b45e3a17d22cfc02799ffd9a208390c
+regenerate() {
+        true
+}

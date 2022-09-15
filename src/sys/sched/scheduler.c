@@ -399,7 +399,7 @@ void sched_runinit(){
 	stdoutfd->flags = stderrfd->flags = O_WRONLY + 1;
 
 	vnode_t* node;
-	ret = vfs_open(&node, vfs_root(), "sbin/init");
+	ret = vfs_open(&node, vfs_root(), "usr/bin/bash");
 
 	if(ret){
 		printf("Open failed: %s\n", strerror(ret));
@@ -421,7 +421,7 @@ void sched_runinit(){
 	arch_regs_setupuser(thread->regs, entry, stack, true);
 
 	timer_add(&arch_getcls()->schedreq, THREAD_QUANTUM, true);
-
+	
 	switch_thread(thread);
 	
 	__builtin_unreachable();
