@@ -51,13 +51,13 @@ sysdisk.iso: $(ISO)
 run:
 	qemu-system-x86_64 -cdrom sysdisk.iso -m 8G -smp cpus=6
 
-run-kvm: $(KERNEL)
+run-kvm:
 	qemu-system-x86_64 -cdrom sysdisk.iso -m 8G -smp cpus=6 -enable-kvm
 
-test: $(KERNEL)
+test:
 	qemu-system-x86_64 -monitor stdio -cdrom sysdisk.iso -d int -no-reboot -no-shutdown -m 8G -smp cpus=6
 
-test-kvm: $(KERNEL)
+test-kvm:
 	qemu-system-x86_64 -monitor stdio -cdrom sysdisk.iso -no-reboot -no-shutdown -m 8G -smp cpus=6 -enable-kvm
 
 clean:
