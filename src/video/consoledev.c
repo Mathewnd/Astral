@@ -29,27 +29,54 @@ void console_write(char* str, size_t count){
 
 }
 
+#define THREAD_BUFF_MAX 2048
+#define BACKSPACE_STR "\b \b"
 __attribute__((noreturn)) static void console_thread(){
+	
+	char buff[THREAD_BUFF_MAX];
+	int buffpos = 0;
 
 	for(;;){
 		kbpacket_t packet;
 
 		keyboard_getandwait(0, &packet);
 
-
 		if(packet.ascii && (KBPACKET_FLAGS_RELEASED & packet.flags) == 0){
 
-			// echo		
+			bool flush = false;
+			
+			switch(packet.ascii){
+				
+				case '\b':
+					if(buffpos){
+						--buffpos;
+						buff[buffpos] = '\0';
+						console_write(BACKSPACE_STR, strlen(BACKSPACE_STR));
+					}
+					continue;
+				case '\n':
+					flush = true;
+					break;
+			}
 
 			console_write(&packet.ascii, 1);
-
-			arch_interrupt_disable();
-
-			ringbuffer_write(&input, &packet.ascii, 1);
-		
-			arch_interrupt_enable();
 			
-			event_signal(&inputevent, true);
+			buff[buffpos++] = packet.ascii;
+
+			if(buffpos == THREAD_BUFF_MAX)
+				flush = true;
+
+			if(flush){
+				arch_interrupt_disable();
+
+				ringbuffer_write(&input, buff, buffpos);
+			
+				arch_interrupt_enable();
+				
+				buffpos = 0;
+
+				event_signal(&inputevent, true);
+			}
 		}
 	}
 
@@ -103,7 +130,7 @@ void consoledev_init(){
 	if(devman_newdevice("console", TYPE_CHARDEV, CONSOLE_MAJOR, 0, &calls))
 	_panic("Failed to create console device", 0);
 
-	if(ringbuffer_init(&input, 4096))
+	if(ringbuffer_init(&input, THREAD_BUFF_MAX))
 		_panic("Failed to initialise console ringbuffer", 0);
 
 	thread = sched_newkthread(console_thread, 4096*10, true, THREAD_PRIORITY_KERNEL);
