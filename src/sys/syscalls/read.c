@@ -19,34 +19,29 @@ syscallret syscall_read(int ifd, void* buff, size_t count){
 
 	proc_t* proc = arch_getcls()->thread->proc;
 
-	fd_t* fd = proc->fds + ifd;
+	fd_t* fd;
 
-	spinlock_acquire(&proc->fdlock);
-
-	if(proc->fdcount <= ifd || fd->node == NULL || (fd->flags & FD_FLAGS_READ) == 0){
-		spinlock_release(&proc->fdlock);
-		retv.errno = EBADF;
+	int err = fd_access(&proc->fdtable, &fd, ifd); 
+	
+	if(err){
+		retv.errno = err;
 		return retv;
 	}
-
-	spinlock_acquire(&fd->lock);
-	spinlock_release(&proc->fdlock);
 
 	void* kbuff = alloc(count);
 
 	if(!kbuff){
-		spinlock_release(&fd->lock);
+		fd_release(fd);	
 		retv.errno = ENOMEM;
 		return retv;
 	}
 
-	int err;
 	size_t readc = vfs_read(&err, fd->node, kbuff, count, fd->offset);
 
 
 
-	if(err){	
-		spinlock_release(&fd->lock);
+	if(err){
+		fd_release(fd);	
 		free(kbuff);
 		retv.errno = err;
 		return retv;
@@ -54,7 +49,7 @@ syscallret syscall_read(int ifd, void* buff, size_t count){
 
 	fd->offset += readc;
 	
-	spinlock_release(&fd->lock);
+	fd_release(fd);	
 
 	memcpy(buff, kbuff, count); // XXX user version for safety
 

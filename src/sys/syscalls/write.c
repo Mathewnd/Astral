@@ -22,24 +22,20 @@ syscallret syscall_write(int ifd, void* buff, size_t count){
 
         proc_t* proc = arch_getcls()->thread->proc;
 
-        fd_t* fd = proc->fds + ifd;
+	fd_t* fd;
 
-        spinlock_acquire(&proc->fdlock);
+	int err = fd_access(&proc->fdtable, &fd, ifd);
 
-        if(proc->fdcount <= ifd || fd->node == NULL || (fd->flags & FD_FLAGS_WRITE) == 0){
-                spinlock_release(&proc->fdlock);
-                retv.errno = EBADF;
+	if(err){
+		retv.errno = err;
 		return retv;
-        }
-
-        spinlock_acquire(&fd->lock);
-        spinlock_release(&proc->fdlock);
+	}
 
         void* kbuff = alloc(count);
 
         if(!kbuff){
-                spinlock_release(&fd->lock);
-                retv.errno = ENOMEM;
+                fd_release(fd);
+		retv.errno = ENOMEM;
                 return retv;
         }
 	
@@ -48,7 +44,7 @@ syscallret syscall_write(int ifd, void* buff, size_t count){
 	if(fd->flags & O_APPEND)
 		fd->offset = fd->node->st.st_size;
 
-	int err;
+	
 	size_t writec = vfs_write(&err, fd->node, kbuff, count, fd->offset);
 
 
@@ -66,7 +62,7 @@ syscallret syscall_write(int ifd, void* buff, size_t count){
 	retv.ret = writec;
 
 	_ret:
-	spinlock_release(&fd->lock);
+	fd_release(fd);
 	free(kbuff);
 	return retv;
 }

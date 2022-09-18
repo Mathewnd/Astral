@@ -10,7 +10,6 @@
 #include <kernel/elf.h>
 #include <arch/interrupt.h>
 
-#define PROC_START_FD_COUNT 3
 #define THREAD_QUANTUM 10000
 
 // queue 0: interrupt threads
@@ -34,18 +33,11 @@ static proc_t* allocproc(size_t threadcount){
 		return NULL;
 	}
 
-	proc->fds = alloc(sizeof(fd_t) * PROC_START_FD_COUNT);
-
-	if(!proc->fds){
+	if(fd_tableinit(&proc->fdtable)){
 		free(proc->threads);
 		free(proc);
 		return NULL;
 	}
-
-	proc->fdcount = PROC_START_FD_COUNT;
-	proc->firstfreefd = PROC_START_FD_COUNT;
-
-
 	
 	return proc;
 	
@@ -362,11 +354,15 @@ void sched_runinit(){
 
 	proc->root = vfs_root();
 	proc->cwd  = vfs_root();
-	proc->pid  = 1;
+	proc->pid  = 1;	
 
-	fd_t* stdinfd = &proc->fds[0];
-	fd_t* stdoutfd = &proc->fds[1];
-	fd_t* stderrfd = &proc->fds[2];
+	int tmp;
+
+	fd_t *stdinfd, *stdoutfd, *stderrfd;
+
+	fd_alloc(&proc->fdtable, &stdinfd, &tmp);
+	fd_alloc(&proc->fdtable, &stdoutfd, &tmp);
+	fd_alloc(&proc->fdtable, &stderrfd, &tmp);
 	
 	#define CONSOLE_PATH "dev/console"
 
@@ -416,6 +412,10 @@ void sched_runinit(){
 	}
 
 	arch_regs_setupuser(thread->regs, entry, stack, true);
+
+	fd_release(stdinfd);
+	fd_release(stdoutfd);
+	fd_release(stderrfd);
 
 	timer_add(&arch_getcls()->schedreq, THREAD_QUANTUM, true);
 	

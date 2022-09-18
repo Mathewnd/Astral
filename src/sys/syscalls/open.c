@@ -29,43 +29,17 @@ syscallret syscall_open(const char* pathname, int flags, mode_t mode){
 
 	proc_t* proc = arch_getcls()->thread->proc;
 	
-	spinlock_acquire(&proc->fdlock);
+	int ifd;
+	fd_t* fd;
 
-	fd_t* fd = NULL;
+	int err = fd_alloc(&proc->fdtable, &fd, &ifd);
 	
-	// find fd to use
-	
-	for(uintmax_t i = 0; i < proc->fdcount; ++i){
-		spinlock_acquire(&proc->fds[i].lock);
-		if(!proc->fds[i].node){
-			fd = &proc->fds[i].node;
-			break;
-		}
-		spinlock_release(&proc->fds[i].lock);
+	if(err){
+		retv.errno = err;
+		free(name);
+		return retv;	
 	}
 
-	// resize table
-
-	if(!fd){
-		
-		fd_t* tmp = realloc(proc->fds, sizeof(fd_t)*proc->fdcount + 1);
-		
-		if(!tmp){
-			spinlock_release(&proc->fdlock);
-			retv.errno = ENOMEM;
-			return retv;
-		}
-
-		proc->fds = tmp;
-		
-		fd = &proc->fds[proc->fdcount];
-		++proc->fdcount;
-		spinlock_acquire(&fd->lock);
-
-	}
-
-	spinlock_release(&proc->fdlock);
-	
 	fd->flags = flags + 1; // 1 is added to make O_RDONLY etc easier to lookup
 	fd->offset = 0;
 	
@@ -94,11 +68,11 @@ syscallret syscall_open(const char* pathname, int flags, mode_t mode){
 	
 	fd->node = file;
 
-	spinlock_release(&fd->lock);
-
+	fd_release(fd);
+	
 	free(name);	
 	retv.errno = 0;
-	retv.ret = ((uintptr_t)fd - (uintptr_t)proc->fds) / sizeof(fd_t);
+	retv.ret = ifd;
 
 	return retv;
 
@@ -106,7 +80,7 @@ syscallret syscall_open(const char* pathname, int flags, mode_t mode){
 
 	if(file)
 		vfs_close(file);
-	spinlock_release(&fd->lock);
+	fd_release(fd);
 	fd->node = NULL;
 	free(name);
 	return retv;

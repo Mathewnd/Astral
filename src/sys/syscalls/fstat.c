@@ -17,22 +17,18 @@ syscallret syscall_fstat(int ifd, stat* st){
 
 	proc_t* proc = arch_getcls()->thread->proc;
 
-        fd_t* fd = proc->fds + ifd;
-
-        spinlock_acquire(&proc->fdlock);
-
-        if(proc->fdcount <= ifd || fd->node == NULL || (fd->flags & FD_FLAGS_READ) == 0){
-                spinlock_release(&proc->fdlock);
-                retv.errno = EBADF;
-                return retv;
-        }
-
-        spinlock_acquire(&fd->lock);
-        spinlock_release(&proc->fdlock);
+        fd_t* fd;
 	
+	int err = fd_access(&proc->fdtable, &fd, ifd);
+
+	if(err){
+		retv.errno = err;
+		return retv;
+	}
+
 	memcpy(st, &fd->node->st, sizeof(stat)); // XXX user memcpy
 	
-	spinlock_release(&fd->lock);
+	fd_release(fd);
 
 	retv.errno = 0;
 	retv.ret = 0;

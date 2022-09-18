@@ -46,10 +46,7 @@ typedef struct _proc_t{
 	pid_t pid;
 	gid_t gid;
 	uid_t uid;
-	fd_t* fds;
-	int fdlock;
-	size_t fdcount;
-	off_t  firstfreefd;
+	fdtable_t fdtable; 
 	thread_t** threads;
 	size_t threadcount;
 	dirnode_t* root;

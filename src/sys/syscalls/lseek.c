@@ -15,20 +15,16 @@ syscallret syscall_lseek(int ifd, off_t offset, int whence){
 
 	proc_t* proc = arch_getcls()->thread->proc;
 
-        fd_t* fd = proc->fds + ifd;
-
-        spinlock_acquire(&proc->fdlock);
-
-        if(proc->fdcount <= ifd || fd->node == NULL){
-                spinlock_release(&proc->fdlock);
-                retv.errno = EBADF;
-                return retv;
-        }
-
-        spinlock_acquire(&fd->lock);
-        spinlock_release(&proc->fdlock);
+        fd_t* fd;
 	
-	int type = GETTYPE(fd->node->st.st_mode);
+	int ret = fd_access(&proc->fdtable, &fd, ifd); 
+
+	if(ret){
+		retv.errno = ret;
+		return retv;
+	}
+
+	int type = GETTYPE(fd->mode);
 
 	if(type == TYPE_SOCKET || type == TYPE_FIFO){
 		retv.errno = ESPIPE;
@@ -71,7 +67,7 @@ syscallret syscall_lseek(int ifd, off_t offset, int whence){
 	retv.ret = newoffset;
 
 	_ret:
-	spinlock_release(&fd->lock);
+	fd_release(fd);
 	return retv;
 
 }

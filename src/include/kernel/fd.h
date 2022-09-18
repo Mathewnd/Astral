@@ -29,14 +29,29 @@
 #define O_RSYNC 04010000
 #define O_TMPFILE 020000000
 
-
+#include <stdint.h>
+#include <stddef.h>
 
 typedef struct {
+	uintmax_t refcount;
         vnode_t* node;
         off_t offset;
         int flags;
 	int lock;
+	mode_t mode;
 } fd_t;
 
+typedef struct {
+	int lock;
+	size_t fdcount;
+	uintmax_t firstfreefd;
+	fd_t** fd;
+} fdtable_t; 
+
+int fd_alloc(fdtable_t* fdtable, fd_t** fd, int* ifd);
+int fd_free(fdtable_t* fdtable, int ifd);
+int fd_access(fdtable_t* fdtable, fd_t** fd, int ifd);
+int fd_release(fd_t* fd);
+int fd_tableinit(fdtable_t* fdtable);
 
 #endif
