@@ -194,8 +194,6 @@ void sched_timerhook(arch_regs* regs){
 	arch_setkernelstack(next->kernelstack);
 	arch_regs_setupextra(&next->extraregs);
 
-	next->state = THREAD_STATE_RUNNING;
-
 	timer_add(&arch_getcls()->schedreq, THREAD_QUANTUM, false);
 
 
@@ -227,7 +225,7 @@ void switch_thread(thread_t* thread){
 
 thread_t* sched_newuthread(void* ip, size_t kstacksize, void* stack, proc_t* proc, bool run, int prio){
 
-	thread_t* thread = allocthread(NULL, THREAD_STATE_WAITING, 0, kstacksize);
+	thread_t* thread = allocthread(NULL, THREAD_STATE_RUNNING, 0, kstacksize);
 	
 	if(!proc){
 		proc = allocproc(1);
@@ -262,7 +260,7 @@ thread_t* sched_newuthread(void* ip, size_t kstacksize, void* stack, proc_t* pro
 }
 
 thread_t* sched_newkthread(void* ip, size_t stacksize, bool run, int prio){
-	thread_t* thread = allocthread(NULL, THREAD_STATE_WAITING, 0, stacksize);
+	thread_t* thread = allocthread(NULL, THREAD_STATE_RUNNING, 0, stacksize);
 
 	if(!thread) return NULL;
 	
@@ -288,17 +286,16 @@ void sched_yieldtrampoline(thread_t* thread){
 		spinlock_acquire(&queues[thread->priority].lock);
 		queue_add(&queues[thread->priority], thread);
 		spinlock_release(&queues[thread->priority].lock);
-		thread->state = THREAD_STATE_WAITING;
 	}
 
 
-	thread = getnext();
+	thread_t* nthread = getnext();
 
-	thread->state = THREAD_STATE_RUNNING;
+	nthread->state = THREAD_STATE_RUNNING;
 	
 	timer_resume();
 	
-	switch_thread(thread);
+	switch_thread(nthread);
 
 }
 
@@ -317,14 +314,14 @@ void sched_yield(){
 }
 
 void sched_eventsignal(event_t* event, thread_t* thread){
-	
+
 	if(thread->state != THREAD_STATE_BLOCKED && thread->state != THREAD_STATE_BLOCKED_INTR)
 		return;
 
 	if(thread->state == THREAD_STATE_BLOCKED_INTR && event == &thread->sigevent)
 		return;
-
-	thread->state = THREAD_STATE_WAITING;
+	
+	thread->state = THREAD_STATE_RUNNING;
 	thread->awokenby = event;
 	
 	spinlock_acquire(&queues[thread->priority].lock);
