@@ -1,10 +1,13 @@
-.phony: all kernel initrd
+.phony: all kernel initrd rebuildkernel
 all: jinx
 	LDFLAGS="" CFLAGS="" ./jinx build-all
 	./jinx sysroot
 	make initrd
 	make sysdisk.iso
 	
+rebuildkernel:
+	LDFLAGS="" CFLAGS="" ./jinx rebuild astral
+	make sysdisk.iso
 jinx:
 	curl https://raw.githubusercontent.com/mintsuki/jinx/trunk/jinx > jinx
 	chmod +x jinx
