@@ -18,7 +18,7 @@ static int outputlock;
 
 void console_write(char* str, size_t count){
 	
-
+	
 	while(!spinlock_trytoacquire(&outputlock)){
 			event_wait(&outputevent, false);
 	}
@@ -26,6 +26,8 @@ void console_write(char* str, size_t count){
 	liminetty_writeuser(str, count);
 
 	spinlock_release(&outputlock);
+
+	event_signal(&outputevent, true);
 
 }
 
