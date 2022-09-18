@@ -10,13 +10,28 @@ void timer_init(){
 }
 
 void timer_irq(arch_regs* ctx){
+
 	timer_req* pendingreq = arch_getcls()->timerfirstreq;
 	timer_req* iter = pendingreq->next;
-	
+
+	if(arch_getcls()->timerpending){ // if we know we stopped, don't do anything yet
+		while(iter){
+			iter->ticks -= pendingreq->ticks;
+			iter = iter->next;
+		}
+		return;
+	}
+
 	arch_getcls()->timerfirstreq = iter;
+	
+
 
 	while(iter){
 		iter->ticks -= pendingreq->ticks;
+		if(iter->ticks == 0){
+			iter->func(ctx, iter->argptr);
+			arch_getcls()->timerfirstreq = iter->next;
+		}
 		iter = iter->next;
 	}
 
@@ -29,6 +44,14 @@ void timer_irq(arch_regs* ctx){
 }
 
 void timer_resume(){
+	if(arch_getcls()->timerpending){ // if an int was pending, have it happen
+		timer_req* iter = arch_getcls()->timerfirstreq;
+		while(iter){
+			iter->ticks++;
+			iter = iter->next;
+		}
+		arch_getcls()->timerpending = false;
+	}
 	arch_cputimer_fire(arch_getcls()->timerfirstreq->ticks);
 }
 
@@ -36,6 +59,11 @@ void timer_stop(){
 	
 	size_t remainingticks = arch_cputimer_stop();
 	timer_req* iter = arch_getcls()->timerfirstreq;
+	if(!iter) return;
+	
+	if(remainingticks == 0) // interrupt is pending
+		arch_getcls()->timerpending = true;
+
 	size_t subticks = iter->ticks - remainingticks;
 	while(iter){
 		iter->ticks -= subticks;
@@ -44,7 +72,6 @@ void timer_stop(){
 }
 
 void timer_add(timer_req* req, size_t us, bool start){
-	
 	size_t remainingticks = arch_cputimer_stop();
 
 	timer_req* iter = arch_getcls()->timerfirstreq;

@@ -24,6 +24,7 @@ typedef struct{
 	size_t timerticksperus;
 	timer_req* timerfirstreq;
 	timer_req  schedreq;
+	bool timerpending;
 } cls_t;
 
 void bsp_setcls();
