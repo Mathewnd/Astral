@@ -65,4 +65,6 @@ bool		vmm_allocnowat(void* addr, size_t mmuflags, size_t size);
 void*		vmm_allocfrom(void* addr, size_t mmuflags, size_t size);
 vmm_context*	vmm_newcontext();
 void		vmm_switchcontext(vmm_context*);
+int		vmm_fork(vmm_context* oldctx, vmm_context* newctx);
+
 #endif

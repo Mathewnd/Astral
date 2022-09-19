@@ -366,6 +366,77 @@ static void getcontextinfo(void* addr, int** lock, vmm_mapping*** start){
 	
 }
 
+int vmm_fork(vmm_context* oldctx, vmm_context* newctx){
+	
+	// TODO make this copy on write
+	
+	spinlock_acquire(&oldctx->lock);
+	spinlock_acquire(&newctx->lock);
+
+	vmm_mapping* mapping = oldctx->userstart;
+
+	while(mapping){
+		
+		if(mapping->type == VMM_TYPE_FILE)
+			_panic("File mappings not supported yet!", NULL);
+
+		size_t pagesize =((uintptr_t)mapping->end - (uintptr_t)mapping->start + 1) / PAGE_SIZE; 
+
+		if(!setmap(&newctx->userstart, mapping->start, pagesize, mapping->mmuflags, mapping->type, mapping->data, mapping->offset))
+				
+			goto _fail;
+		
+
+
+		if(mapping->type == VMM_TYPE_ANON){
+			
+			
+			for(uintmax_t page = 0; page < pagesize; ++page){
+				void* pageaddr = mapping->start + page*PAGE_SIZE;
+
+				if(arch_mmu_ismapped(oldctx->context, pageaddr) == false)
+					continue;
+
+				void* newp = pmm_alloc(1);
+
+				if(!newp)
+					goto _fail;
+
+				if(!arch_mmu_map(newctx->context, newp, pageaddr, mapping->mmuflags))
+					goto _fail;
+				
+
+				void* oldp = arch_mmu_getphysicaladdr(oldctx->context, pageaddr);
+
+				oldp += (uintptr_t)limine_hhdm_offset;
+				newp += (uintptr_t)limine_hhdm_offset;
+
+				memcpy(newp, oldp, PAGE_SIZE);
+
+				
+			}
+			
+
+		}
+
+		
+		mapping = mapping->next;
+
+	}
+	
+
+	spinlock_release(&oldctx->lock);
+	spinlock_release(&newctx->lock);
+	return 0;
+
+	_fail:
+		spinlock_release(&oldctx->lock);
+		spinlock_release(&newctx->lock);
+		return ENOMEM;
+	
+
+}
+
 void* vmm_alloc(size_t pagec, size_t mmuflags){
 	spinlock_acquire(&klock);
 
@@ -505,8 +576,6 @@ bool vmm_allocnowat(void* addr, size_t mmuflags, size_t size){
 	for(size_t page = 0; page < size && result; ++page)
 		result = arch_mmu_map(arch_getcls()->context->context, paddr + page*PAGE_SIZE, addr + page*PAGE_SIZE, mmuflags);
 	
-	if(!result)
-		pmm_free(paddr, size);
 
 	spinlock_release(lock);
 
