@@ -9,7 +9,7 @@
 
 static void tracestack(uint64_t** addr){
 	for(size_t depth = 0; depth < TRACE_MAXDEPTH; ++depth){
-
+		if(addr < (uint64_t)0xFFFFFFFF80000000) return;
 		uint64_t *calleeaddr = *(addr + 1);
 		addr = (uint64_t**)*addr;
 
@@ -20,7 +20,7 @@ static void tracestack(uint64_t** addr){
 }
 
 __attribute((noreturn)) void _panic(char* reason, arch_regs *reg){
-
+	asm volatile("cli");
 	printf("PANIC: %s\n", reason);
 
 	// XXX maybe this should be an NMI?
