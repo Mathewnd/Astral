@@ -1,0 +1,12 @@
+diff -ruN coreutils/build-aux/config.sub coreutils-patched/build-aux/config.sub
+--- coreutils/build-aux/config.sub	2022-09-19 20:36:40.342028200 -0300
++++ coreutils-patched/build-aux/config.sub	2022-09-19 20:37:21.462028200 -0300
+@@ -1723,7 +1723,7 @@
+ 	# Now accept the basic system types.
+ 	# The portable systems comes first.
+ 	# Each alternative MUST end in a * to match a version number.
+-	gnu* | android* | bsd* | mach* | minix* | genix* | ultrix* | irix* \
++	gnu* | android* | astral* | bsd* | mach* | minix* | genix* | ultrix* | irix* \
+ 	     | *vms* | esix* | aix* | cnk* | sunos | sunos[34]* \
+ 	     | hpux* | unos* | osf* | luna* | dgux* | auroraux* | solaris* \
+ 	     | sym* |  plan9* | psp* | sim* | xray* | os68k* | v88r* \
