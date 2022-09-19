@@ -24,6 +24,7 @@ typedef uint64_t* arch_mmu_tableptr;
 int arch_mmu_map(arch_mmu_tableptr, void*, void*, size_t);
 bool arch_mmu_isaccessed(arch_mmu_tableptr, void*);
 void* arch_mmu_getphysicaladdr(arch_mmu_tableptr, void*);
+bool arch_mmu_ismapped(arch_mmu_tableptr, void*);
 void arch_mmu_unmap(arch_mmu_tableptr, void*);
 void arch_mmu_init();
 void arch_mmu_apinit();

@@ -133,6 +133,14 @@ static uint64_t getmapping(arch_mmu_tableptr context, void* vaddr){
 
 }
 
+bool arch_mmu_ismapped(arch_mmu_tableptr context, void* vaddr){
+	
+	uint64_t mapping = getmapping(context, vaddr);
+
+	return mapping != 0;
+	
+}
+
 void* arch_mmu_getphysicaladdr(arch_mmu_tableptr context, void* addr){
 	uint64_t paddr = getmapping(context, addr);
 	paddr &= ~((uint64_t)0xFFF);
@@ -189,10 +197,10 @@ arch_mmu_tableptr arch_mmu_newcontext(){
 	if(!newcontext)
 		return NULL;
 
-	memcpy((void*)newcontext + (size_t)limine_hhdm_offset, context, PAGE_SIZE);
+	memcpy((void*)newcontext + (size_t)limine_hhdm_offset, (void*)context + (uintptr_t)limine_hhdm_offset, PAGE_SIZE);
 
 	memset((void*)newcontext + (size_t)limine_hhdm_offset, 0, PAGE_SIZE / 2);
-	
+
 	return newcontext;
 
 }
