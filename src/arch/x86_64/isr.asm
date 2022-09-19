@@ -77,6 +77,14 @@ section .text
 	pop r15
 	pop rdi
 	pop rsi
+
+	; check and patch ss if it is invalid because of the syscall instruction
+	cmp qword [rsp+48], 0x33
+	jne .nofix
+	mov qword [rsp+48], 0x43
+	.nofix:
+
+
 	pop rbp
 	add rsp,8 ; remove error code
 
