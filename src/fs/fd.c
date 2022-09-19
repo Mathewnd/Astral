@@ -110,6 +110,40 @@ int fd_free(fdtable_t* fdtable, int ifd){
 	
 }
 
+int fd_tableclone(fdtable_t* source, fdtable_t* dest){
+
+	spinlock_acquire(&source->lock);
+
+	if(source->fdcount != dest->fdcount){
+		void* tmp = alloc(source->fdcount*sizeof(fd_t*));
+		if(!tmp){
+			spinlock_release(&source->lock);
+			return ENOMEM;
+		}
+		dest->fdcount = source->fdcount;
+	}
+
+	
+	for(uintmax_t i = 0; i < dest->fdcount; ++i){
+		if(!source->fd[i])
+			continue;
+
+		dest->fd[i] = source->fd[i];
+
+		spinlock_acquire(&dest->fd[i]->lock);
+
+		++dest->fd[i]->refcount;
+
+		spinlock_release(&dest->fd[i]->lock);
+		
+	}
+
+
+	spinlock_release(&source->lock);
+	
+
+}
+
 int fd_tableinit(fdtable_t* fdtable){
 	
 	fdtable->fd = alloc(sizeof(fd_t*)*3);

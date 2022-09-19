@@ -53,5 +53,6 @@ int fd_free(fdtable_t* fdtable, int ifd);
 int fd_access(fdtable_t* fdtable, fd_t** fd, int ifd);
 int fd_release(fd_t* fd);
 int fd_tableinit(fdtable_t* fdtable);
+int fd_tableclone(fdtable_t* source, fdtable_t* dest);
 
 #endif
