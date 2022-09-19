@@ -8,7 +8,7 @@ typedef struct{
 	uint64_t rsp0;
 	uint64_t rsp1;
 	uint64_t rsp2;
-	uint32_t reserved2;
+	uint64_t reserved2;
 	uint64_t ist1;
 	uint64_t ist2;
 	uint64_t ist3;
