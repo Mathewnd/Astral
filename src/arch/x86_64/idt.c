@@ -59,7 +59,7 @@ void idt_bspinit(){
 
 	idt_setentry(&idt[VECTOR_LAPICNMI], asmisr_lapicnmi, 0x28, FLAGS_PRESENT | FLAGS_TYPE_INTERRUPT, 0);
 
-	idt_setentry(&idt[VECTOR_TIMER], asmisr_timer, 0x28, FLAGS_PRESENT | FLAGS_TYPE_INTERRUPT, 0);
+	idt_setentry(&idt[VECTOR_TIMER], asmisr_timer, 0x28, FLAGS_PRESENT | FLAGS_TYPE_INTERRUPT, TIMER_IST);
 
 	idt_setentry(&idt[VECTOR_PS2KBD], asmisr_ps2kbd, 0x28, FLAGS_PRESENT | FLAGS_TYPE_INTERRUPT, 0);
 	

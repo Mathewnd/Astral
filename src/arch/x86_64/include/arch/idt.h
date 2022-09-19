@@ -30,6 +30,8 @@
 #define VECTOR_PS2KBD   0x40
 #define VECTOR_TIMER 0x80
 
+#define TIMER_IST 1
+
 typedef struct{
 	uint16_t size;
 	uint64_t offset;

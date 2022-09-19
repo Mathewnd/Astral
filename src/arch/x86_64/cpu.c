@@ -3,8 +3,10 @@
 #include <cpuid.h>
 #include <arch/cls.h>
 #include <stdio.h>
+#include <kernel/pmm.h>
+#include <arch/idt.h>
 
-// initialises things like 
+// initializes things like 
 // syscall, sse, etc
 // for the current cpu
 
@@ -48,4 +50,12 @@ void cpu_state_init(){
 		"or  $0b11000000000, %%rax;"
 		"mov %%rax, %%cr4;"
 		: : : "rax");
+
+	// set up interrupt stacks
+	
+	// timer stack is 1
+
+	 arch_getcls()->ist.ist1 = pmm_hhdmalloc(10) + PAGE_SIZE*10;
+
+
 }
