@@ -20,6 +20,11 @@
 
 sched_queue queues[QUEUE_COUNT];
 
+// XXX allocate these in a better way
+
+static int pidlock;
+static pid_t nextpid = 1;
+
 static proc_t* allocproc(size_t threadcount){
 	
 	proc_t* proc = alloc(sizeof(proc_t));
@@ -27,7 +32,7 @@ static proc_t* allocproc(size_t threadcount){
 		return NULL;
 
 	proc->threads = alloc(sizeof(thread_t*) * threadcount);
-	
+
 	if(!proc->threads){
 		free(proc);
 		return NULL;
@@ -38,6 +43,10 @@ static proc_t* allocproc(size_t threadcount){
 		free(proc);
 		return NULL;
 	}
+
+	spinlock_acquire(&pidlock);
+	proc->pid = nextpid++;
+	spinlock_release(&pidlock);
 	
 	return proc;
 	
@@ -46,6 +55,7 @@ static proc_t* allocproc(size_t threadcount){
 static thread_t* allocthread(proc_t* proc, state_t state, pid_t tid, size_t kstacksize){
 	
 	thread_t* thread = alloc(sizeof(thread_t));
+	
 	if(!thread)
 		return NULL;
 
@@ -152,9 +162,21 @@ static thread_t* getnext(){
 
 }
 
-int aa = 0;
+void sched_queuethread(thread_t* thread){
+	
+	sched_queue* queue = &queues[thread->priority];
+	
+	arch_interrupt_disable();
+	spinlock_acquire(&queue->lock);
+	
+	queue_add(queue, thread);
+	
+	spinlock_release(&queue->lock);
+	arch_interrupt_enable();
+}
 
 void sched_timerhook(arch_regs* regs){
+
 
 	#ifdef __X86_64__
 	
@@ -177,12 +199,17 @@ void sched_timerhook(arch_regs* regs){
 
 	thread_t* next = getnext();
 
-	if(next)
-		memcpy(regs, next->regs, sizeof(arch_regs));
-		
-
 	arch_getcls()->thread = next;
 	
+
+	if(next){
+		memcpy(regs, next->regs, sizeof(arch_regs));
+	}
+	
+	if(next->ctx != current->ctx)
+		vmm_switchcontext(next->ctx);	
+
+
 	arch_setkernelstack(next->kernelstack);
 	arch_regs_setupextra(&next->extraregs);
 
@@ -200,9 +227,8 @@ void switch_thread(thread_t* thread){
 	// if we don't have to change address spaces don't waste time
 	
 	arch_getcls()->thread = thread;
-	
 
-	if(current->ctx != thread->ctx)
+	if(thread->ctx != current->ctx)
 		vmm_switchcontext(thread->ctx);
 
 	arch_setkernelstack(thread->kernelstack);
@@ -247,6 +273,7 @@ thread_t* sched_newuthread(void* ip, size_t kstacksize, void* stack, proc_t* pro
 		spinlock_release(&queues[prio].lock);
 		arch_interrupt_enable();
 	}
+
 	return thread;
 
 }
@@ -354,7 +381,6 @@ void sched_runinit(){
 
 	proc->root = vfs_root();
 	proc->cwd  = vfs_root();
-	proc->pid  = 1;	
 
 	int tmp;
 

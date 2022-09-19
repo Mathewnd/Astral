@@ -40,6 +40,7 @@ typedef struct _thread_t{
 } thread_t;
 
 typedef struct _proc_t{
+	int lock;
 	struct _proc_t* parent;
 	struct _proc_t* sibling;
 	struct _proc_t* child;
@@ -60,7 +61,9 @@ typedef struct{
 	int lock;
 } sched_queue;
 
+thread_t* sched_newuthread(void* ip, size_t stacksize, void* stack, proc_t* proc, bool run, int prio);
 thread_t* sched_newkthread(void* ip, size_t stacksize, bool run, int prio);
+void sched_queuethread(thread_t* thread);
 void sched_init();
 void sched_runinit();
 void sched_eventsignal(event_t* event, thread_t* thread);
