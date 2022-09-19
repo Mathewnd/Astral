@@ -13,7 +13,8 @@ extern syscall_isatty
 extern syscall_write
 extern syscall_stat
 extern syscall_fstat
-func_count equ 12
+extern syscall_fork
+func_count equ 13
 
 
 func_table:
@@ -29,6 +30,7 @@ func_table:
 	dq syscall_write
 	dq syscall_stat
 	dq syscall_fstat
+	dq syscall_fork
 section .text
 global asm_syscall_entry
 
@@ -50,55 +52,88 @@ asm_syscall_entry:
 	add qword [gs:0], 8 ; fix it
 	
 	sti
-
-	push rcx ; old rip
-	push r11 ; old rflags
 	
+	; assemble and save context needed for some system calls	
+
+	push qword 0x43 ; ss
+	push qword [rsp+8] ; rsp
+	push r11 ; old rflags	
+	push qword 0x3b ; cs
+	push rcx ; old rip
+	push qword 0 ; err
+	push rbp
+	push rsi
+	push rdi
+	push r15
+	push r14
+	push r13
+	push r12
+	push r11
+	push r10
+	push r9
+	push r8
+	push rdx
+	push rcx
+	push rbx
+	push rax
+	push qword 0x43 ; ds
+	push qword 0x43 ; es
+	push qword 0 ; fs
+	push qword 0 ; gs
+	push qword 0 ; cr2
+
 	mov r11, 0x30 ; kernel data
 	mov ds, r11
 	mov es, r11
-
-	; save C scratch registers
-	; rax is not saved because it will be the return value
-	; rdx is not saved because it will be the errno value
-
-	push rdi
-	push rsi
-	push rcx
-	push r8
-	push r9
-	push r10
-
-
 
 	; system V C abi expects the third param to be in rcx
 	; but the param is in rdx because of the syscall instruction
 
 	mov rcx, r10
 
+	; set up context for calls that need it
+
+	cmp rax, 12 ; fork
+	
+	jne .not_fork
+
+	mov rdi, rsp
+
+	jmp .do_syscall
+	
+	.not_fork:
+
+	.do_syscall:
 
 	call [func_table + rax * 8]
 
-	; now restore the scratch registers
-
-	pop r10
-	pop r9
-	pop r8
-	pop rcx
-	pop rsi
-	pop rdi
-	
 	; restore entry state
 
-	mov r11, 0x40 ; user data
+	mov r11, 0x43 ; user data
 	mov es,r11
 	mov ds,r11
 
+	add rsp, 0x30 ; cr2 gs fs es ds rax
+	pop rbx
+	pop rcx
+	add rsp, 8 ; rdx
+	pop r8
+	pop r9
+	pop r10
+	pop r11
+	pop r12
+	pop r13
+	pop r14
+	pop r15
+	pop rdi
+	pop rsi
+	pop rbp
+	add rsp, 0x30 ; err, rip, cs, rflags, rsp, ss	
+	pop rsp ; actual rsp
+
 	cli
 
-	pop r11
-	pop rcx
-	pop rsp
+
 	swapgs
 
 	o64 sysret
