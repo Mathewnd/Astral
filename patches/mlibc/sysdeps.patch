@@ -1,6 +1,6 @@
 diff -ruN --no-dereference mlibc-2.3.0/sysdeps/astral/crt-x86_64/crt0.S mlibc/sysdeps/astral/crt-x86_64/crt0.S
 --- mlibc-2.3.0/sysdeps/astral/crt-x86_64/crt0.S	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/crt-x86_64/crt0.S	2022-09-17 18:39:48.098303500 -0300
++++ mlibc/sysdeps/astral/crt-x86_64/crt0.S	2022-09-20 15:01:45.554352200 -0300
 @@ -0,0 +1,7 @@
 +
 +.section .text
@@ -11,7 +11,7 @@ diff -ruN --no-dereference mlibc-2.3.0/sysdeps/astral/crt-x86_64/crt0.S mlibc/sy
 +
 diff -ruN --no-dereference mlibc-2.3.0/sysdeps/astral/generic/astral.cpp mlibc/sysdeps/astral/generic/astral.cpp
 --- mlibc-2.3.0/sysdeps/astral/generic/astral.cpp	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/generic/astral.cpp	2022-09-17 18:39:48.098303500 -0300
++++ mlibc/sysdeps/astral/generic/astral.cpp	2022-09-20 15:01:45.554352200 -0300
 @@ -0,0 +1,6 @@
 +#include <astral/syscall.h>
 +
@@ -21,7 +21,7 @@ diff -ruN --no-dereference mlibc-2.3.0/sysdeps/astral/generic/astral.cpp mlibc/s
 +}
 diff -ruN --no-dereference mlibc-2.3.0/sysdeps/astral/generic/entry.cpp mlibc/sysdeps/astral/generic/entry.cpp
 --- mlibc-2.3.0/sysdeps/astral/generic/entry.cpp	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/generic/entry.cpp	2022-09-17 18:39:48.098303500 -0300
++++ mlibc/sysdeps/astral/generic/entry.cpp	2022-09-20 15:01:45.554352200 -0300
 @@ -0,0 +1,34 @@
 +
 +#include <stdint.h>
@@ -59,8 +59,8 @@ diff -ruN --no-dereference mlibc-2.3.0/sysdeps/astral/generic/entry.cpp mlibc/sy
 +
 diff -ruN --no-dereference mlibc-2.3.0/sysdeps/astral/generic/generic.cpp mlibc/sysdeps/astral/generic/generic.cpp
 --- mlibc-2.3.0/sysdeps/astral/generic/generic.cpp	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/generic/generic.cpp	2022-09-19 21:23:54.472028200 -0300
-@@ -0,0 +1,183 @@
++++ mlibc/sysdeps/astral/generic/generic.cpp	2022-09-20 15:34:43.778641500 -0300
+@@ -0,0 +1,184 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -72,11 +72,6 @@ diff -ruN --no-dereference mlibc-2.3.0/sysdeps/astral/generic/generic.cpp mlibc/
 +
 +namespace mlibc {
 +	
-+	int sys_waitpid(pid_t pid, int *status, int flags, pid_t *ret_pid){
-+		sys_libc_log("libc: waitpid is not implemented.");
-+		while(1);
-+	}
-+
 +	// stub
 +
 +	uid_t sys_getuid(){
@@ -147,6 +142,14 @@ diff -ruN --no-dereference mlibc-2.3.0/sysdeps/astral/generic/generic.cpp mlibc/
 +		return ENOSYS;
 +	}
 +
++	int sys_waitpid(pid_t pid, int *status, int flags, pid_t *ret_pid){
++		long ret;
++		long err = syscall(SYSCALL_WAITPID, &ret, pid, (uint64_t)status, flags);
++		*ret_pid = ret;
++		return err;
++	}
++
++
 +	int sys_execve(const char* name, char* const argv[], char* const envp[]){
 +		long ret;
 +		return syscall(SYSCALL_EXECVE, &ret, (uint64_t)name, (uint64_t)argv, (uint64_t)envp);
@@ -158,23 +161,21 @@ diff -ruN --no-dereference mlibc-2.3.0/sysdeps/astral/generic/generic.cpp mlibc/
 +		*child = (int)ret;
 +		return err;
 +	}
-+
++	
 +	void sys_libc_log(const char *message){
 +		long ret;
 +		syscall(SYSCALL_LIBC_LOG, &ret, (uint64_t)message);
 +	}
 +	
 +	[[noreturn]] void sys_libc_panic(){
-+		for(;;);
-+		sys_libc_log("LIBC PANIC!");
++		sys_libc_log("libc: panic");
 +		sys_exit(1);
 +	}
-+	
 +
 +
 +	[[noreturn]] void sys_exit(int status){
-+		sys_libc_log("libc: Program requested exit");
-+		while(1);
++		syscall(SYSCALL_EXIT, NULL, status);
++		__builtin_unreachable();
 +	}
 +
 +	int sys_tcb_set(void* pointer){
@@ -246,7 +247,7 @@ diff -ruN --no-dereference mlibc-2.3.0/sysdeps/astral/generic/generic.cpp mlibc/
 +
 diff -ruN --no-dereference mlibc-2.3.0/sysdeps/astral/include/astral/archctl.h mlibc/sysdeps/astral/include/astral/archctl.h
 --- mlibc-2.3.0/sysdeps/astral/include/astral/archctl.h	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/include/astral/archctl.h	2022-09-17 18:39:48.098303500 -0300
++++ mlibc/sysdeps/astral/include/astral/archctl.h	2022-09-20 15:01:45.554352200 -0300
 @@ -0,0 +1,11 @@
 +#ifndef _ASTRAL_SYSCALL_ARCHCTL_INCLUDE
 +#define _ASTRAL_SYSCALL_ARCHCTL_INCLUDE
@@ -261,8 +262,8 @@ diff -ruN --no-dereference mlibc-2.3.0/sysdeps/astral/include/astral/archctl.h m
 +#endif
 diff -ruN --no-dereference mlibc-2.3.0/sysdeps/astral/include/astral/syscall.h mlibc/sysdeps/astral/include/astral/syscall.h
 --- mlibc-2.3.0/sysdeps/astral/include/astral/syscall.h	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/include/astral/syscall.h	2022-09-19 21:21:41.042028200 -0300
-@@ -0,0 +1,39 @@
++++ mlibc/sysdeps/astral/include/astral/syscall.h	2022-09-20 15:31:27.548641500 -0300
+@@ -0,0 +1,41 @@
 +#ifndef _SYSCALL_H_INCLUDE
 +#define _SYSCALL_H_INCLUDE
 +
@@ -280,6 +281,8 @@ diff -ruN --no-dereference mlibc-2.3.0/sysdeps/astral/include/astral/syscall.h m
 +#define SYSCALL_FSTAT 11
 +#define SYSCALL_FORK 12
 +#define SYSCALL_EXECVE 13
++#define SYSCALL_WAITPID 14
++#define SYSCALL_EXIT 15
 +
 +#include <stddef.h>
 +#include <stdint.h>
@@ -304,7 +307,7 @@ diff -ruN --no-dereference mlibc-2.3.0/sysdeps/astral/include/astral/syscall.h m
 +#endif
 diff -ruN --no-dereference mlibc-2.3.0/sysdeps/astral/meson.build mlibc/sysdeps/astral/meson.build
 --- mlibc-2.3.0/sysdeps/astral/meson.build	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/meson.build	2022-09-17 18:39:48.098303500 -0300
++++ mlibc/sysdeps/astral/meson.build	2022-09-20 15:01:45.554352200 -0300
 @@ -0,0 +1,55 @@
 +
 +rtdl_sources += files(
