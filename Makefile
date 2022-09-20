@@ -63,6 +63,10 @@ test:
 test-kvm:
 	qemu-system-x86_64 -monitor stdio -cdrom sysdisk.iso -no-reboot -no-shutdown -m 8G -smp cpus=6 -enable-kvm
 
+kclean:
+
+	rm $(call rwildcard,src,*.o) $(KERNELDEPS)
+
 clean:
 	./jinx clean
 	rm -f jinx
