@@ -449,14 +449,14 @@ void sched_runinit(){
 	stdoutfd->flags = stderrfd->flags = O_WRONLY + 1;
 
 	vnode_t* node;
-	ret = vfs_open(&node, vfs_root(), "usr/bin/bash");
+	ret = vfs_open(&node, vfs_root(), "/sbin/init");
 
 	if(ret){
 		printf("Open failed: %s\n", strerror(ret));
 		_panic("Could not load init", 0);
 	}
 
-	char* argv[] = {"/usr/bin/bash", NULL};
+	char* argv[] = {"/sbin/init", NULL};
 	char* env[]  = {NULL};
 	
 	void *entry, *stack;
