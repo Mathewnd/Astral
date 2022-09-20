@@ -37,28 +37,48 @@ syscallret syscall_waitpid(pid_t pid, int *status, int options){
 
 	proc_t* proc = arch_getcls()->thread->proc;
 
-	event_wait(&proc->childevent, true);
+	bool loop = true;
 
-	// now find the child
-	
-	spinlock_acquire(&proc->lock);
-	proc_t* child = proc->child;
-	proc_t* sibling = NULL;
+
+	proc_t* child;
+	proc_t* sibling;
+
+	while(1){
 		
-	while(child){
-		if(pid > 0 && child->pid != pid)
-		       continue;	
+		child = proc->child;
+		sibling = NULL;
 
-		if(child->state == PROC_STATE_ZOMBIE){
-			break;
+		// now find the child
+		
+		spinlock_acquire(&proc->lock);
+			
+		while(child){
+			if(pid > 0 && child->pid != pid)
+			       continue;	
+
+			if(child->state == PROC_STATE_ZOMBIE){
+				break;
+			}
+
+			if(child->sibling)
+				sibling = child;
+			child = child->sibling;
+
 		}
 
-		if(child->sibling)
-			sibling = child;
-		child = child->sibling;
+		spinlock_release(&proc->lock);
 
+		if(loop){
+			event_wait(&proc->childevent, true);
+			loop = false;
+			continue;
+		}
+		else break;
+		
 	}
-	
+
+
+		
 	if(!child){
 		spinlock_release(&proc->lock);
 		retv.errno = ECHILD;
@@ -71,10 +91,17 @@ syscallret syscall_waitpid(pid_t pid, int *status, int options){
 		spinlock_release(&sibling->lock);
 	}
 
-	spinlock_release(&proc->lock);
-
 	*status = child->status; // XXX safer way of doing this
 	
+	// the pointer to the last remaining thread is is proc->threads
+
+	thread_t* thread = child->threads;
+
+	// TODO free ctx
+	
+	free(thread->regs);
+	free(thread->kernelstackbase);
+	free(thread);	
 	free(child);
 
 	retv.ret = child->pid;
