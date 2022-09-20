@@ -80,7 +80,9 @@ syscallret syscall_open(const char* pathname, int flags, mode_t mode){
 
 	if(file)
 		vfs_close(file);
+
 	fd_release(fd);
+	fd_free(&proc->fdtable,  fd);
 	fd->node = NULL;
 	free(name);
 	return retv;
