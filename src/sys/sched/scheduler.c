@@ -24,6 +24,11 @@ sched_queue queues[QUEUE_COUNT];
 
 static int pidlock;
 static pid_t nextpid = 1;
+static proc_t* init;
+
+proc_t* sched_getinit(){
+	return init;
+}
 
 static proc_t* allocproc(size_t threadcount){
 	
@@ -234,7 +239,7 @@ void switch_thread(thread_t* thread){
 	arch_setkernelstack(thread->kernelstack);
 
 	arch_regs_setupextra(&thread->extraregs);
-	
+
 	arch_switchcontext(thread->regs);
 	
 	__builtin_unreachable();
@@ -309,8 +314,6 @@ void sched_yieldtrampoline(thread_t* thread){
 
 
 	thread_t* nthread = getnext();
-
-	nthread->state = THREAD_STATE_RUNNING;
 	
 	timer_resume();
 	
@@ -348,6 +351,33 @@ void sched_eventsignal(event_t* event, thread_t* thread){
 	spinlock_release(&queues[thread->priority].lock);
 }
 
+void sched_dequeue(){
+
+	timer_stop();
+	arch_interrupt_disable();	
+
+	thread_t* thread = getnext();
+	
+	timer_resume();
+
+	thread_t* curthread = arch_getcls()->thread;
+	
+	// context and thread destruction will happen in the waitpid()	
+	// the pointer to this thread will reside in proc->threads
+
+	curthread->proc->threads = curthread;
+
+	// for safety
+
+
+	arch_getcls()->thread = thread;
+	vmm_switchcontext(thread->ctx);
+	
+	switch_thread(thread);
+	
+
+}
+
 void sched_block(bool interruptible){
 	
 	thread_t* thread = arch_getcls()->thread;
@@ -374,13 +404,14 @@ void sched_runinit(){
 	thread_t* thread = sched_newuthread(NULL, PAGE_SIZE*10, NULL, NULL, false, THREAD_PRIORITY_USER);
 	
 	proc_t* proc = thread->proc;
+	init = proc;
 
 	arch_getcls()->thread = thread;
 
 	vmm_switchcontext(thread->ctx);
 
-	proc->root = vfs_root();
-	proc->cwd  = vfs_root();
+	vfs_open(&proc->root, vfs_root(), "/");	
+	vfs_open(&proc->cwd, vfs_root(), "/");	
 
 	int tmp;
 
