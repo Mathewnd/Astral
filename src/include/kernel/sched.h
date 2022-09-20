@@ -18,6 +18,9 @@
 #define THREAD_STATE_BLOCKED 2
 #define THREAD_STATE_BLOCKED_INTR 3
 
+#define PROC_STATE_NORMAL 0
+#define PROC_STATE_ZOMBIE 1
+
 typedef unsigned long state_t;
 
 struct _proc_t;
@@ -41,6 +44,8 @@ typedef struct _thread_t{
 
 typedef struct _proc_t{
 	int lock;
+	int state;
+	int status;
 	struct _proc_t* parent;
 	struct _proc_t* sibling;
 	struct _proc_t* child;
@@ -52,6 +57,7 @@ typedef struct _proc_t{
 	size_t threadcount;
 	dirnode_t* root;
 	dirnode_t* cwd;
+	event_t childevent;
 } proc_t;
 
 

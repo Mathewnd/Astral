@@ -15,7 +15,8 @@ extern syscall_stat
 extern syscall_fstat
 extern syscall_fork
 extern syscall_execve
-func_count equ 14
+extern syscall_waitpid
+func_count equ 15
 
 
 func_table:
@@ -33,6 +34,7 @@ func_table:
 	dq syscall_fstat
 	dq syscall_fork
 	dq syscall_execve
+	dq syscall_waitpid
 section .text
 global asm_syscall_entry
 
