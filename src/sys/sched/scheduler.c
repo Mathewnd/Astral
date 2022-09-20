@@ -436,6 +436,8 @@ void sched_runinit(){
 		printf("ELF load error: %s\n", strerror(ret));
 		_panic("Could not load init", 0);
 	}
+	
+	vfs_close(node);
 
 	arch_regs_setupuser(thread->regs, entry, stack, true);
 
