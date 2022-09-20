@@ -12,7 +12,7 @@ int fd_release(fd_t* fd){
 
 int fd_access(fdtable_t* fdtable, fd_t** fd, int ifd){
 	spinlock_acquire(&fdtable->lock);
-	
+
 	if(ifd >= fdtable->fdcount || fdtable->fd[ifd] == NULL){
 		spinlock_release(&fdtable->lock);
 		return EBADF;
@@ -82,8 +82,8 @@ int fd_alloc(fdtable_t* fdtable, fd_t** fd, int* ifd){
 }
 
 int fd_free(fdtable_t* fdtable, int ifd){
-	spinlock_acquire(&fdtable->lock);
-	
+	spinlock_acquire(&fdtable->lock);	
+
 	if(ifd >= fdtable->fdcount || fdtable->fd[ifd] == NULL){
 		spinlock_release(&fdtable->lock);
 		return EBADF;
@@ -114,12 +114,18 @@ int fd_tableclone(fdtable_t* source, fdtable_t* dest){
 
 	spinlock_acquire(&source->lock);
 
+	if(fd_tableinit(dest)){
+		spinlock_release(&source->lock);
+		return ENOMEM;
+	}
+	
 	if(source->fdcount != dest->fdcount){
-		void* tmp = alloc(source->fdcount*sizeof(fd_t*));
+		void* tmp = realloc(dest->fd, source->fdcount*sizeof(fd_t*));
 		if(!tmp){
 			spinlock_release(&source->lock);
 			return ENOMEM;
 		}
+		dest->fd = tmp;
 		dest->fdcount = source->fdcount;
 	}
 
