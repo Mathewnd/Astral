@@ -13,7 +13,7 @@ int fd_release(fd_t* fd){
 int fd_access(fdtable_t* fdtable, fd_t** fd, int ifd){
 	spinlock_acquire(&fdtable->lock);
 
-	if(ifd >= fdtable->fdcount || fdtable->fd[ifd] == NULL){
+	if(ifd >= fdtable->fdcount || fdtable->fd[ifd] == NULL || fdtable->fd[ifd]->node == NULL){
 		spinlock_release(&fdtable->lock);
 		return EBADF;
 	}
@@ -91,8 +91,9 @@ int fd_free(fdtable_t* fdtable, int ifd){
 
 	fd_t* fd = fdtable->fd[ifd];
 	spinlock_acquire(&fd->lock);
-	
+
 	if(--fd->refcount > 0){
+		fdtable->fd[ifd] = NULL;
 		spinlock_release(&fd->lock);
 		spinlock_release(&fdtable->lock);
 		return 0;
@@ -101,9 +102,10 @@ int fd_free(fdtable_t* fdtable, int ifd){
 	fdtable->fd[ifd] = NULL;
 	
 	spinlock_release(&fdtable->lock);
+	int err = 0;
+	if(fd->node)
+		err = vfs_close(fd->node);
 	
-	int err = vfs_close(fd->node);
-
 	free(fd);
 
 	return err;
