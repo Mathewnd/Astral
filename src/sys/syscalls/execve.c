@@ -117,7 +117,7 @@ syscallret syscall_execve(const char* name, char* const argv[], char* const envp
 	if(err){
 		spinlock_release(&thread->proc->lock);
 		retv.errno = err;
-		return retv;
+		goto _clean;
 	}
 
 	void *entry, *stack;
@@ -146,7 +146,9 @@ syscallret syscall_execve(const char* name, char* const argv[], char* const envp
 	switch_thread(thread);
 
 	_clean:
-	
+		
+	// TODO destroy new context
+	vmm_switchcontext(oldctx);
 	destroyvec(argbuff, argc+1);
 	destroyvec(envbuff, envc+1);
 	free(namebuff);
