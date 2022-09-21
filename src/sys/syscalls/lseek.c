@@ -44,6 +44,11 @@ syscallret syscall_lseek(int ifd, off_t offset, int whence){
 			break;
 		case SEEK_CUR:
 			newoffset += offset;
+			if(offset == 0){
+				retv.errno = 0;
+				retv.ret = fd->offset;
+				goto _ret;
+			}
 			if(newoffset < 0 || newoffset > fsize){
 				retv.errno = EINVAL;
 				goto _ret;
