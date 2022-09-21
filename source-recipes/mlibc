@@ -1,12 +1,12 @@
 name=mlibc
-version=2.3.0
+version=3.0.0-rc1
 source_method=tarball
 tarball_url="https://github.com/managarm/mlibc/archive/refs/tags/${version}.tar.gz"
-tarball_sha512=3d5c866d43d1a5094954747f18b9cb3cbdbf7136ebc8b61de0d203fcf905220cdf59911c20ecd7bc085e57dcff721ca32f35990f9042ca7835bdaa98443f96d5
+tarball_sha512=79d84d23d3b62e991bc89af6782123e1fa2b6b0923dd79fd71a6b007842e3b580c01afcdd601948e974b9e95f1336e5d53834a51493aee4c6afc7be133ab392c
 hostdeps=""
 
 regenerate() {
 	mkdir -p ${source_dir}/sysdeps/astral/include/
-	ln -sv ../../../abis/linux/x86_64/ ${source_dir}/sysdeps/astral/include/abi-bits
+	ln -sv ../../../abis/linux/ ${source_dir}/sysdeps/astral/include/abi-bits
         true
 }

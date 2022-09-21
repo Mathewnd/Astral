@@ -1,6 +1,6 @@
-diff -ruN --no-dereference mlibc-2.3.0/sysdeps/astral/crt-x86_64/crt0.S mlibc/sysdeps/astral/crt-x86_64/crt0.S
---- mlibc-2.3.0/sysdeps/astral/crt-x86_64/crt0.S	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/crt-x86_64/crt0.S	2022-09-20 15:01:45.554352200 -0300
+diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/crt-x86_64/crt0.S mlibc/sysdeps/astral/crt-x86_64/crt0.S
+--- mlibc-3.0.0-rc1/sysdeps/astral/crt-x86_64/crt0.S	1969-12-31 21:00:00.000000000 -0300
++++ mlibc/sysdeps/astral/crt-x86_64/crt0.S	2022-09-21 16:39:16.115549200 -0300
 @@ -0,0 +1,7 @@
 +
 +.section .text
@@ -9,9 +9,9 @@ diff -ruN --no-dereference mlibc-2.3.0/sysdeps/astral/crt-x86_64/crt0.S mlibc/sy
 +    mov $main, %rdi
 +    call __mlibc_entry
 +
-diff -ruN --no-dereference mlibc-2.3.0/sysdeps/astral/generic/astral.cpp mlibc/sysdeps/astral/generic/astral.cpp
---- mlibc-2.3.0/sysdeps/astral/generic/astral.cpp	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/generic/astral.cpp	2022-09-20 15:01:45.554352200 -0300
+diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/astral.cpp mlibc/sysdeps/astral/generic/astral.cpp
+--- mlibc-3.0.0-rc1/sysdeps/astral/generic/astral.cpp	1969-12-31 21:00:00.000000000 -0300
++++ mlibc/sysdeps/astral/generic/astral.cpp	2022-09-21 16:39:16.115549200 -0300
 @@ -0,0 +1,6 @@
 +#include <astral/syscall.h>
 +
@@ -19,9 +19,9 @@ diff -ruN --no-dereference mlibc-2.3.0/sysdeps/astral/generic/astral.cpp mlibc/s
 +	long ret;
 +	return syscall(SYSCALL_ARCH_CTL, &ret, func, (uint64_t)arg);
 +}
-diff -ruN --no-dereference mlibc-2.3.0/sysdeps/astral/generic/entry.cpp mlibc/sysdeps/astral/generic/entry.cpp
---- mlibc-2.3.0/sysdeps/astral/generic/entry.cpp	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/generic/entry.cpp	2022-09-20 15:01:45.554352200 -0300
+diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/entry.cpp mlibc/sysdeps/astral/generic/entry.cpp
+--- mlibc-3.0.0-rc1/sysdeps/astral/generic/entry.cpp	1969-12-31 21:00:00.000000000 -0300
++++ mlibc/sysdeps/astral/generic/entry.cpp	2022-09-21 16:39:16.115549200 -0300
 @@ -0,0 +1,34 @@
 +
 +#include <stdint.h>
@@ -57,9 +57,9 @@ diff -ruN --no-dereference mlibc-2.3.0/sysdeps/astral/generic/entry.cpp mlibc/sy
 +	exit(result);
 +}
 +
-diff -ruN --no-dereference mlibc-2.3.0/sysdeps/astral/generic/generic.cpp mlibc/sysdeps/astral/generic/generic.cpp
---- mlibc-2.3.0/sysdeps/astral/generic/generic.cpp	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/generic/generic.cpp	2022-09-20 15:34:43.778641500 -0300
+diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp mlibc/sysdeps/astral/generic/generic.cpp
+--- mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp	1969-12-31 21:00:00.000000000 -0300
++++ mlibc/sysdeps/astral/generic/generic.cpp	2022-09-21 16:59:53.195494350 -0300
 @@ -0,0 +1,184 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
@@ -142,7 +142,7 @@ diff -ruN --no-dereference mlibc-2.3.0/sysdeps/astral/generic/generic.cpp mlibc/
 +		return ENOSYS;
 +	}
 +
-+	int sys_waitpid(pid_t pid, int *status, int flags, pid_t *ret_pid){
++	int sys_waitpid(pid_t pid, int *status, int flags, struct rusage *ru, pid_t *ret_pid){
 +		long ret;
 +		long err = syscall(SYSCALL_WAITPID, &ret, pid, (uint64_t)status, flags);
 +		*ret_pid = ret;
@@ -245,9 +245,9 @@ diff -ruN --no-dereference mlibc-2.3.0/sysdeps/astral/generic/generic.cpp mlibc/
 +
 +} // namespace mlibc
 +
-diff -ruN --no-dereference mlibc-2.3.0/sysdeps/astral/include/astral/archctl.h mlibc/sysdeps/astral/include/astral/archctl.h
---- mlibc-2.3.0/sysdeps/astral/include/astral/archctl.h	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/include/astral/archctl.h	2022-09-20 15:01:45.554352200 -0300
+diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/include/astral/archctl.h mlibc/sysdeps/astral/include/astral/archctl.h
+--- mlibc-3.0.0-rc1/sysdeps/astral/include/astral/archctl.h	1969-12-31 21:00:00.000000000 -0300
++++ mlibc/sysdeps/astral/include/astral/archctl.h	2022-09-21 16:39:16.115549200 -0300
 @@ -0,0 +1,11 @@
 +#ifndef _ASTRAL_SYSCALL_ARCHCTL_INCLUDE
 +#define _ASTRAL_SYSCALL_ARCHCTL_INCLUDE
@@ -260,9 +260,9 @@ diff -ruN --no-dereference mlibc-2.3.0/sysdeps/astral/include/astral/archctl.h m
 +int arch_ctl(int func, void* arg);
 +
 +#endif
-diff -ruN --no-dereference mlibc-2.3.0/sysdeps/astral/include/astral/syscall.h mlibc/sysdeps/astral/include/astral/syscall.h
---- mlibc-2.3.0/sysdeps/astral/include/astral/syscall.h	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/include/astral/syscall.h	2022-09-20 15:31:27.548641500 -0300
+diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/include/astral/syscall.h mlibc/sysdeps/astral/include/astral/syscall.h
+--- mlibc-3.0.0-rc1/sysdeps/astral/include/astral/syscall.h	1969-12-31 21:00:00.000000000 -0300
++++ mlibc/sysdeps/astral/include/astral/syscall.h	2022-09-21 16:39:16.115549200 -0300
 @@ -0,0 +1,41 @@
 +#ifndef _SYSCALL_H_INCLUDE
 +#define _SYSCALL_H_INCLUDE
@@ -305,10 +305,10 @@ diff -ruN --no-dereference mlibc-2.3.0/sysdeps/astral/include/astral/syscall.h m
 +}
 +
 +#endif
-diff -ruN --no-dereference mlibc-2.3.0/sysdeps/astral/meson.build mlibc/sysdeps/astral/meson.build
---- mlibc-2.3.0/sysdeps/astral/meson.build	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/meson.build	2022-09-20 15:01:45.554352200 -0300
-@@ -0,0 +1,55 @@
+diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/meson.build mlibc/sysdeps/astral/meson.build
+--- mlibc-3.0.0-rc1/sysdeps/astral/meson.build	1969-12-31 21:00:00.000000000 -0300
++++ mlibc/sysdeps/astral/meson.build	2022-09-21 16:57:16.082167989 -0300
+@@ -0,0 +1,63 @@
 +
 +rtdl_sources += files(
 +	'generic/generic.cpp',
@@ -323,8 +323,16 @@ diff -ruN --no-dereference mlibc-2.3.0/sysdeps/astral/meson.build mlibc/sysdeps/
 +
 +if not no_headers
 +	install_headers(
-+		'include/abi-bits/abi.h',
 +		'include/abi-bits/auxv.h',
++                'include/abi-bits/suseconds_t.h',
++                'include/abi-bits/fsblkcnt_t.h',
++                'include/abi-bits/fsfilcnt_t.h',
++                'include/abi-bits/clockid_t.h',
++                'include/abi-bits/socklen_t.h',
++                'include/abi-bits/socket.h',
++                'include/abi-bits/statfs.h',
++                'include/abi-bits/inotify.h',
++                'include/abi-bits/poll.h',
 +		'include/abi-bits/seek-whence.h',
 +		'include/abi-bits/vm-flags.h',
 +		'include/abi-bits/errno.h',
