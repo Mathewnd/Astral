@@ -24,7 +24,7 @@ syscallret syscall_isatty(int ifd){
 	ret = vfs_isatty(fd->node);
 	
 	retv.errno = ret;
-	// don't care about return value
+	retv.ret = ret ? 1 : 0;
 
 	fd_release(fd);
 
