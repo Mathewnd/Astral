@@ -44,6 +44,8 @@ syscallret syscall_open(const char* pathname, int flags, mode_t mode){
 	fd->offset = 0;
 	
 	vnode_t* file = NULL;
+	
+	retry:
 
 	size_t ret = vfs_open(&file, 
 		*name == '/' ? proc->root : proc->cwd,
@@ -51,9 +53,19 @@ syscallret syscall_open(const char* pathname, int flags, mode_t mode){
 	);
 
 	if(ret == ENOENT && (flags & O_CREAT)){
-		printf("O_CREAT NOT SUPPORTED YET!\n");
-		retv.errno = ENOENT;
-		goto _fail;
+		ret = vfs_create(
+			*name == '/' ? proc->root : proc->cwd,
+			name, mode);
+		
+		if(ret){
+			retv.errno = ret;
+			goto _fail;
+		}
+
+		flags ^= O_CREAT; // remove O CREAT from flags
+		
+		goto retry;
+
 	}
 	else if(ret){
 		retv.errno = ret;
