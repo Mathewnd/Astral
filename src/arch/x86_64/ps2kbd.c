@@ -34,9 +34,100 @@ static uint8_t ps2cmd(uint8_t cmd){
 
 }
 
-static char asciitable[] = {
-	0, '\033', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '\b', '\t', 'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']', '\n', 0, 'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', '\'', 0, 0, '\\', 'z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '/', 0, '*', 0, ' ', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, '7', '8', '9', '-', '4', '5', '6', '+', '4', '1', '2', '3', '0', '.', 0, 0, 0, 0, 0
+static char codes[] = {
+	KEYCODE_RESERVED,
+	KEYCODE_ESCAPE,
+	KEYCODE_1,
+	KEYCODE_2,
+	KEYCODE_3,
+	KEYCODE_4,
+	KEYCODE_5,
+	KEYCODE_6,
+	KEYCODE_7,
+	KEYCODE_8,
+	KEYCODE_9,
+	KEYCODE_0,
+	KEYCODE_MINUS,
+	KEYCODE_EQUAL,
+	KEYCODE_BACKSPACE,
+	KEYCODE_TAB,
+	KEYCODE_Q,
+	KEYCODE_W,
+	KEYCODE_E,
+	KEYCODE_R,
+	KEYCODE_T,
+	KEYCODE_Y,
+	KEYCODE_U,
+	KEYCODE_I,
+	KEYCODE_O,
+	KEYCODE_P,
+	KEYCODE_LEFTBRACE,
+	KEYCODE_RIGHTBRACE,
+	KEYCODE_ENTER,
+	KEYCODE_LEFTCTRL,
+	KEYCODE_A,
+	KEYCODE_S,
+	KEYCODE_D,
+	KEYCODE_F,
+	KEYCODE_G,
+	KEYCODE_H,
+	KEYCODE_J,
+	KEYCODE_K,
+	KEYCODE_L,
+	KEYCODE_SEMICOLON,
+	KEYCODE_APOSTROPHE,
+	KEYCODE_GRAVE,
+	KEYCODE_LEFTSHIFT,
+	KEYCODE_BACKSLASH,
+	KEYCODE_Z,
+	KEYCODE_X,
+	KEYCODE_C,
+	KEYCODE_V,
+	KEYCODE_B,
+	KEYCODE_N,
+	KEYCODE_M,
+	KEYCODE_COMMA,
+	KEYCODE_DOT,
+	KEYCODE_SLASH,
+	KEYCODE_RIGHTSHIFT,
+	KEYCODE_KEYPADASTERISK,
+	KEYCODE_LEFTALT,
+	KEYCODE_SPACE,
+	KEYCODE_CAPSLOCK,
+	KEYCODE_F1,
+	KEYCODE_F2,
+	KEYCODE_F3,
+	KEYCODE_F4,
+	KEYCODE_F5,
+	KEYCODE_F6,
+	KEYCODE_F7,
+	KEYCODE_F8,
+	KEYCODE_F9,
+	KEYCODE_F10,
+	KEYCODE_NUMLOCK,
+	KEYCODE_SCROLLLOCK,
+	KEYCODE_KEYPAD7,
+	KEYCODE_KEYPAD8,
+	KEYCODE_KEYPAD9,
+	KEYCODE_KEYPADMINUS,
+	KEYCODE_KEYPAD4,
+	KEYCODE_KEYPAD5,
+	KEYCODE_KEYPAD6,
+	KEYCODE_KEYPADPLUS,
+	KEYCODE_KEYPAD1,
+	KEYCODE_KEYPAD2,
+	KEYCODE_KEYPAD3,
+	KEYCODE_KEYPAD0,
+	KEYCODE_KEYPADDOT,
+	0, 0, 0,
+	KEYCODE_F11,
+	KEYCODE_F12
 };
+
+static char extendedcodes[] = {
+	
+};
+
 
 void ps2kbd_irq(){
 	uint8_t scancode = inb(0x60);
@@ -54,7 +145,7 @@ void ps2kbd_irq(){
 		scancode &= 0x7F;
 	}
 
-	packet.ascii = asciitable[scancode];
+	packet.keycode = codes[scancode];
 
 	keyboard_packet(kb, packet);
 
