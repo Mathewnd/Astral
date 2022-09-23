@@ -59,8 +59,8 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/entry.cpp mlib
 +
 diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp mlibc/sysdeps/astral/generic/generic.cpp
 --- mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/generic/generic.cpp	2022-09-22 14:48:18.236509081 -0300
-@@ -0,0 +1,189 @@
++++ mlibc/sysdeps/astral/generic/generic.cpp	2022-09-23 00:23:36.476483719 -0300
+@@ -0,0 +1,216 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -98,12 +98,6 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp ml
 +	}
 +	
 +	// stub
-+
-+	pid_t sys_getpid(){
-+		return 1;
-+	}
-+
-+	// stub
 +	
 +	pid_t sys_getppid(){
 +		return 1;
@@ -117,6 +111,12 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp ml
 +	}
 +
 +	// stub
++	
++	int sys_setpgid(pid_t pid, pid_t pgid){
++		return ENOSYS;
++	}
++
++	// stub
 +
 +	int sys_clock_get(int clock, time_t *secs, long *nanos){
 +		*secs = 0;
@@ -125,22 +125,49 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp ml
 +	}
 +
 +	// stub
-+
++	
 +	int sys_ioctl(int fd, unsigned long request, void *arg, int *result){
 +		return ENOSYS;
 +	}
-+
++	
 +	// stub
 +
 +	int sys_sigaction(int, const struct sigaction *__restrict,
 +                struct sigaction *__restrict){
 +		return ENOSYS;
 +	}
-+	
++
 +	// stub
-+	
++
 +	int sys_sigprocmask(int how, const sigset_t *__restrict set, sigset_t *__restrict retrieve){
 +		return ENOSYS;
++	}
++	
++	pid_t sys_getpid(){
++		long ret;
++		syscall(SYSCALL_GETPID, &ret);
++		return ret;
++	}
++
++
++	int sys_fcntl(int fd, int request, va_list args, int *result){
++		long ret;
++		// all currently supported requests only have one arg
++		long err = syscall(SYSCALL_FCNTL, &ret, fd, request, 0);
++		*result = ret;
++		return err;
++	}
++
++	int sys_dup(int fd, int flags, int* newfd){
++		long ret;
++		long err = syscall(SYSCALL_DUP, &ret, fd);
++		*newfd = ret;
++		return err;
++	}
++
++	int sys_dup2(int fd, int flags, int newfd){
++		long ret;
++		return syscall(SYSCALL_DUP2, &ret, fd, newfd);
 +	}
 +
 +	int sys_waitpid(pid_t pid, int *status, int flags, struct rusage *ru, pid_t *ret_pid){
@@ -267,8 +294,8 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/include/astral/archctl
 +#endif
 diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/include/astral/syscall.h mlibc/sysdeps/astral/include/astral/syscall.h
 --- mlibc-3.0.0-rc1/sysdeps/astral/include/astral/syscall.h	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/include/astral/syscall.h	2022-09-22 14:41:12.779845943 -0300
-@@ -0,0 +1,41 @@
++++ mlibc/sysdeps/astral/include/astral/syscall.h	2022-09-23 00:03:59.546493191 -0300
+@@ -0,0 +1,45 @@
 +#ifndef _SYSCALL_H_INCLUDE
 +#define _SYSCALL_H_INCLUDE
 +
@@ -288,6 +315,10 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/include/astral/syscall
 +#define SYSCALL_EXECVE 13
 +#define SYSCALL_WAITPID 14
 +#define SYSCALL_EXIT 15
++#define SYSCALL_DUP 16
++#define SYSCALL_DUP2 17
++#define SYSCALL_FCNTL 18
++#define SYSCALL_GETPID 19
 +
 +#include <stddef.h>
 +#include <stdint.h>
