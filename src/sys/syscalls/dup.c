@@ -4,7 +4,7 @@
 
 syscallret syscall_dup(int oldfd){
 	syscallret retv;
-	retv.errno = fd_duplicate(&arch_getcls()->thread->proc->fdtable, oldfd, ~0, 1, &retv.ret);
+	retv.errno = fd_duplicate(&arch_getcls()->thread->proc->fdtable, oldfd, 0, 1, &retv.ret);
 	return retv;
 }
 
