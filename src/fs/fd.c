@@ -2,6 +2,7 @@
 #include <arch/spinlock.h>
 #include <stdbool.h>
 #include <kernel/alloc.h>
+#include <string.h>
 
 // XXX limit the max fd number
 
@@ -46,7 +47,10 @@ int fd_alloc(fdtable_t* fdtable, fd_t** fd, int* ifd){
 	// resize table
 
 	if(!ok){
-		
+		if(fdtable->fdcount == MAX_FD){
+			spinlock_release(&fdtable->lock);
+			return EMFILE;
+		}
 		fd_t** tmp = realloc(fdtable->fd, sizeof(fd_t*)*(fdtable->fdcount + 1));
 		
 		if(!tmp){
@@ -159,6 +163,88 @@ int fd_tableinit(fdtable_t* fdtable){
 	if(!fdtable->fd) return ENOMEM;
 
 	fdtable->fdcount = 3;
+	
+	return 0;
+
+}
+
+// types 1 and relate to dup and dup2
+
+#define RESIZE_BAD "astral: dup2 table resizes not supported yet!\n"
+
+int fd_duplicate(fdtable_t* table, int src, int dest, int type, int* ret){
+
+	fd_t *srcfd;
+	fd_t *destfd = NULL;
+	
+	if(type != 1 && dest >= MAX_FD){
+		return EBADF;
+	}
+
+	int err = fd_access(table, &srcfd, src);
+	if(err)
+		return err;
+	
+	if(src == dest){
+		switch(type){
+			case 1: // do nothing on dup
+				break;
+			case 2: // return src
+				fd_release(srcfd);
+				*ret = src;
+				return 0;
+		}
+	}
+
+	if(type == 1){ // allocate for dup
+		err = fd_alloc(table, &destfd, &dest);
+		if(err){
+			fd_release(srcfd);
+			return err;
+		}
+
+	}
+
+	spinlock_acquire(&table->lock);	
+	
+	// resize the table if needed
+
+	if(type == 2 && dest >= table->fdcount){
+		void* tmp = realloc(table->fd, sizeof(fd_t*)*(dest+1));
+		if(!tmp){
+			spinlock_release(&table->lock);
+			return ENOMEM;
+		}
+		
+		table->fd = tmp;
+		table->fdcount = dest+1;
+
+	}
+
+	if(!destfd){ // if no allocation, it's a dup2. check for something there and kill it
+		destfd = table->fd[dest];
+		if(destfd){
+			spinlock_acquire(&destfd->lock);
+			if(--destfd->refcount == 0){
+				printf("killing\n");
+				if(destfd->node) vfs_close(destfd->node);
+				free(destfd);
+			}
+			else{
+				spinlock_release(&destfd->lock);
+			}
+
+		}
+	}
+	
+	// everything is set now
+	
+	table->fd[dest] = srcfd;
+	srcfd->refcount++;
+	*ret = dest;
+
+	fd_release(srcfd);
+	spinlock_release(&table->lock);
 	
 	return 0;
 

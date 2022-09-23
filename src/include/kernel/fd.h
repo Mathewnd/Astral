@@ -29,6 +29,8 @@
 #define O_RSYNC 04010000
 #define O_TMPFILE 020000000
 
+#define MAX_FD 512
+
 #include <stdint.h>
 #include <stddef.h>
 
@@ -54,5 +56,6 @@ int fd_access(fdtable_t* fdtable, fd_t** fd, int ifd);
 int fd_release(fd_t* fd);
 int fd_tableinit(fdtable_t* fdtable);
 int fd_tableclone(fdtable_t* source, fdtable_t* dest);
+int fd_duplicate(fdtable_t* table, int src, int dest, int type, int* ret);
 
 #endif
