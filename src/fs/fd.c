@@ -4,8 +4,6 @@
 #include <kernel/alloc.h>
 #include <string.h>
 
-// XXX limit the max fd number
-
 int fd_release(fd_t* fd){	
 	spinlock_release(&fd->lock);
 	return 0;
@@ -28,16 +26,19 @@ int fd_access(fdtable_t* fdtable, fd_t** fd, int ifd){
 
 }
 
-int fd_alloc(fdtable_t* fdtable, fd_t** fd, int* ifd){
+int fd_alloc(fdtable_t* fdtable, fd_t** fd, int* ifd, int lowest){
+	if(lowest >= MAX_FD){
+		return EBADF;
+	}
+
 	spinlock_acquire(&fdtable->lock);
 	
 	// find fd to use
 	
 	bool ok = false;
 
-	for(uintmax_t i = fdtable->firstfreefd; i < fdtable->fdcount; ++i){
+	for(uintmax_t i = lowest; i < fdtable->fdcount; ++i){
 		if(!fdtable->fd[i]){
-			fdtable->firstfreefd = i;
 			*ifd = i;
 			ok = true;
 			break;
@@ -46,12 +47,16 @@ int fd_alloc(fdtable_t* fdtable, fd_t** fd, int* ifd){
 
 	// resize table
 
+	int targetfd = fdtable->fdcount > lowest ? fdtable->fdcount : lowest;
+
 	if(!ok){
+
 		if(fdtable->fdcount == MAX_FD){
 			spinlock_release(&fdtable->lock);
 			return EMFILE;
 		}
-		fd_t** tmp = realloc(fdtable->fd, sizeof(fd_t*)*(fdtable->fdcount + 1));
+
+		fd_t** tmp = realloc(fdtable->fd, sizeof(fd_t*)*(targetfd + 1));
 		
 		if(!tmp){
 			spinlock_release(&fdtable->lock);
@@ -59,8 +64,8 @@ int fd_alloc(fdtable_t* fdtable, fd_t** fd, int* ifd){
 		}	
 
 		fdtable->fd = tmp;
-		*ifd = fdtable->fdcount;
-		++fdtable->fdcount;
+		*ifd = targetfd;
+		fdtable->fdcount = targetfd + 1;
 		
 	}
 	
@@ -197,7 +202,7 @@ int fd_duplicate(fdtable_t* table, int src, int dest, int type, int* ret){
 	}
 
 	if(type == 1){ // allocate for dup
-		err = fd_alloc(table, &destfd, &dest);
+		err = fd_alloc(table, &destfd, &dest, dest); // for fcntl F_DUPFD, dest is the lowest fd
 		if(err){
 			fd_release(srcfd);
 			return err;
@@ -226,7 +231,6 @@ int fd_duplicate(fdtable_t* table, int src, int dest, int type, int* ret){
 		if(destfd){
 			spinlock_acquire(&destfd->lock);
 			if(--destfd->refcount == 0){
-				printf("killing\n");
 				if(destfd->node) vfs_close(destfd->node);
 				free(destfd);
 			}

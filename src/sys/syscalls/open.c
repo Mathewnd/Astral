@@ -32,7 +32,7 @@ syscallret syscall_open(const char* pathname, int flags, mode_t mode){
 	int ifd;
 	fd_t* fd;
 
-	int err = fd_alloc(&proc->fdtable, &fd, &ifd);
+	int err = fd_alloc(&proc->fdtable, &fd, &ifd, 0);
 	
 	if(err){
 		retv.errno = err;

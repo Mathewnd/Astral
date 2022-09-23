@@ -417,9 +417,9 @@ void sched_runinit(){
 
 	fd_t *stdinfd, *stdoutfd, *stderrfd;
 
-	fd_alloc(&proc->fdtable, &stdinfd, &tmp);
-	fd_alloc(&proc->fdtable, &stdoutfd, &tmp);
-	fd_alloc(&proc->fdtable, &stderrfd, &tmp);
+	fd_alloc(&proc->fdtable, &stdinfd, &tmp, 0);
+	fd_alloc(&proc->fdtable, &stdoutfd, &tmp, 0);
+	fd_alloc(&proc->fdtable, &stderrfd, &tmp, 0);
 	
 	#define CONSOLE_PATH "dev/console"
 

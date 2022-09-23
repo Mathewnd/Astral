@@ -46,11 +46,10 @@ typedef struct {
 typedef struct {
 	int lock;
 	size_t fdcount;
-	uintmax_t firstfreefd;
 	fd_t** fd;
 } fdtable_t; 
 
-int fd_alloc(fdtable_t* fdtable, fd_t** fd, int* ifd);
+int fd_alloc(fdtable_t* fdtable, fd_t** fd, int* ifd, int lowest);
 int fd_free(fdtable_t* fdtable, int ifd);
 int fd_access(fdtable_t* fdtable, fd_t** fd, int ifd);
 int fd_release(fd_t* fd);
