@@ -17,14 +17,18 @@ syscallret syscall_fcntl(int ifd, int cmd, uint64_t arg){
 	
 	fd_t* fd = NULL;
 
+	proc_t* proc = arch_getcls()->thread->proc;
+
 	if(cmd != F_DUPFD){
-		retv.errno = fd_access(&arch_getcls()->thread->proc->fdtable, &fd, ifd);
+		retv.errno = fd_access(&proc->fdtable, &fd, ifd);
 		if(retv.errno)
 			return retv;
 	}
 
-
 	switch(cmd){
+		case F_DUPFD:
+			retv.errno = fd_duplicate(&proc->fdtable, ifd, arg, 1, &retv.ret);
+			return retv;
 		case F_GETFD: // no fd flags implemented
 		case F_SETFD:
 			retv.ret = 0;
