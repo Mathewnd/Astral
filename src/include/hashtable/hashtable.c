@@ -27,6 +27,27 @@ static inline hashtableentry* getentry(hashtable* table, char* key){
 	return &table->entries[entryn];
 }
 
+void* hashtable_fromoffset(hashtable* table, uintmax_t offset, char* retkey){
+		
+	for(uintmax_t i = 0; i < table->size; ++i){
+		hashtableentry* entry = &table->entries[i];
+		if(!entry->val)
+			continue;
+		while(entry){
+			if(offset-- == 0){
+				if(retkey)
+					strcpy(retkey, entry->key);
+				return entry->val;
+			}
+
+			entry = entry->next;
+		}
+	}
+
+	return NULL;
+		
+}
+
 bool hashtable_insert(hashtable* table, char* key, void* val){
 
 	
