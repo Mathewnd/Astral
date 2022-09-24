@@ -64,6 +64,8 @@ void kmain(){
 	consoledev_init();
 
 	pseudodevs_init();
+	
+	fb_init();
 
 	pci_enumerate();
 
