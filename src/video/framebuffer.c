@@ -18,6 +18,10 @@ static int devchecks(int fb, size_t* count, size_t offset){
 
 	size_t end = fbs[fb]->pitch * fbs[fb]->height;
 
+	if(offset >= end){
+		*count = 0;
+	}
+
 	if(*count + offset > end)
 		*count = end - offset;
 
@@ -32,9 +36,9 @@ int read(int* error, int minor, void* buff, size_t count, size_t offset){
 
 	if(*error)
 		return -1;
-	
+
 	memcpy(buff, fbs[minor]->address + offset, count);
-	
+
 	return count;
 	
 }
@@ -45,7 +49,7 @@ int write(int* error, int minor, void* buff, size_t count, size_t offset){
 
 	if(*error)
 		return -1;
-	
+
 	memcpy(fbs[minor]->address + offset, buff, count);
 
 	return count;
