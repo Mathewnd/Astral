@@ -59,8 +59,8 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/entry.cpp mlib
 +
 diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp mlibc/sysdeps/astral/generic/generic.cpp
 --- mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/generic/generic.cpp	2022-09-23 00:23:36.476483719 -0300
-@@ -0,0 +1,216 @@
++++ mlibc/sysdeps/astral/generic/generic.cpp	2022-09-23 22:30:14.836379613 -0300
+@@ -0,0 +1,248 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -117,6 +117,17 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp ml
 +	}
 +
 +	// stub
++	
++	int sys_tcgetattr(int fd, struct termios *attr){
++		return ENOSYS;
++	}
++	
++	// stub
++
++	int sys_tcsetattr(int fd, int act, const struct termios *attr){
++		return ENOSYS;
++	}
++	// stub
 +
 +	int sys_clock_get(int clock, time_t *secs, long *nanos){
 +		*secs = 0;
@@ -143,6 +154,24 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp ml
 +		return ENOSYS;
 +	}
 +	
++	// stub
++	
++	int sys_ttyname(int fd, char *buf, size_t size) {
++		return ENOSYS;
++	}
++
++	// stub
++
++	#define ASTRALHOSTNAME "astral"
++
++	int sys_gethostname(char *buffer, size_t bufsize){
++	
++		memcpy(buffer, ASTRALHOSTNAME, strlen(ASTRALHOSTNAME));
++	
++		return 0;
++
++	}
++	
 +	pid_t sys_getpid(){
 +		long ret;
 +		syscall(SYSCALL_GETPID, &ret);
@@ -153,7 +182,10 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp ml
 +	int sys_fcntl(int fd, int request, va_list args, int *result){
 +		long ret;
 +		// all currently supported requests only have one arg
-+		long err = syscall(SYSCALL_FCNTL, &ret, fd, request, 0);
++
++		long arg = va_arg(args, uint64_t);
++
++		long err = syscall(SYSCALL_FCNTL, &ret, fd, request, arg);
 +		*result = ret;
 +		return err;
 +	}
