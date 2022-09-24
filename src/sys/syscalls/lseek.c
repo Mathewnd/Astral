@@ -24,7 +24,7 @@ syscallret syscall_lseek(int ifd, off_t offset, int whence){
 		return retv;
 	}
 
-	int type = GETTYPE(fd->mode);
+	int type = GETTYPE(fd->node->st.st_mode);
 
 	if(type == TYPE_SOCKET || type == TYPE_FIFO){
 		retv.errno = ESPIPE;
@@ -33,6 +33,14 @@ syscallret syscall_lseek(int ifd, off_t offset, int whence){
 
 	off_t newoffset = fd->offset;
 	size_t fsize = fd->node->st.st_size;
+	
+	if(type == TYPE_CHARDEV || type == TYPE_BLOCKDEV){
+		int err = devman_isseekable(fd->node->st.st_rdev, &fsize);
+		if(err){
+			retv.errno = err;
+			goto _ret;
+		}
+	}
 
 	switch(whence){
 		case SEEK_SET:

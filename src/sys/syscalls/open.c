@@ -79,6 +79,7 @@ syscallret syscall_open(const char* pathname, int flags, mode_t mode){
 
 	
 	fd->node = file;
+	fd->mode = file->st.st_mode;
 
 	fd_release(fd);
 	

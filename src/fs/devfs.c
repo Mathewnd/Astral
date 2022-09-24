@@ -44,7 +44,7 @@ static int devfs_open(dirnode_t* parent, char* name){
 
 }
 
-static int devfs_close() UNIMPLEMENTED
+static int devfs_close(){return 0;}
 static int devfs_mkdir() UNIMPLEMENTED
 static int devfs_create() UNIMPLEMENTED
 static int devfs_write() UNIMPLEMENTED
