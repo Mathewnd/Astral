@@ -59,8 +59,8 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/entry.cpp mlib
 +
 diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp mlibc/sysdeps/astral/generic/generic.cpp
 --- mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/generic/generic.cpp	2022-09-23 22:30:14.836379613 -0300
-@@ -0,0 +1,248 @@
++++ mlibc/sysdeps/astral/generic/generic.cpp	2022-09-24 16:12:30.553142623 -0300
+@@ -0,0 +1,259 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -172,6 +172,17 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp ml
 +
 +	}
 +	
++	int sys_read_entries(int handle, void *buffer, size_t max_size, size_t *bytes_read){
++		
++		return syscall(SYSCALL_GETDIRENT, (long*)bytes_read, handle, (uint64_t)buffer, max_size);	
++		
++	}
++	
++
++	int sys_open_dir(const char *path, int *handle){
++		return sys_open(path, O_RDONLY | O_DIRECTORY, 0, handle);
++	}
++
 +	pid_t sys_getpid(){
 +		long ret;
 +		syscall(SYSCALL_GETPID, &ret);
@@ -326,8 +337,8 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/include/astral/archctl
 +#endif
 diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/include/astral/syscall.h mlibc/sysdeps/astral/include/astral/syscall.h
 --- mlibc-3.0.0-rc1/sysdeps/astral/include/astral/syscall.h	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/include/astral/syscall.h	2022-09-23 00:03:59.546493191 -0300
-@@ -0,0 +1,45 @@
++++ mlibc/sysdeps/astral/include/astral/syscall.h	2022-09-24 16:11:14.433143236 -0300
+@@ -0,0 +1,46 @@
 +#ifndef _SYSCALL_H_INCLUDE
 +#define _SYSCALL_H_INCLUDE
 +
@@ -351,6 +362,7 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/include/astral/syscall
 +#define SYSCALL_DUP2 17
 +#define SYSCALL_FCNTL 18
 +#define SYSCALL_GETPID 19
++#define SYSCALL_GETDIRENT 20
 +
 +#include <stddef.h>
 +#include <stdint.h>
