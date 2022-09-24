@@ -5,3 +5,4 @@ BLUE="\e[1;36m"
 WHITE="\e[1;37m"
 PS1="$GREEN\u$NORMAL@$BLUE\h$NORMAL:$WHITE\w$NORMAL>"
 
+alias ls="ls --color=auto"
