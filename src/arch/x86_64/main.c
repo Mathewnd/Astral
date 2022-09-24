@@ -63,6 +63,8 @@ void kmain(){
 	
 	consoledev_init();
 
+	pseudodevs_init();
+
 	pci_enumerate();
 
 	cpu_state_init();
@@ -74,7 +76,7 @@ void kmain(){
 	keyboard_init();
 
 	ps2kbd_init();
-
+	
 	sched_runinit();
 
 	_panic("End of kmain()", 0);

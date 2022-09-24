@@ -8,8 +8,6 @@
 #include <arch/interrupt.h>
 #include <arch/spinlock.h>
 
-#define CONSOLE_MAJOR 1
-
 static ringbuffer_t input;
 static thread_t* thread;
 static event_t outputevent;
@@ -129,7 +127,7 @@ devcalls calls = {
 
 void consoledev_init(){
 	
-	if(devman_newdevice("console", TYPE_CHARDEV, CONSOLE_MAJOR, 0, &calls))
+	if(devman_newdevice("console", TYPE_CHARDEV, MAJOR_CONSOLE, 0, &calls))
 	_panic("Failed to create console device", 0);
 
 	if(ringbuffer_init(&input, THREAD_BUFF_MAX))

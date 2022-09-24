@@ -1,5 +1,5 @@
 objects := $(patsubst %.c,%.o,$(wildcard *.c))
-subdirs := mm sched syscalls pseudodevs
+subdirs := 
 OBJPATH=$(OBJDIR)
 export
 

@@ -3,6 +3,10 @@
 
 #include <sys/stat.h>
 
+#define MAJOR_CONSOLE 1
+#define MAJOR_ZERO 2
+#define MAJOR_NULL 3
+#define MAJOR_FULL 4
 
 typedef struct{
 	int (*read)(int* error, int minor, void* buff, size_t count, size_t offset);
