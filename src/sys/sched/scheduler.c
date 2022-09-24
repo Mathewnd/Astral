@@ -98,6 +98,8 @@ static thread_t* allocthread(proc_t* proc, state_t state, pid_t tid, size_t ksta
 	thread->kernelstack = thread->kernelstackbase + kstacksize;
 	thread->stacksize = kstacksize;
 	
+	arch_regs_firsttimesetup(thread->regs, &thread->extraregs);
+
 	return thread;
 
 }

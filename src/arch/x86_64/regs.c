@@ -1,12 +1,16 @@
 #include <arch/regs.h>
 #include <arch/msr.h>
 
+void arch_regs_firsttimesetup(arch_regs* regs, arch_extraregs* xregs){
+	xregs->mxcsr = 0x1F80; // all exceptions masked
+}
+
 void arch_regs_saveextra(arch_extraregs* regs){
 	// user gs was swapped
 	regs->gsbase = rdmsr(MSR_KERNELGSBASE);
 	regs->fsbase = rdmsr(MSR_FSBASE);	
 	asm("fxsave (%%rax)" : : "a"(&regs->fx[0]));
-
+	asm("stmxcsr (%%rax)" : : "a"(&regs->mxcsr));
 }
 
 void arch_regs_setupextra(arch_extraregs* regs){
@@ -14,6 +18,7 @@ void arch_regs_setupextra(arch_extraregs* regs){
 	wrmsr(MSR_KERNELGSBASE, regs->gsbase);
 	wrmsr(MSR_FSBASE, regs->fsbase);
 	asm("fxrstor (%%rax)" : : "a"(&regs->fx[0]));
+	asm("ldmxcsr (%%rax)" : : "a"(&regs->mxcsr));
 }
 
 void arch_regs_setupkernel(arch_regs* regs, void* ip, void* stack, bool interrupts){

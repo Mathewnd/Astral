@@ -9,6 +9,7 @@ typedef uint64_t arch_reg;
 typedef struct{
 	uint64_t gsbase, fsbase;
 	uint8_t  fx[512];
+	uint32_t mxcsr;
 } arch_extraregs;
 
 typedef struct{
@@ -16,6 +17,9 @@ typedef struct{
 } arch_regs;
 void arch_regs_saveextra(arch_extraregs* regs);
 void arch_regs_setupextra(arch_extraregs* regs);
+
+void arch_regs_firsttimesetup(arch_regs* regs, arch_extraregs* xregs);
+
 void arch_regs_setupkernel(arch_regs* regs, void* ip, void* stack, bool interrupts);
 void arch_regs_setupuser(arch_regs* regs, void* ip, void* stack, bool interrupts);
 
