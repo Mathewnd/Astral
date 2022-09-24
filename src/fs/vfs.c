@@ -5,6 +5,7 @@
 #include <string.h>
 #include <kernel/devman.h>
 #include <arch/spinlock.h>
+#include <dirent.h>
 
 dirnode_t* vfsroot;
 hashtable  fsfuncs;
@@ -132,6 +133,27 @@ int vfs_close(vnode_t* node){
 	spinlock_release(&lock);
 	
 	return status;
+}
+
+int vfs_getdirent(dirnode_t* node, dent_t* buff, size_t count, uintmax_t offset, size_t* readcount){
+	
+	int err = 0;
+
+	spinlock_acquire(&lock);
+	
+
+	if(GETTYPE(node->vnode.st.st_mode) != TYPE_DIR){
+		err = ENOTDIR;
+		goto _ret;
+	}
+
+	err = node->vnode.fs->calls->getdirent(node, buff, count, offset, readcount);
+
+	_ret:
+
+	spinlock_release(&lock);
+
+	return err;
 }
 
 int vfs_open(vnode_t** buff, dirnode_t* ref, char* path){
@@ -375,6 +397,10 @@ int vfs_resolvepath(vnode_t** result, dirnode_t** resultparent, dirnode_t* ref, 
 
 	if(resultparent)
 		*resultparent = iterator->vnode.parent;
+	
+	if(GETTYPE(iterator->vnode.st.st_mode) == TYPE_DIR)
+		iterator = mountpoint(iterator);
+
 	*result = (vnode_t*)iterator;
 
 	return 0;

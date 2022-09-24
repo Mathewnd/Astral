@@ -4,6 +4,7 @@
 #include <sys/stat.h>
 #include <hashtable.h>
 #include <errno.h>
+#include <dirent.h>
 
 struct _vnode_t;
 struct _fscalls_t;
@@ -56,6 +57,8 @@ typedef struct _fscalls_t {
 	int	 (*write)(int* error, vnode_t* node, void* buff, size_t count, size_t offset);
 	//	 read from a file
 	int	 (*read)(int* error, vnode_t* node, void* buff, size_t count, size_t offset);
+	//	 get dir ents
+	int	 (*getdirent)(dirnode_t* node, dent_t* buff, size_t count, uintmax_t offset, size_t* readcount);
 } fscalls_t;
 
 
@@ -68,6 +71,7 @@ int vfs_create(dirnode_t* ref, char* path, mode_t mode);
 int vfs_write(int* error, vnode_t* node, void* buff, size_t count, size_t offset);
 int vfs_read(int* error, vnode_t* node, void* buff, size_t count, size_t offset);
 int vfs_isatty(vnode_t* node);
+int vfs_getdirent(dirnode_t* node, dent_t* buff, size_t count, uintmax_t offset, size_t* readcount);
 
 void vfs_init();
 dirnode_t* vfs_root();

@@ -4,6 +4,8 @@
 #include <arch/mmu.h>
 #include <kernel/pmm.h>
 #include <string.h>
+#include <dirent.h>
+
 
 static int tmpfs_mount(dirnode_t* mountpoint, vnode_t* device, int mountflags, void* fsinfo){
 	
@@ -126,8 +128,32 @@ static int tmpfs_create(dirnode_t* parent, char* name, mode_t mode){
 	return 0;
 }
 
+static int tmpfs_getdirent(dirnode_t* node, dent_t* buff, size_t count, uintmax_t offset, size_t* readcount){
+
+	*readcount = 0;
+
+	for(uintmax_t i = 0; i < count; ++i){
+		dent_t* d = &buff[i];
+		vnode_t* child = hashtable_fromoffset(&node->children, offset, d->d_name);
+		if(!child){
+			*readcount = i;
+			return 0;
+		}
+
+		d->d_ino = child->st.st_ino;
+		d->d_off = offset;
+		d->d_reclen = sizeof(dent_t);
+		d->d_type = GETTYPE(child->st.st_mode);
+		++offset;
+	}
+	
+	*readcount = count;
+
+	return 0;
+}
+
 static fscalls_t funcs = {
-	tmpfs_mount, tmpfs_unmount, tmpfs_open, tmpfs_close, tmpfs_mkdir, tmpfs_create, tmpfs_write, tmpfs_read
+	tmpfs_mount, tmpfs_unmount, tmpfs_open, tmpfs_close, tmpfs_mkdir, tmpfs_create, tmpfs_write, tmpfs_read, tmpfs_getdirent
 };
 
 

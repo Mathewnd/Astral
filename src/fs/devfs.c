@@ -50,9 +50,35 @@ static int devfs_create() UNIMPLEMENTED
 static int devfs_write() UNIMPLEMENTED
 static int devfs_read() UNIMPLEMENTED
 
+static int devfs_getdirent(dirnode_t* node, dent_t* buff, size_t count, uintmax_t offset, size_t* readcount){
+
+        *readcount = 0;
+
+	// all getdirents on devfs will return the same
+
+        for(uintmax_t i = 0; i < count; ++i){
+                dent_t* d = &buff[i];
+                vnode_t* child = hashtable_fromoffset(&devnodes, offset, d->d_name);
+                
+		if(!child){
+                        *readcount = i;
+                        return 0;
+                }
+
+                d->d_ino = child->st.st_ino;
+                d->d_off = offset;
+                d->d_reclen = sizeof(dent_t);
+                d->d_type = GETTYPE(child->st.st_mode);
+                ++offset;
+        }
+
+        *readcount = count;
+
+        return 0;
+}
 
 static fscalls_t devfscalls = {
-	devfs_mount, devfs_unmount, devfs_open, devfs_close, devfs_mkdir, devfs_create, devfs_write, devfs_read
+	devfs_mount, devfs_unmount, devfs_open, devfs_close, devfs_mkdir, devfs_create, devfs_write, devfs_read, devfs_getdirent
 };
 
 void devfs_init(){
@@ -63,8 +89,6 @@ void devfs_init(){
 	hashtable_init(&devnodes, 10);
 
 }
-
-
 
 int devfs_newdevice(char* name, int type, dev_t dev, mode_t mode){
 	
