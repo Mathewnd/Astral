@@ -176,7 +176,7 @@ int vfs_create(dirnode_t* ref, char* path, mode_t mode){
 		spinlock_release(&lock);
 		return EEXIST;
 	}
-	result = parent->vnode.fs->calls->create(parent, name, NULL);
+	result = parent->vnode.fs->calls->create(parent, name, mode);
 	
 	spinlock_release(&lock);
 	
@@ -205,7 +205,7 @@ int vfs_mkdir(dirnode_t* ref, char* path, mode_t mode){
 		return EEXIST;
 	}
 	
-	result = parent->vnode.fs->calls->mkdir(parent, name, NULL);
+	result = parent->vnode.fs->calls->mkdir(parent, name, mode);
 	
 	spinlock_release(&lock);
 	

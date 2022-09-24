@@ -87,12 +87,12 @@ static volatile void buildentry(tar_entry* entry, void* addr){
 
 	}
 	
-	entry->mode = convert(block->mode, 8);
-	entry->uid = convert(block->uid, 8);
-	entry->gid = convert(block->gid, 8);
+	entry->mode = convert(block->mode, 7);
+	entry->uid = convert(block->uid, 7);
+	entry->gid = convert(block->gid, 7);
 	entry->size = convert(block->size, 11);
 	entry->modtime = convert(block->modtime, 11);
-	entry->checksum = convert(block->checksum, 8);
+	entry->checksum = convert(block->checksum, 7);
 	entry->type = convert(block->type, 1);
 	
 	if(block->link[99]){
@@ -104,8 +104,8 @@ static volatile void buildentry(tar_entry* entry, void* addr){
 	
 	memcpy(entry->indicator, block->indicator, 6);
 	memcpy(entry->version, block->version, 2);
-	entry->devmajor = convert(block->devmajor, 8);
-	entry->devminor = convert(block->devminor, 8);
+	entry->devmajor = convert(block->devmajor, 7);
+	entry->devminor = convert(block->devminor, 7);
 
 	
 	

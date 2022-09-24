@@ -18,9 +18,10 @@ static int tmpfs_mount(dirnode_t* mountpoint, vnode_t* device, int mountflags, v
 		free(desc);
 		return ENOMEM;
 	}
-	
+
 	desc->calls = tmpfs_getfuncs();
 	mountpoint->mount = root;
+	root->vnode.st.st_mode = MAKETYPE(TYPE_DIR) | 0777;
 
 	return 0;
 }
@@ -84,7 +85,8 @@ static int tmpfs_mkdir(dirnode_t* parent, char* name, mode_t mode){
 	}
 	
 	stat* st = &node->vnode.st;
-	st->st_mode = MAKETYPE(TYPE_DIR) | GETMODE(mode);
+	
+	st->st_mode = MAKETYPE(TYPE_DIR) | mode;
 	st->st_blksize = PAGE_SIZE;
 
 	return 0;
@@ -117,6 +119,8 @@ static int tmpfs_create(dirnode_t* parent, char* name, mode_t mode){
 	stat* st = &node->st;
 	st->st_blksize = PAGE_SIZE;
 	st->st_blocks = 1;
+	st->st_mode = MAKETYPE(TYPE_REGULAR) | mode;
+	st->st_nlink = 1;
 	
 
 	return 0;
