@@ -20,6 +20,7 @@ static int devchecks(int fb, size_t* count, size_t offset){
 
 	if(offset >= end){
 		*count = 0;
+		return 0;
 	}
 
 	if(*count + offset > end)
