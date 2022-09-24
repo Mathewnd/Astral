@@ -120,10 +120,14 @@ static int write(int *error, int dev, void* buff, size_t count, size_t offset){
 	return count;
 }
 
-devcalls calls = {
-	read, write, isatty
-};
 
+static int isseekable(){
+	return ESPIPE;
+}
+
+devcalls calls = {
+	read, write, isatty, isseekable
+};
 
 void consoledev_init(){
 	

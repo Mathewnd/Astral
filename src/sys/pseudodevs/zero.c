@@ -17,8 +17,13 @@ static int isatty(int minor){
 	return ENOTTY;
 }
 
+static int isseekable(int minor, size_t* max){
+	*max = ~(size_t)0;
+	return 0;
+}
+
 static devcalls calls = {
-	read, write, isatty
+	read, write, isatty, isseekable
 };
 
 void zerodev_init(){

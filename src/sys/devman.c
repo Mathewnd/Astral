@@ -56,6 +56,16 @@ int devman_isatty(int dev){
 	
 }
 
+int devman_isseekable(int dev, size_t* max){
+
+        if(major(dev) > highestmajor)
+                return ENOTTY;
+
+        return majorcalls[major(dev)]->isseekable(minor(dev), max);
+
+}
+
+
 void devman_init(){
 	
 	devfs_init();
