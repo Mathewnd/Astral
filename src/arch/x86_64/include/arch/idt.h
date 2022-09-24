@@ -24,6 +24,8 @@
 #define VECTOR_GPF 13
 #define VECTOR_PF 14
 
+#define VECTOR_SIMD 0x13
+
 #define VECTOR_PANIC 0x20
 #define VECTOR_LAPICNMI 0x21
 #define VECTOR_MMUINVAL 0x22

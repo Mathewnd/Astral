@@ -4,14 +4,23 @@
 #include <arch/apic.h>
 #include <kernel/timer.h>
 
+void isr_simd(arch_regs *reg){
+	
+	uint64_t mxcsr;
+
+	asm volatile("stmxcsr (%%rax)" : : "a"(&mxcsr));
+
+	printf("SIMD: %p\n", mxcsr);
+	
+	_panic("SIMD exception", reg);
+}
+
 void isr_general(arch_regs *reg){
 	_panic("Unhandled interrupt", reg);
-	asm("hlt");
 }
 
 void isr_except(arch_regs *reg){
 	_panic("CPU Exception", reg);
-	asm("hlt;");
 }
 
 void isr_pagefault(arch_regs *reg){

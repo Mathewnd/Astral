@@ -41,16 +41,18 @@ void idt_bspinit(){
 	for(size_t i = 0; i < 256; ++i){
 		idt_setentry(&idt[i], asmisr_general, 0x28, FLAGS_PRESENT | FLAGS_TYPE_INTERRUPT, 0);
 	}
-	
 
 	// set error code pushers as exceptions
-
+	
 	idt_setentry(&idt[VECTOR_DOUBLEFAULT], asmisr_except, 0x28, FLAGS_PRESENT | FLAGS_TYPE_INTERRUPT, 0);
 	idt_setentry(&idt[VECTOR_GPF], asmisr_except, 0x28, FLAGS_PRESENT | FLAGS_TYPE_INTERRUPT, 0);
 	idt_setentry(&idt[VECTOR_INVALIDTSS], asmisr_except, 0x28, FLAGS_PRESENT | FLAGS_TYPE_INTERRUPT, 0);
 	idt_setentry(&idt[VECTOR_SEGMENTNOTPRESENT], asmisr_except, 0x28, FLAGS_PRESENT | FLAGS_TYPE_INTERRUPT, 0);
 	idt_setentry(&idt[VECTOR_STACK], asmisr_except, 0x28, FLAGS_PRESENT | FLAGS_TYPE_INTERRUPT, 0);
 
+
+	idt_setentry(&idt[VECTOR_SIMD], asmisr_simd, 0x28, FLAGS_PRESENT | FLAGS_TYPE_INTERRUPT, 0);
+	
 	idt_setentry(&idt[VECTOR_PF], asmisr_pagefault, 0x28, FLAGS_PRESENT | FLAGS_TYPE_INTERRUPT, 0);
 	
 	idt_setentry(&idt[VECTOR_PANIC], asmisr_panic, 0x28, FLAGS_PRESENT | FLAGS_TYPE_INTERRUPT, 0);

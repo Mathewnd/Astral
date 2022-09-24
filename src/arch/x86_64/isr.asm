@@ -157,3 +157,4 @@ isr	asmisr_lapicnmi, isr_lapicnmi
 isr	asmisr_mmuinval, isr_mmuinval
 isr 	asmisr_ps2kbd, isr_ps2kbd
 isr	asmisr_timer, isr_timer
+isr 	asmisr_simd, isr_simd

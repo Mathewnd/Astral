@@ -12,5 +12,6 @@ extern void asmisr_lapicnmi();
 extern void asmisr_mmuinval();
 extern void asmisr_ps2kbd();
 extern void asmisr_timer();
+extern void asmisr_simd();
 
 #endif
