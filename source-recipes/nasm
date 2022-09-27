@@ -1,0 +1,8 @@
+name=nasm
+version=2.15.05
+source_method=tarball
+tarball_url="https://www.nasm.us/pub/nasm/releasebuilds/${version}/nasm-${version}.tar.xz"
+tarball_sha512=512f90a2584f1c5811429274b97c64a2cedf37b9fdeffb1bcd0ea64afd9ecc19a2d7877ca8f1e05393aa324153fc9f39ea51dacbf8d25a7d5a2d7728c925dba7
+regenerate() {
+        true
+}

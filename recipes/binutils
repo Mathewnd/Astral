@@ -1,0 +1,26 @@
+name=binutils
+revision=1
+from_source=binutils-cross
+imagedeps="base-devel"
+hostdeps="gcc-cross binutils-cross automake autoconf"
+deps="mlibc"
+
+
+configure() {
+	
+	
+	${source_dir}/configure --host=x86_64-astral --target=x86_64-astral --prefix=${prefix} --disable-werror
+
+}
+
+build() {
+	
+	make -j${parallelism}
+
+}
+
+install() {
+
+	make install DESTDIR="${dest_dir}"
+
+}
