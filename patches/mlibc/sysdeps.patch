@@ -59,8 +59,8 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/entry.cpp mlib
 +
 diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp mlibc/sysdeps/astral/generic/generic.cpp
 --- mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/generic/generic.cpp	2022-09-24 16:12:30.553142623 -0300
-@@ -0,0 +1,259 @@
++++ mlibc/sysdeps/astral/generic/generic.cpp	2022-09-29 18:46:36.403066082 -0300
+@@ -0,0 +1,260 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -68,6 +68,7 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp ml
 +#include <astral/syscall.h>
 +#include <astral/archctl.h>
 +#include <string.h>
++#include <asm/ioctls.h>
 +
 +#define STUB_ONLY { __ensure(!"STUB_ONLY function was called"); __builtin_unreachable(); }
 +
@@ -116,29 +117,11 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp ml
 +		return ENOSYS;
 +	}
 +
-+	// stub
-+	
-+	int sys_tcgetattr(int fd, struct termios *attr){
-+		return ENOSYS;
-+	}
-+	
-+	// stub
-+
-+	int sys_tcsetattr(int fd, int act, const struct termios *attr){
-+		return ENOSYS;
-+	}
-+	// stub
 +
 +	int sys_clock_get(int clock, time_t *secs, long *nanos){
 +		*secs = 0;
 +		*nanos = 0;
 +		return 0;
-+	}
-+
-+	// stub
-+	
-+	int sys_ioctl(int fd, unsigned long request, void *arg, int *result){
-+		return ENOSYS;
 +	}
 +	
 +	// stub
@@ -172,6 +155,24 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp ml
 +
 +	}
 +	
++	int sys_tcgetattr(int fd, struct termios *attr){
++		int res;
++		return sys_ioctl(fd, TCGETS, (void*)attr, &res);
++	}
++
++	int sys_tcsetattr(int fd, int act, const struct termios *attr){
++		int res;
++		return sys_ioctl(fd, TCSETS, (void*)attr, &res);
++	}
++
++	int sys_ioctl(int fd, unsigned long request, void *arg, int *result){
++		long res;
++		int ret = syscall(SYSCALL_IOCTL, &res, fd, request, (uint64_t)arg);
++		*result = res;
++		return ret;
++	}
++	
++
 +	int sys_read_entries(int handle, void *buffer, size_t max_size, size_t *bytes_read){
 +		
 +		return syscall(SYSCALL_GETDIRENT, (long*)bytes_read, handle, (uint64_t)buffer, max_size);	
@@ -337,8 +338,8 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/include/astral/archctl
 +#endif
 diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/include/astral/syscall.h mlibc/sysdeps/astral/include/astral/syscall.h
 --- mlibc-3.0.0-rc1/sysdeps/astral/include/astral/syscall.h	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/include/astral/syscall.h	2022-09-24 16:11:14.433143236 -0300
-@@ -0,0 +1,46 @@
++++ mlibc/sysdeps/astral/include/astral/syscall.h	2022-09-29 17:35:04.596433959 -0300
+@@ -0,0 +1,47 @@
 +#ifndef _SYSCALL_H_INCLUDE
 +#define _SYSCALL_H_INCLUDE
 +
@@ -363,6 +364,7 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/include/astral/syscall
 +#define SYSCALL_FCNTL 18
 +#define SYSCALL_GETPID 19
 +#define SYSCALL_GETDIRENT 20
++#define SYSCALL_IOCTL 21
 +
 +#include <stddef.h>
 +#include <stdint.h>
