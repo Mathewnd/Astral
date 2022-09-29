@@ -7,12 +7,14 @@
 #include <ringbuffer.h>
 #include <arch/interrupt.h>
 #include <arch/spinlock.h>
+#include <termios.h>
 
 static ringbuffer_t input;
 static thread_t* thread;
 static event_t outputevent;
 static event_t inputevent;
 static int outputlock;
+static termios tty;
 
 void console_write(char* str, size_t count){
 	
@@ -42,40 +44,58 @@ __attribute__((noreturn)) static void console_thread(){
 		keyboard_getandwait(0, &packet);
 
 		if(packet.ascii && (KBPACKET_FLAGS_RELEASED & packet.flags) == 0){
-
-			bool flush = false;
-			
-			switch(packet.ascii){
+			if(tty.c_lflag & ICANON){
+				bool flush = false;
 				
-				case '\b':
-					if(buffpos){
-						--buffpos;
-						buff[buffpos] = '\0';
-						console_write(BACKSPACE_STR, strlen(BACKSPACE_STR));
-					}
-					continue;
-				case '\n':
+				switch(packet.ascii){
+					
+					case '\b':
+						if(buffpos){
+							--buffpos;
+							buff[buffpos] = '\0';
+							if(tty.c_lflag & ECHO)
+								console_write(BACKSPACE_STR, strlen(BACKSPACE_STR));
+						}
+						continue;
+					case '\n':
+						flush = true;
+						break;
+				}
+				
+				if(tty.c_lflag & ECHO)
+					console_write(&packet.ascii, 1);
+				
+				buff[buffpos++] = packet.ascii;
+
+				if(buffpos == THREAD_BUFF_MAX)
 					flush = true;
-					break;
+
+				if(flush){
+					arch_interrupt_disable();
+
+					ringbuffer_write(&input, buff, buffpos);
+				
+					arch_interrupt_enable();
+					
+					buffpos = 0;
+
+					event_signal(&inputevent, true);
+				}
 			}
+			else{ // not canon
+				
+				if(tty.c_lflag & ECHO)
+					console_write(&packet.ascii, 1);
 
-			console_write(&packet.ascii, 1);
-			
-			buff[buffpos++] = packet.ascii;
-
-			if(buffpos == THREAD_BUFF_MAX)
-				flush = true;
-
-			if(flush){
 				arch_interrupt_disable();
 
-				ringbuffer_write(&input, buff, buffpos);
-			
-				arch_interrupt_enable();
-				
-				buffpos = 0;
+                                ringbuffer_write(&input, &packet.ascii, 1);
+
+                                arch_interrupt_enable();
 
 				event_signal(&inputevent, true);
+
+
 			}
 		}
 	}
@@ -92,15 +112,16 @@ static int read(int *error, int dev, void* buff, size_t count, size_t offset){
 
 	*error = 0;
 
-	while(readc == 0){
+	while(readc < count && readc < tty.c_cc[VMIN]){
 		
 		arch_interrupt_disable();
 
-		readc = ringbuffer_read(&input, buff, count);
+		readc += ringbuffer_read(&input, buff+readc, count-readc);
 		
 		arch_interrupt_enable();	
 		
-		if(!readc) *error = event_wait(&inputevent, true);
+		if(readc < count && readc < tty.c_cc[VMIN])
+			*error = event_wait(&inputevent, true);
 		
 		if(*error)
 			return -1;
@@ -125,8 +146,41 @@ static int isseekable(){
 	return ESPIPE;
 }
 
+#define TCGETS 0x5401
+#define TCSETS 0x5402
+#define TIOCGWINSZ 0x5413
+
+typedef struct{
+    unsigned short ws_row;
+    unsigned short ws_col;
+    unsigned short ws_xpixel;
+    unsigned short ws_ypixel;
+} winsize;
+
+static int ioctl(int minor, unsigned long req, void* arg){
+	switch(req){
+		case TIOCGWINSZ:
+			struct limine_terminal* ltty = liminetty_get(0);
+			winsize* w = arg;
+			w->ws_row = ltty->rows;
+			w->ws_col = ltty->columns;
+			break;
+		case TCGETS:
+			*(termios*)arg = tty;
+			break;
+		case TCSETS:
+			tty = *(termios*)arg;
+			break;
+		default:
+			return ENOTTY;
+	}
+
+	return 0;
+
+}
+
 devcalls calls = {
-	read, write, isatty, isseekable
+	read, write, isatty, isseekable, ioctl
 };
 
 void consoledev_init(){
@@ -141,5 +195,8 @@ void consoledev_init(){
 
 	if(!thread)
 		_panic("Failed to initialise console thread", 0);
+
+	tty.c_lflag = ECHO | ICANON;
+	tty.c_cc[VMIN] = 1;
 	
 }
