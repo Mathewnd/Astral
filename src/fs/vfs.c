@@ -95,6 +95,15 @@ int vfs_isatty(vnode_t* node){
 	
 }
 
+int vfs_ioctl(vnode_t* node, unsigned long request, void* arg, int* result){
+	
+	if(GETTYPE(node->st.st_mode) != TYPE_CHARDEV)
+		return ENOTTY;
+	
+	return devman_ioctl(node->st.st_rdev, request, arg, result);
+	
+}
+
 int vfs_read(int* error, vnode_t* node, void* buff, size_t count, size_t offset){
 	
 	int type = GETTYPE(node->st.st_mode);

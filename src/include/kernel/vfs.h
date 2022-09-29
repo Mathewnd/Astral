@@ -72,6 +72,7 @@ int vfs_write(int* error, vnode_t* node, void* buff, size_t count, size_t offset
 int vfs_read(int* error, vnode_t* node, void* buff, size_t count, size_t offset);
 int vfs_isatty(vnode_t* node);
 int vfs_getdirent(dirnode_t* node, dent_t* buff, size_t count, uintmax_t offset, size_t* readcount);
+int vfs_ioctl(vnode_t* node, unsigned long request, void* arg, int* result);
 
 void vfs_init();
 dirnode_t* vfs_root();

@@ -65,6 +65,15 @@ int devman_isseekable(int dev, size_t* max){
 
 }
 
+int devman_ioctl(int dev, unsigned long request, void* arg, int* result){
+	if(major(dev) > highestmajor)
+		return ENOTTY;
+	
+	if(!majorcalls[major(dev)]->ioctl)
+		return ENOTTY;
+
+	return majorcalls[major(dev)]->ioctl(minor(dev), request, arg, result);
+}
 
 void devman_init(){
 	

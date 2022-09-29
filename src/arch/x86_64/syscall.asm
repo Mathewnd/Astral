@@ -22,7 +22,8 @@ extern syscall_dup2
 extern syscall_fcntl
 extern syscall_getpid
 extern syscall_getdirent
-func_count equ 21
+extern syscall_ioctl
+func_count equ 22
 
 
 func_table:
@@ -47,6 +48,7 @@ func_table:
 	dq syscall_fcntl
 	dq syscall_getpid
 	dq syscall_getdirent
+	dq syscall_ioctl
 section .text
 global asm_syscall_entry
 
