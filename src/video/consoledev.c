@@ -112,7 +112,7 @@ static int read(int *error, int dev, void* buff, size_t count, size_t offset){
 
 	*error = 0;
 
-	while(readc < count && readc < tty.c_cc[VMIN]){
+	while(readc < count){
 		
 		arch_interrupt_disable();
 
@@ -126,7 +126,8 @@ static int read(int *error, int dev, void* buff, size_t count, size_t offset){
 		if(*error)
 			return -1;
 
-		
+		if(readc >= tty.c_cc[VMIN])
+			break;
 
 	}
 
