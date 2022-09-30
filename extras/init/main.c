@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <pwd.h>
 
 FILE* openordie(const char* name, const char* mode){
 	
@@ -124,6 +125,14 @@ int main(int argc, char* argv[]){
 			exit(1);
 		}
 	}
+	
+	// set some more specific env stuff
+	
+	struct passwd* pw = getpwuid(getuid());
+	
+	setenv("PWD", pw->pw_dir, 1);
+	setenv("HOME", pw->pw_dir, 1);
+	chdir(pw->pw_dir);
 
 	// execute shell
 	
