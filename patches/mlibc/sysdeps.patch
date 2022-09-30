@@ -59,8 +59,8 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/entry.cpp mlib
 +
 diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp mlibc/sysdeps/astral/generic/generic.cpp
 --- mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/generic/generic.cpp	2022-09-29 18:46:36.403066082 -0300
-@@ -0,0 +1,260 @@
++++ mlibc/sysdeps/astral/generic/generic.cpp	2022-09-30 16:58:41.349970047 -0300
+@@ -0,0 +1,266 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -189,7 +189,11 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp ml
 +		syscall(SYSCALL_GETPID, &ret);
 +		return ret;
 +	}
-+
++	
++	int sys_chdir(const char* path){
++		long ret;
++		return syscall(SYSCALL_CHDIR, &ret, (uint64_t)path);
++	}
 +
 +	int sys_fcntl(int fd, int request, va_list args, int *result){
 +		long ret;
@@ -301,8 +305,10 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp ml
 +				return syscall(SYSCALL_STAT, &ret, (uint64_t)path, (uint64_t)statbuf);
 +			case fsfd_target::fd:
 +				return syscall(SYSCALL_FSTAT, &ret, fd, (uint64_t)statbuf);
++			case fsfd_target::fd_path:
++				return syscall(SYSCALL_FSTATAT, &ret, fd, (uint64_t)path, (uint64_t)statbuf, flags);
 +			default:
-+				sys_libc_log("libc: sys_stat: Unknown fsfd target");
++				mlibc::infoLogger() << "libc: stat: Unknown fsfd_target: " << (int)fsfdt << frg::endlog;
 +				return ENOSYS;
 +		}
 +	}
@@ -338,8 +344,8 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/include/astral/archctl
 +#endif
 diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/include/astral/syscall.h mlibc/sysdeps/astral/include/astral/syscall.h
 --- mlibc-3.0.0-rc1/sysdeps/astral/include/astral/syscall.h	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/include/astral/syscall.h	2022-09-29 17:35:04.596433959 -0300
-@@ -0,0 +1,47 @@
++++ mlibc/sysdeps/astral/include/astral/syscall.h	2022-09-30 16:44:03.416644042 -0300
+@@ -0,0 +1,49 @@
 +#ifndef _SYSCALL_H_INCLUDE
 +#define _SYSCALL_H_INCLUDE
 +
@@ -365,6 +371,8 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/include/astral/syscall
 +#define SYSCALL_GETPID 19
 +#define SYSCALL_GETDIRENT 20
 +#define SYSCALL_IOCTL 21
++#define SYSCALL_CHDIR 22
++#define SYSCALL_FSTATAT 23
 +
 +#include <stddef.h>
 +#include <stdint.h>
