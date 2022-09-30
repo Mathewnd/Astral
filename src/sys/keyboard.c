@@ -1,6 +1,7 @@
 #include <kernel/keyboard.h>
 #include <arch/panic.h>
 #include <arch/interrupt.h>
+#include <kernel/devman.h>
 
 #define MAX_KEYBOARD_COUNT 32
 
@@ -17,6 +18,8 @@ static char asciitableupper[] = {
 
 static uint32_t kblist;
 static keyboard_t keyboards[MAX_KEYBOARD_COUNT];
+
+static ringbuffer_t devbuff;
 
 void keyboard_packet(int kb, kbpacket_t packet){
 	
@@ -74,7 +77,7 @@ void keyboard_packet(int kb, kbpacket_t packet){
 		table = asciitableupper;
 
 	packet.ascii = table[packet.keycode];
-	
+	ringbuffer_write(&devbuff, &packet, sizeof(kbpacket_t));	
 	ringbuffer_write(&keyboards[kb].buffer, &packet, sizeof(kbpacket_t));
 	event_signal(&keyboards[kb].event, false);
 }
@@ -124,6 +127,37 @@ int keyboard_getnew(){
 
 }
 
+static int write(int *error, int minor, void* buff, size_t count){*error = EINVAL; return -1;}
+static int read(int *error, int minor, void* buff, size_t count, size_t offset){
+	count /= sizeof(kbpacket_t);
+	if(count == 0){
+		*error = EINVAL;
+		return -1;
+	}
+	
+	arch_interrupt_disable();
+	
+	count = ringbuffer_read(&devbuff, buff, count*sizeof(kbpacket_t));
+
+	arch_interrupt_enable();
+
+	*error = 0;
+	return count;
+
+}
+
+static int isatty(){
+	return ENOTTY;
+}
+
+static int seekable(){
+	return 0;
+}
+
+static devcalls calls = {
+	read, write, isatty, seekable
+};
+
 void keyboard_init(){
 
 	for(size_t i = 0; i < MAX_KEYBOARD_COUNT; ++i){
@@ -131,4 +165,9 @@ void keyboard_init(){
 			_panic("Out of memory", NULL);
 	}
 
+	if(ringbuffer_init(&devbuff, sizeof(kbpacket_t)*10)) _panic("Out of memory", NULL);
+	
+	if(devman_newdevice("keyboard", TYPE_CHARDEV, MAJOR_KB, 0, &calls))
+		_panic("Failed to create keyboard device", 0);
+	
 }

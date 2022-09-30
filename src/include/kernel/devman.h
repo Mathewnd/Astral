@@ -8,6 +8,7 @@
 #define MAJOR_NULL 3
 #define MAJOR_FULL 4
 #define MAJOR_FB 5
+#define MAJOR_KB 6
 
 typedef struct{
 	int (*read)(int* error, int minor, void* buff, size_t count, size_t offset);
