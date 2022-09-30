@@ -1,0 +1,8 @@
+name=doomgeneric
+version=0.0.0
+source_method=git
+clone_url="https://github.com/ozkl/doomgeneric.git"
+tag=master
+regenerate() {
+        true
+}
