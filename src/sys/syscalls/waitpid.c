@@ -38,25 +38,24 @@ syscallret syscall_waitpid(pid_t pid, int *status, int options){
 	proc_t* proc = arch_getcls()->thread->proc;
 
 	bool loop = true;
-
-
+	
 	proc_t* child;
 	proc_t* sibling;
 
 	while(1){
-		
-		child = proc->child;
-		sibling = NULL;
 
 		// now find the child
 		
 		spinlock_acquire(&proc->lock);
-			
+		child = proc->child;
+		sibling = NULL;
+
 		while(child){
 			if(pid > 0 && child->pid != pid)
 			       continue;	
 
 			if(child->state == PROC_STATE_ZOMBIE){
+				loop = false;
 				break;
 			}
 
@@ -90,6 +89,9 @@ syscallret syscall_waitpid(pid_t pid, int *status, int options){
 		sibling->sibling = child->sibling;
 		spinlock_release(&sibling->lock);
 	}
+	else{
+		proc->child = child->sibling;
+	}
 
 	*status = child->status; // XXX safer way of doing this
 	
@@ -98,7 +100,6 @@ syscallret syscall_waitpid(pid_t pid, int *status, int options){
 	thread_t* thread = child->threads;
 
 	// TODO free ctx
-	
 	free(thread->regs);
 	free(thread->kernelstackbase);
 	free(thread);	
@@ -106,7 +107,6 @@ syscallret syscall_waitpid(pid_t pid, int *status, int options){
 
 	retv.ret = child->pid;
 	retv.errno = 0;
-	
 	return retv;
 
 

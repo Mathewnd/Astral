@@ -362,13 +362,6 @@ void sched_dequeue(){
 	
 	timer_resume();
 
-	thread_t* curthread = arch_getcls()->thread;
-	
-	// context and thread destruction will happen in the waitpid()	
-	// the pointer to this thread will reside in proc->threads
-
-	curthread->proc->threads = curthread;
-
 	// for safety
 
 
