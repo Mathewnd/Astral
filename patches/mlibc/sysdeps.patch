@@ -59,8 +59,8 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/entry.cpp mlib
 +
 diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp mlibc/sysdeps/astral/generic/generic.cpp
 --- mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/generic/generic.cpp	2022-09-30 16:58:41.349970047 -0300
-@@ -0,0 +1,266 @@
++++ mlibc/sysdeps/astral/generic/generic.cpp	2022-10-10 10:35:37.426638094 -0300
+@@ -0,0 +1,288 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -155,6 +155,28 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp ml
 +
 +	}
 +	
++	// stub
++	
++	int sys_uname(struct utsname *buf){
++		
++		memcpy(buf->sysname, "Astral", 7);
++		memcpy(buf->nodename, ASTRALHOSTNAME, strlen(ASTRALHOSTNAME)+1);
++		memcpy(buf->release, "0", 2);
++		memcpy(buf->machine, "x86_64", 7);
++		memcpy(buf->domainname, ASTRALHOSTNAME, strlen(ASTRALHOSTNAME)+1);
++		
++		return 0;
++
++	}
++
++	int sys_pipe(int *fds, int flags){
++		long res;
++		int err = syscall(SYSCALL_PIPE2, &res, flags);
++		fds[0] = res & 0xFFFFFFFF;
++		fds[1] = (res >> 32) & 0xFFFFFFFF;
++		return err;
++	}
++
 +	int sys_tcgetattr(int fd, struct termios *attr){
 +		int res;
 +		return sys_ioctl(fd, TCGETS, (void*)attr, &res);
@@ -344,8 +366,8 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/include/astral/archctl
 +#endif
 diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/include/astral/syscall.h mlibc/sysdeps/astral/include/astral/syscall.h
 --- mlibc-3.0.0-rc1/sysdeps/astral/include/astral/syscall.h	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/include/astral/syscall.h	2022-09-30 16:44:03.416644042 -0300
-@@ -0,0 +1,49 @@
++++ mlibc/sysdeps/astral/include/astral/syscall.h	2022-10-01 11:14:35.586445607 -0300
+@@ -0,0 +1,50 @@
 +#ifndef _SYSCALL_H_INCLUDE
 +#define _SYSCALL_H_INCLUDE
 +
@@ -373,6 +395,7 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/include/astral/syscall
 +#define SYSCALL_IOCTL 21
 +#define SYSCALL_CHDIR 22
 +#define SYSCALL_FSTATAT 23
++#define SYSCALL_PIPE2 24
 +
 +#include <stddef.h>
 +#include <stdint.h>
