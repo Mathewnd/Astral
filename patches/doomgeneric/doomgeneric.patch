@@ -1,7 +1,7 @@
 diff -ruN doomgeneric/doomgeneric/doomgeneric_astral.c Astral/sources/doomgeneric/doomgeneric/doomgeneric_astral.c
 --- doomgeneric/doomgeneric/doomgeneric_astral.c	1969-12-31 21:00:00.000000000 -0300
-+++ Astral/sources/doomgeneric/doomgeneric/doomgeneric_astral.c	2022-09-30 20:08:30.023209330 -0300
-@@ -0,0 +1,185 @@
++++ Astral/sources/doomgeneric/doomgeneric/doomgeneric_astral.c	2022-10-08 22:09:58.026611370 -0300
+@@ -0,0 +1,191 @@
 +#include "doomkeys.h"
 +
 +#include "doomgeneric.h"
@@ -21,6 +21,7 @@ diff -ruN doomgeneric/doomgeneric/doomgeneric_astral.c Astral/sources/doomgeneri
 +static struct fb_var_screeninfo fbvs;
 +static struct fb_fix_screeninfo fbfs;
 +static void* frame;
++static struct termios ttysave;
 +
 +static int seekordie(int fd, off_t offset, int whence){
 +	int ret = lseek(fd, offset, whence);
@@ -68,6 +69,9 @@ diff -ruN doomgeneric/doomgeneric/doomgeneric_astral.c Astral/sources/doomgeneri
 +	return readc;
 +}
 +
++void cleanup(){
++	tcsetattr(1, TCSAFLUSH, &ttysave);
++}
 +
 +void DG_Init(){
 +	
@@ -95,9 +99,11 @@ diff -ruN doomgeneric/doomgeneric/doomgeneric_astral.c Astral/sources/doomgeneri
 +	// make tty raw and nonblocking
 +
 +	tcgetattr(1, &tty);
++	ttysave = tty;
 +	cfmakeraw(&tty);
 +	tty.c_cc[VMIN] = 0;
-+	tcsetattr(1, 0, &tty);
++	tcsetattr(1, TCSAFLUSH, &tty);
++	atexit(cleanup);
 +
 +}
 +
@@ -189,7 +195,7 @@ diff -ruN doomgeneric/doomgeneric/doomgeneric_astral.c Astral/sources/doomgeneri
 +void DG_SetWindowTitle(const char* title){}
 diff -ruN doomgeneric/doomgeneric/Makefile Astral/sources/doomgeneric/doomgeneric/Makefile
 --- doomgeneric/doomgeneric/Makefile	2022-10-08 20:18:58.119998127 -0300
-+++ Astral/sources/doomgeneric/doomgeneric/Makefile	2022-09-30 17:46:57.173278946 -0300
++++ Astral/sources/doomgeneric/doomgeneric/Makefile	2022-10-08 20:23:06.036662797 -0300
 @@ -12,17 +12,17 @@
  endif
  
