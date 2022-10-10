@@ -31,7 +31,7 @@ void arch_mmu_switchcontext(arch_mmu_tableptr context){
 }
 
 void* inv = NULL;
-
+int invlock;
 semaphore_t sem;
 
 void arch_mmu_invalidateipi(){
@@ -40,6 +40,7 @@ void arch_mmu_invalidateipi(){
 }
 
 static void invalidate(void* addr){
+	spinlock_acquire(&invlock);
 	asm("invlpg (%%rax)" : : "a"(addr));
 	sem.count = -arch_smp_cpucount();
 	if(!sem.count) return;
@@ -47,6 +48,7 @@ static void invalidate(void* addr){
 	inv = addr;
 	arch_smp_sendipi(0, VECTOR_MMUINVAL, IPI_CPU_ALLBUTSELF);
 	while(!sem_tryacquire(&sem)) asm("pause");
+	spinlock_release(&invlock);
 }
 
 
