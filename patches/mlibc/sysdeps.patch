@@ -1,6 +1,6 @@
 diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/crt-x86_64/crt0.S mlibc/sysdeps/astral/crt-x86_64/crt0.S
 --- mlibc-3.0.0-rc1/sysdeps/astral/crt-x86_64/crt0.S	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/crt-x86_64/crt0.S	2022-09-22 14:41:12.779845943 -0300
++++ mlibc/sysdeps/astral/crt-x86_64/crt0.S	2022-10-10 16:31:06.853132251 -0300
 @@ -0,0 +1,7 @@
 +
 +.section .text
@@ -11,7 +11,7 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/crt-x86_64/crt0.S mlib
 +
 diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/astral.cpp mlibc/sysdeps/astral/generic/astral.cpp
 --- mlibc-3.0.0-rc1/sysdeps/astral/generic/astral.cpp	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/generic/astral.cpp	2022-09-22 14:41:12.779845943 -0300
++++ mlibc/sysdeps/astral/generic/astral.cpp	2022-10-10 16:31:06.853132251 -0300
 @@ -0,0 +1,6 @@
 +#include <astral/syscall.h>
 +
@@ -21,7 +21,7 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/astral.cpp mli
 +}
 diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/entry.cpp mlibc/sysdeps/astral/generic/entry.cpp
 --- mlibc-3.0.0-rc1/sysdeps/astral/generic/entry.cpp	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/generic/entry.cpp	2022-09-22 14:41:12.779845943 -0300
++++ mlibc/sysdeps/astral/generic/entry.cpp	2022-10-10 16:31:06.853132251 -0300
 @@ -0,0 +1,34 @@
 +
 +#include <stdint.h>
@@ -59,7 +59,7 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/entry.cpp mlib
 +
 diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp mlibc/sysdeps/astral/generic/generic.cpp
 --- mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/generic/generic.cpp	2022-10-10 10:35:37.426638094 -0300
++++ mlibc/sysdeps/astral/generic/generic.cpp	2022-10-10 20:13:02.696597980 -0300
 @@ -0,0 +1,288 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
@@ -161,7 +161,7 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp ml
 +		
 +		memcpy(buf->sysname, "Astral", 7);
 +		memcpy(buf->nodename, ASTRALHOSTNAME, strlen(ASTRALHOSTNAME)+1);
-+		memcpy(buf->release, "0", 2);
++		memcpy(buf->release, "0.0.1", 6);
 +		memcpy(buf->machine, "x86_64", 7);
 +		memcpy(buf->domainname, ASTRALHOSTNAME, strlen(ASTRALHOSTNAME)+1);
 +		
@@ -351,7 +351,7 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp ml
 +
 diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/include/astral/archctl.h mlibc/sysdeps/astral/include/astral/archctl.h
 --- mlibc-3.0.0-rc1/sysdeps/astral/include/astral/archctl.h	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/include/astral/archctl.h	2022-09-22 14:41:12.779845943 -0300
++++ mlibc/sysdeps/astral/include/astral/archctl.h	2022-10-10 16:31:06.853132251 -0300
 @@ -0,0 +1,11 @@
 +#ifndef _ASTRAL_SYSCALL_ARCHCTL_INCLUDE
 +#define _ASTRAL_SYSCALL_ARCHCTL_INCLUDE
@@ -366,7 +366,7 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/include/astral/archctl
 +#endif
 diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/include/astral/syscall.h mlibc/sysdeps/astral/include/astral/syscall.h
 --- mlibc-3.0.0-rc1/sysdeps/astral/include/astral/syscall.h	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/include/astral/syscall.h	2022-10-01 11:14:35.586445607 -0300
++++ mlibc/sysdeps/astral/include/astral/syscall.h	2022-10-10 16:31:06.853132251 -0300
 @@ -0,0 +1,50 @@
 +#ifndef _SYSCALL_H_INCLUDE
 +#define _SYSCALL_H_INCLUDE
@@ -418,9 +418,10 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/include/astral/syscall
 +}
 +
 +#endif
+Os arquivos binários mlibc-3.0.0-rc1/sysdeps/astral/include/astral/.syscall.h.swp e mlibc/sysdeps/astral/include/astral/.syscall.h.swp são diferentes
 diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/meson.build mlibc/sysdeps/astral/meson.build
 --- mlibc-3.0.0-rc1/sysdeps/astral/meson.build	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/meson.build	2022-09-22 14:41:12.779845943 -0300
++++ mlibc/sysdeps/astral/meson.build	2022-10-10 16:31:06.853132251 -0300
 @@ -0,0 +1,63 @@
 +
 +rtdl_sources += files(
