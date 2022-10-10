@@ -1,0 +1,12 @@
+diff -ruN gmp-workdir/configfsf.sub gmp/configfsf.sub
+--- gmp-workdir/configfsf.sub	2022-10-10 16:39:29.213128211 -0300
++++ gmp/configfsf.sub	2022-10-10 16:41:00.269794143 -0300
+@@ -1690,7 +1690,7 @@
+ 	# Now accept the basic system types.
+ 	# The portable systems comes first.
+ 	# Each alternative MUST end in a * to match a version number.
+-	gnu* | android* | bsd* | mach* | minix* | genix* | ultrix* | irix* \
++	gnu* | android* | astral* | bsd* | mach* | minix* | genix* | ultrix* | irix* \
+ 	     | *vms* | esix* | aix* | cnk* | sunos | sunos[34]* \
+ 	     | hpux* | unos* | osf* | luna* | dgux* | auroraux* | solaris* \
+ 	     | sym* |  plan9* | psp* | sim* | xray* | os68k* | v88r* \

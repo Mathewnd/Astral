@@ -1,0 +1,12 @@
+diff -ruN mpfr-workdir/config.sub mpfr/config.sub
+--- mpfr-workdir/config.sub	2022-10-10 16:44:45.379792331 -0300
++++ mpfr/config.sub	2022-10-10 16:45:13.056458775 -0300
+@@ -1363,7 +1363,7 @@
+ 	# The portable systems comes first.
+ 	# Each alternative MUST end in a * to match a version number.
+ 	# -sysv* is not here because it comes later, after sysvr4.
+-	-gnu* | -bsd* | -mach* | -minix* | -genix* | -ultrix* | -irix* \
++	-gnu* | -astral* | -bsd* | -mach* | -minix* | -genix* | -ultrix* | -irix* \
+ 	      | -*vms* | -sco* | -esix* | -isc* | -aix* | -cnk* | -sunos | -sunos[34]*\
+ 	      | -hpux* | -unos* | -osf* | -luna* | -dgux* | -auroraux* | -solaris* \
+ 	      | -sym* | -kopensolaris* | -plan9* \

@@ -1,0 +1,25 @@
+name=mpc
+revision=1
+from_source=mpc
+imagedeps="base-devel"
+hostdeps="gcc-cross binutils-cross"
+deps="mlibc gmp mpfr"
+
+
+configure() {
+	
+	${source_dir}/configure --host=x86_64-astral --prefix=${prefix}
+
+}
+
+build() {
+	
+	make -j${parallelism}
+
+}
+
+install() {
+
+	make install DESTDIR="${dest_dir}"
+
+}

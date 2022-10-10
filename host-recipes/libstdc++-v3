@@ -1,0 +1,24 @@
+name=libstdc++-v3
+revision=1
+from_source=gcc-cross
+imagedeps="base-devel"
+hostdeps="automake autoconf binutils-cross gcc-cross"
+deps="mlibc"
+
+configure() {
+	
+	true
+
+}
+
+build() {
+	cd ${base_dir}/host-builds/gcc-cross
+	make all-target-libstdc++-v3 -j7
+
+}
+
+install(){
+	cd ${base_dir}/host-builds/gcc-cross
+	make DESTDIR="${dest_dir}" install-target-libstdc++-v3
+	
+}
