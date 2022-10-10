@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <kernel/alloc.h>
 #include <string.h>
+#include <kernel/pipe.h>
 
 int fd_release(fd_t* fd){	
 	spinlock_release(&fd->lock);
@@ -99,18 +100,36 @@ int fd_free(fdtable_t* fdtable, int ifd){
 	}
 
 	fd_t* fd = fdtable->fd[ifd];
-	spinlock_acquire(&fd->lock);
 
-	if(--fd->refcount > 0){
+	if(__atomic_sub_fetch(&fd->refcount, 1, __ATOMIC_RELAXED) > 0){
 		fdtable->fd[ifd] = NULL;
 		spinlock_release(&fd->lock);
 		spinlock_release(&fdtable->lock);
 		return 0;
 	}
 
+
+	spinlock_acquire(&fd->lock);
+
 	fdtable->fd[ifd] = NULL;
 	
 	spinlock_release(&fdtable->lock);
+
+        if(GETTYPE(fd->mode) == TYPE_FIFO){
+                pipe_t* pipe = fd->node->objdata;
+		spinlock_acquire(&pipe->lock);
+                if(FD_FLAGS_READ & fd->flags){
+			pipe->readers--;
+			event_signal(&pipe->revent, true);
+		}
+		if(FD_FLAGS_WRITE & fd->flags){
+			pipe->writers--;
+			event_signal(&pipe->wevent, true);
+		}
+		spinlock_release(&pipe->lock);
+        }
+	
+
 	int err = 0;
 	if(fd->node)
 		err = vfs_close(fd->node);
@@ -230,7 +249,7 @@ int fd_duplicate(fdtable_t* table, int src, int dest, int type, int* ret){
 		destfd = table->fd[dest];
 		if(destfd){
 			spinlock_acquire(&destfd->lock);
-			if(--destfd->refcount == 0){
+			if(__atomic_sub_fetch(&destfd->refcount, 1, __ATOMIC_RELAXED) == 0){
 				if(destfd->node) vfs_close(destfd->node);
 				free(destfd);
 			}
@@ -244,12 +263,14 @@ int fd_duplicate(fdtable_t* table, int src, int dest, int type, int* ret){
 	// everything is set now
 	
 	table->fd[dest] = srcfd;
-	srcfd->refcount++;
+	__atomic_add_fetch(&srcfd->refcount, 1, __ATOMIC_RELAXED);
+	
 	*ret = dest;
 
 	fd_release(srcfd);
 	spinlock_release(&table->lock);
 	
+
 	return 0;
 
 }

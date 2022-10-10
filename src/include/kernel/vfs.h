@@ -24,6 +24,7 @@ typedef struct _vnode_t {
 	void* fsdata;
 	size_t refcount;
 	struct _dirnode_t* parent;
+	void* objdata;
 } vnode_t;
 
 // folders are an expansion of vnode_t to save memory

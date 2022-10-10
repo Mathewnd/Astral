@@ -10,7 +10,6 @@
 
 
 syscallret syscall_open(const char* pathname, int flags, mode_t mode){
-
 	syscallret retv;
 	retv.ret = -1;
 
@@ -96,7 +95,6 @@ syscallret syscall_open(const char* pathname, int flags, mode_t mode){
 
 	fd_release(fd);
 	fd_free(&proc->fdtable,  fd);
-	fd->node = NULL;
 	free(name);
 	return retv;
 

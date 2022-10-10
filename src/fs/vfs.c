@@ -6,6 +6,7 @@
 #include <kernel/devman.h>
 #include <arch/spinlock.h>
 #include <dirent.h>
+#include <kernel/pipe.h>
 
 dirnode_t* vfsroot;
 hashtable  fsfuncs;
@@ -64,6 +65,10 @@ int vfs_write(int* error, vnode_t* node, void* buff, size_t count, size_t offset
 
 	int type = GETTYPE(node->st.st_mode);
 	
+	if(type == TYPE_FIFO)
+		return pipe_write(node->objdata, buff, count, error);
+	
+
 	if(type == TYPE_DIR || type == TYPE_LINK){
 		*error = EINVAL;
 		return -1;
@@ -108,6 +113,10 @@ int vfs_read(int* error, vnode_t* node, void* buff, size_t count, size_t offset)
 	
 	int type = GETTYPE(node->st.st_mode);
 	
+	if(type == TYPE_FIFO){
+		return pipe_read(node->objdata, buff, count, error);
+	}
+
 	if(type == TYPE_DIR || type == TYPE_LINK){
 		*error = EINVAL;
 		return -1;
@@ -135,6 +144,8 @@ int vfs_close(vnode_t* node){
 	vfs_releasenode(node);
 
 	int status = 0;
+	
+	// TODO free pipe if one
 
 	if(node->refcount == 0)
 		status = node->fs->calls->close(node);

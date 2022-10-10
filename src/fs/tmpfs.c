@@ -6,6 +6,7 @@
 #include <string.h>
 #include <dirent.h>
 
+fs_t kerneltmpfs;
 
 static int tmpfs_mount(dirnode_t* mountpoint, vnode_t* device, int mountflags, void* fsinfo){
 	
@@ -158,5 +159,6 @@ static fscalls_t funcs = {
 
 
 fscalls_t* tmpfs_getfuncs(){
+	kerneltmpfs.calls = &funcs;
 	return &funcs;
 }
