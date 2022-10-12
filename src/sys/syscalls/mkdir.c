@@ -19,7 +19,7 @@ syscallret syscall_mkdir(const char* pathname, mode_t mode){
 	
 	strcpy(path, pathname);
 
-	retv.errno = vfs_mkdir(path[0] == '/' ? proc->root : proc->cwd, path, mode);
+	retv.errno = vfs_mkdir(path[0] == '/' ? proc->root : proc->cwd, path, mode & ~proc->umask);
 	
 	if(retv.errno == 0)
 		retv.ret = 0;

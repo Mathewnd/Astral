@@ -470,6 +470,8 @@ void sched_runinit(){
 	fd_release(stdinfd);
 	fd_release(stdoutfd);
 	fd_release(stderrfd);
+	
+	proc->umask = 022;
 
 	timer_add(&arch_getcls()->schedreq, THREAD_QUANTUM, true);
 	

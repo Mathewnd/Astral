@@ -58,6 +58,7 @@ typedef struct _proc_t{
 	dirnode_t* root;
 	dirnode_t* cwd;
 	event_t childevent;
+	mode_t umask;
 } proc_t;
 
 

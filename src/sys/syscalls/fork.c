@@ -41,6 +41,7 @@ syscallret syscall_fork(arch_regs* ctx){
        	proc->child = newproc;	
 	newproc->gid = proc->gid;
 	newproc->uid = proc->uid;
+	newproc->umask = proc->umask;
 
 	vfs_acquirenode(proc->root);
 	vfs_acquirenode(proc->cwd);

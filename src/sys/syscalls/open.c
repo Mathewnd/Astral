@@ -54,7 +54,7 @@ syscallret syscall_open(const char* pathname, int flags, mode_t mode){
 	if(ret == ENOENT && (flags & O_CREAT)){
 		ret = vfs_create(
 			*name == '/' ? proc->root : proc->cwd,
-			name, mode);
+			name, mode & ~proc->umask);
 		
 		if(ret){
 			retv.errno = ret;
