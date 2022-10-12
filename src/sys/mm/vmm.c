@@ -366,6 +366,26 @@ static void getcontextinfo(void* addr, int** lock, vmm_mapping*** start){
 	
 }
 
+void vmm_destroy(vmm_context* ctx){
+	spinlock_acquire(&ctx->lock);
+	
+	vmm_mapping* mapping = ctx->userstart;
+
+	while(mapping){
+		
+		vmm_mapping* old = mapping;
+		mapping = mapping->next;
+
+                freeentry(old);
+
+	}
+
+	arch_mmu_destroy(ctx->context);
+
+	free(ctx);
+
+}
+
 int vmm_fork(vmm_context* oldctx, vmm_context* newctx){
 	
 	// TODO make this copy on write

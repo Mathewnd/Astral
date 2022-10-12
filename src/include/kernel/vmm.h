@@ -55,6 +55,7 @@ typedef struct {
 
 void vmm_init();
 
+void vmm_destroy(vmm_context* ctx);
 bool 		vmm_dealwithrequest(void* addr, long error, bool user);
 bool 		vmm_setused(void* addr, size_t pagec, size_t mmuflags);
 bool		vmm_unmap(void* addr, size_t pagec);

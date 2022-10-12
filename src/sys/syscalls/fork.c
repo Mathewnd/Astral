@@ -28,7 +28,10 @@ syscallret syscall_fork(arch_regs* ctx){
 	int err = vmm_fork(thread->ctx, newthread->ctx);
 
 	if(err){
-		printf("fork: VMM_FORK FAILED BUT THREAD DEALLOCATION IS NOT SUPPORTED YET!\n");
+		vmm_destroy(newthread->ctx);
+		free(newthread->regs);
+		free(newthread->kernelstackbase);
+		free(newthread);
 		retv.errno = err;
 		return retv;
 	}

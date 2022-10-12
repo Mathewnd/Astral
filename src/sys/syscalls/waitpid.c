@@ -99,9 +99,10 @@ syscallret syscall_waitpid(pid_t pid, int *status, int options){
 
 	thread_t* thread = child->threads;
 
-	// TODO free ctx
+	
 	free(thread->regs);
 	free(thread->kernelstackbase);
+	vmm_destroy(thread->ctx);
 	free(thread);	
 	free(child);
 
