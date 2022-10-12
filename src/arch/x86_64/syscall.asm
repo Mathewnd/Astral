@@ -26,7 +26,8 @@ extern syscall_ioctl
 extern syscall_chdir
 extern syscall_fstatat
 extern syscall_pipe2
-func_count equ 25
+extern syscall_mkdir
+func_count equ 26
 
 
 func_table:
@@ -55,6 +56,7 @@ func_table:
 	dq syscall_chdir
 	dq syscall_fstatat
 	dq syscall_pipe2
+	dq syscall_mkdir
 section .text
 global asm_syscall_entry
 
