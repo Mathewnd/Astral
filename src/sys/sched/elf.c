@@ -111,7 +111,7 @@ static void* stacksetup(char** argv, char** env, auxv64_list auxv){
 	// allocate memory for the initial section of the stack
 	
 	// XXX demand alloc the non initialised stack pages
-	if(!vmm_allocnowat(STACK_TOP - initialsize - PAGE_SIZE*200, ARCH_MMU_MAP_READ | ARCH_MMU_MAP_WRITE | ARCH_MMU_MAP_NOEXEC | ARCH_MMU_MAP_USER, initialsize + PAGE_SIZE*200)) return NULL;
+	if(!vmm_allocnowat(STACK_TOP - initialsize - PAGE_SIZE*2000, ARCH_MMU_MAP_READ | ARCH_MMU_MAP_WRITE | ARCH_MMU_MAP_NOEXEC | ARCH_MMU_MAP_USER, initialsize + PAGE_SIZE*2000)) return NULL;
 
 	// get the addresses to copy the data to
 
