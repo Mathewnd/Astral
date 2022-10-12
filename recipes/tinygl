@@ -1,0 +1,25 @@
+name=tinygl
+revision=1
+from_source=tinygl
+imagedeps="base-devel"
+hostdeps="gcc-cross binutils-cross"
+deps="mlibc"
+
+
+configure() {
+	
+	true
+
+}
+
+build() {
+	
+	make -C ${source_dir} CC=x86_64-astral-gcc
+
+}
+
+install() {
+
+	make -C ${source_dir} install PREFIX=${prefix} DESTDIR=${dest_dir}
+	cp ${source_dir}/Raw_Demos/{bigfont,asciifractal.sh,gears,t2i} ${dest_dir}/usr/bin/
+}

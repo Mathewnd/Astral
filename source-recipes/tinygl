@@ -1,0 +1,8 @@
+name=tinygl
+version=0.0.0
+source_method=git
+clone_url="https://github.com/C-Chads/tinygl.git"
+tag=main
+regenerate() {
+        true
+}
