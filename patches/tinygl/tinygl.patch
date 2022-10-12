@@ -1,6 +1,6 @@
-diff -ruN tinygl-clean/config.mk tinygl/config.mk
---- tinygl-clean/config.mk	2022-10-12 16:23:10.526644185 -0300
-+++ tinygl/config.mk	2022-10-12 16:26:32.323309224 -0300
+diff -ruN tinygl/config.mk Astral/sources/tinygl/config.mk
+--- tinygl/config.mk	2022-10-12 19:26:26.106556442 -0300
++++ Astral/sources/tinygl/config.mk	2022-10-12 19:19:56.666559485 -0300
 @@ -3,7 +3,7 @@
  
  #CC= clang
@@ -28,9 +28,9 @@ diff -ruN tinygl-clean/config.mk tinygl/config.mk
  #CFLAGS= -Wall -O1 -g -std=c99 -Wno-undef -DNDEBUG
  LFLAGS=
  
-diff -ruN tinygl-clean/Makefile tinygl/Makefile
---- tinygl-clean/Makefile	2022-10-12 16:23:10.526644185 -0300
-+++ tinygl/Makefile	2022-10-12 16:37:01.029970821 -0300
+diff -ruN tinygl/Makefile Astral/sources/tinygl/Makefile
+--- tinygl/Makefile	2022-10-12 19:26:26.089889775 -0300
++++ Astral/sources/tinygl/Makefile	2022-10-12 19:19:56.666559485 -0300
 @@ -1,9 +1,10 @@
  
  LIBNAME=libTinyGL.a
@@ -57,9 +57,9 @@ diff -ruN tinygl-clean/Makefile tinygl/Makefile
  	cp -r include/* $(INCDIR)/tinygl
  
  uninstall:
-diff -ruN tinygl-clean/Raw_Demos/gears.c tinygl/Raw_Demos/gears.c
---- tinygl-clean/Raw_Demos/gears.c	2022-10-12 16:23:10.576644185 -0300
-+++ tinygl/Raw_Demos/gears.c	2022-10-12 17:07:07.653289522 -0300
+diff -ruN tinygl/Raw_Demos/gears.c Astral/sources/tinygl/Raw_Demos/gears.c
+--- tinygl/Raw_Demos/gears.c	2022-10-12 19:26:26.089889775 -0300
++++ Astral/sources/tinygl/Raw_Demos/gears.c	2022-10-12 19:20:49.683225732 -0300
 @@ -15,6 +15,9 @@
  #include <string.h>
  #include <stdarg.h>
@@ -163,7 +163,7 @@ diff -ruN tinygl-clean/Raw_Demos/gears.c tinygl/Raw_Demos/gears.c
  			larg = argv[i];
  		}
  	}
-@@ -413,15 +489,18 @@
+@@ -413,16 +489,17 @@
  		if(frames > 0) break;
  	}
  	if(TGL_FEATURE_RENDER_BITS == 32){ //very little conversion.
@@ -180,9 +180,9 @@ diff -ruN tinygl-clean/Raw_Demos/gears.c tinygl/Raw_Demos/gears.c
 +			pbuf[4*i+1] = GET_GREEN(imbuf[i]);
 +			pbuf[4*i+2] = GET_BLUE(imbuf[i]);
  		}
+-		stbi_write_png("render.png", winSizeX, winSizeY, 3, pbuf, 0);
 +
 +		writeordie(fbfd, pbuf, 4 * winSizeX * winSizeY);
-+		
- 		stbi_write_png("render.png", winSizeX, winSizeY, 3, pbuf, 0);
  		free(imbuf);
  		free(pbuf);
+ 	} else if(TGL_FEATURE_RENDER_BITS == 16){
