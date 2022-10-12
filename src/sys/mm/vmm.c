@@ -513,9 +513,11 @@ bool vmm_unmap(void* addr, size_t pagec){
 	
 	spinlock_acquire(lock);
 
-	unmap(start, addr, pagec);
+	bool ret = unmap(start, addr, pagec);
 
 	spinlock_release(lock);
+
+	return ret;
 
 }
 
