@@ -1,8 +1,0 @@
-name=pfetch
-version=0.6.0
-source_method=tarball
-tarball_url="https://github.com/dylanaraps/pfetch/archive/refs/tags/${version}.tar.gz"
-tarball_sha512=868901bec6ae8999ad40fcb94bdf804969a3dfd724dc554d62f59982daf48d359094764b2e45d4816983d4f46e38de30f0bcb646ecd95bf3263ba128b87a1ddf
-regenerate() {
-        true
-}
