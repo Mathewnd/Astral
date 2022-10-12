@@ -132,6 +132,9 @@ void* pmm_alloc(size_t count){
 
 
 	spinlock_release(&lock);
+	
+	if(count == 1)
+		lastfree = addr;
 
 	return addr;
 
