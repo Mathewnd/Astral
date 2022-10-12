@@ -59,8 +59,8 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/entry.cpp mlib
 +
 diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp mlibc/sysdeps/astral/generic/generic.cpp
 --- mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/generic/generic.cpp	2022-10-10 20:13:02.696597980 -0300
-@@ -0,0 +1,288 @@
++++ mlibc/sysdeps/astral/generic/generic.cpp	2022-10-11 20:30:53.106656205 -0300
+@@ -0,0 +1,293 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -167,6 +167,11 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp ml
 +		
 +		return 0;
 +
++	}
++	
++	int sys_mkdir(const char* path, mode_t mode){
++		long res;
++		return syscall(SYSCALL_MKDIR, &res, (uint64_t)path, mode);
 +	}
 +
 +	int sys_pipe(int *fds, int flags){
@@ -366,8 +371,8 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/include/astral/archctl
 +#endif
 diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/include/astral/syscall.h mlibc/sysdeps/astral/include/astral/syscall.h
 --- mlibc-3.0.0-rc1/sysdeps/astral/include/astral/syscall.h	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/include/astral/syscall.h	2022-10-10 16:31:06.853132251 -0300
-@@ -0,0 +1,50 @@
++++ mlibc/sysdeps/astral/include/astral/syscall.h	2022-10-11 20:31:06.006656102 -0300
+@@ -0,0 +1,51 @@
 +#ifndef _SYSCALL_H_INCLUDE
 +#define _SYSCALL_H_INCLUDE
 +
@@ -396,6 +401,7 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/include/astral/syscall
 +#define SYSCALL_CHDIR 22
 +#define SYSCALL_FSTATAT 23
 +#define SYSCALL_PIPE2 24
++#define SYSCALL_MKDIR 25
 +
 +#include <stddef.h>
 +#include <stdint.h>
@@ -418,7 +424,6 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/include/astral/syscall
 +}
 +
 +#endif
-Os arquivos binários mlibc-3.0.0-rc1/sysdeps/astral/include/astral/.syscall.h.swp e mlibc/sysdeps/astral/include/astral/.syscall.h.swp são diferentes
 diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/meson.build mlibc/sysdeps/astral/meson.build
 --- mlibc-3.0.0-rc1/sysdeps/astral/meson.build	1969-12-31 21:00:00.000000000 -0300
 +++ mlibc/sysdeps/astral/meson.build	2022-10-10 16:31:06.853132251 -0300
