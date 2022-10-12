@@ -59,8 +59,8 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/entry.cpp mlib
 +
 diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp mlibc/sysdeps/astral/generic/generic.cpp
 --- mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/generic/generic.cpp	2022-10-11 20:30:53.106656205 -0300
-@@ -0,0 +1,293 @@
++++ mlibc/sysdeps/astral/generic/generic.cpp	2022-10-12 01:10:42.579853920 -0300
+@@ -0,0 +1,294 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -161,7 +161,8 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp ml
 +		
 +		memcpy(buf->sysname, "Astral", 7);
 +		memcpy(buf->nodename, ASTRALHOSTNAME, strlen(ASTRALHOSTNAME)+1);
-+		memcpy(buf->release, "0.0.1", 6);
++		memcpy(buf->version, "0.0.1", 6);
++		memcpy(buf->release, "Astral 0.0.1", 13);
 +		memcpy(buf->machine, "x86_64", 7);
 +		memcpy(buf->domainname, ASTRALHOSTNAME, strlen(ASTRALHOSTNAME)+1);
 +		
