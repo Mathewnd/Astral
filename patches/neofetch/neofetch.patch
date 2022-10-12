@@ -1,0 +1,44 @@
+diff -ruN neofetch-clean/neofetch neofetch/neofetch
+--- neofetch-clean/neofetch	2022-10-11 23:41:56.059897155 -0300
++++ neofetch/neofetch	2022-10-11 23:46:14.506561675 -0300
+@@ -929,6 +929,7 @@
+         AIX)      os=AIX ;;
+         IRIX*)    os=IRIX ;;
+         FreeMiNT) os=FreeMiNT ;;
++	Astral) os=Astral ;;
+ 
+         Linux|GNU*)
+             os=Linux
+@@ -954,6 +955,7 @@
+     [[ $distro ]] && return
+ 
+     case $os in
++    	Astral) distro=Astral;;
+         Linux|BSD|MINIX)
+             if [[ -f /bedrock/etc/bedrock-release && $PATH == */bedrock/cross/* ]]; then
+                 case $distro_shorthand in
+@@ -5288,6 +5290,24 @@
+     #
+     # $ascii_distro is the same as $distro.
+     case $(trim "$ascii_distro") in
++    	"Astral"*)
++            set_colors 4 7
++            read -rd '' ascii_data <<'EOF'
++
++${c2}                      .::.
++                   .:'  .:
++    *    ${c1}MMM8&&${c2}.::'  .:'
++       ${c1}MMMM${c2}.::'${c1}&&${c2}  .:'
++      ${c1}MM${c2}..:'${c1}88&&&&&&
++     ${c1}M${c2}.:'${c1}MM88&&&&&&
++    ${c2}.:'${c1}MMMM88&&&&&&       ${c2}*
++  ${c2}.:'  ${c1}MMMMM88&&&&
++${c2}.:' * .:'${c1}MMM8&&&'
++${c2}:'  .:'
++${c2}'::'                *
++
++EOF
++	;;
+         "AIX"*)
+             set_colors 2 7
+             read -rd '' ascii_data <<'EOF'
