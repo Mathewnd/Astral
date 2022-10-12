@@ -108,8 +108,6 @@ static bool setpage(arch_mmu_tableptr context, void* vaddr, uint64_t entry){
 
 }
 
-
-
 static uint64_t getmapping(arch_mmu_tableptr context, void* vaddr){
 	uint64_t addr = (uint64_t)vaddr;
         size_t pdpt = (addr >> 39) & 0b111111111;
@@ -148,6 +146,37 @@ void* arch_mmu_getphysicaladdr(arch_mmu_tableptr context, void* addr){
 	paddr &= ~((uint64_t)0xFFF);
 	paddr &= ~(uint64_t)ARCH_MMU_MAP_NOEXEC;
 	return paddr;
+}
+
+
+static void destroy(uint64_t* table, int depth){
+	
+	for(size_t i = 0; i < 512; ++i){
+
+		if(depth == 0 && i == 256)
+			break;
+		
+		uint64_t paddr = table[i];
+
+		if(!paddr)
+			continue;
+
+		paddr &= ~((uint64_t)0xFFF);
+		paddr &= ~(uint64_t)ARCH_MMU_MAP_NOEXEC;
+		
+		if(depth < 3)
+			destroy(paddr+limine_hhdm_offset, depth+1);
+
+		pmm_free(paddr, 1);
+
+	}
+
+}
+
+void arch_mmu_destroy(arch_mmu_tableptr context){
+	if(context < limine_hhdm_offset)
+		context = (uint8_t*)context + (uintptr_t)limine_hhdm_offset;
+	destroy(context, 0);
 }
 
 bool arch_mmu_isaccessed(arch_mmu_tableptr context, void* addr){
