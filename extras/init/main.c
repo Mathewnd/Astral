@@ -133,6 +133,7 @@ int main(int argc, char* argv[]){
 	setenv("PWD", pw->pw_dir, 1);
 	setenv("HOME", pw->pw_dir, 1);
 	chdir(pw->pw_dir);
+	setenv("PATH", "/bin:/usr/bin:/usr/local/bin:/sbin:/usr/sbin:/usr/local/sbin", 1);
 
 	// execute shell
 	
