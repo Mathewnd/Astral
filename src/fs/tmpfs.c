@@ -91,6 +91,7 @@ static int tmpfs_mkdir(dirnode_t* parent, char* name, mode_t mode){
 	
 	st->st_mode = MAKETYPE(TYPE_DIR) | mode;
 	st->st_blksize = PAGE_SIZE;
+	st->st_ino = parent->vnode.fs->data++;
 
 	return 0;
 	
@@ -124,6 +125,7 @@ static int tmpfs_create(dirnode_t* parent, char* name, mode_t mode){
 	st->st_blocks = 1;
 	st->st_mode = MAKETYPE(TYPE_REGULAR) | mode;
 	st->st_nlink = 1;
+	st->st_ino = parent->vnode.fs->data++;
 	
 
 	return 0;

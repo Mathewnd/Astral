@@ -103,6 +103,7 @@ int devfs_newdevice(char* name, int type, dev_t dev, mode_t mode){
 	
 	node->st.st_rdev = dev;
 	node->st.st_mode = MAKETYPE(type) | mode;
+	node->st.st_ino  = fs->data;
 
 	return 0;
 	
