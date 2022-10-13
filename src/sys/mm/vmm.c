@@ -239,6 +239,7 @@ static bool setmap(vmm_mapping** mapstart, void* addr, size_t pagec, size_t mmuf
 		splitmap->end = map->end;
 		splitmap->start = newmap->end+1;
 		splitmap->type = map->type;
+		splitmap->mmuflags = map->mmuflags;
 		if(splitmap->type == VMM_TYPE_FILE)
 			splitmap->offset = map->offset + splitmap->start - map->start;
 		splitmap->data = map->data;
