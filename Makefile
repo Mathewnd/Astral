@@ -1,8 +1,7 @@
-.phony: all kernel initrd rebuildkernel
+.phony: all kernel initrd rebuildkernel minimaliso minimalinitrd
 all: jinx
 	LDFLAGS="" CFLAGS="" ./jinx build-all
-	./jinx sysroot
-	make initrd
+	make fullinitrd
 	make sysdisk.iso
 	
 rebuildkernel:
@@ -12,6 +11,9 @@ jinx:
 	curl https://raw.githubusercontent.com/mintsuki/jinx/trunk/jinx > jinx
 	chmod +x jinx
 
+minimaliso:
+	make minimalinitrd
+	make sysdisk.iso
 
 
 XCC=x86_64-elf-gcc
@@ -29,9 +31,15 @@ ISO=$(PWD)/boot/$(TARGET)/iso
 SRCDIR=$(PWD)/src/
 OBJDIR=$(PWD)/bin/
 
-initrd:
+fullinitrd:
+	./jinx sysroot
 	rm -f $(INITRD)
 	cd sysroot; tar -cf $(INITRD) *
+
+minimalinitrd:
+	./jinx install minsysroot bash mlibc coreutils distro-files init mlibc-headers
+	rm -f $(INITRD)
+	cd minsysroot; tar -cf $(INITRD) *
 
 #TODO make it so we don't need to rebuild everything when a header is changed
 
@@ -50,7 +58,7 @@ sysdisk.iso: $(ISO)
 	mkdir -p $(ISO)
 	cp liminebg.bmp limine.cfg limine/limine.sys limine/limine-cd.bin limine/limine-cd-efi.bin $(ISO)
 	xorriso -as mkisofs -b limine-cd.bin -no-emul-boot -boot-load-size 4 -boot-info-table --efi-boot limine-cd-efi.bin -efi-boot-part --efi-boot-image --protective-msdos-label $(ISO) -o sysdisk.iso
-	
+
 run:
 	qemu-system-x86_64 -cdrom sysdisk.iso -m 8G -smp cpus=6
 
