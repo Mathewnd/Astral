@@ -164,7 +164,7 @@ void initrd_parse(){
 					printf("Failed creating %s: ERROR %lu\n", entry.name, err);
 				break;
 			default:
-				_panic("Unsupported file type in initrd!", 0);
+				printf("Skipping file %s due to being of unsupported type\n", entry.name);
 		}
 
 
