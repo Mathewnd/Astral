@@ -59,8 +59,8 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/entry.cpp mlib
 +
 diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp mlibc/sysdeps/astral/generic/generic.cpp
 --- mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/generic/generic.cpp	2022-10-12 01:10:42.579853920 -0300
-@@ -0,0 +1,294 @@
++++ mlibc/sysdeps/astral/generic/generic.cpp	2022-10-13 13:35:39.676638527 -0300
+@@ -0,0 +1,320 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -168,6 +168,30 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp ml
 +		
 +		return 0;
 +
++	}
++
++	// astral doesn't check for permissions yet
++	
++	int sys_faccessat(int dirfd, const char *pathname, int mode, int flags){
++		
++		struct stat buff;
++
++		return sys_stat(fsfd_target::fd_path, dirfd, pathname, 0,  &buff);
++
++	}
++
++	// stub
++
++	int sys_access(const char *path, int mode){
++		return sys_faccessat(AT_FDCWD, path, mode, 0);
++	}
++
++
++	int sys_umask(mode_t mask, mode_t* old){
++		long ret;
++		long err = syscall(SYSCALL_UMASK, &ret, mask);
++		*old = ret;
++		return err;
 +	}
 +	
 +	int sys_mkdir(const char* path, mode_t mode){
@@ -300,8 +324,7 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp ml
 +		return sys_vm_map(NULL, size, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, 0, 0, pointer);
 +	}
 +	int sys_anon_free(void* pointer, size_t size){
-+		sys_libc_log("libc: sys_anon_free is not implemented");
-+		return 0;
++		return sys_vm_unmap(pointer, size);
 +	}
 +	
 +	int sys_open(const char* pathname, int flags, mode_t mode, int* fd){
@@ -346,7 +369,10 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp ml
 +		return ret;
 +	}
 +
-+	int sys_vm_unmap(void* pointer, size_t size) STUB_ONLY
++	int sys_vm_unmap(void* pointer, size_t size){
++		long ret;
++		return syscall(SYSCALL_MUNMAP, &ret, (uint64_t)pointer, size);
++	}
 +	
 +	int sys_isatty(int fd){
 +		long ret;
@@ -372,8 +398,8 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/include/astral/archctl
 +#endif
 diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/include/astral/syscall.h mlibc/sysdeps/astral/include/astral/syscall.h
 --- mlibc-3.0.0-rc1/sysdeps/astral/include/astral/syscall.h	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/include/astral/syscall.h	2022-10-11 20:31:06.006656102 -0300
-@@ -0,0 +1,51 @@
++++ mlibc/sysdeps/astral/include/astral/syscall.h	2022-10-12 18:59:27.276569038 -0300
+@@ -0,0 +1,53 @@
 +#ifndef _SYSCALL_H_INCLUDE
 +#define _SYSCALL_H_INCLUDE
 +
@@ -403,6 +429,8 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/include/astral/syscall
 +#define SYSCALL_FSTATAT 23
 +#define SYSCALL_PIPE2 24
 +#define SYSCALL_MKDIR 25
++#define SYSCALL_MUNMAP 26
++#define SYSCALL_UMASK 27
 +
 +#include <stddef.h>
 +#include <stdint.h>
