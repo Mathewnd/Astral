@@ -17,7 +17,7 @@ syscallret syscall_stat(const char* path, stat* st){
 		return retv;
 	}
 
-	char* kpath = alloc(strlen(path)); // XXX use proper user strlen func
+	char* kpath = alloc(strlen(path)+1); // XXX use proper user strlen func
 	
 	if(!kpath){
 		retv.errno = ENOMEM;
@@ -31,7 +31,6 @@ syscallret syscall_stat(const char* path, stat* st){
 	proc_t* proc = arch_getcls()->thread->proc;
 
 	int ret = vfs_open(&file, *kpath == '/' ? proc->root : proc->cwd, kpath);
-
 
 	if(ret){
 		retv.errno = ret;
