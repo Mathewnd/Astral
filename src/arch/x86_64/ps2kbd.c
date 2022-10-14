@@ -124,20 +124,34 @@ static char codes[] = {
 	KEYCODE_F12
 };
 
-static char extendedcodes[] = {
-	
+static char extendedcodes[128] = {
+	[0x1C] = KEYCODE_KEYPADENTER,
+	[0x1D] = KEYCODE_RIGHTCTRL, 
+	[0x35] = KEYCODE_KEYPADSLASH, // k/
+	[0x38] = KEYCODE_RIGHTALT, // altgr
+	[0x47] = KEYCODE_HOME, // home
+	[0x48] = KEYCODE_UP, // up
+	[0x49] = KEYCODE_PAGEUP, // page up
+	[0x4B] = KEYCODE_LEFT, // left
+	[0x4D] = KEYCODE_RIGHT, // right
+	[0x4F] = KEYCODE_END, // end
+	[0x50] = KEYCODE_DOWN, // down
+	[0x51] = KEYCODE_PAGEDOWN, // page down
+	[0x52] = KEYCODE_INSERT, // insert
+	[0x53] = KEYCODE_DELETE // delete
 };
 
+static bool extended = false;
 
 void ps2kbd_irq(){
 	uint8_t scancode = inb(0x60);
-	if(scancode == 0xE0)
-		return; // TODO support extended scancodes
+	if(scancode == 0xE0){
+		extended = true;
+		return;
+	}
 	
 	kbpacket_t packet;
 	
-	// TODO convert scancode to keycode
-
 	packet.flags = 0;
 
 	if(scancode & 0x80){
@@ -145,7 +159,17 @@ void ps2kbd_irq(){
 		scancode &= 0x7F;
 	}
 
-	packet.keycode = codes[scancode];
+	char *tab = codes;
+
+	if(extended){
+		tab = extendedcodes;
+		extended = false;
+	}
+
+	packet.keycode = tab[scancode];
+
+	if(!packet.keycode)
+		return;
 
 	keyboard_packet(kb, packet);
 
