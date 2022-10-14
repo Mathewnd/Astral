@@ -1,0 +1,26 @@
+diff -ruN ncurses-clean/config.sub ncurses/config.sub
+--- ncurses-clean/config.sub	2022-10-14 15:55:47.209908636 -0300
++++ ncurses/config.sub	2022-10-14 15:56:44.089908194 -0300
+@@ -1718,7 +1718,7 @@
+ 	# Now accept the basic system types.
+ 	# The portable systems comes first.
+ 	# Each alternative MUST end in a * to match a version number.
+-	gnu* | android* | bsd* | mach* | minix* | genix* | ultrix* | irix* \
++	gnu* | android* | astral* | bsd* | mach* | minix* | genix* | ultrix* | irix* \
+ 	     | *vms* | esix* | aix* | cnk* | sunos | sunos[34]* \
+ 	     | hpux* | unos* | osf* | luna* | dgux* | auroraux* | solaris* \
+ 	     | sym* |  plan9* | psp* | sim* | xray* | os68k* | v88r* \
+diff -ruN ncurses-clean/configure ncurses/configure
+--- ncurses-clean/configure	2022-10-14 15:55:47.209908636 -0300
++++ ncurses/configure	2022-10-14 16:01:02.713239547 -0300
+@@ -6244,6 +6244,10 @@
+ 			LDFLAGS="$LDFLAGS -Wl,-search_paths_first"
+ 		fi
+ 		;;
++	(astral*)
++		CC_SHARED_OPTS=-fPIC
++		MK_SHARED_LIB='${CC} -shared -o $@'
++		;;
+ 	(haiku*)
+ 
+ 	test "$cf_cv_shlib_version" = auto && cf_cv_shlib_version=rel

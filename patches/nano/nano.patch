@@ -1,0 +1,12 @@
+diff -ruN nano-clean/config.sub nano/config.sub
+--- nano-clean/config.sub	2022-10-14 15:55:43.969908662 -0300
++++ nano/config.sub	2022-10-14 16:21:27.313230016 -0300
+@@ -1718,7 +1718,7 @@
+ 	# Now accept the basic system types.
+ 	# The portable systems comes first.
+ 	# Each alternative MUST end in a * to match a version number.
+-	gnu* | android* | bsd* | mach* | minix* | genix* | ultrix* | irix* \
++	gnu* | android* | astral* | bsd* | mach* | minix* | genix* | ultrix* | irix* \
+ 	     | *vms* | esix* | aix* | cnk* | sunos | sunos[34]* \
+ 	     | hpux* | unos* | osf* | luna* | dgux* | auroraux* | solaris* \
+ 	     | sym* |  plan9* | psp* | sim* | xray* | os68k* | v88r* \

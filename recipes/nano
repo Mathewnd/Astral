@@ -1,0 +1,24 @@
+name=nano
+revision=1
+from_source=nano
+imagedeps="base-devel"
+hostdeps="gcc-cross binutils-cross"
+deps="mlibc ncurses"
+
+configure() {
+	
+	${source_dir}/configure --host=x86_64-astral --prefix=${prefix}
+	
+}
+
+build() {
+	
+	make -j ${parallelism} LDFLAGS='-ltinfo'
+
+}
+
+install() {
+
+	make install DESTDIR=${dest_dir}
+
+}

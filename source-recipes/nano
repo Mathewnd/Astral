@@ -1,0 +1,8 @@
+name=nano
+version=6.4
+source_method=tarball
+tarball_url="https://ftp.gnu.org/gnu/nano/nano-${version}.tar.gz"
+tarball_sha512=340317fa2e068c5b10ea40c30298e972b406c5b81a987ec0a1fea73a516a09b02b6dcf96ed503236710a04889860369de5c462d555aaa9dbba9ff3a3735fde35
+regenerate() {
+        true
+}

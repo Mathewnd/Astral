@@ -1,0 +1,25 @@
+name=readline
+revision=1
+from_source=readline
+imagedeps="base-devel"
+hostdeps="gcc-cross binutils-cross"
+deps="mlibc ncurses"
+
+
+configure() {
+	
+	${source_dir}/configure --host=x86_64-astral --prefix=${prefix} --with-curses --disable-static
+
+}
+
+build() {
+	
+	make -j${parallelism} SHLIB_LIBS="-lncursesw"
+
+}
+
+install() {
+
+	make install SHLIB_LIBS="-lncursesw" DESTDIR="${dest_dir}"
+
+}
