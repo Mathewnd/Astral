@@ -32,7 +32,24 @@ void console_write(char* str, size_t count){
 }
 
 #define THREAD_BUFF_MAX 2048
+
+
 #define BACKSPACE_STR "\b \b"
+
+// taken from https://en.wikipedia.org/wiki/ANSI_escape_code#Terminal_input_sequences
+
+#define HOME_STR "\e[1~"
+#define INSERT_STR "\e[2~"
+#define DELETE_STR "\e[3~"
+#define END_STR "\e[4~"
+#define PGUP_STR "\e[5~"
+#define PGDN_STR "\e[6~"
+
+#define UP_STR "\e[A"
+#define DOWN_STR "\e[B"
+#define RIGHT_STR "\e[C"
+#define LEFT_STR "\e[D"
+
 __attribute__((noreturn)) static void console_thread(){
 	
 	char buff[THREAD_BUFF_MAX];
@@ -43,60 +60,111 @@ __attribute__((noreturn)) static void console_thread(){
 
 		keyboard_getandwait(0, &packet);
 
-		if(packet.ascii && (KBPACKET_FLAGS_RELEASED & packet.flags) == 0){
-			if(tty.c_lflag & ICANON){
-				bool flush = false;
-				
-				switch(packet.ascii){
-					
-					case '\b':
-						if(buffpos){
-							--buffpos;
-							buff[buffpos] = '\0';
-							if(tty.c_lflag & ECHO)
-								console_write(BACKSPACE_STR, strlen(BACKSPACE_STR));
-						}
-						continue;
-					case '\n':
-						flush = true;
-						break;
-				}
-				
-				if(tty.c_lflag & ECHO)
-					console_write(&packet.ascii, 1);
-				
-				buff[buffpos++] = packet.ascii;
+		if(KBPACKET_FLAGS_RELEASED & packet.flags)
+			continue;
 
-				if(buffpos == THREAD_BUFF_MAX)
+		char* strbufptr;
+		size_t strbuflen;
+
+
+		if(packet.ascii){
+			strbufptr = &packet.ascii;
+			strbuflen = 1;
+		}
+		else{
+			switch(packet.keycode){
+				case KEYCODE_HOME:
+					strbufptr = HOME_STR;
+					break;
+				case KEYCODE_INSERT:
+					strbufptr = INSERT_STR;
+					break;
+				case KEYCODE_DELETE:
+					strbufptr = DELETE_STR;
+					break;
+				case KEYCODE_END:
+					strbufptr = END_STR;
+					break;
+				case KEYCODE_PAGEUP:
+					strbufptr = PGUP_STR;
+					break;
+				case KEYCODE_PAGEDOWN:
+					strbufptr = PGDN_STR;
+					break;
+				case KEYCODE_UP:
+					strbufptr = UP_STR;
+					break;
+				case KEYCODE_DOWN:
+					strbufptr = DOWN_STR;
+					break;
+				case KEYCODE_RIGHT:
+					strbufptr = RIGHT_STR;
+					break;
+				case KEYCODE_LEFT:
+					strbufptr = LEFT_STR;
+					break;
+				default:
+					continue;
+			}
+			strbuflen = strlen(strbufptr);
+		}
+
+
+		if(tty.c_lflag & ICANON){
+			bool flush = false;
+			
+			switch(packet.ascii){
+				
+				case '\b':
+					if(buffpos){
+						--buffpos;
+						buff[buffpos] = '\0';
+						if(tty.c_lflag & ECHO)
+							console_write(BACKSPACE_STR, strlen(BACKSPACE_STR));
+					}
+					continue;
+				case '\n':
 					flush = true;
-
-				if(flush){
-					arch_interrupt_disable();
-
-					ringbuffer_write(&input, buff, buffpos);
-				
-					arch_interrupt_enable();
-					
-					buffpos = 0;
-
-					event_signal(&inputevent, true);
+					break;
+			}
+			
+			if(packet.ascii && tty.c_lflag & ECHO)
+				console_write(strbufptr, strbuflen);
+			
+			
+			for(size_t i = 0; i < strbuflen; ++i){
+				buff[buffpos++] = strbufptr[i];
+				if(buffpos == THREAD_BUFF_MAX){
+					flush = true;
+					break;
 				}
 			}
-			else{ // not canon
-				
-				if(tty.c_lflag & ECHO)
-					console_write(&packet.ascii, 1);
 
+			if(flush){
 				arch_interrupt_disable();
 
-                                ringbuffer_write(&input, &packet.ascii, 1);
-
-                                arch_interrupt_enable();
+				ringbuffer_write(&input, buff, buffpos);
+			
+				arch_interrupt_enable();
+				
+				buffpos = 0;
 
 				event_signal(&inputevent, true);
-
-
 			}
+		}
+		else{ // not canon
+			
+			if(tty.c_lflag & ECHO)
+				console_write(strbufptr, strbuflen);
+
+			arch_interrupt_disable();
+
+			ringbuffer_write(&input, strbufptr, strbuflen);
+
+			arch_interrupt_enable();
+
+			event_signal(&inputevent, true);
+
 		}
 	}
 
