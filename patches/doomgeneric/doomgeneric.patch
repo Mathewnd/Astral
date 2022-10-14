@@ -1,7 +1,7 @@
 diff -ruN doomgeneric/doomgeneric/doomgeneric_astral.c Astral/sources/doomgeneric/doomgeneric/doomgeneric_astral.c
 --- doomgeneric/doomgeneric/doomgeneric_astral.c	1969-12-31 21:00:00.000000000 -0300
-+++ Astral/sources/doomgeneric/doomgeneric/doomgeneric_astral.c	2022-10-08 22:09:58.026611370 -0300
-@@ -0,0 +1,191 @@
++++ Astral/sources/doomgeneric/doomgeneric/doomgeneric_astral.c	2022-10-14 18:57:20.269819323 -0300
+@@ -0,0 +1,194 @@
 +#include "doomkeys.h"
 +
 +#include "doomgeneric.h"
@@ -84,19 +84,11 @@ diff -ruN doomgeneric/doomgeneric/doomgeneric_astral.c Astral/sources/doomgeneri
 +	
 +	ioctlordie(fbfd, FBIOGET_VSCREENINFO, &fbvs);
 +	ioctlordie(fbfd, FBIOGET_FSCREENINFO, &fbfs);
-+	
-+	// clear fb
-+	
-+	frame = malloc(fbfs.smem_len);
-+	if(!frame){
-+		printf("doomgeneric: %s", strerror(ENOMEM));
-+		exit(ENOMEM);
-+	}
-+	memset(frame, 0, fbfs.smem_len);
-+	writeordie(fbfd, frame, fbfs.smem_len); 
-+	struct termios tty;
++
 +
 +	// make tty raw and nonblocking
++	
++	struct termios tty;
 +
 +	tcgetattr(1, &tty);
 +	ttysave = tty;
@@ -112,15 +104,14 @@ diff -ruN doomgeneric/doomgeneric/doomgeneric_astral.c Astral/sources/doomgeneri
 +
 +	// TODO handle bpp stuff
 +	
-+	seekordie(fbfd, 0, SEEK_SET);
-+	
++	off_t moffset = fbfs.line_length * (fbvs.yres / 2 - DOOMGENERIC_RESY/2) + (fbvs.xres / 2 - DOOMGENERIC_RESX / 2) * (fbvs.bits_per_pixel / 8);
++
 +	for(uintmax_t y = 0; y < DOOMGENERIC_RESY; ++y){
 +		uintptr_t foffset = 0;
 +		foffset = fbfs.line_length * y;
-+		memcpy(frame + foffset, DG_ScreenBuffer + DOOMGENERIC_RESX*y, DOOMGENERIC_RESX*4);
++		seekordie(fbfd, moffset + fbfs.line_length * y, SEEK_SET);
++		writeordie(fbfd, DG_ScreenBuffer + DOOMGENERIC_RESX*y, DOOMGENERIC_RESX*4);
 +	}
-+	
-+	writeordie(fbfd, frame, fbfs.smem_len);
 +
 +}
 +
@@ -191,11 +182,23 @@ diff -ruN doomgeneric/doomgeneric/doomgeneric_astral.c Astral/sources/doomgeneri
 +
 +void DG_SleepMs(uint32_t ms){}
 +static int aa = 0;
-+uint32_t DG_GetTicksMs(){return aa++;}
++
++// I need gettimeanddate() already
++
++uint32_t DG_GetTicksMs(){
++	static int w = 0;
++	if(w++ == 40000){
++		w = 0;
++		return aa++;
++		}
++	else {
++		return aa;
++	}
++}
 +void DG_SetWindowTitle(const char* title){}
 diff -ruN doomgeneric/doomgeneric/Makefile Astral/sources/doomgeneric/doomgeneric/Makefile
 --- doomgeneric/doomgeneric/Makefile	2022-10-08 20:18:58.119998127 -0300
-+++ Astral/sources/doomgeneric/doomgeneric/Makefile	2022-10-08 20:23:06.036662797 -0300
++++ Astral/sources/doomgeneric/doomgeneric/Makefile	2022-10-14 17:10:52.856538703 -0300
 @@ -12,17 +12,17 @@
  endif
  
