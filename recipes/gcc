@@ -8,7 +8,7 @@ deps="mlibc gmp mpfr mpc"
 
 configure() {
 
-	${source_dir}/configure --host=x86_64-astral --target=x86_64-astral --prefix=${prefix} --enable-languages=c,c++
+	${source_dir}/configure --host=x86_64-astral --target=x86_64-astral --prefix=${prefix} --enable-languages=c,c++ --with-sysroot=/ --with-build-sysroot=${sysroot_dir}
 
 
 

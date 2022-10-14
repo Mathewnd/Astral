@@ -84,8 +84,8 @@ diff -ruN gcc-12.1.0/libgcc/config.host gcc-12.1.0-patched/libgcc/config.host
  x86_64-*-openbsd*)
  	;;
 +x86_64-*-astral*)
-+	extra_parts="$extra_parts crti.o crtbegin.o crtend.o crtn.o crtbeginS.o crtendS.o"
-+	tmake_file="$tmake_file t-crtstuff-pic t-libgcc-pic"
++	extra_parts="$extra_parts crti.o crtbegin.o crtend.o crtn.o crtbeginS.o crtendS.o crtprec32.o crtprec64.o crtprec80.o crtfastmath.o"
++	tmake_file="$tmake_file t-crtstuff-pic t-libgcc-pic i386/t-crtpc t-crtfm i386/t-crtstuff t-dfprules"
 +	;;
  i[34567]86-*-linux*)
  	extra_parts="$extra_parts crtprec32.o crtprec64.o crtprec80.o crtfastmath.o"
