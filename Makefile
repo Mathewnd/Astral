@@ -37,7 +37,7 @@ fullinitrd:
 	cd sysroot; tar -cf $(INITRD) *
 
 minimalinitrd:
-	./jinx install minsysroot bash mlibc coreutils distro-files init mlibc-headers
+	./jinx install minsysroot bash mlibc coreutils distro-files init mlibc-headers nano
 	rm -f $(INITRD)
 	cd minsysroot; tar -cf $(INITRD) *
 
