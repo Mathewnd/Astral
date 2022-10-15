@@ -4,6 +4,9 @@
 typedef unsigned char cc_t;
 typedef unsigned int speed_t;
 typedef unsigned int tcflag_t;
+
+#define VINTR    0
+#define ISIG 0000001
 #define NCCS     32
 #define ECHO 0000010
 #define ICANON 0000002
