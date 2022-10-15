@@ -11,6 +11,11 @@ typedef unsigned int tcflag_t;
 #define ECHO 0000010
 #define ICANON 0000002
 #define VMIN     6
+#define INLCR 0000100
+#define IGNCR 0000200
+#define ICRNL 0000400
+#define OCRNL 0000010
+
 
 typedef struct{
         tcflag_t c_iflag;

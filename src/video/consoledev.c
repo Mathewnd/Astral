@@ -65,11 +65,25 @@ __attribute__((noreturn)) static void console_thread(){
 
 		char* strbufptr;
 		size_t strbuflen;
-
-
+		char thingy[2];
+	
 		if(packet.ascii){
+			
+			if(packet.ascii == '\n'){
+				if(IGNCR & tty.c_iflag)
+					continue;
+
+				if((ICRNL & tty.c_iflag) == 0)
+					packet.ascii = '\r';
+			}
+
 			strbufptr = &packet.ascii;
 			strbuflen = 1;
+			if(packet.flags & (KBPACKET_FLAGS_LEFTCTRL | KBPACKET_FLAGS_RIGHTCTRL)){
+				if(!((packet.ascii > 'a' && packet.ascii < 'z') || (packet.ascii > 'A' && packet.ascii < 'Z')))
+				continue;
+				strbufptr[0] = packet.ascii > 'a' ? packet.ascii - 0x60 : packet.ascii - 0x40;
+			}
 		}
 		else{
 			switch(packet.keycode){
@@ -128,8 +142,9 @@ __attribute__((noreturn)) static void console_thread(){
 					break;
 			}
 			
-			if(packet.ascii && tty.c_lflag & ECHO)
+			if(packet.ascii && tty.c_lflag & ECHO){
 				console_write(strbufptr, strbuflen);
+			}
 			
 			
 			for(size_t i = 0; i < strbuflen; ++i){
@@ -184,9 +199,9 @@ static int read(int *error, int dev, void* buff, size_t count, size_t offset){
 		arch_interrupt_disable();
 
 		readc += ringbuffer_read(&input, buff+readc, count-readc);
-		
+
 		arch_interrupt_enable();	
-		
+	
 		if(readc < count && readc < tty.c_cc[VMIN])
 			*error = event_wait(&inputevent, true);
 		
