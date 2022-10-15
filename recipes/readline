@@ -8,7 +8,7 @@ deps="mlibc ncurses"
 
 configure() {
 	
-	${source_dir}/configure --host=x86_64-astral --prefix=${prefix} --with-curses --disable-static
+	${source_dir}/configure --host=x86_64-astral --prefix=${prefix} --enable-multibyte --disable-static --enable-shared
 
 }
 
