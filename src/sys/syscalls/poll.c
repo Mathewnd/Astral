@@ -20,25 +20,18 @@ syscallret syscall_poll(pollfd *fds, size_t nfds, int timeoutms){
 		retv.errno = EINVAL;
 		return retv;
 	}
-
+	
 
 	// create the internal list
 
-	pollfd* ilist = alloc(1);
+	pollfd* ilist = alloc(nfds * sizeof(pollfd));
 
 	if(!ilist){
 		retv.errno = ENOMEM;
 		return retv;
 	}
 	
-	for(size_t fd = 0; fd < nfds; ++fd){
-
-		void* tmp = realloc(ilist,(fd+1)*sizeof(pollfd));
-		if(!tmp){
-			retv.errno = ENOMEM;
-			goto ret;
-		}
-		
+	for(size_t fd = 0; fd < nfds; ++fd){	
 		ilist[fd].fd = fds[fd].fd;
 		ilist[fd].events = fds[fd].events;
 	}
@@ -83,7 +76,8 @@ syscallret syscall_poll(pollfd *fds, size_t nfds, int timeoutms){
 		}	
 		
 		// TODO check for signal or timeout
-
+		
+		if(timeoutms == 0) break;
 
 	}
 
