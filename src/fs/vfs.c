@@ -100,6 +100,19 @@ int vfs_isatty(vnode_t* node){
 	
 }
 
+int vfs_poll(vnode_t* node, pollfd* fd){
+	
+	switch(GETTYPE(node->st.st_mode)){
+		case TYPE_CHARDEV:
+		case TYPE_BLOCKDEV:
+			return devman_poll(node->st.st_rdev, fd);
+		case TYPE_FIFO:
+		default:
+			_panic("Unsupported poll", NULL);	
+	}
+
+}
+
 int vfs_ioctl(vnode_t* node, unsigned long request, void* arg, int* result){
 	
 	if(GETTYPE(node->st.st_mode) != TYPE_CHARDEV)

@@ -5,6 +5,7 @@
 #include <hashtable.h>
 #include <errno.h>
 #include <dirent.h>
+#include <poll.h>
 
 struct _vnode_t;
 struct _fscalls_t;
@@ -74,6 +75,7 @@ int vfs_read(int* error, vnode_t* node, void* buff, size_t count, size_t offset)
 int vfs_isatty(vnode_t* node);
 int vfs_getdirent(dirnode_t* node, dent_t* buff, size_t count, uintmax_t offset, size_t* readcount);
 int vfs_ioctl(vnode_t* node, unsigned long request, void* arg, int* result);
+int vfs_poll(vnode_t* node, pollfd* fd);
 
 void vfs_init();
 dirnode_t* vfs_root();

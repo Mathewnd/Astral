@@ -29,7 +29,8 @@ extern syscall_pipe2
 extern syscall_mkdir
 extern syscall_munmap
 extern syscall_umask
-func_count equ 28
+extern syscall_poll
+func_count equ 29
 
 
 func_table:
@@ -61,6 +62,7 @@ func_table:
 	dq syscall_mkdir
 	dq syscall_munmap
 	dq syscall_umask
+	dq syscall_poll
 section .text
 global asm_syscall_entry
 

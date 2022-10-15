@@ -75,6 +75,16 @@ int devman_ioctl(int dev, unsigned long request, void* arg, int* result){
 	return majorcalls[major(dev)]->ioctl(minor(dev), request, arg, result);
 }
 
+int devman_poll(int dev, pollfd* fd){
+	if(major(dev) > highestmajor)
+		return ENOTTY;
+	
+	if(!majorcalls[major(dev)]->poll)
+		return ENOTTY;
+
+	return majorcalls[major(dev)]->poll(minor(dev), fd);
+}
+
 void devman_init(){
 	
 	devfs_init();

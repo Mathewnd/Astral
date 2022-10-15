@@ -153,10 +153,9 @@ __attribute__((noreturn)) static void console_thread(){
 			}
 		}
 		else{ // not canon
-			
-			if(tty.c_lflag & ECHO)
+			if(tty.c_lflag & ECHO){
 				console_write(strbufptr, strbuflen);
-
+			}
 			arch_interrupt_disable();
 
 			ringbuffer_write(&input, strbufptr, strbuflen);
@@ -204,7 +203,6 @@ static int read(int *error, int dev, void* buff, size_t count, size_t offset){
 
 static int write(int *error, int dev, void* buff, size_t count, size_t offset){
 	*error = 0;
-	
 	console_write(buff, count);
 	
 	return count;
@@ -225,6 +223,8 @@ typedef struct{
     unsigned short ws_xpixel;
     unsigned short ws_ypixel;
 } winsize;
+
+#include <arch/cls.h>
 
 static int ioctl(int minor, unsigned long req, void* arg){
 	switch(req){
@@ -248,9 +248,28 @@ static int ioctl(int minor, unsigned long req, void* arg){
 
 }
 
+#include <poll.h>
+
+static int poll(int minor, pollfd* fd){
+	
+	if((fd->events & POLLIN) && input.write != input.read)
+		fd->revents |= POLLIN;
+	
+	if((fd->events & POLLOUT) && outputlock == 0)
+		fd->revents |= POLLOUT;
+
+
+	return 0;
+	
+}
+
 devcalls calls = {
-	read, write, isatty, isseekable, ioctl
+	read, write, isatty, isseekable, ioctl, poll
 };
+
+static void callback(struct limine_terminal *terminal, uint64_t type, uint64_t arg1, uint64_t arg2, uint64_t arg3){
+	asm("cli;hlt");
+}
 
 void consoledev_init(){
 	
@@ -265,7 +284,13 @@ void consoledev_init(){
 	if(!thread)
 		_panic("Failed to initialise console thread", 0);
 
-	tty.c_lflag = ECHO | ICANON;
+	tty.c_lflag = ECHO | ICANON | ISIG;
+	tty.c_cc[VINTR] = 0x03;
+    	tty.ibaud = 38400;
+    	tty.obaud = 38400;
+
 	tty.c_cc[VMIN] = 1;
 	
+	liminetty_setcallback(0, callback);
+
 }
