@@ -299,6 +299,7 @@ void consoledev_init(){
 	if(!thread)
 		_panic("Failed to initialise console thread", 0);
 
+	tty.c_iflag = ICRNL;
 	tty.c_lflag = ECHO | ICANON | ISIG;
 	tty.c_cc[VINTR] = 0x03;
     	tty.ibaud = 38400;
