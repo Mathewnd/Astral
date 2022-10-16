@@ -61,6 +61,8 @@ typedef struct _fscalls_t {
 	int	 (*read)(int* error, vnode_t* node, void* buff, size_t count, size_t offset);
 	//	 get dir ents
 	int	 (*getdirent)(dirnode_t* node, dent_t* buff, size_t count, uintmax_t offset, size_t* readcount);
+	//	 change file mode
+	int 	 (*chmod)(vnode_t* node, mode_t mode);
 } fscalls_t;
 
 
@@ -76,6 +78,7 @@ int vfs_isatty(vnode_t* node);
 int vfs_getdirent(dirnode_t* node, dent_t* buff, size_t count, uintmax_t offset, size_t* readcount);
 int vfs_ioctl(vnode_t* node, unsigned long request, void* arg, int* result);
 int vfs_poll(vnode_t* node, pollfd* fd);
+int vfs_chmod(vnode_t* node, mode_t mode);
 
 void vfs_init();
 dirnode_t* vfs_root();

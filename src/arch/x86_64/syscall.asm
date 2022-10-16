@@ -30,7 +30,8 @@ extern syscall_mkdir
 extern syscall_munmap
 extern syscall_umask
 extern syscall_poll
-func_count equ 29
+extern syscall_fchmodat
+func_count equ 30
 
 
 func_table:
@@ -63,6 +64,7 @@ func_table:
 	dq syscall_munmap
 	dq syscall_umask
 	dq syscall_poll
+	dq syscall_fchmodat
 section .text
 global asm_syscall_entry
 

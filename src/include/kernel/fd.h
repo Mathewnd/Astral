@@ -30,6 +30,7 @@
 #define O_TMPFILE 020000000
 
 #define MAX_FD 512
+#define AT_FDCWD -100
 
 #include <stdint.h>
 #include <stddef.h>

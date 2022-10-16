@@ -77,8 +77,14 @@ static int devfs_getdirent(dirnode_t* node, dent_t* buff, size_t count, uintmax_
         return 0;
 }
 
+static int devfs_chmod(vnode_t* node, mode_t mode){
+	node->st.st_mode &= ~07777;
+	node->st.st_mode |= mode & 07777;
+	return 0;
+}
+
 static fscalls_t devfscalls = {
-	devfs_mount, devfs_unmount, devfs_open, devfs_close, devfs_mkdir, devfs_create, devfs_write, devfs_read, devfs_getdirent
+	devfs_mount, devfs_unmount, devfs_open, devfs_close, devfs_mkdir, devfs_create, devfs_write, devfs_read, devfs_getdirent, devfs_chmod
 };
 
 void devfs_init(){

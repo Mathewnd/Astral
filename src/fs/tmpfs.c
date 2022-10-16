@@ -155,8 +155,14 @@ static int tmpfs_getdirent(dirnode_t* node, dent_t* buff, size_t count, uintmax_
 	return 0;
 }
 
+static int tmpfs_chmod(vnode_t* node, mode_t mode){
+	node->st.st_mode &= ~07777;
+	node->st.st_mode |= mode & 07777;
+	return 0;
+}
+
 static fscalls_t funcs = {
-	tmpfs_mount, tmpfs_unmount, tmpfs_open, tmpfs_close, tmpfs_mkdir, tmpfs_create, tmpfs_write, tmpfs_read, tmpfs_getdirent
+	tmpfs_mount, tmpfs_unmount, tmpfs_open, tmpfs_close, tmpfs_mkdir, tmpfs_create, tmpfs_write, tmpfs_read, tmpfs_getdirent, tmpfs_chmod
 };
 
 

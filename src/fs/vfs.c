@@ -100,6 +100,21 @@ int vfs_isatty(vnode_t* node){
 	
 }
 
+int vfs_chmod(vnode_t* node, mode_t mode){
+	
+	if(!node->fs->calls->chmod)
+		return ENOSYS;
+
+	spinlock_acquire(&lock);
+
+	int ret = node->fs->calls->chmod(node, mode);
+
+	spinlock_release(&lock);
+
+	return ret;
+
+}
+
 int vfs_poll(vnode_t* node, pollfd* fd){
 	
 	switch(GETTYPE(node->st.st_mode)){

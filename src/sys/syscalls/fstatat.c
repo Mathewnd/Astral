@@ -6,8 +6,6 @@
 #include <arch/spinlock.h>
 #include <string.h>
 
-#define AT_FDCWD -100
-
 syscallret syscall_fstatat(int ifd, char* path, stat* st, int flags){
 	syscallret retv;
 	retv.ret = -1;
@@ -67,12 +65,12 @@ syscallret syscall_fstatat(int ifd, char* path, stat* st, int flags){
 
 	vfs_close(node);
 
+	retv.ret = 0;
+
 	_fail:
 	
 	if(ifd != AT_FDCWD)
 		fd_release(fd);
-
-	retv.ret = 0;
 
 	return retv;
 
