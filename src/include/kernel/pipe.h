@@ -5,6 +5,7 @@
 #include <kernel/event.h>
 #include <stdint.h>
 #include <stddef.h>
+#include <poll.h>
 
 typedef struct{
 	int lock;
@@ -17,5 +18,6 @@ pipe_t* pipe_create(size_t buffsize);
 void	pipe_drestroy(pipe_t* pipe);
 int pipe_read(pipe_t* pipe, void* buff, size_t count, int* error);
 int pipe_write(pipe_t* pipe, void* buff, size_t count, int* error);
+int pipe_poll(pipe_t* pipe, pollfd* fd);
 
 #endif

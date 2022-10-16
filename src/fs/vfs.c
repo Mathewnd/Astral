@@ -107,6 +107,7 @@ int vfs_poll(vnode_t* node, pollfd* fd){
 		case TYPE_BLOCKDEV:
 			return devman_poll(node->st.st_rdev, fd);
 		case TYPE_FIFO:
+			return pipe_poll(node->objdata, fd);
 		default:
 			_panic("Unsupported poll", NULL);	
 	}

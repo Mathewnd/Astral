@@ -96,3 +96,31 @@ int pipe_write(pipe_t* pipe, void* buff, size_t count, int* error){
 
 	return writec;
 }
+
+int pipe_poll(pipe_t* pipe, pollfd* fd){
+	
+	spinlock_acquire(&pipe->lock);
+
+	if(fd->events & POLLIN){ // fd is reading
+		if(pipe->writers == 0)
+			fd->revents |= POLLHUP;
+		
+		if(pipe->buff.write != pipe->buff.read)
+			fd->revents |= POLLIN;
+
+	}
+	else { // fd is writing
+		if(pipe->readers == 0)
+			fd->revents |= POLLERR;
+		else if(pipe->buff.write != pipe->buff.read + pipe->buff.size)
+			fd->revents |= POLLOUT;
+			
+
+	}
+
+
+	spinlock_release(&pipe->lock);
+
+	return 0;
+
+}
