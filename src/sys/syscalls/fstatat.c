@@ -6,14 +6,11 @@
 #include <arch/spinlock.h>
 #include <string.h>
 
+// we don't care about flags yet
+
 syscallret syscall_fstatat(int ifd, char* path, stat* st, int flags){
 	syscallret retv;
 	retv.ret = -1;
-
-	if(flags){
-		retv.errno = EINVAL;
-		return retv;
-	}
 
 	if(st > USER_SPACE_END || path > USER_SPACE_END){
 		retv.errno = EFAULT;
