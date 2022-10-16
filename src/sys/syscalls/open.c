@@ -8,8 +8,7 @@
 #include <kernel/alloc.h>
 #include <stddef.h>
 
-
-syscallret syscall_open(const char* pathname, int flags, mode_t mode){
+syscallret syscall_openat(int dirfd, const char* pathname, int flags, mode_t mode){
 	syscallret retv;
 	retv.ret = -1;
 
@@ -39,6 +38,26 @@ syscallret syscall_open(const char* pathname, int flags, mode_t mode){
 		return retv;	
 	}
 
+	fd_t* targfd;
+	dirnode_t* target;
+
+	if(dirfd != AT_FDCWD){
+
+		err = fd_access(&proc->fdtable, &targfd, dirfd);
+
+		if(err){
+			retv.errno = err;
+			free(name);
+			fd_release(fd);
+			fd_free(&proc->fdtable, fd);
+			return retv;
+		}
+
+		target = targfd->node;
+
+	}
+	else target = proc->cwd;
+
 	fd->flags = flags + 1; // 1 is added to make O_RDONLY etc easier to lookup
 	fd->offset = 0;
 	
@@ -47,8 +66,8 @@ syscallret syscall_open(const char* pathname, int flags, mode_t mode){
 	retry:
 
 	size_t ret = vfs_open(&file, 
-		*name == '/' ? proc->root : proc->cwd,
-		*name == '/' ? name + 1 : name
+		*name == '/' ? proc->root : target,
+		name
 	);
 
 	if(ret == ENOENT && (flags & O_CREAT)){
@@ -93,9 +112,18 @@ syscallret syscall_open(const char* pathname, int flags, mode_t mode){
 	if(file)
 		vfs_close(file);
 
+	if(dirfd != AT_FDCWD)
+		fd_release(targfd);
+
 	fd_release(fd);
 	fd_free(&proc->fdtable,  fd);
 	free(name);
 	return retv;
 
+}
+
+// kept so no ABI breaks happen
+
+syscallret syscall_open(const char* pathname, int flags, mode_t mode){
+	return syscall_openat(AT_FDCWD, pathname, flags, mode);
 }
