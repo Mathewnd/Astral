@@ -51,12 +51,12 @@ syscallret syscall_waitpid(pid_t pid, int *status, int options){
 		sibling = NULL;
 
 		while(child){
-			if(pid > 0 && child->pid != pid)
-			       continue;	
 
 			if(child->state == PROC_STATE_ZOMBIE){
-				loop = false;
-				break;
+				if((pid > 0 && child->pid == pid) || pid == 0){
+					loop = false;
+					break;
+				}
 			}
 
 			if(child->sibling)
