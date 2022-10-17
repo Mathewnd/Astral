@@ -2,6 +2,7 @@
 #define _STAT_H_INCLUDE
 
 #include <sys/types.h>
+#include <time.h>
 
 #define TYPE_FIFO 1
 #define TYPE_CHARDEV 2
@@ -14,13 +15,6 @@
 #define GETMODE(m) (0xFFF & m)
 #define GETTYPE(m) ((m >> 12) & 0xF)
 #define MAKETYPE(m) ((m & 0xF) << 12)
-
-typedef long time_t;
-
-struct timespec {
-        time_t tv_sec;
-        long tv_nsec;
-};
 
 
 typedef struct {
