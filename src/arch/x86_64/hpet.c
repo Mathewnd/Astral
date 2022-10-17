@@ -44,6 +44,14 @@ static void wait_ticks(size_t ticks){
 	while(readfromreg(REGISTER_COUNTER) < end) asm("pause");
 }
 
+time_t hpet_get_ticksperus(){
+	return ticksper100ns*10;
+}
+
+time_t hpet_get_counter(){
+	return readfromreg(REGISTER_COUNTER);
+}
+
 void hpet_wait_us(size_t us){
 
 	size_t usticks = ticksper100ns*10;
