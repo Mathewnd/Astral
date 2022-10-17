@@ -4,6 +4,9 @@
 #include <limine.h>
 #include <string.h>
 #include <stdio.h>
+#include <kernel/pmm.h>
+#include <kernel/vmm.h>
+
 
 #define TAR_BLOCKSIZE 512
 
@@ -138,7 +141,19 @@ void initrd_parse(){
 	memset(entry.name, 0, 256);
 	memset(entry.link, 0, 101);
 
+	void* base = addr;
+	size_t bytespassed = 0;
+	
 	for(;;){
+
+		// free files already dumped
+
+		if(bytespassed >= PAGE_SIZE){
+			size_t pagec = bytespassed / PAGE_SIZE;
+			pmm_hhdmfree(base, pagec);
+			base += bytespassed / PAGE_SIZE * PAGE_SIZE;
+			bytespassed %= PAGE_SIZE;
+		}
 
 		buildentry(&entry, addr);	
 
@@ -164,10 +179,12 @@ void initrd_parse(){
 					printf("Failed creating %s: ERROR %lu\n", entry.name, err);
 				break;
 		}
-
+		
+		
+		bytespassed += TAR_BLOCKSIZE;
 
 		if(entry.type != TAR_FILE) continue;
-		
+
 		vnode_t *node;
 		int error;
 		vfs_open(&node, vfs_root(), entry.name);
@@ -176,6 +193,8 @@ void initrd_parse(){
 			_panic("Failed to write from initrd", 0);
 }
 		vfs_close(node);
+
+		bytespassed += entry.size / TAR_BLOCKSIZE * TAR_BLOCKSIZE + (entry.size % TAR_BLOCKSIZE > 0 ? TAR_BLOCKSIZE : 0);
 	
 	}
 	
