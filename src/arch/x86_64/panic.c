@@ -9,8 +9,8 @@
 
 static void tracestack(uint64_t** addr){
 	for(size_t depth = 0; depth < TRACE_MAXDEPTH; ++depth){
-		if(addr < (uint64_t)0xFFFFFFFF80000000) return;
 		uint64_t *calleeaddr = *(addr + 1);
+		if(calleeaddr < (uint64_t)0xFFFFFFFF80000000) return;
 		addr = (uint64_t**)*addr;
 
 		printf("%lu: %p\n", depth, calleeaddr);
