@@ -18,6 +18,7 @@
 #include <arch/smp.h>
 #include <kernel/timer.h>
 #include <kernel/keyboard.h>
+#include <arch/timekeeper.h>
 
 void kmain(){
 
@@ -29,8 +30,7 @@ void kmain(){
 
 	idt_bspinit();
 	
-	pmm_init();
-	
+	pmm_init();	
 	
 	arch_mmu_init();
 	
@@ -47,6 +47,8 @@ void kmain(){
 	apic_lapicinit();
 
 	hpet_init();
+
+	arch_timekeeper_init();
 
 	timer_init();
 
