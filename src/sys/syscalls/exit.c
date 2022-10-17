@@ -8,7 +8,11 @@
 
 void syscall_exit(int status){
 	proc_t* proc = arch_getcls()->thread->proc;
+	
 
+	proc_t* init = sched_getinit();
+
+	spinlock_acquire(&init->lock);
 	spinlock_acquire(&proc->lock);
 	
 	// TODO make all other threads exit
@@ -26,25 +30,23 @@ void syscall_exit(int status){
 	vfs_close(proc->root);	
 	vfs_close(proc->cwd);	
 
-	proc_t* init = sched_getinit();
-
-	spinlock_acquire(&init->lock);
-
 	proc_t* child = proc->child;
 	proc_t* firstchild = child;
 
 	while(child){
 		spinlock_acquire(&child->lock);
 		child->parent = init;	
+		proc_t* oldc = child;
+		proc_t* oldsibling = oldc->sibling;
 		if(!child->sibling){
 			child->sibling = init->child;
 			init->child = firstchild;
 		}
-		spinlock_release(&child->lock);
-		child = child->sibling;
+		
+		child = oldsibling;
+		spinlock_release(&oldc->lock);
 	}	
 
-	spinlock_release(&init->lock);
 	event_signal(&proc->parent->childevent, true);
 
         // context and thread destruction will happen in the waitpid()
@@ -55,6 +57,7 @@ void syscall_exit(int status){
 	arch_interrupt_disable();
 
 	spinlock_release(&proc->lock);
+	spinlock_release(&init->lock);
 
 	sched_dequeue();
 	
