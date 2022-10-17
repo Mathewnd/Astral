@@ -239,15 +239,16 @@ int vfs_create(dirnode_t* ref, char* path, mode_t mode){
 
 	int result = vfs_resolvepath(&buff, &parent, ref, path, name);
 
+	if(buff){
+		spinlock_release(&lock);
+		return EEXIST;
+	}
+
 	if(!parent){
 		spinlock_release(&lock);
 		return result;
 	}
 
-	if(buff){
-		spinlock_release(&lock);
-		return EEXIST;
-	}
 	result = parent->vnode.fs->calls->create(parent, name, mode);
 	
 	spinlock_release(&lock);
@@ -268,14 +269,16 @@ int vfs_mkdir(dirnode_t* ref, char* path, mode_t mode){
 
 	int result = vfs_resolvepath(&buff, &parent, ref, path, name);
 
-	if(!parent){
-		spinlock_release(&lock);
-		return result;
-	}
 	if(buff){
 		spinlock_release(&lock);
 		return EEXIST;
 	}
+
+	if(!parent){
+		spinlock_release(&lock);
+		return result;
+	}
+
 	
 	result = parent->vnode.fs->calls->mkdir(parent, name, mode);
 	
