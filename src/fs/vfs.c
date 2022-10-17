@@ -7,6 +7,7 @@
 #include <arch/spinlock.h>
 #include <dirent.h>
 #include <kernel/pipe.h>
+#include <arch/timekeeper.h>
 
 dirnode_t* vfsroot;
 hashtable  fsfuncs;
@@ -330,6 +331,8 @@ int vfs_mount(dirnode_t* ref, char* device, char* mountpoint, char* fs, int moun
 	return result;
 }
 
+#define ADDTIMETOSTAT(st) st.st_atim = st.st_ctim = st.st_mtim = arch_timekeeper_gettime()
+
 vnode_t* vfs_newnode(char* name, fs_t* fs, void* fsdata){
 	vnode_t* node = alloc(sizeof(vnode_t));
 	if(!node) return NULL;
@@ -342,6 +345,8 @@ vnode_t* vfs_newnode(char* name, fs_t* fs, void* fsdata){
 	node->fs = fs;
 	node->fsdata = fsdata;
 	strcpy(node->name, name);
+
+	ADDTIMETOSTAT(node->st);
 
 	return node;
 }
@@ -373,6 +378,8 @@ dirnode_t* vfs_newdirnode(char* name, fs_t* fs, void* fsdata, dirnode_t* parent)
 	vnode->fs = fs;
 	vnode->fsdata = fsdata;
 	strcpy(vnode->name, name);
+
+	ADDTIMETOSTAT(vnode->st);
 
 	return node;
 
