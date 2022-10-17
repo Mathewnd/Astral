@@ -34,7 +34,8 @@ extern syscall_fchmodat
 extern syscall_openat
 extern syscall_chroot
 extern syscall_mkdirat
-func_count equ 33
+extern syscall_clock_gettime
+func_count equ 34
 
 
 func_table:
@@ -71,6 +72,7 @@ func_table:
 	dq syscall_openat
 	dq syscall_chroot
 	dq syscall_mkdirat
+	dq syscall_clock_gettime
 section .text
 global asm_syscall_entry
 
