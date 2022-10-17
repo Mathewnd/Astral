@@ -1,6 +1,6 @@
 diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/crt-x86_64/crt0.S mlibc/sysdeps/astral/crt-x86_64/crt0.S
 --- mlibc-3.0.0-rc1/sysdeps/astral/crt-x86_64/crt0.S	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/crt-x86_64/crt0.S	2022-10-10 16:31:06.853132251 -0300
++++ mlibc/sysdeps/astral/crt-x86_64/crt0.S	2022-10-14 19:09:55.156479915 -0300
 @@ -0,0 +1,7 @@
 +
 +.section .text
@@ -11,7 +11,7 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/crt-x86_64/crt0.S mlib
 +
 diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/astral.cpp mlibc/sysdeps/astral/generic/astral.cpp
 --- mlibc-3.0.0-rc1/sysdeps/astral/generic/astral.cpp	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/generic/astral.cpp	2022-10-10 16:31:06.853132251 -0300
++++ mlibc/sysdeps/astral/generic/astral.cpp	2022-10-14 19:09:55.156479915 -0300
 @@ -0,0 +1,6 @@
 +#include <astral/syscall.h>
 +
@@ -21,7 +21,7 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/astral.cpp mli
 +}
 diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/entry.cpp mlibc/sysdeps/astral/generic/entry.cpp
 --- mlibc-3.0.0-rc1/sysdeps/astral/generic/entry.cpp	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/generic/entry.cpp	2022-10-10 16:31:06.853132251 -0300
++++ mlibc/sysdeps/astral/generic/entry.cpp	2022-10-14 19:09:55.156479915 -0300
 @@ -0,0 +1,34 @@
 +
 +#include <stdint.h>
@@ -59,8 +59,8 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/entry.cpp mlib
 +
 diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp mlibc/sysdeps/astral/generic/generic.cpp
 --- mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/generic/generic.cpp	2022-10-13 13:35:39.676638527 -0300
-@@ -0,0 +1,320 @@
++++ mlibc/sysdeps/astral/generic/generic.cpp	2022-10-17 11:26:53.229947620 -0300
+@@ -0,0 +1,428 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -69,6 +69,9 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp ml
 +#include <astral/archctl.h>
 +#include <string.h>
 +#include <asm/ioctls.h>
++#include <stdlib.h>
++#include <poll.h>
++#include <sys/select.h>
 +
 +#define STUB_ONLY { __ensure(!"STUB_ONLY function was called"); __builtin_unreachable(); }
 +
@@ -115,13 +118,6 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp ml
 +	
 +	int sys_setpgid(pid_t pid, pid_t pgid){
 +		return ENOSYS;
-+	}
-+
-+
-+	int sys_clock_get(int clock, time_t *secs, long *nanos){
-+		*secs = 0;
-+		*nanos = 0;
-+		return 0;
 +	}
 +	
 +	// stub
@@ -179,19 +175,131 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp ml
 +		return sys_stat(fsfd_target::fd_path, dirfd, pathname, 0,  &buff);
 +
 +	}
++	
 +
 +	// stub
 +
 +	int sys_access(const char *path, int mode){
 +		return sys_faccessat(AT_FDCWD, path, mode, 0);
 +	}
++	
++	// for now no caching is implemented so just return 0
 +
++	[[gnu::weak]] int sys_fsync(int fd){
++		return 0;
++	}
++
++	int sys_clock_get(int clock, time_t *secs, long *nanos){
++		struct timespec ret;
++		long retv;
++		long err = syscall(SYSCALL_CLOCK_GETTIME, &retv, clock, (uint64_t)&ret);
++		*secs = ret.tv_sec;
++		*nanos = ret.tv_nsec;
++		return err;
++	}
++
++
++	int sys_chroot(const char* path){
++		long ret;
++		return syscall(SYSCALL_CHROOT, &ret, (uintptr_t)path);
++	}
++
++	int sys_openat(int dirfd, const char *path, int flags, mode_t mode, int *fd){	
++		long ret;
++		long err = syscall(SYSCALL_OPENAT, &ret, dirfd, (uintptr_t)path, flags, mode);
++		*fd = ret;
++		return err;
++	}
++
++
++	int sys_fchmodat(int fd, const char *pathname, mode_t mode, int flags){
++		long ret;
++		return syscall(SYSCALL_FCHMODAT, &ret, fd, (uintptr_t)pathname, mode, flags);
++	}
++
++	int sys_chmod(const char *pathname, mode_t mode){
++		return sys_fchmodat(AT_FDCWD, pathname, mode, 0);	
++	}
++
++
++	int sys_poll(struct pollfd *fds, nfds_t count, int timeout, int *num_events){
++		long ret;
++		int err = syscall(SYSCALL_POLL, &ret, (uint64_t)fds, count, timeout);
++		*num_events = ret;
++		return err;
++	}
++	
++	// pselect is emulated by poll for now (will turn that into ppoll later)
++
++#ifndef MLIBC_BUILDING_RTDL
++
++	int sys_pselect(int num_fds, fd_set *read_set, fd_set *write_set,
++                fd_set *except_set, const struct timespec *timeout, const sigset_t *sigmask, int *num_events){
++		
++		pollfd* fds = (pollfd*)malloc(num_fds*sizeof(pollfd));
++		
++		if(!fds)
++			return ENOMEM;
++
++		for(int fd = 0; fd < num_fds; ++fd){
++			short events;
++			if(read_set && FD_ISSET(fd, read_set)){
++				events |= POLLIN;
++			}
++			if(write_set && FD_ISSET(fd, write_set)){
++				events |= POLLOUT;
++			}
++			if(except_set && FD_ISSET(fd, except_set)){
++				events |= POLLPRI;
++			}
++			
++
++			if(events){
++				fds[fd].fd = fd;
++				fds[fd].events = events;
++				fds[fd].revents = 0;
++			}
++			else{
++				fds[fd].fd = -1;
++			}
++		}
++
++		
++		int time = timeout->tv_sec * 1000 + timeout->tv_nsec / 1000000;
++
++		int err = sys_poll(fds, num_fds, time, num_events);
++		
++		if(err){
++			free(fds);
++			return err;
++		}
++
++		for(int fd = 0; fd < num_fds; ++fd){
++			if(read_set && (fds[fd].revents & POLLIN) == 0)
++				FD_CLR(fd, read_set);
++
++			if(write_set && (fds[fd].revents & POLLOUT) == 0)
++				FD_CLR(fd, write_set);
++
++			if(except_set && (fds[fd].revents & POLLPRI) == 0)
++				FD_CLR(fd, except_set);	
++		}
++
++		return 0;
++	}
++
++#endif
 +
 +	int sys_umask(mode_t mask, mode_t* old){
 +		long ret;
 +		long err = syscall(SYSCALL_UMASK, &ret, mask);
 +		*old = ret;
 +		return err;
++	}
++	
++	int sys_mkdirat(int dirfd, const char* path, mode_t mode){
++		long res;
++		return syscall(SYSCALL_MKDIRAT, &res, dirfd, (uint64_t)path, mode);
 +	}
 +	
 +	int sys_mkdir(const char* path, mode_t mode){
@@ -383,7 +491,7 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp ml
 +
 diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/include/astral/archctl.h mlibc/sysdeps/astral/include/astral/archctl.h
 --- mlibc-3.0.0-rc1/sysdeps/astral/include/astral/archctl.h	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/include/astral/archctl.h	2022-10-10 16:31:06.853132251 -0300
++++ mlibc/sysdeps/astral/include/astral/archctl.h	2022-10-14 19:09:55.156479915 -0300
 @@ -0,0 +1,11 @@
 +#ifndef _ASTRAL_SYSCALL_ARCHCTL_INCLUDE
 +#define _ASTRAL_SYSCALL_ARCHCTL_INCLUDE
@@ -398,8 +506,8 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/include/astral/archctl
 +#endif
 diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/include/astral/syscall.h mlibc/sysdeps/astral/include/astral/syscall.h
 --- mlibc-3.0.0-rc1/sysdeps/astral/include/astral/syscall.h	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/include/astral/syscall.h	2022-10-12 18:59:27.276569038 -0300
-@@ -0,0 +1,53 @@
++++ mlibc/sysdeps/astral/include/astral/syscall.h	2022-10-17 11:26:12.973281277 -0300
+@@ -0,0 +1,59 @@
 +#ifndef _SYSCALL_H_INCLUDE
 +#define _SYSCALL_H_INCLUDE
 +
@@ -431,6 +539,12 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/include/astral/syscall
 +#define SYSCALL_MKDIR 25
 +#define SYSCALL_MUNMAP 26
 +#define SYSCALL_UMASK 27
++#define SYSCALL_POLL 28
++#define SYSCALL_FCHMODAT 29
++#define SYSCALL_OPENAT 30
++#define SYSCALL_CHROOT 31
++#define SYSCALL_MKDIRAT 32
++#define SYSCALL_CLOCK_GETTIME 33
 +
 +#include <stddef.h>
 +#include <stdint.h>
@@ -455,7 +569,7 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/include/astral/syscall
 +#endif
 diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/meson.build mlibc/sysdeps/astral/meson.build
 --- mlibc-3.0.0-rc1/sysdeps/astral/meson.build	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/meson.build	2022-10-10 16:31:06.853132251 -0300
++++ mlibc/sysdeps/astral/meson.build	2022-10-14 19:09:55.156479915 -0300
 @@ -0,0 +1,63 @@
 +
 +rtdl_sources += files(
