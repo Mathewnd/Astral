@@ -92,3 +92,12 @@ int socket_send(socket_t* socket, void* buff, size_t len, int flags, int* count)
 			return EINVAL;
 	}
 }
+
+int socket_recv(socket_t* socket, void* buff, size_t len, int flags, int* count){
+	switch(socket->family){
+		case AF_UNIX:
+			return unsocket_recv(socket, buff, len, flags, count);
+		default:
+			return EINVAL;
+	}
+}

@@ -213,14 +213,12 @@ int unsocket_accept(socket_t** peer, socket_t* sock, void* addr, size_t* addrlen
 }
 
 int unsocket_send(socket_t* socket, void* buff, size_t len, int flags, int* error){
-	
+
 	if(flags){ // right now no flags are supported
 		*error = EOPNOTSUPP;
 		return 0;
 	}
 
-
-	int err = 0;
 	int writec = 0;
 
 	socket_t* peer = socket->peer;
@@ -264,4 +262,53 @@ int unsocket_send(socket_t* socket, void* buff, size_t len, int flags, int* erro
 
 	return writec;
 
+}
+
+int unsocket_recv(socket_t* socket, void* buff, size_t len, int flags, int* error){
+	
+	if(flags){ // right now no flags are supported
+                *error = EOPNOTSUPP;
+                return 0;
+        }
+	
+	int readc = 0;
+
+	spinlock_acquire(&socket->lock);
+
+	if(socket->state != SOCKET_STATE_CONNECTED){
+		*error = ENOTCONN;
+		goto _return;
+	}
+	
+	for(;;){
+		
+		arch_interrupt_disable();
+
+		readc = ringbuffer_read(&socket->buffer, buff, len);
+
+		if(readc > 0){
+			event_signal(&socket->dataevent, true);
+			break;
+		}
+
+		spinlock_release(&socket->lock);
+
+		if(event_wait(&socket->dataevent, true)){
+			spinlock_acquire(&socket->lock);
+			readc = -1;
+			*error = EINTR;
+			break;
+		}
+
+		spinlock_acquire(&socket->lock);
+		
+	}
+
+	*error = 0;
+
+	_return:
+
+	spinlock_release(&socket->lock);
+	
+	return readc;
 }

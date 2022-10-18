@@ -146,6 +146,9 @@ int vfs_read(int* error, vnode_t* node, void* buff, size_t count, size_t offset)
 	
 	int type = GETTYPE(node->st.st_mode);
 	
+	if(type == TYPE_SOCKET)
+		return socket_recv(node->objdata, buff, count, 0, error);
+
 	if(type == TYPE_FIFO){
 		return pipe_read(node->objdata, buff, count, error);
 	}
