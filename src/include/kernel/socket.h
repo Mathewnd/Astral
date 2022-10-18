@@ -28,6 +28,7 @@ typedef struct _socket_t{
 	struct _socket_t** backlog;
 	event_t connectevent; // when the socket is listening and this is fired, someone used connect() on the socket
 	event_t acceptevent;  // when a socket is waiting for a connection to be accepted, it sleeps on this
+	event_t dataevent; // fired when data is written to/read from the ring buffer
 	int state;
 	union {
 		sockaddr_un addr_un;
@@ -63,5 +64,5 @@ int socket_new(socket_t** returnptr, int family, int type, int protocol);
 int socket_bind(struct _socket_t* sock, void* addr, size_t addrlen);
 int socket_listen(struct _socket_t* sock, int backlog);
 int socket_accept(socket_t** peer, socket_t* sock, void* addr, size_t* addrlen);
-
+int socket_send(socket_t* socket, void* buff, size_t len, int flags, int* error);
 #endif

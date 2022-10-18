@@ -83,3 +83,12 @@ int socket_accept(socket_t** peer, socket_t* sock, void* addr, size_t* addrlen){
 			return EINVAL;
 	}
 }
+
+int socket_send(socket_t* socket, void* buff, size_t len, int flags, int* count){
+	switch(socket->family){
+		case AF_UNIX:
+			return unsocket_send(socket, buff, len, flags, count);
+		default:
+			return EINVAL;
+	}
+}

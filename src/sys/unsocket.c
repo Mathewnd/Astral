@@ -211,3 +211,57 @@ int unsocket_accept(socket_t** peer, socket_t* sock, void* addr, size_t* addrlen
 	return err;
 	
 }
+
+int unsocket_send(socket_t* socket, void* buff, size_t len, int flags, int* error){
+	
+	if(flags){ // right now no flags are supported
+		*error = EOPNOTSUPP;
+		return 0;
+	}
+
+
+	int err = 0;
+	int writec = 0;
+
+	socket_t* peer = socket->peer;
+
+	spinlock_acquire(&socket->lock);
+	spinlock_acquire(&peer->lock);
+
+	if(socket->state != SOCKET_STATE_CONNECTED){
+		*error = ENOTCONN;
+		goto _return;
+	}
+
+	for(;;){
+		arch_interrupt_disable();
+		
+		writec = ringbuffer_write(&peer->buffer, buff, len);
+		
+		if(writec > 0){
+			event_signal(&peer->dataevent, true);
+			break;
+		}
+
+		spinlock_release(&peer->lock);
+		
+		if(event_wait(&peer->dataevent, true)){
+			spinlock_acquire(&peer->lock);
+			writec = -1;
+			break;
+		}
+
+		spinlock_acquire(&peer->lock);
+
+	}
+	
+	*error = 0;
+	
+	_return:
+
+	spinlock_release(&peer->lock);
+	spinlock_release(&socket->lock);
+
+	return writec;
+
+}

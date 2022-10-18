@@ -66,6 +66,9 @@ int vfs_write(int* error, vnode_t* node, void* buff, size_t count, size_t offset
 
 	int type = GETTYPE(node->st.st_mode);
 	
+	if(type == TYPE_SOCKET)
+		return socket_send(node->objdata, buff, count, 0, error);
+
 	if(type == TYPE_FIFO)
 		return pipe_write(node->objdata, buff, count, error);
 	
