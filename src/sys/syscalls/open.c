@@ -95,6 +95,11 @@ syscallret syscall_openat(int dirfd, const char* pathname, int flags, mode_t mod
 		goto _fail;
 	}
 
+	if(GETTYPE(file->st.st_mode) == TYPE_SOCKET){
+		retv.errno = ENXIO;
+		goto _fail;
+	}
+
 	
 	fd->node = file;
 	fd->mode = file->st.st_mode;

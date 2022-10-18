@@ -161,8 +161,29 @@ static int tmpfs_chmod(vnode_t* node, mode_t mode){
 	return 0;
 }
 
+static int tmpfs_mksocket(dirnode_t* parent, char* name, mode_t mode){
+	
+	vnode_t* node = vfs_newnode(name, parent->vnode.fs, NULL);
+	
+	if(!node) 
+		return ENOMEM;
+
+	if(!hashtable_insert(&parent->children, name, node)){
+		vfs_destroynode(node);
+		return ENOMEM;
+	}
+	
+	stat* st = &node->st;
+	
+	st->st_mode = MAKETYPE(TYPE_SOCKET) | mode;
+	st->st_blksize = PAGE_SIZE;
+	st->st_ino = parent->vnode.fs->data++;
+
+	return 0;
+	
+}
 static fscalls_t funcs = {
-	tmpfs_mount, tmpfs_unmount, tmpfs_open, tmpfs_close, tmpfs_mkdir, tmpfs_create, tmpfs_write, tmpfs_read, tmpfs_getdirent, tmpfs_chmod
+	tmpfs_mount, tmpfs_unmount, tmpfs_open, tmpfs_close, tmpfs_mkdir, tmpfs_create, tmpfs_write, tmpfs_read, tmpfs_getdirent, tmpfs_chmod, tmpfs_mksocket
 };
 
 

@@ -206,6 +206,7 @@ int vfs_getdirent(dirnode_t* node, dent_t* buff, size_t count, uintmax_t offset,
 	return err;
 }
 
+
 int vfs_open(vnode_t** buff, dirnode_t* ref, char* path){
 
 	vnode_t* node;
@@ -258,8 +259,43 @@ int vfs_create(dirnode_t* ref, char* path, mode_t mode){
 	return 0;
 }
 
-int vfs_mkdir(dirnode_t* ref, char* path, mode_t mode){
+int vfs_mksocket(dirnode_t* ref, char* path, mode_t mode){
+		
+	dirnode_t* parent = NULL;
+	dirnode_t* buff   = NULL;
+
+	char name[512];
 	
+	spinlock_acquire(&lock);
+
+	int result = vfs_resolvepath(&buff, &parent, ref, path, name);
+
+	if(buff){
+		spinlock_release(&lock);
+		return EEXIST;
+	}
+
+	if(!parent){
+		spinlock_release(&lock);
+		return result;
+	}
+
+	if(!parent->vnode.fs->calls->mksocket){
+		spinlock_release(&lock);
+		return ENOSYS;
+	}
+
+	result = parent->vnode.fs->calls->mksocket(parent, name, mode);
+	
+	spinlock_release(&lock);
+	
+	if(result) return result;
+	
+	return 0;
+}
+
+int vfs_mkdir(dirnode_t* ref, char* path, mode_t mode){
+
 	dirnode_t* parent = NULL;
 	dirnode_t* buff = NULL;
 
@@ -279,7 +315,6 @@ int vfs_mkdir(dirnode_t* ref, char* path, mode_t mode){
 		return result;
 	}
 
-	
 	result = parent->vnode.fs->calls->mkdir(parent, name, mode);
 	
 	spinlock_release(&lock);

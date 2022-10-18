@@ -63,9 +63,11 @@ typedef struct _fscalls_t {
 	int	 (*getdirent)(dirnode_t* node, dent_t* buff, size_t count, uintmax_t offset, size_t* readcount);
 	//	 change file mode
 	int 	 (*chmod)(vnode_t* node, mode_t mode);
+	//	 create socket in address
+	int	 (*mksocket)(dirnode_t* ref, char* path, mode_t mode);
 } fscalls_t;
 
-
+int vfs_mksocket(dirnode_t* ref, char* path, mode_t mode);
 int vfs_mount(dirnode_t* ref, char* device, char* mountpoint, char* fs, int mountflags, void* fsinfo);
 int vfs_umount(dirnode_t* ref, char* mountpoint);
 int vfs_open(vnode_t** buf, dirnode_t* ref, char* path);
