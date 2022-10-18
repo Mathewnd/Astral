@@ -77,7 +77,9 @@ syscallret syscall_accept(int sockfd, void* addr, size_t* addrlen){
 	
 	peer->peer = connsock;
 
+	peer->state = SOCKET_STATE_CONNECTED;
 	event_signal(&peer->acceptevent, true);
+
 	
 	spinlock_release(&peer->lock);
 
