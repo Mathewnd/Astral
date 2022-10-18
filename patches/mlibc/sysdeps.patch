@@ -59,8 +59,8 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/entry.cpp mlib
 +
 diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp mlibc/sysdeps/astral/generic/generic.cpp
 --- mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/generic/generic.cpp	2022-10-17 11:26:53.229947620 -0300
-@@ -0,0 +1,428 @@
++++ mlibc/sysdeps/astral/generic/generic.cpp	2022-10-17 23:52:37.476391090 -0300
+@@ -0,0 +1,457 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -188,6 +188,36 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp ml
 +	[[gnu::weak]] int sys_fsync(int fd){
 +		return 0;
 +	}
++	
++	int sys_accept(int fd, int *newfd, struct sockaddr *addr_ptr, socklen_t *addr_length){
++		long ret;
++		long err = syscall(SYSCALL_ACCEPT, &ret, fd, (uintptr_t)addr_ptr, (uintptr_t)addr_length);
++		*newfd = ret;
++		return err;
++	}
++
++	int sys_connect(int fd, const struct sockaddr *addr_ptr, socklen_t addr_length){
++		long ret;
++		return syscall(SYSCALL_CONNECT, &ret, fd, (uintptr_t)addr_ptr, addr_length);
++	}
++
++	int sys_listen(int fd, int backlog){
++		long ret;
++		return syscall(SYSCALL_LISTEN, &ret, fd, backlog);
++	}
++
++
++	int sys_bind(int fd, const struct sockaddr *addr_ptr, socklen_t addr_length){
++		long ret;
++		return syscall(SYSCALL_BIND, &ret, fd, (uintptr_t)addr_ptr, addr_length);
++	}
++
++	int sys_socket(int family, int type, int protocol, int *fd){
++		long ret;
++		long err = syscall(SYSCALL_SOCKET, &ret, family, type, protocol);
++		*fd = ret;
++		return err;
++	}
 +
 +	int sys_clock_get(int clock, time_t *secs, long *nanos){
 +		struct timespec ret;
@@ -197,8 +227,7 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp ml
 +		*nanos = ret.tv_nsec;
 +		return err;
 +	}
-+
-+
++	
 +	int sys_chroot(const char* path){
 +		long ret;
 +		return syscall(SYSCALL_CHROOT, &ret, (uintptr_t)path);
@@ -506,8 +535,8 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/include/astral/archctl
 +#endif
 diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/include/astral/syscall.h mlibc/sysdeps/astral/include/astral/syscall.h
 --- mlibc-3.0.0-rc1/sysdeps/astral/include/astral/syscall.h	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/include/astral/syscall.h	2022-10-17 11:26:12.973281277 -0300
-@@ -0,0 +1,59 @@
++++ mlibc/sysdeps/astral/include/astral/syscall.h	2022-10-17 23:52:47.653057673 -0300
+@@ -0,0 +1,64 @@
 +#ifndef _SYSCALL_H_INCLUDE
 +#define _SYSCALL_H_INCLUDE
 +
@@ -545,6 +574,11 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/include/astral/syscall
 +#define SYSCALL_CHROOT 31
 +#define SYSCALL_MKDIRAT 32
 +#define SYSCALL_CLOCK_GETTIME 33
++#define SYSCALL_SOCKET 34
++#define SYSCALL_BIND 35
++#define SYSCALL_LISTEN 36
++#define SYSCALL_CONNECT 37
++#define SYSCALL_ACCEPT 38
 +
 +#include <stddef.h>
 +#include <stdint.h>
