@@ -42,6 +42,7 @@ int pipe_read(pipe_t* pipe, void* buff, size_t count, int* error){
 		spinlock_release(&pipe->lock);
 
 		if(event_wait(&pipe->wevent, true)){
+			spinlock_acquire(&pipe->lock);
 			readc = -1;
 			*error = EINTR;
 			break;
@@ -80,6 +81,7 @@ int pipe_write(pipe_t* pipe, void* buff, size_t count, int* error){
 		spinlock_release(&pipe->lock);
 
 		if(event_wait(&pipe->revent, true)){
+			spinlock_acquire(&pipe->lock);
 			*error = EINTR;
 			writec = -1;
 			break;
