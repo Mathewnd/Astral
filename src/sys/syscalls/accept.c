@@ -79,11 +79,14 @@ syscallret syscall_accept(int sockfd, void* addr, size_t* addrlen){
 
 	peer->state = SOCKET_STATE_CONNECTED;
 	event_signal(&peer->acceptevent, true);
+	
+	connfd->node->objdata = connsock;
 
 	
 	spinlock_release(&peer->lock);
 
         fd_release(fd);
+	fd_release(connfd);
 	
 	retv.ret = connifd;
 
