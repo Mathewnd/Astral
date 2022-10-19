@@ -53,15 +53,17 @@ diff -ruN gcc-12.1.0/gcc/config/astral.h gcc-12.1.0-patched/gcc/config/astral.h
 diff -ruN gcc-12.1.0/gcc/config.gcc gcc-12.1.0-patched/gcc/config.gcc
 --- gcc-12.1.0/gcc/config.gcc	2022-05-06 04:30:56.000000000 -0300
 +++ gcc-12.1.0-patched/gcc/config.gcc	2022-09-14 19:57:58.466364923 -0300
-@@ -773,6 +773,12 @@
+@@ -773,6 +773,14 @@
    tmake_file="${tmake_file} t-dragonfly"
    target_has_targetdm=yes
    ;;
 +*-*-astral*)
++  extra_options="$extra_options gnu-user.opt"
 +  gas=yes
 +  gnu_ld=yes
 +  default_use_cxa_atexit=yes
 +  use_gcc_stdint=provide
++  thread_file='posix'
 +  ;;
  *-*-freebsd*)
    # This is the generic ELF configuration of FreeBSD.  Later

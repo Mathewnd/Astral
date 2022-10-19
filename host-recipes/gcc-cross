@@ -7,7 +7,7 @@ deps="mlibc-headers"
 
 configure() {
 	
-	${source_dir}/configure --target=x86_64-astral --prefix=${prefix} --with-sysroot=${sysroot_dir} --enable-languages=c,c++
+	${source_dir}/configure --target=x86_64-astral --prefix=${prefix} --with-sysroot=${sysroot_dir} --enable-languages=c,c++ -enable-threads=posix --disable-multilib
 
 }
 
