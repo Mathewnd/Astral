@@ -220,12 +220,14 @@ static int tmpfs_readlink(vnode_t *node, char** buff, size_t* linksize){
 
 }
 
-static int tmpfs_link(dirnode_t* parent, char* name, vnode_t* link){
-	
+static int tmpfs_link(dirnode_t* parent, vnode_t* link, char* name){
+
 	if(!hashtable_insert(&parent->children, name, link))
 		return ENOMEM;
 
 	++link->st.st_nlink;
+
+	return 0;
 
 }
 
