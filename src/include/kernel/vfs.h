@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <dirent.h>
 #include <poll.h>
+#include <stdbool.h>
 
 struct _vnode_t;
 struct _fscalls_t;
@@ -65,6 +66,10 @@ typedef struct _fscalls_t {
 	int 	 (*chmod)(vnode_t* node, mode_t mode);
 	//	 create socket in address
 	int	 (*mksocket)(dirnode_t* ref, char* path, mode_t mode);
+	//	 creates a symlink
+	int	 (*symlink)(dirnode_t* ref, char* path, char* target, mode_t mode);
+	//	 reads a symlink
+	int	 (*readlink)(vnode_t* node, char** buff, size_t* linksize);
 } fscalls_t;
 
 int vfs_mksocket(dirnode_t* ref, char* path, mode_t mode);
@@ -81,6 +86,7 @@ int vfs_getdirent(dirnode_t* node, dent_t* buff, size_t count, uintmax_t offset,
 int vfs_ioctl(vnode_t* node, unsigned long request, void* arg, int* result);
 int vfs_poll(vnode_t* node, pollfd* fd);
 int vfs_chmod(vnode_t* node, mode_t mode);
+int vfs_symlink(dirnode_t* ref, char* path, char* target, mode_t mode);
 
 void vfs_init();
 dirnode_t* vfs_root();
@@ -89,7 +95,7 @@ void vfs_releasenode(vnode_t* node);
 vnode_t* vfs_newnode(char* name, fs_t* fs, void* fsdata);
 dirnode_t* vfs_newdirnode(char* name, fs_t* fs, void* fsdata, dirnode_t* parent);
 void vfs_destroynode(vnode_t* node);
-int  vfs_resolvepath(vnode_t** result, dirnode_t** parent, dirnode_t* ref, char* path, char* name);
+int  vfs_resolvepath(vnode_t** result, dirnode_t** parent, dirnode_t* ref, char* path, char* name, bool followlinks, int maxloop);
 
 #define UNIMPLEMENTED { return ENOSYS; }
 

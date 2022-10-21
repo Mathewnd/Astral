@@ -9,6 +9,8 @@
 #include <kernel/pipe.h>
 #include <arch/timekeeper.h>
 
+#define VFS_MAX_LOOP 5
+
 dirnode_t* vfsroot;
 hashtable  fsfuncs;
 static int lock;
@@ -219,7 +221,7 @@ int vfs_open(vnode_t** buff, dirnode_t* ref, char* path){
 	
 	spinlock_acquire(&lock);
 	
-	int res = vfs_resolvepath(&node, NULL, ref, path, NULL);
+	int res = vfs_resolvepath(&node, NULL, ref, path, NULL, true, VFS_MAX_LOOP);
 	
 	if(res){
 		spinlock_release(&lock);
@@ -244,7 +246,7 @@ int vfs_create(dirnode_t* ref, char* path, mode_t mode){
 	
 	spinlock_acquire(&lock);
 
-	int result = vfs_resolvepath(&buff, &parent, ref, path, name);
+	int result = vfs_resolvepath(&buff, &parent, ref, path, name, true, VFS_MAX_LOOP);
 
 	if(buff){
 		spinlock_release(&lock);
@@ -274,7 +276,7 @@ int vfs_mksocket(dirnode_t* ref, char* path, mode_t mode){
 	
 	spinlock_acquire(&lock);
 
-	int result = vfs_resolvepath(&buff, &parent, ref, path, name);
+	int result = vfs_resolvepath(&buff, &parent, ref, path, name, true, VFS_MAX_LOOP);
 
 	if(buff){
 		spinlock_release(&lock);
@@ -300,6 +302,44 @@ int vfs_mksocket(dirnode_t* ref, char* path, mode_t mode){
 	return 0;
 }
 
+int vfs_symlink(dirnode_t* ref, char* path, char* target, mode_t mode){
+	
+	if(strlen(target) >= 512)
+		return ENAMETOOLONG;
+	
+	dirnode_t* parent = NULL;
+	dirnode_t* buff   = NULL;
+	char name[512];
+
+        spinlock_acquire(&lock);
+
+        int result = vfs_resolvepath(&buff, &parent, ref, path, name, true, VFS_MAX_LOOP);
+
+        if(buff){
+                spinlock_release(&lock);
+                return EEXIST;
+        }
+
+        if(!parent){
+                spinlock_release(&lock);
+                return result;
+        }
+
+        if(!parent->vnode.fs->calls->symlink){
+                spinlock_release(&lock);
+                return ENOSYS;
+        }
+
+        result = parent->vnode.fs->calls->symlink(parent, name, target, mode);
+
+        spinlock_release(&lock);
+
+        if(result) return result;
+
+
+
+}
+
 int vfs_mkdir(dirnode_t* ref, char* path, mode_t mode){
 
 	dirnode_t* parent = NULL;
@@ -309,7 +349,7 @@ int vfs_mkdir(dirnode_t* ref, char* path, mode_t mode){
 	
 	spinlock_acquire(&lock);
 
-	int result = vfs_resolvepath(&buff, &parent, ref, path, name);
+	int result = vfs_resolvepath(&buff, &parent, ref, path, name, true, VFS_MAX_LOOP);
 
 	if(buff){
 		spinlock_release(&lock);
@@ -346,7 +386,7 @@ int vfs_mount(dirnode_t* ref, char* device, char* mountpoint, char* fs, int moun
 	if(device){
 		dev = ref;
 		if(*device){
-			int result = vfs_resolvepath(&dev, &parent, ref, device, NULL);
+			int result = vfs_resolvepath(&dev, &parent, ref, device, NULL, true, VFS_MAX_LOOP);
 			
 			if(result){
 				spinlock_release(&lock);
@@ -356,7 +396,7 @@ int vfs_mount(dirnode_t* ref, char* device, char* mountpoint, char* fs, int moun
 	}
 
 
-	int result = vfs_resolvepath(&mountdir, &parent, ref, mountpoint, NULL);
+	int result = vfs_resolvepath(&mountdir, &parent, ref, mountpoint, NULL, true, VFS_MAX_LOOP);
 	
 	if(result){
 		spinlock_release(&lock);
@@ -429,13 +469,21 @@ dirnode_t* vfs_newdirnode(char* name, fs_t* fs, void* fsdata, dirnode_t* parent)
 
 }
 
-int vfs_resolvepath(vnode_t** result, dirnode_t** resultparent, dirnode_t* ref, char *path, char* namebuff){
+// TODO the stack usage is scarily high
+
+int vfs_resolvepath(vnode_t** result, dirnode_t** resultparent, dirnode_t* ref, char *path, char* namebuff, bool followlinks, int maxloop){
 	
+	if(strlen(path) >= 512)
+		return ENAMETOOLONG;
+
+	if(maxloop == 0)
+		return ELOOP;
+
 	dirnode_t* iterator = ref;
 	char name[512];
 	off_t nameoffset = 0;
 
-	memset(name, 0, 512);
+	memset(name, 0, 256);
 	
 	iterator = mountpoint(iterator);
 
@@ -457,6 +505,33 @@ int vfs_resolvepath(vnode_t** result, dirnode_t** resultparent, dirnode_t* ref, 
 			++nameoffset;
 
 		name[offset] = 0;
+		
+		// do we need to follow a symlink
+
+		if(GETTYPE(iterator->vnode.st.st_mode) == TYPE_LINK && followlinks){
+				
+			if(!iterator->vnode.fs->calls->readlink)
+				return ENOSYS;
+
+			size_t size;
+			char* linkname;
+			
+			int error = iterator->vnode.fs->calls->readlink(iterator, &linkname, &size);
+			if(error)
+				return error;
+			
+			linkname[size] = '\0';
+			
+			printf("reading link: %s\n", linkname);
+
+			error = vfs_resolvepath(&iterator, NULL, iterator, linkname, namebuff, true, maxloop-1); // XXX this might break some parent stuff when following links
+
+			free(linkname);
+
+			if(error)
+				return error;
+		
+		}
 
 		// make sure we're a directory
 
@@ -500,6 +575,30 @@ int vfs_resolvepath(vnode_t** result, dirnode_t** resultparent, dirnode_t* ref, 
 	
 	if(GETTYPE(iterator->vnode.st.st_mode) == TYPE_DIR)
 		iterator = mountpoint(iterator);
+
+
+	// check if result is a symlink
+
+	if(GETTYPE(iterator->vnode.st.st_mode) == TYPE_LINK && followlinks){
+		if(!iterator->vnode.fs->calls->readlink)
+			return ENOSYS;
+
+		size_t size;
+		char* linkname;
+		
+		int error = iterator->vnode.fs->calls->readlink(iterator, &linkname, &size);
+		if(error)
+			return error;
+		
+		linkname[size] = '\0';
+
+		error = vfs_resolvepath(&iterator, NULL, iterator->vnode.parent, linkname, namebuff, true, maxloop-1); // XXX this might break some parent stuff when following links
+
+		free(linkname);
+
+		if(error)
+			return error;
+	}
 
 	*result = (vnode_t*)iterator;
 

@@ -182,8 +182,46 @@ static int tmpfs_mksocket(dirnode_t* parent, char* name, mode_t mode){
 	return 0;
 	
 }
+
+static int tmpfs_symlink(dirnode_t* parent, char* name, char* target, mode_t mode){
+	int error = tmpfs_create(parent, name, mode);
+	
+	if(error)
+		return error;
+
+	vnode_t* node = hashtable_get(&parent->children, name);
+
+	node->st.st_mode = MAKETYPE(TYPE_LINK) | mode;
+
+	tmpfs_write(&error, node, target, strlen(target)+1, 0);
+
+	return 0;
+
+}
+
+static int tmpfs_readlink(vnode_t *node, char** buff, size_t* linksize){
+	
+	if(node->st.st_size >= 512)
+		return ENAMETOOLONG;
+
+	*buff = alloc(node->st.st_size+1);
+
+	if(!*buff)
+		return ENOMEM;
+
+	int error;
+
+	*linksize = tmpfs_read(&error, node, *buff, 512, 0);
+
+	if(error)
+		free(*buff);
+
+	return error;
+
+}
+
 static fscalls_t funcs = {
-	tmpfs_mount, tmpfs_unmount, tmpfs_open, tmpfs_close, tmpfs_mkdir, tmpfs_create, tmpfs_write, tmpfs_read, tmpfs_getdirent, tmpfs_chmod, tmpfs_mksocket
+	tmpfs_mount, tmpfs_unmount, tmpfs_open, tmpfs_close, tmpfs_mkdir, tmpfs_create, tmpfs_write, tmpfs_read, tmpfs_getdirent, tmpfs_chmod, tmpfs_mksocket, tmpfs_symlink, tmpfs_readlink
 };
 
 

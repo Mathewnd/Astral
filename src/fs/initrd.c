@@ -178,6 +178,12 @@ void initrd_parse(){
 				if(err)
 					printf("Failed creating %s: ERROR %lu\n", entry.name, err);
 				break;
+			case TAR_SYMLINK:
+				err = vfs_symlink(vfs_root(), entry.name, entry.link, entry.mode);
+				if(err)
+					printf("Failed creating %s: ERROR %lu\n", entry.name, err);
+				break;
+				
 		}
 		
 		
