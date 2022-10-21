@@ -1,7 +1,7 @@
-diff -ruN doomgeneric/doomgeneric/doomgeneric_astral.c Astral/sources/doomgeneric/doomgeneric/doomgeneric_astral.c
+diff -ruN -x Astral/sources/doomgeneric/doomgeneric/doomgeneric.map doomgeneric/doomgeneric/doomgeneric_astral.c Astral/sources/doomgeneric/doomgeneric/doomgeneric_astral.c
 --- doomgeneric/doomgeneric/doomgeneric_astral.c	1969-12-31 21:00:00.000000000 -0300
-+++ Astral/sources/doomgeneric/doomgeneric/doomgeneric_astral.c	2022-10-14 18:57:20.269819323 -0300
-@@ -0,0 +1,194 @@
++++ Astral/sources/doomgeneric/doomgeneric/doomgeneric_astral.c	2022-10-21 18:20:21.098988763 -0300
+@@ -0,0 +1,198 @@
 +#include "doomkeys.h"
 +
 +#include "doomgeneric.h"
@@ -22,6 +22,10 @@ diff -ruN doomgeneric/doomgeneric/doomgeneric_astral.c Astral/sources/doomgeneri
 +static struct fb_fix_screeninfo fbfs;
 +static void* frame;
 +static struct termios ttysave;
++
++static struct timespec starttime;
++
++
 +
 +static int seekordie(int fd, off_t offset, int whence){
 +	int ret = lseek(fd, offset, whence);
@@ -180,25 +184,25 @@ diff -ruN doomgeneric/doomgeneric/doomgeneric_astral.c Astral/sources/doomgeneri
 +	return 1;
 +}
 +
-+void DG_SleepMs(uint32_t ms){}
-+static int aa = 0;
-+
-+// I need gettimeanddate() already
++void DG_SleepMs(uint32_t ms){
++	usleep(ms*1000);
++}
 +
 +uint32_t DG_GetTicksMs(){
-+	static int w = 0;
-+	if(w++ == 40000){
-+		w = 0;
-+		return aa++;
-+		}
-+	else {
-+		return aa;
-+	}
++	
++	struct timespec time;
++	
++	clock_gettime(CLOCK_REALTIME, &time);
++
++	return time.tv_sec * 1000 + time.tv_nsec / 1000000;
++	
++	
 +}
++
 +void DG_SetWindowTitle(const char* title){}
-diff -ruN doomgeneric/doomgeneric/Makefile Astral/sources/doomgeneric/doomgeneric/Makefile
+diff -ruN -x Astral/sources/doomgeneric/doomgeneric/doomgeneric.map doomgeneric/doomgeneric/Makefile Astral/sources/doomgeneric/doomgeneric/Makefile
 --- doomgeneric/doomgeneric/Makefile	2022-10-08 20:18:58.119998127 -0300
-+++ Astral/sources/doomgeneric/doomgeneric/Makefile	2022-10-14 17:10:52.856538703 -0300
++++ Astral/sources/doomgeneric/doomgeneric/Makefile	2022-10-14 19:18:47.719808959 -0300
 @@ -12,17 +12,17 @@
  endif
  
