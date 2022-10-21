@@ -40,7 +40,8 @@ extern syscall_bind
 extern syscall_listen
 extern syscall_connect
 extern syscall_accept
-func_count equ 39
+extern syscall_nanosleep
+func_count equ 40
 
 
 func_table:
@@ -83,6 +84,7 @@ func_table:
 	dq syscall_listen
 	dq syscall_connect
 	dq syscall_accept
+	dq syscall_nanosleep
 section .text
 global asm_syscall_entry
 
