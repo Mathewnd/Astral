@@ -42,7 +42,7 @@ int unsocket_bind(struct _socket_t* sock, sockaddr_un* addr, size_t addrlen){
 
 	sockaddr_un unaddr;
 
-	memcpy(&unaddr, addr, addrlen);
+	memcpy(&unaddr, addr, sizeof(sockaddr_un));
 
 	if(unaddr.sun_family != AF_UNIX)
 		return EINVAL;
@@ -68,7 +68,7 @@ int unsocket_bind(struct _socket_t* sock, sockaddr_un* addr, size_t addrlen){
 	socketnode->objdata = sock;
 
 	sock->addr_un = unaddr;
-	sock->addrlen = addrlen;
+	sock->addrlen = sizeof(sockaddr_un);
 	sock->state = SOCKET_STATE_BOUND;
 	err = 0;
 
@@ -90,7 +90,7 @@ int unsocket_connect(struct _socket_t* sock, void* addr, size_t addrlen){
 		return EINVAL;
 
 	sockaddr_un addr_un;
-	memcpy(&addr_un, addr, addrlen);
+	memcpy(&addr_un, addr, sizeof(sockaddr_un));
 	
 	if(addr_un.sun_family != AF_UNIX)
 		return EAFNOSUPPORT;
@@ -201,6 +201,8 @@ int unsocket_accept(socket_t** peer, socket_t* sock, void* addr, size_t* addrlen
 		event_wait(&sock->connectevent, true);
 		spinlock_acquire(&sock->lock);
 	}
+	
+	// TODO put peer name here
 
 	*peer = socket_popfrombacklog(sock);
 
