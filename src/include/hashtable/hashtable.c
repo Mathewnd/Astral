@@ -58,9 +58,9 @@ bool hashtable_insert(hashtable* table, char* key, void* val){
 
 	char* keysave = alloc(strlen(key)+1);
 
-	memcpy(keysave, key, strlen(key)+1);
-
 	if(!keysave) return false;
+
+	memcpy(keysave, key, strlen(key)+1);
 
 	if(entry->key){
 		while(entry->next)
