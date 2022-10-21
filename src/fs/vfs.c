@@ -297,9 +297,7 @@ int vfs_mksocket(dirnode_t* ref, char* path, mode_t mode){
 	
 	spinlock_release(&lock);
 	
-	if(result) return result;
-	
-	return 0;
+	return result;
 }
 
 int vfs_symlink(dirnode_t* ref, char* path, char* target, mode_t mode){
@@ -334,11 +332,48 @@ int vfs_symlink(dirnode_t* ref, char* path, char* target, mode_t mode){
 
         spinlock_release(&lock);
 
-        if(result) return result;
-
+	return result;
 
 
 }
+
+int vfs_link(dirnode_t* ref, vnode_t* link, char* path){
+	
+	dirnode_t* parent = NULL;
+	dirnode_t* buff   = NULL;
+	char name[512];
+
+        spinlock_acquire(&lock);
+
+        int result = vfs_resolvepath(&buff, &parent, ref, path, name, true, VFS_MAX_LOOP);
+
+        if(buff){
+                spinlock_release(&lock);
+                return EEXIST;
+        }
+
+        if(!parent){
+                spinlock_release(&lock);
+                return result;
+        }
+
+        if(!parent->vnode.fs->calls->link){
+                spinlock_release(&lock);
+                return ENOSYS;
+        }
+	
+	if(link->fs != parent->vnode.fs)
+		return EXDEV;
+
+        result = parent->vnode.fs->calls->link(parent, link, name);
+
+        spinlock_release(&lock);
+
+	return result;
+
+
+}
+
 
 int vfs_mkdir(dirnode_t* ref, char* path, mode_t mode){
 
@@ -365,9 +400,7 @@ int vfs_mkdir(dirnode_t* ref, char* path, mode_t mode){
 	
 	spinlock_release(&lock);
 	
-	if(result) return result;
-	
-	return 0;
+	return result;
 }
 
 int vfs_mount(dirnode_t* ref, char* device, char* mountpoint, char* fs, int mountflags, void* fsinfo){

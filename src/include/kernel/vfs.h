@@ -70,6 +70,8 @@ typedef struct _fscalls_t {
 	int	 (*symlink)(dirnode_t* ref, char* path, char* target, mode_t mode);
 	//	 reads a symlink
 	int	 (*readlink)(vnode_t* node, char** buff, size_t* linksize);
+	//	 creates a hard link
+	int 	 (*link)(dirnode_t* parent, vnode_t* link, char* name);
 } fscalls_t;
 
 int vfs_mksocket(dirnode_t* ref, char* path, mode_t mode);
@@ -87,6 +89,7 @@ int vfs_ioctl(vnode_t* node, unsigned long request, void* arg, int* result);
 int vfs_poll(vnode_t* node, pollfd* fd);
 int vfs_chmod(vnode_t* node, mode_t mode);
 int vfs_symlink(dirnode_t* ref, char* path, char* target, mode_t mode);
+int vfs_link(dirnode_t* ref, vnode_t* link, char* path);
 
 void vfs_init();
 dirnode_t* vfs_root();

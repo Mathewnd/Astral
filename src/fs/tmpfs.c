@@ -220,8 +220,17 @@ static int tmpfs_readlink(vnode_t *node, char** buff, size_t* linksize){
 
 }
 
+static int tmpfs_link(dirnode_t* parent, char* name, vnode_t* link){
+	
+	if(!hashtable_insert(&parent->children, name, link))
+		return ENOMEM;
+
+	++link->st.st_nlink;
+
+}
+
 static fscalls_t funcs = {
-	tmpfs_mount, tmpfs_unmount, tmpfs_open, tmpfs_close, tmpfs_mkdir, tmpfs_create, tmpfs_write, tmpfs_read, tmpfs_getdirent, tmpfs_chmod, tmpfs_mksocket, tmpfs_symlink, tmpfs_readlink
+	tmpfs_mount, tmpfs_unmount, tmpfs_open, tmpfs_close, tmpfs_mkdir, tmpfs_create, tmpfs_write, tmpfs_read, tmpfs_getdirent, tmpfs_chmod, tmpfs_mksocket, tmpfs_symlink, tmpfs_readlink, tmpfs_link
 };
 
 
