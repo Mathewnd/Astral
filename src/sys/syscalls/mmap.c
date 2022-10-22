@@ -2,6 +2,7 @@
 #include <kernel/vmm.h>
 #include <sys/types.h>
 #include <errno.h>
+#include <arch/cls.h>
 
 // linux abi
 
@@ -44,7 +45,7 @@
 #define MFD_CLOEXEC 1U
 #define MFD_ALLOW_SEALING 2U
 
-syscallret syscall_mmap(void* hint, size_t len, int prot, int flags, int fd, off_t offset){
+syscallret syscall_mmap(void* hint, size_t len, int prot, int flags, int ifd, off_t offset){
 
 	syscallret retv;
 	
@@ -54,12 +55,6 @@ syscallret syscall_mmap(void* hint, size_t len, int prot, int flags, int fd, off
 	if(len == 0 || hint > USER_SPACE_END){
 		retv.errno = EINVAL;
 		return retv;
-	}
-
-	if((flags & (MAP_ANON | MAP_PRIVATE)) != (MAP_ANON | MAP_PRIVATE)){
-		retv.errno = ENOSYS;
-		return retv;
-		
 	}
 	
 	size_t mmuflags = 0;
@@ -79,17 +74,50 @@ syscallret syscall_mmap(void* hint, size_t len, int prot, int flags, int fd, off
 
 	void* ret = NULL;
 
-	if(hint)
-		ret = vmm_allocnowat(hint, mmuflags, len) ? hint : NULL; // TODO demand page
-	if(ret == NULL && (flags & MAP_FIXED) == 0)
+	if(flags & MAP_ANON){
+
+		if(hint)
+			ret = vmm_allocnowat(hint, mmuflags, len) ? hint : NULL; // TODO demand page
+		if(ret == NULL && (flags & MAP_FIXED) == 0)
+			ret = vmm_allocfrom(USER_ALLOC_START, mmuflags, plen);
+
+		if(!ret)
+			retv.errno = ENOMEM;
+		else{
+			retv.ret = ret;
+			if(hint && (flags & MAP_ANON))
+				memset(ret, 0, plen*PAGE_SIZE);
+		}
+	}
+	else{
+		
+		// open node
+		
+		proc_t* proc = arch_getcls()->thread->proc;
+
+		fd_t* fd;
+
+        	retv.errno = fd_access(&proc->fdtable, &fd, ifd);
+
+		if(retv.errno)
+			return retv;
+
+
+		if(hint)
+			_panic("mmap: file hint unimplemented", 0);
+
 		ret = vmm_allocfrom(USER_ALLOC_START, mmuflags, plen);
 
-	if(!ret)
-		retv.errno = ENOMEM;
-	else{
-		retv.ret = ret;
-		if(hint && (flags & MAP_ANON))
-			memset(ret, 0, plen*PAGE_SIZE);
+		if(!ret)
+			retv.errno = ENOMEM;
+		else{
+			retv.errno = vmm_mapfile(fd->node, ret, plen, offset, mmuflags);
+			if(!retv.errno)
+				retv.ret = ret;
+		}
+
+		fd_release(fd);
+		
 	}
 	
 	return retv;

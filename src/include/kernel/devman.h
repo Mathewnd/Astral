@@ -18,6 +18,7 @@ typedef struct{
 	int (*isseekable)(int minor, size_t* seekmax);
 	int (*ioctl)(int minor, unsigned long request, void* arg, int* result);
 	int (*poll)(int minor, pollfd* fd);
+	int (*map)(int minor, void* addr, size_t len, size_t offset, size_t mmuflags);
 } devcalls;
 
 int devman_read(int *error, int dev, void* buff, size_t count, size_t offset);
@@ -27,6 +28,7 @@ int devman_isatty(int dev);
 int devman_isseekable(int dev, size_t* seekmax);
 int devman_ioctl(int dev, unsigned long request, void* arg, int* result);
 int devman_poll(int dev, pollfd* fd);
+int devman_map(int dev, void* addr, size_t len, size_t offset, size_t mmuflags);
 void devman_init();
 
 #endif

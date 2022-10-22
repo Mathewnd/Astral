@@ -237,6 +237,23 @@ int vfs_open(vnode_t** buff, dirnode_t* ref, char* path){
 	
 }
 
+int vfs_map(vnode_t* node, void* addr, size_t len, size_t offset, size_t mmuflags){
+	
+	spinlock_acquire(&lock);
+	
+	int err;
+	
+	if(GETTYPE(node->st.st_mode) == TYPE_CHARDEV){
+		err = devman_map(node->st.st_rdev, addr, len, offset, mmuflags);
+	}
+	else _panic("Normal file mapping not supported!", 0);
+
+	spinlock_release(&lock);
+
+	return err;
+
+}
+
 int vfs_create(dirnode_t* ref, char* path, mode_t mode){
 	
 	dirnode_t* parent = NULL;

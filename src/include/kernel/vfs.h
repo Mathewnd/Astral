@@ -90,6 +90,7 @@ int vfs_poll(vnode_t* node, pollfd* fd);
 int vfs_chmod(vnode_t* node, mode_t mode);
 int vfs_symlink(dirnode_t* ref, char* path, char* target, mode_t mode);
 int vfs_link(dirnode_t* ref, vnode_t* link, char* path);
+int vfs_map(vnode_t* node, void* addr, size_t len, size_t offset, size_t mmuflags);
 
 void vfs_init();
 dirnode_t* vfs_root();

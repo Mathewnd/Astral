@@ -2,6 +2,8 @@
 #include <limine.h>
 #include <string.h>
 #include <errno.h>
+#include <arch/mmu.h>
+#include <arch/cls.h>
 
 static volatile struct limine_framebuffer_request fbreq = {
 	.id = LIMINE_FRAMEBUFFER_REQUEST,
@@ -71,6 +73,7 @@ static int isseekable(int minor, size_t* max){
 }
 
 #define FBIOGET_VSCREENINFO	0x4600
+#define FBIOPUT_VSCREENINFO	0x4601
 #define FBIOGET_FSCREENINFO	0x4602
 
 struct fb_bitfield {
@@ -140,6 +143,8 @@ static int ioctl(int minor, unsigned long req, void* arg){
 
 	struct limine_framebuffer* fb = fbs[minor];
         switch(req){
+		case FBIOPUT_VSCREENINFO: // TODO maybe this should be done properly
+			break;
                	case FBIOGET_FSCREENINFO:
 			{
 			fb_fix_screeninfo* i = arg;
@@ -205,10 +210,33 @@ static int ioctl(int minor, unsigned long req, void* arg){
 
 }
 
+static map(int minor, void* addr, size_t len, size_t offset, size_t mmuflags){
+	
+	int properlen = len*PAGE_SIZE;
+
+	int err = devchecks(minor, &properlen, offset);
+
+	properlen /= PAGE_SIZE;
+
+	if(properlen % PAGE_SIZE)
+		++properlen;
+
+	if(err)
+		return err;
+
+	for(uintmax_t page = 0; page < len; ++page){
+		if(page < properlen)
+			arch_mmu_map(arch_getcls()->context->context, fbs[minor]->address + offset, addr, mmuflags);
+
+	}
+
+	return 0;
+}
 
 static devcalls calls = {
-	read, write, isatty, isseekable, ioctl
+	read, write, isatty, isseekable, ioctl, NULL, map
 };
+
 
 void fb_init(){
 	

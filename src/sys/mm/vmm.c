@@ -551,6 +551,30 @@ bool vmm_setfree(void* addr, size_t pagec){
 	return result;
 }
 
+int vmm_mapfile(vnode_t* node, void* addr, size_t len, size_t offset, size_t mmuflags){
+	
+	int* lock;
+	vmm_mapping** start;
+
+	getcontextinfo(addr, &lock, &start);
+
+	spinlock_acquire(lock);
+
+	int err = 0;
+
+	if(!setmap(start, addr, len, mmuflags, VMM_TYPE_FILE, node, offset))
+	err = ENOMEM;
+		
+	if(err == 0)
+		err = vfs_map(node, addr, len, offset, mmuflags);
+
+	spinlock_release(lock);
+
+	return err;
+
+
+}
+
 bool vmm_map(void* paddr, void* vaddr, size_t pagec, size_t mmuflags){
 	int* lock;
 	vmm_mapping** start;

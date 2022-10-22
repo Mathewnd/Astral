@@ -1,6 +1,7 @@
 #ifndef _VMM_H_INCLUDE
 #define _VMM_H_INCLUDE
 
+#include <kernel/vfs.h>
 #include <arch/mmu.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -64,6 +65,7 @@ void*		vmm_alloc(size_t pagec, size_t mmuflags);
 bool		vmm_setfree(void* addr, size_t pagec);
 bool		vmm_allocnowat(void* addr, size_t mmuflags, size_t size);
 void*		vmm_allocfrom(void* addr, size_t mmuflags, size_t size);
+int		vmm_mapfile(vnode_t* node, void* addr, size_t len, size_t offset, size_t mmuflags);
 vmm_context*	vmm_newcontext();
 void		vmm_switchcontext(vmm_context*);
 int		vmm_fork(vmm_context* oldctx, vmm_context* newctx);

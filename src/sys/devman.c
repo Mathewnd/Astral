@@ -85,6 +85,18 @@ int devman_poll(int dev, pollfd* fd){
 	return majorcalls[major(dev)]->poll(minor(dev), fd);
 }
 
+int devman_map(int dev, void* addr, size_t len, size_t offset, size_t mmuflags){
+	
+	if(major(dev) > highestmajor)
+		return ENOTTY;
+	
+	if(!majorcalls[major(dev)]->map)
+		return ENOTTY;
+
+	return majorcalls[major(dev)]->map(minor(dev), addr, len, offset, mmuflags);
+
+}
+
 void devman_init(){
 	
 	devfs_init();
