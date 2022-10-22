@@ -134,23 +134,48 @@ int main(int argc, char* argv[]){
 	setenv("HOME", pw->pw_dir, 1);
 	chdir(pw->pw_dir);
 	setenv("PATH", "/bin:/usr/bin:/usr/local/bin:/sbin:/usr/sbin:/usr/local/sbin", 1);
+	
+	printf("init: running /etc/rc\n");
+
+	// execute init script
+	
+	pid_t scriptpid = fork();
+	
+	if(scriptpid == -1){
+		perror("init: fork failed");
+		exit(1);
+	}	
+
+	if(scriptpid == 0){
+		char* args[] = {name, "/etc/rc", 0};
+		execv(name, args);
+		perror("init: execv failed");
+		exit(1);
+	}
+	
+	int status = 0;
+
+	waitpid(scriptpid, &status, 0);
+
+	if(status){
+		printf("init: running the /etc/rc script failed: status %lu\n", status);
+		exit(1);
+	}
 
 	// execute shell
 	
 	pid_t shellpid = fork();
 
 	if(shellpid == -1){
-		printf("init: fork failed: %s\n", strerror(errno));
+		perror("init: fork failed");
 		exit(1);
 	}
 	
 	if(shellpid == 0){
 		execv(name, args);
-		printf("init: exec failed: %s\n", strerror(errno));
+		perror("init: execv failed");
 		exit(1);
 	}
-	
-	int status;
 
 	for(;;) waitpid(-1, &status, 0);
 
