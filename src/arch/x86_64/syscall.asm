@@ -110,8 +110,10 @@ asm_syscall_entry:
 	add qword [gs:0], 8 ; fix it
 	
 	sti
-	
+
 	; assemble and save context needed for some system calls	
+
+
 
 	push qword 0x43 ; ss
 	push qword [rsp+8] ; rsp
@@ -151,21 +153,40 @@ asm_syscall_entry:
 
 	; set up context for calls that need it
 
-	cmp rax, 12 ; fork
-	
+	cmp rax, 12 ; fork	
+
 	jne .not_fork
 
 	mov rdi, rsp
 
 	jmp .do_syscall
-	
+
 	.not_fork:
 
 	.do_syscall:
 
+	; DEBUG STUFF
+	;mov r15,rax
+	; END DEBUG STUFF
+
 	call [func_table + rax * 8]
 
 	; restore entry state
+
+	; DEBUG STUFF
+
+	;push rax
+	;push rdx
+
+	;mov rsi,rdx
+	;mov rdi,r15
+	;extern syscalllogger
+	;call syscalllogger
+	
+	;pop rdx
+	;pop rax
+
+	; DEBUG STUFF END
 
 	mov r11, 0x43 ; user data
 	mov es,r11
