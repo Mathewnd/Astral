@@ -6,7 +6,7 @@
 #include <sys/stat.h>
 #include <kernel/socket.h>
 
-syscallret syscall_bind(int sockfd, void* addr, size_t addrlen){
+syscallret syscall_bind(int sockfd, void* addr, socklen_t addrlen){
 	
 	syscallret retv;
 	retv.ret = -1;

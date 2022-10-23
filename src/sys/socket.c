@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <kernel/alloc.h>
 #include <arch/spinlock.h>
+#include <poll.h>
 
 int socket_new(struct _socket_t** returnptr, int family, int type, int protocol){
 
@@ -18,7 +19,7 @@ int socket_new(struct _socket_t** returnptr, int family, int type, int protocol)
 
 // TODO move around locks and tests
 
-int socket_bind(struct _socket_t* sock, void* addr, size_t addrlen){
+int socket_bind(struct _socket_t* sock, void* addr, socklen_t addrlen){
 	
 	if(sock->addrlen)
 		return EINVAL;
@@ -64,7 +65,7 @@ int socket_listen(struct _socket_t* sock, int backlog){
 
 }
 
-int socket_connect(struct _socket_t* sock, void* addr, size_t addrlen){
+int socket_connect(struct _socket_t* sock, void* addr, socklen_t addrlen){
 	
 	switch(sock->family){
 		case AF_UNIX:
@@ -75,7 +76,7 @@ int socket_connect(struct _socket_t* sock, void* addr, size_t addrlen){
 	
 }
 
-int socket_accept(socket_t** peer, socket_t* sock, void* addr, size_t* addrlen){
+int socket_accept(socket_t** peer, socket_t* sock, void* addr, socklen_t* addrlen){
 	switch(sock->family){
 		case AF_UNIX:
 			return unsocket_accept(peer, sock, addr, addrlen);
@@ -84,7 +85,7 @@ int socket_accept(socket_t** peer, socket_t* sock, void* addr, size_t* addrlen){
 	}
 }
 
-int socket_send(socket_t* socket, void* buff, size_t len, int flags, int* count){
+int socket_send(socket_t* socket, void* buff, socklen_t len, int flags, int* count){
 	switch(socket->family){
 		case AF_UNIX:
 			return unsocket_send(socket, buff, len, flags, count);
@@ -93,10 +94,19 @@ int socket_send(socket_t* socket, void* buff, size_t len, int flags, int* count)
 	}
 }
 
-int socket_recv(socket_t* socket, void* buff, size_t len, int flags, int* count){
+int socket_recv(socket_t* socket, void* buff, socklen_t len, int flags, int* count){
 	switch(socket->family){
 		case AF_UNIX:
 			return unsocket_recv(socket, buff, len, flags, count);
+		default:
+			return EINVAL;
+	}
+}
+
+int socket_poll(socket_t* socket, pollfd* fd){
+	switch(socket->family){
+		case AF_UNIX:
+			return unsocket_poll(socket, fd);
 		default:
 			return EINVAL;
 	}

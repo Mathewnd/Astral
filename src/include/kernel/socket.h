@@ -17,6 +17,8 @@
 #define SOCK_STREAM    1
 #define AF_UNIX        1
 
+typedef unsigned socklen_t;
+
 typedef struct _socket_t{
 	int lock;
 	int family;
@@ -59,10 +61,10 @@ static inline socket_t* socket_popfrombacklog(socket_t* listener){
         return sock;
 }
 
-int socket_connect(struct _socket_t* sock, void* addr, size_t addrlen);
+int socket_connect(struct _socket_t* sock, void* addr, socklen_t addrlen);
 int socket_new(socket_t** returnptr, int family, int type, int protocol);
-int socket_bind(struct _socket_t* sock, void* addr, size_t addrlen);
+int socket_bind(struct _socket_t* sock, void* addr, socklen_t addrlen);
 int socket_listen(struct _socket_t* sock, int backlog);
-int socket_accept(socket_t** peer, socket_t* sock, void* addr, size_t* addrlen);
-int socket_send(socket_t* socket, void* buff, size_t len, int flags, int* error);
+int socket_accept(socket_t** peer, socket_t* sock, void* addr, socklen_t* addrlen);
+int socket_send(socket_t* socket, void* buff, socklen_t len, int flags, int* error);
 #endif

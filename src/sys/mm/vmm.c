@@ -187,7 +187,7 @@ static bool setmap(vmm_mapping** mapstart, void* addr, size_t pagec, size_t mmuf
 			return false;
 		}
 		
-		// unallocate entries inbetween
+		// unallocate entries inbetween TODO sync file
 		
 		vmm_mapping* loopmap = map->next;
 
@@ -225,7 +225,7 @@ static bool setmap(vmm_mapping** mapstart, void* addr, size_t pagec, size_t mmuf
 
 	}
 
-	// do we need to split?
+	// do we need to split? TODO add more file refs
 	
 	if(map->start != newmap->start && map->end != newmap->end){
 		vmm_mapping* splitmap = allocatefirst();
@@ -324,7 +324,8 @@ static bool unmap(vmm_mapping** mapstart, void* addr, size_t pagec){
 	vmm_mapping *map = *mapstart;
 	void* savedaddr = addr;
 	arch_mmu_tableptr context = arch_getcls()->context->context;
-	
+	int err;
+
 	for(size_t page = 0; page < pagec; ++page, addr += PAGE_SIZE){
 		map = findmappingfromaddr(map, addr);
 		switch(map->type){
@@ -337,7 +338,10 @@ static bool unmap(vmm_mapping** mapstart, void* addr, size_t pagec){
 				break;
 
 			case VMM_TYPE_FILE:
-				_panic("File mappings not supported!", 0);
+				vfs_write(&err, map->data, addr, PAGE_SIZE, map->offset + page*PAGE_SIZE);
+				void* paddr = arch_mmu_getphysicaladdr(context, addr);
+				pmm_free(paddr, 1);
+				arch_mmu_unmap(context, addr);
 
 			default:
 				continue;
@@ -397,15 +401,17 @@ int vmm_fork(vmm_context* oldctx, vmm_context* newctx){
 	vmm_mapping* mapping = oldctx->userstart;
 
 	while(mapping){
-		
-		if(mapping->type == VMM_TYPE_FILE)
-			_panic("File mappings not supported yet!", NULL);
+
 
 		size_t pagesize =((uintptr_t)mapping->end - (uintptr_t)mapping->start + 1) / PAGE_SIZE; 
 
 		if(!setmap(&newctx->userstart, mapping->start, pagesize, mapping->mmuflags, mapping->type, mapping->data, mapping->offset))
 				
 			goto _fail;
+		
+		
+		if(mapping->type == VMM_TYPE_FILE)
+			++((vnode_t*)mapping->data)->refcount;
 		
 
 
@@ -656,9 +662,6 @@ bool vmm_dealwithrequest(void* addr, long error, bool user){
 		goto done;
 	}
 
-	if(map->type == VMM_TYPE_FILE)
-		_panic("File mappings are not supported (yet)", 0);
-
 	size_t goodmmuflags = 1;
 
 	if(error & ARCH_MMU_ERROR_WRITE)
@@ -680,9 +683,6 @@ bool vmm_dealwithrequest(void* addr, long error, bool user){
 	// allocate a page
 
 	addr = (size_t)addr & ~(0xFFF);
-
-	//printf("Demand paging %p\n", addr);
-	
 	
 
 	cls_t* cls = arch_getcls();
@@ -696,9 +696,15 @@ bool vmm_dealwithrequest(void* addr, long error, bool user){
 		goto done;
 	}
 	
-	status = true;
-	
 	memset(addr, 0, PAGE_SIZE);
+
+	if(map->type == VMM_TYPE_FILE){ // TODO check for errors?
+		int err;
+		size_t offset = addr - map->start;
+		vfs_read(&err, map->data, addr, PAGE_SIZE, map->offset + offset);
+	}
+	
+	status = true;
 	
 	done:
 	

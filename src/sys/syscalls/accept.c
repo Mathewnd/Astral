@@ -6,7 +6,7 @@
 
 extern fs_t kerneltmpfs;
 
-syscallret syscall_accept(int sockfd, void* addr, size_t* addrlen){
+syscallret syscall_accept(int sockfd, void* addr, socklen_t* addrlen){
 
 	syscallret retv;
         retv.ret = -1;

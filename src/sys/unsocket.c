@@ -7,6 +7,7 @@
 #include <string.h>
 #include <kernel/vfs.h>
 #include <arch/interrupt.h>
+#include <poll.h>
 
 int unsocket_new(socket_t** returnptr, int type, int protocol){
 	
@@ -33,7 +34,7 @@ int unsocket_new(socket_t** returnptr, int type, int protocol){
 	
 }
 
-int unsocket_bind(struct _socket_t* sock, sockaddr_un* addr, size_t addrlen){
+int unsocket_bind(struct _socket_t* sock, sockaddr_un* addr, socklen_t addrlen){
 	
 	// copy address
 
@@ -80,7 +81,7 @@ int unsocket_bind(struct _socket_t* sock, sockaddr_un* addr, size_t addrlen){
 
 }
 
-int unsocket_connect(struct _socket_t* sock, void* addr, size_t addrlen){
+int unsocket_connect(struct _socket_t* sock, void* addr, socklen_t addrlen){
 
 	// copy address
 
@@ -175,17 +176,16 @@ int unsocket_connect(struct _socket_t* sock, void* addr, size_t addrlen){
 	
 }
 
-int unsocket_accept(socket_t** peer, socket_t* sock, void* addr, size_t* addrlen){
+int unsocket_accept(socket_t** peer, socket_t* sock, void* addr, socklen_t* addrlen){
 	
 	// TODO abort
 
-	size_t len = *addrlen;
+	socklen_t len = *addrlen;
 
 	int err = 0;
 
 	if(*addrlen > sizeof(sockaddr_un))
                 return EINVAL;
-
 
 	spinlock_acquire(&sock->lock);
 
@@ -202,8 +202,6 @@ int unsocket_accept(socket_t** peer, socket_t* sock, void* addr, size_t* addrlen
 		spinlock_acquire(&sock->lock);
 	}
 	
-	// TODO put peer name here
-
 	*peer = socket_popfrombacklog(sock);
 
 	spinlock_release(&sock->lock);
@@ -214,7 +212,7 @@ int unsocket_accept(socket_t** peer, socket_t* sock, void* addr, size_t* addrlen
 	
 }
 
-int unsocket_send(socket_t* socket, void* buff, size_t len, int flags, int* error){
+int unsocket_send(socket_t* socket, void* buff, socklen_t len, int flags, int* error){
 
 	if(flags){ // right now no flags are supported
 		*error = EOPNOTSUPP;
@@ -266,7 +264,9 @@ int unsocket_send(socket_t* socket, void* buff, size_t len, int flags, int* erro
 
 }
 
-int unsocket_recv(socket_t* socket, void* buff, size_t len, int flags, int* error){
+// TODO check for broken
+
+int unsocket_recv(socket_t* socket, void* buff, socklen_t len, int flags, int* error){
 	
 	if(flags){ // right now no flags are supported
                 *error = EOPNOTSUPP;
@@ -314,3 +314,35 @@ int unsocket_recv(socket_t* socket, void* buff, size_t len, int flags, int* erro
 	
 	return readc;
 }
+
+int unsocket_poll(socket_t* socket, pollfd* fd){
+	spinlock_acquire(&socket->lock);
+
+	// TODO outgoing connect finished
+
+	switch(socket->state){
+		case SOCKET_STATE_LISTENING:
+			if(fd->events & POLLIN && socket->backlogend)
+				fd->revents |= POLLIN;
+
+			break;
+		case SOCKET_STATE_CONNECTED:
+			
+			if(!socket->peer)
+				fd->revents |= POLLHUP;
+
+			if(fd->events & POLLIN && socket->buffer.write != socket->buffer.read)
+                        	fd->revents |= POLLIN;
+
+			if(fd->events & POLLOUT && socket->buffer.write != socket->buffer.read + socket->buffer.size)
+				fd->revents |= POLLOUT;
+			
+			break;
+		default:
+			return 0;
+	}
+
+	spinlock_release(&socket->lock);
+	return 0;
+}
+

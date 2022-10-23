@@ -4,6 +4,7 @@
 #include <arch/cls.h>
 #include <poll.h>
 #include <kernel/sched.h>
+#include <arch/interrupt.h>
 
 #define MAXNFDS 4096
 
@@ -78,6 +79,9 @@ syscallret syscall_poll(pollfd *fds, size_t nfds, int timeoutms){
 		// TODO check for signal or timeout
 		
 		if(timeoutms == 0) break;
+		arch_interrupt_disable();
+		sched_yield();
+		arch_interrupt_enable();
 
 	}
 

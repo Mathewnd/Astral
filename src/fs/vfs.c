@@ -8,6 +8,7 @@
 #include <dirent.h>
 #include <kernel/pipe.h>
 #include <arch/timekeeper.h>
+#include <arch/cls.h>
 
 #define VFS_MAX_LOOP 5
 
@@ -129,7 +130,10 @@ int vfs_poll(vnode_t* node, pollfd* fd){
 			return devman_poll(node->st.st_rdev, fd);
 		case TYPE_FIFO:
 			return pipe_poll(node->objdata, fd);
+		case TYPE_SOCKET:
+			return socket_poll(node->objdata, fd);
 		default:
+			printf("Tried to poll an object of type %lu\n", GETTYPE(node->st.st_mode));
 			_panic("Unsupported poll", NULL);	
 	}
 
@@ -242,11 +246,21 @@ int vfs_map(vnode_t* node, void* addr, size_t len, size_t offset, size_t mmuflag
 	spinlock_acquire(&lock);
 	
 	int err;
-	
+
 	if(GETTYPE(node->st.st_mode) == TYPE_CHARDEV){
 		err = devman_map(node->st.st_rdev, addr, len, offset, mmuflags);
+		++node->refcount;
+		goto _back;
 	}
-	else _panic("Normal file mapping not supported!", 0);
+
+	if(GETTYPE(node->st.st_mode) != TYPE_REGULAR){
+		err = EACCES;
+		goto _back;
+	}
+
+	++node->refcount;
+
+	_back:
 
 	spinlock_release(&lock);
 
@@ -572,9 +586,12 @@ int vfs_resolvepath(vnode_t** result, dirnode_t** resultparent, dirnode_t* ref, 
 			
 			linkname[size] = '\0';
 			
-			printf("reading link: %s\n", linkname);
+			proc_t* proc = arch_getcls()->thread->proc;
 
-			error = vfs_resolvepath(&iterator, NULL, iterator, linkname, namebuff, true, maxloop-1); // XXX this might break some parent stuff when following links
+			dirnode_t* root = proc ? proc->root : vfs_root();
+			vnode_t* ref = linkname[0] == '/' ? root : iterator;
+
+			error = vfs_resolvepath(&iterator, NULL, ref, linkname, namebuff, true, maxloop-1); // XXX this might break some parent stuff when following links
 
 			free(linkname);
 
@@ -641,8 +658,14 @@ int vfs_resolvepath(vnode_t** result, dirnode_t** resultparent, dirnode_t* ref, 
 			return error;
 		
 		linkname[size] = '\0';
+		
+		proc_t* proc = arch_getcls()->thread->proc;
 
-		error = vfs_resolvepath(&iterator, NULL, iterator->vnode.parent, linkname, namebuff, true, maxloop-1); // XXX this might break some parent stuff when following links
+		dirnode_t* root = proc ? proc->root : vfs_root();
+		vnode_t* ref = linkname[0] == '/' ? root : iterator->vnode.parent;
+
+
+		error = vfs_resolvepath(&iterator, NULL, ref, linkname, namebuff, true, maxloop-1); // XXX this might break some parent stuff when following links
 
 		free(linkname);
 
