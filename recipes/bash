@@ -20,5 +20,10 @@ build() {
 install() {
 
 	make install DESTDIR=${dest_dir}
+	
+	mkdir -p ${dest_dir}/bin
+	pushd ${dest_dir}/bin
+	ln -sv ${prefix}/bin/bash sh
+	popd
 
 }
