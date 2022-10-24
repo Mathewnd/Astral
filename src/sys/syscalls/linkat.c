@@ -26,6 +26,8 @@ static int gettarget(fd_t** targ, dirnode_t** targnode, int ifd, proc_t* proc){
 	else
 		*targnode = proc->cwd;
 
+	return 0;
+
 }
 
 
@@ -89,7 +91,6 @@ syscallret syscall_linkat(int srcdirfd, const char* srcpath, int tgtdirfd, const
 		fd_release(tgtfd);
 
 	retv.ret = retv.errno ? -1 : 0;
-	
 	return retv;
 
 }
