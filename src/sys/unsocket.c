@@ -81,7 +81,7 @@ int unsocket_bind(struct _socket_t* sock, sockaddr_un* addr, socklen_t addrlen){
 
 }
 
-int unsocket_connect(struct _socket_t* sock, void* addr, socklen_t addrlen){
+int unsocket_connect(struct _socket_t* sock, void* addr, socklen_t addrlen, fd_t* fd){
 
 	// copy address
 
@@ -151,7 +151,7 @@ int unsocket_connect(struct _socket_t* sock, void* addr, socklen_t addrlen){
 	
 	spinlock_release(&peer->lock);
 	spinlock_release(&sock->lock);
-	
+
 	err = event_wait(&sock->acceptevent, true);
 	
 	spinlock_acquire(&peer->lock);
@@ -176,7 +176,7 @@ int unsocket_connect(struct _socket_t* sock, void* addr, socklen_t addrlen){
 	
 }
 
-int unsocket_accept(socket_t** peer, socket_t* sock, void* addr, socklen_t* addrlen){
+int unsocket_accept(socket_t** peer, socket_t* sock, void* addr, socklen_t* addrlen, fd_t* fd){
 	
 	// TODO abort
 
@@ -195,15 +195,20 @@ int unsocket_accept(socket_t** peer, socket_t* sock, void* addr, socklen_t* addr
 	}
 
 	// TODO interruptble
-
+	
 	while(!sock->backlogend){
+		if(fd->flags & O_NONBLOCK){
+			err = EWOULDBLOCK;
+			goto _return;
+		}
+			
 		spinlock_release(&sock->lock);
 		event_wait(&sock->connectevent, true);
 		spinlock_acquire(&sock->lock);
 	}
 	
 	*peer = socket_popfrombacklog(sock);
-
+	
 	spinlock_release(&sock->lock);
 
 	_return:
@@ -212,7 +217,7 @@ int unsocket_accept(socket_t** peer, socket_t* sock, void* addr, socklen_t* addr
 	
 }
 
-int unsocket_send(socket_t* socket, void* buff, socklen_t len, int flags, int* error){
+int unsocket_send(socket_t* socket, void* buff, size_t len, int flags, int* error, fd_t* fd){
 
 	if(flags){ // right now no flags are supported
 		*error = EOPNOTSUPP;
@@ -220,6 +225,7 @@ int unsocket_send(socket_t* socket, void* buff, socklen_t len, int flags, int* e
 	}
 
 	int writec = 0;
+	*error = 0;
 
 	socket_t* peer = socket->peer;
 
@@ -235,14 +241,21 @@ int unsocket_send(socket_t* socket, void* buff, socklen_t len, int flags, int* e
 		arch_interrupt_disable();
 		
 		writec = ringbuffer_write(&peer->buffer, buff, len);
+	
 		
 		if(writec > 0){
 			event_signal(&peer->dataevent, true);
 			break;
 		}
 
+		if(fd->flags & O_NONBLOCK){
+			*error = EWOULDBLOCK;
+			break;
+		}
+
 		spinlock_release(&peer->lock);
 		
+
 		if(event_wait(&peer->dataevent, true)){
 			spinlock_acquire(&peer->lock);
 			writec = -1;
@@ -252,8 +265,6 @@ int unsocket_send(socket_t* socket, void* buff, socklen_t len, int flags, int* e
 		spinlock_acquire(&peer->lock);
 
 	}
-	
-	*error = 0;
 	
 	_return:
 
@@ -266,7 +277,7 @@ int unsocket_send(socket_t* socket, void* buff, socklen_t len, int flags, int* e
 
 // TODO check for broken
 
-int unsocket_recv(socket_t* socket, void* buff, socklen_t len, int flags, int* error){
+int unsocket_recv(socket_t* socket, void* buff, size_t len, int flags, int* error, fd_t* fd){
 	
 	if(flags){ // right now no flags are supported
                 *error = EOPNOTSUPP;
@@ -274,6 +285,8 @@ int unsocket_recv(socket_t* socket, void* buff, socklen_t len, int flags, int* e
         }
 	
 	int readc = 0;
+	
+	*error = 0;
 
 	spinlock_acquire(&socket->lock);
 
@@ -285,11 +298,18 @@ int unsocket_recv(socket_t* socket, void* buff, socklen_t len, int flags, int* e
 	for(;;){
 		
 		arch_interrupt_disable();
-
+	
 		readc = ringbuffer_read(&socket->buffer, buff, len);
+
+		arch_interrupt_enable();
 
 		if(readc > 0){
 			event_signal(&socket->dataevent, true);
+			break;
+		}
+
+		if(fd->flags & O_NONBLOCK){
+			*error = EWOULDBLOCK;
 			break;
 		}
 
@@ -300,18 +320,16 @@ int unsocket_recv(socket_t* socket, void* buff, socklen_t len, int flags, int* e
 			readc = -1;
 			*error = EINTR;
 			break;
-		}
+		} 
 
 		spinlock_acquire(&socket->lock);
-		
-	}
 
-	*error = 0;
+	}
 
 	_return:
 
 	spinlock_release(&socket->lock);
-	
+		
 	return readc;
 }
 
@@ -322,21 +340,24 @@ int unsocket_poll(socket_t* socket, pollfd* fd){
 
 	switch(socket->state){
 		case SOCKET_STATE_LISTENING:
-			if(fd->events & POLLIN && socket->backlogend)
+			if((fd->events & POLLIN) && socket->backlogend){
 				fd->revents |= POLLIN;
-
+			}
+			
 			break;
 		case SOCKET_STATE_CONNECTED:
-			
+
 			if(!socket->peer)
 				fd->revents |= POLLHUP;
 
-			if(fd->events & POLLIN && socket->buffer.write != socket->buffer.read)
+			if((fd->events & POLLIN) && socket->buffer.write != socket->buffer.read){
                         	fd->revents |= POLLIN;
+			}
 
-			if(fd->events & POLLOUT && socket->buffer.write != socket->buffer.read + socket->buffer.size)
+			if((fd->events & POLLOUT) && socket->buffer.write != socket->buffer.read + socket->buffer.size){
 				fd->revents |= POLLOUT;
-			
+			}
+
 			break;
 		default:
 			return 0;
