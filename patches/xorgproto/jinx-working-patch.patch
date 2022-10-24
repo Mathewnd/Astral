@@ -1,0 +1,13 @@
+diff --git xorgproto-clean/include/X11/Xos.h xorgproto-workdir/include/X11/Xos.h
+index 28dfc67..f46490a 100644
+--- xorgproto-clean/include/X11/Xos.h
++++ xorgproto-workdir/include/X11/Xos.h
+@@ -60,7 +60,7 @@ in this Software without prior written authorization from The Open Group.
+  */
+ 
+ # include <string.h>
+-# if defined(__SCO__) || defined(__UNIXWARE__) || defined(__sun) || defined(__CYGWIN__) || defined(_AIX) || defined(__APPLE__)
++# if defined(__SCO__) || defined(__UNIXWARE__) || defined(__sun) || defined(__CYGWIN__) || defined(_AIX) || defined(__APPLE__) || defined(__astral__)
+ #  include <strings.h>
+ # else
+ #  ifndef index

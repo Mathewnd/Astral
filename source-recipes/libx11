@@ -1,0 +1,9 @@
+name=libx11
+version=1.8.1
+source_method=tarball
+tarball_url="https://www.x.org/archive/individual/lib/libX11-${version}.tar.gz"
+tarball_sha512=a
+hostdeps="xorgproto autoconf automake libtool pkgconfig util-macros xtrans"
+regenerate() {
+        autoreconf -fvi
+}

@@ -1,0 +1,8 @@
+name=zlib
+version=1.2.13
+source_method=tarball
+tarball_url="https://zlib.net/zlib-${version}.tar.gz"
+tarball_sha512=a
+regenerate() {
+        true
+}

@@ -1,0 +1,24 @@
+name=xclock
+revision=1
+from_source=xclock
+imagedeps="meson ninja base-devel"
+hostdeps="gcc-cross binutils-cross pkgconfig"
+deps="mlibc xorg-server libxmu libxaw libxft"
+
+configure() {
+	
+	 ${source_dir}/configure --prefix=${prefix} --host=x86_64-astral
+
+}
+
+build() {
+	
+	make -j${parallelism}
+
+}
+
+install() {
+
+	make DESTDIR=${dest_dir} install
+
+}

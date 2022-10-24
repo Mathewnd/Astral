@@ -1,0 +1,9 @@
+name=libxfont2
+version=2.0.6
+source_method=tarball
+tarball_url="https://www.x.org/archive/individual/lib/libXfont2-${version}.tar.gz"
+tarball_sha512=a
+hostdeps="autoconf automake libtool pkgconfig util-macros"
+regenerate() {
+        autoreconf -vfi
+}

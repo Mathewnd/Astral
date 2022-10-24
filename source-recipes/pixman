@@ -1,0 +1,8 @@
+name=pixman
+version=0.40.0
+source_method=tarball
+tarball_url="https://www.cairographics.org/releases/pixman-${version}.tar.gz"
+tarball_sha512=a
+regenerate() {
+        true
+}

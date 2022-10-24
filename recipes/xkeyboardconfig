@@ -1,0 +1,24 @@
+name=xkeyboardconfig
+revision=1
+from_source=xkeyboardconfig
+imagedeps="gcc meson ninja"
+hostdeps="gcc-cross binutils-cross pkgconfig automake autoconf util-macros libtool"
+deps="mlibc"
+
+configure() {
+	
+	meson --cross-file ${base_dir}/util/crossfile --prefix=${prefix} ${source_dir}
+
+}
+
+build() {
+	
+	ninja
+
+}
+
+install() {
+
+	DESTDIR=${dest_dir} ninja install
+
+}

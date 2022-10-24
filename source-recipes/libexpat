@@ -1,0 +1,9 @@
+name=libexpat
+version=2.4.9
+source_method=tarball
+tarball_url="https://github.com/libexpat/libexpat/releases/download/R_2_4_9/expat-${version}.tar.xz"
+tarball_sha512=a
+hostdeps="autoconf automake pkgconfig libtool"
+regenerate() {
+        autoreconf -fvi
+}

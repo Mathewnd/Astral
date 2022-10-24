@@ -1,0 +1,9 @@
+name=libgpg-error
+version=1.45
+source_method=tarball
+tarball_url="https://www.gnupg.org/ftp/gcrypt/libgpg-error/libgpg-error-${version}.tar.bz2"
+tarball_sha512=a
+hostdeps="automake autoconf pkgconfig libtool"
+regenerate() {
+        autoreconf -fvi
+}

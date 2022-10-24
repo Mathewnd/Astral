@@ -1,0 +1,24 @@
+name=xcb-proto
+revision=1
+from_source=xcb-proto
+imagedeps="base-devel python3"
+hostdeps="gcc-cross binutils-cross"
+deps="mlibc"
+
+configure() {
+	
+	PYTHON=python3 ${source_dir}/configure --host=x86_64-astral --prefix=${prefix}
+	
+}
+
+build() {
+	
+	make -j ${parallelism}
+
+}
+
+install() {
+
+	make install DESTDIR=${dest_dir}
+
+}

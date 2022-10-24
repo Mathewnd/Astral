@@ -1,0 +1,24 @@
+name=libxfont2
+revision=1
+from_source=libxfont2
+imagedeps="meson ninja gcc"
+hostdeps="gcc-cross binutils-cross pkgconfig"
+deps="mlibc xorgproto freetype zlib xtrans libfontenc"
+
+configure() {
+	
+	${source_dir}/configure --prefix=${prefix} --host=x86_64-astral --disable-malloc0returnsnull
+
+}
+
+build() {
+	
+	make -j${parallelism}
+
+}
+
+install() {
+
+	DESTDIR=${dest_dir} make install
+
+}

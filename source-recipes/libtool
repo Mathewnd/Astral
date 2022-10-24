@@ -1,0 +1,13 @@
+name=libtool
+version=2.4.7
+source_method=tarball
+tarball_url="https://ftp.gnu.org/gnu/libtool/libtool-${version}.tar.gz"
+tarball_sha512=a
+imagedeps="autoconf automake base-devel help2man wget"
+allow_network="yes"
+
+regenerate() {
+	wget https://git.savannah.gnu.org/cgit/gnulib.git/snapshot/gnulib-4b17a1ae49e69df1ac5dc35a4f60b20ab958baf2.tar.gz
+	tar -xf gnulib-4b17a1ae49e69df1ac5dc35a4f60b20ab958baf2.tar.gz
+	./bootstrap --force --skip-git --skip-po --gnulib-srcdir=`pwd`/gnulib-4b17a1ae49e69df1ac5dc35a4f60b20ab958baf2
+}

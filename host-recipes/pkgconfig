@@ -1,0 +1,35 @@
+name=pkgconfig
+revision=1
+from_source=pkgconfig
+imagedeps="gcc base-devel"
+
+
+configure() {
+	
+	${source_dir}/configure --prefix=${prefix}
+	
+}
+
+build() {
+	
+	make -j${parallelism}
+
+}
+
+install() {
+
+	make install DESTDIR="${dest_dir}"
+	mkdir -p ${dest_dir}${prefix}/share/pkgconfig/personality.d
+	
+	cat > ${dest_dir}${prefix}/share/pkgconfig/personality.d/x86_64-astral.personality << EOF
+Triplet: x86_64-astral
+SysrootDir: ${sysroot_dir}
+DefaultSearchPaths: ${sysroot_dir}/usr/lib/pkgconfig:${sysroot_dir}/usr/share/pkgconfig
+SystemIncludePaths: ${sysroot_dir}/usr/include
+SystemLibraryPaths: ${sysroot_dir}/usr/lib
+EOF
+
+	ln -s pkgconf ${dest_dir}${prefix}/bin/x86_64-astral-pkg-config
+
+}
+

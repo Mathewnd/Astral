@@ -1,0 +1,10 @@
+name=pkgconfig
+version=1.8.0
+source_method=tarball
+tarball_url="https://github.com/pkgconf/pkgconf/archive/refs/tags/pkgconf-${version}.tar.gz"
+tarball_sha512=a
+imagedeps="autoconf automake"
+
+regenerate() {
+	./autogen.sh
+}

@@ -1,0 +1,23 @@
+name=xorgproto
+revision=1
+from_source=xorgproto
+imagedeps="meson ninja gcc"
+hostdeps="gcc-cross binutils-cross pkgconfig"
+
+configure() {
+	
+	meson --prefix=${prefix} -Dlegacy=true ${source_dir}
+
+}
+
+build() {
+	
+	ninja
+
+}
+
+install() {
+
+	DESTDIR=${dest_dir} ninja install
+
+}

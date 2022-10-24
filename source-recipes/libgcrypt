@@ -1,0 +1,9 @@
+name=libgcrypt
+version=1.10.1
+source_method=tarball
+tarball_url="https://www.gnupg.org/ftp/gcrypt/libgcrypt/libgcrypt-${version}.tar.bz2"
+tarball_sha512=a
+hostdeps="libtool automake autoconf pkgconfig"
+regenerate() {
+        autoreconf -fvi
+}

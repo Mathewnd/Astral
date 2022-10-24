@@ -1,0 +1,24 @@
+name=xeyes
+revision=1
+from_source=xeyes
+imagedeps="meson ninja base-devel"
+hostdeps="gcc-cross binutils-cross pkgconfig"
+deps="mlibc xorg-server libxt libxmu libxext libxi libxrender"
+
+configure() {
+	
+	 ${source_dir}/configure --prefix=${prefix} --host=x86_64-astral
+
+}
+
+build() {
+	
+	make -j${parallelism}
+
+}
+
+install() {
+
+	make DESTDIR=${dest_dir} install
+
+}

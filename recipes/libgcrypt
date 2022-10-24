@@ -1,0 +1,29 @@
+name=libgcrypt
+revision=1
+from_source=libgcrypt
+imagedeps="meson ninja gcc"
+hostdeps="gcc-cross binutils-cross pkgconfig libtool"
+deps="mlibc libgpg-error"
+
+configure() {
+	
+	${source_dir}/configure --prefix=${prefix} --host=x86_64-astral \
+        --enable-shared \
+        --disable-doc \
+        --disable-dev-random \
+        --disable-asm \
+        --with-libgpg-error-prefix=${sysroot_dir}/${prefix}
+
+}
+
+build() {
+	
+	make -j${parallelism}
+
+}
+
+install() {
+
+	make install DESTDIR=${dest_dir}
+
+}

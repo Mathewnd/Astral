@@ -1,0 +1,24 @@
+name=zlib
+revision=1
+from_source=zlib
+imagedeps="gcc"
+hostdeps="gcc-cross binutils-cross pkgconfig"
+deps="mlibc"
+
+configure() {
+	
+	prefix=${prefix} CC=x86_64-astral-gcc ${source_dir}/configure
+
+}
+
+build() {
+	
+	make -j${parallelism}
+
+}
+
+install() {
+
+	make install DESTDIR=${dest_dir}
+
+}

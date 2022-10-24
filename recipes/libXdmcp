@@ -1,0 +1,24 @@
+name=libXdmcp
+revision=1
+from_source=libXdmcp
+imagedeps="gcc"
+hostdeps="gcc-cross binutils-cross pkgconfig"
+deps="mlibc xorgproto"
+
+configure() {
+	
+	${source_dir}/configure --host=x86_64-astral --prefix=${prefix}
+	
+}
+
+build() {
+	
+	make -j ${parallelism}
+
+}
+
+install() {
+
+	make install DESTDIR=${dest_dir}
+
+}

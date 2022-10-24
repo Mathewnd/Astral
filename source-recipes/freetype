@@ -1,0 +1,10 @@
+name=freetype
+version=2.12.1
+source_method=tarball
+tarball_url="https://downloads.sourceforge.net/freetype/freetype-${version}.tar.xz"
+tarball_sha512=a
+hostdeps="autoconf automake libtool pkgconfig"
+regenerate() {
+	./autogen.sh
+	cp /usr/local/share/automake-*/config.sub builds/unix/
+}

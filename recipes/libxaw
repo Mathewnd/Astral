@@ -1,0 +1,24 @@
+name=libxaw
+revision=1
+from_source=libxaw
+imagedeps="meson ninja base-devel"
+hostdeps="gcc-cross binutils-cross pkgconfig"
+deps="mlibc libx11 libxt libxext libxmu libxpm"
+
+configure() {
+	
+	 ${source_dir}/configure --prefix=${prefix} --host=x86_64-astral --enable-shared --disable-static
+
+}
+
+build() {
+	
+	make -j${parallelism}
+
+}
+
+install() {
+
+	make DESTDIR=${dest_dir} install
+
+}

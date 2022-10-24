@@ -1,0 +1,26 @@
+diff --git xclock-clean/Clock.c xclock-workdir/Clock.c
+index de6beb6..0e92cb6 100644
+--- xclock-clean/Clock.c
++++ xclock-workdir/Clock.c
+@@ -1281,6 +1281,8 @@ time_millis(struct tm *tm, struct timeval *tv)
+ static unsigned long
+ time_intervals(unsigned long millis, unsigned long interval)
+ {
++    if(!interval)
++    	return millis;
+     return (millis + interval / 2) / interval;
+ }
+ 
+diff --git xclock-clean/configure.ac xclock-workdir/configure.ac
+index 7d9847b..e15fecd 100644
+--- xclock-clean/configure.ac
++++ xclock-workdir/configure.ac
+@@ -41,8 +41,6 @@ XORG_DEFAULT_OPTIONS
+ 
+ AC_CHECK_FUNCS([strlcpy getpid nl_langinfo])
+ 
+-AM_ICONV
+-
+ dnl Required dependencies
+ PKG_CHECK_MODULES(XCLOCK, [xaw7 xmu x11 xproto >= 7.0.17])
+ XCLOCK_LIBS="$XCLOCK_LIBS $LIBICONV"

@@ -1,0 +1,24 @@
+name=libexpat
+revision=1
+from_source=libexpat
+imagedeps="base-devel python3"
+hostdeps="gcc-cross binutils-cross pkgconfig"
+deps="mlibc"
+
+configure() {
+	
+	 ${source_dir}/configure --prefix=${prefix} --host=x86_64-astral --enable-shared --disable-static
+
+}
+
+build() {
+	
+	make -j${parallelism}
+
+}
+
+install() {
+
+	make DESTDIR=${dest_dir} install
+
+}

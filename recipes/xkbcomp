@@ -1,0 +1,24 @@
+name=xkbcomp
+revision=1
+from_source=xkbcomp
+imagedeps="gcc"
+hostdeps="gcc-cross binutils-cross pkgconfig automake autoconf util-macros libtool"
+deps="mlibc libxcb xcb-proto xkbfile"
+
+configure() {
+	
+	${source_dir}/configure --prefix=${prefix} --host=x86_64-astral
+
+}
+
+build() {
+	
+	make -j${parallelism}
+
+}
+
+install() {
+
+	make DESTDIR=${dest_dir} install
+
+}
