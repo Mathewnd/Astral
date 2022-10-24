@@ -36,7 +36,18 @@ syscallret syscall_fcntl(int ifd, int cmd, uint64_t arg){
 		case F_GETFL:
 			retv.ret = fd->flags;
 			break;
-		case F_SETFL: // no useful status flags implemented
+		case F_SETFL:
+			// mask away things that shouldn't be changed
+			arg &= ~(O_RDONLY | O_WRONLY | O_RDWR | O_CREAT | O_EXCL | O_NOCTTY | O_TRUNC);
+			
+			// and mask away from the flags the things that will be set
+			
+			fd->flags &= ~(O_APPEND | O_ASYNC | O_NOATIME | O_NONBLOCK);
+
+			// finally set the flags
+
+			fd->flags |= arg;
+
 			retv.ret = 0;
 			break;
 		default:
