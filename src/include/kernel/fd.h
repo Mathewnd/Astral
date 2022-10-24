@@ -35,6 +35,12 @@
 #include <stdint.h>
 #include <stddef.h>
 
+
+struct iovec { 
+	void  *iov_base;
+	size_t iov_len;
+};
+
 typedef struct {
 	uintmax_t refcount;
         vnode_t* node;
