@@ -5,12 +5,15 @@
 #include <poll.h>
 #include <kernel/sched.h>
 #include <arch/interrupt.h>
+#include <arch/timekeeper.h>
+#include <time.h>
 
 #define MAXNFDS 4096
 
 syscallret syscall_poll(pollfd *fds, size_t nfds, int timeoutms){
 	syscallret retv;
 	retv.ret = -1;
+
 
 	if(fds > USER_SPACE_END){
 		retv.errno = EFAULT;
@@ -42,6 +45,14 @@ syscallret syscall_poll(pollfd *fds, size_t nfds, int timeoutms){
 	bool eventhappened = false;
 
 	fdtable_t* fdtable = &arch_getcls()->thread->proc->fdtable;
+	
+	struct timespec target = arch_timekeeper_gettime();
+	target.tv_sec += timeoutms / 1000;
+	target.tv_nsec += timeoutms * 1000000;
+	if(target.tv_nsec >= 1000000000){
+		target.tv_sec++;
+		target.tv_nsec %= 1000000000;
+	}
 
 	while(!eventhappened){
 		for(uintmax_t i = 0; i < nfds; ++i){
@@ -69,6 +80,7 @@ syscallret syscall_poll(pollfd *fds, size_t nfds, int timeoutms){
 
 			if(ilist[i].revents)
 				eventhappened = true;
+			
 
 			// cleanup
 			
@@ -79,6 +91,15 @@ syscallret syscall_poll(pollfd *fds, size_t nfds, int timeoutms){
 		// TODO check for signal or timeout
 		
 		if(timeoutms == 0) break;
+		if(timeoutms > 0){
+			struct timespec now = arch_timekeeper_gettime();
+			if(now.tv_sec > target.tv_sec)
+				break;
+			
+			if(now.tv_sec == target.tv_sec && now.tv_nsec >= target.tv_sec)
+				break;
+			
+		}
 		arch_interrupt_disable();
 		sched_yield();
 		arch_interrupt_enable();
@@ -91,12 +112,14 @@ syscallret syscall_poll(pollfd *fds, size_t nfds, int timeoutms){
 
 	for(uintmax_t i = 0; i < nfds; ++i){
 		
-		if(ilist[i].fd < 0 || ilist[i].revents == 0)
+		if(ilist[i].fd < 0)
 			continue;
+		
 
 		fds[i].revents = ilist[i].revents;
 		
-		++eventcount;
+		if(ilist[i].revents)
+			++eventcount;
 
 	}
 
