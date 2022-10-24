@@ -65,41 +65,43 @@ int socket_listen(struct _socket_t* sock, int backlog){
 
 }
 
-int socket_connect(struct _socket_t* sock, void* addr, socklen_t addrlen){
+int socket_connect(struct _socket_t* sock, void* addr, socklen_t addrlen, fd_t* fd){
 	
 	switch(sock->family){
 		case AF_UNIX:
-			return unsocket_connect(sock, addr, addrlen);
+			return unsocket_connect(sock, addr, addrlen, fd);
 		default:
 			return EINVAL;
 	}
 	
 }
 
-int socket_accept(socket_t** peer, socket_t* sock, void* addr, socklen_t* addrlen){
+int socket_accept(socket_t** peer, socket_t* sock, void* addr, socklen_t* addrlen, fd_t* fd){
 	switch(sock->family){
 		case AF_UNIX:
-			return unsocket_accept(peer, sock, addr, addrlen);
+			return unsocket_accept(peer, sock, addr, addrlen, fd);
 		default:
 			return EINVAL;
 	}
 }
 
-int socket_send(socket_t* socket, void* buff, socklen_t len, int flags, int* count){
+int socket_send(socket_t* socket, void* buff, size_t len, int flags, int* error, fd_t* fd){
 	switch(socket->family){
 		case AF_UNIX:
-			return unsocket_send(socket, buff, len, flags, count);
+			return unsocket_send(socket, buff, len, flags, error, fd);
 		default:
-			return EINVAL;
+			*error = EINVAL;
+			return 0;
 	}
 }
 
-int socket_recv(socket_t* socket, void* buff, socklen_t len, int flags, int* count){
+int socket_recv(socket_t* socket, void* buff, size_t len, int flags, int* error, fd_t* fd){
 	switch(socket->family){
 		case AF_UNIX:
-			return unsocket_recv(socket, buff, len, flags, count);
+			return unsocket_recv(socket, buff, len, flags, error, fd);
 		default:
-			return EINVAL;
+			*error = EINVAL;
+			return 0;
 	}
 }
 

@@ -33,7 +33,7 @@ syscallret syscall_connect(int sockfd, void* addr, size_t addrlen){
 		goto _ret;
 	}
 
-	retv.errno = socket_connect(fd->node->objdata, addr, addrlen);
+	retv.errno = socket_connect(fd->node->objdata, addr, addrlen, fd);
 	
 	_ret:
 
