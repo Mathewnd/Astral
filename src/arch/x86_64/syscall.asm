@@ -43,7 +43,9 @@ extern syscall_accept
 extern syscall_nanosleep
 extern syscall_fchmod
 extern syscall_linkat
-func_count equ 42
+extern syscall_recvmsg
+extern syscall_futex
+func_count equ 44
 
 
 func_table:
@@ -89,6 +91,8 @@ func_table:
 	dq syscall_nanosleep
 	dq syscall_fchmod
 	dq syscall_linkat
+	dq syscall_recvmsg
+	dq syscall_futex
 section .text
 global asm_syscall_entry
 

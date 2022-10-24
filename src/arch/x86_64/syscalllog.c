@@ -45,7 +45,9 @@ static char* syscalls[] = {
 	"syscall_accept",
 	"syscall_nanosleep",
 	"syscall_fchmod",
-	"syscall_linkat"
+	"syscall_linkat",
+	"syscall_recvmsg",
+	"syscall_futex"
 	
 };
 
