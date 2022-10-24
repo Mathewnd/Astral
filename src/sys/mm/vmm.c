@@ -701,7 +701,7 @@ bool vmm_dealwithrequest(void* addr, long error, bool user){
 	if(map->type == VMM_TYPE_FILE){ // TODO check for errors?
 		int err;
 		size_t offset = addr - map->start;
-		vfs_read(&err, map->data, addr, PAGE_SIZE, map->offset + offset);
+		vfs_read(&err, map->data, addr, PAGE_SIZE, map->offset + offset, NULL);
 	}
 	
 	status = true;
@@ -711,6 +711,25 @@ bool vmm_dealwithrequest(void* addr, long error, bool user){
 	spinlock_release(lock);
 
 	return status;
+
+}
+
+void* vmm_tophysical(void* addr){
+	
+	int* lock;
+        vmm_mapping** start = NULL;
+
+        getcontextinfo(addr, &lock, &start);
+
+	spinlock_acquire(lock);
+
+	int pageoffset = (uintptr_t)addr % PAGE_SIZE;
+        void* virtpage = addr - pageoffset;
+        void* phypage = arch_mmu_getphysicaladdr(arch_getcls()->context->context, virtpage);
+
+	spinlock_release(lock);
+
+	return phypage + pageoffset;
 
 }
 
