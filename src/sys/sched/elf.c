@@ -58,7 +58,7 @@ static int load(vnode_t* node, elf_ph64 ph){
 	
 	int err = 0;
 
-	size_t readc = vfs_read(&err, node, (void*)ph.memaddr, ph.fsize, ph.offset);
+	size_t readc = vfs_read(&err, node, (void*)ph.memaddr, ph.fsize, ph.offset, NULL);
 	
 	if(err)
 		return err;
@@ -165,7 +165,7 @@ int elf_load(thread_t* thread, vnode_t* node, char** argv, char** env, void** st
 	elf_ph64 phbuff;
 	
 	int err = 0;
-	int readc = vfs_read(&err, node, &header, sizeof(elf_header64), 0);
+	int readc = vfs_read(&err, node, &header, sizeof(elf_header64), 0, NULL);
 
 	if(err)
 		return err;
@@ -189,7 +189,7 @@ int elf_load(thread_t* thread, vnode_t* node, char** argv, char** env, void** st
 	
 	for(size_t pos = header.ph_pos, ph = 0; ph < header.ph_count; ++ph, pos += header.ph_size){
 		
-		readc = vfs_read(&err, node, &phbuff, header.ph_size, pos);
+		readc = vfs_read(&err, node, &phbuff, header.ph_size, pos, NULL);
 		
 		if(err)
 			return err;
@@ -226,7 +226,7 @@ int elf_load(thread_t* thread, vnode_t* node, char** argv, char** env, void** st
 		if(err)
 			return err;
 		
-		readc = vfs_read(&err, interfile, &header, sizeof(elf_header64), 0);
+		readc = vfs_read(&err, interfile, &header, sizeof(elf_header64), 0, NULL);
 		
 		if(err)
 			goto _interpfail;
@@ -238,7 +238,7 @@ int elf_load(thread_t* thread, vnode_t* node, char** argv, char** env, void** st
 		
 		for(size_t pos = header.ph_pos, ph = 0; ph < header.ph_count; ++ph, pos += header.ph_size){
 
-			readc = vfs_read(&err, interfile, &phbuff, header.ph_size, pos);
+			readc = vfs_read(&err, interfile, &phbuff, header.ph_size, pos, NULL);
 			
 			if(err)
 				goto _interpfail;

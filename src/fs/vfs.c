@@ -9,6 +9,7 @@
 #include <kernel/pipe.h>
 #include <arch/timekeeper.h>
 #include <arch/cls.h>
+#include <kernel/fd.h>
 
 #define VFS_MAX_LOOP 5
 
@@ -148,12 +149,18 @@ int vfs_ioctl(vnode_t* node, unsigned long request, void* arg, int* result){
 	
 }
 
-int vfs_read(int* error, vnode_t* node, void* buff, size_t count, size_t offset){
+int vfs_read(int* error, vnode_t* node, void* buff, size_t count, size_t offset, void* fd){
 	
+	fd_t tmpfd;
+	
+	if(!fd)
+		fd = &tmpfd;
+
+
 	int type = GETTYPE(node->st.st_mode);
 	
 	if(type == TYPE_SOCKET)
-		return socket_recv(node->objdata, buff, count, 0, error);
+		return socket_recv(node->objdata, buff, count, 0, error, fd);
 
 	if(type == TYPE_FIFO){
 		return pipe_read(node->objdata, buff, count, error);
@@ -399,7 +406,7 @@ int vfs_link(dirnode_t* ref, vnode_t* link, char* path){
         result = parent->vnode.fs->calls->link(parent, link, name);
 
         spinlock_release(&lock);
-
+	
 	return result;
 
 

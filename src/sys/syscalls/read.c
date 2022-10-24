@@ -35,10 +35,8 @@ syscallret syscall_read(int ifd, void* buff, size_t count){
 		retv.errno = ENOMEM;
 		return retv;
 	}
-
-	size_t readc = vfs_read(&err, fd->node, kbuff, count, fd->offset);
-
-
+	
+	size_t readc = vfs_read(&err, fd->node, kbuff, count, fd->offset, fd);
 
 	if(err){
 		fd_release(fd);	
