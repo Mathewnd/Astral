@@ -1,7 +1,7 @@
-diff --no-dereference -ruN mlibc-2.3.0/options/ansi/generic/string-stubs.cpp mlibc-2.3.0-patched/options/ansi/generic/string-stubs.cpp
---- mlibc-2.3.0/options/ansi/generic/string-stubs.cpp	2022-06-20 06:58:47.000000000 -0300
-+++ mlibc-2.3.0-patched/options/ansi/generic/string-stubs.cpp	2022-09-14 17:05:03.059784408 -0300
-@@ -391,7 +391,6 @@
+diff -ruN --no-dereference mlibc-3.0.0-rc1/options/ansi/generic/string-stubs.cpp mlibc/options/ansi/generic/string-stubs.cpp
+--- mlibc-3.0.0-rc1/options/ansi/generic/string-stubs.cpp	2022-08-01 15:24:41.000000000 -0300
++++ mlibc/options/ansi/generic/string-stubs.cpp	2022-10-14 19:09:55.153146583 -0300
+@@ -400,7 +400,6 @@
  	case ENOPROTOOPT: s = "Protocol not available (ENOPROTOOPT)"; break;
  	case ENOTEMPTY: s = "Directory not empty (ENOTEMPTY)"; break;
  	case ENOTRECOVERABLE: s = "Sate not recoverable (ENOTRECOVERABLE)"; break;
@@ -9,3 +9,19 @@ diff --no-dereference -ruN mlibc-2.3.0/options/ansi/generic/string-stubs.cpp mli
  	case ENOTTY: s = "Inappropriate ioctl for device (ENOTTY)"; break;
  	case EOVERFLOW: s = "Value too large for defined datatype (EOVERFLOW)"; break;
  #ifndef __linux__
+diff -ruN --no-dereference mlibc-3.0.0-rc1/options/glibc/generic/execinfo.cpp mlibc/options/glibc/generic/execinfo.cpp
+--- mlibc-3.0.0-rc1/options/glibc/generic/execinfo.cpp	2022-08-01 15:24:41.000000000 -0300
++++ mlibc/options/glibc/generic/execinfo.cpp	2022-10-20 20:57:28.068361171 -0300
+@@ -1,9 +1,10 @@
+ #include <execinfo.h>
+ #include <bits/ensure.h>
++#include <mlibc/debug.hpp>
+ 
+ int backtrace(void **, int) {
+-	__ensure(!"Not implemented");
+-	__builtin_unreachable();
++	mlibc::infoLogger() << "libc: backtrace() is not implemented!\n" << frg::endlog;
++	return 0;
+ }
+ 
+ char **backtrace_symbols(void *const *, int) {

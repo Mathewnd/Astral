@@ -1,0 +1,13 @@
+diff -ruN --no-dereference mlibc-3.0.0-rc1/abis/linux/in.h mlibc/abis/linux/in.h
+--- mlibc-3.0.0-rc1/abis/linux/in.h	2022-08-01 15:24:41.000000000 -0300
++++ mlibc/abis/linux/in.h	2022-10-24 16:40:48.153224040 -0300
+@@ -67,6 +67,9 @@
+ 
+ #define IPPORT_RESERVED 1024
+ 
++#define IP_MULTICAST_TTL 33
++#define IPV6_MULTICAST_HOPS 18
++
+ #define IPPROTO_IP       0
+ #define IPPROTO_HOPOPTS  0
+ #define IPPROTO_ICMP     1

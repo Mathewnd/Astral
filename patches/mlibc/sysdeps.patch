@@ -59,8 +59,8 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/entry.cpp mlib
 +
 diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp mlibc/sysdeps/astral/generic/generic.cpp
 --- mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/generic/generic.cpp	2022-10-17 23:52:37.476391090 -0300
-@@ -0,0 +1,457 @@
++++ mlibc/sysdeps/astral/generic/generic.cpp	2022-10-24 14:39:15.416615410 -0300
+@@ -0,0 +1,513 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -76,6 +76,18 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp ml
 +#define STUB_ONLY { __ensure(!"STUB_ONLY function was called"); __builtin_unreachable(); }
 +
 +namespace mlibc {
++	
++	// stub
++
++	int sys_setuid(uid_t id){
++		return 0;
++	}
++
++	// stub
++
++	int sys_setgid(gid_t id){
++		return 0;
++	}
 +	
 +	// stub
 +
@@ -188,10 +200,37 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp ml
 +	[[gnu::weak]] int sys_fsync(int fd){
 +		return 0;
 +	}
++
++	int sys_msg_recv(int fd, struct msghdr *hdr, int flags, ssize_t *length){
++		long ret;
++		long err = syscall(SYSCALL_RECVMSG, &ret, fd, (uintptr_t)hdr, flags);
++		*length = ret;
++		return err;
++	}
++
++	int sys_linkat(int olddirfd, const char *old_path, int newdirfd, const char *new_path, int flags){
++		long ret;
++		return syscall(SYSCALL_LINKAT, &ret, olddirfd, (uintptr_t)old_path, newdirfd, (uintptr_t) new_path, flags);
++	}
++	
++	[[gnu::weak]] int sys_link(const char *old_path, const char *new_path){
++		return sys_linkat(AT_FDCWD, old_path, AT_FDCWD, new_path, 0);
++	}
++
++	int sys_sleep(time_t *secs, long *nanos){
++		struct timespec ts;
++		ts.tv_sec = *secs;
++		ts.tv_nsec = *nanos;
++		long ret;
++		long err = syscall(SYSCALL_NANOSLEEP, &ret, (uintptr_t)&ts, (uintptr_t)&ts);
++		*secs = ts.tv_sec;
++		*nanos = ts.tv_nsec;
++		return err;
++	}
 +	
 +	int sys_accept(int fd, int *newfd, struct sockaddr *addr_ptr, socklen_t *addr_length){
 +		long ret;
-+		long err = syscall(SYSCALL_ACCEPT, &ret, fd, (uintptr_t)addr_ptr, (uintptr_t)addr_length);
++		long err = syscall(SYSCALL_ACCEPT, &ret, fd, (uint64_t)addr_ptr, (uint64_t)addr_length);
 +		*newfd = ret;
 +		return err;
 +	}
@@ -240,6 +279,10 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp ml
 +		return err;
 +	}
 +
++	int sys_fchmod(int fd, mode_t mode){
++		long ret;
++		return syscall(SYSCALL_FCHMOD, &ret, fd, mode);
++	}
 +
 +	int sys_fchmodat(int fd, const char *pathname, mode_t mode, int flags){
 +		long ret;
@@ -455,8 +498,21 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp ml
 +		syscall(SYSCALL_GETTID, &ret);
 +		return ret;
 +	}
-+	int sys_futex_wait(int *pointer, int expected, const struct timespec *time) STUB_ONLY
-+	int sys_futex_wake(int *pointer) STUB_ONLY
++
++	#define FUTEX_WAIT 0
++	#define FUTEX_WAKE 1
++
++
++	int sys_futex_wait(int *pointer, int expected, const struct timespec *time){
++		long ret;
++		return syscall(SYSCALL_FUTEX, &ret, (uintptr_t)pointer, FUTEX_WAIT, expected, (uintptr_t)time);
++	}
++	int sys_futex_wake(int *pointer){
++		long ret;
++		return syscall(SYSCALL_FUTEX, &ret, (uintptr_t)pointer, FUTEX_WAKE, 0xFFFFFFFF, NULL);
++	}
++	
++
 +	int sys_anon_allocate(size_t size, void **pointer){
 +		return sys_vm_map(NULL, size, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, 0, 0, pointer);
 +	}
@@ -535,8 +591,8 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/include/astral/archctl
 +#endif
 diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/include/astral/syscall.h mlibc/sysdeps/astral/include/astral/syscall.h
 --- mlibc-3.0.0-rc1/sysdeps/astral/include/astral/syscall.h	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/include/astral/syscall.h	2022-10-17 23:52:47.653057673 -0300
-@@ -0,0 +1,64 @@
++++ mlibc/sysdeps/astral/include/astral/syscall.h	2022-10-24 14:23:23.999956413 -0300
+@@ -0,0 +1,69 @@
 +#ifndef _SYSCALL_H_INCLUDE
 +#define _SYSCALL_H_INCLUDE
 +
@@ -579,6 +635,11 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/include/astral/syscall
 +#define SYSCALL_LISTEN 36
 +#define SYSCALL_CONNECT 37
 +#define SYSCALL_ACCEPT 38
++#define SYSCALL_NANOSLEEP 39
++#define SYSCALL_FCHMOD 40
++#define SYSCALL_LINKAT 41
++#define SYSCALL_RECVMSG 42
++#define SYSCALL_FUTEX 43
 +
 +#include <stddef.h>
 +#include <stdint.h>
@@ -603,8 +664,8 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/include/astral/syscall
 +#endif
 diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/meson.build mlibc/sysdeps/astral/meson.build
 --- mlibc-3.0.0-rc1/sysdeps/astral/meson.build	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/meson.build	2022-10-14 19:09:55.156479915 -0300
-@@ -0,0 +1,63 @@
++++ mlibc/sysdeps/astral/meson.build	2022-10-20 13:32:44.079544558 -0300
+@@ -0,0 +1,65 @@
 +
 +rtdl_sources += files(
 +	'generic/generic.cpp',
@@ -653,6 +714,8 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/meson.build mlibc/sysd
 +		'include/abi-bits/wait.h',
 +		'include/abi-bits/utsname.h',
 +                'include/abi-bits/limits.h',
++                'include/abi-bits/shm.h',
++                'include/abi-bits/epoll.h',
 +		subdir: 'abi-bits'
 +	)
 +endif
