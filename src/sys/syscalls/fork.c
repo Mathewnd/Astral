@@ -35,6 +35,8 @@ syscallret syscall_fork(arch_regs* ctx){
 		retv.errno = err;
 		return retv;
 	}
+	
+	newthread->tid = newproc->pid;
 
 	newproc->parent = proc;
 	newproc->sibling = proc->child;
