@@ -1,0 +1,9 @@
+name=libxcursor
+version=1.2.1
+source_method=tarball
+tarball_url="https://www.x.org/archive/individual/lib/libXcursor-${version}.tar.gz"
+tarball_sha512=a
+hostdeps="autoconf automake libtool pkgconfig util-macros"
+regenerate() {
+        autoreconf -fvi
+}

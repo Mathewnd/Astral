@@ -1,0 +1,24 @@
+name=xbitmaps
+revision=1
+from_source=xbitmaps
+imagedeps="meson base-devel"
+hostdeps="gcc-cross binutils-cross pkgconfig util-macros"
+deps="mlibc"
+
+configure() {
+	
+	 ${source_dir}/configure --prefix=${prefix} --host=x86_64-astral
+
+}
+
+build() {
+	
+	true
+
+}
+
+install() {
+
+	make DESTDIR=${dest_dir} install
+
+}

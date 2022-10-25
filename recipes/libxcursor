@@ -1,0 +1,24 @@
+name=libxcursor
+revision=1
+from_source=libxcursor
+imagedeps="gcc"
+hostdeps="gcc-cross binutils-cross pkgconfig"
+deps="mlibc libxrender libxfixes libx11"
+
+configure() {
+	
+	${source_dir}/configure --prefix=${prefix} --host=x86_64-astral
+
+}
+
+build() {
+	
+	make -j${parallelism}
+
+}
+
+install() {
+
+	DESTDIR=${dest_dir} make install
+
+}
