@@ -1,0 +1,8 @@
+name=autoconf-archive
+version=2022.09.03
+source_method=tarball
+tarball_url="https://ftp.gnu.org/gnu/autoconf-archive/autoconf-archive-${version}.tar.xz"
+tarball_sha512=157b5b6a979d5ec5bfab6ddf34422da620fec1e95f4c901821abbb7361544af77747b4a449029b84750d75679d6130a591e98da8772de2c121ecdea163f0340b
+regenerate() {
+	true
+}

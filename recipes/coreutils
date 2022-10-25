@@ -1,7 +1,7 @@
 name=coreutils
 revision=1
 from_source=coreutils
-imagedeps="base-devel"
+imagedeps="base-devel gperf"
 hostdeps="gcc-cross binutils-cross"
 deps="mlibc"
 

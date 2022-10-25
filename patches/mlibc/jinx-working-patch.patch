@@ -1,6 +1,66 @@
-diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/crt-x86_64/crt0.S mlibc/sysdeps/astral/crt-x86_64/crt0.S
---- mlibc-3.0.0-rc1/sysdeps/astral/crt-x86_64/crt0.S	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/crt-x86_64/crt0.S	2022-10-14 19:09:55.156479915 -0300
+diff --git mlibc-clean/abis/linux/in.h mlibc-workdir/abis/linux/in.h
+index 3618abf..b1c02c7 100644
+--- mlibc-clean/abis/linux/in.h
++++ mlibc-workdir/abis/linux/in.h
+@@ -67,6 +67,9 @@ struct ipv6_mreq {
+ 
+ #define IPPORT_RESERVED 1024
+ 
++#define IP_MULTICAST_TTL 33
++#define IPV6_MULTICAST_HOPS 18
++
+ #define IPPROTO_IP       0
+ #define IPPROTO_HOPOPTS  0
+ #define IPPROTO_ICMP     1
+diff --git mlibc-clean/meson.build mlibc-workdir/meson.build
+index 1605b31..b436ca5 100644
+--- mlibc-clean/meson.build
++++ mlibc-workdir/meson.build
+@@ -135,6 +135,10 @@ elif host_machine.system() == 'dripos'
+ 	rtdl_include_dirs += include_directories('sysdeps/dripos/include')
+ 	libc_include_dirs += include_directories('sysdeps/dripos/include')
+ 	subdir('sysdeps/dripos')
++elif host_machine.system() == 'astral'
++        rtdl_include_dirs += include_directories('sysdeps/astral/include')
++        libc_include_dirs += include_directories('sysdeps/astral/include')
++        subdir('sysdeps/astral')
+ else
+ 	error('No sysdeps defined for OS: ' + host_machine.system())
+ endif
+diff --git mlibc-clean/options/ansi/generic/string-stubs.cpp mlibc-workdir/options/ansi/generic/string-stubs.cpp
+index 80f1afd..0f1b4ba 100644
+--- mlibc-clean/options/ansi/generic/string-stubs.cpp
++++ mlibc-workdir/options/ansi/generic/string-stubs.cpp
+@@ -400,7 +400,6 @@ char *strerror(int e) {
+ 	case ENOPROTOOPT: s = "Protocol not available (ENOPROTOOPT)"; break;
+ 	case ENOTEMPTY: s = "Directory not empty (ENOTEMPTY)"; break;
+ 	case ENOTRECOVERABLE: s = "Sate not recoverable (ENOTRECOVERABLE)"; break;
+-	case ENOTSUP: s = "Operation not supported (ENOTSUP)"; break;
+ 	case ENOTTY: s = "Inappropriate ioctl for device (ENOTTY)"; break;
+ 	case EOVERFLOW: s = "Value too large for defined datatype (EOVERFLOW)"; break;
+ #ifndef __linux__
+diff --git mlibc-clean/options/glibc/generic/execinfo.cpp mlibc-workdir/options/glibc/generic/execinfo.cpp
+index 3474615..e034881 100644
+--- mlibc-clean/options/glibc/generic/execinfo.cpp
++++ mlibc-workdir/options/glibc/generic/execinfo.cpp
+@@ -1,9 +1,10 @@
+ #include <execinfo.h>
+ #include <bits/ensure.h>
++#include <mlibc/debug.hpp>
+ 
+ int backtrace(void **, int) {
+-	__ensure(!"Not implemented");
+-	__builtin_unreachable();
++	mlibc::infoLogger() << "libc: backtrace() is not implemented!\n" << frg::endlog;
++	return 0;
+ }
+ 
+ char **backtrace_symbols(void *const *, int) {
+diff --git mlibc-workdir/sysdeps/astral/crt-x86_64/crt0.S mlibc-workdir/sysdeps/astral/crt-x86_64/crt0.S
+new file mode 100644
+index 0000000..0a0a4a0
+--- /dev/null
++++ mlibc-workdir/sysdeps/astral/crt-x86_64/crt0.S
 @@ -0,0 +1,7 @@
 +
 +.section .text
@@ -9,9 +69,11 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/crt-x86_64/crt0.S mlib
 +    mov $main, %rdi
 +    call __mlibc_entry
 +
-diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/astral.cpp mlibc/sysdeps/astral/generic/astral.cpp
---- mlibc-3.0.0-rc1/sysdeps/astral/generic/astral.cpp	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/generic/astral.cpp	2022-10-14 19:09:55.156479915 -0300
+diff --git mlibc-workdir/sysdeps/astral/generic/astral.cpp mlibc-workdir/sysdeps/astral/generic/astral.cpp
+new file mode 100644
+index 0000000..2410961
+--- /dev/null
++++ mlibc-workdir/sysdeps/astral/generic/astral.cpp
 @@ -0,0 +1,6 @@
 +#include <astral/syscall.h>
 +
@@ -19,9 +81,11 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/astral.cpp mli
 +	long ret;
 +	return syscall(SYSCALL_ARCH_CTL, &ret, func, (uint64_t)arg);
 +}
-diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/entry.cpp mlibc/sysdeps/astral/generic/entry.cpp
---- mlibc-3.0.0-rc1/sysdeps/astral/generic/entry.cpp	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/generic/entry.cpp	2022-10-14 19:09:55.156479915 -0300
+diff --git mlibc-workdir/sysdeps/astral/generic/entry.cpp mlibc-workdir/sysdeps/astral/generic/entry.cpp
+new file mode 100644
+index 0000000..ee7a794
+--- /dev/null
++++ mlibc-workdir/sysdeps/astral/generic/entry.cpp
 @@ -0,0 +1,34 @@
 +
 +#include <stdint.h>
@@ -57,9 +121,11 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/entry.cpp mlib
 +	exit(result);
 +}
 +
-diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp mlibc/sysdeps/astral/generic/generic.cpp
---- mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/generic/generic.cpp	2022-10-24 14:39:15.416615410 -0300
+diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
+new file mode 100644
+index 0000000..60d06e0
+--- /dev/null
++++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
 @@ -0,0 +1,513 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
@@ -574,9 +640,11 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp ml
 +
 +} // namespace mlibc
 +
-diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/include/astral/archctl.h mlibc/sysdeps/astral/include/astral/archctl.h
---- mlibc-3.0.0-rc1/sysdeps/astral/include/astral/archctl.h	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/include/astral/archctl.h	2022-10-14 19:09:55.156479915 -0300
+diff --git mlibc-workdir/sysdeps/astral/include/astral/archctl.h mlibc-workdir/sysdeps/astral/include/astral/archctl.h
+new file mode 100644
+index 0000000..f181400
+--- /dev/null
++++ mlibc-workdir/sysdeps/astral/include/astral/archctl.h
 @@ -0,0 +1,11 @@
 +#ifndef _ASTRAL_SYSCALL_ARCHCTL_INCLUDE
 +#define _ASTRAL_SYSCALL_ARCHCTL_INCLUDE
@@ -589,9 +657,11 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/include/astral/archctl
 +int arch_ctl(int func, void* arg);
 +
 +#endif
-diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/include/astral/syscall.h mlibc/sysdeps/astral/include/astral/syscall.h
---- mlibc-3.0.0-rc1/sysdeps/astral/include/astral/syscall.h	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/include/astral/syscall.h	2022-10-24 14:23:23.999956413 -0300
+diff --git mlibc-workdir/sysdeps/astral/include/astral/syscall.h mlibc-workdir/sysdeps/astral/include/astral/syscall.h
+new file mode 100644
+index 0000000..d930887
+--- /dev/null
++++ mlibc-workdir/sysdeps/astral/include/astral/syscall.h
 @@ -0,0 +1,69 @@
 +#ifndef _SYSCALL_H_INCLUDE
 +#define _SYSCALL_H_INCLUDE
@@ -662,9 +732,11 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/include/astral/syscall
 +}
 +
 +#endif
-diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/meson.build mlibc/sysdeps/astral/meson.build
---- mlibc-3.0.0-rc1/sysdeps/astral/meson.build	1969-12-31 21:00:00.000000000 -0300
-+++ mlibc/sysdeps/astral/meson.build	2022-10-20 13:32:44.079544558 -0300
+diff --git mlibc-workdir/sysdeps/astral/meson.build mlibc-workdir/sysdeps/astral/meson.build
+new file mode 100644
+index 0000000..8f0c60b
+--- /dev/null
++++ mlibc-workdir/sysdeps/astral/meson.build
 @@ -0,0 +1,65 @@
 +
 +rtdl_sources += files(
