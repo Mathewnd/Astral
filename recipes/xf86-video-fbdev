@@ -1,0 +1,24 @@
+name=xf86-video-fbdev
+revision=1
+from_source=xf86-video-fbdev
+imagedeps="gcc"
+hostdeps="gcc-cross binutils-cross pkgconfig automake autoconf util-macros libtool"
+deps="mlibc xorg-server"
+
+configure() {
+	
+	SYSROOT=${sysroot_dir} ${source_dir}/configure --prefix=${prefix} --host=x86_64-astral --disable-static --disable-pciaccess
+
+}
+
+build() {
+	
+	make -j${parallelism}
+
+}
+
+install() {
+
+	make DESTDIR=${dest_dir} install
+
+}
