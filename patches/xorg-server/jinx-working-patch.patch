@@ -1,0 +1,264 @@
+diff --git xorg-server-clean/hw/xfree86/common/xf86Bus.c xorg-server-workdir/hw/xfree86/common/xf86Bus.c
+index fd144db..b232e27 100644
+--- xorg-server-clean/hw/xfree86/common/xf86Bus.c
++++ xorg-server-workdir/hw/xfree86/common/xf86Bus.c
+@@ -556,6 +556,7 @@ xf86GetDevFromEntity(int entityIndex, int instance)
+ void
+ xf86PostProbe(void)
+ {
++#if 0
+     if (fbSlotClaimed && (
+ #if (defined(__sparc__) || defined(__sparc)) && !defined(__OpenBSD__)
+                              sbusSlotClaimed ||
+@@ -571,6 +572,7 @@ xf86PostProbe(void)
+         ))
+         FatalError("Cannot run in framebuffer mode. Please specify busIDs "
+                    "       for all framebuffer devices\n");
++#endif
+ }
+ 
+ Bool
+diff --git xorg-server-clean/hw/xfree86/common/xf86Config.c xorg-server-workdir/hw/xfree86/common/xf86Config.c
+index 5d814c1..14ebfe6 100644
+--- xorg-server-clean/hw/xfree86/common/xf86Config.c
++++ xorg-server-workdir/hw/xfree86/common/xf86Config.c
+@@ -49,6 +49,8 @@
+ #include <sys/types.h>
+ #include <grp.h>
+ 
++#include <sys/stat.h>
++
+ #include "xf86.h"
+ #include "xf86Modes.h"
+ #include "xf86Parser.h"
+diff --git xorg-server-clean/hw/xfree86/common/xf86Configure.c xorg-server-workdir/hw/xfree86/common/xf86Configure.c
+index 4347f6d..dc929f9 100644
+--- xorg-server-clean/hw/xfree86/common/xf86Configure.c
++++ xorg-server-workdir/hw/xfree86/common/xf86Configure.c
+@@ -42,6 +42,8 @@
+ #include "misc.h"
+ #include "loaderProcs.h"
+ 
++#include <errno.h>
++
+ typedef struct _DevToConfig {
+     GDevRec GDev;
+     struct pci_device *pVideo;
+diff --git xorg-server-clean/hw/xfree86/common/xf86Events.c xorg-server-workdir/hw/xfree86/common/xf86Events.c
+index 395bbc7..4bf86cb 100644
+--- xorg-server-clean/hw/xfree86/common/xf86Events.c
++++ xorg-server-workdir/hw/xfree86/common/xf86Events.c
+@@ -53,6 +53,8 @@
+ #include <xorg-config.h>
+ #endif
+ 
++#include <errno.h>
++
+ #include <X11/X.h>
+ #include <X11/Xproto.h>
+ #include <X11/Xatom.h>
+diff --git xorg-server-clean/hw/xfree86/common/xf86Helper.c xorg-server-workdir/hw/xfree86/common/xf86Helper.c
+index 0389945..286f271 100644
+--- xorg-server-clean/hw/xfree86/common/xf86Helper.c
++++ xorg-server-workdir/hw/xfree86/common/xf86Helper.c
+@@ -34,6 +34,8 @@
+  * different drivers.
+  */
+ 
++#include <sys/stat.h>
++
+ #ifdef HAVE_XORG_CONFIG_H
+ #include <xorg-config.h>
+ #endif
+diff --git xorg-server-clean/hw/xfree86/common/xf86Init.c xorg-server-workdir/hw/xfree86/common/xf86Init.c
+index 5695e71..c9230aa 100644
+--- xorg-server-clean/hw/xfree86/common/xf86Init.c
++++ xorg-server-workdir/hw/xfree86/common/xf86Init.c
+@@ -34,6 +34,7 @@
+ #include <xorg-config.h>
+ #endif
+ 
++#include <sys/stat.h>
+ #include <stdlib.h>
+ #include <errno.h>
+ 
+diff --git xorg-server-clean/hw/xfree86/fbdevhw/fbdevhw.c xorg-server-workdir/hw/xfree86/fbdevhw/fbdevhw.c
+index 3d8b92e..31a0430 100644
+--- xorg-server-clean/hw/xfree86/fbdevhw/fbdevhw.c
++++ xorg-server-workdir/hw/xfree86/fbdevhw/fbdevhw.c
+@@ -9,13 +9,10 @@
+ #include "xf86Modes.h"
+ #include "xf86_OSproc.h"
+ 
+-/* pci stuff */
+-#include "xf86Pci.h"
+-
+ #include "xf86cmap.h"
+ 
+ #include "fbdevhw.h"
+-#include "fbpriv.h"
++#include <linux/fb.h>
+ #include "globals.h"
+ #include <X11/extensions/dpmsconst.h>
+ 
+@@ -259,6 +256,7 @@ fbdev2xfree_timing(struct fb_var_screeninfo *var, DisplayModePtr mode)
+ /**
+  * Try to find the framebuffer device for a given PCI device
+  */
++#if 0
+ static int
+ fbdev_open_pci(struct pci_device *pPci, char **namep)
+ {
+@@ -303,6 +301,7 @@ fbdev_open_pci(struct pci_device *pPci, char **namep)
+     xf86DrvMsg(-1, X_ERROR, "Unable to find a valid framebuffer device\n");
+     return -1;
+ }
++#endif
+ 
+ static int
+ fbdev_open(int scrnIndex, const char *dev, char **namep)
+@@ -328,7 +327,7 @@ fbdev_open(int scrnIndex, const char *dev, char **namep)
+         xf86DrvMsg(scrnIndex, X_ERROR, "open %s: %s\n", dev, strerror(errno));
+         return -1;
+     }
+-
++#if 0
+     /* only touch non-PCI devices on this path */
+     {
+         char buf[PATH_MAX] = {0};
+@@ -344,7 +343,7 @@ fbdev_open(int scrnIndex, const char *dev, char **namep)
+         }
+         free(sysfs_path);
+     }
+-
++#endif
+     if (namep) {
+         if (-1 == ioctl(fd, FBIOGET_FSCREENINFO, (void *) (&fix))) {
+             *namep = NULL;
+@@ -363,14 +362,10 @@ fbdev_open(int scrnIndex, const char *dev, char **namep)
+ /* -------------------------------------------------------------------- */
+ 
+ Bool
+-fbdevHWProbe(struct pci_device *pPci, char *device, char **namep)
++fbdevHWProbe(void* pPci, char *device, char **namep)
+ {
+-    int fd;
+-
+-    if (pPci)
+-        fd = fbdev_open_pci(pPci, namep);
+-    else
+-        fd = fbdev_open(-1, device, namep);
++    
++    int fd = fbdev_open(-1, device, namep);
+ 
+     if (-1 == fd)
+         return FALSE;
+@@ -379,7 +374,7 @@ fbdevHWProbe(struct pci_device *pPci, char *device, char **namep)
+ }
+ 
+ Bool
+-fbdevHWInit(ScrnInfoPtr pScrn, struct pci_device *pPci, char *device)
++fbdevHWInit(ScrnInfoPtr pScrn, void *pPci, char *device)
+ {
+     fbdevHWPtr fPtr;
+ 
+@@ -387,10 +382,9 @@ fbdevHWInit(ScrnInfoPtr pScrn, struct pci_device *pPci, char *device)
+     fPtr = FBDEVHWPTR(pScrn);
+ 
+     /* open device */
+-    if (pPci)
+-        fPtr->fd = fbdev_open_pci(pPci, NULL);
+-    else
+-        fPtr->fd = fbdev_open(pScrn->scrnIndex, device, NULL);
++    
++    fPtr->fd = fbdev_open(pScrn->scrnIndex, device, NULL);
++    
+     if (-1 == fPtr->fd) {
+         xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
+                    "Failed to open framebuffer device, consult warnings"
+diff --git xorg-server-clean/hw/xfree86/fbdevhw/fbdevhw.h xorg-server-workdir/hw/xfree86/fbdevhw/fbdevhw.h
+index 4984ccf..bb3e2f8 100644
+--- xorg-server-clean/hw/xfree86/fbdevhw/fbdevhw.h
++++ xorg-server-workdir/hw/xfree86/fbdevhw/fbdevhw.h
+@@ -16,9 +16,9 @@ extern _X_EXPORT void fbdevHWFreeRec(ScrnInfoPtr pScrn);
+ 
+ extern _X_EXPORT int fbdevHWGetFD(ScrnInfoPtr pScrn);
+ 
+-extern _X_EXPORT Bool fbdevHWProbe(struct pci_device *pPci, char *device,
++extern _X_EXPORT Bool fbdevHWProbe(void *pPci, char *device,
+                                    char **namep);
+-extern _X_EXPORT Bool fbdevHWInit(ScrnInfoPtr pScrn, struct pci_device *pPci,
++extern _X_EXPORT Bool fbdevHWInit(ScrnInfoPtr pScrn, void *pPci,
+                                   char *device);
+ 
+ extern _X_EXPORT char *fbdevHWGetName(ScrnInfoPtr pScrn);
+diff --git xorg-server-clean/hw/xfree86/os-support/shared/posix_tty.c xorg-server-workdir/hw/xfree86/os-support/shared/posix_tty.c
+index 0cb9788..d6df170 100644
+--- xorg-server-clean/hw/xfree86/os-support/shared/posix_tty.c
++++ xorg-server-workdir/hw/xfree86/os-support/shared/posix_tty.c
+@@ -56,6 +56,8 @@
+ #include <xorg-config.h>
+ #endif
+ 
++#include <termios.h>
++#include <errno.h>
+ #include <X11/X.h>
+ #include <xserver_poll.h>
+ #include "xf86.h"
+diff --git xorg-server-clean/hw/xfree86/os-support/shared/sigio.c xorg-server-workdir/hw/xfree86/os-support/shared/sigio.c
+index ad8af60..88eb52f 100644
+--- xorg-server-clean/hw/xfree86/os-support/shared/sigio.c
++++ xorg-server-workdir/hw/xfree86/os-support/shared/sigio.c
+@@ -56,6 +56,8 @@
+ #include <xorg-config.h>
+ #endif
+ 
++#include <sys/stat.h>
++#include <errno.h>
+ #include <X11/X.h>
+ #include <xserver_poll.h>
+ #include "xf86.h"
+diff --git xorg-server-clean/include/os.h xorg-server-workdir/include/os.h
+index bb3348b..aac6cce 100644
+--- xorg-server-clean/include/os.h
++++ xorg-server-workdir/include/os.h
+@@ -51,6 +51,9 @@ SOFTWARE.
+ #include <stdarg.h>
+ #include <stdint.h>
+ #include <string.h>
++#ifdef __astral__
++#include <strings.h>
++#endif
+ #ifdef MONOTONIC_CLOCK
+ #include <time.h>
+ #endif
+diff --git xorg-server-clean/os/access.c xorg-server-workdir/os/access.c
+index b170304..53b90c5 100644
+--- xorg-server-clean/os/access.c
++++ xorg-server-workdir/os/access.c
+@@ -116,7 +116,7 @@ SOFTWARE.
+ #endif
+ #endif
+ 
+-#if defined(SVR4) ||  (defined(SYSV) && defined(__i386__)) || defined(__GNU__)
++#if defined(SVR4) ||  (defined(SYSV) && defined(__i386__)) || defined(__GNU__) || defined(__astral__)
+ #include <sys/utsname.h>
+ #endif
+ #if defined(SYSV) &&  defined(__i386__)
+diff --git xorg-server-clean/os/ospoll.c xorg-server-workdir/os/ospoll.c
+index c68aabc..e74fdbe 100644
+--- xorg-server-clean/os/ospoll.c
++++ xorg-server-workdir/os/ospoll.c
+@@ -45,12 +45,6 @@
+ #define HAVE_OSPOLL     1
+ #endif
+ 
+-#if !HAVE_OSPOLL && defined(HAVE_EPOLL_CREATE1)
+-#include <sys/epoll.h>
+-#define EPOLL           1
+-#define HAVE_OSPOLL     1
+-#endif
+-
+ #if !HAVE_OSPOLL
+ #include "xserver_poll.h"
+ #define POLL            1
