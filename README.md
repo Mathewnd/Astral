@@ -2,7 +2,7 @@
 
 Astral is a 64 bit hobbyist operating system for the x86-64 architecture written in C.
 
-It has ports such as mlibc, doomgeneric, bash, nasm, binutils and the coreutils.
+It has ports such as Xorg, GCC, Doom, Bash and the Coreutils.
 
 ![](https://raw.githubusercontent.com/Mathewnd/Astral/main/gh-stuff/screenie.png)
 

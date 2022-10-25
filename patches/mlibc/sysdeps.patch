@@ -169,8 +169,8 @@ diff -ruN --no-dereference mlibc-3.0.0-rc1/sysdeps/astral/generic/generic.cpp ml
 +		
 +		memcpy(buf->sysname, "Astral", 7);
 +		memcpy(buf->nodename, ASTRALHOSTNAME, strlen(ASTRALHOSTNAME)+1);
-+		memcpy(buf->version, "0.0.1", 6);
-+		memcpy(buf->release, "Astral 0.0.1", 13);
++		memcpy(buf->version, "0.0.2", 6);
++		memcpy(buf->release, "Astral 0.0.2", 13);
 +		memcpy(buf->machine, "x86_64", 7);
 +		memcpy(buf->domainname, ASTRALHOSTNAME, strlen(ASTRALHOSTNAME)+1);
 +		
