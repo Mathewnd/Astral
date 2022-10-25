@@ -127,7 +127,6 @@ int keyboard_getnew(){
 
 }
 
-static int write(int *error, int minor, void* buff, size_t count){*error = EINVAL; return -1;}
 static int read(int *error, int minor, void* buff, size_t count, size_t offset){
 	count /= sizeof(kbpacket_t);
 	if(count == 0){
@@ -146,16 +145,8 @@ static int read(int *error, int minor, void* buff, size_t count, size_t offset){
 
 }
 
-static int isatty(){
-	return ENOTTY;
-}
-
-static int seekable(){
-	return 0;
-}
-
 static devcalls calls = {
-	read, write, isatty, seekable
+	read
 };
 
 void keyboard_init(){

@@ -45,10 +45,6 @@ static int devfs_open(dirnode_t* parent, char* name){
 }
 
 static int devfs_close(){return 0;}
-static int devfs_mkdir() UNIMPLEMENTED
-static int devfs_create() UNIMPLEMENTED
-static int devfs_write() UNIMPLEMENTED
-static int devfs_read() UNIMPLEMENTED
 
 static int devfs_getdirent(dirnode_t* node, dent_t* buff, size_t count, uintmax_t offset, size_t* readcount){
 
@@ -84,7 +80,7 @@ static int devfs_chmod(vnode_t* node, mode_t mode){
 }
 
 static fscalls_t devfscalls = {
-	devfs_mount, devfs_unmount, devfs_open, devfs_close, devfs_mkdir, devfs_create, devfs_write, devfs_read, devfs_getdirent, devfs_chmod
+	devfs_mount, devfs_unmount, devfs_open, devfs_close, NULL, NULL, NULL, NULL, devfs_getdirent, devfs_chmod
 };
 
 void devfs_init(){

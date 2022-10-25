@@ -13,17 +13,13 @@ static int write(int* error, int minor, void* buff, size_t count, size_t offset)
 	return -1;
 }
 
-static int isatty(int minor){
-	return ENOTTY;
-}
-
 static int isseekable(int minor, size_t* max){
         *max = ~(size_t)0;
         return 0;
 }
 
 static devcalls calls = {
-	read, write, isatty, isseekable
+	read, write, NULL, isseekable
 };
 
 void fulldev_init(){

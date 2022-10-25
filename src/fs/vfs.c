@@ -87,7 +87,9 @@ int vfs_write(int* error, vnode_t* node, void* buff, size_t count, size_t offset
 		
 		return writecount;
 	}
-
+	
+	if(!node->fs->calls->write)
+		return ENOSYS;
 	
 	spinlock_acquire(&lock);
 	
@@ -156,7 +158,6 @@ int vfs_read(int* error, vnode_t* node, void* buff, size_t count, size_t offset,
 	if(!fd)
 		fd = &tmpfd;
 
-
 	int type = GETTYPE(node->st.st_mode);
 	
 	if(type == TYPE_SOCKET)
@@ -175,6 +176,9 @@ int vfs_read(int* error, vnode_t* node, void* buff, size_t count, size_t offset,
 		int readcount = devman_read(error, node->st.st_rdev, buff, count, offset);
 		return readcount;
 	}
+
+	if(!node->fs->calls->read)
+		return ENOSYS;
 	
 	spinlock_acquire(&lock);
 	
@@ -187,6 +191,9 @@ int vfs_read(int* error, vnode_t* node, void* buff, size_t count, size_t offset,
 }
 
 int vfs_close(vnode_t* node){
+	
+	if(!node->fs->calls->close)
+		return ENOSYS;
 		
 	spinlock_acquire(&lock);
 	
@@ -207,6 +214,9 @@ int vfs_close(vnode_t* node){
 int vfs_getdirent(dirnode_t* node, dent_t* buff, size_t count, uintmax_t offset, size_t* readcount){
 	
 	int err = 0;
+	
+	if(!node->vnode.fs->calls->getdirent)
+		return ENOSYS;
 
 	spinlock_acquire(&lock);
 	
@@ -294,6 +304,11 @@ int vfs_create(dirnode_t* ref, char* path, mode_t mode){
 	if(!parent){
 		spinlock_release(&lock);
 		return result;
+	}
+	
+	if(!parent->vnode.fs->calls->create){
+		spinlock_release(&lock);
+		return ENOSYS;
 	}
 
 	result = parent->vnode.fs->calls->create(parent, name, mode);

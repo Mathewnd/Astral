@@ -31,6 +31,10 @@ int devman_write(int *error, int dev, void* buff, size_t count, size_t offset){
 	if(major(dev) > highestmajor)
 		return ENODEV;
 
+
+	if(!majorcalls[major(dev)]->write)
+                return ENOTTY;
+
 	return majorcalls[major(dev)]->write(error, minor(dev), buff, count, offset);
 	
 	
@@ -40,6 +44,9 @@ int devman_read(int *error, int dev, void* buff, size_t count, size_t offset){
 	
 	if(major(dev) > highestmajor)
 		return ENODEV;
+
+	if(!majorcalls[major(dev)]->read)
+                return ENOTTY;
 	
 
 	return majorcalls[major(dev)]->read(error, minor(dev), buff, count, offset);
@@ -51,6 +58,9 @@ int devman_isatty(int dev){
 	
 	if(major(dev) > highestmajor)
 		return ENOTTY;
+
+	if(!majorcalls[major(dev)]->isatty)
+                return ENOTTY;
 	
 	return majorcalls[major(dev)]->isatty(minor(dev));
 	
@@ -60,6 +70,10 @@ int devman_isseekable(int dev, size_t* max){
 
         if(major(dev) > highestmajor)
                 return ENOTTY;
+
+	if(!majorcalls[major(dev)]->isseekable)
+                return 0;
+
 
         return majorcalls[major(dev)]->isseekable(minor(dev), max);
 

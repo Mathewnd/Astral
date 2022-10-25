@@ -121,10 +121,6 @@ int write(int* error, int minor, void* buff, size_t count, size_t offset){
 	return count;
 }
 
-int isatty(int minor){
-	return ENOTTY;
-}
-
 static int isseekable(int minor, size_t* max){
         
 	if(minor >= fbcount)
@@ -201,7 +197,7 @@ static map(int minor, void* addr, size_t len, size_t offset, size_t mmuflags){
 }
 
 static devcalls calls = {
-	read, write, isatty, isseekable, ioctl, NULL, map
+	read, write, NULL, isseekable, ioctl, NULL, map
 };
 
 
