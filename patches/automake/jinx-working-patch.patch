@@ -1,0 +1,27 @@
+diff --git automake-clean/lib/config.guess automake-workdir/lib/config.guess
+index 2193702..7b9c18c 100755
+--- automake-clean/lib/config.guess
++++ automake-workdir/lib/config.guess
+@@ -827,6 +827,9 @@ EOF
+     i*86:BSD/386:*:* | i*86:BSD/OS:*:* | *:Ascend\ Embedded/OS:*:*)
+ 	echo ${UNAME_MACHINE}-pc-bsdi${UNAME_RELEASE}
+ 	exit ;;
++    *:Astral:*:*)
++	GUESS=$UNAME_MACHINE-pc-astral
++	;;
+     sparc*:BSD/OS:*:*)
+ 	echo sparc-unknown-bsdi${UNAME_RELEASE}
+ 	exit ;;
+diff --git automake-clean/lib/config.sub automake-workdir/lib/config.sub
+index 40ea5df..55fd4b7 100755
+--- automake-clean/lib/config.sub
++++ automake-workdir/lib/config.sub
+@@ -1391,7 +1391,7 @@ case $os in
+ 	# The portable systems comes first.
+ 	# Each alternative MUST END IN A *, to match a version number.
+ 	# -sysv* is not here because it comes later, after sysvr4.
+-	-gnu* | -bsd* | -mach* | -minix* | -genix* | -ultrix* | -irix* \
++	-gnu* | -astral* | -bsd* | -mach* | -minix* | -genix* | -ultrix* | -irix* \
+ 	      | -*vms* | -sco* | -esix* | -isc* | -aix* | -cnk* | -sunos | -sunos[34]*\
+ 	      | -hpux* | -unos* | -osf* | -luna* | -dgux* | -auroraux* | -solaris* \
+ 	      | -sym* | -kopensolaris* | -plan9* \
