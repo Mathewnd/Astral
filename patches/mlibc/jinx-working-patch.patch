@@ -56,6 +56,41 @@ index 3474615..e034881 100644
  }
  
  char **backtrace_symbols(void *const *, int) {
+diff --git mlibc-clean/options/posix/generic/termios-stubs.cpp mlibc-workdir/options/posix/generic/termios-stubs.cpp
+index 3e621ad..811459e 100644
+--- mlibc-clean/options/posix/generic/termios-stubs.cpp
++++ mlibc-workdir/options/posix/generic/termios-stubs.cpp
+@@ -49,9 +49,15 @@ int tcflow(int fd, int action) {
+ 	return 0;
+ }
+ 
+-int tcflush(int, int) {
+-	__ensure(!"Not implemented");
+-	__builtin_unreachable();
++int tcflush(int fd, int queue_selector) {
++	
++	MLIBC_CHECK_OR_ENOSYS(mlibc::sys_tcflush, -1);
++	if(int e = mlibc::sys_tcflush(fd, queue_selector); e) {
++		errno = e;
++		return -1;
++	}
++	return 0;
++
+ }
+ 
+ int tcgetattr(int fd, struct termios *attr) {
+diff --git mlibc-clean/options/posix/include/mlibc/posix-sysdeps.hpp mlibc-workdir/options/posix/include/mlibc/posix-sysdeps.hpp
+index 0917fe1..a6d975c 100644
+--- mlibc-clean/options/posix/include/mlibc/posix-sysdeps.hpp
++++ mlibc-workdir/options/posix/include/mlibc/posix-sysdeps.hpp
+@@ -141,6 +141,7 @@ int sys_vm_unmap(void *pointer, size_t size);
+ [[gnu::weak]] int sys_tcgetattr(int fd, struct termios *attr);
+ [[gnu::weak]] int sys_tcsetattr(int, int, const struct termios *attr);
+ [[gnu::weak]] int sys_tcflow(int, int);
++[[gnu::weak]] int sys_tcflush(int, int);
+ [[gnu::weak]] int sys_tcdrain(int);
+ [[gnu::weak]] int sys_pipe(int *fds, int flags);
+ [[gnu::weak]] int sys_socketpair(int domain, int type_and_flags, int proto, int *fds);
 diff --git mlibc-workdir/sysdeps/astral/crt-x86_64/crt0.S mlibc-workdir/sysdeps/astral/crt-x86_64/crt0.S
 new file mode 100644
 index 0000000..0a0a4a0

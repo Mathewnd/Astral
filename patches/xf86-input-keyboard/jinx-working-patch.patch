@@ -1,0 +1,147 @@
+diff --git xf86-input-keyboard-clean/configure.ac xf86-input-keyboard-workdir/configure.ac
+index 0f71ce3..024edd3 100644
+--- xf86-input-keyboard-clean/configure.ac
++++ xf86-input-keyboard-workdir/configure.ac
+@@ -57,6 +57,11 @@ AC_SUBST(inputdir)
+ 
+ # The keyboard driver code is O/S specific
+ case $host_os in
++
++  astral*)
++    IS_ASTRAL="yes"
++    ;;
++
+   linux*)
+     AC_MSG_ERROR([This is not the keyboard driver you are looking for. Use evdev or libinput.])
+     ;;
+@@ -95,6 +100,7 @@ case $host_os in
+ esac
+ AC_SUBST([OS_FLAGS])
+ 
++AM_CONDITIONAL(ASTRAL, [test "x$IS_ASTRAL" = xyes])
+ AM_CONDITIONAL(BSD, [test "x$IS_BSD" = xyes])
+ AM_CONDITIONAL(SOLARIS, [test "x$IS_SOLARIS" = xyes])
+ AM_CONDITIONAL(HURD, [test "x$IS_HURD" = xyes])
+diff --git xf86-input-keyboard-workdir/src/.astral_kbd.c.swp xf86-input-keyboard-workdir/src/.astral_kbd.c.swp
+new file mode 100644
+index 0000000..fd1ca48
+Binary files /dev/null and xf86-input-keyboard-workdir/src/.astral_kbd.c.swp differ
+diff --git xf86-input-keyboard-clean/src/Makefile.am xf86-input-keyboard-workdir/src/Makefile.am
+index 52f5f4d..95b684d 100644
+--- xf86-input-keyboard-clean/src/Makefile.am
++++ xf86-input-keyboard-workdir/src/Makefile.am
+@@ -26,10 +26,15 @@ kbd_drv_la_SOURCES = kbd.c xf86OSKbd.h xf86Keymap.h atKeynames.h
+ kbd_drv_la_LIBADD = $(XORG_LIBS)
+ kbd_drv_ladir = @inputdir@
+ 
++ASTRAL_SRCS = astral_kbd.c
+ BSD_SRCS = bsd_KbdMap.c bsd_kbd.c bsd_kbd.h at_scancode.c
+ HURD_SRCS = hurd_kbd.c at_scancode.c
+ SOLARIS_SRCS = sun_kbd.c sun_kbd.h sun_kbdMap.c
+ 
++if ASTRAL
++kbd_drv_la_SOURCES += $(ASTRAL_SRCS)
++endif
++
+ if BSD
+ kbd_drv_la_SOURCES += $(BSD_SRCS)
+ endif
+@@ -42,4 +47,4 @@ if HURD
+ kbd_drv_la_SOURCES += $(HURD_SRCS)
+ endif
+ 
+-EXTRA_DIST = $(BSD_SRCS) $(HURD_SRCS) $(SOLARIS_SRCS)
++EXTRA_DIST = $(ASTRAL_SRCS) $(BSD_SRCS) $(HURD_SRCS) $(SOLARIS_SRCS)
+diff --git xf86-input-keyboard-workdir/src/astral_kbd.c xf86-input-keyboard-workdir/src/astral_kbd.c
+new file mode 100644
+index 0000000..2ed6906
+--- /dev/null
++++ xf86-input-keyboard-workdir/src/astral_kbd.c
+@@ -0,0 +1,87 @@
++#ifdef HAVE_CONFIG_H
++#include <config.h>
++#endif
++
++#include <xorg-server.h>
++#include <X11/X.h>
++
++#include "compiler.h"
++
++#include "xf86.h"
++#include "xf86Priv.h"
++#include "xf86_OSlib.h"
++
++#include "xf86Xinput.h"
++#include "xf86OSKbd.h"
++#include "atKeynames.h"
++#include "xf86Keymap.h"
++
++#include <stdio.h>
++#include <errno.h>
++
++// astral stuff
++
++#define KBPACKET_FLAGS_RELEASED 1
++#define KBPACKET_FLAGS_LEFTCTRL 2
++#define KBPACKET_FLAGS_CAPSLOCK 4
++#define KBPACKET_FLAGS_LEFTALT 8
++#define KBPACKET_FLAGS_RIGHTALT 16
++#define KBPACKET_FLAGS_LEFTSHIFT 32
++#define KBPACKET_FLAGS_RIGHTCTRL 64
++#define KBPACKET_FLAGS_RIGHTSHIFT 128
++
++typedef struct {
++        char ascii;
++        uintmax_t keycode;
++        int flags;
++} kbpacket_t;
++
++
++// interface
++
++static int nop(){
++	return Success;
++}
++
++static int getleds(InputInfoPtr pInfo){return 0;}
++
++static int init(InputInfoPtr, int){return Success;}
++
++static Bool openkeyboard(InputInfoPtr info){
++	info->fd = open("/dev/keyboard", O_RDONLY, 0);
++	if(info->fd == -1)
++		FatalError("Failed to open /dev/keyboard (%s)\n",strerror(errno));
++	return TRUE;
++}
++
++static void kbdread(InputInfoPtr info){
++	KbdDevPtr kbd = (KbdDevPtr) info->private;
++	kbpacket_t packet;
++
++	while(read(info->fd, &packet, sizeof(kbpacket_t)))
++		kbd->PostEvent(info, packet.keycode, packet.flags & KBPACKET_FLAGS_RELEASED ? FALSE : TRUE);
++
++}
++static void getmap(InputInfoPtr info, KeySymsPtr syms, CARD8 *map){
++	
++}
++
++Bool xf86OSKbdPreInit(InputInfoPtr info){
++
++	KbdDevPtr kbd = info->private;
++	
++	kbd->KbdInit       = init;
++	kbd->KbdOn         = nop;
++	kbd->KbdOff        = nop;
++	kbd->Bell          = nop;
++	kbd->SetLeds       = nop;
++	kbd->GetLeds       = getleds;
++	kbd->KbdGetMapping = getmap;
++	kbd->RemapScanCode = NULL;
++	kbd->OpenKeyboard  = openkeyboard;
++	info->read_input   = kbdread;
++
++	kbd->private       = NULL;
++	
++	return TRUE;
++}
