@@ -22,19 +22,15 @@ index 0f71ce3..024edd3 100644
  AM_CONDITIONAL(BSD, [test "x$IS_BSD" = xyes])
  AM_CONDITIONAL(SOLARIS, [test "x$IS_SOLARIS" = xyes])
  AM_CONDITIONAL(HURD, [test "x$IS_HURD" = xyes])
-diff --git xf86-input-keyboard-workdir/src/.astral_kbd.c.swp xf86-input-keyboard-workdir/src/.astral_kbd.c.swp
-new file mode 100644
-index 0000000..fd1ca48
-Binary files /dev/null and xf86-input-keyboard-workdir/src/.astral_kbd.c.swp differ
 diff --git xf86-input-keyboard-clean/src/Makefile.am xf86-input-keyboard-workdir/src/Makefile.am
-index 52f5f4d..95b684d 100644
+index 52f5f4d..7de71b9 100644
 --- xf86-input-keyboard-clean/src/Makefile.am
 +++ xf86-input-keyboard-workdir/src/Makefile.am
 @@ -26,10 +26,15 @@ kbd_drv_la_SOURCES = kbd.c xf86OSKbd.h xf86Keymap.h atKeynames.h
  kbd_drv_la_LIBADD = $(XORG_LIBS)
  kbd_drv_ladir = @inputdir@
  
-+ASTRAL_SRCS = astral_kbd.c
++ASTRAL_SRCS = astral_kbd.c astral_KbdMap.c
  BSD_SRCS = bsd_KbdMap.c bsd_kbd.c bsd_kbd.h at_scancode.c
  HURD_SRCS = hurd_kbd.c at_scancode.c
  SOLARIS_SRCS = sun_kbd.c sun_kbd.h sun_kbdMap.c
@@ -52,12 +48,45 @@ index 52f5f4d..95b684d 100644
  
 -EXTRA_DIST = $(BSD_SRCS) $(HURD_SRCS) $(SOLARIS_SRCS)
 +EXTRA_DIST = $(ASTRAL_SRCS) $(BSD_SRCS) $(HURD_SRCS) $(SOLARIS_SRCS)
+diff --git xf86-input-keyboard-workdir/src/astral_KbdMap.c xf86-input-keyboard-workdir/src/astral_KbdMap.c
+new file mode 100644
+index 0000000..2ca19fd
+--- /dev/null
++++ xf86-input-keyboard-workdir/src/astral_KbdMap.c
+@@ -0,0 +1,27 @@
++#ifdef HAVE_CONFIG_H
++#include <config.h>
++#endif
++
++#include <xorg-server.h>
++#include <X11/X.h>
++
++#include "compiler.h"
++
++#include "xf86.h"
++#include "xf86Priv.h"
++#include "xf86_OSlib.h"
++
++#include "xf86Xinput.h"
++#include "xf86OSKbd.h"
++#include "atKeynames.h"
++#include "xf86Keymap.h"
++
++#include <stdio.h>
++#include <errno.h>
++
++void getmap(InputInfoPtr info, KeySymsPtr syms, CARD8 *map){
++    syms->map        = map;
++    syms->mapWidth   = GLYPHS_PER_KEY;
++    syms->minKeyCode = MIN_KEYCODE;
++    syms->maxKeyCode = MAX_KEYCODE;	
++}
 diff --git xf86-input-keyboard-workdir/src/astral_kbd.c xf86-input-keyboard-workdir/src/astral_kbd.c
 new file mode 100644
-index 0000000..2ed6906
+index 0000000..44c4007
 --- /dev/null
 +++ xf86-input-keyboard-workdir/src/astral_kbd.c
-@@ -0,0 +1,87 @@
+@@ -0,0 +1,94 @@
 +#ifdef HAVE_CONFIG_H
 +#include <config.h>
 +#endif
@@ -107,24 +136,32 @@ index 0000000..2ed6906
 +
 +static int init(InputInfoPtr, int){return Success;}
 +
-+static Bool openkeyboard(InputInfoPtr info){
-+	info->fd = open("/dev/keyboard", O_RDONLY, 0);
-+	if(info->fd == -1)
-+		FatalError("Failed to open /dev/keyboard (%s)\n",strerror(errno));
-+	return TRUE;
-+}
-+
 +static void kbdread(InputInfoPtr info){
 +	KbdDevPtr kbd = (KbdDevPtr) info->private;
 +	kbpacket_t packet;
 +
++	printf("amogus\n");
++
 +	while(read(info->fd, &packet, sizeof(kbpacket_t)))
 +		kbd->PostEvent(info, packet.keycode, packet.flags & KBPACKET_FLAGS_RELEASED ? FALSE : TRUE);
 +
++	printf("read %c\n", packet.ascii);
++
 +}
-+static void getmap(InputInfoPtr info, KeySymsPtr syms, CARD8 *map){
++
++static Bool openkeyboard(InputInfoPtr info){
++	char *kbdPath = xf86SetStrOption(info->options, "Device", "/dev/keyboard");
++	info->fd = open("/dev/keyboard", O_NONBLOCK | O_RDONLY);
++	if(info->fd == -1)
++		FatalError("Failed to open keyboard (%s)\n",strerror(errno));
 +	
++	info->read_input   = kbdread;
++	
++	return TRUE;
 +}
++
++
++void getmap(InputInfoPtr info, KeySymsPtr syms, CARD8 *map);
 +
 +Bool xf86OSKbdPreInit(InputInfoPtr info){
 +
@@ -137,11 +174,10 @@ index 0000000..2ed6906
 +	kbd->SetLeds       = nop;
 +	kbd->GetLeds       = getleds;
 +	kbd->KbdGetMapping = getmap;
-+	kbd->RemapScanCode = NULL;
++	kbd->RemapScanCode = 0;
 +	kbd->OpenKeyboard  = openkeyboard;
-+	info->read_input   = kbdread;
 +
 +	kbd->private       = NULL;
-+	
++
 +	return TRUE;
 +}

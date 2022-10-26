@@ -1,0 +1,9 @@
+name=xrandr
+version=1.5.1
+source_method=tarball
+tarball_url="https://www.x.org/pub/individual/app/xrandr-${version}.tar.xz"
+tarball_sha512=a
+hostdeps="autoconf automake util-macros pkgconfig libtool"
+regenerate() {
+        autoreconf -fvi
+}
