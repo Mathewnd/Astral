@@ -145,8 +145,17 @@ static int read(int *error, int minor, void* buff, size_t count, size_t offset){
 
 }
 
+static int poll(pollfd* fd){
+	
+	if((fd->events & POLLIN) && devbuff.read != devbuff.write)
+		fd->revents |= POLLIN;
+
+	return 0;
+}
+
 static devcalls calls = {
-	read
+	.read = read,
+	.poll = poll
 };
 
 void keyboard_init(){
