@@ -92,8 +92,9 @@ syscallret syscall_waitpid(pid_t pid, int *status, int options){
 	else{
 		proc->child = child->sibling;
 	}
-
-	*status = child->status; // XXX safer way of doing this
+	
+	if(status)
+		*status = child->status; // XXX safer way of doing this
 	
 	// the pointer to the last remaining thread is is proc->threads
 
