@@ -72,7 +72,7 @@ syscallret syscall_openat(int dirfd, const char* pathname, int flags, mode_t mod
 
 	if(ret == ENOENT && (flags & O_CREAT)){
 		ret = vfs_create(
-			*name == '/' ? proc->root : proc->cwd,
+			*name == '/' ? proc->root : target,
 			name, mode & ~proc->umask);
 		
 		if(ret){
