@@ -2,6 +2,8 @@
 #include <arch/e9.h>
 #include <sys/stat.h>
 
+#ifdef USE_E9
+
 #include <stddef.h>
 #include <stdint.h>
 
@@ -26,3 +28,5 @@ static devcalls calls = {
 void e9out_init(){
 	devman_newdevice("e9out", TYPE_CHARDEV, MAJOR_E9OUT, 0, &calls);
 }
+
+#endif

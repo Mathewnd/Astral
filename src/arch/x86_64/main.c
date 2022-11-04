@@ -66,8 +66,12 @@ void kmain(){
 	consoledev_init();
 
 	pseudodevs_init();
+	
+	#ifdef USE_E9
 
 	e9out_init();
+
+	#endif
 	
 	fb_init();
 

@@ -23,9 +23,10 @@ KERNELDEPS=$(call rwildcard,bin,*.o)
 KERNELSRCDEPS=$(call rwildcard,src,*.c)
 INCLUDEDIR=$(SRCDIR)/include
 ARCHINCLUDE=$(SRCDIR)/arch/$(TARGET)/include
+KERNELCONFIG=
 KERNEL=$(ISO)/kernel
 INITRD=$(ISO)/initrd
-CFLAGS=-c -ffreestanding -mcmodel=kernel -O2 -mno-red-zone -mno-mmx -mno-sse -mno-sse2 -nostdlib -I$(INCLUDEDIR) -I$(ARCHINCLUDE) --debug
+CFLAGS=-c -ffreestanding -mcmodel=kernel -O2 -mno-red-zone -mno-mmx -mno-sse -mno-sse2 -nostdlib -I$(INCLUDEDIR) -I$(ARCHINCLUDE) --debug $(KERNELCONFIG)
 LDFLAGS=-ffreestanding -nostdlib -lgcc -Wl,-T,kernel.ld -debug
 ISO=$(PWD)/boot/$(TARGET)/iso
 SRCDIR=$(PWD)/src/
@@ -60,10 +61,10 @@ sysdisk.iso: $(ISO)
 	xorriso -as mkisofs -b limine-cd.bin -no-emul-boot -boot-load-size 4 -boot-info-table --efi-boot limine-cd-efi.bin -efi-boot-part --efi-boot-image --protective-msdos-label $(ISO) -o sysdisk.iso
 
 run:
-	qemu-system-x86_64 -cdrom sysdisk.iso -m 8G -smp cpus=6
+	qemu-system-x86_64 -cdrom sysdisk.iso -m 8G -smp cpus=6 -debugcon stdio
 
 run-kvm:
-	qemu-system-x86_64 -cdrom sysdisk.iso -m 8G -smp cpus=6 -enable-kvm
+	qemu-system-x86_64 -cdrom sysdisk.iso -m 8G -smp cpus=6 -enable-kvm -debugcon stdio
 
 test:
 	qemu-system-x86_64 -monitor stdio -cdrom sysdisk.iso -d int -no-reboot -no-shutdown -m 8G -smp cpus=6
