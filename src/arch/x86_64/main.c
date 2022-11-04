@@ -66,6 +66,8 @@ void kmain(){
 	consoledev_init();
 
 	pseudodevs_init();
+
+	e9out_init();
 	
 	fb_init();
 
