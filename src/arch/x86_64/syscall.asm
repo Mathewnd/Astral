@@ -151,7 +151,7 @@ asm_syscall_entry:
 	mov es, r11
 
 	; system V C abi expects the third param to be in rcx
-	; but the param is in rdx because of the syscall instruction
+	; but the param is in r10 because of the syscall instruction
 
 	mov rcx, r10
 
@@ -213,7 +213,7 @@ asm_syscall_entry:
 	pop rbp
 	add rsp, 0x30 ; err, rip, cs, rflags, rsp, ss	
 	pop rsp ; actual rsp
-
+	
 	cli
 
 
