@@ -49,11 +49,14 @@ void idt_bspinit(){
 	idt_setentry(&idt[VECTOR_INVALIDTSS], asmisr_except, 0x28, FLAGS_PRESENT | FLAGS_TYPE_INTERRUPT, 0);
 	idt_setentry(&idt[VECTOR_SEGMENTNOTPRESENT], asmisr_except, 0x28, FLAGS_PRESENT | FLAGS_TYPE_INTERRUPT, 0);
 	idt_setentry(&idt[VECTOR_STACK], asmisr_except, 0x28, FLAGS_PRESENT | FLAGS_TYPE_INTERRUPT, 0);
+	
 
-
+	
 	idt_setentry(&idt[VECTOR_SIMD], asmisr_simd, 0x28, FLAGS_PRESENT | FLAGS_TYPE_INTERRUPT, 0);
 	
 	idt_setentry(&idt[VECTOR_PF], asmisr_pagefault, 0x28, FLAGS_PRESENT | FLAGS_TYPE_INTERRUPT, 0);
+	
+	idt_setentry(&idt[VECTOR_DEVUNAVAILABLE], asmisr_nm, 0x28, FLAGS_PRESENT | FLAGS_TYPE_INTERRUPT, 0);
 	
 	idt_setentry(&idt[VECTOR_PANIC], asmisr_panic, 0x28, FLAGS_PRESENT | FLAGS_TYPE_INTERRUPT, 0);
 

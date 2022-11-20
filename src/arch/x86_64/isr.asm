@@ -97,7 +97,7 @@ section .text
 
 %endmacro
 
-%macro isr 2
+%macro isr 3
 	
 	global %1
 	%1:
@@ -107,6 +107,7 @@ section .text
 	pushregs
 
 	mov rdi,rsp
+	mov rsi,%3
 
 	cld
 	extern %2
@@ -122,7 +123,7 @@ section .text
 
 
 
-%macro except 2
+%macro except 3
 
 	global %1
 	%1:
@@ -130,7 +131,8 @@ section .text
 	pushregs
 	
 	mov rdi,rsp
-	
+	mov rsi,%3
+
 	cld
 	sti
 	extern %2
@@ -150,11 +152,12 @@ asmisr_panic:
 	hlt
 	jmp .hlt ; NMI stuff
 
-except	asmisr_pagefault, isr_pagefault
-isr	asmisr_general, isr_general
-except	asmisr_except, isr_except
-isr	asmisr_lapicnmi, isr_lapicnmi
-isr	asmisr_mmuinval, isr_mmuinval
-isr 	asmisr_ps2kbd, isr_ps2kbd
-isr	asmisr_timer, isr_timer
-isr 	asmisr_simd, isr_simd
+except	asmisr_pagefault, isr_pagefault, 0xE
+except	asmisr_nm, isr_except, 0x7
+isr	asmisr_general, isr_general, 0xFF
+except	asmisr_except, isr_except, 0xFF
+isr	asmisr_lapicnmi, isr_lapicnmi, 0x21
+isr	asmisr_mmuinval, isr_mmuinval, 0x22
+isr 	asmisr_ps2kbd, isr_ps2kbd, 0x40
+isr	asmisr_timer, isr_timer, 0x80
+isr 	asmisr_simd, isr_simd, 0x13

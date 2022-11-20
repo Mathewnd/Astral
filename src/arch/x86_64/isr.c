@@ -15,11 +15,13 @@ void isr_simd(arch_regs *reg){
 	_panic("SIMD exception", reg);
 }
 
-void isr_general(arch_regs *reg){
+void isr_general(arch_regs *reg, int n){
+	printf("interrupt %d", n);
 	_panic("Unhandled interrupt", reg);
 }
 
-void isr_except(arch_regs *reg){
+void isr_except(arch_regs *reg, int n){
+	printf("exception %d", n);
 	_panic("CPU Exception", reg);
 }
 
