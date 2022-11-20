@@ -31,4 +31,8 @@ static inline void arch_regs_seterrno(arch_regs* regs, arch_reg reg){
 	regs->rdx = reg;
 }
 
+static inline arch_reg arch_regs_getstack(arch_regs* regs){
+	return regs->rsp;
+}
+
 #endif
