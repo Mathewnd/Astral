@@ -373,6 +373,13 @@ void sched_dequeue(){
 
 }
 
+__attribute__((noreturn)) int sched_die(){
+	
+	arch_getcls()->thread->state = THREAD_STATE_DEAD;
+
+	sched_dequeue();
+}
+
 void sched_block(bool interruptible){
 	
 	thread_t* thread = arch_getcls()->thread;
