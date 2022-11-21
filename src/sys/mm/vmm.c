@@ -684,6 +684,11 @@ bool vmm_dealwithrequest(void* addr, long error, bool user){
 
 	addr = (size_t)addr & ~(0xFFF);
 	
+	// check if it was already mapped by another thread in the time
+	// it took to go from interrupt to lock acquire
+
+	if(arch_mmu_ismapped(cls->context->context, addr))
+		goto done;
 
 	cls_t* cls = arch_getcls();
 	
