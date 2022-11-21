@@ -49,11 +49,6 @@ void syscall_exit(int status){
 
 	event_signal(&proc->parent->childevent, true);
 
-        // context and thread destruction will happen in the waitpid()
-        // the pointer to this thread will reside in proc->threads
-
-        proc->threads = arch_getcls()->thread;
-	
 	arch_interrupt_disable();
 
 	spinlock_release(&proc->lock);

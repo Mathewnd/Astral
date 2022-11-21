@@ -8,6 +8,7 @@
 #include <arch/cls.h>
 #include <arch/spinlock.h>
 #include <kernel/alloc.h>
+#include <arch/interrupt.h>
 
 #define UNSUPPORTED "astral: waitpid: Unsupported waitpid options!\n"
 #define UNSUPPORTED_PG "astral: waitpid: Process group waits are not supported yet.\n"
@@ -96,15 +97,48 @@ syscallret syscall_waitpid(pid_t pid, int *status, int options){
 	if(status)
 		*status = child->status; // XXX safer way of doing this
 	
-	// the pointer to the last remaining thread is is proc->threads
-
-	thread_t* thread = child->threads;
-
+	int threadc = proc->threadcount;
 	
-	free(thread->regs);
-	free(thread->kernelstackbase);
-	vmm_destroy(thread->ctx);
-	free(thread);	
+	// free all the threads
+
+	while(proc->threadcount){
+		
+		for(int t = 0; t < threadc; ++t){
+			
+			thread_t* thread = proc->threads[t];
+			
+			// XXX possible race condition here?
+
+			if(thread->state != THREAD_STATE_DEAD)
+				continue;
+
+			free(thread->regs);
+			free(thread->kernelstackbase);
+			vmm_destroy(thread->ctx);
+
+			thread->state = THREAD_STATE_DESTROYED;
+
+		}
+		
+		arch_interrupt_disable();
+
+		sched_yield();
+
+		arch_interrupt_enable();
+
+	}
+
+	for(int t = 0; t < threadc; ++t){
+		
+		thread_t* thread = proc->threads[t];
+		
+		if(thread->state != THREAD_STATE_DESTROYED)
+			_panic("Freeing non-destroyed thread", NULL);
+
+		free(thread);
+
+	}
+
 	free(child);
 
 	retv.ret = child->pid;
