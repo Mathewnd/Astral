@@ -1,6 +1,6 @@
 objects := $(patsubst %.c,%.o,$(wildcard *.c))
 subdirs := 
-OBJPATH=$(OBJDIR)
+OBJPATH=$(OBJDIR)/sys/pseudodevs/
 export
 
 all: $(subdirs) $(objects)

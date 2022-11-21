@@ -1,6 +1,6 @@
 objects := $(patsubst %.c,%.o,$(wildcard *.c))
 subdirs :=
-OBJPATH=$(OBJDIR)
+OBJPATH=$(OBJDIR)/sys/syscalls/
 export
 
 all: $(subdirs) $(objects)

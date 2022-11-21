@@ -1,6 +1,6 @@
 objects := $(patsubst %.c,%.o,$(wildcard *.c))
 subdirs :=
-OBJPATH=$(OBJDIR)
+OBJPATH=$(OBJDIR)/sys/mm/
 export
 
 all: $(subdirs) $(objects)

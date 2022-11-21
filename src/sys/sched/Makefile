@@ -1,6 +1,6 @@
 objects := $(patsubst %.c,%.o,$(wildcard *.c))
 subdirs :=
-OBJPATH=$(OBJDIR)
+OBJPATH=$(OBJDIR)/sys/sched/
 export
 
 all: $(subdirs) $(objects)
