@@ -9,6 +9,68 @@ pci_enumeration* enumerations;
 #define CONFIG_ADDRESS 0xCF8
 #define CONFIG_DATA 0xCFC
 
+pci_enumeration* pci_getdevicecs(int class, int subclass, int n){
+	
+	pci_enumeration* ptr = enumerations;
+	pci_enumeration*  save = NULL;
+
+	while(true){
+		while(ptr){
+			
+			pci_common* common = ptr->header;
+			if((common->type & 0x7F) == PCI_DEV_HEADER && common->class == class && common->subclass == subclass){
+				save = ptr;
+				ptr = ptr->next;
+				break;
+				
+			}
+
+			ptr = ptr->next;
+		}
+
+		if(!ptr)
+			break;
+
+		if(n-- == 0)
+			break;
+	}
+
+	if(n >= 0)
+		save = NULL;
+
+	return save;
+
+}
+pci_enumeration* pci_getdevicecsp(int class, int subclass, int progif, int n){
+	pci_enumeration* ptr = enumerations;
+	pci_enumeration*  save = NULL;
+
+	while(ptr){
+		while(ptr){
+			
+			pci_common* common = ptr->header;
+
+			if((common->type & 0x7F) == PCI_DEV_HEADER && common->class == class && common->subclass == subclass && common->progif == progif){
+				save = ptr;
+				ptr = ptr->next;
+				break;
+				
+			}
+
+			ptr = ptr->next;
+		}
+
+		if(n-- == 0)
+			break;
+
+	}
+
+	if(n < 0)
+		save = NULL;
+
+	return save;
+}
+
 uint32_t legacy_readdata(int bus, int device, int func, int reg){
 	
 	uint32_t address = reg << 2;
@@ -33,8 +95,10 @@ static pci_enumeration* allocnewenum(){
 
 	if(!enumerations){
 		enumeration = alloc(sizeof(pci_enumeration));
+		enumerations = enumeration;
 	}
 	else{
+		enumeration = enumerations;
 		while(enumeration->next != NULL)
 			enumeration = enumeration->next;
 		
@@ -132,6 +196,5 @@ void pci_enumerate(){
 	// TODO PCIe enumeration	
 	
 	legacy_enumeration();
-
 
 }

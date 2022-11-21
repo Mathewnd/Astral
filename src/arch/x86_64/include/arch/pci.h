@@ -50,6 +50,8 @@ typedef struct _pci_enumeration{
 	pci_common* header;
 } pci_enumeration;
 
+pci_enumeration* pci_getdevicecs(int class, int subclass, int n);
+pci_enumeration* pci_getdevicecsp(int class, int subclass, int progif, int n);
 uint64_t pci_msi_build(uint64_t* data, uint8_t vector, uint8_t processor, uint8_t edgetrigger, uint8_t deassert);
 void pci_enumerate();
 
