@@ -50,6 +50,37 @@ typedef struct _pci_enumeration{
 	pci_common* header;
 } pci_enumeration;
 
+#define PCI_TYPE_MEM 1
+#define PCI_MEM_64 2
+
+// bit 0 set if mem; bit 1 set if 64 bit (in case of mem)
+
+static inline int pci_bartype(uint32_t bar){
+	
+	if(bar & 1)
+		return 0;
+	
+
+	if(((bar >> 1) & 3) == 2)
+		return 3;
+
+	return 1;
+
+}
+
+static inline void* getbarmemaddr(pci_deviceheader* e, int bar){
+
+	int type = pci_bartype(e->BAR[bar]);
+
+	if(type == 0)
+		return NULL;
+
+	if(type & PCI_MEM_64)
+		return (e->BAR[bar] & ~(0xF)) + ((uint64_t)e->BAR[bar + 1] << 32);
+	else
+		return e->BAR[bar] & ~(0xF);
+}
+
 pci_enumeration* pci_getdevicecs(int class, int subclass, int n);
 pci_enumeration* pci_getdevicecsp(int class, int subclass, int progif, int n);
 uint64_t pci_msi_build(uint64_t* data, uint8_t vector, uint8_t processor, uint8_t edgetrigger, uint8_t deassert);

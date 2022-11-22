@@ -20,6 +20,8 @@ pci_enumeration* pci_getdevicecs(int class, int subclass, int n){
 			pci_common* common = ptr->header;
 			if((common->type & 0x7F) == PCI_DEV_HEADER && common->class == class && common->subclass == subclass){
 				save = ptr;
+				if(ptr->next == NULL)
+					break;
 				ptr = ptr->next;
 				break;
 				
