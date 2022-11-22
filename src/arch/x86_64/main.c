@@ -66,7 +66,7 @@ void kmain(){
 	consoledev_init();
 
 	pseudodevs_init();
-	
+
 	#ifdef USE_E9
 
 	e9out_init();
@@ -76,6 +76,8 @@ void kmain(){
 	fb_init();
 
 	pci_enumerate();
+	
+	nvme_init();
 
 	cpu_state_init();
 
