@@ -3,6 +3,7 @@ all: jinx
 	LDFLAGS="" CFLAGS="" ./jinx build-all
 	make fullinitrd
 	make sysdisk.iso
+	make nvme.img
 	
 rebuildkernel:
 	LDFLAGS="" CFLAGS="" ./jinx rebuild astral
@@ -60,17 +61,21 @@ sysdisk.iso: $(ISO)
 	cp liminebg.bmp limine.cfg limine/limine.sys limine/limine-cd.bin limine/limine-cd-efi.bin $(ISO)
 	xorriso -as mkisofs -b limine-cd.bin -no-emul-boot -boot-load-size 4 -boot-info-table --efi-boot limine-cd-efi.bin -efi-boot-part --efi-boot-image --protective-msdos-label $(ISO) -o sysdisk.iso
 
+nvme.img:
+	qemu-img create nvme.img 4G -f qcow2
+
+QEMUFLAGS=-cdrom sysdisk.iso -m 8G -smp cpus=6 -drive file=nvme.img,if=none,id=nvm -device nvme,serial=deadc0ff,drive=nvm
 run:
-	qemu-system-x86_64 -cdrom sysdisk.iso -m 8G -smp cpus=6 -debugcon stdio
+	qemu-system-x86_64 $(QEMUFLAGS) -debugcon stdio
 
 run-kvm:
-	qemu-system-x86_64 -cdrom sysdisk.iso -m 8G -smp cpus=6 -enable-kvm -debugcon stdio
+	qemu-system-x86_64 $(QEMUFLAGS) -enable-kvm -debugcon stdio
 
 test:
-	qemu-system-x86_64 -monitor stdio -cdrom sysdisk.iso -d int -no-reboot -no-shutdown -m 8G -smp cpus=6
+	qemu-system-x86_64 $(QEMUFLAGS) -monitor stdio -cdrom -d int -no-reboot -no-shutdown
 
 test-kvm:
-	qemu-system-x86_64 -monitor stdio -cdrom sysdisk.iso -no-reboot -no-shutdown -m 8G -smp cpus=6 -enable-kvm
+	qemu-system-x86_64 $(QEMUFLAGS) -monitor stdio -no-reboot -no-shutdown -enable-kvm
 
 kclean:
 
