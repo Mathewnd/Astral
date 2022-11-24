@@ -81,6 +81,11 @@ static inline void* getbarmemaddr(pci_deviceheader* e, int bar){
 		return e->BAR[bar] & ~(0xF);
 }
 
+#define PCI_COMMAND_IO 1
+#define PCI_COMMAND_MEMORY 2
+#define PCI_COMMAND_MASTER 4
+
+void pci_setcommand(pci_enumeration* e, int which, int val);
 pci_enumeration* pci_getdevicecs(int class, int subclass, int n);
 pci_enumeration* pci_getdevicecsp(int class, int subclass, int progif, int n);
 uint64_t pci_msi_build(uint64_t* data, uint8_t vector, uint8_t processor, uint8_t edgetrigger, uint8_t deassert);

@@ -9,6 +9,8 @@ pci_enumeration* enumerations;
 #define CONFIG_ADDRESS 0xCF8
 #define CONFIG_DATA 0xCFC
 
+#define COMMAND_REG 1
+
 pci_enumeration* pci_getdevicecs(int class, int subclass, int n){
 	
 	pci_enumeration* ptr = enumerations;
@@ -73,7 +75,7 @@ pci_enumeration* pci_getdevicecsp(int class, int subclass, int progif, int n){
 	return save;
 }
 
-uint32_t legacy_readdata(int bus, int device, int func, int reg){
+static uint32_t legacy_readdata(int bus, int device, int func, int reg){
 	
 	uint32_t address = reg << 2;
 	address |= (func & 0b111) << 8;
@@ -84,6 +86,35 @@ uint32_t legacy_readdata(int bus, int device, int func, int reg){
 	outd(CONFIG_ADDRESS, address);
 
 	return ind(CONFIG_DATA);
+
+}
+
+static void legacy_writedata(int bus, int device, int func, int reg, uint32_t val){
+	
+	uint32_t address = reg << 2;
+        address |= (func & 0b111) << 8;
+        address |= (device & 0b11111) << 11;
+        address |= (bus & 0xFF) << 16;
+        address |= 1 << 31;
+
+        outd(CONFIG_ADDRESS, address);
+	
+	outd(CONFIG_DATA, val);
+
+}
+
+void pci_setcommand(pci_enumeration* e, int which, int val){
+
+	uint32_t regsave = legacy_readdata(e->bus, e->device, e->function, COMMAND_REG);
+
+	if(val == 0){
+		regsave &= ~which;
+	}
+	else{
+		regsave |= which;
+	}
+	
+	legacy_writedata(e->bus, e->device, e->function, COMMAND_REG, regsave);
 
 }
 
