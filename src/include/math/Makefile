@@ -1,6 +1,6 @@
 objects := $(patsubst %.c,%.o,$(wildcard *.c))
-subdirs := stdio string hashtable ringbuffer math
-OBJPATH=$(OBJDIR)/include/
+subdirs :=
+OBJPATH=$(OBJDIR)/include/math/
 export
 
 all: $(subdirs) $(objects)
