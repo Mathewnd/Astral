@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <stdbool.h>
 
 #define PCI_DEV_HEADER 0
 #define PCI_BRIDGE_HEADER 1
@@ -84,6 +85,11 @@ static inline void* getbarmemaddr(pci_deviceheader* e, int bar){
 #define PCI_COMMAND_IO 1
 #define PCI_COMMAND_MEMORY 2
 #define PCI_COMMAND_MASTER 4
+
+bool pci_msisupport(pci_enumeration* e);
+void pci_msienable(pci_enumeration* e, bool enable);
+void pci_msimask(pci_enumeration* e, int which, int val);
+void pci_msimaskall(pci_enumeration* e, int val);
 
 void pci_setcommand(pci_enumeration* e, int which, int val);
 pci_enumeration* pci_getdevicecs(int class, int subclass, int n);

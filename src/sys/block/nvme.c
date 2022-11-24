@@ -99,7 +99,15 @@ void nvme_initctlr(pci_enumeration* pci){
 		printf("Controller minimum page size is bigger than the system page size\n");
 		return;
 	}
+
+	// set relevant command stuff in the pci config space
 	
+	pci_setcommand(pci, PCI_COMMAND_MEMORY, 1);
+	pci_setcommand(pci, PCI_COMMAND_MASTER, 1);
+	
+	pci_msienable(pci, true); // msi is always supported by nvme
+	pci_msimaskall(pci, 1);
+
 	// reset controller
 
 	uint32_t cc = bar0->cc;
@@ -126,7 +134,7 @@ void nvme_initctlr(pci_enumeration* pci){
 	bar0->cc = cc;
 
 	// enable
-	
+
 	bar0->cc |= 1;
 
 	while((bar0->csts & 3) == 0);

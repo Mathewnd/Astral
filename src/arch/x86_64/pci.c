@@ -10,6 +10,7 @@ pci_enumeration* enumerations;
 #define CONFIG_DATA 0xCFC
 
 #define COMMAND_REG 1
+#define CAP_MSI 5
 
 pci_enumeration* pci_getdevicecs(int class, int subclass, int n){
 	
@@ -175,6 +176,79 @@ static size_t legacy_getcapabilityoffset(size_t id, pci_enumeration* enumeration
 	}
 	
 	return 0;
+
+}
+
+bool pci_msisupport(pci_enumeration* e){
+	if(!legacy_getcapabilityoffset(CAP_MSI, e))
+		return false;
+
+	return true;
+}
+
+void pci_msienable(pci_enumeration* e, bool enable){
+	
+	int offset = legacy_getcapabilityoffset(CAP_MSI, e);
+
+	if(!offset)
+		return;
+
+	uint32_t currval = legacy_readdata(e->bus, e->device, e->function, offset);
+
+	if((currval & 1 << 23) == 0)
+		_panic("32 bit MSI not supported!");
+
+	if(enable){
+		currval |= 1 << 16;
+	}
+	else{
+		currval &= ~(1 << 16);
+	}
+
+	legacy_writedata(e->bus, e->device, e->function, offset, currval);
+
+}
+
+void pci_msimask(pci_enumeration* e, int which, int val){
+	int offset = legacy_getcapabilityoffset(CAP_MSI, e);
+
+        if(!offset)
+                return;
+
+	offset += 2;
+
+        uint32_t currval = legacy_readdata(e->bus, e->device, e->function, offset);
+	
+	if(val){
+		currval |= 1 << which;
+	}
+	else{
+		currval &= ~(1 << which);
+	}
+
+	legacy_writedata(e->bus, e->device, e->function, offset, currval);
+
+}
+
+void pci_msimaskall(pci_enumeration* e, int val){
+	
+	int offset = legacy_getcapabilityoffset(CAP_MSI, e);
+
+        if(!offset)
+                return;
+
+        offset += 2;
+
+        uint32_t currval = legacy_readdata(e->bus, e->device, e->function, offset);
+        
+        if(val){
+                currval = 0xFFFFFFFF;
+        }
+        else{
+                currval = 0;
+        }
+
+        legacy_writedata(e->bus, e->device, e->function, offset, currval);
 
 }
 
