@@ -638,27 +638,27 @@ bool vmm_allocnowat(void* addr, size_t mmuflags, size_t size){
 
 // called by the page fault handler
 
-bool vmm_dealwithrequest(void* addr, long error, bool user){
+int vmm_dealwithrequest(void* addr, long error, bool user){
 	
 	if(user && addr > USER_SPACE_END)
-		return false;
+		return EFAULT;
 
 	int* lock;
 	vmm_mapping** start = NULL;
 	
 	getcontextinfo(addr, &lock, &start);
 	
-	if(!start) return false;
+	if(!start) return EFAULT;
 
 	spinlock_acquire(lock);
 
 
-	bool status;
+	int status;
 	vmm_mapping* map = findmappingfromaddr(*start, addr);
 	void* paddr;
 
 	if((!map) || map->type == VMM_TYPE_FREE){
-		status = false;
+		status = EFAULT;
 		goto done;
 	}
 
@@ -675,7 +675,7 @@ bool vmm_dealwithrequest(void* addr, long error, bool user){
 
 
 	if(goodmmuflags != (map->mmuflags & goodmmuflags)){
-		status = false;
+		status = EFAULT;
 		goto done;
 	}
 	
@@ -697,7 +697,7 @@ bool vmm_dealwithrequest(void* addr, long error, bool user){
 
 
 	if(addr == NULL || arch_mmu_map(cls->context->context, paddr, addr, map->mmuflags) == false){
-		status = false;	
+		status = ENOMEM;	
 		goto done;
 	}
 	
@@ -709,7 +709,7 @@ bool vmm_dealwithrequest(void* addr, long error, bool user){
 		vfs_read(&err, map->data, addr, PAGE_SIZE, map->offset + offset, NULL);
 	}
 	
-	status = true;
+	status = 0;
 	
 	done:
 	
