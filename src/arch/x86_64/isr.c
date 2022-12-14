@@ -3,6 +3,9 @@
 #include <kernel/vmm.h>
 #include <arch/apic.h>
 #include <kernel/timer.h>
+#include <arch/cls.h>
+#include <stdio.h>
+#include <errno.h>
 
 void isr_simd(arch_regs *reg){
 	
@@ -21,14 +24,36 @@ void isr_general(arch_regs *reg, int n){
 }
 
 void isr_except(arch_regs *reg, int n){
+
 	printf("exception %d", n);
 	_panic("CPU Exception", reg);
 }
 
-void isr_pagefault(arch_regs *reg){
+void isr_gpf(arch_regs* reg){
 	
-	if(!vmm_dealwithrequest(reg->cr2, reg->error, reg->cs == 0x3b))
-		_panic("Page fault!", reg);
+	arch_getcls()->thread->umemoperror = EFAULT;
+
+	if(arch_getcls()->thread->umemopfailaddr == NULL)
+		_panic("General protection fault!", reg);
+	else
+		reg->rip = (uint64_t)arch_getcls()->thread->umemopfailaddr;
+	
+
+
+}
+
+void isr_pagefault(arch_regs *reg){
+	int error = vmm_dealwithrequest(reg->cr2, reg->error, reg->cs == 0x3b);
+
+	if(error){
+		if(arch_getcls()->thread->umemopfailaddr == NULL){
+			_panic("Page fault!", reg);
+		}
+		else{
+			reg->rip = (uint64_t)arch_getcls()->thread->umemopfailaddr;
+			arch_getcls()->thread->umemoperror = error;
+			}
+	}
 	
 }
 

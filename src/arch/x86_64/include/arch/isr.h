@@ -14,5 +14,6 @@ extern void asmisr_ps2kbd();
 extern void asmisr_timer();
 extern void asmisr_simd();
 extern void asmisr_nm();
+extern void asmisr_gpf();
 
 #endif

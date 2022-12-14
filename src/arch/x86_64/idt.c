@@ -56,6 +56,8 @@ void idt_bspinit(){
 	
 	idt_setentry(&idt[VECTOR_PF], asmisr_pagefault, 0x28, FLAGS_PRESENT | FLAGS_TYPE_INTERRUPT, 0);
 	
+	idt_setentry(&idt[VECTOR_GPF], asmisr_gpf, 0x28, FLAGS_PRESENT | FLAGS_TYPE_INTERRUPT, 0);
+	
 	idt_setentry(&idt[VECTOR_DEVUNAVAILABLE], asmisr_nm, 0x28, FLAGS_PRESENT | FLAGS_TYPE_INTERRUPT, 0);
 	
 	idt_setentry(&idt[VECTOR_PANIC], asmisr_panic, 0x28, FLAGS_PRESENT | FLAGS_TYPE_INTERRUPT, 0);

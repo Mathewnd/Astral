@@ -153,6 +153,7 @@ asmisr_panic:
 	jmp .hlt ; NMI stuff
 
 except	asmisr_pagefault, isr_pagefault, 0xE
+except  asmisr_gpf, isr_gpf, 0xD
 except	asmisr_nm, isr_except, 0x7
 isr	asmisr_general, isr_general, 0xFF
 except	asmisr_except, isr_except, 0xFF
