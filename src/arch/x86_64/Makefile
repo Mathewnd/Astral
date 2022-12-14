@@ -1,4 +1,4 @@
-objects := $(patsubst %.c,%.o,$(wildcard *.c)) israsm.o context.o syscall.o sched.o
+objects := $(patsubst %.c,%.o,$(wildcard *.c)) israsm.o context.o syscall.o sched.o ustringasm.o
 subdirs=boot
 OBJPATH=$(OBJDIR)/arch/${TARGET}/
 export
@@ -24,6 +24,11 @@ syscall.o: syscall.asm
 	mkdir -p $(OBJPATH)
 	cp $@ $(OBJPATH)/$@
 sched.o: sched.asm
+	nasm -f elf64 -o $@ $<
+	mkdir -p $(OBJPATH)
+	cp $@ $(OBJPATH)/$@
+
+ustringasm.o: ustring.asm
 	nasm -f elf64 -o $@ $<
 	mkdir -p $(OBJPATH)
 	cp $@ $(OBJPATH)/$@

@@ -42,6 +42,8 @@ typedef struct _thread_t{
 	vmm_context* ctx;
 	pid_t tid;
 	int priority;
+	int umemoperror;
+	void (*umemopfailaddr)();
 } thread_t;
 
 typedef struct _proc_t{
