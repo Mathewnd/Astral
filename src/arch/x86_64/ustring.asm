@@ -10,6 +10,7 @@ arch_u_strlen:
         je .done
         inc rcx
         inc rdi
+	jmp .loop
     .done:
     mov [rsi], rcx
     xor rax, rax
