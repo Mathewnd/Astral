@@ -5,6 +5,7 @@
 #include <kernel/vfs.h>
 #include <arch/spinlock.h>
 #include <string.h>
+#include <kernel/ustring.h>
 
 // we don't care about flags yet
 
@@ -17,11 +18,19 @@ syscallret syscall_fstatat(int ifd, char* path, stat* st, int flags){
 		return retv;
 	}
 
-	size_t len = strlen(path);
+	size_t len;
+
+	retv.errno = u_strlen(path, &len);
+	
+	if(retv.errno)
+		return retv;
 	
 	char buff[len+1];
 
-	strcpy(buff, path);
+	retv.errno = u_strcpy(buff, path);
+
+	if(retv.errno)
+		return retv;
 
 	proc_t* proc = arch_getcls()->thread->proc;
 	
@@ -57,12 +66,11 @@ syscallret syscall_fstatat(int ifd, char* path, stat* st, int flags){
 	if(retv.errno)
 		goto _fail;
 
-
-	memcpy(st, &node->st, sizeof(stat)); // XXX user memcpy
-
 	vfs_close(node);
 
-	retv.ret = 0;
+	retv.errno = u_memcpy(st, &node->st, sizeof(stat));
+
+	retv.ret = retv.errno ? -1 : 0;
 
 	_fail:
 	

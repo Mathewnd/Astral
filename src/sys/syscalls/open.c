@@ -7,6 +7,8 @@
 #include <errno.h>
 #include <kernel/alloc.h>
 #include <stddef.h>
+#include <string.h>
+#include <kernel/ustring.h>
 
 syscallret syscall_openat(int dirfd, const char* pathname, int flags, mode_t mode){
 	syscallret retv;
@@ -16,14 +18,20 @@ syscallret syscall_openat(int dirfd, const char* pathname, int flags, mode_t mod
 		retv.errno = EFAULT;
 		return retv;
 	}
+	
+	size_t len;
 
-	const char* name = alloc(strlen(pathname) + 1); // XXX use an user specific strlen func
-	if(!name){
-		retv.errno = ENOMEM;
+	retv.errno = u_strlen(pathname, &len);
+
+	if(retv.errno)
 		return retv;
-	}
 
-	strcpy(name, pathname); // XXX use an user specific strcpy
+	char name[len+1];
+
+	retv.errno = u_strcpy(name, pathname);
+	
+	if(retv.errno)
+		return retv;
 
 	proc_t* proc = arch_getcls()->thread->proc;
 	
@@ -34,7 +42,6 @@ syscallret syscall_openat(int dirfd, const char* pathname, int flags, mode_t mod
 	
 	if(err){
 		retv.errno = err;
-		free(name);
 		return retv;	
 	}
 
@@ -47,7 +54,6 @@ syscallret syscall_openat(int dirfd, const char* pathname, int flags, mode_t mod
 
 		if(err){
 			retv.errno = err;
-			free(name);
 			fd_release(fd);
 			fd_free(&proc->fdtable, fd);
 			return retv;
@@ -106,7 +112,6 @@ syscallret syscall_openat(int dirfd, const char* pathname, int flags, mode_t mod
 
 	fd_release(fd);
 	
-	free(name);	
 	retv.errno = 0;
 	retv.ret = ifd;
 
@@ -122,7 +127,6 @@ syscallret syscall_openat(int dirfd, const char* pathname, int flags, mode_t mod
 
 	fd_release(fd);
 	fd_free(&proc->fdtable,  fd);
-	free(name);
 	return retv;
 
 }

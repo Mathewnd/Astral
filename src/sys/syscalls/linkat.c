@@ -5,6 +5,7 @@
 #include <kernel/fd.h>
 #include <kernel/sched.h>
 #include <string.h>
+#include <kernel/ustring.h>
 
 
 static int gettarget(fd_t** targ, dirnode_t** targnode, int ifd, proc_t* proc){
@@ -44,14 +45,29 @@ syscallret syscall_linkat(int srcdirfd, const char* srcpath, int tgtdirfd, const
 		return retv;
 	}
 	
-	size_t srclen = strlen(srcpath);
-	size_t tgtlen = strlen(tgtpath);
+	size_t srclen;
+	size_t tgtlen;
+
+	retv.errno = u_strlen(srcpath, &srclen);
+	if(retv.errno)
+		return retv;
+	
+	retv.errno = u_strlen(tgtpath, &tgtlen);
+	if(retv.errno)
+		return retv;
 	
 	char srcbuff[srclen+1];
 	char tgtbuff[tgtlen+1];
 
-	strcpy(srcbuff, srcpath);
-	strcpy(tgtbuff, tgtpath);
+
+
+	retv.errno = u_strcpy(srcbuff, srcpath);
+	if(retv.errno)
+		return retv;
+	
+	retv.errno = u_strcpy(tgtbuff, tgtpath);
+	if(retv.errno)
+		return retv;
 
 	proc_t* proc = arch_getcls()->thread->proc;
 

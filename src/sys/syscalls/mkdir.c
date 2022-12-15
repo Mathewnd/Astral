@@ -3,6 +3,7 @@
 #include <arch/cls.h>
 #include <string.h>
 #include <sys/types.h>
+#include <kernel/ustring.h>
 
 syscallret syscall_mkdirat(int dirfd, const char* pathname, mode_t mode){
 	syscallret retv;
@@ -15,9 +16,20 @@ syscallret syscall_mkdirat(int dirfd, const char* pathname, mode_t mode){
 
 	proc_t* proc = arch_getcls()->thread->proc;
 
-	char path[strlen(pathname)+1];
+	size_t len;
+
+	retv.errno = u_strlen(pathname, &len);
 	
-	strcpy(path, pathname);
+	if(retv.errno)
+		return retv;
+	
+	char path[len+1];
+	
+
+	retv.errno = u_strcpy(path, pathname);
+	
+	if(retv.errno)
+		return retv;
 
 	dirnode_t* target;
 	fd_t* targetfd;

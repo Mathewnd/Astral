@@ -3,6 +3,7 @@
 #include <kernel/sched.h>
 #include <kernel/vmm.h>
 #include <arch/cls.h>
+#include <kernel/ustring.h>
 
 syscallret syscall_chroot(const char* path){
 
@@ -14,11 +15,19 @@ syscallret syscall_chroot(const char* path){
 		return retv;
 	}
 	
-	size_t len = strlen(path);
+	size_t len;
+
+	retv.errno = u_strlen(path, &len);
+
+	if(retv.errno)
+		return retv;
 
 	char buff[len+1];
 	
-	strcpy(buff, path);
+	retv.errno = u_strcpy(buff, path);
+	
+	if(retv.errno)
+		return retv;
 
 	proc_t* proc = arch_getcls()->thread->proc;
 

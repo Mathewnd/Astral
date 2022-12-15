@@ -9,6 +9,7 @@
 #include <kernel/elf.h>
 #include <arch/cls.h>
 #include <arch/interrupt.h>
+#include <kernel/ustring.h>
 
 static void destroyvec(char* vec[], size_t vecsize){
 	for(uintmax_t p = 0; p < vecsize; ++p){
@@ -30,17 +31,28 @@ syscallret syscall_execve(const char* name, char* const argv[], char* const envp
 		return retv;
 	}
 
-	size_t namelen = strlen(name); // XXX user strlen
+	size_t namelen;
+	retv.errno = u_strlen(name, &namelen);
+
+	if(retv.errno)
+		return retv;
+
 	size_t argc = 0;
 	size_t envc = 0;
 
-	// this probably should be checked in a safer way
-	
-	while(argv[argc]){
+	while(1){
+		char* tmp;
+		retv.errno = u_memcpy(&tmp, &argv[argc], sizeof(argv[argc]));
+		if(!tmp)
+			break;
 		++argc;
 	}
-
-	while(envp[envc]){
+	
+	while(1){
+		char* tmp;
+		retv.errno = u_memcpy(&tmp, &envp[envc], sizeof(envp[envc]));
+		if(!tmp)
+			break;
 		++envc;
 	}
 
@@ -66,28 +78,31 @@ syscallret syscall_execve(const char* name, char* const argv[], char* const envp
 		return retv;
 	}
 
-	strcpy(namebuff, name); // XXX user strcpy
+	int err = u_strcpy(namebuff, name);
 
-	int err = 0;
+	// XXX
+	// this is still not that safe, later make it even safer.
 
 	for(uintmax_t arg = 0; arg < argc && err == 0; ++arg){
-		size_t len = strlen(argv[arg]); // XXX user strlen
+		size_t len;
+		err = u_strlen(argv[arg], &len);
 		argbuff[arg] = alloc(len+1);
 		if(!argbuff[arg]){
 			err = ENOMEM;
 			break;
 		}
-		strcpy(argbuff[arg], argv[arg]); // XXX user strcpy
+		u_strcpy(argbuff[arg], argv[arg]);
 	}
 
 	for(uintmax_t env = 0; env < envc && err == 0; ++env){
-		size_t len = strlen(envp[env]); // XXX user strlen
+		size_t len;
+		u_strlen(envp[env], &len);
 		envbuff[env] = alloc(len+1);
 		if(!envbuff[env]){
 			err = ENOMEM;
 			break;
 		}
-		strcpy(envbuff[env], envp[env]); // XXX user strcpy	
+		u_strcpy(envbuff[env], envp[env]);
 	}
 
 	if(err){

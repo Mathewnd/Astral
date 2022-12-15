@@ -3,6 +3,7 @@
 #include <kernel/fd.h>
 #include <arch/cls.h>
 #include <arch/spinlock.h>
+#include <kernel/ustring.h>
 
 extern fs_t kerneltmpfs;
 
@@ -70,6 +71,17 @@ syscallret syscall_accept(int sockfd, void* addr, socklen_t* addrlen){
 	if(retv.errno)
 		goto _fail;
 	
+	
+	retv.errno = u_memcpy(addr, &peer->addr_un, peer->addrlen);
+
+	if(retv.errno)
+		goto _fail;
+
+	retv.errno = u_memcpy(addrlen, &peer->addrlen, sizeof(socklen_t));
+	
+	if(retv.errno)
+		goto _fail;
+
 	connsock->peer = peer;
 	connsock->state = SOCKET_STATE_CONNECTED;
 
@@ -87,11 +99,8 @@ syscallret syscall_accept(int sockfd, void* addr, socklen_t* addrlen){
 
         fd_release(fd);
 	fd_release(connfd);
-	
-	retv.ret = connifd;
-	
-	memcpy(addr, &peer->addr_un, peer->addrlen);
-	*addrlen = peer->addrlen;
+
+	retv.ret = connifd;	
 
         return retv;
 	

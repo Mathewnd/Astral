@@ -3,6 +3,7 @@
 #include <kernel/vmm.h>
 #include <time.h>
 #include <errno.h>
+#include <kernel/ustring.h>
 
 #define CLOCK_REALTIME 0
 
@@ -19,7 +20,8 @@ syscallret syscall_clock_gettime(int clockid, struct timespec *tp){
 	
 	switch(clockid){
 		case CLOCK_REALTIME:
-			*tp = arch_timekeeper_gettime();
+			struct timespec t = arch_timekeeper_gettime();
+			retv.errno = u_memcpy(tp, &t, sizeof(struct timespec));
 			break;
 		default:
 			retv.errno = EINVAL;

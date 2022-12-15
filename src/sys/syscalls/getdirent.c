@@ -3,6 +3,7 @@
 #include <arch/cls.h>
 #include <sys/stat.h>
 #include <kernel/vmm.h>
+#include <kernel/ustring.h>
 
 syscallret syscall_getdirent(int ifd, void* buff, size_t max_size){
 	syscallret retv;
@@ -42,7 +43,12 @@ syscallret syscall_getdirent(int ifd, void* buff, size_t max_size){
 	
 	retv.ret *= sizeof(dent_t);
 
-	memcpy(buff, kbuff, retv.ret); // XXX use user memcpy
+	retv.errno = u_memcpy(buff, kbuff, retv.ret);
+
+	if(retv.errno){
+		retv.ret = -1;
+		return retv;
+	}
 
 	fd_release(fd);
 

@@ -26,9 +26,13 @@ syscallret syscall_fstat(int ifd, stat* st){
 		return retv;
 	}
 
-	memcpy(st, &fd->node->st, sizeof(stat)); // XXX user memcpy
-	
 	fd_release(fd);
+
+	retv.errno = u_memcpy(st, &fd->node->st, sizeof(stat));
+	
+	if(retv.errno)
+		return retv;
+
 
 	retv.errno = 0;
 	retv.ret = 0;

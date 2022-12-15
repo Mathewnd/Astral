@@ -4,6 +4,7 @@
 #include <arch/cls.h>
 #include <kernel/fd.h>
 #include <kernel/sched.h>
+#include <kernel/ustring.h>
 
 // flags is ignored for now
 
@@ -17,11 +18,19 @@ syscallret syscall_fchmodat(int dirfd, const char* path, mode_t mode, int flags)
 		return retv;
 	}
 	
-	size_t len = strlen(path);
+	size_t len;
+
+	retv.errno = u_strlen(path, &len);
+
+	if(retv.errno)
+		return retv;
 
 	char buff[len+1];
 
-	strcpy(buff, path);
+	retv.errno = u_strcpy(buff, path);
+
+	if(retv.errno)
+		return retv;
 
 	proc_t* proc = arch_getcls()->thread->proc;
 
