@@ -7,6 +7,7 @@
 #include <arch/interrupt.h>
 #include <arch/timekeeper.h>
 #include <time.h>
+#include <kernel/ustring.h>
 
 #define MAXNFDS 4096
 
@@ -35,6 +36,13 @@ syscallret syscall_poll(pollfd *fds, size_t nfds, int timeoutms){
 		return retv;
 	}
 	
+	retv.errno = u_memcpy(ilist, fds, nfds*sizeof(pollfd));
+
+	if(retv.errno){
+		free(ilist);
+		return retv;
+	}
+
 	for(size_t fd = 0; fd < nfds; ++fd){	
 		ilist[fd].fd = fds[fd].fd;
 		ilist[fd].events = fds[fd].events;
@@ -115,8 +123,9 @@ syscallret syscall_poll(pollfd *fds, size_t nfds, int timeoutms){
 		if(ilist[i].fd < 0)
 			continue;
 		
-
-		fds[i].revents = ilist[i].revents;
+		if(u_memcpy(&fds[i].revents, &ilist[i].revents, sizeof(ilist[i].revents)))
+				continue;
+		
 		
 		if(ilist[i].revents)
 			++eventcount;

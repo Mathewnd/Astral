@@ -33,9 +33,9 @@ int u_memcpy(void* dest, const void* src, size_t len){
 }
 
 extern void arch_u_strcpy_cont();
-extern int arch_u_strcpy(void* dest, const void* src);
+extern int arch_u_strcpy(char* dest, const char* src);
 
-int u_strcpy(void* dest, const void* src){
+int u_strcpy(char* dest, const char* src){
     
 	arch_getcls()->thread->umemopfailaddr = arch_u_strcpy_cont;
 

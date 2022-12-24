@@ -84,7 +84,10 @@ syscallret syscall_recvmsg(int ifd, msghdr *msg, int flags){
 		size_t iovlen = msg->msg_iov[i].iov_len;
 		void* iovbuf = msg->msg_iov[i].iov_base;
 		
-		memcpy(iovbuf, buffptr, iovlen);
+		retv.errno = u_memcpy(iovbuf, buffptr, iovlen);
+		
+		if(retv.errno)
+			goto _return;
 
 		buffptr += iovlen;
 	}

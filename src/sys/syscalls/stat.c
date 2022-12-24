@@ -7,6 +7,7 @@
 #include <arch/cls.h>
 #include <kernel/alloc.h>
 #include <string.h>
+#include <kernel/ustring.h>
 
 syscallret syscall_stat(const char* path, stat* st){
 	syscallret retv;	
@@ -16,37 +17,38 @@ syscallret syscall_stat(const char* path, stat* st){
 		retv.errno = EFAULT;
 		return retv;
 	}
-
-	char* kpath = alloc(strlen(path)+1); // XXX use proper user strlen func
 	
-	if(!kpath){
-		retv.errno = ENOMEM;
-		return retv;
-	}
+	size_t len;
 
-	strcpy(kpath, path); // XXX use user strcpy func
+	retv.errno = u_strlen(path, &len);
+
+	if(retv.errno)
+		return retv;
+
+	char kpath[len+1];
+		
+	retv.errno = u_strcpy(kpath, path);
+
+	if(retv.errno)
+		return retv;
 
 	vnode_t* file;
 	
 	proc_t* proc = arch_getcls()->thread->proc;
 
-	int ret = vfs_open(&file, *kpath == '/' ? proc->root : proc->cwd, kpath);
+	retv.errno = vfs_open(&file, *kpath == '/' ? proc->root : proc->cwd, kpath);
 
-	if(ret){
-		retv.errno = ret;
-		goto _ret;
-	}
+	if(retv.errno)
+		return retv;
 
 	stat stbuff = file->st;
 
 	vfs_close(file);
 
-	memcpy(st, &stbuff, sizeof(stat)); // XXX use user memcpy
+	retv.errno = u_memcpy(st, &stbuff, sizeof(stat));
 	
-	retv.ret = 0;
-	retv.errno = 0;
-	_ret:
-	free(kpath);
+	retv.ret = retv.errno ? -1 : 0;
+	
 	return retv;
 
 }

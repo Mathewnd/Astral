@@ -45,15 +45,13 @@ syscallret syscall_read(int ifd, void* buff, size_t count){
 		return retv;
 	}
 
-	fd->offset += readc;
+	retv.errno = u_memcpy(buff, kbuff, readc);
+	retv.ret = retv.errno ? (uint64_t)-1 : readc;
+
+	if(retv.errno == 0)
+		fd->offset += readc;
 	
 	fd_release(fd);	
-
-	memcpy(buff, kbuff, count); // XXX user version for safety
-
-	retv.errno = 0;
-	retv.ret = readc;
-
 	free(kbuff);
 	
 	return retv;

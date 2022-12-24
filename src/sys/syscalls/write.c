@@ -39,7 +39,11 @@ syscallret syscall_write(int ifd, void* buff, size_t count){
                 return retv;
         }
 	
-	memcpy(kbuff, buff, count); // XXX use a more proper user copy
+	retv.errno = u_memcpy(kbuff, buff, count);
+
+	if(retv.errno)
+		goto _ret;
+	
 	
 	if(fd->flags & O_APPEND)
 		fd->offset = fd->node->st.st_size;

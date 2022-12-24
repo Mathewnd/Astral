@@ -9,6 +9,7 @@
 #include <arch/spinlock.h>
 #include <kernel/alloc.h>
 #include <arch/interrupt.h>
+#include <kernel/ustring.h>
 
 #define UNSUPPORTED "astral: waitpid: Unsupported waitpid options!\n"
 #define UNSUPPORTED_PG "astral: waitpid: Process group waits are not supported yet.\n"
@@ -94,9 +95,14 @@ syscallret syscall_waitpid(pid_t pid, int *status, int options){
 		proc->child = child->sibling;
 	}
 	
-	if(status)
-		*status = child->status; // XXX safer way of doing this
-	
+
+	if(status){
+		retv.errno = u_memcpy(status, &child->status, sizeof(*status));
+		if(retv.errno)
+			return retv;
+		
+		
+	}
 	int threadc = proc->threadcount;
 	
 	// free all the threads
