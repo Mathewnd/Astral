@@ -44,8 +44,7 @@ syscallret syscall_poll(pollfd *fds, size_t nfds, int timeoutms){
 	}
 
 	for(size_t fd = 0; fd < nfds; ++fd){	
-		ilist[fd].fd = fds[fd].fd;
-		ilist[fd].events = fds[fd].events;
+		ilist[fd].revents = 0;
 	}
 
 	// check for events and stuff
