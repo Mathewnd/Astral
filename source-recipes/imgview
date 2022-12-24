@@ -1,0 +1,7 @@
+name=imgview
+version=0
+source_dir="extras/imgview"
+
+regenerate() {
+	true
+}
