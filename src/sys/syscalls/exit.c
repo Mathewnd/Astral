@@ -7,17 +7,38 @@
 #include <arch/interrupt.h>
 
 void syscall_exit(int status){
-	proc_t* proc = arch_getcls()->thread->proc;
+
 	
+	thread_t* thread = arch_getcls()->thread;
+	proc_t* proc = thread->proc;
+
 
 	proc_t* init = sched_getinit();
+	
+	if(proc == init)
+		_panic("Init exit", NULL);
 
 	spinlock_acquire(&init->lock);
 	spinlock_acquire(&proc->lock);
 	
-	// TODO make all other threads exit
+	while(1){
+		bool ok = true;
+		for(uintmax_t i = 0; i < proc->threadcount; ++i){
+			if(proc->threads[i] == thread)
+				continue;
+			if(thread->state != THREAD_STATE_DEAD)
+					ok = false;
+			proc->threads[i]->shouldexit = true;
+		}
 
-	free(proc->threads);
+		if(ok)
+			break;
+
+		arch_interrupt_disable();
+		sched_yield();
+		arch_interrupt_enable();
+
+	}
 
 	for(uintmax_t fd = 0; fd < proc->fdtable.fdcount; ++ fd)
 		fd_free(&proc->fdtable, fd);

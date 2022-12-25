@@ -380,6 +380,12 @@ __attribute__((noreturn)) int sched_die(){
 	sched_dequeue();
 }
 
+void sched_threadexitcheck(){
+	if(arch_getcls()->thread->shouldexit)
+		sched_die();
+}
+
+
 void sched_block(bool interruptible){
 	
 	thread_t* thread = arch_getcls()->thread;

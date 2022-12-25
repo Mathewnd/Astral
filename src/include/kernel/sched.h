@@ -8,6 +8,7 @@
 #include <kernel/vfs.h>
 #include <kernel/vmm.h>
 #include <kernel/fd.h>
+#include <stdbool.h>
 
 #define THREAD_PRIORITY_INTERRUPT 0
 #define THREAD_PRIORITY_KERNEL 1
@@ -44,6 +45,7 @@ typedef struct _thread_t{
 	int priority;
 	int umemoperror;
 	void (*umemopfailaddr)();
+	bool shouldexit;
 } thread_t;
 
 typedef struct _proc_t{
@@ -82,4 +84,5 @@ void sched_runinit();
 void sched_eventsignal(event_t* event, thread_t* thread);
 void sched_block(bool interruptible);
 void sched_yield();
+void sched_threadexitcheck();
 #endif

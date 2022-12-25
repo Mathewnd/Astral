@@ -175,22 +175,29 @@ asm_syscall_entry:
 
 	call [func_table + rax * 8]
 
-	; restore entry state
-
+	push rax
+	push rdx
+	
 	; DEBUG STUFF
-
-	;push rax
-	;push rdx
 
 	;mov rsi,rdx
 	;mov rdi,r15
 	;extern syscalllogger
 	;call syscalllogger
 	
-	;pop rdx
-	;pop rax
-
+	extern postsyscall
+	call postsyscall
+	
+	
 	; DEBUG STUFF END
+	
+	pop rdx
+	pop rax
+
+
+	
+
+	; restore entry state
 
 	mov r11, 0x43 ; user data
 	mov es,r11
