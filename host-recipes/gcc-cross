@@ -13,7 +13,7 @@ configure() {
 
 build() {
 	
-	make all-gcc all-target-libgcc -j{parallelism}
+	make all-gcc all-target-libgcc -j ${parallelism}
 
 }
 
