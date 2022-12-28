@@ -3,3 +3,12 @@
 /bin
 *.swp
 /boot/**/iso/
+sysroot
+sources
+pkgs
+nvme.img
+minsysroot
+jinx
+host-pkgs
+host-builds
+builds
