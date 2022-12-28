@@ -14,12 +14,11 @@ configure() {
 
 build() {
 	
-	#make -C ${source_dir}/doomgeneric
-	true
+	make -C ${source_dir}/doomgeneric
+
 }
 
 install() {
-	#mkdir -p ${dest_dir}/usr/bin
-	#cp -f ${source_dir}/doomgeneric/doomgeneric ${dest_dir}/usr/bin/doomgeneric
-	true
+	mkdir -p ${dest_dir}/usr/bin
+	cp -f ${source_dir}/doomgeneric/doomgeneric ${dest_dir}/usr/bin/doomgeneric
 }
