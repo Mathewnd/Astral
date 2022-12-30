@@ -64,7 +64,7 @@ sysdisk.iso: $(ISO)
 nvme.img:
 	qemu-img create nvme.img 4G -f qcow2
 
-QEMUFLAGS=-cdrom sysdisk.iso -m 8G -smp cpus=6 -drive file=nvme.img,if=none,id=nvm -device nvme,serial=deadc0ff,drive=nvm
+QEMUFLAGS=-cdrom sysdisk.iso -m 2G -smp cpus=2 -drive file=nvme.img,if=none,id=nvm -device nvme,serial=deadc0ff,drive=nvm
 run:
 	qemu-system-x86_64 $(QEMUFLAGS) -debugcon stdio
 
