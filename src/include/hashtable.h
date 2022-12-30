@@ -24,5 +24,6 @@ bool hashtable_remove(hashtable*, char*);
 void hashtable_destroy(hashtable*);
 void* hashtable_get(hashtable*, char*);
 bool hashtable_set(hashtable*, char*, void*);
+bool hashtable_isset(hashtable*, char*);
 
 #endif

@@ -27,6 +27,24 @@ static inline hashtableentry* getentry(hashtable* table, char* key){
 	return &table->entries[entryn];
 }
 
+bool hashtable_isset(hashtable* table, char* key){
+	
+	hashtableentry* entry = getentry(table, key);
+	
+	if(!entry)
+		return false;
+
+	if(!entry->key)
+		return false;
+
+	while(entry && strcmp(entry->key, key))
+		entry = entry->next;
+
+	if(!entry) return false;
+	
+	return true;
+}
+
 void* hashtable_fromoffset(hashtable* table, uintmax_t offset, char* retkey){
 		
 	for(uintmax_t i = 0; i < table->size; ++i){
@@ -164,8 +182,8 @@ void* hashtable_get(hashtable* table, char* key){
 
 void hashtable_destroy(hashtable* table){
 	
-	// would be cool if this also deleted non removed entries
-
+	// TODO fix memory leak bruh
+	
 	free(table->entries);
 
 
