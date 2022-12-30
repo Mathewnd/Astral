@@ -39,6 +39,10 @@ void kmain(){
 	liminetty_setcontext(arch_getcls()->context);
 	
 	alloc_init();
+	
+	env_init();
+
+	cmdline_parse();
 
 	acpi_init();
 	
