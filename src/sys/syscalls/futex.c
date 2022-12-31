@@ -6,6 +6,7 @@
 #include <arch/interrupt.h>
 #include <kernel/alloc.h>
 #include <arch/timekeeper.h>
+#include <arch/cls.h>
 #include <time.h>
 
 #define FUTEX_WAIT 0
@@ -35,13 +36,14 @@ static inline futex_t* getfutex(void *addr){
 
 }
 
-static inline void setfutex(futex_t* futex){
+static inline void setfutex(futex_t* futex, void* paddr){
 	futex->next = first;
 	first = futex;
+	futex->phyaddr = paddr;
 }
 
 syscallret syscall_futex(uint32_t *futex, int op, uint32_t v, const struct timespec* tm){
-
+	
 	syscallret retv;
 	retv.ret = -1;
 
@@ -51,28 +53,27 @@ syscallret syscall_futex(uint32_t *futex, int op, uint32_t v, const struct times
 	}
 
 	uint32_t word;
-
-	__atomic_load(futex, &word, __ATOMIC_RELAXED);
-
 	spinlock_acquire(&lock);
+
+	__atomic_load(futex, &word, __ATOMIC_RELAXED); // TODO copy from userspace with u_memcpy
+	
 
 	// TODO safer way of getting the address from userspace while inside the lock
 
 	uint32_t* phyfutex = vmm_tophysical(futex);
 	futex_t* f = getfutex(phyfutex);
-	
+
 	switch(op){
 		case FUTEX_WAKE:
 			// add to waiters left
 			retv.errno = 0;
-
+			
 			if(!f){
 				retv.ret = 0;
 				break;
 			}
 			
 			retv.ret = v > f->waitercount ? f->waitercount : v;
-
 			
 			f->waitercount -= retv.ret;
 			f->waitersleft += retv.ret;
@@ -92,7 +93,7 @@ syscallret syscall_futex(uint32_t *futex, int op, uint32_t v, const struct times
 					retv.errno = ENOMEM;
 					break;
 				}
-				setfutex(f);
+				setfutex(f, phyfutex);
 			}
 			
 			struct timespec target = arch_timekeeper_gettime();
@@ -107,9 +108,13 @@ syscallret syscall_futex(uint32_t *futex, int op, uint32_t v, const struct times
 			}
 
 			// XXX probably should use events here
+			
+			++f->waitercount;
 
-			for(;;){
-				
+			spinlock_release(&lock);
+
+			for(;;){	
+
 				if(spinlock_trytoacquire(&lock)){
 
 					if(tm != NULL){
@@ -138,7 +143,10 @@ syscallret syscall_futex(uint32_t *futex, int op, uint32_t v, const struct times
 				arch_interrupt_enable();
 
 			}
-			
+
+			if(f->waitercount == 0 && f->waitersleft == 0)
+				free(f);
+
 			retv.ret = 0;
 			retv.errno = 0;
 			break;
