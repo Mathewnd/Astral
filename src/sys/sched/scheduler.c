@@ -260,6 +260,7 @@ thread_t* sched_newuthread(void* ip, size_t kstacksize, void* stack, proc_t* pro
 		}
 	}
 	else{
+		spinlock_acquire(&proc->lock);
 		thread_t** tmp = realloc(proc->threads, sizeof(thread_t*) * (proc->threadcount + 1));
 		if(!tmp){
 			freethread(thread);
@@ -267,6 +268,7 @@ thread_t* sched_newuthread(void* ip, size_t kstacksize, void* stack, proc_t* pro
 		}
 		proc->threads = tmp;
 		++proc->threadcount;
+		spinlock_release(&proc->lock);
 	}
 	
 	thread->priority = prio;
