@@ -294,7 +294,7 @@ void consoledev_init(){
 	if(ringbuffer_init(&input, THREAD_BUFF_MAX))
 		_panic("Failed to initialise console ringbuffer", 0);
 
-	thread = sched_newkthread(console_thread, 4096*10, true, THREAD_PRIORITY_KERNEL);
+	thread = sched_newkthread(console_thread, THREAD_DEFAULT_KSTACK_SIZE, true, THREAD_PRIORITY_KERNEL);
 
 	if(!thread)
 		_panic("Failed to initialise console thread", 0);

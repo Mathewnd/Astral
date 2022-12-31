@@ -409,7 +409,7 @@ void sched_runinit(){
 	
 	printf("Loading /sbin/init\n");
 
-	thread_t* thread = sched_newuthread(NULL, PAGE_SIZE*10, NULL, NULL, false, THREAD_PRIORITY_USER);
+	thread_t* thread = sched_newuthread(NULL, THREAD_DEFAULT_KSTACK_SIZE, NULL, NULL, false, THREAD_PRIORITY_USER);
 	
 	proc_t* proc = thread->proc;
 	init = proc;

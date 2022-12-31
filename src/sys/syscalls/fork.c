@@ -10,7 +10,7 @@ syscallret syscall_fork(arch_regs* ctx){
 	
 	syscallret retv;
 	retv.ret = -1;
-	thread_t* newthread = sched_newuthread(NULL, PAGE_SIZE*10, NULL, NULL, false, THREAD_PRIORITY_USER);
+	thread_t* newthread = sched_newuthread(NULL, THREAD_DEFAULT_KSTACK_SIZE, NULL, NULL, false, THREAD_PRIORITY_USER);
 	
 	if(!newthread){
 		retv.errno = ENOMEM;

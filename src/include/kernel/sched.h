@@ -10,6 +10,8 @@
 #include <kernel/fd.h>
 #include <stdbool.h>
 
+#define THREAD_DEFAULT_KSTACK_SIZE PAGE_SIZE*10
+
 #define THREAD_PRIORITY_INTERRUPT 0
 #define THREAD_PRIORITY_KERNEL 1
 #define THREAD_PRIORITY_USER 2
