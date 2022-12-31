@@ -30,6 +30,13 @@ proc_t* sched_getinit(){
 	return init;
 }
 
+static int getnextpid(){
+	spinlock_acquire(&pidlock);
+	int pid = nextpid++;
+	spinlock_release(&pidlock);
+	return pid;
+}
+
 static proc_t* allocproc(size_t threadcount){
 	
 	proc_t* proc = alloc(sizeof(proc_t));
@@ -49,9 +56,7 @@ static proc_t* allocproc(size_t threadcount){
 		return NULL;
 	}
 
-	spinlock_acquire(&pidlock);
-	proc->pid = nextpid++;
-	spinlock_release(&pidlock);
+	proc->pid = getnextpid();
 	
 	return proc;
 	
@@ -258,6 +263,7 @@ thread_t* sched_newuthread(void* ip, size_t kstacksize, void* stack, proc_t* pro
 			freethread(thread);
 			return NULL;
 		}
+		thread->tid = proc->pid;
 	}
 	else{
 		spinlock_acquire(&proc->lock);
@@ -269,7 +275,9 @@ thread_t* sched_newuthread(void* ip, size_t kstacksize, void* stack, proc_t* pro
 		proc->threads = tmp;
 		++proc->threadcount;
 		spinlock_release(&proc->lock);
+		thread->tid = getnextpid();
 	}
+
 	
 	thread->priority = prio;
 	thread->proc = proc;
