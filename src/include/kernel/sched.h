@@ -67,6 +67,7 @@ typedef struct _proc_t{
 	dirnode_t* cwd;
 	event_t childevent;
 	mode_t umask;
+	int threadexitlock;
 } proc_t;
 
 
@@ -76,7 +77,7 @@ typedef struct{
 	int lock;
 } sched_queue;
 
-void sched_dequeue();
+void sched_dequeue(long state);
 proc_t* sched_getinit();
 thread_t* sched_newuthread(void* ip, size_t stacksize, void* stack, proc_t* proc, bool run, int prio);
 thread_t* sched_newkthread(void* ip, size_t stacksize, bool run, int prio);

@@ -75,7 +75,7 @@ void syscall_exit(int status){
 	spinlock_release(&proc->lock);
 	spinlock_release(&init->lock);
 
-	sched_dequeue();
+	sched_die();
 	
 	__builtin_unreachable();
 

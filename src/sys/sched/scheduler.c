@@ -363,7 +363,7 @@ void sched_eventsignal(event_t* event, thread_t* thread){
 	spinlock_release(&queues[thread->priority].lock);
 }
 
-void sched_dequeue(){
+void sched_dequeue(long state){
 
 	timer_stop();
 	arch_interrupt_disable();	
@@ -377,17 +377,18 @@ void sched_dequeue(){
 
 	arch_getcls()->thread = thread;
 	vmm_switchcontext(thread->ctx);
-	
+
+	thread->state = state;
+	if(state == THREAD_STATE_DEAD)
+		spinlock_release(&thread->proc->threadexitlock);
+
 	switch_thread(thread);
 	
 
 }
 
 __attribute__((noreturn)) int sched_die(){
-	
-	arch_getcls()->thread->state = THREAD_STATE_DEAD;
-
-	sched_dequeue();
+	sched_dequeue(THREAD_STATE_DEAD);
 }
 
 void sched_threadexitcheck(){
