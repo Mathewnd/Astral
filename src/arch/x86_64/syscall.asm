@@ -46,7 +46,8 @@ extern syscall_linkat
 extern syscall_recvmsg
 extern syscall_futex
 extern syscall_newthread
-func_count equ 45
+extern syscall_threadexit
+func_count equ 46
 
 
 func_table:
@@ -95,6 +96,7 @@ func_table:
 	dq syscall_recvmsg
 	dq syscall_futex
 	dq syscall_newthread
+	dq syscall_threadexit
 section .text
 global asm_syscall_entry
 
