@@ -264,6 +264,8 @@ thread_t* sched_newuthread(void* ip, size_t kstacksize, void* stack, proc_t* pro
 			return NULL;
 		}
 		thread->tid = proc->pid;
+		proc->threadcount = 1;
+		proc->threads[0] = thread;
 	}
 	else{
 		spinlock_acquire(&proc->lock);
@@ -273,6 +275,7 @@ thread_t* sched_newuthread(void* ip, size_t kstacksize, void* stack, proc_t* pro
 			return NULL;
 		}
 		proc->threads = tmp;
+		proc->threads[proc->threadcount] = thread;
 		++proc->threadcount;
 		spinlock_release(&proc->lock);
 		thread->tid = getnextpid();
@@ -326,7 +329,7 @@ void sched_yieldtrampoline(thread_t* thread){
 
 
 	thread_t* nthread = getnext();
-	
+
 	timer_resume();
 	
 	switch_thread(nthread);
@@ -368,6 +371,7 @@ void sched_dequeue(long state){
 	timer_stop();
 	arch_interrupt_disable();	
 
+	thread_t* current = arch_getcls()->thread;
 	thread_t* thread = getnext();
 	
 	timer_resume();
@@ -378,9 +382,9 @@ void sched_dequeue(long state){
 	arch_getcls()->thread = thread;
 	vmm_switchcontext(thread->ctx);
 
-	thread->state = state;
+	current->state = state;
 	if(state == THREAD_STATE_DEAD)
-		spinlock_release(&thread->proc->threadexitlock);
+		spinlock_release(&current->proc->threadexitlock);
 
 	switch_thread(thread);
 	
