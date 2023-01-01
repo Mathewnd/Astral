@@ -158,10 +158,10 @@ index 0000000..ee7a794
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..60d06e0
+index 0000000..e6c404a
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -0,0 +1,513 @@
+@@ -0,0 +1,530 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -301,6 +301,23 @@ index 0000000..60d06e0
 +	[[gnu::weak]] int sys_fsync(int fd){
 +		return 0;
 +	}
++
++	[[noreturn]] void sys_thread_exit(){
++		syscall(SYSCALL_THREADEXIT, nullptr);
++	}
++	extern "C" void __mlibc_thread_entry();
++
++
++	#ifndef MLIBC_BUILDING_RTDL
++
++	int sys_clone(void *tcb, pid_t *pid_out, void *stack){
++		long ret;
++		long err = syscall(SYSCALL_NEWTHREAD, &ret, (uintptr_t)__mlibc_thread_entry, (uintptr_t)stack);
++		*pid_out = ret;
++		return err;
++	}
++
++	#endif
 +
 +	int sys_msg_recv(int fd, struct msghdr *hdr, int flags, ssize_t *length){
 +		long ret;
@@ -694,10 +711,10 @@ index 0000000..f181400
 +#endif
 diff --git mlibc-workdir/sysdeps/astral/include/astral/syscall.h mlibc-workdir/sysdeps/astral/include/astral/syscall.h
 new file mode 100644
-index 0000000..d930887
+index 0000000..12d7d44
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/include/astral/syscall.h
-@@ -0,0 +1,69 @@
+@@ -0,0 +1,71 @@
 +#ifndef _SYSCALL_H_INCLUDE
 +#define _SYSCALL_H_INCLUDE
 +
@@ -745,6 +762,8 @@ index 0000000..d930887
 +#define SYSCALL_LINKAT 41
 +#define SYSCALL_RECVMSG 42
 +#define SYSCALL_FUTEX 43
++#define SYSCALL_NEWTHREAD 44
++#define SYSCALL_THREADEXIT 45
 +
 +#include <stddef.h>
 +#include <stdint.h>
@@ -769,10 +788,10 @@ index 0000000..d930887
 +#endif
 diff --git mlibc-workdir/sysdeps/astral/meson.build mlibc-workdir/sysdeps/astral/meson.build
 new file mode 100644
-index 0000000..8f0c60b
+index 0000000..f45b716
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/meson.build
-@@ -0,0 +1,65 @@
+@@ -0,0 +1,67 @@
 +
 +rtdl_sources += files(
 +	'generic/generic.cpp',
@@ -783,6 +802,8 @@ index 0000000..8f0c60b
 +	'generic/entry.cpp',
 +        'generic/astral.cpp',
 +	'generic/generic.cpp',
++	'threading/x86_64-thread.cpp',
++	'threading/x86_64-thread-entry.S',
 +)
 +
 +if not no_headers
@@ -838,3 +859,80 @@ index 0000000..8f0c60b
 +	)
 +endif
 +
+diff --git mlibc-workdir/sysdeps/astral/threading/x86_64-thread-entry.S mlibc-workdir/sysdeps/astral/threading/x86_64-thread-entry.S
+new file mode 100644
+index 0000000..4cb3ae0
+--- /dev/null
++++ mlibc-workdir/sysdeps/astral/threading/x86_64-thread-entry.S
+@@ -0,0 +1,7 @@
++ .section .text
++.global __mlibc_thread_entry
++__mlibc_thread_entry:
++	pop %rdi
++	pop %rsi
++	pop %rdx
++	call __mlibc_thread_trampoline
+diff --git mlibc-workdir/sysdeps/astral/threading/x86_64-thread.cpp mlibc-workdir/sysdeps/astral/threading/x86_64-thread.cpp
+new file mode 100644
+index 0000000..c234e77
+--- /dev/null
++++ mlibc-workdir/sysdeps/astral/threading/x86_64-thread.cpp
+@@ -0,0 +1,58 @@
++#include <sys/mman.h>
++#include <mlibc/debug.hpp>
++#include <errno.h>
++#include <mlibc/all-sysdeps.hpp>
++#include <bits/ensure.h>
++#include <mlibc/tcb.hpp>
++
++
++extern "C" void __mlibc_thread_trampoline(void* (*fn)(void*), Tcb* tcb, void* arg){
++
++
++	if (mlibc::sys_tcb_set(tcb))
++		    __ensure(!"failed to set tcb for new thread");
++
++	while (__atomic_load_n(&tcb->tid, __ATOMIC_RELAXED) == 0)
++		        mlibc::sys_futex_wait(&tcb->tid, 0, nullptr);	
++
++	tcb->returnValue = fn(arg);
++	
++	__atomic_store_n(&tcb->didExit, 1, __ATOMIC_RELEASE);
++	mlibc::sys_futex_wake(&tcb->didExit);
++
++	mlibc::sys_thread_exit();
++}
++
++#define DEFAULT_STACK 0x400000
++
++namespace mlibc{
++	
++	int sys_prepare_stack(void **stack, void *entry, void *arg, void *tcb, size_t *stack_size, size_t *guard_size){
++		
++		// TODO guard
++
++		mlibc::infoLogger() << "mlibc: sys_prepare_stack() does not setup a guard!" << frg::endlog;
++
++		*guard_size = 0;
++			
++		*stack_size = *stack_size ? *stack_size : DEFAULT_STACK;
++
++		if(!*stack){
++			*stack = mmap(NULL, *stack_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0) + *stack_size;
++			if(*stack == MAP_FAILED)
++				return errno;
++		}
++
++		void** stack_it = (void**)*stack;
++		
++		*--stack_it = arg;
++		*--stack_it = tcb;
++		*--stack_it = entry;
++		
++		*stack = (void*)stack_it;
++		
++		return 0;
++
++	}
++	
++}
