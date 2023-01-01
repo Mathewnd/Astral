@@ -83,10 +83,10 @@ index 0000000..2ca19fd
 +}
 diff --git xf86-input-keyboard-workdir/src/astral_kbd.c xf86-input-keyboard-workdir/src/astral_kbd.c
 new file mode 100644
-index 0000000..44c4007
+index 0000000..c902c94
 --- /dev/null
 +++ xf86-input-keyboard-workdir/src/astral_kbd.c
-@@ -0,0 +1,94 @@
+@@ -0,0 +1,90 @@
 +#ifdef HAVE_CONFIG_H
 +#include <config.h>
 +#endif
@@ -140,12 +140,8 @@ index 0000000..44c4007
 +	KbdDevPtr kbd = (KbdDevPtr) info->private;
 +	kbpacket_t packet;
 +
-+	printf("amogus\n");
-+
 +	while(read(info->fd, &packet, sizeof(kbpacket_t)))
 +		kbd->PostEvent(info, packet.keycode, packet.flags & KBPACKET_FLAGS_RELEASED ? FALSE : TRUE);
-+
-+	printf("read %c\n", packet.ascii);
 +
 +}
 +
