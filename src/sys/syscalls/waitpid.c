@@ -22,20 +22,18 @@ syscallret syscall_waitpid(pid_t pid, int *status, int options){
 		retv.errno = EFAULT;
 		return retv;
 	}
-
+	
 	if(options != 0){
 		console_write(UNSUPPORTED, strlen(UNSUPPORTED));
 		retv.errno = ENOSYS;
 		return retv;
 	}
 	
-	
 	if(pid < -1 || pid == 0){
 		console_write(UNSUPPORTED_PG, strlen(UNSUPPORTED_PG));
 		retv.errno = ENOSYS;
 		return retv;
 	}
-
 
 	proc_t* proc = arch_getcls()->thread->proc;
 
@@ -68,17 +66,17 @@ syscallret syscall_waitpid(pid_t pid, int *status, int options){
 		}
 
 		spinlock_release(&proc->lock);
+		
 
 		if(loop){
 			event_wait(&proc->childevent, true);
 			loop = false;
 			continue;
 		}
+		
 		else break;
 		
 	}
-
-
 		
 	if(!child){
 		spinlock_release(&proc->lock);
@@ -94,7 +92,6 @@ syscallret syscall_waitpid(pid_t pid, int *status, int options){
 	else{
 		proc->child = child->sibling;
 	}
-	
 
 	if(status){
 		retv.errno = u_memcpy(status, &child->status, sizeof(*status));
@@ -103,40 +100,25 @@ syscallret syscall_waitpid(pid_t pid, int *status, int options){
 		
 		
 	}
-	int threadc = proc->threadcount;
+	int threadc = child->threadcount;
 	
 	// free all the threads
 
-	while(proc->threadcount){
+	for(int t = 0; t < threadc; ++t){
 		
-		for(int t = 0; t < threadc; ++t){
-			
-			thread_t* thread = proc->threads[t];
-			
-			// XXX possible race condition here?
+		thread_t* thread = child->threads[t];
 
-			if(thread->state != THREAD_STATE_DEAD)
-				continue;
+		free(thread->regs);
+		free(thread->kernelstackbase);
+		vmm_destroy(thread->ctx);
 
-			free(thread->regs);
-			free(thread->kernelstackbase);
-			vmm_destroy(thread->ctx);
-
-			thread->state = THREAD_STATE_DESTROYED;
-
-		}
-		
-		arch_interrupt_disable();
-
-		sched_yield();
-
-		arch_interrupt_enable();
+		thread->state = THREAD_STATE_DESTROYED;
 
 	}
 
 	for(int t = 0; t < threadc; ++t){
 		
-		thread_t* thread = proc->threads[t];
+		thread_t* thread = child->threads[t];
 		
 		if(thread->state != THREAD_STATE_DESTROYED)
 			_panic("Freeing non-destroyed thread", NULL);
@@ -144,9 +126,9 @@ syscallret syscall_waitpid(pid_t pid, int *status, int options){
 		free(thread);
 
 	}
-
+	
 	free(child);
-
+	
 	retv.ret = child->pid;
 	retv.errno = 0;
 	return retv;
