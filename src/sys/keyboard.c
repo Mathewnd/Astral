@@ -145,10 +145,11 @@ static int read(int *error, int minor, void* buff, size_t count, size_t offset){
 
 }
 
-static int poll(pollfd* fd){
-	
+static int poll(int minor, pollfd* fd){
+
 	if((fd->events & POLLIN) && devbuff.read != devbuff.write)
 		fd->revents |= POLLIN;
+	
 
 	return 0;
 }
