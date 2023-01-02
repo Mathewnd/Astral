@@ -100,6 +100,30 @@ func_table:
 section .text
 global asm_syscall_entry
 
+%macro abi_save 0
+	push rax
+	push rdi
+	push rsi
+	push rdx
+	push rcx
+	push r8
+	push r9
+	push r10
+	push r11
+%endmacro
+
+%macro abi_restore 0
+	pop r11
+	pop r10
+	pop r9
+	pop r8
+	pop rcx
+	pop rdx
+	pop rsi
+	pop rdi
+	pop rax
+%endmacro
+
 ; the registers for the system call are:
 ; RETURN:
 ; rax -> ret value
@@ -173,27 +197,31 @@ asm_syscall_entry:
 
 	.do_syscall:
 
-	; DEBUG STUFF
-	;mov r15,rax
-	; END DEBUG STUFF
+	abi_save
+	
+	push rax
+	
+	extern syscalllogger
+	call syscalllogger
+
+	add rsp,8
+
+	abi_restore
 
 	call [func_table + rax * 8]
 
+
 	push rax
 	push rdx
-	
-	; DEBUG STUFF
 
-	;mov rsi,rdx
-	;mov rdi,r15
-	;extern syscalllogger
-	;call syscalllogger
-	
+	mov rdi, rax
+	mov rsi, rdx
+
+	extern syscalllogger_return
+	call syscalllogger_return
+
 	extern postsyscall
 	call postsyscall
-	
-	
-	; DEBUG STUFF END
 	
 	pop rdx
 	pop rax

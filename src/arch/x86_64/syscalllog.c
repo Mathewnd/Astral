@@ -2,6 +2,8 @@
 #include <string.h>
 #include <stdint.h>
 #include <stddef.h>
+#include <arch/cls.h>
+#include <kernel/sched.h>
 
 static char* syscalls[] = {
 	"syscall_libc_log",
@@ -53,18 +55,26 @@ static char* syscalls[] = {
 	
 };
 
-void syscalllogger(uint64_t num, uint64_t error){
-	
-	e9_puts("syscall: ");
-	e9_puts(syscalls[num]);
-	e9_putc(':');
-	char err[] = {'0', '0', '0', NULL};
-	err[2] += error % 10;
-	error /= 10;
-	err[1] += error % 10;
-	error /= 10;
-	err[0] += error % 10;
-	e9_puts(err);
-	e9_putc('\n');
+void syscalllogger(uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t arg6, uint64_t num){
 
+	thread_t* thread = arch_getcls()->thread;
+	proc_t* proc = thread->proc;
+
+	char tmp[100];
+
+	sprintf(tmp, "PID %d TID %d: %s (%d): %p %p %p %p %p %p\n", proc->pid, thread->tid, syscalls[num], num, arg1, arg2, arg3, arg4, arg5, arg6);
+	
+	e9_puts(tmp);
+
+}
+
+void syscalllogger_return(uint64_t value, uint64_t errno){
+	char tmp[100];
+
+	thread_t* thread = arch_getcls()->thread;
+	proc_t* proc = thread->proc;
+	
+	sprintf(tmp, "PID %d TID %d: returned %p %d\n", proc->pid, thread->tid, value, errno);
+
+	e9_puts(tmp);
 }
