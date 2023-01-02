@@ -72,7 +72,7 @@ run-kvm:
 	qemu-system-x86_64 $(QEMUFLAGS) -enable-kvm -debugcon stdio
 
 test:
-	qemu-system-x86_64 $(QEMUFLAGS) -monitor stdio -cdrom -d int -no-reboot -no-shutdown
+	qemu-system-x86_64 $(QEMUFLAGS) -monitor stdio -d int -no-reboot -no-shutdown
 
 test-kvm:
 	qemu-system-x86_64 $(QEMUFLAGS) -monitor stdio -no-reboot -no-shutdown -enable-kvm
