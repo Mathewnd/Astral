@@ -43,12 +43,6 @@ section .text
 	mov rax, gs
 	push rax
 	
-	; now use kernel segments for data
-
-	;mov rax, 0x38
-	;mov ds, rax
-	;mov es, rax
-	;mov ss, rax
 	mov rdi,cr2
 	push rdi
 
@@ -78,13 +72,6 @@ section .text
 	pop rdi
 	pop rsi
 
-	; check and patch ss if it is invalid because of the syscall instruction
-	cmp qword [rsp+48], 0x33
-	jne .nofix
-	mov qword [rsp+48], 0x43
-	.nofix:
-
-
 	pop rbp
 	add rsp,8 ; remove error code
 
@@ -101,7 +88,7 @@ section .text
 	
 	global %1
 	%1:
-	
+
 	push qword 0 ; error code for regs struct
 
 	pushregs
@@ -114,6 +101,11 @@ section .text
 	call %2
 	
 	popregs
+
+	cmp qword [rsp+8], 0x3b
+	jne .ok
+	mov qword [rsp+32], 0x43
+	.ok:
 
 	iretq
 	
@@ -132,6 +124,7 @@ section .text
 	
 	mov rdi,rsp
 	mov rsi,%3
+	
 
 	cld
 	sti
@@ -141,6 +134,11 @@ section .text
 
 	popregs
 	
+	cmp qword [rsp+8], 0x3b
+	jne .ok
+	mov qword [rsp+32], 0x43
+	.ok:
+
 	iretq
 %endmacro
 
