@@ -30,6 +30,8 @@ arch_switchcontext:
 
 	swapgs
 
+        mov qword [rsp+32], 0x43
+
 	.noswap:
 
 	iretq
