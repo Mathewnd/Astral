@@ -11,7 +11,7 @@
 
 #define MAXNFDS 4096
 
-syscallret syscall_poll(pollfd *fds, size_t nfds, int timeoutms){
+syscallret syscall_poll(pollfd *fds, volatile int nfds, int timeoutms){
 	syscallret retv;
 	retv.ret = -1;
 
@@ -117,8 +117,7 @@ syscallret syscall_poll(pollfd *fds, size_t nfds, int timeoutms){
 
 	size_t eventcount = 0;
 
-	for(uintmax_t i = 0; i < nfds; ++i){
-		
+	for(int i = 0; i < nfds; ++i){
 		if(ilist[i].fd < 0)
 			continue;
 		
@@ -138,6 +137,6 @@ syscallret syscall_poll(pollfd *fds, size_t nfds, int timeoutms){
 	
 	if(ilist)
 		free(ilist);
-	
+
 	return retv;
 }
