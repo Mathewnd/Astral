@@ -91,7 +91,7 @@ void kmain(){
 
 	keyboard_init();
 
-	ps2kbd_init();
+	ps2_init();
 	
 	sched_runinit();
 
