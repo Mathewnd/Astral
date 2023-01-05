@@ -1,9 +1,8 @@
-NORMAL="\e[0m"
-RED="\e[1;31m"
-GREEN="\e[1;32m"
-BLUE="\e[1;36m"
-WHITE="\e[1;37m"
+NORMAL="\[\e[0m\]"
+RED="\[\e[1;31m\]"
+GREEN="\[\e[1;32m\]"
+BLUE="\[\e[1;36m\]"
+WHITE="\[\e[1;37m\]"
 PS1="$GREEN\u$NORMAL@$BLUE\h$NORMAL:$WHITE\w$NORMAL>"
 
 alias ls="ls --color=auto"
-export TERM=linux
