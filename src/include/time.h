@@ -10,6 +10,8 @@
 
 #define NS_IN_US 1000
 
+#include <math.h>
+
 typedef long time_t;
 
 struct timespec {
@@ -17,5 +19,12 @@ struct timespec {
         long tv_nsec;
 };
 
+static inline time_t time_diffms(struct timespec a, struct timespec b){
+	time_t nsecdiff = labs(a.tv_nsec - a.tv_nsec);
+	time_t secdiff = labs(a.tv_sec - a.tv_sec);	
+
+	return nsecdiff / NS_IN_MS + secdiff * MS_IN_SECS;
+
+}
 
 #endif
