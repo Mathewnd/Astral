@@ -90,6 +90,8 @@ void kmain(){
 	smp_init();
 
 	keyboard_init();
+	
+	mouse_init();
 
 	ps2_init();
 	

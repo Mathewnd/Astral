@@ -278,7 +278,7 @@ static int poll(int minor, pollfd* fd){
 	
 }
 
-devcalls calls = {
+static devcalls calls = {
 	read, write, isatty, isseekable, ioctl, poll
 };
 
