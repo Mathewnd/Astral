@@ -157,6 +157,7 @@ isr	asmisr_general, isr_general, 0xFF
 except	asmisr_except, isr_except, 0xFF
 isr	asmisr_lapicnmi, isr_lapicnmi, 0x21
 isr	asmisr_mmuinval, isr_mmuinval, 0x22
+isr	asmisr_ps2mouse, isr_ps2mouse, 0x3F
 isr 	asmisr_ps2kbd, isr_ps2kbd, 0x40
 isr	asmisr_timer, isr_timer, 0x80
 isr 	asmisr_simd, isr_simd, 0x13

@@ -71,6 +71,11 @@ void isr_ps2kbd(arch_regs* reg){
 	apic_eoi();
 }
 
+void isr_ps2mouse(arch_regs* reg){
+	ps2mouse_irq();
+	apic_eoi();
+}
+
 void isr_timer(arch_regs* reg){
 	timer_irq(reg);
 	apic_eoi();

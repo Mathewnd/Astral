@@ -16,24 +16,6 @@
 
 static int kb;
 
-static uint8_t ps2cmd(uint8_t cmd){
-	
-	uint8_t response;
-
-	for(size_t i = 0; i < 3; ++i){
-		outb(PS2_PORT_DATA, cmd);
-		
-		response = inb(PS2_PORT_DATA);
-		
-		if(response != RESEND)
-			break;
-
-	}
-
-	return response;
-
-}
-
 static char codes[] = {
 	KEYCODE_RESERVED,
 	KEYCODE_ESCAPE,
@@ -176,13 +158,8 @@ void ps2kbd_irq(){
 }
 
 void ps2kbd_init(){
-	
-	// maybe the ps/2 controller and keyboard should be initialised to a known state
-	// and not be assumed to be set up in a working manner by the firmware/bootloader
-	
-	// this probably shouldn't assume the keyboard always being in the first port but oh well
-	
-	// clear keyboard buffer data
+		
+	// clear PS/2 buffer to make sure its empty
 
 	inb(PS2_PORT_DATA);
 	

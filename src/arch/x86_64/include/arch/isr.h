@@ -10,6 +10,7 @@ extern void asmisr_pagefault();
 extern void asmisr_panic();
 extern void asmisr_lapicnmi();
 extern void asmisr_mmuinval();
+extern void asmisr_ps2mouse();
 extern void asmisr_ps2kbd();
 extern void asmisr_timer();
 extern void asmisr_simd();
