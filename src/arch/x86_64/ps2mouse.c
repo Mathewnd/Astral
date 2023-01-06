@@ -3,6 +3,7 @@
 #include <arch/idt.h>
 #include <arch/apic.h>
 #include <arch/cls.h>
+#include <kernel/mouse.h>
 
 #define MOUSE_CMD_SAMPLERATE 0xF3
 #define MOUSE_CMD_REPORTDATA 0xF4
@@ -46,6 +47,8 @@ static inline bool enoughdata(){
 		return true;
 }
 
+int mouseid;
+
 void ps2mouse_irq(){
 
 	data[datac] = inb(PS2_PORT_DATA);
@@ -63,6 +66,8 @@ void ps2mouse_irq(){
 	if(!enoughdata())
 		return;
 
+	mousepacket_t packet;
+
 	datac = 0;
 	bool left = data[0] & 1;
 	bool right = data[0] & 2;
@@ -70,11 +75,19 @@ void ps2mouse_irq(){
 	bool b4 = data[3] & 0x10;
 	bool b5 = data[3] & 0x20;
 
-	int xoffset = data[1] * (data[0] & 0x10 ? -1 : 1);
-	int yoffset = data[2] * (data[0] & 0x20 ? -1 : 1);
-	int zoffset = (data[3] & 0x7) * (data[3] & 0x8 ? -1 : 1);
+	packet.x = data[1] * (data[0] & 0x10 ? -1 : 1);
+	packet.y = data[2] * (data[0] & 0x20 ? -1 : 1);
+	packet.z = (data[3] & 0x7) * (data[3] & 0x8 ? -1 : 1);
 	
+	packet.flags |= left ? MOUSE_FLAG_LB : 0;
+	packet.flags |= middle ? MOUSE_FLAG_MB : 0;
+	packet.flags |= right ? MOUSE_FLAG_RB : 0;
+	packet.flags |= b4 ? MOUSE_FLAG_B4 : 0;
+	packet.flags |= b5 ? MOUSE_FLAG_B5 : 0;
 
+	mouse_packet(mouseid, packet);
+
+	
 
 }
 
@@ -109,4 +122,8 @@ void ps2mouse_init(){
 			
 	ioapic_setlegacyirq(MOUSEIRQ, VECTOR_PS2MOUSE, arch_getcls()->lapicid, false);
 	
+	mouseid = mouse_getnew();
+
+	__assert(mouseid != -1);
+
 }
