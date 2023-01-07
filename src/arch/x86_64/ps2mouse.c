@@ -75,8 +75,8 @@ void ps2mouse_irq(){
 	bool b4 = data[3] & 0x10;
 	bool b5 = data[3] & 0x20;
 
-	packet.x = data[1] * (data[0] & 0x10 ? -1 : 1);
-	packet.y = data[2] * (data[0] & 0x20 ? -1 : 1);
+	packet.x = data[1] - (data[0] & 0x10 ? 0x100 : 0);
+	packet.y = data[2] - (data[0] & 0x20 ? 0x100 : 0);
 	packet.z = (data[3] & 0x7) * (data[3] & 0x8 ? -1 : 1);
 	
 	packet.flags |= left ? MOUSE_FLAG_LB : 0;
