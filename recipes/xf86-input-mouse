@@ -1,0 +1,24 @@
+name=xf86-input-mouse
+revision=1
+from_source=xf86-input-mouse
+imagedeps="gcc"
+hostdeps="gcc-cross binutils-cross pkgconfig automake autoconf util-macros libtool"
+deps="mlibc xorg-server"
+
+configure() {
+
+	SYSROOT=${sysroot_dir} ${source_dir}/configure --prefix=${prefix} --host=x86_64-astral --disable-static
+
+}
+
+build() {
+	
+	make -j${parallelism}
+
+}
+
+install() {
+
+	make DESTDIR=${dest_dir} install
+
+}
