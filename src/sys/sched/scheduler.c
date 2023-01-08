@@ -418,6 +418,9 @@ void sched_init(){
 	timer_req* req = &arch_getcls()->schedreq;
 	
 	req->func = sched_timerhook;
+
+	timer_add(&arch_getcls()->schedreq, THREAD_QUANTUM, true);
+
 }
 
 void sched_runinit(){
@@ -500,8 +503,6 @@ void sched_runinit(){
 	fd_release(stderrfd);
 	
 	proc->umask = 022;
-
-	timer_add(&arch_getcls()->schedreq, THREAD_QUANTUM, true);
 	
 	switch_thread(thread);
 	
