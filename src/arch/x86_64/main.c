@@ -80,14 +80,14 @@ void kmain(){
 	fb_init();
 
 	pci_enumerate();
-	
-	nvme_init();
-
-	cpu_state_init();
 
 	sched_init();
 
+	cpu_state_init();
+
 	smp_init();
+
+	nvme_init();
 
 	keyboard_init();
 	
