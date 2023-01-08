@@ -42,6 +42,17 @@ size_t ringbuffer_read(ringbuffer_t* ringbuffer, void* buffer, size_t count){
 
 }
 
+size_t ringbuffer_datacount(ringbuffer_t* ringbuffer){
+	spinlock_acquire(&ringbuffer->lock);
+	
+	size_t c = ringbuffer->write - ringbuffer->read;
+
+	spinlock_release(&ringbuffer->lock);
+	
+	return c;
+
+}
+
 size_t ringbuffer_write(ringbuffer_t* ringbuffer, void* buffer, size_t count){
 	
 	spinlock_acquire(&ringbuffer->lock);
