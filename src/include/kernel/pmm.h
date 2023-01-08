@@ -13,4 +13,7 @@ void pmm_setused(void*, size_t);
 extern void* limine_hhdm_offset;
 extern void* pmm_usabletop;
 
+#define MAKEHHDM(a) (void*)((uintptr_t)a + (uintptr_t)limine_hhdm_offset)
+#define FROMHHDM(a) (void*)((uintptr_t)a - (uintptr_t)limine_hhdm_offset)
+
 #endif
