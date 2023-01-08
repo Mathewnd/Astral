@@ -639,7 +639,11 @@ bool vmm_allocnowat(void* addr, size_t mmuflags, size_t size){
 // called by the page fault handler
 
 int vmm_dealwithrequest(void* addr, long error, bool user){
-	
+
+	if(!arch_getcls()->thread) // the fault happened before the scheduler was initialised.
+		return EFAULT;
+		
+
 	if(user && addr > USER_SPACE_END)
 		return EFAULT;
 
