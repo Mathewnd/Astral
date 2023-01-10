@@ -72,6 +72,8 @@ void idt_bspinit(){
 	
 	idt_setentry(&idt[VECTOR_PS2KBD], asmisr_ps2kbd, 0x28, FLAGS_PRESENT | FLAGS_TYPE_INTERRUPT, 0);
 	
+	idt_setentry(&idt[VECTOR_NVME], asmisr_nvme, 0x28, FLAGS_PRESENT | FLAGS_TYPE_INTERRUPT, 0);
+	
 	idt_reload();
 
 }

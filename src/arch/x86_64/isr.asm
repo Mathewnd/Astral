@@ -150,6 +150,7 @@ asmisr_panic:
 	hlt
 	jmp .hlt ; NMI stuff
 
+isr 	asmisr_nvme, nvme_irq, 0x30
 except	asmisr_pagefault, isr_pagefault, 0xE
 except  asmisr_gpf, isr_gpf, 0xD
 except	asmisr_nm, isr_except, 0x7

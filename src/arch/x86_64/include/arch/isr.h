@@ -16,5 +16,6 @@ extern void asmisr_timer();
 extern void asmisr_simd();
 extern void asmisr_nm();
 extern void asmisr_gpf();
+extern void asmisr_nvme();
 
 #endif
