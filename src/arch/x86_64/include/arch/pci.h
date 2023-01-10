@@ -43,12 +43,30 @@ typedef struct{
 	uint8_t  maxgrant;
 } __attribute__((packed)) pci_deviceheader;
 
+typedef struct{	
+	uint32_t mlow;
+	uint32_t mhi;
+	uint32_t data;
+	uint32_t ctrl;
+} __attribute__((packed)) msixmsg_t;
+
 typedef struct _pci_enumeration{
 	struct pci_enumeration* next;
 	uint8_t bus;
 	uint8_t device;
 	uint8_t function;
 	pci_common* header;
+	union{
+		struct{
+			int offset;
+		} msi;
+		struct{
+			int offset;
+			msixmsg_t* table;
+			int entrycount;
+		} msix;
+	}
+
 } pci_enumeration;
 
 #define PCI_TYPE_MEM 1
@@ -85,11 +103,16 @@ static inline void* getbarmemaddr(pci_deviceheader* e, int bar){
 #define PCI_COMMAND_IO 1
 #define PCI_COMMAND_MEMORY 2
 #define PCI_COMMAND_MASTER 4
+#define PCI_COMMAND_INTDISABLE 1024
 
 bool pci_msisupport(pci_enumeration* e);
-void pci_msienable(pci_enumeration* e, bool enable);
+void pci_msienable(pci_enumeration* e);
+bool pci_msixsupport(pci_enumeration* e);
+void pci_msixenable(pci_enumeration* e);
 void pci_msimask(pci_enumeration* e, int which, int val);
 void pci_msimaskall(pci_enumeration* e, int val);
+void pci_msiadd(pci_enumeration* e, int cpu, int vec, bool edgetrigger, bool deassert);
+void pci_msixadd(pci_enumeration* e, int msixvec, int cpu, int vec, bool edgetrigger, bool deassert);
 
 void pci_setcommand(pci_enumeration* e, int which, int val);
 pci_enumeration* pci_getdevicecs(int class, int subclass, int n);
