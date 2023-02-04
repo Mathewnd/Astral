@@ -65,7 +65,7 @@ typedef struct _pci_enumeration{
 			msixmsg_t* table;
 			int entrycount;
 		} msix;
-	}
+	};
 
 } pci_enumeration;
 
@@ -95,9 +95,9 @@ static inline void* getbarmemaddr(pci_deviceheader* e, int bar){
 		return NULL;
 
 	if(type & PCI_MEM_64)
-		return (e->BAR[bar] & ~(0xF)) + ((uint64_t)e->BAR[bar + 1] << 32);
+		return (void*)(((uint64_t)e->BAR[bar] & ~(0xF)) + ((uint64_t)e->BAR[bar + 1] << 32));
 	else
-		return e->BAR[bar] & ~(0xF);
+		return (void*)((uint64_t)e->BAR[bar] & ~(0xF));
 }
 
 #define PCI_COMMAND_IO 1
