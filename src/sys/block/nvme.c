@@ -28,6 +28,10 @@
 
 #define OPCODE_IDENTIFY 0x6
 
+#define IDENTIFY_TYPE_CONTROLLER 0
+#define IDENTIFY_TYPE_NAMESPACE 1
+#define IDENTIFY_TYPE_NAMESPACELIST 2
+
 typedef struct{
 	uint64_t cap;
 	uint32_t vs;
@@ -91,7 +95,7 @@ typedef struct{
 	volatile nvme_bar0* bar0;
 	queuepair_t adminqueue;
 	queuepair_t* ioqueue;
-} ctlrinfo;
+} ctlrinfo_t;
 
 typedef struct{
 	subqentry sub;
@@ -99,15 +103,135 @@ typedef struct{
 	event_t completion;
 } entrypair_t;
 
+typedef struct{
+	uint16_t metadatasize;
+	uint8_t lbadatasize; // power of two
+	uint8_t relativeperformance : 2;
+	uint8_t reserved : 6;
+} __attribute__((packed)) lbaformat_t;
+
+typedef struct{
+	uint64_t lbasize;
+	uint64_t lbacapacity;
+	uint64_t lbautilized;
+	uint8_t features;
+	uint8_t lbaformatcount;
+	uint8_t lbaformattedsize;
+	uint8_t metadatacap;
+	uint8_t endtoendprot;
+	uint8_t endtoendprotsettings;
+	uint8_t sharingcap;
+	uint8_t rescap;
+	uint8_t fpi;
+	uint8_t deallocate;
+	uint8_t atomicwrite;
+	uint16_t atomicwritepowerfail;
+	uint16_t atomiccomparewrite;
+	uint16_t atomicboundarysize;
+	uint16_t atomicboundaryoffset;
+	uint16_t atomicboundarypowerfail;
+	uint16_t optimalioboundary;
+	uint64_t nvmcapacity[2];
+	uint16_t preferredwritegranularity;
+	uint16_t preferredwritealignment;
+	uint16_t preferreddeallocategranularity;
+	uint16_t preferreddeallocatealignment;
+	uint16_t optimalwritesize;
+	uint8_t _reserved[18];
+	uint32_t anagrpid;
+	uint16_t __reserved;
+	uint8_t namespaceattr;
+	uint16_t nvmsetid;
+	uint16_t endgid;
+	uint64_t namespaceguid[2];
+	uint64_t eui64;
+	uint32_t lbaformat[16];
+} __attribute__((packed)) namespacedata_t;
+
+typedef struct{
+	uint16_t pcivendor;
+	uint16_t pcisubsystemvendor;
+	uint8_t serialnum[20];
+	uint8_t modelnum[20];
+	uint64_t fwrevision;
+	uint8_t recommendedburst;
+	uint8_t ouiid[3];
+	uint8_t namespacesharing;
+	uint8_t maxdatatransfer; // power of two
+	uint16_t controllerid;
+	uint32_t version;
+	uint32_t rtd3resumelatency;
+	uint32_t rtd3entrylatency;
+	uint32_t optionalasyncevents;
+	uint32_t attributes;
+	uint16_t rrlsupported;
+	uint64_t reserved;
+	uint8_t type;
+	uint64_t fguid[2];
+	uint16_t crdt[3];
+	uint8_t _reserved[106];
+	uint8_t mi_res[16];
+	uint16_t admincmdsupport;
+	uint8_t abortlimit;
+	uint8_t asynceventrqlimit;
+	uint8_t firmwareupdates;
+	uint8_t logpages;
+	uint8_t errorlogpages;
+	uint8_t powerstatenum;
+	uint8_t adminvendorspecific;
+	uint8_t apsta;
+	uint16_t wctemp;
+	uint16_t cctemp;
+	uint16_t mtfa;
+	uint32_t hmpre;
+	uint32_t hmmin;
+	uint64_t tnvmcap[2];
+	uint64_t unvmcap[2];
+	uint32_t rpmbs;
+	uint16_t edstt;
+	uint8_t dsto;
+	uint8_t fwug;
+	uint16_t kas;
+	uint16_t hctma;
+	uint16_t mntmt;
+	uint16_t mxtmt;
+	uint32_t sanicap;
+	uint32_t hmminds;
+	uint16_t hmmaxd;
+	uint16_t nsetidmax;
+	uint16_t endgidmax;
+	uint8_t anatt;
+	uint8_t anacap;
+	uint32_t anagrpmax;
+	uint32_t nanagrpid;
+	uint32_t pels;
+	uint8_t __reserved[156];
+	uint8_t sqentrysize; // powers of 2
+	uint8_t cqentrysize;
+	uint16_t maxcmd;
+	uint32_t namespacecount;
+	uint16_t oncs;
+	uint16_t fuses;
+	uint8_t fna;
+	uint8_t vwc;
+	uint16_t awun;
+	uint16_t awupf;
+	uint8_t nvscc;
+	uint8_t nwpc;
+	uint16_t acwu;
+} __attribute__((packed)) controllerid_t;
+
+
+
 #define ASQSIZE PAGE_SIZE / sizeof(subqentry)
 #define ACQSIZE PAGE_SIZE / sizeof(compqentry)
 
-static ctlrinfo* ctlrpass;
+static ctlrinfo_t* ctlrpass;
 static queuepair_t* queuepass;
 
 
 static int controllercount;
-static ctlrinfo** controllers;
+static ctlrinfo_t** controllers;
 
 #include <arch/io.h>
 
@@ -124,7 +248,7 @@ void nvme_irq(){
 
 __attribute__((noreturn)) static void nvme_workerthread(){
 	
-	ctlrinfo* controller = ctlrpass;
+	ctlrinfo_t* controller = ctlrpass;
 	queuepair_t* queuepair = queuepass;
 	entrypair_t* userentries[256];
 	int lowestfreepair = 0;
@@ -141,8 +265,6 @@ __attribute__((noreturn)) static void nvme_workerthread(){
 		if(ringbuffer_datacount(&queuepair->userrequests)){
 			// process a user request
 			
-			// get the pair address and store it
-
 			int pair = lowestfreepair;
 
 			while(userentries[pair]) ++pair;
@@ -204,6 +326,39 @@ static inline void dispatchandwait(entrypair_t* e, queuepair_t* q){
 	event_signal(&q->update, false);
 	event_wait(&e->completion, false);
 	arch_interrupt_enable();
+}
+
+#define IDENTIFY_SIZE 4096
+
+int nvme_identify(ctlrinfo_t* ctlr, void* buff, int type, int what){
+		
+	__assert(type < 3); // anything else is not supported atm
+
+	entrypair_t pair;
+
+	memset(&pair, 0, sizeof(entrypair_t));
+
+	pair.sub.dataptr[0] = pmm_alloc(1);
+	if(!pair.sub.dataptr[0])
+		return ENOMEM;
+
+	pair.sub.command[0] = type;
+	pair.sub.d0.opcode = OPCODE_IDENTIFY;
+
+	if(type == IDENTIFY_TYPE_NAMESPACE)
+		pair.sub.namespace = what;
+
+	dispatchandwait(&pair, &ctlr->adminqueue);
+
+	memcpy(buff, MAKEHHDM(pair.sub.dataptr[0]), IDENTIFY_SIZE);
+	
+	return pair.comp.status ? EIO : 0;
+	
+
+}
+
+int nvme_identifycontroller(ctlrinfo_t* ctlr, void* buff){
+	return nvme_identify(ctlr, buff, IDENTIFY_TYPE_CONTROLLER, 0);
 }
 
 static void nvme_initctlr(pci_enumeration* pci){
@@ -300,9 +455,9 @@ static void nvme_initctlr(pci_enumeration* pci){
 		return;
 	}
 	
-	ctlrinfo* info = alloc(sizeof(ctlrinfo));
+	ctlrinfo_t* info = alloc(sizeof(ctlrinfo_t));
 
-	controllers = realloc(controllers, sizeof(ctlrinfo*)*(controllercount+1));
+	controllers = realloc(controllers, sizeof(ctlrinfo_t*)*(controllercount+1));
 
 	if(info == NULL || controllers == NULL)
 		_panic("Out of memory", NULL);
@@ -324,30 +479,21 @@ static void nvme_initctlr(pci_enumeration* pci){
 
 	ctlrpass = info;
 	queuepass = &info->adminqueue;
-
-	info->adminqueue.worker = sched_newkthread(nvme_workerthread, PAGE_SIZE*1000, true, THREAD_PRIORITY_KERNEL);
-	if(!info->adminqueue.worker)
-		_panic("Out of memory!", NULL);
 	
-	entrypair_t pair;
-
-	memset(&pair, 0, sizeof(entrypair_t));
-
-	pair.sub.dataptr[0] = pmm_alloc(1);
-	if(!pair.sub.dataptr[0])
-		_panic("Out of memory!\n", NULL);
-
-	pair.sub.command[0] = 1;
-	pair.sub.d0.opcode = OPCODE_IDENTIFY;
-
 	if(msix)
 		pci_msixadd(pci, 0, arch_getcls()->lapicid, VECTOR_NVME, true, false);
 	else
 		pci_msiadd(pci, arch_getcls()->lapicid, VECTOR_NVME, true, false);
 
 
-	dispatchandwait(&pair, &info->adminqueue);
-
+	info->adminqueue.worker = sched_newkthread(nvme_workerthread, PAGE_SIZE*1000, true, THREAD_PRIORITY_KERNEL);
+	if(!info->adminqueue.worker)
+		_panic("Out of memory!", NULL);
+	
+	
+	controllerid_t* ctlrid = alloc(4096);	
+	
+	nvme_identifycontroller(info, ctlrid);
 
 }
 
@@ -358,7 +504,7 @@ void nvme_init(){
 	controllers = alloc(1);
 
 	__assert(controllers);
-
+	
 	if(!e)
 		return;
 	
