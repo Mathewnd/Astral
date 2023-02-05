@@ -27,9 +27,11 @@
 #define CC_AMS_MASK 0b11100000000000
 
 #define OPCODE_IDENTIFY 0x6
+#define OPCODE_SETFEATURE 0x9
+#define SETFEATURE_DW10_SAVE 0x80000000
 
-#define IDENTIFY_TYPE_CONTROLLER 0
-#define IDENTIFY_TYPE_NAMESPACE 1
+#define IDENTIFY_TYPE_NAMESPACE 0
+#define IDENTIFY_TYPE_CONTROLLER 1
 #define IDENTIFY_TYPE_NAMESPACELIST 2
 
 typedef struct{
@@ -152,12 +154,12 @@ typedef struct{
 	uint16_t pcivendor;
 	uint16_t pcisubsystemvendor;
 	uint8_t serialnum[20];
-	uint8_t modelnum[20];
+	uint8_t modelnum[40];
 	uint64_t fwrevision;
 	uint8_t recommendedburst;
 	uint8_t ouiid[3];
 	uint8_t namespacesharing;
-	uint8_t maxdatatransfer; // power of two
+	uint8_t maxdatatransfer;
 	uint16_t controllerid;
 	uint32_t version;
 	uint32_t rtd3resumelatency;
@@ -165,7 +167,7 @@ typedef struct{
 	uint32_t optionalasyncevents;
 	uint32_t attributes;
 	uint16_t rrlsupported;
-	uint64_t reserved;
+	uint8_t reserved[9];
 	uint8_t type;
 	uint64_t fguid[2];
 	uint16_t crdt[3];
@@ -221,7 +223,7 @@ typedef struct{
 	uint16_t acwu;
 } __attribute__((packed)) controllerid_t;
 
-
+#define CONTROLLER_TYPE_IO 1
 
 #define ASQSIZE PAGE_SIZE / sizeof(subqentry)
 #define ACQSIZE PAGE_SIZE / sizeof(compqentry)
@@ -279,7 +281,7 @@ __attribute__((noreturn)) static void nvme_workerthread(){
 			
 			*targentry = userentries[pair]->sub;
 
-			*subqdoorbell = 1;
+			*subqdoorbell = queuepair->sub.idx;
 
 		}
 		
@@ -308,7 +310,7 @@ __attribute__((noreturn)) static void nvme_workerthread(){
 			}	
 
 			if(processed)
-				*compqdoorbell = processed;
+				*compqdoorbell = queuepair->comp.idx;
 			
 			
 		}
@@ -330,6 +332,8 @@ static inline void dispatchandwait(entrypair_t* e, queuepair_t* q){
 
 #define IDENTIFY_SIZE 4096
 
+
+
 int nvme_identify(ctlrinfo_t* ctlr, void* buff, int type, int what){
 		
 	__assert(type < 3); // anything else is not supported atm
@@ -338,7 +342,7 @@ int nvme_identify(ctlrinfo_t* ctlr, void* buff, int type, int what){
 
 	memset(&pair, 0, sizeof(entrypair_t));
 
-	pair.sub.dataptr[0] = pmm_alloc(1);
+	pair.sub.dataptr[0] = (uint64_t)pmm_alloc(1);
 	if(!pair.sub.dataptr[0])
 		return ENOMEM;
 
@@ -357,20 +361,41 @@ int nvme_identify(ctlrinfo_t* ctlr, void* buff, int type, int what){
 
 }
 
+#define FEATURE_SOFTWAREPROGRESS 0x80
+
+int nvme_resetsoftwareprogress(ctlrinfo_t* ctlr){
+	
+	entrypair_t pair;
+
+	memset(&pair, 0, sizeof(entrypair_t));
+	
+	pair.sub.command[0] = FEATURE_SOFTWAREPROGRESS;
+	pair.sub.d0.opcode = OPCODE_SETFEATURE;
+
+	dispatchandwait(&pair, &ctlr->adminqueue);
+
+	return pair.comp.status ? EIO : 0;
+
+}
+
 int nvme_identifycontroller(ctlrinfo_t* ctlr, void* buff){
 	return nvme_identify(ctlr, buff, IDENTIFY_TYPE_CONTROLLER, 0);
 }
 
+int nvme_listnamespaces(ctlrinfo_t* ctlr, uint32_t startns, uint32_t* nslist){
+	return nvme_identify(ctlr, nslist, IDENTIFY_TYPE_NAMESPACELIST, startns);
+}
+
 static void nvme_initctlr(pci_enumeration* pci){
 	
-	void* bar0p = getbarmemaddr(pci->header, 0);
+	void* bar0p = getbarmemaddr((pci_deviceheader*)pci->header, 0);
 	
 	volatile nvme_bar0* bar0 = vmm_alloc(10, ARCH_MMU_MAP_READ | ARCH_MMU_MAP_WRITE);
 
 	if(!bar0)
 		_panic("Out of memory", NULL);
 
-	if(!vmm_map(bar0p, bar0, 10, ARCH_MMU_MAP_READ | ARCH_MMU_MAP_WRITE))
+	if(!vmm_map(bar0p, (void*)bar0, 10, ARCH_MMU_MAP_READ | ARCH_MMU_MAP_WRITE))
 		_panic("Out of memory", NULL);
 
 	int maj = bar0->vs >> 16;
@@ -441,8 +466,8 @@ static void nvme_initctlr(pci_enumeration* pci){
 	if(!adminqueues)
 		_panic("Out of memory", NULL);
 	
-	bar0->asq = adminqueues;
-	bar0->acq = adminqueues + PAGE_SIZE;
+	bar0->asq = (uint64_t)adminqueues;
+	bar0->acq = (uint64_t)adminqueues + PAGE_SIZE;
 
 	// enable
 
@@ -493,7 +518,18 @@ static void nvme_initctlr(pci_enumeration* pci){
 	
 	controllerid_t* ctlrid = alloc(4096);	
 	
-	nvme_identifycontroller(info, ctlrid);
+	if(!ctlrid)
+		_panic("Out of memoru!", NULL);
+
+	__assert(nvme_identifycontroller(info, ctlrid) == 0);
+	
+	__assert(ctlrid->type == CONTROLLER_TYPE_IO);
+	
+	nvme_resetsoftwareprogress(info);
+
+	uint32_t nslist[1024];
+
+	__assert(nvme_listnamespaces(info, 0, nslist) == 0);
 
 }
 
