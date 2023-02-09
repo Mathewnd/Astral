@@ -26,8 +26,15 @@
 #define CC_MPS_MASK 0b11110000000
 #define CC_AMS_MASK 0b11100000000000
 
+#define OPCODE_CREATEIOSUBQUEUE 0x1
+#define OPCODE_CREATEIOCOMPQUEUE 0x5
 #define OPCODE_IDENTIFY 0x6
 #define OPCODE_SETFEATURE 0x9
+
+#define OPCODE_WRITE 0x1
+#define OPCODE_READ 0x2
+
+
 #define SETFEATURE_DW10_SAVE 0x80000000
 
 #define IDENTIFY_TYPE_NAMESPACE 0
@@ -96,6 +103,7 @@ typedef struct{
 	size_t doorbellstride;
 	volatile nvme_bar0* bar0;
 	queuepair_t adminqueue;
+	int paircount;
 	queuepair_t* ioqueue;
 } ctlrinfo_t;
 
@@ -123,10 +131,10 @@ typedef struct{
 	uint8_t endtoendprot;
 	uint8_t endtoendprotsettings;
 	uint8_t sharingcap;
-	uint8_t rescap;
+	uint8_t rescap; 
 	uint8_t fpi;
 	uint8_t deallocate;
-	uint8_t atomicwrite;
+	uint16_t atomicwrite;
 	uint16_t atomicwritepowerfail;
 	uint16_t atomiccomparewrite;
 	uint16_t atomicboundarysize;
@@ -141,14 +149,14 @@ typedef struct{
 	uint16_t optimalwritesize;
 	uint8_t _reserved[18];
 	uint32_t anagrpid;
-	uint16_t __reserved;
+	uint8_t  __reserved[3];
 	uint8_t namespaceattr;
 	uint16_t nvmsetid;
 	uint16_t endgid;
 	uint64_t namespaceguid[2];
 	uint64_t eui64;
-	uint32_t lbaformat[16];
-} __attribute__((packed)) namespacedata_t;
+	lbaformat_t lbaformat[16];
+} __attribute__((packed)) namespaceid_t;
 
 typedef struct{
 	uint16_t pcivendor;
@@ -223,6 +231,12 @@ typedef struct{
 	uint16_t acwu;
 } __attribute__((packed)) controllerid_t;
 
+typedef struct{
+	ctlrinfo_t* ctlr;
+	int id;
+	size_t blocksize, capacity;
+} namespace_t;
+
 #define CONTROLLER_TYPE_IO 1
 
 #define ASQSIZE PAGE_SIZE / sizeof(subqentry)
@@ -243,7 +257,10 @@ void nvme_irq(){
 	
 	controllers[0]->adminqueue.comp.hasdata = true;
 	event_signal(&controllers[0]->adminqueue.update, false);
-	
+	if(controllers[0]->ioqueue){
+		controllers[0]->ioqueue->comp.hasdata = true;
+		event_signal(&controllers[0]->ioqueue->update, false);
+	}
 	apic_eoi();
 
 }
@@ -278,7 +295,7 @@ __attribute__((noreturn)) static void nvme_workerthread(){
 			subqentry* targentry = &subq[queuepair->sub.idx++];
 			
 			queuepair->sub.idx %= queuepair->sub.entrycount;
-			
+
 			*targentry = userentries[pair]->sub;
 
 			*subqdoorbell = queuepair->sub.idx;
@@ -355,7 +372,9 @@ int nvme_identify(ctlrinfo_t* ctlr, void* buff, int type, int what){
 	dispatchandwait(&pair, &ctlr->adminqueue);
 
 	memcpy(buff, MAKEHHDM(pair.sub.dataptr[0]), IDENTIFY_SIZE);
-	
+
+	pmm_free((void*)pair.sub.dataptr[0], 1);
+
 	return pair.comp.status ? EIO : 0;
 	
 
@@ -378,12 +397,173 @@ int nvme_resetsoftwareprogress(ctlrinfo_t* ctlr){
 
 }
 
+#define IOQUEUE_FLAG_INTENABLE 2
+#define IOQUEUE_FLAG_CONTIGUOUS 1
+
+int nvme_createiocompqueue(ctlrinfo_t* ctlr, size_t size, int id, int intvec, int flags, void** ret_addr){
+	entrypair_t pair;
+	
+	memset(&pair, 0, sizeof(entrypair_t));
+
+	pair.sub.d0.opcode = OPCODE_CREATEIOCOMPQUEUE;
+	
+	size_t psize = size / PAGE_SIZE + ((size % PAGE_SIZE) ? 1 : 0);
+	size_t entrycount = size / sizeof(compqentry);
+
+	void* addr = pmm_alloc(psize);
+
+	if(addr == NULL)
+		return ENOMEM;
+
+	pair.sub.dataptr[0] = (uint64_t)addr;
+
+	pair.sub.command[0] = id | (entrycount << 16);
+	pair.sub.command[1] = IOQUEUE_FLAG_CONTIGUOUS | flags | (intvec << 16);
+	
+	dispatchandwait(&pair, &ctlr->adminqueue);
+	
+	if(pair.comp.status)
+		pmm_free(addr, psize);
+	else
+		*ret_addr = MAKEHHDM(addr);
+
+	return pair.comp.status ? EIO : 0;
+
+}
+
+int nvme_createiosubqueue(ctlrinfo_t* ctlr, size_t size, int id, int flags, int compid, void** ret_addr){
+	entrypair_t pair;
+	
+	memset(&pair, 0, sizeof(entrypair_t));
+
+	pair.sub.d0.opcode = OPCODE_CREATEIOSUBQUEUE;
+	
+	size_t psize = size / PAGE_SIZE + ((size % PAGE_SIZE) ? 1 : 0);
+	size_t entrycount = size / sizeof(compqentry);
+	
+	void* addr = pmm_alloc(psize);
+
+	if(addr == NULL)
+		return ENOMEM;
+
+	pair.sub.dataptr[0] = (uint64_t)addr;
+
+	pair.sub.command[0] = id | (entrycount << 16);
+	pair.sub.command[1] = IOQUEUE_FLAG_CONTIGUOUS | flags | (compid << 16);
+	
+	dispatchandwait(&pair, &ctlr->adminqueue);
+
+	if(pair.comp.status)
+		pmm_free(addr, psize);
+	else
+		*ret_addr = MAKEHHDM(addr);
+
+
+	return pair.comp.status ? EIO : 0;
+
+}
+
 int nvme_identifycontroller(ctlrinfo_t* ctlr, void* buff){
 	return nvme_identify(ctlr, buff, IDENTIFY_TYPE_CONTROLLER, 0);
 }
 
 int nvme_listnamespaces(ctlrinfo_t* ctlr, uint32_t startns, uint32_t* nslist){
 	return nvme_identify(ctlr, nslist, IDENTIFY_TYPE_NAMESPACELIST, startns);
+}
+
+int nvme_identifynamespace(ctlrinfo_t* ctlr, uint32_t ns, namespaceid_t* buff){
+	return nvme_identify(ctlr, buff, IDENTIFY_TYPE_NAMESPACE, ns);
+}
+
+int nvme_read(namespace_t* ns, void* buffer, uintmax_t lba, size_t count){
+	if(count == 0)
+		return 0;
+
+	--count;
+
+	entrypair_t pair;
+
+	memset(&pair, 0, sizeof(entrypair_t));
+
+	pair.sub.d0.opcode = OPCODE_READ;
+	pair.sub.namespace = ns->id;
+
+
+	// TODO use a single command for this
+	
+	pair.sub.command[2] = 0;
+
+	size_t allocsize = ns->blocksize/PAGE_SIZE+1;
+
+	void* paddr = pmm_alloc(allocsize);
+	
+	if(!paddr)
+		return ENOMEM;
+
+
+	pair.sub.dataptr[0] = (uint64_t)paddr;
+	void* hhdmaddr = MAKEHHDM(paddr);
+	
+	int status = 0;
+
+	for(size_t i = 0; i <= count; ++i){
+		pair.sub.command[0] = lba & 0xFFFFFFFF;
+		pair.sub.command[1] = (lba >> 32) & 0xFFFFFFFF;
+
+		dispatchandwait(&pair, ns->ctlr->ioqueue);
+
+		if(pair.comp.status){
+			status = EIO;
+			break;
+		}
+
+		memcpy((uint8_t*)buffer + i*ns->blocksize, hhdmaddr, ns->blocksize);
+
+		++lba;
+	}
+
+	pmm_free(paddr, allocsize);
+	
+	return status;
+
+	
+}
+
+static void nvme_newworkerthread(ctlrinfo_t* ctlr, queuepair_t* qpair){
+	
+	ctlrpass = ctlr;
+	queuepass = qpair;
+
+	qpair->worker = sched_newkthread(nvme_workerthread, PAGE_SIZE*1000, true, THREAD_PRIORITY_KERNEL);
+	if(!qpair->worker)
+		_panic("Out of memory!", NULL);
+
+}
+
+static void nvme_initns(ctlrinfo_t* ctlr, uint32_t nsid){
+	namespaceid_t* identify = alloc(4096);
+	namespace_t* ns = alloc(sizeof(namespace_t));
+
+	if(identify == NULL || ns == NULL)
+		_panic("Out of memory!", NULL);
+
+	
+	__assert(nvme_identifynamespace(ctlr, nsid, identify) == 0);
+	
+	int lbaformat = identify->lbaformattedsize & 0xF;
+	size_t blocksize = intpow(2, identify->lbaformat[lbaformat].lbadatasize);
+
+	ns->blocksize = blocksize;
+	ns->id = nsid;
+	ns->capacity = identify->lbacapacity;
+	ns->ctlr = ctlr;
+
+	printf("ns %d: lbaformat %d, capacity -> %d blocks, block size -> %d bytes\n", nsid, lbaformat, identify->lbacapacity, blocksize);
+
+		
+
+	free(identify);
+
 }
 
 static void nvme_initctlr(pci_enumeration* pci){
@@ -499,27 +679,21 @@ static void nvme_initctlr(pci_enumeration* pci){
 	info->adminqueue.comp.entrycount = PAGE_SIZE / sizeof(compqentry);
 	info->adminqueue.sub.entrycount = PAGE_SIZE / sizeof(subqentry);
 	
-	if(ringbuffer_init(&info->adminqueue.userrequests, sizeof(subqentry)*64))
+	if(ringbuffer_init(&info->adminqueue.userrequests, sizeof(entrypair_t*)*64))
 		_panic("Out of memory", NULL);
 
-	ctlrpass = info;
-	queuepass = &info->adminqueue;
-	
 	if(msix)
 		pci_msixadd(pci, 0, arch_getcls()->lapicid, VECTOR_NVME, true, false);
 	else
 		pci_msiadd(pci, arch_getcls()->lapicid, VECTOR_NVME, true, false);
 
 
-	info->adminqueue.worker = sched_newkthread(nvme_workerthread, PAGE_SIZE*1000, true, THREAD_PRIORITY_KERNEL);
-	if(!info->adminqueue.worker)
-		_panic("Out of memory!", NULL);
-	
+	nvme_newworkerthread(info, &info->adminqueue);	
 	
 	controllerid_t* ctlrid = alloc(4096);	
 	
 	if(!ctlrid)
-		_panic("Out of memoru!", NULL);
+		_panic("Out of memory!", NULL);
 
 	__assert(nvme_identifycontroller(info, ctlrid) == 0);
 	
@@ -530,6 +704,25 @@ static void nvme_initctlr(pci_enumeration* pci){
 	uint32_t nslist[1024];
 
 	__assert(nvme_listnamespaces(info, 0, nslist) == 0);
+	
+	queuepair_t* qpair = alloc(sizeof(queuepair_t));
+
+	if(qpair == NULL || ringbuffer_init(&qpair->userrequests, sizeof(entrypair_t*)*64))
+		_panic("Out of memory!\n", NULL);
+	
+	__assert(nvme_createiocompqueue(info, PAGE_SIZE, 1, 0, IOQUEUE_FLAG_INTENABLE, &qpair->comp.addr) == 0);	
+	__assert(nvme_createiosubqueue(info, PAGE_SIZE, 1, 0, 1, &qpair->sub.addr) == 0);
+	
+	qpair->sub.id = 1;
+	qpair->comp.id = 1;
+	qpair->comp.entrycount = PAGE_SIZE / sizeof(compqentry);
+	qpair->sub.entrycount = PAGE_SIZE / sizeof(subqentry);
+	info->ioqueue = qpair;
+	
+	nvme_newworkerthread(info, qpair);
+	
+	for(int i = 0; i < 1024 && nslist[i]; ++i)
+		nvme_initns(info, nslist[i]);
 
 }
 
