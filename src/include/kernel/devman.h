@@ -12,6 +12,8 @@
 #define MAJOR_KB 6
 #define MAJOR_E9OUT 7
 #define MAJOR_MOUSE 8
+#define MAJOR_BLOCK 9
+
 
 typedef struct{
 	int (*read)(int* error, int minor, void* buff, size_t count, size_t offset);
