@@ -28,12 +28,15 @@ int devman_newdevice(char* name, int type, int major, int minor, devcalls* calls
 
 int devman_write(int *error, int dev, void* buff, size_t count, size_t offset){
 
-	if(major(dev) > highestmajor)
-		return ENODEV;
+	if(major(dev) > highestmajor){
+		*error = ENODEV;
+		return -1;
+	}
 
-
-	if(!majorcalls[major(dev)]->write)
-                return ENOTTY;
+	if(!majorcalls[major(dev)]->write){
+		*error = ENOTTY;
+                return -1;
+	}
 
 	return majorcalls[major(dev)]->write(error, minor(dev), buff, count, offset);
 	
@@ -41,14 +44,16 @@ int devman_write(int *error, int dev, void* buff, size_t count, size_t offset){
 }
 
 int devman_read(int *error, int dev, void* buff, size_t count, size_t offset){
-	
-	if(major(dev) > highestmajor)
-		return ENODEV;
+	if(major(dev) > highestmajor){
+		*error = ENODEV;
+		return -1;
+	}
 
-	if(!majorcalls[major(dev)]->read)
-                return ENOTTY;
+	if(!majorcalls[major(dev)]->read){
+		*error = ENOTTY;
+                return -1;
+	}
 	
-
 	return majorcalls[major(dev)]->read(error, minor(dev), buff, count, offset);
 
 
