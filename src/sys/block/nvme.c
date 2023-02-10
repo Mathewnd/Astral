@@ -15,6 +15,7 @@
 #include <arch/idt.h>
 #include <arch/cls.h>
 #include <arch/isr.h>
+#include <kernel/block.h>
 
 #define CAP_QUEUESIZE 0xFFFF
 #define CAP_MINPAGESIZE 0xF000000
@@ -255,11 +256,13 @@ static ctlrinfo_t** controllers;
 
 void nvme_irq(){
 	
-	controllers[0]->adminqueue.comp.hasdata = true;
-	event_signal(&controllers[0]->adminqueue.update, false);
-	if(controllers[0]->ioqueue){
-		controllers[0]->ioqueue->comp.hasdata = true;
-		event_signal(&controllers[0]->ioqueue->update, false);
+	for(int ctlr = 0; ctlr < controllercount; ++ctlr){
+		controllers[ctlr]->adminqueue.comp.hasdata = true;
+		event_signal(&controllers[ctlr]->adminqueue.update, false);
+		if(controllers[ctlr]->ioqueue){
+			controllers[ctlr]->ioqueue->comp.hasdata = true;
+			event_signal(&controllers[ctlr]->ioqueue->update, false);
+		}
 	}
 	apic_eoi();
 
@@ -292,10 +295,10 @@ __attribute__((noreturn)) static void nvme_workerthread(){
 			
 			userentries[pair]->sub.d0.cmdid = pair;
 			
-			subqentry* targentry = &subq[queuepair->sub.idx++];
-			
-			queuepair->sub.idx %= queuepair->sub.entrycount;
+			subqentry* targentry = &subq[queuepair->sub.idx++];	
 
+			queuepair->sub.idx %= queuepair->sub.entrycount;
+			
 			*targentry = userentries[pair]->sub;
 
 			*subqdoorbell = queuepair->sub.idx;
@@ -311,14 +314,16 @@ __attribute__((noreturn)) static void nvme_workerthread(){
 			while(1){
 
 				if(compq[queuepair->comp.idx].phase == 0)
-					break;
-				
+					break;		
+
 				int pair = compq[queuepair->comp.idx].cmdid;
 				
 				userentries[pair]->comp = compq[queuepair->comp.idx];
-				
+
 				event_signal(&userentries[pair]->completion, false);
 				
+				userentries[pair] = NULL;
+
 				++queuepair->comp.idx;
 				queuepair->comp.idx %= queuepair->comp.entrycount;
 				
@@ -417,9 +422,11 @@ int nvme_createiocompqueue(ctlrinfo_t* ctlr, size_t size, int id, int intvec, in
 
 	pair.sub.dataptr[0] = (uint64_t)addr;
 
-	pair.sub.command[0] = id | (entrycount << 16);
+	pair.sub.command[0] = id | ((entrycount-1) << 16);
 	pair.sub.command[1] = IOQUEUE_FLAG_CONTIGUOUS | flags | (intvec << 16);
 	
+	memset(MAKEHHDM(addr), 0, size);
+
 	dispatchandwait(&pair, &ctlr->adminqueue);
 	
 	if(pair.comp.status)
@@ -439,7 +446,7 @@ int nvme_createiosubqueue(ctlrinfo_t* ctlr, size_t size, int id, int flags, int 
 	pair.sub.d0.opcode = OPCODE_CREATEIOSUBQUEUE;
 	
 	size_t psize = size / PAGE_SIZE + ((size % PAGE_SIZE) ? 1 : 0);
-	size_t entrycount = size / sizeof(compqentry);
+	size_t entrycount = size / sizeof(subqentry);
 	
 	void* addr = pmm_alloc(psize);
 
@@ -448,8 +455,10 @@ int nvme_createiosubqueue(ctlrinfo_t* ctlr, size_t size, int id, int flags, int 
 
 	pair.sub.dataptr[0] = (uint64_t)addr;
 
-	pair.sub.command[0] = id | (entrycount << 16);
+	pair.sub.command[0] = id | ((entrycount-1) << 16);
 	pair.sub.command[1] = IOQUEUE_FLAG_CONTIGUOUS | flags | (compid << 16);
+	
+	memset(MAKEHHDM(addr), 0, size);
 	
 	dispatchandwait(&pair, &ctlr->adminqueue);
 
@@ -457,7 +466,6 @@ int nvme_createiosubqueue(ctlrinfo_t* ctlr, size_t size, int id, int flags, int 
 		pmm_free(addr, psize);
 	else
 		*ret_addr = MAKEHHDM(addr);
-
 
 	return pair.comp.status ? EIO : 0;
 
@@ -540,6 +548,12 @@ static void nvme_newworkerthread(ctlrinfo_t* ctlr, queuepair_t* qpair){
 
 }
 
+static blockcalls_t calls = {
+	.read = nvme_read
+};
+
+static int blockid;
+
 static void nvme_initns(ctlrinfo_t* ctlr, uint32_t nsid){
 	namespaceid_t* identify = alloc(4096);
 	namespace_t* ns = alloc(sizeof(namespace_t));
@@ -560,8 +574,21 @@ static void nvme_initns(ctlrinfo_t* ctlr, uint32_t nsid){
 
 	printf("ns %d: lbaformat %d, capacity -> %d blocks, block size -> %d bytes\n", nsid, lbaformat, identify->lbacapacity, blocksize);
 
-		
+	blockdesc_t desc;
 
+	desc.blocksize = blocksize;
+	desc.capacity = ns->capacity;
+	desc.internal = ns;
+	desc.calls = calls;
+
+	char name[20];
+
+	sprintf(name, "nvme%d", blockid);
+
+	++blockid;
+
+	__assert(block_registernew(&desc, name) == 0);
+	
 	free(identify);
 
 }
