@@ -273,11 +273,13 @@ __attribute__((noreturn)) static void nvme_workerthread(){
 	ctlrinfo_t* controller = ctlrpass;
 	queuepair_t* queuepair = queuepass;
 	entrypair_t* userentries[256];
+	memset(userentries, 0, sizeof(userentries));
 	int lowestfreepair = 0;
 	compqentry* compq = queuepair->comp.addr;
 	subqentry* subq = queuepair->sub.addr;
 	volatile uint32_t* subqdoorbell = (uint32_t*)((uint8_t*)controller->bar0 + 0x1000 + queuepair->sub.id * 2 * controller->doorbellstride); 
 	volatile uint32_t* compqdoorbell = (uint32_t*)((uint8_t*)controller->bar0 + 0x1000 + (queuepair->comp.id*2 + 1) * controller->doorbellstride);
+	int currphase = 1;
 
 	while(1){
 
@@ -313,12 +315,13 @@ __attribute__((noreturn)) static void nvme_workerthread(){
 
 			while(1){
 
-				if(compq[queuepair->comp.idx].phase == 0)
+				if(compq[queuepair->comp.idx].phase == !currphase)
 					break;		
 
 				int pair = compq[queuepair->comp.idx].cmdid;
 				
 				userentries[pair]->comp = compq[queuepair->comp.idx];
+
 
 				event_signal(&userentries[pair]->completion, false);
 				
@@ -326,6 +329,8 @@ __attribute__((noreturn)) static void nvme_workerthread(){
 
 				++queuepair->comp.idx;
 				queuepair->comp.idx %= queuepair->comp.entrycount;
+				if(queuepair->comp.idx == 0)
+					currphase = !currphase;
 				
 				++processed;
 
@@ -662,7 +667,7 @@ static void nvme_initctlr(pci_enumeration* pci){
 	
 	cc &= ~CC_AMS_MASK; 
 
-	// set the config and enable
+	// set the config
 
 	bar0->cc = cc;
 
@@ -672,6 +677,8 @@ static void nvme_initctlr(pci_enumeration* pci){
 
 	if(!adminqueues)
 		_panic("Out of memory", NULL);
+	
+	memset(MAKEHHDM(adminqueues), 0, PAGE_SIZE*2);
 	
 	bar0->asq = (uint64_t)adminqueues;
 	bar0->acq = (uint64_t)adminqueues + PAGE_SIZE;
@@ -700,7 +707,7 @@ static void nvme_initctlr(pci_enumeration* pci){
 	info->maxqueue = (bar0->cap & CAP_QUEUESIZE) + 1;
 	info->doorbellstride = 1 << (2 + ((bar0->cap & CAP_DOORBELL) >> 32));
 	info->bar0 = bar0;
-	
+
 	info->adminqueue.sub.addr = MAKEHHDM(adminqueues);
 	info->adminqueue.comp.addr = MAKEHHDM(adminqueues + PAGE_SIZE);
 	info->adminqueue.comp.entrycount = PAGE_SIZE / sizeof(compqentry);
