@@ -120,7 +120,9 @@ int block_read(int* error, int dev, void* buffer, size_t count, size_t offset){
 
 
 static devcalls calls = {
-	.read = block_read
+	.read = block_read,
+	.isseekable = isseekable,
+	.poll = poll
 };
 
 int block_registernew(blockdesc_t* desc, char* name){
