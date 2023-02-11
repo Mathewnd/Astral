@@ -9,7 +9,7 @@ rebuildkernel:
 	LDFLAGS="" CFLAGS="" ./jinx rebuild astral
 	make sysdisk.iso
 jinx:
-	curl https://raw.githubusercontent.com/mintsuki/jinx/4c399d071759e811dc0bae01f92163412742c0f1/jinx > jinx
+	curl https://raw.githubusercontent.com/mintsuki/jinx/trunk/jinx
 	chmod +x jinx
 
 minimaliso:
@@ -64,7 +64,7 @@ sysdisk.iso: $(ISO)
 nvme.img:
 	qemu-img create nvme.img 4G -f qcow2
 
-QEMUFLAGS=-cdrom sysdisk.iso -m 2G -smp cpus=2 -drive file=nvme.img,if=none,id=nvm -device nvme,serial=deadc0ff,drive=nvm
+QEMUFLAGS=-cdrom sysdisk.iso -m 2G -smp cpus=2 -drive file=nvme.img,if=none,id=nvm -device nvme,serial=deadc0ff,drive=nvm -boot order=dc
 run:
 	qemu-system-x86_64 $(QEMUFLAGS) -debugcon stdio
 
