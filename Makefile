@@ -9,7 +9,7 @@ rebuildkernel:
 	LDFLAGS="" CFLAGS="" ./jinx rebuild astral
 	make sysdisk.iso
 jinx:
-	curl https://raw.githubusercontent.com/mintsuki/jinx/trunk/jinx
+	curl https://raw.githubusercontent.com/mintsuki/jinx/trunk/jinx > jinx
 	chmod +x jinx
 
 minimaliso:
