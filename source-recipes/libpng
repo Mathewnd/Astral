@@ -1,0 +1,9 @@
+name=libpng
+version=1.6.37
+source_method=tarball
+tarball_url="https://downloads.sourceforge.net/libpng/libpng-${version}.tar.xz"
+tarball_sha512=59e8c1059013497ae616a14c3abbe239322d3873c6ded0912403fc62fb260561768230b6ab997e2cccc3b868c09f539fd13635616b9fa0dd6279a3f63ec7e074
+hostdeps="autoconf automake libtool pkgconfig"
+regenerate() {
+        autoreconf -vfi
+}
