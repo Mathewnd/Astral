@@ -6,19 +6,14 @@ hostdeps="gcc-cross binutils-cross"
 deps="mlibc"
 
 configure() {
-	
-	CFLAGS="-DSLOW_BUT_NO_HACKS $CFLAGS" ${source_dir}/configure --host=x86_64-astral --prefix=${prefix}
-	
+	cp -pr ${source_dir}/* .
+	CFLAGS="-DSLOW_BUT_NO_HACKS $CFLAGS" ./configure --host=x86_64-astral --prefix=${prefix}
 }
 
 build() {
-	
 	make -j ${parallelism}
-
 }
 
 install() {
-
 	make install DESTDIR=${dest_dir}
-
 }

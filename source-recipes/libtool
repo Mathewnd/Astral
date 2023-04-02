@@ -3,7 +3,8 @@ version=2.4.7
 source_method=tarball
 tarball_url="https://ftp.gnu.org/gnu/libtool/libtool-${version}.tar.gz"
 tarball_sha512=a
-imagedeps="autoconf automake base-devel help2man wget"
+hostdeps="autoconf automake"
+imagedeps="base-devel help2man wget"
 allow_network="yes"
 
 regenerate() {

@@ -1,0 +1,9 @@
+name=linux
+version=6.1.22
+source_method=tarball
+tarball_url="https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-${version}.tar.xz"
+tarball_sha512=9db5360c85a2e8c7d1a3a37e0d79dafe3561566e098394a15e8cb48929a7afa74b203d3d67c286a8ddb4359a0ba8d45f33678219f9ccb8f728d1c4d4455fd27f
+
+regenerate() {
+	true
+}

@@ -7,8 +7,8 @@ deps="mlibc gmp"
 
 
 configure() {
-	
-	${source_dir}/configure --host=x86_64-astral --prefix=${prefix}
+	cp -pr ${source_dir}/* .
+	./configure --host=x86_64-astral --prefix=${prefix}
 
 }
 

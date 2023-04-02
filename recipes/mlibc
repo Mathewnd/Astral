@@ -1,19 +1,17 @@
 name=mlibc
 from_source=mlibc
 revision=1
-hostdeps="gcc-cross binutils-cross"
+hostdeps="gcc-cross binutils-cross pkgconfig"
+deps="cxxshim frigg linux-headers"
 imagedeps="meson ninja git base-devel binutils"
-allow_network="yes"
 
 
 configure() {
-        meson --cross-file ${base_dir}/util/crossfile --prefix=${prefix} ${source_dir}
+        meson --cross-file ${base_dir}/util/crossfile -Dlinux_kernel_headers=${sysroot_dir}/${prefix}/include --prefix=${prefix} ${source_dir}
 }
 
 build() {
-
         ninja
-
 }
 
 install() {
