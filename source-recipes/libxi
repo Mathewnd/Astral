@@ -2,7 +2,7 @@ name=libxi
 version=1.8
 source_method=tarball
 tarball_url="https://www.x.org/archive/individual/lib/libXi-${version}.tar.gz"
-tarball_sha512=a
+tarball_sha512='98b65084065cb28395cbd75213d7b52ac857840237d544714cf3cbddba6f940f93dd5846546365613da02fd5b4cd8c5be01ef2ac34b2503e500ea189e3c81005'
 hostdeps="autoconf automake util-macros pkgconfig libtool"
 regenerate() {
         autoreconf -fvi

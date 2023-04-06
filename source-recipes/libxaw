@@ -2,7 +2,7 @@ name=libxaw
 version=1.0.14
 source_method=tarball
 tarball_url="https://www.x.org/archive/individual/lib/libXaw-${version}.tar.gz"
-tarball_sha512=a
+tarball_sha512='1205481443627b428f6c447a3926a060af30440badc401ca8d209849faef21ce967cf7f26ab452b47a64071980f9892cce83b2d70db0c2b7d6cabf838ab93884'
 hostdeps="autoconf automake util-macros pkgconfig libtool"
 regenerate() {
         autoreconf -fvi

@@ -2,7 +2,7 @@ name=libxinerama
 version=1.1.4
 source_method=tarball
 tarball_url="https://www.x.org/archive/individual/lib/libXinerama-${version}.tar.gz"
-tarball_sha512=a
+tarball_sha512='fa2cc45214cc591da8867dcd7e332312e8d224c390912dc8580f8b15c3c9d8ffc797eee97c20263faf129fbfc6b0d931b6bf10dc04b8ec439b852451886eba75'
 hostdeps="autoconf automake libtool pkgconfig util-macros xtrans"
 regenerate() {
         autoreconf -fvi

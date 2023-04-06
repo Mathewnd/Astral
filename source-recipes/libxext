@@ -2,7 +2,7 @@ name=libxext
 version=1.3.4
 source_method=tarball
 tarball_url="https://www.x.org/archive/individual/lib/libXext-${version}.tar.gz"
-tarball_sha512=a
+tarball_sha512='4eebd639fd57cb9b84a1e17e368f82fbf3d9f021eef5ad3fe31dd128500db57862a82c1e0d214d447cb7641b2be3fd7e949ee1196f2a482793c6628fb1e5cd70'
 hostdeps="autoconf automake util-macros pkgconfig libtool"
 regenerate() {
         autoreconf -fvi

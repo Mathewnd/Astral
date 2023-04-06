@@ -2,7 +2,7 @@ name=libxpm
 version=3.5.13
 source_method=tarball
 tarball_url="https://www.x.org/archive/individual/lib/libXpm-${version}.tar.gz"
-tarball_sha512=a
+tarball_sha512='faf9c75f969da2738ab01b7a28c85ad2bb42a4421509769b56ef9ddaabb0eacb1b06553cfcb1daa03d7fdceb1d3a7c5eee078c3bc3f5e3902fec41b82d3f8d82'
 hostdeps="autoconf automake util-macros pkgconfig libtool"
 regenerate() {
         autoreconf -fvi

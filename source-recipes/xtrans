@@ -2,7 +2,7 @@ name=xtrans
 version=1.4.0
 source_method=tarball
 tarball_url="https://www.x.org/archive/individual/lib/xtrans-${version}.tar.gz"
-tarball_sha512=a
+tarball_sha512='21287ccf18fe2ebd458765496b026d175bf47c6e8e5c21d5b9ea17203967efc0cf6928fa2f3385d289a680c7002c3640e4731937029e99933c2a64bb9fab5326'
 hostdeps="autoconf automake libtool pkgconfig util-macros"
 regenerate() {
         autoreconf -fvi

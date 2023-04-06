@@ -2,7 +2,7 @@ name=xorg-server
 version=21.1.4
 source_method=tarball
 tarball_url="https://www.x.org/pub/individual/xserver/xorg-server-${version}.tar.xz"
-tarball_sha512=a
+tarball_sha512='eb5b8520d02908f72719e6ecfbf7a9bf139acb65ccae04d1db4223a8a2384cd3a94bd5afef10cce327b751b800cc2b79bfaa5ae35c95c3a217f775168082e68f'
 hostdeps="autoconf automake pkgconfig libtool util-macros fontutil xtrans"
 regenerate() {
         autoreconf -fvi
