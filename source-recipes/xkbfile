@@ -2,7 +2,7 @@ name=xkbfile
 version=1.1.1
 source_method=tarball
 tarball_url="https://www.x.org/archive/individual/lib/libxkbfile-${version}.tar.gz"
-tarball_sha512='8dc3894d306666c8222e00aae62989b77bbe194f058a85dc162127d652d772181426da617c97018ebc530eba070fe4a42c2048b314db2485b62774af1741d4de'
+tarball_sha512="8dc3894d306666c8222e00aae62989b77bbe194f058a85dc162127d652d772181426da617c97018ebc530eba070fe4a42c2048b314db2485b62774af1741d4de"
 hostdeps="autoconf automake libtool pkgconfig util-macros"
 regenerate() {
         autoreconf -vif

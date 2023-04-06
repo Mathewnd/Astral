@@ -2,7 +2,7 @@ name=libxcb
 version=1.15
 source_method=tarball
 tarball_url="https://xorg.freedesktop.org/archive/individual/lib/libxcb-${version}.tar.xz"
-tarball_sha512='f6c7d766b7cf9cab6abe948ee424cbae6951dbfe2f76fa58a109cdc05b0f0919dcc4e38176a22ff4b95fc1e38596115317e32ba33b24cae0035a4e30dbcbdad9'
+tarball_sha512="f6c7d766b7cf9cab6abe948ee424cbae6951dbfe2f76fa58a109cdc05b0f0919dcc4e38176a22ff4b95fc1e38596115317e32ba33b24cae0035a4e30dbcbdad9"
 hostdeps="automake autoconf xorgproto util-macros libtool pkgconfig xtrans"
 regenerate() {
         autoreconf -vfi

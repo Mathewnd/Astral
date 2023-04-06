@@ -2,7 +2,7 @@ name=libfontenc
 version=1.1.6
 source_method=tarball
 tarball_url="https://www.x.org/archive/individual/lib/libfontenc-${version}.tar.gz"
-tarball_sha512='0fec921d23ef6680b563f37bebc63d9a70a8d9adfe158c31e62cbb2cacb55086fd55932c146a9b3a758725f0130bd649979b100e8a631b64aa453121a9e2beef'
+tarball_sha512="0fec921d23ef6680b563f37bebc63d9a70a8d9adfe158c31e62cbb2cacb55086fd55932c146a9b3a758725f0130bd649979b100e8a631b64aa453121a9e2beef"
 imagedeps="xorg-font-util"
 hostdeps="autoconf automake libtool pkgconfig util-macros fontutil"
 regenerate() {

@@ -2,7 +2,7 @@ name=xkbcomp
 version=1.4.5
 source_method=tarball
 tarball_url="https://www.x.org/archive//individual/app/xkbcomp-${version}.tar.gz"
-tarball_sha512='c80a854779aa2c6ab79953870fbf712eb866e427643803bdecc129932b07f10c90482dfda178719808547d65aedfec44fca0ee3c271625bd77edf995fafaf4a0'
+tarball_sha512="c80a854779aa2c6ab79953870fbf712eb866e427643803bdecc129932b07f10c90482dfda178719808547d65aedfec44fca0ee3c271625bd77edf995fafaf4a0"
 hostdeps="autoconf automake libtool pkgconfig util-macros"
 regenerate() {
         autoreconf -fvi

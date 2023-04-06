@@ -2,7 +2,7 @@ name=xbitmaps
 version=1.1.2
 source_method=tarball
 tarball_url="https://www.x.org/pub/individual/data/xbitmaps-${version}.tar.bz2"
-tarball_sha512='eed5e2fce9fc6c532984e6ed1262e440591e311ca6c61a7fe7a5c877df84bfc2d7aff388fb9c894fc098785b8e5352f0bd7c918252247a040cf123874847450d'
+tarball_sha512="eed5e2fce9fc6c532984e6ed1262e440591e311ca6c61a7fe7a5c877df84bfc2d7aff388fb9c894fc098785b8e5352f0bd7c918252247a040cf123874847450d"
 hostdeps="autoconf automake util-macros pkgconfig libtool"
 regenerate() {
         autoreconf -fvi

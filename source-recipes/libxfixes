@@ -2,7 +2,7 @@ name=libxfixes
 version=6.0.0
 source_method=tarball
 tarball_url="https://www.x.org/archive/individual/lib/libXfixes-${version}.tar.gz"
-tarball_sha512='422ff6aa6dddbb5d790ddf351b12556d37312d67b3adc8c276fb507b8278703b30841f81e526f119b9ab53a3bb8c7c5a742a43826287110ef5417dd84f01348a'
+tarball_sha512="422ff6aa6dddbb5d790ddf351b12556d37312d67b3adc8c276fb507b8278703b30841f81e526f119b9ab53a3bb8c7c5a742a43826287110ef5417dd84f01348a"
 hostdeps="autoconf automake util-macros pkgconfig libtool"
 regenerate() {
         autoreconf -fvi

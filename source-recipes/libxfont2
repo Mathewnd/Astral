@@ -2,7 +2,7 @@ name=libxfont2
 version=2.0.6
 source_method=tarball
 tarball_url="https://www.x.org/archive/individual/lib/libXfont2-${version}.tar.gz"
-tarball_sha512='58b51281e930b1b99f2eee7edbbc08e5bd34b135dd2ac145d600181557e1a465b3d65fdaae7b964fc39a6e7ad09a0b7cc7026a4c013ef7ff1cdce094723eedac'
+tarball_sha512="58b51281e930b1b99f2eee7edbbc08e5bd34b135dd2ac145d600181557e1a465b3d65fdaae7b964fc39a6e7ad09a0b7cc7026a4c013ef7ff1cdce094723eedac"
 hostdeps="autoconf automake libtool pkgconfig util-macros"
 regenerate() {
         autoreconf -vfi

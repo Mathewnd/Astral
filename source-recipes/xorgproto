@@ -2,7 +2,7 @@ name=xorgproto
 version=2022.2
 source_method=tarball
 tarball_url="https://xorg.freedesktop.org/archive/individual/proto/xorgproto-2022.2.tar.xz"
-tarball_sha512='8e6108110600d076a94cc6d0e465b2e9adfbbe8d7e6b75fae9c5262d99dc6074ab1ed561a74d6d451f00f5b7af9f507a6317be9c0770efeed9e60b64beb7a1c9'
+tarball_sha512="8e6108110600d076a94cc6d0e465b2e9adfbbe8d7e6b75fae9c5262d99dc6074ab1ed561a74d6d451f00f5b7af9f507a6317be9c0770efeed9e60b64beb7a1c9"
 regenerate() {
         true
 }

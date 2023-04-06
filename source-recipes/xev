@@ -2,7 +2,7 @@ name=xev
 version=1.2.5
 source_method=tarball
 tarball_url="https://www.x.org/pub/individual/app/xev-${version}.tar.xz"
-tarball_sha512='9fbfb78c9547974c2256a678948bf4a694a40b1c2bd5c5dec5f365a713e6d938c6039f055a9629f49de27f02f3d7cb912f07c035df129798a4b2ddc20febe66a'
+tarball_sha512="9fbfb78c9547974c2256a678948bf4a694a40b1c2bd5c5dec5f365a713e6d938c6039f055a9629f49de27f02f3d7cb912f07c035df129798a4b2ddc20febe66a"
 hostdeps="autoconf automake util-macros pkgconfig libtool"
 regenerate() {
         autoreconf -fvi

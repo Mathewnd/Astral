@@ -2,7 +2,7 @@ name=libxft
 version=2.3.6
 source_method=tarball
 tarball_url="https://www.x.org/archive/individual/lib/libXft-${version}.tar.gz"
-tarball_sha512='291bec2cc297a6e39baff5c2dec37017f37f97b438468a6d6b66f496a9987936da6ee2e3ace77e4527d8c5fd09e1dd731b2f042fa74880f667b8a03a913512d2'
+tarball_sha512="291bec2cc297a6e39baff5c2dec37017f37f97b438468a6d6b66f496a9987936da6ee2e3ace77e4527d8c5fd09e1dd731b2f042fa74880f667b8a03a913512d2"
 hostdeps="autoconf automake util-macros pkgconfig libtool"
 regenerate() {
         autoreconf -fvi

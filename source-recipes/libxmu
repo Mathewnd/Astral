@@ -2,7 +2,7 @@ name=libxmu
 version=1.1.4
 source_method=tarball
 tarball_url="https://www.x.org/archive/individual/lib/libXmu-${version}.tar.xz"
-tarball_sha512='3cf90cb3ff380aafefbb39297bdd95b9e1e6d6618cecb53ff09faf38f9b9c54599d28367f07a9ec77a20214c6c3e661b8d0a12b38082556790a79a59942039c1'
+tarball_sha512="3cf90cb3ff380aafefbb39297bdd95b9e1e6d6618cecb53ff09faf38f9b9c54599d28367f07a9ec77a20214c6c3e661b8d0a12b38082556790a79a59942039c1"
 hostdeps="autoconf automake util-macros pkgconfig libtool"
 regenerate() {
         autoreconf -fvi

@@ -2,7 +2,7 @@ name=xsetroot
 version=1.1.2
 source_method=tarball
 tarball_url="https://www.x.org/archive/individual/app/xsetroot-${version}.tar.gz"
-tarball_sha512='e6ff6d5e53f14f965d2923289bd4a4fd77e7d254c8ea68a6c53c1404f9c7b31ac810cd213926820b280b04ae2e0ec66a7a3b7e98ea4a37d0e22755a7ed0693c3'
+tarball_sha512="e6ff6d5e53f14f965d2923289bd4a4fd77e7d254c8ea68a6c53c1404f9c7b31ac810cd213926820b280b04ae2e0ec66a7a3b7e98ea4a37d0e22755a7ed0693c3"
 hostdeps="autoconf automake util-macros pkgconfig libtool"
 regenerate() {
         autoreconf -fvi

@@ -2,10 +2,10 @@ name=xkeyboardconfig
 version=2.36
 source_method=tarball
 tarball_url="http://www.x.org/releases/individual/data/xkeyboard-config/xkeyboard-config-${version}.tar.xz"
-tarball_sha512='a81054ff6b7928a445a913b80fad995056559feff7bc1f4926657f171a102108b6e22958dc6c814ae2a25445f65c94485f13399628016f1358cf3840e235e3de'
+tarball_sha512="a81054ff6b7928a445a913b80fad995056559feff7bc1f4926657f171a102108b6e22958dc6c814ae2a25445f65c94485f13399628016f1358cf3840e235e3de"
 hostdeps="autoconf automake libtool pkgconfig util-macros"
 regenerate() {
 	pushd ${source_dir}
-	sed -i -E 's/(ln -s)/\1f/' rules/meson.build
+	sed -i -E "s/(ln -s)/\1f/" rules/meson.build
 	popd
 }
