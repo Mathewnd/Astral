@@ -2,7 +2,7 @@ name=libsm
 version=1.2.3
 source_method=tarball
 tarball_url="https://www.x.org/archive/individual/lib/libSM-${version}.tar.gz"
-tarball_sha512=a
+tarball_sha512="03b77d86b33cdb3df4f9d65131a0025182f3cb0c17b33a90d236e8563b3011d225b9d006186302d07850edafa5b899aec6a086b8d437d357cd69fedd5f22d94b"
 hostdeps="autoconf automake util-macros pkgconfig libtool"
 regenerate() {
         autoreconf -fvi

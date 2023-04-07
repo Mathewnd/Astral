@@ -2,7 +2,7 @@ name=libXau
 version=1.0.9
 source_method=tarball
 tarball_url="https://www.x.org/pub/individual/lib/libXau-${version}.tar.bz2"
-tarball_sha512=a
+tarball_sha512="3ca454ba466a807ea28b0f715066d73dc76ad312697b121d43e4d5766215052e9b7ffb8fe3ed3e496fa3f2a13f164ac692ff85cc428e26731b679f0f06a1d562"
 hostdeps="autoconf automake pkgconfig xorgproto libtool util-macros"
 regenerate() {
         autoreconf -fvi

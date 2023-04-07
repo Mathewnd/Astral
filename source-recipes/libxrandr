@@ -2,7 +2,7 @@ name=libxrandr
 version=1.5.2
 source_method=tarball
 tarball_url="https://www.x.org/pub/individual/lib/libXrandr-${version}.tar.gz"
-tarball_sha512=a
+tarball_sha512="309df91127ae17d8bb5a4382b22d1cf788733775dfddcb7932b3edb6f4121728daa7bba1e95ee5e250b2f8b03907a2564dcb3d645d7a5ef6314d0d7b09bac75d"
 hostdeps="autoconf automake util-macros pkgconfig libtool"
 regenerate() {
         autoreconf -fvi

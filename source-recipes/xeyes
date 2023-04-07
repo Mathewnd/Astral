@@ -2,7 +2,7 @@ name=xeyes
 version=1.2.0
 source_method=tarball
 tarball_url="https://www.x.org/pub/individual/app/xeyes-${version}.tar.gz"
-tarball_sha512=a
+tarball_sha512="95461702cf27615bb7d4eb09b84f9589b810fa905a913b11050b32ce4004a4926e1521b3506a1bf378cb42b0bd6d8735871b6be2382824e2706f4ca24356db45"
 hostdeps="autoconf automake util-macros pkgconfig libtool"
 regenerate() {
         autoreconf -fvi

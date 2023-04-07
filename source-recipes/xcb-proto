@@ -2,7 +2,7 @@ name=xcb-proto
 version=1.15.2
 source_method=tarball
 tarball_url="https://xorg.freedesktop.org/archive/individual/proto/xcb-proto-${version}.tar.xz"
-tarball_sha512=a
+tarball_sha512="9d0b2f0a4dbbf2d64e32ff4658d1663e13d7e5f1bffc1e8d45be7b9dd5bab46e29fc1c2f6e66a7a569e374ba6756faf3c39b0b5e5560df6d7f8b68beec97659d"
 regenerate() {
         true
 }
