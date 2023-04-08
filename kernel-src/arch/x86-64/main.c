@@ -1,6 +1,7 @@
 #include <arch/e9.h>
 #include <logging.h>
 #include <arch/cpu.h>
+#include <arch/gdt.h>
 
 static cpu_t bsp_cpu;
 
