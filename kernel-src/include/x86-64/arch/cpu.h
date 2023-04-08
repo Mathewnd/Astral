@@ -6,11 +6,13 @@
 
 #include <arch/msr.h>
 #include <arch/ist.h>
+#include <kernel/interrupt.h>
 
 typedef struct {
 	uint64_t gdt[7];
 	ist_t ist;
-	int lapicid;
+	long id;
+	isr_t isr[MAX_ISR_COUNT];
 } cpu_t;
 
 static inline cpu_t *_cpu() {
