@@ -8,3 +8,4 @@ jinx
 pkgs
 sources
 astral.iso
+kernel-src/include/limine.h

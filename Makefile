@@ -1,7 +1,7 @@
 ISODIR=$(shell pwd)/iso
 ISO=astral.iso
 LIMINEDIR=$(shell pwd)/host-pkgs/limine/usr/local/share/limine/
-KERNEL=pkgs/astral/boot/astral
+KERNEL=$(shell pwd)/pkgs/astral/boot/astral
 QEMUFLAGS=-cdrom $(ISO) -m 2G -smp cpus=2 -monitor stdio -debugcon file:/dev/stdout -serial file:/dev/stdout # hacky but works :')
 
 .PHONY: all kernel clean clean-kernel iso

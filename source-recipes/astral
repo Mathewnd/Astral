@@ -1,7 +1,8 @@
 name=astral
 version=0
 source_dir="kernel-src"
+allow_network="yes"
 
 regenerate() {
-	true
+	curl https://raw.githubusercontent.com/limine-bootloader/limine/trunk/limine.h > include/limine.h
 }
