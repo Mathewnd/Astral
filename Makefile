@@ -2,6 +2,7 @@ ISODIR=$(shell pwd)/iso
 ISO=astral.iso
 LIMINEDIR=$(shell pwd)/host-pkgs/limine/usr/local/share/limine/
 KERNEL=pkgs/astral/boot/astral
+QEMUFLAGS=-cdrom $(ISO) -m 2G -smp cpus=2 -monitor stdio -debugcon file:/dev/stdout -serial file:/dev/stdout # hacky but works :')
 
 .PHONY: all kernel clean clean-kernel iso
 
@@ -20,9 +21,9 @@ $(ISO): limine.cfg liminebg.bmp $(KERNEL)
 	xorriso -as mkisofs -b limine-cd.bin -no-emul-boot -boot-load-size 4 -boot-info-table --efi-boot limine-cd-efi.bin -efi-boot-part --efi-boot-image --protective-msdos-label $(ISODIR) -o $(ISO)
 
 kernel:
-	rm builds/astral.configured
-	rm builds/astral.installed
-	rm builds/astral.built
+	rm -f builds/astral.configured
+	rm -f builds/astral.installed
+	rm -f builds/astral.built
 	./jinx build astral
 
 clean-kernel:
@@ -32,3 +33,9 @@ clean:
 	make clean-kernel
 	./jinx clean
 	rm jinx
+
+run:
+	qemu-system-x86_64 $(QEMUFLAGS)
+
+run-kvm:
+	qemu-system-x86_64 $(QEMUFLAGS) -enable-kvm -cpu host

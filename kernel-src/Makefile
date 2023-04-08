@@ -5,7 +5,7 @@ TARGET=x86-64
 INCDIR=$(shell pwd)/include
 ARCHDIR=$(shell pwd)/arch/$(TARGET)/
 LDFLAGS=-ffreestanding -nostdlib -lgcc -Wl,-T,"$(ARCHDIR)/kernel.ld" -debug
-CFLAGS=-ffreestanding -mcmodel=kernel -O2 -mno-red-zone -mno-mmx -mno-sse -mno-sse2 -nostdlib -nostdinc -I "${INCDIR}"
+CFLAGS=-ffreestanding -mcmodel=kernel -O2 -mno-red-zone -mno-mmx -mno-sse -mno-sse2 -nostdlib -I "${INCDIR}"
 ASFLAGS=-felf64
 
 astral:	$(OBJS)
