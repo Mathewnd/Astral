@@ -20,6 +20,9 @@ $(ISO): limine.cfg liminebg.bmp $(KERNEL)
 	xorriso -as mkisofs -b limine-cd.bin -no-emul-boot -boot-load-size 4 -boot-info-table --efi-boot limine-cd-efi.bin -efi-boot-part --efi-boot-image --protective-msdos-label $(ISODIR) -o $(ISO)
 
 kernel:
+	rm builds/astral.configured
+	rm builds/astral.installed
+	rm builds/astral.built
 	./jinx build astral
 
 clean-kernel:
