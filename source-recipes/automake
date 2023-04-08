@@ -1,0 +1,9 @@
+name=automake
+version=1.15.1
+source_method=tarball
+tarball_url="https://ftp.gnu.org/gnu/automake/automake-${version}.tar.gz"
+tarball_sha512="f0d4717ebe2c76cec5d487de090f6e1c0f784b0d382fd964ffa846287e2a364a52531a26ab98b7033ac04ed302a247b3b114299def54819a03439bfc962ff61b"
+
+regenerate() {
+	true
+}

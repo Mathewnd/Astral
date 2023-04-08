@@ -1,0 +1,10 @@
+name=limine
+version=4.20230408.0
+source_method=tarball
+tarball_url="https://github.com/limine-bootloader/limine/releases/download/v${version}/limine-${version}.tar.xz"
+tarball_sha512="0b3a7c907c79e8ddf0c54432ec65f4f42cce9f74a71dcf7d9c21a5a94b9957a72ed9d47216baf8cc9c03ef0e74ad883e2e2442571ff292952a60d61d379056f7"
+hostdeps="autoconf automake libtool pkgconfig"
+
+regenerate() {
+	autoreconf -fvi
+}

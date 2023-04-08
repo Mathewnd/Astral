@@ -1,0 +1,904 @@
+diff --git mlibc-clean/abis/linux/in.h mlibc-workdir/abis/linux/in.h
+index 3618abf..b1c02c7 100644
+--- mlibc-clean/abis/linux/in.h
++++ mlibc-workdir/abis/linux/in.h
+@@ -67,6 +67,9 @@ struct ipv6_mreq {
+ 
+ #define IPPORT_RESERVED 1024
+ 
++#define IP_MULTICAST_TTL 33
++#define IPV6_MULTICAST_HOPS 18
++
+ #define IPPROTO_IP       0
+ #define IPPROTO_HOPOPTS  0
+ #define IPPROTO_ICMP     1
+diff --git mlibc-clean/meson.build mlibc-workdir/meson.build
+index 1605b31..b436ca5 100644
+--- mlibc-clean/meson.build
++++ mlibc-workdir/meson.build
+@@ -135,6 +135,10 @@ elif host_machine.system() == 'dripos'
+ 	rtdl_include_dirs += include_directories('sysdeps/dripos/include')
+ 	libc_include_dirs += include_directories('sysdeps/dripos/include')
+ 	subdir('sysdeps/dripos')
++elif host_machine.system() == 'astral'
++        rtdl_include_dirs += include_directories('sysdeps/astral/include')
++        libc_include_dirs += include_directories('sysdeps/astral/include')
++        subdir('sysdeps/astral')
+ else
+ 	error('No sysdeps defined for OS: ' + host_machine.system())
+ endif
+diff --git mlibc-clean/options/ansi/generic/string-stubs.cpp mlibc-workdir/options/ansi/generic/string-stubs.cpp
+index 80f1afd..0f1b4ba 100644
+--- mlibc-clean/options/ansi/generic/string-stubs.cpp
++++ mlibc-workdir/options/ansi/generic/string-stubs.cpp
+@@ -400,7 +400,6 @@ char *strerror(int e) {
+ 	case ENOPROTOOPT: s = "Protocol not available (ENOPROTOOPT)"; break;
+ 	case ENOTEMPTY: s = "Directory not empty (ENOTEMPTY)"; break;
+ 	case ENOTRECOVERABLE: s = "Sate not recoverable (ENOTRECOVERABLE)"; break;
+-	case ENOTSUP: s = "Operation not supported (ENOTSUP)"; break;
+ 	case ENOTTY: s = "Inappropriate ioctl for device (ENOTTY)"; break;
+ 	case EOVERFLOW: s = "Value too large for defined datatype (EOVERFLOW)"; break;
+ #ifndef __linux__
+diff --git mlibc-clean/options/glibc/generic/execinfo.cpp mlibc-workdir/options/glibc/generic/execinfo.cpp
+index 3474615..e034881 100644
+--- mlibc-clean/options/glibc/generic/execinfo.cpp
++++ mlibc-workdir/options/glibc/generic/execinfo.cpp
+@@ -1,9 +1,10 @@
+ #include <execinfo.h>
+ #include <bits/ensure.h>
++#include <mlibc/debug.hpp>
+ 
+ int backtrace(void **, int) {
+-	__ensure(!"Not implemented");
+-	__builtin_unreachable();
++	mlibc::infoLogger() << "libc: backtrace() is not implemented!\n" << frg::endlog;
++	return 0;
+ }
+ 
+ char **backtrace_symbols(void *const *, int) {
+diff --git mlibc-workdir/sysdeps/astral/crt-x86_64/crt0.S mlibc-workdir/sysdeps/astral/crt-x86_64/crt0.S
+new file mode 100644
+index 0000000..0a0a4a0
+--- /dev/null
++++ mlibc-workdir/sysdeps/astral/crt-x86_64/crt0.S
+@@ -0,0 +1,7 @@
++
++.section .text
++.global _start
++_start:
++    mov $main, %rdi
++    call __mlibc_entry
++
+diff --git mlibc-workdir/sysdeps/astral/generic/astral.cpp mlibc-workdir/sysdeps/astral/generic/astral.cpp
+new file mode 100644
+index 0000000..2410961
+--- /dev/null
++++ mlibc-workdir/sysdeps/astral/generic/astral.cpp
+@@ -0,0 +1,6 @@
++#include <astral/syscall.h>
++
++int arch_ctl(int func, void* arg){
++	long ret;
++	return syscall(SYSCALL_ARCH_CTL, &ret, func, (uint64_t)arg);
++}
+diff --git mlibc-workdir/sysdeps/astral/generic/entry.cpp mlibc-workdir/sysdeps/astral/generic/entry.cpp
+new file mode 100644
+index 0000000..ee7a794
+--- /dev/null
++++ mlibc-workdir/sysdeps/astral/generic/entry.cpp
+@@ -0,0 +1,34 @@
++
++#include <stdint.h>
++#include <stdlib.h>
++#include <bits/ensure.h>
++#include <mlibc/elf/startup.h>
++
++// defined by the POSIX library
++void __mlibc_initLocale();
++
++extern "C" uintptr_t *__dlapi_entrystack();
++
++extern char **environ;
++static mlibc::exec_stack_data __mlibc_stack_data;
++
++struct LibraryGuard {
++	LibraryGuard();
++};
++
++static LibraryGuard guard;
++
++LibraryGuard::LibraryGuard() {
++	__mlibc_initLocale();
++
++	// Parse the exec() stack.
++	mlibc::parse_exec_stack(__dlapi_entrystack(), &__mlibc_stack_data);
++	mlibc::set_startup_data(__mlibc_stack_data.argc, __mlibc_stack_data.argv,
++			__mlibc_stack_data.envp);
++}
++
++extern "C" void __mlibc_entry(int (*main_fn)(int argc, char *argv[], char *env[])) {
++	auto result = main_fn(__mlibc_stack_data.argc, __mlibc_stack_data.argv, environ);
++	exit(result);
++}
++
+diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
+new file mode 100644
+index 0000000..e6c404a
+--- /dev/null
++++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
+@@ -0,0 +1,530 @@
++#include <bits/ensure.h>
++#include <mlibc/debug.hpp>
++#include <mlibc/all-sysdeps.hpp>
++#include <errno.h>
++#include <astral/syscall.h>
++#include <astral/archctl.h>
++#include <string.h>
++#include <asm/ioctls.h>
++#include <stdlib.h>
++#include <poll.h>
++#include <sys/select.h>
++
++#define STUB_ONLY { __ensure(!"STUB_ONLY function was called"); __builtin_unreachable(); }
++
++namespace mlibc {
++	
++	// stub
++
++	int sys_setuid(uid_t id){
++		return 0;
++	}
++
++	// stub
++
++	int sys_setgid(gid_t id){
++		return 0;
++	}
++	
++	// stub
++
++	uid_t sys_getuid(){
++		return 0;
++	}
++
++	// stub
++
++	gid_t sys_getgid(){
++		return 0;
++	}
++
++	// stub
++
++	uid_t sys_geteuid(){
++		return 0;
++	}
++
++	// stub
++
++	gid_t sys_getegid(){
++		return 0;
++	}
++	
++	// stub
++	
++	pid_t sys_getppid(){
++		return 1;
++	}
++	
++	// stub
++
++	int sys_getpgid(pid_t pid, pid_t* pgid){
++		*pgid = 1;
++		return 0;
++	}
++
++	// stub
++	
++	int sys_setpgid(pid_t pid, pid_t pgid){
++		return ENOSYS;
++	}
++	
++	// stub
++
++	int sys_sigaction(int, const struct sigaction *__restrict,
++                struct sigaction *__restrict){
++		return ENOSYS;
++	}
++
++	// stub
++
++	int sys_sigprocmask(int how, const sigset_t *__restrict set, sigset_t *__restrict retrieve){
++		return ENOSYS;
++	}
++	
++	// stub
++	
++	int sys_ttyname(int fd, char *buf, size_t size) {
++		return ENOSYS;
++	}
++
++	// stub
++
++	#define ASTRALHOSTNAME "astral"
++
++	int sys_gethostname(char *buffer, size_t bufsize){
++	
++		memcpy(buffer, ASTRALHOSTNAME, strlen(ASTRALHOSTNAME));
++	
++		return 0;
++
++	}
++	
++	// stub
++	
++	int sys_uname(struct utsname *buf){
++		
++		memcpy(buf->sysname, "Astral", 7);
++		memcpy(buf->nodename, ASTRALHOSTNAME, strlen(ASTRALHOSTNAME)+1);
++		memcpy(buf->version, "0.0.2", 6);
++		memcpy(buf->release, "Astral 0.0.2", 13);
++		memcpy(buf->machine, "x86_64", 7);
++		memcpy(buf->domainname, ASTRALHOSTNAME, strlen(ASTRALHOSTNAME)+1);
++		
++		return 0;
++
++	}
++
++	// astral doesn't check for permissions yet
++	
++	int sys_faccessat(int dirfd, const char *pathname, int mode, int flags){
++		
++		struct stat buff;
++
++		return sys_stat(fsfd_target::fd_path, dirfd, pathname, 0,  &buff);
++
++	}
++	
++
++	// stub
++
++	int sys_access(const char *path, int mode){
++		return sys_faccessat(AT_FDCWD, path, mode, 0);
++	}
++	
++	// for now no caching is implemented so just return 0
++
++	[[gnu::weak]] int sys_fsync(int fd){
++		return 0;
++	}
++
++	[[noreturn]] void sys_thread_exit(){
++		syscall(SYSCALL_THREADEXIT, nullptr);
++	}
++	extern "C" void __mlibc_thread_entry();
++
++
++	#ifndef MLIBC_BUILDING_RTDL
++
++	int sys_clone(void *tcb, pid_t *pid_out, void *stack){
++		long ret;
++		long err = syscall(SYSCALL_NEWTHREAD, &ret, (uintptr_t)__mlibc_thread_entry, (uintptr_t)stack);
++		*pid_out = ret;
++		return err;
++	}
++
++	#endif
++
++	int sys_msg_recv(int fd, struct msghdr *hdr, int flags, ssize_t *length){
++		long ret;
++		long err = syscall(SYSCALL_RECVMSG, &ret, fd, (uintptr_t)hdr, flags);
++		*length = ret;
++		return err;
++	}
++
++	int sys_linkat(int olddirfd, const char *old_path, int newdirfd, const char *new_path, int flags){
++		long ret;
++		return syscall(SYSCALL_LINKAT, &ret, olddirfd, (uintptr_t)old_path, newdirfd, (uintptr_t) new_path, flags);
++	}
++	
++	[[gnu::weak]] int sys_link(const char *old_path, const char *new_path){
++		return sys_linkat(AT_FDCWD, old_path, AT_FDCWD, new_path, 0);
++	}
++
++	int sys_sleep(time_t *secs, long *nanos){
++		struct timespec ts;
++		ts.tv_sec = *secs;
++		ts.tv_nsec = *nanos;
++		long ret;
++		long err = syscall(SYSCALL_NANOSLEEP, &ret, (uintptr_t)&ts, (uintptr_t)&ts);
++		*secs = ts.tv_sec;
++		*nanos = ts.tv_nsec;
++		return err;
++	}
++	
++	int sys_accept(int fd, int *newfd, struct sockaddr *addr_ptr, socklen_t *addr_length){
++		long ret;
++		long err = syscall(SYSCALL_ACCEPT, &ret, fd, (uint64_t)addr_ptr, (uint64_t)addr_length);
++		*newfd = ret;
++		return err;
++	}
++
++	int sys_connect(int fd, const struct sockaddr *addr_ptr, socklen_t addr_length){
++		long ret;
++		return syscall(SYSCALL_CONNECT, &ret, fd, (uintptr_t)addr_ptr, addr_length);
++	}
++
++	int sys_listen(int fd, int backlog){
++		long ret;
++		return syscall(SYSCALL_LISTEN, &ret, fd, backlog);
++	}
++
++
++	int sys_bind(int fd, const struct sockaddr *addr_ptr, socklen_t addr_length){
++		long ret;
++		return syscall(SYSCALL_BIND, &ret, fd, (uintptr_t)addr_ptr, addr_length);
++	}
++
++	int sys_socket(int family, int type, int protocol, int *fd){
++		long ret;
++		long err = syscall(SYSCALL_SOCKET, &ret, family, type, protocol);
++		*fd = ret;
++		return err;
++	}
++
++	int sys_clock_get(int clock, time_t *secs, long *nanos){
++		struct timespec ret;
++		long retv;
++		long err = syscall(SYSCALL_CLOCK_GETTIME, &retv, clock, (uint64_t)&ret);
++		*secs = ret.tv_sec;
++		*nanos = ret.tv_nsec;
++		return err;
++	}
++	
++	int sys_chroot(const char* path){
++		long ret;
++		return syscall(SYSCALL_CHROOT, &ret, (uintptr_t)path);
++	}
++
++	int sys_openat(int dirfd, const char *path, int flags, mode_t mode, int *fd){	
++		long ret;
++		long err = syscall(SYSCALL_OPENAT, &ret, dirfd, (uintptr_t)path, flags, mode);
++		*fd = ret;
++		return err;
++	}
++
++	int sys_fchmod(int fd, mode_t mode){
++		long ret;
++		return syscall(SYSCALL_FCHMOD, &ret, fd, mode);
++	}
++
++	int sys_fchmodat(int fd, const char *pathname, mode_t mode, int flags){
++		long ret;
++		return syscall(SYSCALL_FCHMODAT, &ret, fd, (uintptr_t)pathname, mode, flags);
++	}
++
++	int sys_chmod(const char *pathname, mode_t mode){
++		return sys_fchmodat(AT_FDCWD, pathname, mode, 0);	
++	}
++
++
++	int sys_poll(struct pollfd *fds, nfds_t count, int timeout, int *num_events){
++		long ret;
++		int err = syscall(SYSCALL_POLL, &ret, (uint64_t)fds, count, timeout);
++		*num_events = ret;
++		return err;
++	}
++	
++	// pselect is emulated by poll for now (will turn that into ppoll later)
++
++#ifndef MLIBC_BUILDING_RTDL
++
++	int sys_pselect(int num_fds, fd_set *read_set, fd_set *write_set,
++                fd_set *except_set, const struct timespec *timeout, const sigset_t *sigmask, int *num_events){
++		
++		pollfd* fds = (pollfd*)malloc(num_fds*sizeof(pollfd));
++		
++		if(!fds)
++			return ENOMEM;
++
++		for(int fd = 0; fd < num_fds; ++fd){
++			short events;
++			if(read_set && FD_ISSET(fd, read_set)){
++				events |= POLLIN;
++			}
++			if(write_set && FD_ISSET(fd, write_set)){
++				events |= POLLOUT;
++			}
++			if(except_set && FD_ISSET(fd, except_set)){
++				events |= POLLPRI;
++			}
++			
++
++			if(events){
++				fds[fd].fd = fd;
++				fds[fd].events = events;
++				fds[fd].revents = 0;
++			}
++			else{
++				fds[fd].fd = -1;
++			}
++		}
++
++		
++		int time = timeout->tv_sec * 1000 + timeout->tv_nsec / 1000000;
++
++		int err = sys_poll(fds, num_fds, time, num_events);
++		
++		if(err){
++			free(fds);
++			return err;
++		}
++
++		for(int fd = 0; fd < num_fds; ++fd){
++			if(read_set && (fds[fd].revents & POLLIN) == 0)
++				FD_CLR(fd, read_set);
++
++			if(write_set && (fds[fd].revents & POLLOUT) == 0)
++				FD_CLR(fd, write_set);
++
++			if(except_set && (fds[fd].revents & POLLPRI) == 0)
++				FD_CLR(fd, except_set);	
++		}
++
++		return 0;
++	}
++
++#endif
++
++	int sys_umask(mode_t mask, mode_t* old){
++		long ret;
++		long err = syscall(SYSCALL_UMASK, &ret, mask);
++		*old = ret;
++		return err;
++	}
++	
++	int sys_mkdirat(int dirfd, const char* path, mode_t mode){
++		long res;
++		return syscall(SYSCALL_MKDIRAT, &res, dirfd, (uint64_t)path, mode);
++	}
++	
++	int sys_mkdir(const char* path, mode_t mode){
++		long res;
++		return syscall(SYSCALL_MKDIR, &res, (uint64_t)path, mode);
++	}
++
++	int sys_pipe(int *fds, int flags){
++		long res;
++		int err = syscall(SYSCALL_PIPE2, &res, flags);
++		fds[0] = res & 0xFFFFFFFF;
++		fds[1] = (res >> 32) & 0xFFFFFFFF;
++		return err;
++	}
++
++	int sys_tcgetattr(int fd, struct termios *attr){
++		int res;
++		return sys_ioctl(fd, TCGETS, (void*)attr, &res);
++	}
++
++	int sys_tcsetattr(int fd, int act, const struct termios *attr){
++		int res;
++		return sys_ioctl(fd, TCSETS, (void*)attr, &res);
++	}
++
++	int sys_ioctl(int fd, unsigned long request, void *arg, int *result){
++		long res;
++		int ret = syscall(SYSCALL_IOCTL, &res, fd, request, (uint64_t)arg);
++		*result = res;
++		return ret;
++	}
++	
++
++	int sys_read_entries(int handle, void *buffer, size_t max_size, size_t *bytes_read){
++		
++		return syscall(SYSCALL_GETDIRENT, (long*)bytes_read, handle, (uint64_t)buffer, max_size);	
++		
++	}
++	
++
++	int sys_open_dir(const char *path, int *handle){
++		return sys_open(path, O_RDONLY | O_DIRECTORY, 0, handle);
++	}
++
++	pid_t sys_getpid(){
++		long ret;
++		syscall(SYSCALL_GETPID, &ret);
++		return ret;
++	}
++	
++	int sys_chdir(const char* path){
++		long ret;
++		return syscall(SYSCALL_CHDIR, &ret, (uint64_t)path);
++	}
++
++	int sys_fcntl(int fd, int request, va_list args, int *result){
++		long ret;
++		// all currently supported requests only have one arg
++
++		long arg = va_arg(args, uint64_t);
++
++		long err = syscall(SYSCALL_FCNTL, &ret, fd, request, arg);
++		*result = ret;
++		return err;
++	}
++
++	int sys_dup(int fd, int flags, int* newfd){
++		long ret;
++		long err = syscall(SYSCALL_DUP, &ret, fd);
++		*newfd = ret;
++		return err;
++	}
++
++	int sys_dup2(int fd, int flags, int newfd){
++		long ret;
++		return syscall(SYSCALL_DUP2, &ret, fd, newfd);
++	}
++
++	int sys_waitpid(pid_t pid, int *status, int flags, struct rusage *ru, pid_t *ret_pid){
++		long ret;
++		long err = syscall(SYSCALL_WAITPID, &ret, pid, (uint64_t)status, flags);
++		*ret_pid = ret;
++		return err;
++	}
++
++
++	int sys_execve(const char* name, char* const argv[], char* const envp[]){
++		long ret;
++		return syscall(SYSCALL_EXECVE, &ret, (uint64_t)name, (uint64_t)argv, (uint64_t)envp);
++	}
++	
++	int sys_fork(pid_t* child){
++		long ret;
++		long err = syscall(SYSCALL_FORK, &ret);
++		*child = (int)ret;
++		return err;
++	}
++	
++	void sys_libc_log(const char *message){
++		size_t len = strlen(message);
++		char str[len+1];
++		memcpy(str, message, len);
++		str[len] = '\n';
++		long ret;
++		sys_write(2, str, len+1, &ret);
++	}
++	
++	[[noreturn]] void sys_libc_panic(){
++		sys_libc_log("libc: panic");
++		sys_exit(1);
++	}
++
++
++	[[noreturn]] void sys_exit(int status){
++		syscall(SYSCALL_EXIT, NULL, status);
++		__builtin_unreachable();
++	}
++
++	int sys_tcb_set(void* pointer){
++		return arch_ctl(ARCH_CTL_FSBASE, pointer);
++	}
++	[[gnu::weak]] int sys_futex_tid(){
++		long ret;
++		syscall(SYSCALL_GETTID, &ret);
++		return ret;
++	}
++
++	#define FUTEX_WAIT 0
++	#define FUTEX_WAKE 1
++
++
++	int sys_futex_wait(int *pointer, int expected, const struct timespec *time){
++		long ret;
++		return syscall(SYSCALL_FUTEX, &ret, (uintptr_t)pointer, FUTEX_WAIT, expected, (uintptr_t)time);
++	}
++	int sys_futex_wake(int *pointer){
++		long ret;
++		return syscall(SYSCALL_FUTEX, &ret, (uintptr_t)pointer, FUTEX_WAKE, 0xFFFFFFFF, NULL);
++	}
++	
++
++	int sys_anon_allocate(size_t size, void **pointer){
++		return sys_vm_map(NULL, size, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, 0, 0, pointer);
++	}
++	int sys_anon_free(void* pointer, size_t size){
++		return sys_vm_unmap(pointer, size);
++	}
++	
++	int sys_open(const char* pathname, int flags, mode_t mode, int* fd){
++		long ret;
++		long err = syscall(SYSCALL_OPEN, &ret, (uint64_t)pathname, flags, mode);
++		*fd = (int)ret;
++		return err;
++	};
++	int sys_read(int fd, void* buff, size_t count, ssize_t *bytes_read){
++		return syscall(SYSCALL_READ, bytes_read, fd, (uint64_t)buff, count);
++	}
++	int sys_write(int fd, const void* buff, size_t count, ssize_t *bytes_written){
++		return syscall(SYSCALL_WRITE, bytes_written, fd, (uint64_t)buff, count);
++	}
++	int sys_seek(int fd, off_t offset, int whence, off_t *new_offset){
++		return syscall(SYSCALL_LSEEK, new_offset, fd, offset, whence);
++	}
++	
++	int sys_close(int fd){
++		long ret;
++		return syscall(SYSCALL_CLOSE, &ret, fd);
++	}
++
++
++	[[gnu::weak]] int sys_stat(fsfd_target fsfdt, int fd, const char* path, int flags, struct stat *statbuf){
++		long ret;
++		switch(fsfdt){
++			case fsfd_target::path:
++				return syscall(SYSCALL_STAT, &ret, (uint64_t)path, (uint64_t)statbuf);
++			case fsfd_target::fd:
++				return syscall(SYSCALL_FSTAT, &ret, fd, (uint64_t)statbuf);
++			case fsfd_target::fd_path:
++				return syscall(SYSCALL_FSTATAT, &ret, fd, (uint64_t)path, (uint64_t)statbuf, flags);
++			default:
++				mlibc::infoLogger() << "libc: stat: Unknown fsfd_target: " << (int)fsfdt << frg::endlog;
++				return ENOSYS;
++		}
++	}
++
++	int sys_vm_map(void *hint, size_t size, int prot, int flags, int fd, off_t offset, void** window){	
++		long ret = syscall(SYSCALL_MMAP, (int64_t*)window, (uint64_t)hint, size, prot, flags, fd, offset);
++		return ret;
++	}
++
++	int sys_vm_unmap(void* pointer, size_t size){
++		long ret;
++		return syscall(SYSCALL_MUNMAP, &ret, (uint64_t)pointer, size);
++	}
++	
++	int sys_isatty(int fd){
++		long ret;
++		return syscall(SYSCALL_ISATTY, &ret, fd);
++	}
++
++} // namespace mlibc
++
+diff --git mlibc-workdir/sysdeps/astral/include/astral/archctl.h mlibc-workdir/sysdeps/astral/include/astral/archctl.h
+new file mode 100644
+index 0000000..f181400
+--- /dev/null
++++ mlibc-workdir/sysdeps/astral/include/astral/archctl.h
+@@ -0,0 +1,11 @@
++#ifndef _ASTRAL_SYSCALL_ARCHCTL_INCLUDE
++#define _ASTRAL_SYSCALL_ARCHCTL_INCLUDE
++
++#include <astral/syscall.h>
++
++#define ARCH_CTL_GSBASE 0
++#define ARCH_CTL_FSBASE 1
++
++int arch_ctl(int func, void* arg);
++
++#endif
+diff --git mlibc-workdir/sysdeps/astral/include/astral/syscall.h mlibc-workdir/sysdeps/astral/include/astral/syscall.h
+new file mode 100644
+index 0000000..12d7d44
+--- /dev/null
++++ mlibc-workdir/sysdeps/astral/include/astral/syscall.h
+@@ -0,0 +1,71 @@
++#ifndef _SYSCALL_H_INCLUDE
++#define _SYSCALL_H_INCLUDE
++
++#define SYSCALL_LIBC_LOG 0
++#define SYSCALL_MMAP 1
++#define SYSCALL_ARCH_CTL 2
++#define SYSCALL_GETTID 3
++#define SYSCALL_OPEN 4
++#define SYSCALL_READ 5
++#define SYSCALL_LSEEK 6
++#define SYSCALL_CLOSE 7
++#define SYSCALL_ISATTY 8
++#define SYSCALL_WRITE 9
++#define SYSCALL_STAT 10
++#define SYSCALL_FSTAT 11
++#define SYSCALL_FORK 12
++#define SYSCALL_EXECVE 13
++#define SYSCALL_WAITPID 14
++#define SYSCALL_EXIT 15
++#define SYSCALL_DUP 16
++#define SYSCALL_DUP2 17
++#define SYSCALL_FCNTL 18
++#define SYSCALL_GETPID 19
++#define SYSCALL_GETDIRENT 20
++#define SYSCALL_IOCTL 21
++#define SYSCALL_CHDIR 22
++#define SYSCALL_FSTATAT 23
++#define SYSCALL_PIPE2 24
++#define SYSCALL_MKDIR 25
++#define SYSCALL_MUNMAP 26
++#define SYSCALL_UMASK 27
++#define SYSCALL_POLL 28
++#define SYSCALL_FCHMODAT 29
++#define SYSCALL_OPENAT 30
++#define SYSCALL_CHROOT 31
++#define SYSCALL_MKDIRAT 32
++#define SYSCALL_CLOCK_GETTIME 33
++#define SYSCALL_SOCKET 34
++#define SYSCALL_BIND 35
++#define SYSCALL_LISTEN 36
++#define SYSCALL_CONNECT 37
++#define SYSCALL_ACCEPT 38
++#define SYSCALL_NANOSLEEP 39
++#define SYSCALL_FCHMOD 40
++#define SYSCALL_LINKAT 41
++#define SYSCALL_RECVMSG 42
++#define SYSCALL_FUTEX 43
++#define SYSCALL_NEWTHREAD 44
++#define SYSCALL_THREADEXIT 45
++
++#include <stddef.h>
++#include <stdint.h>
++
++static long syscall(long func, long* ret, uint64_t p1 = 0, uint64_t p2 = 0, uint64_t p3 = 0, uint64_t p4 = 0, uint64_t p5 = 0, uint64_t p6 = 0){
++	
++	volatile long err;
++
++	register uint64_t r4 asm("r10") = p4;
++	register uint64_t r5 asm("r8") = p5;
++	register uint64_t r6 asm("r9") = p6;
++	
++	asm volatile("syscall"
++		: "=a"(*ret), "=d"(err)
++		: "a"(func), "D"(p1), "S"(p2), "d"(p3), "r"(r4),
++		"r"(r5), "r"(r6)
++		: "memory", "rcx", "r11");
++    return err;
++	
++}
++
++#endif
+diff --git mlibc-workdir/sysdeps/astral/meson.build mlibc-workdir/sysdeps/astral/meson.build
+new file mode 100644
+index 0000000..f45b716
+--- /dev/null
++++ mlibc-workdir/sysdeps/astral/meson.build
+@@ -0,0 +1,67 @@
++
++rtdl_sources += files(
++	'generic/generic.cpp',
++        'generic/astral.cpp',
++)
++
++libc_sources += files(
++	'generic/entry.cpp',
++        'generic/astral.cpp',
++	'generic/generic.cpp',
++	'threading/x86_64-thread.cpp',
++	'threading/x86_64-thread-entry.S',
++)
++
++if not no_headers
++	install_headers(
++		'include/abi-bits/auxv.h',
++                'include/abi-bits/suseconds_t.h',
++                'include/abi-bits/fsblkcnt_t.h',
++                'include/abi-bits/fsfilcnt_t.h',
++                'include/abi-bits/clockid_t.h',
++                'include/abi-bits/socklen_t.h',
++                'include/abi-bits/socket.h',
++                'include/abi-bits/statfs.h',
++                'include/abi-bits/inotify.h',
++                'include/abi-bits/poll.h',
++		'include/abi-bits/seek-whence.h',
++		'include/abi-bits/vm-flags.h',
++		'include/abi-bits/errno.h',
++		'include/abi-bits/fcntl.h',
++		'include/abi-bits/in.h',
++		'include/abi-bits/resource.h',
++		'include/abi-bits/stat.h',
++		'include/abi-bits/signal.h',
++		'include/abi-bits/socket.h',
++		'include/abi-bits/termios.h',
++		'include/abi-bits/time.h',
++		'include/abi-bits/blkcnt_t.h',
++		'include/abi-bits/blksize_t.h',
++		'include/abi-bits/dev_t.h',
++		'include/abi-bits/gid_t.h',
++		'include/abi-bits/ino_t.h',
++		'include/abi-bits/mode_t.h',
++		'include/abi-bits/nlink_t.h',
++		'include/abi-bits/pid_t.h',
++		'include/abi-bits/uid_t.h',
++		'include/abi-bits/access.h',
++		'include/abi-bits/wait.h',
++		'include/abi-bits/utsname.h',
++               'include/abi-bits/limits.h',
++               'include/abi-bits/shm.h',
++               'include/abi-bits/epoll.h',
++		'include/abi-bits/ioctls.h',
++		subdir: 'abi-bits'
++	)
++endif
++
++if not headers_only
++	crt = custom_target('crt0',
++		build_by_default: true,
++		command: c_compiler.cmd_array() + ['-c', '-o', '@OUTPUT@', '@INPUT@'],
++		input: 'crt-x86_64/crt0.S',
++		output: 'crt0.o',
++		install: true,
++		install_dir: get_option('libdir')
++	)
++endif
++
+diff --git mlibc-workdir/sysdeps/astral/threading/x86_64-thread-entry.S mlibc-workdir/sysdeps/astral/threading/x86_64-thread-entry.S
+new file mode 100644
+index 0000000..4cb3ae0
+--- /dev/null
++++ mlibc-workdir/sysdeps/astral/threading/x86_64-thread-entry.S
+@@ -0,0 +1,7 @@
++ .section .text
++.global __mlibc_thread_entry
++__mlibc_thread_entry:
++	pop %rdi
++	pop %rsi
++	pop %rdx
++	call __mlibc_thread_trampoline
+diff --git mlibc-workdir/sysdeps/astral/threading/x86_64-thread.cpp mlibc-workdir/sysdeps/astral/threading/x86_64-thread.cpp
+new file mode 100644
+index 0000000..c234e77
+--- /dev/null
++++ mlibc-workdir/sysdeps/astral/threading/x86_64-thread.cpp
+@@ -0,0 +1,58 @@
++#include <sys/mman.h>
++#include <mlibc/debug.hpp>
++#include <errno.h>
++#include <mlibc/all-sysdeps.hpp>
++#include <bits/ensure.h>
++#include <mlibc/tcb.hpp>
++
++
++extern "C" void __mlibc_thread_trampoline(void* (*fn)(void*), Tcb* tcb, void* arg){
++
++
++	if (mlibc::sys_tcb_set(tcb))
++		    __ensure(!"failed to set tcb for new thread");
++
++	while (__atomic_load_n(&tcb->tid, __ATOMIC_RELAXED) == 0)
++		        mlibc::sys_futex_wait(&tcb->tid, 0, nullptr);	
++
++	tcb->returnValue = fn(arg);
++	
++	__atomic_store_n(&tcb->didExit, 1, __ATOMIC_RELEASE);
++	mlibc::sys_futex_wake(&tcb->didExit);
++
++	mlibc::sys_thread_exit();
++}
++
++#define DEFAULT_STACK 0x400000
++
++namespace mlibc{
++	
++	int sys_prepare_stack(void **stack, void *entry, void *arg, void *tcb, size_t *stack_size, size_t *guard_size){
++		
++		// TODO guard
++
++		mlibc::infoLogger() << "mlibc: sys_prepare_stack() does not setup a guard!" << frg::endlog;
++
++		*guard_size = 0;
++			
++		*stack_size = *stack_size ? *stack_size : DEFAULT_STACK;
++
++		if(!*stack){
++			*stack = mmap(NULL, *stack_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0) + *stack_size;
++			if(*stack == MAP_FAILED)
++				return errno;
++		}
++
++		void** stack_it = (void**)*stack;
++		
++		*--stack_it = arg;
++		*--stack_it = tcb;
++		*--stack_it = entry;
++		
++		*stack = (void*)stack_it;
++		
++		return 0;
++
++	}
++	
++}

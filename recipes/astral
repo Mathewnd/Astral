@@ -1,0 +1,18 @@
+name=astral
+revision=1
+from_source=astral
+imagedeps="base-devel nasm"
+hostdeps="xgcc xbinutils limine"
+
+configure() {
+	cp -pr "${source_dir}"/* .
+}
+
+build() {
+	CC="x86_64-astral-gcc" LD="x86_64-astral-gcc" AS="nasm" make -j${parallelism}
+}
+
+install() {
+	mkdir -p "${dest_dir}/boot"
+	cp astral "${dest_dir}/boot"
+}
