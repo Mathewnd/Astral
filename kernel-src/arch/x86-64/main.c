@@ -1,7 +1,7 @@
 #include <arch/e9.h>
+#include <logging.h>
 
 void kernel_entry() {
-	arch_e9_puts("Hello, world!\n");
-	asm("cli");
-	asm("hlt");
+	logging_sethook(arch_e9_putc);
+	__assert(!"kernel entry end");
 }

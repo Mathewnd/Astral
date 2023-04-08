@@ -27,7 +27,7 @@ kernel:
 	./jinx build astral
 
 clean-kernel:
-	find kernel-src -name *.o -delete
+	find builds/astral/ -name *.o -delete
 
 clean:
 	make clean-kernel

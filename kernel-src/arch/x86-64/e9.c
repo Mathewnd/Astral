@@ -1,5 +1,3 @@
-
-
 #include <arch/io.h>
 
 // TODO compile time options for disabling output to port e9h
