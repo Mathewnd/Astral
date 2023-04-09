@@ -28,6 +28,7 @@ kernel:
 
 clean-kernel:
 	find builds/astral/ -name *.o -delete
+	find builds/astral/ -name *.asmo -delete
 
 clean:
 	make clean-kernel

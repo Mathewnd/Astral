@@ -6,6 +6,10 @@ imagedeps="wget"
 flanterm_commit="f95f5584fb87577908beff8cbe0f68fee8940517"
 
 regenerate() {
+	rm -f include/limine.h
+	rm -f io/printf.c
+	rm -f include/printf.h
+	rm -rf flanterm
 	curl https://raw.githubusercontent.com/limine-bootloader/limine/trunk/limine.h > include/limine.h
 	pushd /tmp/
 	wget https://github.com/mpaland/printf/archive/refs/tags/v4.0.0.tar.gz
