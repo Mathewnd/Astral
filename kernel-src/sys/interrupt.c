@@ -1,19 +1,19 @@
 #include <kernel/interrupt.h>
 #include <logging.h>
 #include <arch/cpu.h>
+#include <arch/context.h>
 
-// TODO pass register context as well
-void interrupt_isr(int vec) {
+void interrupt_isr(int vec, context_t *ctx) {
 	isr_t *isr = &_cpu()->isr[vec];
+	__assert(isr->func);
 	// TODO ipl check
-	isr->func(isr); // TODO pass context
+	isr->func(isr, ctx);
 
 	if (isr->eoi)
 		isr->eoi(isr);
 }
 
-// TODO pass register context as well.
-void interrupt_register(int vector, void (*func)(isr_t *self), void (*eoi)(isr_t *self), long priority) {
+void interrupt_register(int vector, void (*func)(isr_t *self, context_t *ctx), void (*eoi)(isr_t *self), long priority) {
 	isr_t *isr = &_cpu()->isr[vector];
 	isr->func = func;
 	isr->eoi = eoi;
@@ -21,8 +21,7 @@ void interrupt_register(int vector, void (*func)(isr_t *self), void (*eoi)(isr_t
 	isr->priority = priority;
 }
 
-// TODO pass register context as well.
-isr_t *interrupt_allocate(void (*func)(isr_t *self), void (*eoi)(isr_t *self), long priority) {
+isr_t *interrupt_allocate(void (*func)(isr_t *self, context_t *ctx), void (*eoi)(isr_t *self), long priority) {
 	isr_t *isr = NULL;
 
 	for (int i = 0; i < MAX_ISR_COUNT; ++i) {
