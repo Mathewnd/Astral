@@ -3,13 +3,17 @@ version=0
 source_dir="kernel-src"
 allow_network="yes"
 imagedeps="wget"
+flanterm_commit="f95f5584fb87577908beff8cbe0f68fee8940517"
 
 regenerate() {
 	curl https://raw.githubusercontent.com/limine-bootloader/limine/trunk/limine.h > include/limine.h
 	pushd /tmp/
 	wget https://github.com/mpaland/printf/archive/refs/tags/v4.0.0.tar.gz
 	tar -xf v4.0.0.tar.gz
+	wget https://github.com/mintsuki/flanterm/archive/${flanterm_commit}.tar.gz
+	tar -xf ${flanterm_commit}.tar.gz
 	popd
 	cp /tmp/printf-4.0.0/printf.c io/printf.c
 	cp /tmp/printf-4.0.0/printf.h include/printf.h
+	cp -r /tmp/flanterm-${flanterm_commit} flanterm
 }

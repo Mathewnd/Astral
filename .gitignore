@@ -11,3 +11,4 @@ astral.iso
 kernel-src/include/limine.h
 kernel-src/include/printf.h
 kernel-src/io/printf.c
+kernel-src/flanterm
