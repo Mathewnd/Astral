@@ -15,6 +15,7 @@ isr_%+ i:
 	.notneeded1:
 
 	; push context
+	push rbp
 	push rsi
 	push rdi
 	push r15
