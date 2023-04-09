@@ -3,7 +3,7 @@ section .text
 %rep 256
 isr_%+ i:
 	; push an error code if the cpu did not
-	%if (i == 8 || i == 10 || i == 11 || i == 12 || i == 13 || i == 14) == 0
+	%if i <> 8 && i <> 10 && i <> 11 && i <> 12 && i <> 13 && i <> 14
 		push qword 0
 	%endif
 
@@ -78,7 +78,7 @@ isr_%+ i:
 	swapgs
 	.notneeded2:
 	iret
-%assign i i+1
+%assign i i + 1
 %endrep
 
 section .rodata
@@ -87,4 +87,5 @@ isr_table:
 	%assign i 0
 	%rep 256
 	dq isr_%+ i
+	%assign i i + 1
 	%endrep
