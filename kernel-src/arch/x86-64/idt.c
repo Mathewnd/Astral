@@ -14,6 +14,7 @@ typedef struct {
 	uint8_t flags;
 	uint16_t offset2;
 	uint32_t offset3;
+	uint32_t reserved;
 } __attribute__((packed)) idtentry_t;
 
 static idtentry_t idt[256];
