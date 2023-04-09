@@ -2,10 +2,13 @@
 #include <logging.h>
 #include <arch/cpu.h>
 #include <arch/context.h>
+#include <panic.h>
 
 void interrupt_isr(int vec, context_t *ctx) {
 	isr_t *isr = &_cpu()->isr[vec];
-	__assert(isr->func);
+	if (isr->func == NULL)
+		_panic("Unregistered interrupt", ctx);
+
 	// TODO ipl check
 	isr->func(isr, ctx);
 
