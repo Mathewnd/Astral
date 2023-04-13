@@ -2,6 +2,7 @@
 #include <limine.h>
 #include <logging.h>
 #include <string.h>
+#include <arch/mmu.h>
 
 uintptr_t hhdmbase;
 static size_t memorysize;
@@ -16,9 +17,6 @@ typedef struct {
 static bmsection_t bmsections[PMM_SECTION_COUNT];
 
 static uint64_t *bitmap;
-
-// TODO move to arch specific header
-#define PAGE_SIZE 4096
 
 static volatile struct limine_hhdm_request hhdmreq = {
 	.id = LIMINE_HHDM_REQUEST,
