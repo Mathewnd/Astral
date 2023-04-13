@@ -6,23 +6,16 @@
 #include <printf.h>
 #include <logging.h>
 #include <string.h>
-
-#define EARLY_BUFFER_SIZE (64*1024*1024)
+#include <kernel/pmm.h>
+#include <arch/mmu.h>
 
 extern volatile struct limine_framebuffer_request fb_liminereq;
 
-static size_t bufferused;
-static uint8_t allocbuffer[EARLY_BUFFER_SIZE];
-
-// TODO once the pmm is done, switch to allocating from it instead.
-// right now the terminal is supposed to be initialized before true memory management is initialized.
-// thus, there is a simple internal watermark allocator that allocates processor aligned chunks
-// of a buffer of size EARLY_BUFFER_SIZE
+// TODO make more efficient. works for now
 static void *internalalloc(size_t n) {
-	__assert(bufferused + n <= EARLY_BUFFER_SIZE)
-	void *ret = &allocbuffer[bufferused];
-	bufferused += n + (sizeof(uintmax_t) - (n % sizeof(uintmax_t)));
-	return ret;
+	void *addr = pmm_alloc(n / PAGE_SIZE + 1, PMM_SECTION_DEFAULT);
+	__assert(addr);
+	return MAKE_HHDM(addr);
 }
 
 static struct flanterm_context *term_ctx;
