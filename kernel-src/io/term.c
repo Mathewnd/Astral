@@ -33,9 +33,12 @@ void term_init() {
 	__assert(fb_liminereq.response->framebuffer_count);
 	struct limine_framebuffer *fb = fb_liminereq.response->framebuffers[0];
 
+	uint32_t defaultbg = 0x1b1c1b;
+	uint32_t defaultfg = 0xffffff;
+
 	// TODO add support for a background if desired by the user
 	term_ctx = flanterm_fb_init(internalalloc, fb->address, fb->width, fb->height, fb->pitch,
-		NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+		NULL, NULL, NULL, &defaultbg, &defaultfg, NULL, NULL, NULL,
 		0, 0, 1, 1, 1, 0);
 
 	__assert(term_ctx);
