@@ -4,6 +4,7 @@
 #include <arch/gdt.h>
 #include <arch/idt.h>
 #include <kernel/term.h>
+#include <kernel/pmm.h>
 
 static cpu_t bsp_cpu;
 
@@ -13,6 +14,7 @@ void kernel_entry() {
 	arch_gdt_reload();
 	arch_idt_setup();
 	arch_idt_reload();
+	pmm_init();
 	term_init();
 	__assert(!"kernel entry end");
 }
