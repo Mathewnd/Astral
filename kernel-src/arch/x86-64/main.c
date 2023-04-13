@@ -16,5 +16,6 @@ void kernel_entry() {
 	arch_idt_reload();
 	pmm_init();
 	term_init();
+	logging_sethook(term_putchar);
 	__assert(!"kernel entry end");
 }
