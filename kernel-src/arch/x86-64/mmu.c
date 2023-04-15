@@ -153,7 +153,7 @@ pagetableptr_t arch_mmu_newtable() {
 	pagetableptr_t table = pmm_alloc(1, PMM_SECTION_DEFAULT);
 	if (table == NULL)
 		return NULL;
-	memcpy(table, template, PAGE_SIZE);
+	memcpy(MAKE_HHDM(table), template, PAGE_SIZE);
 	return table;
 }
 
