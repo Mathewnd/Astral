@@ -169,4 +169,5 @@ void pmm_init() {
 	initsection(PMM_SECTION_1MB, 1, TOP_1MB);
 	initsection(PMM_SECTION_4GB, TOP_1MB, physicalpagecount > TOP_4GB ? TOP_4GB : physicalpagecount);
 	initsection(PMM_SECTION_DEFAULT, TOP_4GB, physicalpagecount > TOP_4GB ? physicalpagecount : TOP_4GB);
+	bitmap = MAKE_HHDM(bitmap);
 }
