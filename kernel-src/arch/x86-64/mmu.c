@@ -69,7 +69,7 @@ static bool add_page(pagetableptr_t top, void *vaddr, uint64_t entry, int depth)
 		pdpt = pmm_alloc(1, PMM_SECTION_DEFAULT);
 		if (pdpt == NULL)
 			return false;
-		pml4[pml4offset] = (uint64_t)FROM_HHDM(pdpt) | INTERMEDIATE_FLAGS;
+		pml4[pml4offset] = (uint64_t)pdpt | INTERMEDIATE_FLAGS;
 		pdpt = MAKE_HHDM(pdpt);
 		memset(pdpt, 0, PAGE_SIZE);
 	}

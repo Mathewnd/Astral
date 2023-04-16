@@ -6,6 +6,7 @@
 #include <kernel/term.h>
 #include <kernel/pmm.h>
 #include <arch/mmu.h>
+#include <kernel/vmm.h>
 
 static cpu_t bsp_cpu;
 
@@ -19,5 +20,6 @@ void kernel_entry() {
 	term_init();
 	logging_sethook(term_putchar);
 	arch_mmu_init();
+	vmm_init();
 	__assert(!"kernel entry end");
 }
