@@ -3,6 +3,8 @@
 #include <kernel/pmm.h>
 #include <string.h>
 #include <logging.h>
+#include <kernel/interrupt.h>
+#include <kernel/vmm.h>
 
 #define ADDRMASK (uint64_t)0x7ffffffffffff000
 #define   PTMASK (uint64_t)0b111111111000000000000
@@ -186,6 +188,24 @@ static volatile struct limine_kernel_address_request kaddrreq = {
 	.revision = 0
 };
 
+#define ERROR_PRESENT 1
+#define ERROR_WRITE   2
+#define ERROR_FETCH   16
+
+static void pfisr(isr_t *self, context_t *ctx) {
+	int vmmerror = 0;
+	if (ctx->error & ERROR_PRESENT)
+		vmmerror |= VMM_ACTION_READ;
+	
+	if (ctx->error & ERROR_WRITE)
+		vmmerror |= VMM_ACTION_WRITE;
+	
+	if (ctx->error & ERROR_FETCH)
+		vmmerror |= VMM_ACTION_EXEC;
+
+	__assert(vmm_pagefault((void *)ctx->cr2, ctx->cs == 8, vmmerror));
+}
+
 void arch_mmu_init() {
 	template = pmm_alloc(1, PMM_SECTION_DEFAULT);
 	__assert(template);
@@ -226,4 +246,5 @@ void arch_mmu_init() {
 	}
 
 	arch_mmu_switch(FROM_HHDM(template));
+	interrupt_register(14, pfisr, NULL, 0); // FIXME still haven't decided if priorities grow up or down. should be max priority
 }

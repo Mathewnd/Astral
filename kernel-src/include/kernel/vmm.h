@@ -13,6 +13,10 @@
 
 #define VMM_PERMANENT_FLAGS_MASK (VMM_FLAGS_FILE | VMM_FLAGS_SHARED | VMM_FLAGS_COPY)
 
+#define VMM_ACTION_READ 1
+#define VMM_ACTION_WRITE 2
+#define VMM_ACTION_EXEC 4
+
 struct vmmcache_t;
 typedef struct vmmrange_t{
 	struct vmmrange_t *next;
@@ -51,6 +55,7 @@ typedef struct {
 
 void *vmm_map(void *addr, size_t size, int flags, mmuflags_t mmuflags, void *private);
 void vmm_unmap(void *addr, size_t size, int flags);
+bool vmm_pagefault(void *addr, bool user, int actions);
 vmmcontext_t *vmm_newcontext();
 void vmm_init();
 

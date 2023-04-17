@@ -4,6 +4,7 @@
 #include <util.h>
 #include <arch/cpu.h>
 #include <limine.h>
+#include <string.h>
 
 #define RANGE_TOP(x) (void *)((uintptr_t)x->start + x->size)
 
@@ -161,6 +162,55 @@ static void insertrange(vmmspace_t *space, vmmrange_t *newrange) {
 	newrange->next = NULL;
 }
 
+bool vmm_pagefault(void *addr, bool user, int actions) {
+	if (user == false)
+		return false;
+
+	addr = (void *)ROUND_DOWN((uintptr_t)addr, PAGE_SIZE);
+
+	vmmspace_t *space = getspace(addr);
+
+	if (space == NULL || (space == &kernelspace && user))
+		return false;
+
+	// TODO lock
+	vmmrange_t *range = getrange(space, addr);
+
+	bool status = false;
+
+	if (range == NULL)
+		goto cleanup;
+
+	// check if valid
+
+	int invalidactions = 0;
+
+	if ((range->mmuflags & ARCH_MMU_FLAG_READ) == 0)
+		invalidactions |= VMM_ACTION_READ;
+	
+	if ((range->mmuflags & ARCH_MMU_FLAG_WRITE) == 0)
+		invalidactions |= VMM_ACTION_WRITE;
+	
+	if ((range->mmuflags & ARCH_MMU_FLAG_NOEXEC))
+		invalidactions |= VMM_ACTION_EXEC;
+
+	if (invalidactions & actions)
+		goto cleanup;
+
+	// TODO file/CoW
+
+	void *paddr = pmm_alloc(1, PMM_SECTION_DEFAULT);
+	__assert(paddr); // XXX handle these better than an assert once there are signals and such
+	__assert(arch_mmu_map(_cpu()->vmmctx->pagetable, paddr, addr, range->mmuflags));
+	memset(addr, 0, PAGE_SIZE);
+
+	status = true;
+
+	cleanup:
+	// TODO unlock
+	return status;
+}
+
 void *vmm_map(void *addr, volatile size_t size, int flags, mmuflags_t mmuflags, void *private) {
 	addr = (void *)ROUND_DOWN((uintptr_t)addr, PAGE_SIZE);
 	if (flags & VMM_FLAGS_PAGESIZE)
@@ -220,6 +270,7 @@ void *vmm_map(void *addr, volatile size_t size, int flags, mmuflags_t mmuflags, 
 
 				goto cleanup;
 			}
+			memset(MAKE_HHDM(allocated), 0, PAGE_SIZE);
 		}
 	}
 
@@ -250,7 +301,7 @@ static void printspace(vmmspace_t *space) {
 	printf("vmm: ranges:\n");
 	vmmrange_t *range = space->ranges;
 	while (range) {
-		printf("vmm: address %p size %p flags %p\n", range->start, range->size, range->flags);
+		printf("vmm: address %p size %lx flags %x\n", range->start, range->size, range->flags);
 		range = range->next;
 	}
 }
