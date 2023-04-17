@@ -77,7 +77,7 @@ isr_%+ i:
 	jne .notneeded2
 	swapgs
 	.notneeded2:
-	iret
+	o64 iret
 %assign i i + 1
 %endrep
 
