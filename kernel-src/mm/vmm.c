@@ -162,6 +162,66 @@ static void insertrange(vmmspace_t *space, vmmrange_t *newrange) {
 	newrange->next = NULL;
 }
 
+static void destroyrange(vmmrange_t *range, uintmax_t _offset, size_t size) {
+	uintmax_t top = _offset + size;
+	__assert(!((range->flags & VMM_FLAGS_FILE) || (range->flags & VMM_FLAGS_COPY))); // unimplemented
+	for (uintmax_t offset = _offset; offset < top; offset += PAGE_SIZE) {
+		void *vaddr = (void *)((uintptr_t)range->start + offset);
+		void *physical = arch_mmu_getphysical(_cpu()->vmmctx->pagetable, vaddr);
+		if (physical) {
+			pmm_free(physical, 1);
+			arch_mmu_unmap(_cpu()->vmmctx->pagetable, vaddr);
+		}
+	}
+}
+
+static void unmap(vmmspace_t *space, void *address, size_t size) {
+	void *top = (void *)((uintptr_t)address + size);
+	vmmrange_t *range = space->ranges;
+
+	while (range) {
+		void *rangetop = RANGE_TOP(range);
+		// completely unmapped
+		if (range->start >= address && rangetop <= top) {
+			// TODO unallocate entry
+			if (range->prev)
+				range->prev->next = range->next;
+			else
+				space->ranges = range->next;
+
+			if (range->next)
+				range->next->prev = range->prev;
+
+			destroyrange(range, 0, range->size);
+		} else if (address > range->start && top < rangetop) { // split
+			vmmrange_t *new = allocrange();
+			__assert(new); // XXX deal with this better
+			*new = *range; // XXX refcounts will break
+
+			destroyrange(range, (uintptr_t)address - (uintptr_t)range->start, size);
+
+			new->start = top;
+			new->size = (uintptr_t)rangetop - (uintptr_t)new->start;
+			range->size = (uintptr_t)address - (uintptr_t)range->start;
+
+			new->prev = range;
+			range->next = new;
+		} else if (top > range->start && range->start >= address) { // partially unmap from start
+			size_t difference = (uintptr_t)top - (uintptr_t)range->start;
+			destroyrange(range, 0, difference);
+			range->start = (void *)((uintptr_t)range->start + difference);
+			range->size -= difference;
+		} else if (address < rangetop && rangetop <= top){ // partially unmap from end
+			size_t difference = (uintptr_t)rangetop - (uintptr_t)address;
+			range->size -= difference;
+			destroyrange(range, range->size, difference);
+		}
+
+		range = range->next;
+	}
+
+}
+
 bool vmm_pagefault(void *addr, bool user, int actions) {
 	if (user == false)
 		return false;
@@ -286,7 +346,26 @@ void *vmm_map(void *addr, volatile size_t size, int flags, mmuflags_t mmuflags, 
 	return retaddr;
 }
 
-void vmm_unmap(void *addr, size_t size, int flags);
+void vmm_unmap(void *addr, size_t size, int flags) {
+	addr = (void *)ROUND_DOWN((uintptr_t)addr, PAGE_SIZE);
+	if (flags & VMM_FLAGS_PAGESIZE)
+		size *= PAGE_SIZE;
+	else
+		size = ROUND_UP(size, PAGE_SIZE);
+
+	if (size == 0)
+		return;
+
+	vmmspace_t *space = getspace(addr);
+	if (space == NULL)
+		return;
+
+	// TODO lock space
+
+	unmap(space, addr, size);
+
+	// TODO unlock space
+}
 
 vmmcontext_t *vmm_newcontext() {
 	__assert(!"not yet");
