@@ -22,6 +22,5 @@ void kernel_entry() {
 	logging_sethook(term_putchar);
 	arch_mmu_init();
 	vmm_init();
-	slab_init();
 	__assert(!"kernel entry end");
 }

@@ -9,6 +9,7 @@ typedef struct slab_t {
 	struct slab_t *prev;
 	size_t used;
 	void **free;
+	void *base;
 } slab_t;
 
 typedef struct scache_t {
