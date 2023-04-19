@@ -149,7 +149,10 @@ void *slab_allocate(scache_t *cache) {
 			slab->prev->next = slab->next;
 		if (slab->next)
 			slab->next->prev = slab->prev;
+		if (cache->partial)
+			cache->partial->prev = slab;
 		slab->next = cache->partial;
+		slab->prev = NULL;
 		cache->partial = slab;
 	}
 
@@ -159,7 +162,10 @@ void *slab_allocate(scache_t *cache) {
 			slab->prev->next = slab->next;
 		if (slab->next)
 			slab->next->prev = slab->prev;
+		if (cache->full)
+			cache->full->prev = slab;
 		slab->next = cache->full;
+		slab->prev = NULL;
 		cache->full = slab;
 	}
 
@@ -180,7 +186,10 @@ void slab_free(scache_t *cache, void *addr) {
 			slab->prev->next = slab->next;
 		if (slab->next)
 			slab->next->prev = slab->prev;
+		if (cache->empty)
+			cache->empty->prev = slab;
 		slab->next = cache->empty;
+		slab->prev = NULL;
 		cache->empty = slab;
 	}
 	
@@ -190,8 +199,11 @@ void slab_free(scache_t *cache, void *addr) {
 			slab->prev->next = slab->next;
 		if (slab->next)
 			slab->next->prev = slab->prev;
-		slab->next = cache->empty;
-		cache->empty = slab;
+		if (cache->partial)
+			cache->partial->prev = slab;
+		slab->next = cache->partial;
+		slab->prev = NULL;
+		cache->partial = slab;
 	}
 
 	// TODO unlock
@@ -212,8 +224,45 @@ scache_t *slab_newcache(size_t size, size_t alignment, void (*ctor)(scache_t *, 
 	cache->ctor = ctor;
 	cache->dtor = dtor;
 	cache->slabobjcount = size < SLAB_INDIRECT_CUTOFF ? SLAB_DATA_SIZE / cache->truesize : SLAB_INDIRECT_COUNT;
+	cache->full = NULL;
+	cache->empty = NULL;
+	cache->partial = NULL;
 
 	printf("slab: new cache: size %lu align %lu truesize %lu objcount %lu\n", cache->size, cache->alignment, cache->truesize, cache->slabobjcount);
 
 	return cache;
+}
+
+static size_t purge(scache_t *cache, size_t maxcount){
+	slab_t *slab = cache->empty;
+	for (size_t done = 0; done < maxcount; ++done) {
+		if (slab == NULL)
+			return done;
+
+		slab_t *next = slab->next;
+		if (next)
+			next->prev = NULL;
+
+		if (cache->size >= SLAB_INDIRECT_CUTOFF)
+			vmm_unmap(slab->base, cache->slabobjcount * cache->truesize, 0);
+
+		vmm_unmap(slab, PAGE_SIZE, 0);
+
+		slab = cache->empty;
+		cache->empty = next;
+	}
+
+	return maxcount;
+}
+
+void slab_freecache(scache_t *cache) {
+	// TODO lock
+	__assert(cache->partial == NULL);
+	__assert(cache->full == NULL);
+
+	purge(cache, (size_t)-1);
+
+	slab_free(&selfcache, cache);
+
+	// TODO unlock
 }
