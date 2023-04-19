@@ -272,6 +272,9 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 }
 
 void *vmm_map(void *addr, volatile size_t size, int flags, mmuflags_t mmuflags, void *private) {
+	if (addr == NULL)
+		addr = KERNELSPACE_START;
+
 	addr = (void *)ROUND_DOWN((uintptr_t)addr, PAGE_SIZE);
 	if (flags & VMM_FLAGS_PAGESIZE)
 		size *= PAGE_SIZE;
