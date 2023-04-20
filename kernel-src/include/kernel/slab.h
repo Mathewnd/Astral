@@ -25,6 +25,9 @@ typedef struct scache_t {
 	size_t slabobjcount;
 } scache_t;
 
-void slab_init();
+void *slab_allocate(scache_t *cache);
+void slab_free(scache_t *cache, void *addr);
+scache_t *slab_newcache(size_t size, size_t alignment, void (*ctor)(scache_t *, void *), void (*dtor)(scache_t *, void *));
+void slab_freecache(scache_t *cache);
 
 #endif
