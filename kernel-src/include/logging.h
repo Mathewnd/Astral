@@ -10,7 +10,7 @@ void logging_sethook(void (*fun)(char));
 
 #define __assert(x) \
 	if (!(x)){ \
-		printf("%s:%s:%d: %s failed\n", __FILE__, __func__, __LINE__, #x); \
+		printf("\e[91m%s:%s:%d: %s failed\n\e[0m", __FILE__, __func__, __LINE__, #x); \
 		for(;;); \
 	};
 
