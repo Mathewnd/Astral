@@ -9,7 +9,6 @@ static size_t allocsizes[CACHE_COUNT] = {32, 64, 128, 256, 512, 1024, 2048, 4096
 static scache_t *caches[CACHE_COUNT];
 
 static void initarea(scache_t *cache, void *obj) {
-	printf("slab ctor called\n");
 	size_t *ptr = obj;
 	*ptr = cache->size - sizeof(size_t);
 	memset(ptr + 1, 0, *ptr);
@@ -43,8 +42,6 @@ void free(void *ptr) {
 	scache_t *cache = getcachefromsize(size);
 	slab_free(cache, ptr);
 }
-
-
 
 void alloc_init() {
 	for (int i = 0; i < CACHE_COUNT; ++i) {
