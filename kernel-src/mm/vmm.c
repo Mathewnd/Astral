@@ -140,7 +140,7 @@ static void insertrange(vmmspace_t *space, vmmrange_t *newrange) {
 		return;
 	}
 
-	if (RANGE_TOP(newrange) < range->start) {
+	if (RANGE_TOP(newrange) <= range->start) {
 		space->ranges = newrange;
 		newrange->next = range;
 		range->prev = newrange;
