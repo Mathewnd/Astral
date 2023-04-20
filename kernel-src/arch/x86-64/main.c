@@ -8,6 +8,7 @@
 #include <arch/mmu.h>
 #include <kernel/vmm.h>
 #include <kernel/slab.h>
+#include <kernel/alloc.h>
 
 static cpu_t bsp_cpu;
 
@@ -22,5 +23,6 @@ void kernel_entry() {
 	logging_sethook(term_putchar);
 	arch_mmu_init();
 	vmm_init();
+	alloc_init();
 	__assert(!"kernel entry end");
 }
