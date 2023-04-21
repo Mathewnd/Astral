@@ -10,6 +10,7 @@
 #include <kernel/slab.h>
 #include <kernel/alloc.h>
 #include <arch/acpi.h>
+#include <arch/apic.h>
 
 static cpu_t bsp_cpu;
 
@@ -26,5 +27,6 @@ void kernel_entry() {
 	vmm_init();
 	alloc_init();
 	acpi_init();
+	apic_init();
 	__assert(!"kernel entry end");
 }
