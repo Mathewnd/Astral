@@ -26,7 +26,7 @@ void kernel_entry() {
 	arch_mmu_init();
 	vmm_init();
 	alloc_init();
-	acpi_init();
-	apic_init();
+	arch_acpi_init();
+	arch_apic_init();
 	__assert(!"kernel entry end");
 }

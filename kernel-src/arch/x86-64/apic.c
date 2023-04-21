@@ -9,6 +9,24 @@
 #define IOAPIC_REG_PRIORITY 2
 #define IOAPIC_REG_ENTRY 0x10
 
+#define APIC_REG_ID 0x20
+#define APIC_REG_EOI 0xB0
+#define APIC_REG_SPURIOUS 0xF0
+#define APIC_REG_ICR_LO 0x300
+#define APIC_REG_ICR_HI 0x310
+#define APIC_LVT_TIMER 0x320
+#define APIC_LVT_THERMAL 0x330
+#define APIC_LVT_PERFORMANCE 0x340
+#define APIC_LVT_LINT0 0x350
+#define APIC_LVT_LINT1 0x360
+#define APIC_LVT_ERROR 0x370
+#define APIC_TIMER_INITIALCOUNT 0x380
+#define APIC_TIMER_COUNT 0x390
+#define APIC_TIMER_DIVIDE 0x3E0
+
+#define LVT_DELIVERY_NMI (0b100 << 8)
+#define LVT_MASK (1 << 16)
+
 typedef struct {
 	uint8_t type;
 	uint8_t length;
@@ -100,8 +118,12 @@ static void writeiored(void *ioapic, uint8_t entry, uint8_t vector, uint8_t deli
 	writeioapic(ioapic, 0x11 + entry * 2, (uint32_t)dest << 24);
 }
 
-void apic_init() {
-	madt = acpi_findtable("APIC", 0);
+void arch_apic_initap() {
+	
+}
+
+void arch_apic_init() {
+	madt = arch_acpi_findtable("APIC", 0);
 	__assert(madt);
 
 	liststart = (void *)((uintptr_t)madt + sizeof(madt_t));

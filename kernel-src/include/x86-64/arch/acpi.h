@@ -53,8 +53,8 @@ typedef struct {
 #define ACPI_MADT_TYPE_64BITADDR 5
 #define ACPI_MADT_TYPE_X2APIC 9
 
-bool acpi_checksumok(void *table);
-void *acpi_findtable(char *sig, int n);
-void acpi_init();
+bool arch_acpi_checksumok(void *table);
+void *arch_acpi_findtable(char *sig, int n);
+void arch_acpi_init();
 
 #endif
