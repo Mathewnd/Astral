@@ -25,6 +25,7 @@ typedef struct {
 	char oemid[6];
 	char oemtableid[8];
 	uint32_t oemrevision;
+	uint32_t creatorid;
 	uint32_t creatorrevision;
 } __attribute__((packed)) sdtheader_t;
 
@@ -38,6 +39,22 @@ typedef struct {
 	uint32_t tables[];
 } __attribute__((packed)) rsdt_t;
 
+typedef struct {
+	sdtheader_t header;
+	uint32_t addr;
+	uint32_t flags;
+} __attribute__((packed)) madt_t;
+
+#define ACPI_MADT_TYPE_LAPIC 0
+#define ACPI_MADT_TYPE_IOAPIC 1
+#define ACPI_MADT_TYPE_OVERRIDE 2
+#define ACPI_MADT_TYPE_IONMI 3
+#define ACPI_MADT_TYPE_LANMI 4
+#define ACPI_MADT_TYPE_64BITADDR 5
+#define ACPI_MADT_TYPE_X2APIC 9
+
+bool acpi_checksumok(void *table);
+void *acpi_findtable(char *sig, int n);
 void acpi_init();
 
 #endif
