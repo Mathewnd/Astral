@@ -50,7 +50,7 @@ static void initindirect(scache_t *cache, slab_t *slab, void **base, void *objba
 }
 
 static bool growcache(scache_t *cache) {
-	void *_slab = vmm_map(NULL, PAGE_SIZE, VMM_FLAGS_ALLOCATE, ARCH_MMU_FLAG_READ | ARCH_MMU_FLAG_WRITE | ARCH_MMU_FLAG_NOEXEC, NULL);
+	void *_slab = vmm_map(NULL, PAGE_SIZE, VMM_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, NULL);
 	if (_slab == NULL)
 		return false;
 	slab_t *slab = GET_SLAB(_slab);
@@ -58,7 +58,7 @@ static bool growcache(scache_t *cache) {
 	if (cache->size < SLAB_INDIRECT_CUTOFF) {
 		initdirect(cache, slab, _slab);
 	} else {
-		void *base = vmm_map(NULL, cache->slabobjcount * cache->truesize, VMM_FLAGS_ALLOCATE, ARCH_MMU_FLAG_READ | ARCH_MMU_FLAG_WRITE | ARCH_MMU_FLAG_NOEXEC, NULL);
+		void *base = vmm_map(NULL, cache->slabobjcount * cache->truesize, VMM_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, NULL);
 		if (base == NULL) {
 			vmm_unmap(_slab, PAGE_SIZE, 0);
 			return false;

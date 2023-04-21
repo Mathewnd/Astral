@@ -245,13 +245,13 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 
 	int invalidactions = 0;
 
-	if ((range->mmuflags & ARCH_MMU_FLAG_READ) == 0)
+	if ((range->mmuflags & ARCH_MMU_FLAGS_READ) == 0)
 		invalidactions |= VMM_ACTION_READ;
 	
-	if ((range->mmuflags & ARCH_MMU_FLAG_WRITE) == 0)
+	if ((range->mmuflags & ARCH_MMU_FLAGS_WRITE) == 0)
 		invalidactions |= VMM_ACTION_WRITE;
 	
-	if ((range->mmuflags & ARCH_MMU_FLAG_NOEXEC))
+	if ((range->mmuflags & ARCH_MMU_FLAGS_NOEXEC))
 		invalidactions |= VMM_ACTION_EXEC;
 
 	if (invalidactions & actions)
@@ -411,12 +411,12 @@ void vmm_init() {
 
 	for (uint64_t i = 0; i < pmm_liminemap.response->entry_count; ++i) {
 		struct limine_memmap_entry *e = pmm_liminemap.response->entries[i];
-		__assert(vmm_map(MAKE_HHDM(e->base), e->length, 0, ARCH_MMU_FLAG_READ | ARCH_MMU_FLAG_WRITE | ARCH_MMU_FLAG_NOEXEC, NULL));
+		__assert(vmm_map(MAKE_HHDM(e->base), e->length, 0, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, NULL));
 	}
 
-	__assert(vmm_map(&_text_start, (uintptr_t)&_text_end - (uintptr_t)&_text_start, 0, ARCH_MMU_FLAG_READ, NULL));
-	__assert(vmm_map(&_rodata_start, (uintptr_t)&_rodata_end - (uintptr_t)&_rodata_start, 0, ARCH_MMU_FLAG_READ | ARCH_MMU_FLAG_NOEXEC, NULL));
-	__assert(vmm_map(&_data_start, (uintptr_t)&_data_end - (uintptr_t)&_data_start, 0, ARCH_MMU_FLAG_READ | ARCH_MMU_FLAG_WRITE | ARCH_MMU_FLAG_NOEXEC, NULL));
+	__assert(vmm_map(&_text_start, (uintptr_t)&_text_end - (uintptr_t)&_text_start, 0, ARCH_MMU_FLAGS_READ, NULL));
+	__assert(vmm_map(&_rodata_start, (uintptr_t)&_rodata_end - (uintptr_t)&_rodata_start, 0, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_NOEXEC, NULL));
+	__assert(vmm_map(&_data_start, (uintptr_t)&_data_end - (uintptr_t)&_data_start, 0, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, NULL));
 
 	printspace(&kernelspace);
 }

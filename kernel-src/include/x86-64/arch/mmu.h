@@ -11,10 +11,10 @@
 #define USERSPACE_END     (void *)0x00007fffffffffff
 
 #define PAGE_SIZE 4096
-#define ARCH_MMU_FLAG_READ (uint64_t)1
-#define ARCH_MMU_FLAG_WRITE (uint64_t)2
-#define ARCH_MMU_FLAG_USER (uint64_t)4
-#define ARCH_MMU_FLAG_NOEXEC ((uint64_t)1 << 63)
+#define ARCH_MMU_FLAGS_READ (uint64_t)1
+#define ARCH_MMU_FLAGS_WRITE (uint64_t)2
+#define ARCH_MMU_FLAGS_USER (uint64_t)4
+#define ARCH_MMU_FLAGS_NOEXEC ((uint64_t)1 << 63)
 
 typedef uint64_t mmuflags_t;
 typedef uint64_t * pagetableptr_t; // physical address

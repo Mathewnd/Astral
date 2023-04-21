@@ -12,7 +12,7 @@
 #define PDPTMASK (uint64_t)0b111111111000000000000000000000000000000
 #define PML4MASK (uint64_t)0b111111111000000000000000000000000000000000000000
 
-#define INTERMEDIATE_FLAGS ARCH_MMU_FLAG_WRITE | ARCH_MMU_FLAG_READ | ARCH_MMU_FLAG_USER
+#define INTERMEDIATE_FLAGS ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_USER
 
 // returns hhdm address of next entry
 
@@ -176,9 +176,9 @@ static void *kerneladdr[6] = {
 };
 
 static mmuflags_t kernelflags[3] = {
-	ARCH_MMU_FLAG_READ,
-	ARCH_MMU_FLAG_READ | ARCH_MMU_FLAG_WRITE | ARCH_MMU_FLAG_NOEXEC,
-	ARCH_MMU_FLAG_READ | ARCH_MMU_FLAG_NOEXEC
+	ARCH_MMU_FLAGS_READ,
+	ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC,
+	ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_NOEXEC
 };
 
 extern volatile struct limine_memmap_request pmm_liminemap;
@@ -225,7 +225,7 @@ void arch_mmu_init() {
 	for (size_t i = 0; i < pmm_liminemap.response->entry_count; ++i) {
 		struct limine_memmap_entry *e = pmm_liminemap.response->entries[i];
 		for (uint64_t i = 0; i < e->length; i += PAGE_SIZE) {
-			uint64_t entry = ((e->base + i) & ADDRMASK) | ARCH_MMU_FLAG_READ | ARCH_MMU_FLAG_WRITE | ARCH_MMU_FLAG_NOEXEC;
+			uint64_t entry = ((e->base + i) & ADDRMASK) | ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC;
 			__assert(add_page(FROM_HHDM(template), MAKE_HHDM((void *)(e->base + i)), entry, 0));
 		}
 	}
