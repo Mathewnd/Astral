@@ -15,6 +15,7 @@ typedef struct {
 	long id;
 	isr_t isr[MAX_ISR_COUNT];
 	vmmcontext_t *vmmctx;
+	int acpiid;
 } cpu_t;
 
 static inline cpu_t *_cpu() {

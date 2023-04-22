@@ -28,5 +28,6 @@ void kernel_entry() {
 	alloc_init();
 	arch_acpi_init();
 	arch_apic_init();
+	arch_apic_initap();
 	__assert(!"kernel entry end");
 }

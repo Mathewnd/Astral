@@ -3,6 +3,8 @@
 #include <kernel/vmm.h>
 #include <arch/mmu.h>
 #include <kernel/alloc.h>
+#include <kernel/interrupt.h>
+#include <arch/cpu.h>
 
 #define IOAPIC_REG_ID 0
 #define IOAPIC_REG_ENTRYCOUNT 1
@@ -47,6 +49,20 @@ typedef struct {
 } __attribute__((packed)) ioentry_t;
 
 typedef struct {
+	listheader_t header;
+	uint8_t acpiid;
+	uint8_t lapicid;
+	uint32_t flags;
+} __attribute__((packed)) lapicentry_t;
+
+typedef struct {
+	listheader_t header;
+	uint8_t acpiid;
+	uint16_t flags;
+	uint8_t lint;
+} __attribute__((packed)) lapicnmientry_t;
+
+typedef struct {
 	void *addr;
 	int base;
 	int top;
@@ -61,6 +77,8 @@ static void *lapicaddr;
 
 static size_t overridecount;
 static size_t iocount;
+static size_t lapiccount;
+static size_t lapicnmicount;
 
 static inline listheader_t *getnext(listheader_t *header) {
 	uintptr_t ptr = (uintptr_t)header;
@@ -94,6 +112,16 @@ static int getcount(int type) {
 	return count;
 }
 
+static void writelapic(int reg, uint32_t v) {
+	volatile uint32_t *ptr = (void *)((uintptr_t)lapicaddr + reg);
+	*ptr = v;
+}
+
+static uint32_t readlapic(int reg) {
+	volatile uint32_t *ptr = (void *)((uintptr_t)lapicaddr + reg);
+	return *ptr;
+}
+
 static uint32_t readioapic(void *ioapic, int reg) {
 	volatile uint32_t *apic = ioapic;
 	*apic = reg & 0xff;
@@ -118,8 +146,48 @@ static void writeiored(void *ioapic, uint8_t entry, uint8_t vector, uint8_t deli
 	writeioapic(ioapic, 0x11 + entry * 2, (uint32_t)dest << 24);
 }
 
+static void spurious(isr_t *self, context_t *ctx) {
+	__assert(!"Spurious interrupt");
+}
+
+static void nmi(isr_t *self, context_t *ctx) {
+	__assert(!"NMI");
+}
+
 void arch_apic_initap() {
+	writelapic(APIC_LVT_THERMAL, LVT_MASK);
+	writelapic(APIC_LVT_PERFORMANCE, LVT_MASK);
+	writelapic(APIC_LVT_LINT0, LVT_MASK);
+	writelapic(APIC_LVT_LINT1, LVT_MASK);
+	writelapic(APIC_LVT_ERROR, LVT_MASK);
+	writelapic(APIC_LVT_TIMER, LVT_MASK);
+	interrupt_register(0xff, spurious, NULL, 0); // TODO when priorities are decided on, change it here
+	writelapic(APIC_REG_SPURIOUS, 0x1FF);
+
+	_cpu()->id = readlapic(APIC_REG_ID) >> 24;
+
+	// get the acpi id for the local nmi sources
+
+	for (size_t i = 0; i < lapiccount; ++i) {
+		lapicentry_t *current = getentry(ACPI_MADT_TYPE_LAPIC, i);
+		if (_cpu()->id == current->lapicid) {
+			_cpu()->acpiid = current->acpiid;
+			break;
+		}
+	}
+
+	printf("processor id: %lu (APIC) %lu (ACPI)\n", _cpu()->id, _cpu()->acpiid);
+
+	isr_t *nmiisr = interrupt_allocate(nmi, NULL, 0); // TODO when priorities are decided on, change it here
+	__assert(nmiisr);
 	
+	for (size_t i = 0; i < lapicnmicount; ++i) {
+		lapicnmientry_t* current = getentry(ACPI_MADT_TYPE_LANMI, i);
+		if (current->acpiid == _cpu()->acpiid || current->acpiid == 0xff)
+			writelapic(APIC_LVT_LINT0 + 0x10 * current->lint, (nmiisr->id & 0xff) | LVT_DELIVERY_NMI | (current->flags << 12));
+	}
+
+	// TODO enable interrupts here
 }
 
 void arch_apic_init() {
@@ -131,6 +199,8 @@ void arch_apic_init() {
 
 	overridecount = getcount(ACPI_MADT_TYPE_OVERRIDE);
 	iocount = getcount(ACPI_MADT_TYPE_IOAPIC);
+	lapiccount = getcount(ACPI_MADT_TYPE_LAPIC);
+	lapicnmicount = getcount(ACPI_MADT_TYPE_LANMI);
 
 	// map LAPIC to virtual memory
 
@@ -162,4 +232,6 @@ void arch_apic_init() {
 			writeiored(ioapics[i].addr, j - ioapics[i].base, 0xfe, 0, 0, 0, 0, 1, 0);
 			
 	}
+
+	// FIXME limine does this already but just in case the PIC should be masked
 }
