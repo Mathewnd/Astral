@@ -20,7 +20,7 @@ void interrupt_register(int vector, void (*func)(isr_t *self, context_t *ctx), v
 	isr_t *isr = &_cpu()->isr[vector];
 	isr->func = func;
 	isr->eoi = eoi;
-	isr->id = _cpu()->id << 32 | vector;
+	isr->id = (uint64_t)_cpu()->id << 32 | vector;
 	isr->priority = priority;
 }
 
