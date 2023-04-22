@@ -11,6 +11,7 @@
 #include <kernel/alloc.h>
 #include <arch/acpi.h>
 #include <arch/apic.h>
+#include <arch/hpet.h>
 
 static cpu_t bsp_cpu;
 
@@ -29,5 +30,6 @@ void kernel_entry() {
 	arch_acpi_init();
 	arch_apic_init();
 	arch_apic_initap();
+	arch_hpet_init();
 	__assert(!"kernel entry end");
 }

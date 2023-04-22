@@ -45,6 +45,24 @@ typedef struct {
 	uint32_t flags;
 } __attribute__((packed)) madt_t;
 
+typedef struct {
+	sdtheader_t header;
+	uint8_t hwrev;
+	uint8_t comparatorcount:5;
+	uint8_t countersize:1;
+	uint8_t reserved:1;
+	uint8_t legacy_replacement:1;
+	uint16_t pcivendor;
+	uint8_t addrid;
+	uint8_t bitwidth;
+	uint8_t bitoffset;
+	uint8_t reserved2;
+	uint64_t addr;
+	uint8_t hpetnum;
+	uint16_t mintick;
+	uint8_t pageprot;
+} __attribute__((packed)) hpet_t;
+
 #define ACPI_MADT_TYPE_LAPIC 0
 #define ACPI_MADT_TYPE_IOAPIC 1
 #define ACPI_MADT_TYPE_OVERRIDE 2
