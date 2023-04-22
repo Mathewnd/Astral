@@ -1,6 +1,10 @@
 #include <arch/idt.h>
 #include <stdint.h>
 #include <stddef.h>
+#include <logging.h>
+#include <panic.h>
+#include <kernel/interrupt.h>
+#include <string.h>
 
 typedef struct {
 	uint16_t size;
@@ -37,6 +41,42 @@ void arch_idt_setup() {
 	}
 }
 
+static char *exceptions[] = {
+	"Division by 0",
+	"Debug",
+	"NMI",
+	"Breakpoint",
+	"Overflow",
+	"Bound Range Exceeded",
+	"Invalid Opcode",
+	"Device Not Available",
+	"Double Fault",
+	"Coprocessor Segment Overrun",
+	"Invalid TSS",
+	"Segment Not Present",
+	"Stack-Segment Fault",
+	"General Protection Fault",
+	"Page Fault",
+	"Unknown",
+	"x87 Floating-Point Exception",
+	"Alignment Check",
+	"Machine Check",
+	"SIMD Exception"
+};
+
+static void exceptisr(isr_t *isr, context_t *ctx) {
+	char a[64];
+	if ((isr->id & 0xff) < 19)
+		sprintf(a, "CPU exception (%s)\n", exceptions[isr->id]);
+	else
+		strcpy(a, "Unkown CPU exception");
+	_panic(a, ctx);
+}
+
 void arch_idt_reload() {
 	asm volatile("lidt (%%rax)" : : "a"(&idtr));
+
+	// make sure to reserve the first 32 isrs for exceptions with a dummy panic isr
+	for (int i = 0; i < 32; ++i)
+		interrupt_register(i, exceptisr, NULL, 0); // TODO assign priority
 }
