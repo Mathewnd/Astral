@@ -227,7 +227,7 @@ void arch_apic_init() {
 		__assert(ioapics[i].addr);
 		ioapics[i].base = entry->intbase;
 		ioapics[i].top = ioapics[i].base + ((readioapic(ioapics[i].addr, IOAPIC_REG_ENTRYCOUNT) >> 16) & 0xff) + 1;
-		printf("ioapic: addr %p base %lu top %lu\n", entry->addr, entry->intbase, ioapics[i].top);
+		printf("ioapic%lu: addr %p base %lu top %lu\n", i, entry->addr, entry->intbase, ioapics[i].top);
 		for (int j = ioapics[i].base; j < ioapics[i].top; ++j)
 			writeiored(ioapics[i].addr, j - ioapics[i].base, 0xfe, 0, 0, 0, 0, 1, 0);
 			
