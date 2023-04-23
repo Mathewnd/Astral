@@ -16,8 +16,9 @@ void interrupt_isr(int vec, context_t *ctx) {
 		isr->func(isr, ctx);
 		interrupt_set(false);
 
-		_cpu()->intstatus = oldint;
 		interrupt_setipl(oldipl);
+		// restore status on cpu_t struct directly
+		_cpu()->intstatus = oldint;
 	} else {
 		isr->pending = true;
 	}
