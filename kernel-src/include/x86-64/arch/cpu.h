@@ -6,8 +6,10 @@
 
 #include <arch/msr.h>
 #include <arch/ist.h>
+#include <arch/archint.h>
 #include <kernel/interrupt.h>
 #include <kernel/vmm.h>
+#include <kernel/timer.h>
 
 typedef struct {
 	uint64_t gdt[7];
@@ -16,6 +18,8 @@ typedef struct {
 	isr_t isr[MAX_ISR_COUNT];
 	vmmcontext_t *vmmctx;
 	int acpiid;
+	timer_t *timer;
+	bool intstatus;
 } cpu_t;
 
 static inline cpu_t *_cpu() {

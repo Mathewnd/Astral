@@ -80,3 +80,11 @@ void arch_idt_reload() {
 	for (int i = 0; i < 32; ++i)
 		interrupt_register(i, exceptisr, NULL, 0); // TODO assign priority
 }
+
+void arch_interrupt_disable() {
+	asm("cli");
+}
+
+void arch_interrupt_enable() {
+	asm("sti");
+}

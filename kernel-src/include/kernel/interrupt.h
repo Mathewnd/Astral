@@ -24,5 +24,6 @@ void interrupt_register(int vector, void (*func)(isr_t *self, context_t *ctx), v
 isr_t *interrupt_allocate(void (*func)(isr_t *self, context_t *ctx), void (*eoi)(isr_t *self), long priority);
 void interrupt_raiseipl(long newipl);
 void interrupt_loweripl(long newipl);
+bool interrupt_set(bool status);
 
 #endif
