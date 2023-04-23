@@ -12,6 +12,7 @@
 #include <arch/acpi.h>
 #include <arch/apic.h>
 #include <arch/hpet.h>
+#include <kernel/timekeeper.h>
 
 static cpu_t bsp_cpu;
 
@@ -30,6 +31,8 @@ void kernel_entry() {
 	arch_acpi_init();
 	arch_apic_init();
 	arch_apic_initap();
-	arch_hpet_init();
+	// XXX fall back to another clock source
+	time_t u = arch_hpet_init();
+	timekeeper_init(arch_hpet_ticks, u);
 	__assert(!"kernel entry end");
 }
