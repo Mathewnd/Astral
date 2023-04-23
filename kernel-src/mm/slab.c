@@ -125,7 +125,7 @@ static slab_t *returnobject(scache_t *cache, void *obj) {
 }
 
 void *slab_allocate(scache_t *cache) {
-	// TODO lock
+	spinlock_acquire(&cache->lock);
 	slab_t *slab = NULL;
 	if (cache->partial != NULL)
 		slab = cache->partial;
@@ -170,12 +170,12 @@ void *slab_allocate(scache_t *cache) {
 	}
 
 	cleanup:
-	// TODO unlock
+	spinlock_release(&cache->lock);
 	return ret;
 }
 
 void slab_free(scache_t *cache, void *addr) {
-	// TODO lock
+	spinlock_acquire(&cache->lock);
 
 	slab_t *slab = returnobject(cache, addr);
 	__assert(slab);
@@ -205,8 +205,7 @@ void slab_free(scache_t *cache, void *addr) {
 		slab->prev = NULL;
 		cache->partial = slab;
 	}
-
-	// TODO unlock
+	spinlock_release(&cache->lock);
 }
 
 scache_t *slab_newcache(size_t size, size_t alignment, void (*ctor)(scache_t *, void *), void (*dtor)(scache_t *, void *)) {
@@ -227,6 +226,7 @@ scache_t *slab_newcache(size_t size, size_t alignment, void (*ctor)(scache_t *, 
 	cache->full = NULL;
 	cache->empty = NULL;
 	cache->partial = NULL;
+	SPINLOCK_INIT(cache->lock);
 
 	printf("slab: new cache: size %lu align %lu truesize %lu objcount %lu\n", cache->size, cache->alignment, cache->truesize, cache->slabobjcount);
 
@@ -256,13 +256,11 @@ static size_t purge(scache_t *cache, size_t maxcount){
 }
 
 void slab_freecache(scache_t *cache) {
-	// TODO lock
+	spinlock_acquire(&cache->lock);
 	__assert(cache->partial == NULL);
 	__assert(cache->full == NULL);
 
 	purge(cache, (size_t)-1);
 
 	slab_free(&selfcache, cache);
-
-	// TODO unlock
 }

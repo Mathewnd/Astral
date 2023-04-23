@@ -2,6 +2,7 @@
 #define _VMM_H
 
 #include <arch/mmu.h>
+#include <spinlock.h>
 
 #define VMM_FLAGS_PAGESIZE 1
 #define VMM_FLAGS_ALLOCATE 2
@@ -29,7 +30,7 @@ typedef struct vmmrange_t{
 } vmmrange_t;
 
 typedef struct {
-	// TODO lock
+	spinlock_t lock;
 	struct vmmcache_t *next;
 	size_t freecount;
 	uintmax_t firstfree;
@@ -43,6 +44,7 @@ typedef struct vmmcache_t {
 } vmmcache_t;
 
 typedef struct {
+	spinlock_t lock;
 	vmmrange_t *ranges;
 	void *start;
 	void *end;

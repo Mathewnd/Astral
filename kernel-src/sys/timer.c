@@ -4,7 +4,7 @@
 #include <kernel/interrupt.h>
 
 void timer_isr(timer_t *timer, context_t *context) {
-	// TODO lock
+	spinlock_acquire(&timer->lock);
 	__assert(timer->queue);
 	timer->tickcurrent = timer->queue->absolutetick;
 	timerentry_t *oldentry = timer->queue;
@@ -16,13 +16,13 @@ void timer_isr(timer_t *timer, context_t *context) {
 		timer->arm(timer->queue->absolutetick - timer->tickcurrent);
 	}
 
-	// TODO unlock
+	spinlock_release(&timer->lock);
 	oldentry->func(oldentry->private, context);
 }
 
 void timer_insert(timer_t *timer, timerentry_t* entry, time_t us) {
 	long oldipl = interrupt_setipl(IPL_TIMER);
-	// TODO lock
+	spinlock_acquire(&timer->lock);
 
 	timer->tickcurrent += timer->stop(timer);
 
@@ -56,7 +56,7 @@ void timer_insert(timer_t *timer, timerentry_t* entry, time_t us) {
 	__assert(timer->queue->absolutetick > timer->tickcurrent);
 	timer->arm(timer->queue->absolutetick - timer->tickcurrent);
 
-	// TODO unlock
+	spinlock_release(&timer->lock);
 	interrupt_setipl(oldipl);
 }
 
@@ -68,6 +68,7 @@ timer_t *timer_new(time_t ticksperus, void (*arm)(time_t), time_t (*stop)()) {
 	timer->ticksperus = ticksperus;
 	timer->arm = arm;
 	timer->stop = stop;
+	SPINLOCK_INIT(timer->lock);
 
 	return timer;
 }

@@ -3,12 +3,14 @@
 #include <logging.h>
 #include <string.h>
 #include <arch/mmu.h>
+#include <spinlock.h>
 
 uintptr_t hhdmbase;
 static size_t memorysize;
 static size_t physicalpagecount;
 
 typedef struct {
+	spinlock_t lock;
 	uintmax_t base;
 	uintmax_t top;
 	uintmax_t searchstart;
@@ -75,11 +77,12 @@ static inline void initsection(int section, uintmax_t base, uintmax_t top) {
 		.top = top,
 		.searchstart = base
 	};
+	SPINLOCK_INIT(bmsections[section].lock);
 }
 
 void *pmm_alloc(size_t size, int section) {
 	for (int i = section; i >= 0; --i) {
-		// TODO lock section
+		spinlock_acquire(&bmsections[i].lock);
 		uintmax_t page = getfreearea(&bmsections[i], size);
 
 		if (page) {
@@ -88,10 +91,11 @@ void *pmm_alloc(size_t size, int section) {
 
 			for (size_t j = 0; j < size; ++j)
 				bmset((void *)((page + j) * PAGE_SIZE), 0);
-			// TODO unlock
+
+			spinlock_release(&bmsections[i].lock);
 			return (void *)(page * PAGE_SIZE);
 		}
-		// TODO unlock section
+		spinlock_release(&bmsections[i].lock);
 	}
 	return NULL;
 }
@@ -101,7 +105,7 @@ void pmm_free(void *addr, size_t size) {
 
 	for (int i = 0; i < PMM_SECTION_COUNT; ++i) {
 		if (page >= bmsections[i].base && page < bmsections[i].top) {
-			// TODO lock
+			spinlock_acquire(&bmsections[i].lock);
 
 			if ((uintptr_t)addr / PAGE_SIZE < bmsections[i].searchstart)
 				bmsections[i].searchstart = (uintptr_t)addr / PAGE_SIZE;
@@ -109,7 +113,7 @@ void pmm_free(void *addr, size_t size) {
 			for (uintmax_t j = 0; j < size; ++j)
 				bmset((void *)((page + j) * PAGE_SIZE), 1);
 
-			// TODO unlock
+			spinlock_release(&bmsections[i].lock);
 			return;
 		}
 	}

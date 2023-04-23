@@ -3,6 +3,7 @@
 
 #include <time.h>
 #include <arch/context.h>
+#include <spinlock.h>
 
 typedef struct timerentry_t {
 	struct timerentry_t *next;
@@ -12,6 +13,7 @@ typedef struct timerentry_t {
 } timerentry_t;
 
 typedef struct {
+	spinlock_t lock;
 	time_t ticksperus;
 	time_t tickcurrent;
 	void (*arm)(time_t);

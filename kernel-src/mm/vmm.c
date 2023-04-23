@@ -9,7 +9,6 @@
 #define RANGE_TOP(x) (void *)((uintptr_t)x->start + x->size)
 
 static vmmcache_t *newcache() {
-	// TODO initialize lock
 	vmmcache_t *ptr = pmm_alloc(1, PMM_SECTION_DEFAULT);
 	if (ptr == NULL)
 		return NULL;
@@ -17,6 +16,7 @@ static vmmcache_t *newcache() {
 	ptr->header.freecount = VMM_RANGES_PER_CACHE; 
 	ptr->header.firstfree = 0;
 	ptr->header.next = NULL;
+	SPINLOCK_INIT(ptr->header.lock);
 
 	for (uintmax_t i = 0; i < VMM_RANGES_PER_CACHE; ++i) {
 		ptr->ranges[i].size = 0;
@@ -42,22 +42,21 @@ static vmmrange_t *allocrange() {
 	vmmcache_t *cache = cachelist;
 	vmmrange_t *range = NULL;
 	while (cache) {
-		// TODO lock
+		spinlock_acquire(&cache->header.lock);
 		if (cache->header.freecount > 0) {
 			--cache->header.freecount;
 			uintmax_t r = getentrynumber(cache);
 			cache->header.firstfree = r + 1;
 			range = &cache->ranges[r];
 			range->size = -1; // set as allocated temporarily
+			spinlock_release(&cache->header.lock);
 			break;
 		} else if (cache->header.next == NULL)
 			cache->header.next = newcache();
 
 		cache = cache->header.next;
-		// TODO unlock
+		spinlock_release(&cache->header.lock);
 	}
-
-	// TODO unlock cache
 
 	return range;
 }
@@ -233,7 +232,7 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 	if (space == NULL || (space == &kernelspace && user))
 		return false;
 
-	// TODO lock
+	spinlock_acquire(&space->lock);
 	vmmrange_t *range = getrange(space, addr);
 
 	bool status = false;
@@ -267,7 +266,7 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 	status = true;
 
 	cleanup:
-	// TODO unlock
+	spinlock_release(&space->lock);
 	return status;
 }
 
@@ -288,7 +287,7 @@ void *vmm_map(void *addr, volatile size_t size, int flags, mmuflags_t mmuflags, 
 	if (space == NULL)
 		return NULL;
 
-	// TODO lock space
+	spinlock_acquire(&space->lock);
 
 	void *start = getfreerange(space, addr, size);
 	void *retaddr = NULL;
@@ -345,7 +344,7 @@ void *vmm_map(void *addr, volatile size_t size, int flags, mmuflags_t mmuflags, 
 	if (start == NULL && range) {
 		// TODO free range
 	}
-	// TODO unlock
+	spinlock_release(&space->lock);
 	return retaddr;
 }
 
@@ -363,11 +362,11 @@ void vmm_unmap(void *addr, size_t size, int flags) {
 	if (space == NULL)
 		return;
 
-	// TODO lock space
+	spinlock_acquire(&space->lock);
 
 	unmap(space, addr, size);
 
-	// TODO unlock space
+	spinlock_release(&space->lock);
 }
 
 vmmcontext_t *vmm_newcontext() {
