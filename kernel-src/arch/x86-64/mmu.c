@@ -246,5 +246,5 @@ void arch_mmu_init() {
 	}
 
 	arch_mmu_switch(FROM_HHDM(template));
-	interrupt_register(14, pfisr, NULL, 0); // FIXME still haven't decided if priorities grow up or down. should be max priority
+	interrupt_register(14, pfisr, NULL, IPL_MAX);
 }
