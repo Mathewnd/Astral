@@ -23,6 +23,10 @@ static void write64(int reg, uint64_t v) {
 	hpet[reg] = v;
 }
 
+time_t arch_hpet_ticks() {
+	return read64(HPET_REG_COUNTER);
+}
+
 void arch_hpet_waitticks(time_t ticks) {
 	uint64_t target = read64(HPET_REG_COUNTER) + ticks;
 	while (target > read64(HPET_REG_COUNTER)) asm volatile("pause");
@@ -36,7 +40,7 @@ bool arch_hpet_exists() {
 	return arch_acpi_findtable("HPET", 0) != NULL;
 }
 
-void arch_hpet_init() {
+time_t arch_hpet_init() {
 	__assert(arch_hpet_exists());
 	hpet_t *table = arch_acpi_findtable("HPET", 0);
 	printf("hpet%lu: %lu bits %lu comparators\n", table->hpetnum, 32 + table->countersize * 32, table->comparatorcount);
@@ -52,4 +56,5 @@ void arch_hpet_init() {
 	write64(HPET_REG_CONFIG, 0);
 	write64(HPET_REG_COUNTER, 0);
 	write64(HPET_REG_CONFIG, 1);
+	return ticksperus;
 }
