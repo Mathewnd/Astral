@@ -9,8 +9,18 @@ void interrupt_isr(int vec, context_t *ctx) {
 	if (isr->func == NULL)
 		_panic("Unregistered interrupt", ctx);
 
-	// TODO ipl check
-	isr->func(isr, ctx);
+	if (_cpu()->ipl < isr->priority) {
+		long oldipl = interrupt_setipl(isr->priority);
+
+		bool oldint = interrupt_set(true);
+		isr->func(isr, ctx);
+		interrupt_set(false);
+
+		_cpu()->intstatus = oldint;
+		interrupt_setipl(oldipl);
+	} else {
+		isr->pending = true;
+	}
 
 	if (isr->eoi)
 		isr->eoi(isr);
@@ -22,6 +32,7 @@ void interrupt_register(int vector, void (*func)(isr_t *self, context_t *ctx), v
 	isr->eoi = eoi;
 	isr->id = (uint64_t)_cpu()->id << 32 | vector;
 	isr->priority = priority;
+	isr->pending = false;
 }
 
 isr_t *interrupt_allocate(void (*func)(isr_t *self, context_t *ctx), void (*eoi)(isr_t *self), long priority) {
@@ -38,14 +49,15 @@ isr_t *interrupt_allocate(void (*func)(isr_t *self, context_t *ctx), void (*eoi)
 	return isr;
 }
 
-// TODO ipl is thread level, write these when the scheduler is written
+long interrupt_setipl(long ipl) {
+	bool oldintstatus = interrupt_set(false);
+	long oldipl = _cpu()->ipl;
+	_cpu()->ipl = ipl;
+	interrupt_set(oldintstatus);
 
-void interrupt_raiseipl(long newipl) {
-	__assert(!"Unimplemented");
-}
+	// TODO do pending interrupts
 
-void interrupt_loweripl(long newipl) {
-	__assert(!"Unimplemented");
+	return oldipl;
 }
 
 void arch_interrupt_disable();

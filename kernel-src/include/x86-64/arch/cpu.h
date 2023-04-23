@@ -20,6 +20,7 @@ typedef struct {
 	int acpiid;
 	timer_t *timer;
 	bool intstatus;
+	long ipl;
 } cpu_t;
 
 static inline cpu_t *_cpu() {
