@@ -9,7 +9,7 @@ void interrupt_isr(int vec, context_t *ctx) {
 	if (isr->func == NULL)
 		_panic("Unregistered interrupt", ctx);
 
-	if (_cpu()->ipl < isr->priority) {
+	if (_cpu()->ipl > isr->priority) {
 		long oldipl = interrupt_setipl(isr->priority);
 
 		bool oldint = interrupt_set(true);
