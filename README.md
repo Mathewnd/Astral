@@ -1,3 +1,7 @@
+# Rewrite underway
+
+Currently the kernel is being rewritten. The current progress of the rewrite can be checked in the rewrite branch.
+
 # Astral
 
 Astral is a 64 bit hobbyist operating system for the x86-64 architecture written in C.
