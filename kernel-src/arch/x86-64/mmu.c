@@ -203,7 +203,8 @@ static void pfisr(isr_t *self, context_t *ctx) {
 	if (ctx->error & ERROR_FETCH)
 		vmmerror |= VMM_ACTION_EXEC;
 
-	__assert(vmm_pagefault((void *)ctx->cr2, ctx->cs == 8, vmmerror));
+	if (vmm_pagefault((void *)ctx->cr2, ctx->cs == 8, vmmerror) == false)
+		_panic("Page fault", ctx);
 }
 
 void arch_mmu_init() {
