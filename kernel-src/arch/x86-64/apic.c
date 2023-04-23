@@ -6,6 +6,8 @@
 #include <kernel/interrupt.h>
 #include <arch/cpu.h>
 #include <arch/hpet.h>
+#include <kernel/timer.h>
+#include <kernel/timekeeper.h>
 
 #define IOAPIC_REG_ID 0
 #define IOAPIC_REG_ENTRYCOUNT 1
@@ -162,7 +164,7 @@ void arch_apic_initap() {
 	writelapic(APIC_LVT_LINT1, LVT_MASK);
 	writelapic(APIC_LVT_ERROR, LVT_MASK);
 	writelapic(APIC_LVT_TIMER, LVT_MASK);
-	interrupt_register(0xff, spurious, NULL, 0); // TODO when priorities are decided on, change it here
+	interrupt_register(0xff, spurious, NULL, IPL_MAX); // XXX for now max ipl suffices, however it's likely not the best one
 	writelapic(APIC_REG_SPURIOUS, 0x1FF);
 
 	_cpu()->id = readlapic(APIC_REG_ID) >> 24;
@@ -179,7 +181,7 @@ void arch_apic_initap() {
 
 	printf("processor id: %lu (APIC) %lu (ACPI)\n", _cpu()->id, _cpu()->acpiid);
 
-	isr_t *nmiisr = interrupt_allocate(nmi, NULL, 0); // TODO when priorities are decided on, change it here
+	isr_t *nmiisr = interrupt_allocate(nmi, NULL, IPL_MAX); // MAX IPL because NMI
 	__assert(nmiisr);
 	
 	for (size_t i = 0; i < lapicnmicount; ++i) {
@@ -188,15 +190,25 @@ void arch_apic_initap() {
 			writelapic(APIC_LVT_LINT0 + 0x10 * current->lint, (nmiisr->id & 0xff) | LVT_DELIVERY_NMI | (current->flags << 12));
 	}
 
-	// TODO enable interrupts here
+	_cpu()->ipl = IPL_BASE;
+	interrupt_set(true);
 }
 
 void arch_apic_eoi() {
 	writelapic(APIC_REG_EOI, 0);
 }
 
-void static timerisr(isr_t *isr, context_t *context) {
+static time_t stoptimer() {
+	time_t remaining = readlapic(APIC_TIMER_COUNT);
+	time_t initial = readlapic(APIC_TIMER_INITIALCOUNT);
 
+	writelapic(APIC_TIMER_INITIALCOUNT, 0);
+
+	return initial - remaining;
+}
+
+static void timerisr(isr_t *isr, context_t *context) {
+	timer_isr(_cpu()->timer, context);
 }
 
 static void armtimer(time_t ticks) {
@@ -204,7 +216,7 @@ static void armtimer(time_t ticks) {
 }
 
 void arch_apic_timerinit() {
-	isr_t *isr = interrupt_allocate(timerisr, arch_apic_eoi, 0); // TODO when priorities are defined, change it here
+	isr_t *isr = interrupt_allocate(timerisr, arch_apic_eoi, IPL_TIMER);
 	__assert(isr);
 	int vec = isr->id & 0xff;
 
@@ -228,6 +240,9 @@ void arch_apic_timerinit() {
 	printf("cpu%lu: local apic timer calibrated at %lu ticks per us. ISR vector %lu\n", _cpu()->id, ticksperus, vec);
 
 	writelapic(APIC_LVT_TIMER, vec);
+
+	_cpu()->timer = timer_new(ticksperus, armtimer, stoptimer);
+	__assert(_cpu()->timer);
 }
 
 void arch_apic_init() {
