@@ -5,6 +5,7 @@
 #include <kernel/alloc.h>
 #include <kernel/interrupt.h>
 #include <arch/cpu.h>
+#include <arch/hpet.h>
 
 #define IOAPIC_REG_ID 0
 #define IOAPIC_REG_ENTRYCOUNT 1
@@ -188,6 +189,45 @@ void arch_apic_initap() {
 	}
 
 	// TODO enable interrupts here
+}
+
+void arch_apic_eoi() {
+	writelapic(APIC_REG_EOI, 0);
+}
+
+void static timerisr(isr_t *isr, context_t *context) {
+
+}
+
+static void armtimer(time_t ticks) {
+	writelapic(APIC_TIMER_INITIALCOUNT, ticks);
+}
+
+void arch_apic_timerinit() {
+	isr_t *isr = interrupt_allocate(timerisr, arch_apic_eoi, 0); // TODO when priorities are defined, change it here
+	__assert(isr);
+	int vec = isr->id & 0xff;
+
+	writelapic(APIC_TIMER_DIVIDE, 3); // divide by 16 because us precision is desired and most amd64 machines will have the clock frequency at >1GHz anyways
+
+	void (*uswait)(time_t) = NULL;
+
+	if (arch_hpet_exists())
+		uswait = arch_hpet_waitus;
+
+	__assert(uswait);
+
+	writelapic(APIC_TIMER_INITIALCOUNT, 0xffffffff);
+
+	uswait(1000);
+
+	time_t ticksperus = (0xffffffff - readlapic(APIC_TIMER_COUNT)) / 1000;
+
+	writelapic(APIC_TIMER_INITIALCOUNT, 0);
+
+	printf("cpu%lu: local apic timer calibrated at %lu ticks per us. ISR vector %lu\n", _cpu()->id, ticksperus, vec);
+
+	writelapic(APIC_LVT_TIMER, vec);
 }
 
 void arch_apic_init() {

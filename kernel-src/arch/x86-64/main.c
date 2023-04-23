@@ -34,5 +34,6 @@ void kernel_entry() {
 	// XXX fall back to another clock source
 	time_t u = arch_hpet_init();
 	timekeeper_init(arch_hpet_ticks, u);
+	arch_apic_timerinit();
 	__assert(!"kernel entry end");
 }
