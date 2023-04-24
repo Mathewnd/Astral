@@ -37,10 +37,10 @@ void *alloc(size_t size) {
 
 void free(void *ptr) {
 	size_t *start = ptr;
+	start -= 1;
 	size_t size = *start;
-	start += 1;
 	scache_t *cache = getcachefromsize(size);
-	slab_free(cache, ptr);
+	slab_free(cache, start);
 }
 
 void alloc_init() {
