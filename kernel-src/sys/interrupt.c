@@ -11,14 +11,10 @@ void interrupt_isr(int vec, context_t *ctx) {
 
 	if (_cpu()->ipl > isr->priority) {
 		long oldipl = interrupt_setipl(isr->priority);
-
-		bool oldint = interrupt_set(true);
+		bool oldint = _cpu()->intstatus;
 		isr->func(isr, ctx);
-		interrupt_set(false);
-
-		interrupt_setipl(oldipl);
-		// restore status on cpu_t struct directly
 		_cpu()->intstatus = oldint;
+		interrupt_setipl(oldipl);
 	} else {
 		isr->pending = true;
 	}
