@@ -20,6 +20,30 @@ void timer_isr(timer_t *timer, context_t *context) {
 	oldentry->func(oldentry->private, context);
 }
 
+void timer_resume(timer_t *timer) {
+	spinlock_acquire(&timer->lock);
+
+	if (timer->queue == NULL)
+		goto leave;
+
+	// TODO handle difference being 0
+	__assert(timer->queue->absolutetick > timer->tickcurrent);
+	timer->arm(timer->queue->absolutetick - timer->tickcurrent);
+
+	leave:
+	spinlock_release(&timer->lock);
+}
+
+void timer_stop(timer_t *timer) {
+	long oldipl = interrupt_setipl(IPL_TIMER);
+	spinlock_acquire(&timer->lock);
+
+	timer->tickcurrent += timer->stop(timer);
+
+	spinlock_release(&timer->lock);
+	interrupt_setipl(oldipl);
+}
+
 void timer_insert(timer_t *timer, timerentry_t* entry, time_t us) {
 	long oldipl = interrupt_setipl(IPL_TIMER);
 	spinlock_acquire(&timer->lock);
@@ -51,10 +75,6 @@ void timer_insert(timer_t *timer, timerentry_t* entry, time_t us) {
 			search = search->next;
 		}
 	}
-
-	// TODO handle this case properly
-	__assert(timer->queue->absolutetick > timer->tickcurrent);
-	timer->arm(timer->queue->absolutetick - timer->tickcurrent);
 
 	spinlock_release(&timer->lock);
 	interrupt_setipl(oldipl);
