@@ -55,10 +55,13 @@ typedef struct {
 	pagetableptr_t pagetable;
 } vmmcontext_t;
 
+extern vmmcontext_t vmm_kernelctx;
+
 void *vmm_map(void *addr, size_t size, int flags, mmuflags_t mmuflags, void *private);
 void vmm_unmap(void *addr, size_t size, int flags);
 bool vmm_pagefault(void *addr, bool user, int actions);
 vmmcontext_t *vmm_newcontext();
+void vmm_switchcontext(vmmcontext_t *ctx);
 void vmm_init();
 
 #endif
