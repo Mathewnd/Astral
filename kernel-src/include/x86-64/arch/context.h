@@ -4,6 +4,10 @@
 #include <stdint.h>
 #include <printf.h>
 
+#include <arch/msr.h>
+
+typedef uint64_t ctxreg_t;
+
 typedef struct {
         uint64_t cr2;
 	uint64_t gs;
@@ -33,11 +37,48 @@ typedef struct {
 	uint64_t ss;
 } __attribute__((packed)) context_t;
 
-#define CTX_SP(x) x->rsp;
-#define CTX_IP(x) x->rip;
+typedef struct {
+	uint64_t gsbase;
+	uint64_t fsbase;
+} extracontext_t;
+
+#define CTX_INIT(x,u) \
+	if (u) { \
+		(x)->cs = 0x18; \
+		(x)->ds = (x)->es = (x)->ss = 0x20; \
+	} else { \
+		(x)->cs = 0x8; \
+		(x)->ds = (x)->es = (x)->ss = 0x10; \
+	} \
+	(x)->rflags = 0x200;
+
+#define CTX_SP(x) (x)->rsp
+#define CTX_IP(x) (x)->rip
 #define PRINT_CTX(x) { \
 	printf("cr2: %016lx  gs: %04x\nrax: %016lx  fs: %04x\nrbx: %016lx  es: %04x\nrcx: %016lx  ds: %04x\nrdx: %016lx  cs: %04x\n r8: %016lx  ss: %04x\n r9: %016lx r10: %016lx\nr11: %016lx r12: %016lx\nr13: %016lx r14: %016lx\nr15: %016lx rdi: %016lx\nrsi: %016lx rbp: %016lx\nrip: %016lx rsp: %016lx\nerr: %016lx rfl: %016lx\n", \
 	x->cr2, x->gs, x->rax, x->fs, x->rbx, x->es, x->rcx, x->ds, x->rdx, x->cs, x->r8, x->ss, x->r9, x->r10, x->r11, x->r12, x->r13, x->r14, x->r15, x->rdi, x->rsi, x->rbp, x->rip, x->rsp, x->error, x->rflags); \
 }
+
+void arch_context_switch(context_t *context);
+void arch_context_saveandcall(void (*fn)(context_t *context));
+
+#include <string.h>
+
+// kernelgsbase is set as user because they'll be swapped in the context switch
+// TODO FPU stuff on all context macros
+#define ARCH_CONTEXT_SWITCHTHREAD(x) \
+	_cpu()->ist.rsp0 = (uint64_t)(x)->kernelstacktop; \
+	wrmsr(MSR_KERNELGSBASE, (x)->extracontext.gsbase); \
+	wrmsr(MSR_FSBASE, (x)->extracontext.fsbase); \
+	arch_context_switch(&thread->context);
+
+#define ARCH_CONTEXT_THREADSAVE(t, c) \
+	memcpy(&(t)->context, c, sizeof(context_t));
+
+#define ARCH_CONTEXT_THREADLOAD(t, c) \
+	memcpy(c, &(t)->context, sizeof(context_t)); \
+	_cpu()->ist.rsp0 = (uint64_t)(t)->kernelstacktop; \
+	wrmsr(MSR_KERNELGSBASE, (t)->extracontext.gsbase); \
+	wrmsr(MSR_FSBASE, (t)->extracontext.fsbase);
 
 #endif
