@@ -6,14 +6,16 @@
 
 void interrupt_isr(int vec, context_t *ctx) {
 	isr_t *isr = &_cpu()->isr[vec];
+	_cpu()->intstatus = false;
+
 	if (isr->func == NULL)
 		_panic("Unregistered interrupt", ctx);
 
 	if (_cpu()->ipl > isr->priority) {
 		long oldipl = interrupt_setipl(isr->priority);
-		bool oldint = _cpu()->intstatus;
+
 		isr->func(isr, ctx);
-		_cpu()->intstatus = oldint;
+
 		interrupt_setipl(oldipl);
 	} else {
 		isr->pending = true;
@@ -21,6 +23,8 @@ void interrupt_isr(int vec, context_t *ctx) {
 
 	if (isr->eoi)
 		isr->eoi(isr);
+
+	// TODO context interrupt checking for struct
 }
 
 void interrupt_register(int vector, void (*func)(isr_t *self, context_t *ctx), void (*eoi)(isr_t *self), long priority) {
