@@ -10,8 +10,9 @@
 #include <kernel/interrupt.h>
 #include <kernel/vmm.h>
 #include <kernel/timer.h>
+#include <kernel/scheduler.h>
 
-typedef struct {
+typedef struct cpu_t {
 	uint64_t gdt[7];
 	ist_t ist;
 	long id;
@@ -21,7 +22,12 @@ typedef struct {
 	timer_t *timer;
 	bool intstatus;
 	long ipl;
+	thread_t *thread;
+	thread_t *idlethread;
+	timerentry_t schedtimerentry;
 } cpu_t;
+
+#define CPU_HALT() asm volatile("hlt")
 
 static inline cpu_t *_cpu() {
 	return (cpu_t *)rdmsr(MSR_GSBASE);

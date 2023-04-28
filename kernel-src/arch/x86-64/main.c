@@ -13,6 +13,7 @@
 #include <arch/apic.h>
 #include <arch/hpet.h>
 #include <kernel/timekeeper.h>
+#include <kernel/scheduler.h>
 
 static cpu_t bsp_cpu;
 
@@ -35,5 +36,6 @@ void kernel_entry() {
 	time_t u = arch_hpet_init();
 	timekeeper_init(arch_hpet_ticks, u);
 	arch_apic_timerinit();
+	sched_init();
 	__assert(!"kernel entry end");
 }
