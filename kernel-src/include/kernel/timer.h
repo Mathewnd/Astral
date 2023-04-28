@@ -4,10 +4,12 @@
 #include <time.h>
 #include <arch/context.h>
 #include <spinlock.h>
+#include <stdbool.h>
 
 typedef struct timerentry_t {
 	struct timerentry_t *next;
 	time_t absolutetick;
+	time_t repeatus;
 	void *private;
 	void (*func)(void *private, context_t* context);
 } timerentry_t;
@@ -16,6 +18,7 @@ typedef struct {
 	spinlock_t lock;
 	time_t ticksperus;
 	time_t tickcurrent;
+	bool running;
 	void (*arm)(time_t);
 	time_t (*stop)();
 	timerentry_t *queue;
