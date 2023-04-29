@@ -75,7 +75,7 @@ void sched_destroyproc(proc_t *proc) {
 	slab_free(processcache, proc);
 }
 
-static thread_t *runqueuenext() {
+static thread_t *runqueuenext(int minprio) {
 	bool intstate = interrupt_set(false);
 
 	thread_t *thread = NULL;
@@ -84,7 +84,7 @@ static thread_t *runqueuenext() {
 		goto leave;
 
 	// TODO use the bitmap for this
-	for (int i = 0; i < RUNQUEUE_COUNT; ++i) {
+	for (int i = 0; i < RUNQUEUE_COUNT && i <= minprio; ++i) {
 		if (runqueue[i].list) {
 			thread = runqueue[i].list;
 			runqueue[i].list = thread->next;
@@ -112,6 +112,7 @@ static __attribute__((noreturn)) void switchthread(thread_t *thread) {
 	if(current == NULL || thread->vmmctx != current->vmmctx)
 		vmm_switchcontext(thread->vmmctx);
 
+	_cpu()->intstatus = ARCH_CONTEXT_INTSTATUS(&thread->context);
 	ARCH_CONTEXT_SWITCHTHREAD(thread);
 
 	__builtin_unreachable();
@@ -153,7 +154,7 @@ __attribute__((noreturn)) void sched_stopcurrentthread() {
 
 	spinlock_acquire(&runqueuelock);
 
-	thread_t *next = runqueuenext();
+	thread_t *next = runqueuenext(0x0fffffff);
 	if (next == NULL)
 		next = _cpu()->idlethread;
 
@@ -202,9 +203,7 @@ static void yield(context_t *context) {
 
 	spinlock_acquire(&runqueuelock);
 
-	thread_t *next = runqueuenext();
-
-	// TODO priority checking and stuff
+	thread_t *next = runqueuenext(thread->priority);
 
 	if (next) {
 		ARCH_CONTEXT_THREADSAVE(thread, context);
@@ -228,9 +227,7 @@ static void timerhook(void *private, context_t *context) {
 
 	spinlock_acquire(&runqueuelock);
 
-	thread_t *next = runqueuenext();
-
-	// TODO priority handling here
+	thread_t *next = runqueuenext(current->priority);
 
 	if (next) {
 		current->flags &= ~SCHED_THREAD_FLAGS_RUNNING;
