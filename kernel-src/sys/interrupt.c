@@ -15,6 +15,7 @@ void interrupt_isr(int vec, context_t *ctx) {
 		long oldipl = interrupt_setipl(isr->priority);
 
 		isr->func(isr, ctx);
+		interrupt_set(false);
 
 		interrupt_setipl(oldipl);
 	} else {
@@ -24,7 +25,7 @@ void interrupt_isr(int vec, context_t *ctx) {
 	if (isr->eoi)
 		isr->eoi(isr);
 
-	// TODO context interrupt checking for struct
+	_cpu()->intstatus = ARCH_CONTEXT_INTSTATUS(ctx);
 }
 
 void interrupt_register(int vector, void (*func)(isr_t *self, context_t *ctx), void (*eoi)(isr_t *self), long priority) {
