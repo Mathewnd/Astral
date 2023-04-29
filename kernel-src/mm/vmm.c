@@ -61,6 +61,19 @@ static vmmrange_t *allocrange() {
 	return range;
 }
 
+static void freerange(vmmrange_t *range) {
+	vmmcache_t *cache = (vmmcache_t *)ROUND_DOWN((uintptr_t)range, PAGE_SIZE);
+	spinlock_acquire(&cache->header.lock);
+
+	int rangeoffset = ((uintptr_t)range - (uintptr_t)cache->ranges) / sizeof(vmmrange_t);
+	range->size = 0;
+	++cache->header.freecount;
+	if (cache->header.firstfree > rangeoffset)
+		cache->header.firstfree = rangeoffset;
+
+	spinlock_release(&cache->header.lock);
+}
+
 // ranges are separated into kernel and user. the kernel has a temporary user context
 vmmcontext_t vmm_kernelctx;
 static vmmspace_t kernelspace = {
@@ -129,9 +142,9 @@ static void *getfreerange(vmmspace_t *space, void *addr, size_t size) {
 }
 
 static void insertrange(vmmspace_t *space, vmmrange_t *newrange) {
-	// TODO better handle fragmentation
 	vmmrange_t *range = space->ranges;
 
+	// space has no other ranges
 	if (range == NULL) {
 		space->ranges = newrange;
 		newrange->next = NULL;
@@ -139,26 +152,46 @@ static void insertrange(vmmspace_t *space, vmmrange_t *newrange) {
 		return;
 	}
 
-	if (RANGE_TOP(newrange) <= range->start) {
+	void *newrangetop = RANGE_TOP(newrange);
+
+	// range is before the first space range
+	if (newrangetop <= range->start) {
 		space->ranges = newrange;
 		newrange->next = range;
 		range->prev = newrange;
-		return;
+		goto fragcheck;
 	}
 
 	while (range->next) {
-		if (newrange->start >= RANGE_TOP(range) && newrange->start < range->next->start) {
+		if (newrange->start >= RANGE_TOP(range) && newrange->start < range->next->start) { // space inbetween two other ranges
 			newrange->next = range->next;
 			newrange->prev = range;
 			range->next = newrange;
-			return;
+			goto fragcheck;
 		}
 		range = range->next;
 	}
 
+	// space after the second range
 	range->next = newrange;
 	newrange->prev = range;
 	newrange->next = NULL;
+
+	fragcheck:
+	// TODO range type specific stuff
+	if (newrange->next && newrange->next->start == newrangetop && newrange->flags == newrange->next->flags) {
+		vmmrange_t *oldrange = newrange->next;
+		newrange->size += oldrange->size;
+		newrange->next = oldrange->next;
+		freerange(oldrange);
+	}
+
+	if (newrange->prev && RANGE_TOP(newrange->prev) == newrange->start && newrange->flags == newrange->prev->flags) {
+		vmmrange_t *oldrange = newrange->prev;
+		oldrange->size += newrange->size;
+		oldrange->next = newrange->next;
+		freerange(newrange);
+	}
 }
 
 static void destroyrange(vmmrange_t *range, uintmax_t _offset, size_t size) {
@@ -182,7 +215,6 @@ static void unmap(vmmspace_t *space, void *address, size_t size) {
 		void *rangetop = RANGE_TOP(range);
 		// completely unmapped
 		if (range->start >= address && rangetop <= top) {
-			// TODO unallocate entry
 			if (range->prev)
 				range->prev->next = range->next;
 			else
@@ -192,6 +224,7 @@ static void unmap(vmmspace_t *space, void *address, size_t size) {
 				range->next->prev = range->prev;
 
 			destroyrange(range, 0, range->size);
+			freerange(range);
 		} else if (address > range->start && top < rangetop) { // split
 			vmmrange_t *new = allocrange();
 			__assert(new); // XXX deal with this better
@@ -288,13 +321,14 @@ void *vmm_map(void *addr, volatile size_t size, int flags, mmuflags_t mmuflags, 
 		return NULL;
 
 	spinlock_acquire(&space->lock);
+	vmmrange_t *range = NULL;
 
 	void *start = getfreerange(space, addr, size);
 	void *retaddr = NULL;
 	if (((flags & VMM_FLAGS_EXACT) && start != addr) || start == NULL)
 		goto cleanup;
 
-	vmmrange_t *range = allocrange();
+	range = allocrange();
 	if (range == NULL)
 		goto cleanup;
 
@@ -341,9 +375,9 @@ void *vmm_map(void *addr, volatile size_t size, int flags, mmuflags_t mmuflags, 
 	retaddr = start;
 
 	cleanup:
-	if (start == NULL && range) {
-		// TODO free range
-	}
+	if (start == NULL && range)
+		freerange(range);
+
 	spinlock_release(&space->lock);
 	return retaddr;
 }
