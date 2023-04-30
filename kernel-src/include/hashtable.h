@@ -26,7 +26,7 @@ int hashtable_remove(hashtable_t *table, void *key, size_t keysize);
 int hashtable_destroy(hashtable_t *table);
 
 #define HASHTABLE_FOREACH(table) \
-	for (uintmax_t toffset = 0; toffset < table->capacity; ++toffset) \
-		for (hashentry_t *entry = table->entries[toffset]; entry != NULL; entry = entry->next)
+	for (uintmax_t toffset = 0; toffset < (table)->capacity; ++toffset) \
+		for (hashentry_t *entry = (table)->entries[toffset]; entry != NULL; entry = entry->next)
 
 #endif
