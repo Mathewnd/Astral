@@ -384,6 +384,7 @@ static tmpfsnode_t *newnode(vfs_t *vfs, int type) {
 
 	memset(&node->attr, 0, sizeof(vattr_t));
 	node->attr.type = type;
+	node->attr.inode = ((tmpfs_t *)vfs)->inodenumber++;
 	node->vnode.type = type;
 	node->vnode.refcount = 1;
 	SPINLOCK_INIT(node->vnode.lock);
