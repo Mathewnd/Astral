@@ -63,6 +63,7 @@ int hashtable_set(hashtable_t *table, void *value, void *key, size_t keysize, bo
 		entry->keysize = keysize;
 		entry->hash = hash;
 		table->entries[tableoffset] = entry;
+		++table->entrycount;
 		return 0;
 	}
 
@@ -97,6 +98,7 @@ int hashtable_remove(hashtable_t *table, void *key, size_t keysize) {
 
 	free(entry->key);
 	slab_free(hashentrycache, entry);
+	--table->entrycount;
 
 	return 0;
 }

@@ -15,6 +15,7 @@ typedef struct hashentry_t {
 } hashentry_t;
 
 typedef struct {
+	size_t entrycount;
 	size_t capacity;
 	hashentry_t **entries;
 } hashtable_t;
