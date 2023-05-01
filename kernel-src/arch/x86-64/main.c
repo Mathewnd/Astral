@@ -15,6 +15,7 @@
 #include <kernel/timekeeper.h>
 #include <kernel/scheduler.h>
 #include <kernel/vfs.h>
+#include <kernel/tmpfs.h>
 
 static cpu_t bsp_cpu;
 
@@ -39,5 +40,8 @@ void kernel_entry() {
 	arch_apic_timerinit();
 	sched_init();
 	vfs_init();
+	tmpfs_init();
+	printf("mounting tmpfs on /\n");
+	__assert(vfs_mount(NULL, vfsroot, "/", "tmpfs", NULL) == 0);
 	__assert(!"kernel entry end");
 }
