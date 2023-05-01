@@ -300,7 +300,7 @@ int vfs_lookup(vnode_t **result, vnode_t *start, char *path, char *lastcomp, int
 		}
 
 		// dereference symlink
-		if (next->type == V_TYPE_LINK) {
+		if (next->type == V_TYPE_LINK && (islast == false || (islast == true && (flags & VFS_LOOKUP_NOLINK) == 0))) {
 			// get path
 			char *linkderef;
 			VOP_LOCK(next);
