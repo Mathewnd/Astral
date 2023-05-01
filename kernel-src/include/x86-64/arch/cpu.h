@@ -6,7 +6,6 @@
 
 #include <arch/msr.h>
 #include <arch/ist.h>
-#include <arch/archint.h>
 #include <kernel/interrupt.h>
 #include <kernel/vmm.h>
 #include <kernel/timer.h>
