@@ -153,12 +153,25 @@ static int tmpfs_create(vnode_t *parent, char *name, vattr_t *attr, int type, vn
 		return error; 
 	}
 
+	// if a dir, create the .. entry (the . entry is already made in newnode() if it has the dir type)
+	if (type == V_TYPE_DIR) {
+		error = hashtable_set(&tmpnode->children, parenttmpnode, "..", 2, true);
+		if (error) {
+			VOP_RELEASE(node);
+			return error;
+		}
+	}
+
 	error = hashtable_set(&parenttmpnode->children, tmpnode, name, namelen, true);
 
 	if (error) {
 		VOP_RELEASE(node);
 		return error;
 	}
+
+	// hold the .. reference (done here to reduce cleanup)
+	if (type == V_TYPE_DIR)
+		VOP_HOLD(parent);
 
 	*result = node;
 	VOP_HOLD(node);
@@ -357,8 +370,16 @@ static tmpfsnode_t *newnode(vfs_t *vfs, int type) {
 		return NULL;
 
 	if (type == V_TYPE_DIR) {
-		if (hashtable_init(&node->children, 32))
+		if (hashtable_init(&node->children, 32)) {
+			slab_free(nodecache, node);
 			return NULL;
+		}
+
+		if (hashtable_set(&node->children, node, ".", 1, true)) {
+			hashtable_destroy(&node->children);
+			slab_free(nodecache, node);
+			return NULL;
+		}
 	}
 
 	memset(&node->attr, 0, sizeof(vattr_t));
@@ -379,7 +400,13 @@ static void freenode(tmpfsnode_t *node) {
 				free(node->link);
 			break;
 		case V_TYPE_DIR:
-			__assert(hashtable_destroy(&node->children));
+			__assert(node->children.entrycount == 2); // assert that it only has the dot entries
+			// remove refcount of the .. dir
+			void *r = NULL;
+			__assert(hashtable_get(&node->children, &r, "..", 2) == 0);
+			vnode_t *pnode = r;
+			VOP_RELEASE(pnode);
+			__assert(hashtable_destroy(&node->children) == 0);
 			break;
 		case V_TYPE_REGULAR:
 			vmm_unmap(node->data, node->pagecount, VMM_FLAGS_PAGESIZE);
