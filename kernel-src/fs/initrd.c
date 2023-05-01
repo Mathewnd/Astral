@@ -159,11 +159,7 @@ void initrd_unpack() {
 				VOP_RELEASE(node);
 				break;
 			case TAR_DIR:
-				err = vfs_create(vfsroot, entry.name, &entryattr, V_TYPE_DIR, &node);
-				if (err)
-					break;
-
-				VOP_RELEASE(node);
+				err = vfs_create(vfsroot, entry.name, &entryattr, V_TYPE_DIR, NULL);
 				break;
 			case TAR_SYMLINK:
 				err = vfs_link(NULL, entry.link, vfsroot, entry.name, V_TYPE_LINK, &entryattr);

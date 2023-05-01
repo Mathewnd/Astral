@@ -25,7 +25,8 @@ typedef struct {
 	timespec_t atime;
 	timespec_t mtime;
 	timespec_t ctime;
-	int rdev;
+	int rdevmajor;
+	int rdevminor;
 	size_t blocksused;
 } vattr_t;
 

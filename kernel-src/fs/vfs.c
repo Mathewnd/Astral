@@ -93,6 +93,7 @@ int vfs_open(vnode_t *ref, char *path, int flags, vnode_t **res) {
 	return err;
 }
 
+// if node is not NULL, then a reference is kept and the newnode is returned in node
 int vfs_create(vnode_t *ref, char *path, vattr_t *attr, int type, vnode_t **node) {
 	vnode_t *parent;
 	char *component = alloc(strlen(path) + 1);
@@ -100,10 +101,18 @@ int vfs_create(vnode_t *ref, char *path, vattr_t *attr, int type, vnode_t **node
 	if (err)
 		goto cleanup;
 
+	vnode_t *ret;
 	VOP_LOCK(parent);
-	err = VOP_CREATE(parent, component, attr, type, node, getcred());
+	err = VOP_CREATE(parent, component, attr, type, &ret, getcred());
 	VOP_UNLOCK(parent);
 	VOP_RELEASE(parent);
+	if (err)
+		goto cleanup;
+
+	if (node)
+		*node = ret;
+	else
+		VOP_RELEASE(ret);
 
 	cleanup:
 	free(component);
