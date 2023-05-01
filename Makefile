@@ -3,8 +3,10 @@ ISO=astral.iso
 LIMINEDIR=$(shell pwd)/host-pkgs/limine/usr/local/share/limine/
 KERNEL=$(shell pwd)/pkgs/astral/boot/astral
 QEMUFLAGS=-cdrom $(ISO) -m 2G -smp cpus=2 -no-shutdown -no-reboot -monitor stdio -debugcon file:/dev/stdout -serial file:/dev/stdout # hacky but works :')
+INITRD=$(shell pwd)/iso/initrd
+DISTROTYPE=full
 
-.PHONY: all kernel clean clean-kernel iso
+.PHONY: all kernel clean clean-kernel iso initrd full minimal
 
 all: jinx
 	make kernel
@@ -15,10 +17,21 @@ jinx:
 	curl https://raw.githubusercontent.com/mintsuki/jinx/trunk/jinx > jinx
 	chmod +x jinx
 
-$(ISO): limine.cfg liminebg.bmp $(KERNEL)
+$(ISO): limine.cfg liminebg.bmp $(KERNEL) initrd
 	mkdir -p $(ISODIR)
 	cp $(KERNEL) liminebg.bmp limine.cfg $(LIMINEDIR)/limine.sys $(LIMINEDIR)/limine-cd.bin $(LIMINEDIR)/limine-cd-efi.bin $(ISODIR)
 	xorriso -as mkisofs -b limine-cd.bin -no-emul-boot -boot-load-size 4 -boot-info-table --efi-boot limine-cd-efi.bin -efi-boot-part --efi-boot-image --protective-msdos-label $(ISODIR) -o $(ISO)
+
+initrd:
+	make $(DISTROTYPE)
+
+full:
+	./jinx sysroot
+	cd sysroot; tar -cf $(INITRD) *
+
+minimal:
+	./jinx install minimalsysroot mlibc
+	cd minimalsysroot; tar -cf $(INITRD) *
 
 kernel:
 	rm -f builds/astral.configured
