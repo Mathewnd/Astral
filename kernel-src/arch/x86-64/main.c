@@ -16,6 +16,7 @@
 #include <kernel/scheduler.h>
 #include <kernel/vfs.h>
 #include <kernel/tmpfs.h>
+#include <kernel/initrd.h>
 
 static cpu_t bsp_cpu;
 
@@ -43,5 +44,6 @@ void kernel_entry() {
 	tmpfs_init();
 	printf("mounting tmpfs on /\n");
 	__assert(vfs_mount(NULL, vfsroot, "/", "tmpfs", NULL) == 0);
+	initrd_unpack();
 	__assert(!"kernel entry end");
 }
