@@ -3,15 +3,11 @@
 
 #include <arch/context.h>
 #include <kernel/vmm.h>
+#include <kernel/abi.h>
+#include <kernel/vfs.h>
 
 #define SCHED_THREAD_FLAGS_QUEUED 1
 #define SCHED_THREAD_FLAGS_RUNNING 2
-
-typedef int pid_t;
-typedef int tid_t;
-typedef int gid_t;
-typedef int uid_t;
-typedef unsigned int mode_t;
 
 struct proc_t;
 
@@ -37,13 +33,14 @@ typedef struct proc_t {
 	struct proc_t *parent;
 	struct proc_t *child;
 	pid_t pid;
-	gid_t gid;
-	uid_t uid;
+	cred_t cred;
 	thread_t **threads;
 	size_t threadtablesize;
 	size_t runningthreadcount;
 	mode_t umask;
 	int flags;
+	vnode_t *cwd;
+	vnode_t *root;
 } proc_t;
 
 #include <arch/cpu.h>
