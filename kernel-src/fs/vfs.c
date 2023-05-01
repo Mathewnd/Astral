@@ -256,6 +256,13 @@ int vfs_lookup(vnode_t **result, vnode_t *start, char *path, char *lastcomp, int
 		size_t complen = strlen(component);
 		bool islast = i + complen == pathlen;
 
+		// check if its last with trailing '/' (or '\0's in this case, as '/'s were turned into '\0's in the buffer)
+		if (!islast) {
+			int j;
+			for (j = i + complen; j < pathlen && compbuffer[j] == '\0'; ++j);
+			islast = j == pathlen;
+		}
+
 		if (islast && (flags & VFS_LOOKUP_PARENT)) {
 			strcpy(lastcomp, component);
 			break;

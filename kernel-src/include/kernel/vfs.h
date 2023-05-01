@@ -130,6 +130,8 @@ int vfs_close(vnode_t *node, int flags);
 int vfs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t *written, int flags);
 int vfs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t *bytesread, int flags);
 int vfs_create(vnode_t *ref, char *path, vattr_t *attr, int type, vnode_t **node);
+int vfs_link(vnode_t *destref, char *destpath, vnode_t *linkref, char *linkpath, int type, vattr_t *attr);
+int vfs_unlink(vnode_t *ref, char *path);
 
 #define VFS_LOOKUP_PARENT 1
 #define VFS_LOOKUP_NOLINK 2
