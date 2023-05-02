@@ -173,6 +173,7 @@ static int tmpfs_create(vnode_t *parent, char *name, vattr_t *attr, int type, vn
 	if (type == V_TYPE_DIR)
 		VOP_HOLD(parent);
 
+	node->vfs = parent->vfs;
 	*result = node;
 	VOP_HOLD(node);
 
@@ -384,7 +385,7 @@ static tmpfsnode_t *newnode(vfs_t *vfs, int type) {
 
 	memset(&node->attr, 0, sizeof(vattr_t));
 	node->attr.type = type;
-	node->attr.inode = ((tmpfs_t *)vfs)->inodenumber++;
+	node->attr.inode = ++((tmpfs_t *)vfs)->inodenumber;
 	node->vnode.type = type;
 	node->vnode.refcount = 1;
 	SPINLOCK_INIT(node->vnode.lock);
