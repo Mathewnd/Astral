@@ -17,6 +17,7 @@
 #include <kernel/vfs.h>
 #include <kernel/tmpfs.h>
 #include <kernel/initrd.h>
+#include <kernel/devfs.h>
 
 static cpu_t bsp_cpu;
 
@@ -42,8 +43,17 @@ void kernel_entry() {
 	sched_init();
 	vfs_init();
 	tmpfs_init();
+	devfs_init();
 	printf("mounting tmpfs on /\n");
 	__assert(vfs_mount(NULL, vfsroot, "/", "tmpfs", NULL) == 0);
 	initrd_unpack();
+
+	vattr_t attr = {0};
+	attr.mode = 0644;
+	__assert(vfs_create(vfsroot, "/dev", &attr, V_TYPE_DIR, NULL) == 0);
+
+	printf("mounting devfs on /dev\n");
+	__assert(vfs_mount(NULL, vfsroot, "/dev", "devfs", NULL) == 0);
+
 	__assert(!"kernel entry end");
 }
