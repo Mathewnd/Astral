@@ -7,6 +7,7 @@
 #include <kernel/vmm.h>
 #include <util.h>
 #include <kernel/abi.h>
+#include <kernel/devfs.h>
 
 static scache_t *nodecache;
 static tmpfsnode_t *newnode(vfs_t *vfs, int type);
@@ -180,7 +181,23 @@ static int tmpfs_create(vnode_t *parent, char *name, vattr_t *attr, int type, vn
 	return error;
 }
 
-static int tmpfs_open(vnode_t **node, int flag, cred_t *cred) {
+static int tmpfs_open(vnode_t **nodep, int flag, cred_t *cred) {
+	vnode_t *node = *nodep;
+	tmpfsnode_t *tmpnode = (tmpfsnode_t *)node;
+
+	if (node->type == V_TYPE_CHDEV || node->type == V_TYPE_BLKDEV) {
+		vnode_t *devnode;
+		int err = devfs_getnode(node, tmpnode->attr.rdevmajor, tmpnode->attr.rdevminor, &devnode);
+		if (err)
+			return err;
+
+		VOP_UNLOCK(node);
+		VOP_RELEASE(node);
+		VOP_HOLD(devnode);
+		VOP_LOCK(devnode);
+		*nodep = devnode; 
+	}
+
 	return 0;
 }
 
