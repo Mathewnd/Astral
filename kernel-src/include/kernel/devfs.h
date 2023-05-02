@@ -3,6 +3,10 @@
 
 #include <kernel/vfs.h>
 
+#define DEV_MAJOR_NULL 1
+#define DEV_MAJOR_FULL 2
+#define DEV_MAJOR_ZERO 3
+
 typedef struct {
 	int (*open)(int minor, int flags);
 	int (*close)(int minor, int flags);

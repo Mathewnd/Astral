@@ -18,6 +18,7 @@
 #include <kernel/tmpfs.h>
 #include <kernel/initrd.h>
 #include <kernel/devfs.h>
+#include <kernel/pseudodevices.h>
 
 static cpu_t bsp_cpu;
 
@@ -54,6 +55,8 @@ void kernel_entry() {
 
 	printf("mounting devfs on /dev\n");
 	__assert(vfs_mount(NULL, vfsroot, "/dev", "devfs", NULL) == 0);
+
+	pseudodevices_init();
 
 	__assert(!"kernel entry end");
 }
