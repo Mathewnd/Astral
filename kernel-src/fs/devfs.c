@@ -86,20 +86,37 @@ int devfs_lookup(vnode_t *node, char *name, vnode_t **result, cred_t *cred) {
 
 int devfs_getattr(vnode_t *node, vattr_t *attr, cred_t *cred) {
 	devnode_t *devnode = (devnode_t *)node;
-	__assert(devnode->physical);
-	VOP_LOCK(devnode->physical);
-	int err = VOP_SETATTR(devnode->physical, attr, cred);
-	VOP_UNLOCK(devnode->physical);
-	return err;
+
+	if (devnode->physical && devnode->physical != node) {
+		VOP_LOCK(devnode->physical);
+		int err = VOP_SETATTR(devnode->physical, attr, cred);
+		VOP_UNLOCK(devnode->physical);
+		return err;
+	}
+
+	*attr = devnode->attr;
+	attr->type = node->type;
+
+	return 0;
 }
 
 int devfs_setattr(vnode_t *node, vattr_t *attr, cred_t *cred) {
 	devnode_t *devnode = (devnode_t *)node;
-	__assert(devnode->physical);
-	VOP_LOCK(devnode->physical);
-	int err = VOP_GETATTR(devnode->physical, attr, cred);
-	VOP_UNLOCK(devnode->physical);
-	return err;
+
+	if (devnode->physical && devnode->physical != node) {
+		VOP_LOCK(devnode->physical);
+		int err = VOP_GETATTR(devnode->physical, attr, cred);
+		VOP_UNLOCK(devnode->physical);
+		return err;
+	}
+
+	devnode->attr.gid = attr->gid;
+	devnode->attr.uid = attr->uid;
+	devnode->attr.mode = attr->mode;
+	devnode->attr.atime = attr->atime;
+	devnode->attr.mtime = attr->mtime;
+	devnode->attr.ctime = attr->ctime;
+	return 0;
 }
 
 int devfs_poll(vnode_t *node, int events) {
@@ -240,7 +257,7 @@ int devfs_register(devops_t *devops, char *name, int type, int major, int minor,
 
 	vnode_t *newvnode = NULL;
 
-	error = vfs_create((vnode_t *)(&devfsroot), name, &attr, type, &newvnode);
+	error = vfs_create((vnode_t *)devfsroot, name, &attr, type, &newvnode);
 	if (error) {
 		spinlock_acquire(&tablelock);
 		__assert(hashtable_remove(&devtable, key, sizeof(key) == 0));
