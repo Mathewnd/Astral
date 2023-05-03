@@ -24,6 +24,7 @@ typedef struct cpu_t {
 	thread_t *thread;
 	thread_t *idlethread;
 	timerentry_t schedtimerentry;
+	void *schedulerstack;
 } cpu_t;
 
 #define CPU_HALT() asm volatile("hlt")

@@ -7,6 +7,7 @@
 #include <kernel/alloc.h>
 
 #define QUANTUM_US 100000
+#define SCHEDULER_STACK_SIZE 4096
 
 static scache_t *threadcache;
 static scache_t *processcache;
@@ -218,7 +219,7 @@ static void yield(context_t *context) {
 
 void sched_yield() {
 	bool old = interrupt_set(false);
-	arch_context_saveandcall(yield);
+	arch_context_saveandcall(yield, _cpu()->schedulerstack);
 	interrupt_set(old);
 }
 
@@ -257,6 +258,10 @@ void sched_init() {
 	__assert(threadcache);
 	processcache = slab_newcache(sizeof(proc_t), 0, NULL, NULL);
 	__assert(processcache);
+
+	_cpu()->schedulerstack = alloc(SCHEDULER_STACK_SIZE);
+	__assert(_cpu()->schedulerstack);
+	_cpu()->schedulerstack = (void *)((uintptr_t)_cpu()->schedulerstack + SCHEDULER_STACK_SIZE);
 
 	_cpu()->schedtimerentry.func = timerhook;
 	_cpu()->schedtimerentry.repeatus = QUANTUM_US;

@@ -34,17 +34,19 @@ arch_context_switch:
 	o64 iret
 
 ; saves context on the stack and passes as the argument to a function
-; since this uses the C system V abi, some registers can be clobbered (in this case, rsi and r11)
+; since this uses the C system V abi, some registers can be clobbered (in this case, r10 and r11)
 ; rdi has the pointer to the function to call
+; rsi has the pointer to the stack the function should have on call
 ; if the main function returns, just return normally
 global arch_context_saveandcall
 arch_context_saveandcall:
 	mov r11, [rsp] 	; save return address on scratch register
-	mov rsi, rsp
-	add rsi, 8 	; stack pointer before the call instruction
+	mov r10, rsp
+	add r10, 8 	; stack pointer before the call instruction
 
+	mov rsp, rsi	; use desired stack
 	push qword 0x10 ; SS
-	push rsi 	; RSP
+	push r10 	; RSP
 	pushf 		; movs and pushes don't affect flags
 	push qword 0x08 ; CS
 	push r11 	; return address
@@ -73,7 +75,7 @@ arch_context_saveandcall:
 
 	mov r11, rdi 	; save function to call
 	mov rdi, rsp 	; first argument is the context struct
-	push rsi     	; save old stack
+	push r10     	; save old stack
 	call r11 	; jump to the desired function
 
 	pop rsp		; restore old stack
