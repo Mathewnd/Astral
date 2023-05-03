@@ -5,6 +5,7 @@
 #include <spinlock.h>
 #include <kernel/vmm.h>
 #include <kernel/alloc.h>
+#include <errno.h>
 
 #define QUANTUM_US 100000
 #define SCHEDULER_STACK_SIZE 4096
@@ -62,6 +63,7 @@ thread_t *sched_newthread(void *ip, size_t kstacksize, int priority, proc_t *pro
 	CTX_INIT(&thread->context, proc != NULL);
 	CTX_SP(&thread->context) = proc ? (ctxreg_t)ustack : (ctxreg_t)thread->kernelstacktop;
 	CTX_IP(&thread->context) = (ctxreg_t)ip;
+	SPINLOCK_INIT(thread->sleeplock);
 
 	return thread;
 }
@@ -114,8 +116,10 @@ static __attribute__((noreturn)) void switchthread(thread_t *thread) {
 		vmm_switchcontext(thread->vmmctx);
 
 	_cpu()->intstatus = ARCH_CONTEXT_INTSTATUS(&thread->context);
+	thread->cpu = _cpu();
+	if (current)
+		current->flags &= ~SCHED_THREAD_FLAGS_RUNNING;
 	ARCH_CONTEXT_SWITCHTHREAD(thread);
-
 	__builtin_unreachable();
 }
 
@@ -204,11 +208,19 @@ static void yield(context_t *context) {
 
 	spinlock_acquire(&runqueuelock);
 
-	thread_t *next = runqueuenext(thread->priority);
+	bool sleeping = thread->flags & SCHED_THREAD_FLAGS_SLEEP;
 
-	if (next) {
+	thread_t *next = runqueuenext(sleeping ? 0x0fffffff : thread->priority);
+
+	if (next || sleeping) {
 		ARCH_CONTEXT_THREADSAVE(thread, context);
-		runqueueinsert(thread);
+		if (sleeping)
+			spinlock_release(&thread->sleeplock);
+		else
+			runqueueinsert(thread);
+
+		if (next == NULL)
+			next = _cpu()->idlethread;
 
 		spinlock_release(&runqueuelock);
 		switchthread(next);
@@ -217,10 +229,36 @@ static void yield(context_t *context) {
 	spinlock_release(&runqueuelock);
 }
 
-void sched_yield() {
-	bool old = interrupt_set(false);
+int sched_yield() {
+	bool sleeping = _cpu()->thread->flags & SCHED_THREAD_FLAGS_SLEEP;
+	bool old = sleeping ? _cpu()->thread->sleepintstatus : interrupt_set(false);
 	arch_context_saveandcall(yield, _cpu()->schedulerstack);
 	interrupt_set(old);
+	return sleeping ? _cpu()->thread->wakeupreason : 0;
+}
+
+void sched_preparesleep(bool interruptible) {
+	_cpu()->thread->sleepintstatus = interrupt_set(false);
+	spinlock_acquire(&_cpu()->thread->sleeplock);
+	_cpu()->thread->flags |= SCHED_THREAD_FLAGS_SLEEP | (interruptible ? SCHED_THREAD_FLAGS_INTERRUPTIBLE : 0);
+}
+
+void sched_wakeup(thread_t *thread, int reason) {
+	bool intstate = interrupt_set(false);
+	spinlock_acquire(&thread->sleeplock);
+
+	if ((thread->flags & SCHED_THREAD_FLAGS_SLEEP) == 0 || (reason == EINTR && (thread->flags & SCHED_THREAD_FLAGS_INTERRUPTIBLE) == 0)) {
+		spinlock_release(&thread->sleeplock);
+		interrupt_set(intstate);
+		return;
+	}
+
+	thread->flags &= ~(SCHED_THREAD_FLAGS_SLEEP | SCHED_THREAD_FLAGS_INTERRUPTIBLE);
+	thread->wakeupreason = reason;
+
+	spinlock_release(&thread->sleeplock);
+	sched_queue(thread);
+	interrupt_set(intstate);
 }
 
 static void timerhook(void *private, context_t *context) {
@@ -240,6 +278,7 @@ static void timerhook(void *private, context_t *context) {
 		if (next->vmmctx != current->vmmctx)
 			vmm_switchcontext(next->vmmctx);
 		next->flags |= SCHED_THREAD_FLAGS_RUNNING;
+		next->cpu = _cpu();
 		_cpu()->thread = next;
 	}
 

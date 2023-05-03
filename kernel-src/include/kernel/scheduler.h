@@ -8,6 +8,8 @@
 
 #define SCHED_THREAD_FLAGS_QUEUED 1
 #define SCHED_THREAD_FLAGS_RUNNING 2
+#define SCHED_THREAD_FLAGS_SLEEP 4
+#define SCHED_THREAD_FLAGS_INTERRUPTIBLE 8
 
 struct proc_t;
 
@@ -25,6 +27,9 @@ typedef struct thread_t {
 	tid_t tid;
 	int flags;
 	long priority;
+	bool sleepintstatus;
+	spinlock_t sleeplock;
+	int wakeupreason;
 } thread_t;
 
 typedef struct proc_t {
@@ -50,7 +55,10 @@ void sched_runinit();
 void sched_threadexit();
 void sched_queue(thread_t *thread);
 void sched_stopcurrentthread();
-void sched_yield();
+int sched_yield();
+void sched_preparesleep(bool interruptible);
+void sched_wakeup(thread_t *thread, int reason);
+int sched_sleep();
 proc_t *sched_newproc();
 thread_t *sched_newthread(void *ip, size_t kstacksize, int priority, proc_t *proc, void *ustack);
 
