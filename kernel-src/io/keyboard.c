@@ -8,6 +8,14 @@
 #define BUFFER_PACKET_CAPACITY 100
 #define BUFFER_SIZE (BUFFER_PACKET_CAPACITY * sizeof(kbpacket_t))
 
+static char asciitable[] = {
+       0, '\033', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '\b', '\t', 'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']', '\n', 0, 'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', '\'', '`', 0, '\\', 'z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '/', 0, '*', 0, ' ', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, '7', '8', '9', '-', '4', '5', '6', '+', '1', '2', '3', '0', '.', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, '\n', 0, '/', 0, 0, '\n', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+};
+
+static char asciitableupper[] = {
+       0, '\033', '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_', '+', '\b', '\t', 'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '{', '}', '\n', 0, 'A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', ':', '\"', '~', 0, '|', 'Z', 'X', 'C', 'V', 'B', 'N', 'M', '<', '>', '?', 0, '*', 0, ' ', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, '7', '8', '9', '-', '4', '5', '6', '+', '1', '2', '3', '0', '.', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, '\n', 0, '/', 0, 0, '\n', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+};
+
 static int currentkbnum;
 keyboard_t *keyboard_console;
 
@@ -32,6 +40,58 @@ static void destroykb(keyboard_t *kb) {
 
 void keyboard_sendpacket(keyboard_t *kb, kbpacket_t *packet) {
 	interrupt_raiseipl(IPL_KEYBOARD);
+	switch (packet->keycode) {
+		case KEYCODE_LEFTCTRL:
+			if (packet->flags & KBPACKET_FLAGS_RELEASED)
+				kb->flags &= ~KBPACKET_FLAGS_LEFTCTRL;
+			else
+				kb->flags |= KBPACKET_FLAGS_LEFTCTRL;
+			break;
+		case KEYCODE_RIGHTCTRL:
+			if (packet->flags & KBPACKET_FLAGS_RELEASED)
+                                kb->flags &= ~KBPACKET_FLAGS_RIGHTCTRL;
+                        else
+				kb->flags |= KBPACKET_FLAGS_RIGHTCTRL;
+			break;
+		case KEYCODE_CAPSLOCK:
+			if (packet->flags & KBPACKET_FLAGS_RELEASED)
+                                kb->flags &= ~KBPACKET_FLAGS_CAPSLOCK;
+                        else
+				kb->flags |= KBPACKET_FLAGS_CAPSLOCK;
+			break;
+		case KEYCODE_LEFTALT:
+			if (packet->flags & KBPACKET_FLAGS_RELEASED)
+                                kb->flags &= ~KBPACKET_FLAGS_LEFTALT;
+                        else
+				kb->flags |= KBPACKET_FLAGS_LEFTALT;
+			break;
+		case KEYCODE_RIGHTALT:
+			if (packet->flags & KBPACKET_FLAGS_RELEASED)
+                                kb->flags &= ~KBPACKET_FLAGS_RIGHTALT;
+                        else
+				kb->flags |= KBPACKET_FLAGS_RIGHTALT;
+			break;
+		case KEYCODE_LEFTSHIFT:
+			if (packet->flags & KBPACKET_FLAGS_RELEASED)
+                                kb->flags &= ~KBPACKET_FLAGS_LEFTSHIFT;
+                        else
+				kb->flags |= KBPACKET_FLAGS_LEFTSHIFT;
+			break;
+		case KEYCODE_RIGHTSHIFT:
+			if (packet->flags & KBPACKET_FLAGS_RELEASED)
+                                kb->flags &= ~KBPACKET_FLAGS_RIGHTSHIFT;
+                        else
+				kb->flags |= KBPACKET_FLAGS_RIGHTSHIFT;
+			break;
+	}
+
+	packet->flags |= kb->flags;
+	char* table = asciitable;
+
+	if ((packet->flags & KBPACKET_FLAGS_LEFTSHIFT) || (packet->flags & KBPACKET_FLAGS_RIGHTSHIFT))
+		table = asciitableupper;
+
+	packet->ascii = table[packet->keycode];
 
 	if (ringbuffer_write(&kb->packetbuffer, packet, sizeof(kbpacket_t)) != 0)
 		semaphore_signal(&kb->semaphore);
