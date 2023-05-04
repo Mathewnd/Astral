@@ -1,5 +1,6 @@
 #include <arch/ps2.h>
 #include <printf.h>
+#include <arch/ps2kbd.h>
 
 static bool reset_selftest(int port) {
 	uint8_t r = RESEND;
@@ -60,7 +61,14 @@ void arch_ps2_init() {
 	else
 		write_command(CTLR_CMD_DISABLEP2); // disable second port again
 
+	// self test ports
 	int workingflag = 0;
+
+	write_command(CTLR_CMD_P1SELFTEST);
+	if (read_data() == 0)
+		workingflag |= 1;
+	else
+		printf("First PS/2 port self test failed!\n");
 
 	if (dualport) {
 		write_command(CTLR_CMD_P2SELFTEST);
@@ -77,8 +85,9 @@ void arch_ps2_init() {
 
 	printf("ps2: controller with %d ports\n", dualport ? 2 : 1);
 
-	write_command(CTLR_CMD_ENABLEP1);
+	// enable ports
 
+	write_command(CTLR_CMD_ENABLEP1);
 	if (dualport)
 		write_command(CTLR_CMD_ENABLEP2);
 
@@ -101,4 +110,8 @@ void arch_ps2_init() {
 
 	if (workingflag & 2 && reset_selftest(2))
 		connectedflag |= 2;
+
+	// XXX should id each one for proper identification
+	if (connectedflag & 1)
+		ps2kbd_init();
 }
