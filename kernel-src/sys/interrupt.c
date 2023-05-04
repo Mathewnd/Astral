@@ -12,12 +12,12 @@ void interrupt_isr(int vec, context_t *ctx) {
 		_panic("Unregistered interrupt", ctx);
 
 	if (_cpu()->ipl > isr->priority) {
-		long oldipl = interrupt_setipl(isr->priority);
+		long oldipl = interrupt_raiseipl(isr->priority);
 
 		isr->func(isr, ctx);
 		interrupt_set(false);
 
-		interrupt_setipl(oldipl);
+		interrupt_loweripl(oldipl);
 	} else {
 		isr->pending = true;
 	}
@@ -51,14 +51,24 @@ isr_t *interrupt_allocate(void (*func)(isr_t *self, context_t *ctx), void (*eoi)
 	return isr;
 }
 
-long interrupt_setipl(long ipl) {
+long interrupt_loweripl(long ipl) {
 	bool oldintstatus = interrupt_set(false);
 	long oldipl = _cpu()->ipl;
-	_cpu()->ipl = ipl;
+	if (oldipl > ipl)
+		_cpu()->ipl = ipl;
 	interrupt_set(oldintstatus);
 
 	// TODO do pending interrupts
 
+	return oldipl;
+}
+
+long interrupt_raiseipl(long ipl) {
+	bool oldintstatus = interrupt_set(false);
+	long oldipl = _cpu()->ipl;
+	if (oldipl < ipl)
+		_cpu()->ipl = ipl;
+	interrupt_set(oldintstatus);
 	return oldipl;
 }
 

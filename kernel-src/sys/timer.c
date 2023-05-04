@@ -69,18 +69,18 @@ void timer_resume(timer_t *timer) {
 }
 
 void timer_stop(timer_t *timer) {
-	long oldipl = interrupt_setipl(IPL_TIMER);
+	long oldipl = interrupt_raiseipl(IPL_TIMER);
 	spinlock_acquire(&timer->lock);
 
 	timer->tickcurrent += timer->stop(timer);
 	timer->running = false;
 
 	spinlock_release(&timer->lock);
-	interrupt_setipl(oldipl);
+	interrupt_loweripl(oldipl);
 }
 
 void timer_insert(timer_t *timer, timerentry_t* entry, time_t us) {
-	long oldipl = interrupt_setipl(IPL_TIMER);
+	long oldipl = interrupt_raiseipl(IPL_TIMER);
 	spinlock_acquire(&timer->lock);
 
 	if (timer->running)
@@ -95,7 +95,7 @@ void timer_insert(timer_t *timer, timerentry_t* entry, time_t us) {
 	}
 
 	spinlock_release(&timer->lock);
-	interrupt_setipl(oldipl);
+	interrupt_loweripl(oldipl);
 }
 
 timer_t *timer_new(time_t ticksperus, void (*arm)(time_t), time_t (*stop)()) {

@@ -11,10 +11,11 @@
 	#error Unsupported architecture!
 #endif
 
-#define IPL_MAX  -1
-#define IPL_NONE 0
+#define IPL_EXCEPT  -1
+#define IPL_MAX 0
 #define IPL_TIMER 1
-#define IPL_BASE 1000
+#define IPL_KEYBOARD 2
+#define IPL_NORMAL 1000
 
 struct _isr_t;
 typedef struct _isr_t {
@@ -27,7 +28,8 @@ typedef struct _isr_t {
 
 void interrupt_register(int vector, void (*func)(isr_t *self, context_t *ctx), void (*eoi)(isr_t *self), long priority);
 isr_t *interrupt_allocate(void (*func)(isr_t *self, context_t *ctx), void (*eoi)(isr_t *self), long priority);
-long interrupt_setipl(long newipl);
+long interrupt_loweripl(long newipl);
+long interrupt_raiseipl(long ipl);
 bool interrupt_set(bool status);
 
 #endif
