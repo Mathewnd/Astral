@@ -16,9 +16,10 @@ typedef struct {
 } semaphore_t;
 
 #define SEMAPHORE_INIT(x, v) { \
-		(x)->val = v; \
+		(x)->i = v; \
 		SPINLOCK_INIT((x)->lock); \
-		(x)->list = NULL; \
+		(x)->tail = NULL; \
+		(x)->head = NULL; \
 	}
 
 int semaphore_wait(semaphore_t *sem, bool interruptible);
