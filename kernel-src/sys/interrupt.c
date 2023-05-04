@@ -54,7 +54,7 @@ isr_t *interrupt_allocate(void (*func)(isr_t *self, context_t *ctx), void (*eoi)
 long interrupt_loweripl(long ipl) {
 	bool oldintstatus = interrupt_set(false);
 	long oldipl = _cpu()->ipl;
-	if (oldipl > ipl)
+	if (oldipl < ipl)
 		_cpu()->ipl = ipl;
 	interrupt_set(oldintstatus);
 
@@ -66,7 +66,7 @@ long interrupt_loweripl(long ipl) {
 long interrupt_raiseipl(long ipl) {
 	bool oldintstatus = interrupt_set(false);
 	long oldipl = _cpu()->ipl;
-	if (oldipl < ipl)
+	if (oldipl > ipl)
 		_cpu()->ipl = ipl;
 	interrupt_set(oldintstatus);
 	return oldipl;
