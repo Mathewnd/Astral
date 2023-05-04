@@ -66,6 +66,14 @@ typedef struct {
 } __attribute__((packed)) lapicnmientry_t;
 
 typedef struct {
+	listheader_t header;
+	uint8_t bus;
+	uint8_t irq;
+	uint32_t gsi;
+	uint16_t flags;
+} __attribute__((packed)) ioapicoverride_t;
+
+typedef struct {
 	void *addr;
 	int base;
 	int top;
@@ -82,6 +90,14 @@ static size_t overridecount;
 static size_t iocount;
 static size_t lapiccount;
 static size_t lapicnmicount;
+
+static ioapicdesc_t *ioapicfromgsi(int gsi) {
+	for (int i = 0; i < iocount; ++i) {
+		if (ioapics[i].base <= gsi && ioapics[i].top > gsi)
+			return &ioapics[i];
+	}
+	return NULL;
+}
 
 static inline listheader_t *getnext(listheader_t *header) {
 	uintptr_t ptr = (uintptr_t)header;
@@ -147,6 +163,27 @@ static void writeiored(void *ioapic, uint8_t entry, uint8_t vector, uint8_t deli
 
 	writeioapic(ioapic, 0x10 + entry * 2, val);
 	writeioapic(ioapic, 0x11 + entry * 2, (uint32_t)dest << 24);
+}
+
+void arch_ioapic_setirq(uint8_t irq, uint8_t vector, uint8_t proc, bool masked) {
+	// default settings for ISA irqs
+	uint8_t polarity = 1; // active high
+	uint8_t trigger  = 0; // edge triggered
+	for (uintmax_t i = 0; i < overridecount; ++i) {
+		ioapicoverride_t *override = getentry(ACPI_MADT_TYPE_OVERRIDE, i);
+		if (override->irq != irq)
+			continue;
+
+		polarity = override->flags & 2 ? 1 : 0; // active low
+		trigger  = override->flags & 8 ? 1 : 0; // level triggered
+		irq = override->irq;
+		break;
+	}
+
+	ioapicdesc_t* ioapic = ioapicfromgsi(irq);
+	__assert(ioapic);
+	irq = irq - ioapic->base;
+	writeiored(ioapic->addr, irq, vector, 0, 0, polarity, trigger, masked ? 1 : 0, proc);
 }
 
 static void spurious(isr_t *self, context_t *ctx) {
