@@ -19,6 +19,7 @@
 #include <kernel/initrd.h>
 #include <kernel/devfs.h>
 #include <kernel/pseudodevices.h>
+#include <arch/ps2.h>
 
 static cpu_t bsp_cpu;
 
@@ -57,6 +58,8 @@ void kernel_entry() {
 	__assert(vfs_mount(NULL, vfsroot, "/dev", "devfs", NULL) == 0);
 
 	pseudodevices_init();
+
+	arch_ps2_init();
 
 	__assert(!"kernel entry end");
 }
