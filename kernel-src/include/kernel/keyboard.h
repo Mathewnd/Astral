@@ -134,7 +134,7 @@ extern keyboard_t *keyboard_console;
 
 void keyboard_init();
 keyboard_t *keyboard_new();
-void keyboard_send(keyboard_t *keyboard, kbpacket_t *packet);
+void keyboard_sendpacket(keyboard_t *keyboard, kbpacket_t *packet);
 bool keyboard_get(keyboard_t *keyboard, kbpacket_t *packet);
 int keyboard_wait(keyboard_t *keyboard, kbpacket_t *packet);
 
