@@ -39,7 +39,7 @@ static void destroykb(keyboard_t *kb) {
 }
 
 void keyboard_sendpacket(keyboard_t *kb, kbpacket_t *packet) {
-	interrupt_raiseipl(IPL_KEYBOARD);
+	long ipl = interrupt_raiseipl(IPL_KEYBOARD);
 	switch (packet->keycode) {
 		case KEYCODE_LEFTCTRL:
 			if (packet->flags & KBPACKET_FLAGS_RELEASED)
@@ -99,27 +99,27 @@ void keyboard_sendpacket(keyboard_t *kb, kbpacket_t *packet) {
 	if (ringbuffer_write(&keyboard_console->packetbuffer, packet, sizeof(kbpacket_t)) != 0)
 		semaphore_signal(&keyboard_console->semaphore);
 
-	interrupt_loweripl(IPL_KEYBOARD);
+	interrupt_loweripl(ipl);
 }
 
 int keyboard_wait(keyboard_t *kb, kbpacket_t *packet) {
 	int e = semaphore_wait(&kb->semaphore, true);
 	if (e == EINTR)
 		return e;
-	interrupt_raiseipl(IPL_KEYBOARD);
+	long ipl = interrupt_raiseipl(IPL_KEYBOARD);
 
 	__assert(ringbuffer_read(&kb->packetbuffer, packet, sizeof(kbpacket_t)) == sizeof(kbpacket_t));
 
-	interrupt_loweripl(IPL_KEYBOARD);
+	interrupt_loweripl(ipl);
 	return 0;
 }
 
 bool keyboard_get(keyboard_t *kb, kbpacket_t *packet) {
-	interrupt_raiseipl(IPL_KEYBOARD);
+	long ipl = interrupt_raiseipl(IPL_KEYBOARD);
 
 	bool ok = ringbuffer_read(&kb->packetbuffer, packet, sizeof(kbpacket_t)) == sizeof(kbpacket_t);
 
-	interrupt_loweripl(IPL_KEYBOARD);
+	interrupt_loweripl(ipl);
 	return ok;
 }
 
