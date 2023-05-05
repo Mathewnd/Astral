@@ -282,7 +282,7 @@ int devfs_getnode(vnode_t *physical, int major, int minor, vnode_t **node) {
 	int err = hashtable_get(&devtable, &r, key, sizeof(key));
 	spinlock_release(&tablelock);
 	if (err)
-		return err;
+		return err == ENOENT ? ENXIO : err;
 
 	devnode_t *newnode = slab_allocate(nodecache);
 	if (newnode)
