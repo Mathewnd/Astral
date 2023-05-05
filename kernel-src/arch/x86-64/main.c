@@ -21,6 +21,7 @@
 #include <kernel/pseudodevices.h>
 #include <arch/ps2.h>
 #include <kernel/keyboard.h>
+#include <kernel/console.h>
 
 static cpu_t bsp_cpu;
 
@@ -61,6 +62,9 @@ void kernel_entry() {
 	pseudodevices_init();
 	keyboard_init();
 	arch_ps2_init();
+
+	console_init();
+	logging_sethook(console_putc);
 
 	__assert(!"kernel entry end");
 }

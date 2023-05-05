@@ -6,6 +6,7 @@
 #define DEV_MAJOR_NULL 1
 #define DEV_MAJOR_FULL 2
 #define DEV_MAJOR_ZERO 3
+#define DEV_MAJOR_CONSOLE 4
 
 typedef struct {
 	int (*open)(int minor, int flags);
