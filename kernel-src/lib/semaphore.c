@@ -29,6 +29,7 @@ static thread_t *get(semaphore_t *sem) {
 }
 
 int semaphore_wait(semaphore_t *sem, bool interruptible) {
+	bool intstate = interrupt_set(false);
 	int ret = 0;
 	spinlock_acquire(&sem->lock);
 
@@ -40,10 +41,12 @@ int semaphore_wait(semaphore_t *sem, bool interruptible) {
 	}
 
 	spinlock_release(&sem->lock);
+	interrupt_set(intstate);
 	return ret;
 }
 
 void semaphore_signal(semaphore_t *sem) {
+	bool intstate = interrupt_set(false);
 	spinlock_acquire(&sem->lock);
 	if (++sem->i <= 0) {
 		thread_t *thread = get(sem);
@@ -51,9 +54,11 @@ void semaphore_signal(semaphore_t *sem) {
 		sched_wakeup(thread, 0);
 	}
 	spinlock_release(&sem->lock);
+	interrupt_set(intstate);
 }
 
 bool semaphore_test(semaphore_t *sem) {
+	bool intstate = interrupt_set(false);
 	bool ret = false;
 	spinlock_acquire(&sem->lock);
 
@@ -63,5 +68,6 @@ bool semaphore_test(semaphore_t *sem) {
 	}
 
 	spinlock_release(&sem->lock);
+	interrupt_set(intstate);
 	return ret;
 }
