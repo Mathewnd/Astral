@@ -127,6 +127,22 @@ int devfs_poll(vnode_t *node, int events) {
 	return devnode->devops->poll(devnode->attr.rdevminor, events);
 }
 
+int devfs_mmap(vnode_t *node, void *addr, uintmax_t offset, int flags, cred_t *cred) {
+	devnode_t *devnode = (devnode_t *)node;
+	if (devnode->master)
+		devnode = devnode->master;
+
+	return devnode->devops->mmap(devnode->attr.rdevminor, addr, offset, flags);
+}
+
+int devfs_munmap(vnode_t *node, void *addr, uintmax_t offset, int flags, cred_t *cred) {
+	devnode_t *devnode = (devnode_t *)node;
+	if (devnode->master)
+		devnode = devnode->master;
+
+	return devnode->devops->munmap(devnode->attr.rdevminor, addr, offset, flags);
+}
+
 int devfs_access(vnode_t *node, mode_t mode, cred_t *cred) {
 	// TODO permission checks
 	return 0;
@@ -181,8 +197,8 @@ int devfs_create(vnode_t *parent, char *name, vattr_t *attr, int type, vnode_t *
 	return 0;
 }
 
-static int devfs_enosys() {
-	return ENOSYS;
+static int devfs_enodev() {
+	return ENODEV;
 }
 
 static vfsops_t vfsops = {
@@ -201,11 +217,13 @@ static vops_t vnops = {
 	.read = devfs_read,
 	.write = devfs_write,
 	.access = devfs_access,
-	.unlink = devfs_enosys,
-	.link = devfs_enosys,
-	.symlink = devfs_enosys,
-	.readlink = devfs_enosys,
-	.inactive = devfs_enosys
+	.unlink = devfs_enodev,
+	.link = devfs_enodev,
+	.symlink = devfs_enodev,
+	.readlink = devfs_enodev,
+	.inactive = devfs_enodev,
+	.mmap = devfs_mmap,
+	.munmap = devfs_munmap
 };
 
 static void ctor(scache_t *cache, void *obj) {
