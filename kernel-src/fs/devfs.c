@@ -41,6 +41,9 @@ int devfs_open(vnode_t **node, int flags, cred_t *cred) {
 	if (devnode->master)
 		devnode = devnode->master;
 
+	if (devnode->devops->open == NULL)
+		return ENODEV;
+
 	return devnode->devops->open(devnode->attr.rdevminor, flags);
 }
 
@@ -48,6 +51,9 @@ int devfs_close(vnode_t *node, int flags, cred_t *cred) {
 	devnode_t *devnode = (devnode_t *)node;
 	if (devnode->master)
 		devnode = devnode->master;
+
+	if (devnode->devops->close == NULL)
+		return ENODEV;
 
 	return devnode->devops->close(devnode->attr.rdevminor, flags);
 }
@@ -57,6 +63,9 @@ int devfs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int f
 	if (devnode->master)
 		devnode = devnode->master;
 
+	if (devnode->devops->read == NULL)
+		return ENODEV;
+
 	return devnode->devops->read(devnode->attr.rdevminor, buffer, size, offset, flags, readc);
 }
 
@@ -64,6 +73,9 @@ int devfs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int 
 	devnode_t *devnode = (devnode_t *)node;
 	if (devnode->master)
 		devnode = devnode->master;
+
+	if (devnode->devops->write == NULL)
+		return ENODEV;
 
 	return devnode->devops->write(devnode->attr.rdevminor, buffer, size, offset, flags, writec);
 }
@@ -124,6 +136,9 @@ int devfs_poll(vnode_t *node, int events) {
 	if (devnode->master)
 		devnode = devnode->master;
 
+	if (devnode->devops->poll == NULL)
+		return ENODEV;
+
 	return devnode->devops->poll(devnode->attr.rdevminor, events);
 }
 
@@ -132,6 +147,9 @@ int devfs_mmap(vnode_t *node, void *addr, uintmax_t offset, int flags, cred_t *c
 	if (devnode->master)
 		devnode = devnode->master;
 
+	if (devnode->devops->mmap == NULL)
+		return ENODEV;
+
 	return devnode->devops->mmap(devnode->attr.rdevminor, addr, offset, flags);
 }
 
@@ -139,6 +157,9 @@ int devfs_munmap(vnode_t *node, void *addr, uintmax_t offset, int flags, cred_t 
 	devnode_t *devnode = (devnode_t *)node;
 	if (devnode->master)
 		devnode = devnode->master;
+
+	if (devnode->devops->munmap == NULL)
+		return ENODEV;
 
 	return devnode->devops->munmap(devnode->attr.rdevminor, addr, offset, flags);
 }
