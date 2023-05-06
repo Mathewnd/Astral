@@ -19,6 +19,11 @@
 #define VMM_ACTION_WRITE 2
 #define VMM_ACTION_EXEC 4
 
+typedef struct {
+	vnode_t *node;
+	uintmax_t offset;
+} vmmfiledesc_t;
+
 struct vmmcache_t;
 typedef struct vmmrange_t{
 	struct vmmrange_t *next;
@@ -27,7 +32,12 @@ typedef struct vmmrange_t{
 	size_t size;
 	int flags;
 	mmuflags_t mmuflags;
-	void *private;
+	union {
+		struct {
+			vnode_t *vnode;
+			size_t offset;
+		};
+	};
 } vmmrange_t;
 
 typedef struct {
@@ -68,6 +78,18 @@ static inline mmuflags_t vnodeflagstommuflags(int flags) {
 		mmuflags |= ARCH_MMU_FLAGS_NOEXEC;
 
 	return mmuflags;
+}
+
+static inline int mmuflagstovnodeflags(mmuflags_t mmuflags) {
+	int flags = 0;
+	if (mmuflags & ARCH_MMU_FLAGS_READ)
+		flags |= V_FFLAGS_READ;
+	if (mmuflags & ARCH_MMU_FLAGS_WRITE)
+		flags |= V_FFLAGS_READ;
+	if ((mmuflags & ARCH_MMU_FLAGS_NOEXEC) == 0)
+		flags |= V_FFLAGS_EXEC;
+
+	return flags;
 }
 
 void *vmm_map(void *addr, size_t size, int flags, mmuflags_t mmuflags, void *private);

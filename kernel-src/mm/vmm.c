@@ -179,14 +179,14 @@ static void insertrange(vmmspace_t *space, vmmrange_t *newrange) {
 
 	fragcheck:
 	// TODO range type specific stuff
-	if (newrange->next && newrange->next->start == newrangetop && newrange->flags == newrange->next->flags) {
+	if (newrange->next && newrange->next->start == newrangetop && newrange->flags == newrange->next->flags && newrange->mmuflags == newrange->next->mmuflags) {
 		vmmrange_t *oldrange = newrange->next;
 		newrange->size += oldrange->size;
 		newrange->next = oldrange->next;
 		freerange(oldrange);
 	}
 
-	if (newrange->prev && RANGE_TOP(newrange->prev) == newrange->start && newrange->flags == newrange->prev->flags) {
+	if (newrange->prev && RANGE_TOP(newrange->prev) == newrange->start && newrange->flags == newrange->prev->flags && newrange->mmuflags == newrange->prev->mmuflags) {
 		vmmrange_t *oldrange = newrange->prev;
 		oldrange->size += newrange->size;
 		oldrange->next = newrange->next;
@@ -196,15 +196,26 @@ static void insertrange(vmmspace_t *space, vmmrange_t *newrange) {
 
 static void destroyrange(vmmrange_t *range, uintmax_t _offset, size_t size) {
 	uintmax_t top = _offset + size;
-	__assert(!((range->flags & VMM_FLAGS_FILE) || (range->flags & VMM_FLAGS_COPY))); // unimplemented
+	__assert(!(range->flags & VMM_FLAGS_COPY)); // TODO unimplemented
+
 	for (uintmax_t offset = _offset; offset < top; offset += PAGE_SIZE) {
 		void *vaddr = (void *)((uintptr_t)range->start + offset);
 		void *physical = arch_mmu_getphysical(_cpu()->vmmctx->pagetable, vaddr);
-		if (physical) {
+		if (physical == NULL)
+			continue;
+
+		if (range->flags & VMM_FLAGS_FILE) {
+			VOP_LOCK(range->vnode);
+			__assert(VOP_MUNMAP(range->vnode, vaddr, range->offset + offset, mmuflagstovnodeflags(range->mmuflags), NULL) == 0); // XXX pass cred struct
+			VOP_UNLOCK(range->vnode);
+		} else {
 			pmm_free(physical, 1);
 			arch_mmu_unmap(_cpu()->vmmctx->pagetable, vaddr);
 		}
 	}
+
+	if ((range->flags & VMM_FLAGS_FILE) && range->size == size)
+		VOP_RELEASE(range->vnode);
 }
 
 static void unmap(vmmspace_t *space, void *address, size_t size) {
@@ -228,7 +239,7 @@ static void unmap(vmmspace_t *space, void *address, size_t size) {
 		} else if (address > range->start && top < rangetop) { // split
 			vmmrange_t *new = allocrange();
 			__assert(new); // XXX deal with this better
-			*new = *range; // XXX refcounts will break
+			*new = *range;
 
 			destroyrange(range, (uintptr_t)address - (uintptr_t)range->start, size);
 
@@ -238,11 +249,20 @@ static void unmap(vmmspace_t *space, void *address, size_t size) {
 
 			new->prev = range;
 			range->next = new;
+
+			if (range->flags & VMM_FLAGS_FILE) {
+				VOP_HOLD(range->vnode);
+				new->offset += range->size + size;
+
+			}
 		} else if (top > range->start && range->start >= address) { // partially unmap from start
 			size_t difference = (uintptr_t)top - (uintptr_t)range->start;
 			destroyrange(range, 0, difference);
 			range->start = (void *)((uintptr_t)range->start + difference);
 			range->size -= difference;
+
+			if (range->flags & VMM_FLAGS_FILE)
+				range->offset += difference;
 		} else if (address < rangetop && rangetop <= top){ // partially unmap from end
 			size_t difference = (uintptr_t)rangetop - (uintptr_t)address;
 			range->size -= difference;
@@ -289,14 +309,21 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 	if (invalidactions & actions)
 		goto cleanup;
 
-	// TODO file/CoW
+	// TODO CoW
 
-	void *paddr = pmm_alloc(1, PMM_SECTION_DEFAULT);
-	__assert(paddr); // XXX handle these better than an assert once there are signals and such
-	__assert(arch_mmu_map(_cpu()->vmmctx->pagetable, paddr, addr, range->mmuflags));
-	memset(addr, 0, PAGE_SIZE);
-
-	status = true;
+	if (range->flags & VMM_FLAGS_FILE) {
+		uintmax_t mapoffset = (uintptr_t)addr - (uintptr_t)range->start;
+		VOP_LOCK(range->vnode);
+		__assert(VOP_MMAP(range->vnode, addr, range->offset + mapoffset, mmuflagstovnodeflags(range->mmuflags), NULL) == 0); // XXX pass cred struct
+		VOP_UNLOCK(range->vnode);
+		status = true;
+	} else {
+		void *paddr = pmm_alloc(1, PMM_SECTION_DEFAULT);
+		__assert(paddr); // XXX handle these better than an assert once there are signals and such
+		__assert(arch_mmu_map(_cpu()->vmmctx->pagetable, paddr, addr, range->mmuflags));
+		memset(addr, 0, PAGE_SIZE);
+		status = true;
+	}
 
 	cleanup:
 	spinlock_release(&space->lock);
@@ -337,7 +364,15 @@ void *vmm_map(void *addr, volatile size_t size, int flags, mmuflags_t mmuflags, 
 	range->flags = VMM_PERMANENT_FLAGS_MASK & flags;
 	range->mmuflags = mmuflags;
 
-	// TODO file mapping and CoW
+	// TODO CoW
+
+	if (flags & VMM_FLAGS_FILE) {
+		// XXX make sure that writes can't happen to executable memory mapped files and check file permissions
+		vmmfiledesc_t *desc = private;
+		range->vnode = desc->node;
+		range->offset = desc->offset;
+		VOP_HOLD(desc->node);
+	}
 
 	if (flags & VMM_FLAGS_PHYSICAL) {
 		// map to allocated virtual memory
@@ -353,6 +388,7 @@ void *vmm_map(void *addr, volatile size_t size, int flags, mmuflags_t mmuflags, 
 		// allocate to virtual memory
 		for (uintmax_t i = 0; i < size; i += PAGE_SIZE) {
 			void *allocated = pmm_alloc(1, PMM_SECTION_DEFAULT);
+
 			if (arch_mmu_map(_cpu()->vmmctx->pagetable, allocated, (void *)((uintptr_t)start + i), mmuflags) == false) {
 				for (uintmax_t j = 0; j < size; j += PAGE_SIZE) {
 						void *virt = (void *)((uintptr_t)start + i);
