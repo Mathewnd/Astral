@@ -8,6 +8,10 @@
 #include <util.h>
 #include <kernel/abi.h>
 #include <kernel/devfs.h>
+#include <kernel/pmm.h>
+#include <kernel/vmm.h>
+#include <arch/cpu.h>
+#include <string.h>
 
 static scache_t *nodecache;
 static tmpfsnode_t *newnode(vfs_t *vfs, int type);
@@ -234,7 +238,7 @@ static int tmpfs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset
 		return 0;
 	}
 
-	// rtop of read goes past end of file
+	// top of read goes past end of file
 	if (offset + size > tmpnode->attr.size)
 		size = tmpnode->attr.size - offset;
 
@@ -354,6 +358,43 @@ static int tmpfs_readlink(vnode_t *node, char **link, cred_t *cred) {
 	return 0;
 }
 
+static int tmpfs_mmap(vnode_t *node, void *addr, uintmax_t offset, int flags, cred_t *cred) {
+	void *paddr = pmm_alloc(1, PMM_SECTION_DEFAULT);
+	if (paddr == NULL)
+		return ENOMEM;
+
+	if (arch_mmu_map(_cpu()->vmmctx->pagetable, paddr, addr, vnodeflagstommuflags(flags)) == false) {
+		pmm_free(paddr, 1);
+		return ENOMEM;
+	}
+
+	size_t readc;
+	int e = tmpfs_read(node, addr, PAGE_SIZE, offset, flags, &readc, cred);
+	if (e) {
+		arch_mmu_unmap(_cpu()->vmmctx->pagetable, addr);
+		pmm_free(paddr, 1);
+		return e;
+	}
+
+	memset((void *)((uintptr_t)addr + readc), 0, PAGE_SIZE - readc);
+
+	return 0;
+}
+
+static int tmpfs_munmap(vnode_t *node, void *addr, uintmax_t offset, int flags, cred_t *cred) {
+	if ((flags & V_FFLAGS_SHARED) == 0) {
+		size_t wc;
+		// TODO no growing flag
+		__assert(tmpfs_write(node, addr, PAGE_SIZE, offset, flags, &wc, cred) == 0);
+	}
+
+	void *paddr = arch_mmu_getphysical(_cpu()->vmmctx->pagetable, addr);
+	__assert(paddr);
+	arch_mmu_unmap(_cpu()->vmmctx->pagetable, addr);
+	pmm_free(paddr, 1);
+	return 0;
+}
+
 static int tmpfs_inactive(vnode_t *node) {
 	freenode((tmpfsnode_t *)node);
 	return 0;
@@ -379,7 +420,9 @@ static vops_t vnops = {
 	.link = tmpfs_link,
 	.symlink = tmpfs_symlink,
 	.readlink = tmpfs_readlink,
-	.inactive = tmpfs_inactive
+	.inactive = tmpfs_inactive,
+	.mmap = tmpfs_mmap,
+	.munmap = tmpfs_munmap
 };
 
 static tmpfsnode_t *newnode(vfs_t *vfs, int type) {

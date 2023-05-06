@@ -3,6 +3,7 @@
 
 #include <arch/mmu.h>
 #include <spinlock.h>
+#include <kernel/vfs.h>
 
 #define VMM_FLAGS_PAGESIZE 1
 #define VMM_FLAGS_ALLOCATE 2
@@ -56,6 +57,18 @@ typedef struct {
 } vmmcontext_t;
 
 extern vmmcontext_t vmm_kernelctx;
+
+static inline mmuflags_t vnodeflagstommuflags(int flags) {
+	mmuflags_t mmuflags = 0;
+	if (flags & V_FFLAGS_READ)
+		mmuflags |= ARCH_MMU_FLAGS_READ;
+	if (flags & V_FFLAGS_WRITE)
+		mmuflags |= ARCH_MMU_FLAGS_WRITE;
+	if ((flags & V_FFLAGS_EXEC) == 0)
+		mmuflags |= ARCH_MMU_FLAGS_NOEXEC;
+
+	return mmuflags;
+}
 
 void *vmm_map(void *addr, size_t size, int flags, mmuflags_t mmuflags, void *private);
 void vmm_unmap(void *addr, size_t size, int flags);
