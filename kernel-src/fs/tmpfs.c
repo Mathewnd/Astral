@@ -358,12 +358,14 @@ static int tmpfs_readlink(vnode_t *node, char **link, cred_t *cred) {
 	return 0;
 }
 
+#define MMAPTMPFLAGS (ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_NOEXEC | ARCH_MMU_FLAGS_WRITE)
+
 static int tmpfs_mmap(vnode_t *node, void *addr, uintmax_t offset, int flags, cred_t *cred) {
 	void *paddr = pmm_alloc(1, PMM_SECTION_DEFAULT);
 	if (paddr == NULL)
 		return ENOMEM;
 
-	if (arch_mmu_map(_cpu()->vmmctx->pagetable, paddr, addr, vnodeflagstommuflags(flags)) == false) {
+	if (arch_mmu_map(_cpu()->vmmctx->pagetable, paddr, addr, MMAPTMPFLAGS) == false) {
 		pmm_free(paddr, 1);
 		return ENOMEM;
 	}
@@ -378,11 +380,13 @@ static int tmpfs_mmap(vnode_t *node, void *addr, uintmax_t offset, int flags, cr
 
 	memset((void *)((uintptr_t)addr + readc), 0, PAGE_SIZE - readc);
 
+	arch_mmu_remap(_cpu()->vmmctx->pagetable, paddr, addr, vnodeflagstommuflags(flags));
+
 	return 0;
 }
 
 static int tmpfs_munmap(vnode_t *node, void *addr, uintmax_t offset, int flags, cred_t *cred) {
-	if ((flags & V_FFLAGS_SHARED) == 0) {
+	if (flags & V_FFLAGS_SHARED) {
 		size_t wc;
 		// TODO no growing flag
 		__assert(tmpfs_write(node, addr, PAGE_SIZE, offset, flags, &wc, cred) == 0);
