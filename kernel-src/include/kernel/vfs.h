@@ -51,6 +51,8 @@ typedef struct vfs_t {
 #define V_FFLAGS_READ 1
 #define V_FFLAGS_WRITE 2
 #define V_FFLAGS_NONBLOCKING 4
+#define V_FFLAGS_SHARED 8
+#define V_FFLAGS_EXEC 16
 
 typedef struct vnode_t {
 	struct vops_t *ops;
@@ -85,6 +87,8 @@ typedef struct vops_t {
 	int (*symlink)(vnode_t *parent, char *name, vattr_t *attr, char *path, cred_t *cred);
 	int (*readlink)(vnode_t *parent, char **link, cred_t *cred);
 	int (*inactive)(vnode_t *node);
+	int (*mmap)(vnode_t *node, void *addr, uintmax_t offset, int flags, cred_t *cred);
+	int (*munmap)(vnode_t *node, void *addr, uintmax_t offset, int flags, cred_t *cred);
 } vops_t;
 
 #define VFS_MOUNT(vfs, mp, b, d) (vfs)->ops->mount(vfs, mp, b, d)
@@ -109,6 +113,8 @@ typedef struct vops_t {
 #define VOP_LINK(v, d, n, c) (v)->ops->link(v, d, n, c)
 #define VOP_SYMLINK(v, n, a, p, c) (v)->ops->symlink(v, n, a, p, c)
 #define VOP_READLINK(v, l, c) (v)->ops->readlink(v, l, c)
+#define VOP_MMAP(v, a, o, f, c) (v)->ops->mmap(v, a, o, f, c)
+#define VOP_MUNMAP(v, a, o, f, c) (v)->ops->munmap(v, a, o, f, c)
 
 // lock not needed unless atomicity is desired
 #define VOP_POLL(v, p) (v)->ops->poll(v, p);

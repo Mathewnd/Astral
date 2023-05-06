@@ -14,6 +14,8 @@ typedef struct {
 	int (*read)(int minor, void *buffer, size_t size, uintmax_t offset, int flags, size_t *readc);
 	int (*write)(int minor, void *buffer, size_t size, uintmax_t offset, int flags, size_t *writec);
 	int (*poll)(int minor, int events);
+	int (*mmap)(int minor, void *addr, uintmax_t offset, int flags);
+	int (*munmap)(int minor, void *addr, uintmax_t offset, int flags);
 } devops_t;
 
 typedef struct devnode_t {
