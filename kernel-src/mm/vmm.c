@@ -5,6 +5,7 @@
 #include <arch/cpu.h>
 #include <limine.h>
 #include <string.h>
+#include <kernel/slab.h>
 
 #define RANGE_TOP(x) (void *)((uintptr_t)x->start + x->size)
 
@@ -439,13 +440,40 @@ void vmm_unmap(void *addr, size_t size, int flags) {
 	spinlock_release(&space->lock);
 }
 
+static scache_t *ctxcache;
+
+static void ctxctor(scache_t *cache, void *obj) {
+	vmmcontext_t *ctx = obj;
+	ctx->space.start = USERSPACE_START;
+	ctx->space.end = USERSPACE_END;
+	SPINLOCK_INIT(ctx->space.lock);
+	ctx->space.ranges = NULL;
+}
+
 vmmcontext_t *vmm_newcontext() {
-	__assert(!"not yet");
+	if (ctxcache == NULL) {
+		ctxcache = slab_newcache(sizeof(vmmcontext_t), 0, ctxctor, ctxctor);
+		__assert(ctxcache);
+	}
+
+	vmmcontext_t *ctx = slab_allocate(ctxcache);
+	if (ctx == NULL)
+		return NULL;
+
+	ctx->pagetable = arch_mmu_newtable();
+	if (ctx->pagetable == NULL) {
+		slab_free(ctxcache, ctx);
+		return NULL;
+	}
+
+	return ctx;
 }
 
 void vmm_switchcontext(vmmcontext_t *ctx) {
-	arch_mmu_switch(ctx->pagetable);
+	if (_cpu()->thread)
+		_cpu()->thread->vmmctx = ctx;
 	_cpu()->vmmctx = ctx;
+	arch_mmu_switch(ctx->pagetable);
 }
 
 static void printspace(vmmspace_t *space) {
