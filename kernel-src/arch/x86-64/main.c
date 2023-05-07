@@ -39,7 +39,7 @@ void kernel_entry() {
 	alloc_init();
 	arch_acpi_init();
 	arch_apic_init();
-	arch_apic_initap();
+	cpu_initstate();
 	// XXX fall back to another clock source
 	time_t u = arch_hpet_init();
 	timekeeper_init(arch_hpet_ticks, u);
@@ -66,5 +66,6 @@ void kernel_entry() {
 	console_init();
 	logging_sethook(console_putc);
 
-	__assert(!"kernel entry end");
+	sched_runinit();
+	sched_threadexit();
 }

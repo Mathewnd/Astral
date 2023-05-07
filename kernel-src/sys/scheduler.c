@@ -6,6 +6,7 @@
 #include <kernel/vmm.h>
 #include <kernel/alloc.h>
 #include <errno.h>
+#include <kernel/elf.h>
 
 #define QUANTUM_US 100000
 #define SCHEDULER_STACK_SIZE 4096
@@ -275,11 +276,11 @@ static void timerhook(void *private, context_t *context) {
 		runqueueinsert(current);
 
 		ARCH_CONTEXT_THREADLOAD(next, context);
-		if (next->vmmctx != current->vmmctx)
-			vmm_switchcontext(next->vmmctx);
+		_cpu()->thread = next;
 		next->flags |= SCHED_THREAD_FLAGS_RUNNING;
 		next->cpu = _cpu();
-		_cpu()->thread = next;
+		if (next->vmmctx != current->vmmctx)
+			vmm_switchcontext(next->vmmctx);
 	}
 
 	spinlock_release(&runqueuelock);
@@ -314,4 +315,44 @@ void sched_init() {
 	timer_insert(_cpu()->timer, &_cpu()->schedtimerentry, QUANTUM_US);
 	// XXX move this resume to a more appropriate place
 	timer_resume(_cpu()->timer);
+}
+
+#define STACK_TOP (void *)0x0000800000000000
+
+void sched_runinit() {
+	printf("sched: loading /init\n");
+
+	vmmcontext_t *vmmctx = vmm_newcontext();
+	__assert(vmmctx);
+
+	// leave kernel context to load elf
+	vmm_switchcontext(vmmctx);
+
+	proc_t *proc = sched_newproc();
+	__assert(proc);
+
+	vnode_t *initnode;
+	__assert(vfs_open(vfsroot, "/init", 0, &initnode) == 0);
+
+	auxv64list_t auxv64;
+	char *interp = NULL;
+	void *entry;
+
+	__assert(elf_load(initnode, NULL, &entry, &interp, &auxv64) == 0);
+
+	char *argv = {NULL};
+	char *envp = {NULL};
+
+	void *stack = elf_preparestack(STACK_TOP, &auxv64, &argv, &envp);
+	__assert(stack);
+
+	// reenter kernel context
+	vmm_switchcontext(&vmm_kernelctx);
+
+	thread_t *uthread = sched_newthread(entry, PAGE_SIZE * 16, 1, proc, stack);
+	__assert(uthread);
+	uthread->vmmctx = vmmctx;
+	sched_queue(uthread);
+
+	VOP_RELEASE(initnode);
 }
