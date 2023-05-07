@@ -8,7 +8,7 @@
 #define KERNELSPACE_START (void *)0xffff800000000000
 #define KERNELSPACE_END   (void *)0xffffffffffffffff
 #define USERSPACE_START   (void *)0x0000000000001000
-#define USERSPACE_END     (void *)0x00007fffffffffff
+#define USERSPACE_END     (void *)0x0000800000000000
 
 #define PAGE_SIZE 4096
 #define ARCH_MMU_FLAGS_READ (uint64_t)1

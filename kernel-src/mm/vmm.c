@@ -83,9 +83,9 @@ static vmmspace_t kernelspace = {
 
 // returns a pointer to the space of vaddr
 static vmmspace_t *getspace(void *vaddr) {
-	if (USERSPACE_START <= vaddr && vaddr <= USERSPACE_END)
+	if (USERSPACE_START <= vaddr && vaddr < USERSPACE_END)
 		return &_cpu()->vmmctx->space;
-	else if (KERNELSPACE_START <= vaddr && vaddr <= KERNELSPACE_END)
+	else if (KERNELSPACE_START <= vaddr && vaddr < KERNELSPACE_END)
 		return &kernelspace;
 	else
 		return NULL;
