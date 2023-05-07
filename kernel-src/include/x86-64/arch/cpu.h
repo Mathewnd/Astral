@@ -12,6 +12,7 @@
 #include <kernel/scheduler.h>
 
 typedef struct cpu_t {
+	thread_t *thread;
 	uint64_t gdt[7];
 	ist_t ist;
 	long id;
@@ -21,7 +22,6 @@ typedef struct cpu_t {
 	timer_t *timer;
 	bool intstatus;
 	long ipl;
-	thread_t *thread;
 	thread_t *idlethread;
 	timerentry_t schedtimerentry;
 	void *schedulerstack;
@@ -36,5 +36,7 @@ static inline cpu_t *_cpu() {
 static inline void cpu_set(cpu_t *ptr) {
 	wrmsr(MSR_GSBASE, (uint64_t)ptr);
 }
+
+void cpu_initstate();
 
 #endif
