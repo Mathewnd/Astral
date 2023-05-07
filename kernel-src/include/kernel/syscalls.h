@@ -2,6 +2,7 @@
 #define _SYSCALLS_H
 
 #include <stdint.h>
+#include <arch/context.h>
 
 typedef struct {
 	uint64_t ret;
