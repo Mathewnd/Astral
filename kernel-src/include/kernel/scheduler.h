@@ -14,6 +14,7 @@
 struct proc_t;
 
 typedef struct thread_t {
+	void *kernelstacktop;
 	struct thread_t *next;
 	struct thread_t *prev;
 	struct proc_t *proc;
@@ -21,7 +22,6 @@ typedef struct thread_t {
 	context_t context;
 	extracontext_t extracontext;
 	void *kernelstack;
-	void *kernelstacktop;
 	size_t kernelstacksize;
 	vmmcontext_t *vmmctx;
 	tid_t tid;
