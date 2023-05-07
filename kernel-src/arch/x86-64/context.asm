@@ -27,7 +27,7 @@ arch_context_switch:
 	add rsp,8 ; remove error code
 
 	; check if swapgs is needed
-	cmp qword [rsp+8], 0x18
+	cmp qword [rsp+8], 0x23
 	jne .notneeded2
 	swapgs
 	.notneeded2:

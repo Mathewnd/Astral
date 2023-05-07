@@ -44,8 +44,8 @@ typedef struct {
 
 #define CTX_INIT(x,u) \
 	if (u) { \
-		(x)->cs = 0x1b; \
-		(x)->ds = (x)->es = (x)->ss = 0x23; \
+		(x)->cs = 0x23; \
+		(x)->ds = (x)->es = (x)->ss = 0x1b; \
 	} else { \
 		(x)->cs = 0x8; \
 		(x)->ds = (x)->es = (x)->ss = 0x10; \
