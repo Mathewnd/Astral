@@ -29,9 +29,9 @@ static bool headerok(elfheader64_t *header) {
 	return true;
 }
 
-static int readexact(vnode_t *vnode, void *pos, size_t count, uintmax_t offset) {
+static int readexact(vnode_t *vnode, void *buff, size_t count, uintmax_t offset) {
 	size_t readc;
-	int e = vfs_read(vnode, pos, count, offset, &readc, 0);
+	int e = vfs_read(vnode, buff, count, offset, &readc, 0);
 	if (e)
 		return e;
 	if (readc != count)
@@ -53,7 +53,6 @@ static mmuflags_t flagstommuflags(int flags) {
 
 static int load(vnode_t *vnode, elfph64_t *ph) {
 	// TODO verify that the load address doesn't intersect the kernel
-	printf("loading ph at %p with mem size %lu, disk size %lu and flags %x\n", ph->memaddr, ph->msize, ph->fsize, ph->flags);
 	int error = 0;
 	uintmax_t foffset = ph->offset;
 	uintptr_t mempos = ph->memaddr;
@@ -81,6 +80,14 @@ static int load(vnode_t *vnode, elfph64_t *ph) {
 		msize -= firstpagecount;
 		fsize -= firstpagecount;
 		foffset += firstpagecount;
+		uintmax_t remaining = mempos % PAGE_SIZE;
+		// zero remaining parts of the first page if needed
+		if (remaining && msize) {
+			size_t remainingmsize = remaining > msize ? msize : remaining;
+			memset((void *)mempos, 0, remainingmsize);
+			msize -= remainingmsize;
+			mempos += remainingmsize;
+		}
 	}
 
 	// map middle of file
@@ -149,7 +156,7 @@ int elf_load(vnode_t *vnode, void *base, void **entry, char **interpreter, auxv6
 	auxv64->phnum.val = header.phcount;
 	auxv64->phent.val = header.phsize;
 	auxv64->entry.val = header.entry;
-	*entry = (void *)header.entry;
+	*entry = (void *)(header.entry + (uintptr_t)base);
 
 	__assert(header.phsize == sizeof(elfph64_t));
 
@@ -165,6 +172,7 @@ int elf_load(vnode_t *vnode, void *base, void **entry, char **interpreter, auxv6
 	elfph64_t *interpreterph = NULL;
 
 	for (int i = 0; i < header.phcount; ++i) {
+		headers[i].memaddr += (uintptr_t)base;
 		switch (headers[i].type) {
 			case PH_TYPE_INTERPRETER:
 				interpreterph = &headers[i];
@@ -173,7 +181,6 @@ int elf_load(vnode_t *vnode, void *base, void **entry, char **interpreter, auxv6
 				auxv64->phdr.val = headers[i].memaddr;
 				break;
 			case PH_TYPE_LOAD:
-				headers[i].memaddr += (uintptr_t)base;
 				err = load(vnode, &headers[i]);
 				if (err)
 					goto cleanup;
@@ -182,8 +189,15 @@ int elf_load(vnode_t *vnode, void *base, void **entry, char **interpreter, auxv6
 	}
 
 	if (interpreterph) {
-		printf("dp: %lu dl: %lu mp: %p ml: %lu\n", interpreterph->offset, interpreterph->fsize, interpreterph->memaddr, interpreterph->msize);
-		__assert(!"UNIMPLEMENTED");
+		char *buff = alloc(interpreterph->fsize);
+		if (buff == NULL) {
+			err = ENOMEM;
+			goto cleanup;
+		}
+		err = readexact(vnode, buff, interpreterph->fsize, interpreterph->offset);
+		if (err)
+			goto cleanup;
+		*interpreter = buff;
 	}
 
 	cleanup:
@@ -192,6 +206,7 @@ int elf_load(vnode_t *vnode, void *base, void **entry, char **interpreter, auxv6
 }
 
 #define STACK_MMUFLAGS (ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC | ARCH_MMU_FLAGS_USER)
+#define STACK_SIZE (1024 * 1024 * 4)
 
 void *elf_preparestack(void *top, auxv64list_t *auxv64, char **argv, char **envp) {
 	size_t argc;
@@ -205,23 +220,31 @@ void *elf_preparestack(void *top, auxv64list_t *auxv64, char **argv, char **envp
 	for (envc = 0; envp[envc]; ++envc)
 		envdatasize += strlen(envp[envc]) + 1;
 
+	// make sure stack will be 16 byte aligned on entry
+	int alignment = ((argc + 1) + (envc + 1) + 1) & 1 ? 8 : 0;
+
 	// env data + arg data + pointers to arg and env data + argc
-	size_t initialsize = argdatasize + envdatasize + (argc + envc) * sizeof(char *) + sizeof(size_t) + sizeof(auxv64list_t);
+	size_t initialsize = argdatasize + envdatasize + (argc + envc) * sizeof(char *) + sizeof(size_t) + sizeof(auxv64list_t) + alignment;
 
 	size_t initialsizeround = ROUND_UP(initialsize, PAGE_SIZE);
 	void *initialpagebase = (void *)((uintptr_t)top - initialsizeround);
-
 	if (vmm_map(initialpagebase, initialsizeround, VMM_FLAGS_ALLOCATE | VMM_FLAGS_EXACT, STACK_MMUFLAGS, NULL) == NULL)
 		return NULL;
 
-	auxv64list_t *auxvstart = (auxv64list_t *)top - 1;
-	char *argdatastart = (char *)((uintptr_t)auxvstart - argdatasize);
+	void *stackbase = (void *)((uintptr_t)top - STACK_SIZE);
+	size_t unallocatedsize = STACK_SIZE - initialsizeround;
+	if (vmm_map(stackbase, unallocatedsize, VMM_FLAGS_EXACT, STACK_MMUFLAGS, NULL) == NULL)
+		return NULL;
+
+
+	char *argdatastart = (char *)((uintptr_t)top - argdatasize);
 	char *envdatastart = (char *)((uintptr_t)argdatastart - envdatasize);
+	auxv64list_t *auxvstart = (auxv64list_t *)envdatastart - 1;
+
+	auxvstart = (auxv64list_t *)(((uintptr_t)auxvstart & ~(uintptr_t)0xf) - alignment);
 
 	// also leave space for null entry
-	char **envstart = (char **)envdatastart - envc - 1;
-	// round down to 16 bytes
-	envstart = (char **)((uintptr_t)envstart & ~(uintptr_t)0xf);
+	char **envstart = (char **)auxvstart - envc - 1;
 	char **argstart = (char **)envstart - argc - 1;
 	size_t *argcptr = (size_t *)argstart - 1;
 
