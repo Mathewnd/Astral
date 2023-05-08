@@ -69,7 +69,7 @@ typedef struct {
 extern vmmcontext_t vmm_kernelctx;
 
 static inline mmuflags_t vnodeflagstommuflags(int flags) {
-	mmuflags_t mmuflags = 0;
+	mmuflags_t mmuflags = ARCH_MMU_FLAGS_USER;
 	if (flags & V_FFLAGS_READ)
 		mmuflags |= ARCH_MMU_FLAGS_READ;
 	if (flags & V_FFLAGS_WRITE)
