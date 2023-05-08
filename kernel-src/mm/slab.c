@@ -95,8 +95,8 @@ static slab_t *returnobject(scache_t *cache, void *obj) {
 		freeptr = (void **)((uintptr_t)obj + cache->size);
 		__assert(*freeptr == NULL);
 	} else {
-		slab = cache->full;
-		bool partial = false;
+		bool partial = cache->full == NULL;
+		slab = partial ? cache->partial : cache->full;
 		while (slab) {
 			void *top = (void *)((uintptr_t)slab->base + cache->slabobjcount * cache->truesize);
 			if (obj >= slab->base && obj < top)
