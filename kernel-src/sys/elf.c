@@ -125,12 +125,8 @@ static int load(vnode_t *vnode, elfph64_t *ph) {
 
 	// zero some parts if needed
 	if (msize) {
-		if (vmm_map((void *)mempos, msize, VMM_FLAGS_EXACT | VMM_FLAGS_ALLOCATE, mmuflags | ARCH_MMU_FLAGS_WRITE, NULL) == NULL)
+		if (vmm_map((void *)mempos, msize, VMM_FLAGS_EXACT, mmuflags, NULL) == NULL)
 			return ENOMEM;
-
-		memset((void *)mempos, 0, ROUND_UP(msize, PAGE_SIZE));
-
-		// TODO switch out protection
 	}
 
 	return 0;
