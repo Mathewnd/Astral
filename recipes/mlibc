@@ -1,0 +1,19 @@
+name=mlibc
+from_source=mlibc
+revision=1
+hostdeps="xgcc xbinutils pkgconfig"
+deps="cxxshim frigg linux-headers"
+imagedeps="meson ninja git base-devel binutils"
+
+configure() {
+        meson --cross-file ${base_dir}/util/crossfile -Dlinux_kernel_headers=${sysroot_dir}/${prefix}/include --prefix=${prefix} ${source_dir}
+}
+
+build() {
+        ninja
+}
+
+install() {
+        DESTDIR=${dest_dir} ninja install
+}
+
