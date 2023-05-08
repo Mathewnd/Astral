@@ -318,6 +318,7 @@ void sched_init() {
 }
 
 #define STACK_TOP (void *)0x0000800000000000
+#define INTERP_BASE (void *)0x00000beef0000000
 
 void sched_runinit() {
 	printf("sched: loading /init\n");
@@ -339,6 +340,14 @@ void sched_runinit() {
 	void *entry;
 
 	__assert(elf_load(initnode, NULL, &entry, &interp, &auxv64) == 0);
+	if (interp) {
+		vnode_t *interpnode;
+		__assert(vfs_open(vfsroot, interp, 0, &interpnode) == 0);
+		auxv64list_t interpauxv;
+		char *interpinterp = NULL;
+		__assert(elf_load(interpnode, INTERP_BASE, &entry, &interpinterp, &interpauxv) == 0);
+		__assert(interpinterp == NULL);
+	}
 
 	char *argv = {NULL};
 	char *envp = {NULL};
