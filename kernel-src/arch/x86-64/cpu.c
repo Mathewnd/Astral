@@ -29,4 +29,15 @@ void cpu_initstate() {
 	wrmsr(MSR_LSTAR, (uint64_t)arch_syscall_entry);
 	wrmsr(MSR_CSTAR, 0); // no compatibility mode syscall handler
 	wrmsr(MSR_FMASK, 0x200); // disable interrupts on syscall
+
+	// enable SSE
+	asm volatile(
+		"mov %%cr0, %%rax;"
+		"and $0xFFFB, %%ax;"
+		"or  $2, %%eax;"
+		"mov %%rax, %%cr0;"
+		"mov %%cr4, %%rax;"
+		"or  $0b11000000000, %%rax;"
+		"mov %%rax, %%cr4;"
+		: : : "rax");
 }
