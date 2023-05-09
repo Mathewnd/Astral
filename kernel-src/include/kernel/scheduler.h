@@ -42,6 +42,10 @@ typedef struct proc_t {
 	thread_t **threads;
 	size_t threadtablesize;
 	size_t runningthreadcount;
+	size_t fdcount;
+	uintmax_t fdfirst;
+	spinlock_t fdlock;
+	struct fd_t *fd;
 	mode_t umask;
 	int flags;
 	vnode_t *cwd;

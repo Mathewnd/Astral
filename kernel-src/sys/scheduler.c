@@ -7,6 +7,7 @@
 #include <kernel/alloc.h>
 #include <errno.h>
 #include <kernel/elf.h>
+#include <kernel/file.h>
 
 #define QUANTUM_US 100000
 #define SCHEDULER_STACK_SIZE 4096
@@ -39,6 +40,16 @@ proc_t *sched_newproc() {
 	proc->threadtablesize = 1;
 	proc->runningthreadcount = 1;
 	SPINLOCK_INIT(proc->lock);
+	proc->fdcount = 3;
+	proc->fdfirst = 3;
+	SPINLOCK_INIT(proc->fdlock);
+
+	proc->fd = alloc(sizeof(fd_t) * 3);
+	if (proc->fd == NULL) {
+		free(proc->threads);
+		slab_free(processcache, proc);
+		return NULL;
+	}
 
 	return proc;
 }
