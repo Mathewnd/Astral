@@ -113,10 +113,10 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..4486461
+index 0000000..4d9555e
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -0,0 +1,133 @@
+@@ -0,0 +1,138 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -175,7 +175,7 @@ index 0000000..4486461
 +	
 +	// stub
 +
-+	int sys_getpgid(pid_t pid, pid_t* pgid) {
++	int sys_getpgid(pid_t pid, pid_t *pgid) {
 +		*pgid = 1;
 +		return 0;
 +	}
@@ -185,7 +185,7 @@ index 0000000..4486461
 +		syscall(SYSCALL_PRINT, &ret, (uint64_t)message);
 +	}
 +	
-+	[[noreturn]] void sys_libc_panic(){
++	[[noreturn]] void sys_libc_panic() {
 +		sys_libc_log("mlibc: panic");
 +		for (;;) ;
 +	}
@@ -208,23 +208,25 @@ index 0000000..4486461
 +	}
 +	
 +
-+	int sys_anon_allocate(size_t size, void **pointer){
++	int sys_anon_allocate(size_t size, void **pointer) {
++		size += 4096 - (size % 4096);
 +		return sys_vm_map(NULL, size, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, 0, 0, pointer);
 +	}
-+	int sys_anon_free(void* pointer, size_t size){
++	int sys_anon_free(void *pointer, size_t size) {
++		size += 4096 - (size % 4096);
 +		return sys_vm_unmap(pointer, size);
 +	}
 +	
-+	int sys_open(const char* pathname, int flags, mode_t mode, int* fd) {
++	int sys_open(const char *pathname, int flags, mode_t mode, int *fd) {
 +		return ENOSYS;
 +	};
-+	int sys_read(int fd, void* buff, size_t count, ssize_t *bytes_read){
++	int sys_read(int fd, void *buff, size_t count, ssize_t *bytes_read) {
 +		return ENOSYS;
 +	}
-+	int sys_write(int fd, const void* buff, size_t count, ssize_t *bytes_written){
++	int sys_write(int fd, const void *buff, size_t count, ssize_t *bytes_written) {
 +		return ENOSYS;
 +	}
-+	int sys_seek(int fd, off_t offset, int whence, off_t *new_offset){
++	int sys_seek(int fd, off_t offset, int whence, off_t *new_offset) {
 +		return ENOSYS;
 +	}
 +	
@@ -232,11 +234,14 @@ index 0000000..4486461
 +		return ENOSYS;
 +	}
 +
-+	int sys_vm_map(void *hint, size_t size, int prot, int flags, int fd, off_t offset, void** window){
-+		return ENOSYS;
++	int sys_vm_map(void *hint, size_t size, int prot, int flags, int fd, off_t offset, void **window) {
++		long ret;
++		long err = syscall(SYSCALL_MMAP, &ret, (uint64_t)hint, size, prot, flags, fd, offset);
++		*window = (void *)ret;
++		return err;
 +	}
 +
-+	int sys_vm_unmap(void* pointer, size_t size) {
++	int sys_vm_unmap(void *pointer, size_t size) {
 +		return ENOSYS;
 +	}
 +	
@@ -269,14 +274,15 @@ index 0000000..990eca0
 +#endif
 diff --git mlibc-workdir/sysdeps/astral/include/astral/syscall.h mlibc-workdir/sysdeps/astral/include/astral/syscall.h
 new file mode 100644
-index 0000000..2b6ae3a
+index 0000000..8f1ee3c
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/include/astral/syscall.h
-@@ -0,0 +1,24 @@
+@@ -0,0 +1,25 @@
 +#ifndef _SYSCALL_H_INCLUDE
 +#define _SYSCALL_H_INCLUDE
 +
 +#define SYSCALL_PRINT 0
++#define SYSCALL_MMAP 1
 +
 +#include <stddef.h>
 +#include <stdint.h>

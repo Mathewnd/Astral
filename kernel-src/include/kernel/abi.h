@@ -7,6 +7,7 @@ typedef int gid_t;
 typedef int uid_t;
 typedef unsigned int mode_t;
 typedef uint64_t ino_t;
+typedef long off_t;
 
 #define POLLIN 0x1
 #define POLLPRI 0x2
