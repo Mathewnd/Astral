@@ -322,7 +322,7 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 		void *paddr = pmm_alloc(1, PMM_SECTION_DEFAULT);
 		__assert(paddr); // XXX handle these better than an assert once there are signals and such
 		__assert(arch_mmu_map(_cpu()->vmmctx->pagetable, paddr, addr, range->mmuflags));
-		memset(addr, 0, PAGE_SIZE);
+		memset(MAKE_HHDM(paddr), 0, PAGE_SIZE);
 		status = true;
 	}
 
