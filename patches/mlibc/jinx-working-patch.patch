@@ -113,10 +113,10 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..80a5884
+index 0000000..b92f59e
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -0,0 +1,148 @@
+@@ -0,0 +1,151 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -237,7 +237,10 @@ index 0000000..80a5884
 +		return ENOSYS;
 +	}
 +	int sys_seek(int fd, off_t offset, int whence, off_t *new_offset) {
-+		return ENOSYS;
++		long ret = 0;
++		long error = syscall(SYSCALL_SEEK, &ret, fd, offset, whence);
++		*new_offset = ret;
++		return error;
 +	}
 +	
 +	int sys_close(int fd) {
@@ -284,10 +287,10 @@ index 0000000..990eca0
 +#endif
 diff --git mlibc-workdir/sysdeps/astral/include/astral/syscall.h mlibc-workdir/sysdeps/astral/include/astral/syscall.h
 new file mode 100644
-index 0000000..17c0045
+index 0000000..1947f70
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/include/astral/syscall.h
-@@ -0,0 +1,27 @@
+@@ -0,0 +1,28 @@
 +#ifndef _SYSCALL_H_INCLUDE
 +#define _SYSCALL_H_INCLUDE
 +
@@ -295,6 +298,7 @@ index 0000000..17c0045
 +#define SYSCALL_MMAP 1
 +#define SYSCALL_OPENAT 2
 +#define SYSCALL_READ 3
++#define SYSCALL_SEEK 4
 +
 +#include <stddef.h>
 +#include <stdint.h>
