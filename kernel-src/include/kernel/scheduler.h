@@ -50,6 +50,7 @@ typedef struct proc_t {
 	int flags;
 	vnode_t *cwd;
 	vnode_t *root;
+	spinlock_t nodeslock;
 } proc_t;
 
 #include <arch/cpu.h>
@@ -64,6 +65,9 @@ void sched_preparesleep(bool interruptible);
 void sched_wakeup(thread_t *thread, int reason);
 int sched_sleep();
 proc_t *sched_newproc();
+vnode_t *sched_getcwd();
+vnode_t *sched_getroot();
 thread_t *sched_newthread(void *ip, size_t kstacksize, int priority, proc_t *proc, void *ustack);
+
 
 #endif

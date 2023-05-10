@@ -40,6 +40,7 @@ proc_t *sched_newproc() {
 	proc->threadtablesize = 1;
 	proc->runningthreadcount = 1;
 	SPINLOCK_INIT(proc->lock);
+	SPINLOCK_INIT(proc->nodeslock);
 	proc->fdcount = 3;
 	proc->fdfirst = 3;
 	SPINLOCK_INIT(proc->fdlock);
@@ -273,6 +274,27 @@ void sched_wakeup(thread_t *thread, int reason) {
 	interrupt_set(intstate);
 }
 
+static vnode_t *getnodeslock(vnode_t **addr) {
+	proc_t *proc = _cpu()->thread->proc;
+	bool intstatus = interrupt_set(false);
+	spinlock_acquire(&proc->nodeslock);
+	vnode_t *vnode = *addr;
+	VOP_HOLD(vnode);
+	spinlock_release(&proc->nodeslock);
+	interrupt_set(intstatus);
+	return vnode;
+}
+
+vnode_t *sched_getcwd() {
+	proc_t *proc = _cpu()->thread->proc;
+	return getnodeslock(&proc->cwd);
+}
+
+vnode_t *sched_getroot() {
+	proc_t *proc = _cpu()->thread->proc;
+	return getnodeslock(&proc->root);
+}
+
 static void timerhook(void *private, context_t *context) {
 	thread_t* current = _cpu()->thread;
 
@@ -359,6 +381,18 @@ void sched_runinit() {
 		__assert(elf_load(interpnode, INTERP_BASE, &entry, &interpinterp, &interpauxv) == 0);
 		__assert(interpinterp == NULL);
 	}
+
+	vnode_t *stdinvnode;
+	__assert(vfs_open(vfsroot, "/dev/console", V_FFLAGS_READ, &stdinvnode) == 0);
+	vnode_t *stdoutnode;
+	__assert(vfs_open(vfsroot, "/dev/console", V_FFLAGS_WRITE, &stdoutnode) == 0);
+	vnode_t *stderrnode;
+	__assert(vfs_open(vfsroot, "/dev/console", V_FFLAGS_WRITE, &stderrnode) == 0);
+
+	proc->cwd = vfsroot;
+	VOP_HOLD(vfsroot);
+	proc->root = vfsroot;
+	VOP_HOLD(vfsroot);
 
 	char *argv = {NULL};
 	char *envp = {NULL};
