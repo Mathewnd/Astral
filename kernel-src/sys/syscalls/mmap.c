@@ -41,9 +41,12 @@ syscallret_t syscall_mmap(context_t *context, void *hint, size_t len, int prot, 
 		mmuflags |= ARCH_MMU_FLAGS_NOEXEC;
 
 	bool file = (flags & MAP_ANONYMOUS) == 0;
-	// TODO MAP_FIXED
-	__assert((flags & MAP_FIXED) == 0);
 	int vmmflags = 0;
+
+	// XXX this isn't the correct behaviour for MAP_FIXED
+	if (flags & MAP_FIXED)
+		vmmflags |= VMM_FLAGS_EXACT;
+
 	vmmfiledesc_t vfd;
 	// TODO file mappings
 	__assert(file == false);
