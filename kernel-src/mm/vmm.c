@@ -276,7 +276,7 @@ static void unmap(vmmspace_t *space, void *address, size_t size) {
 }
 
 bool vmm_pagefault(void *addr, bool user, int actions) {
-	if (user == false)
+	if (user == false && addr > USERSPACE_END)
 		return false;
 
 	addr = (void *)ROUND_DOWN((uintptr_t)addr, PAGE_SIZE);
