@@ -93,6 +93,13 @@ int vfs_open(vnode_t *ref, char *path, int flags, vnode_t **res) {
 	return err;
 }
 
+int vfs_close(vnode_t *node, int flags) {
+	VOP_LOCK(node);
+	int err = VOP_CLOSE(node, flags, getcred());
+	VOP_UNLOCK(node);
+	return err;
+}
+
 // if node is not NULL, then a reference is kept and the newnode is returned in node
 int vfs_create(vnode_t *ref, char *path, vattr_t *attr, int type, vnode_t **node) {
 	vnode_t *parent;
@@ -190,7 +197,7 @@ int vfs_unlink(vnode_t *ref, char *path) {
 // returns the highest node in a mount point
 static int highestnodeinmp(vnode_t *node, vnode_t **ret) {
 	int e = 0;
-	while (node->vfsmounted && e == 0)
+	while (e == 0 && node->vfsmounted)
 		e = VFS_ROOT(node->vfsmounted, &node);
 
 	*ret = node;
