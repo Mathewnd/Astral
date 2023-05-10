@@ -113,10 +113,10 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..6715503
+index 0000000..80a5884
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -0,0 +1,143 @@
+@@ -0,0 +1,148 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -225,9 +225,14 @@ index 0000000..6715503
 +		*fd = ret;
 +		return 0;
 +	};
++
 +	int sys_read(int fd, void *buff, size_t count, ssize_t *bytes_read) {
-+		return ENOSYS;
++		long readc;
++		long error = syscall(SYSCALL_READ, &readc, fd, (uint64_t)buff, count);
++		*bytes_read = readc;
++		return error;
 +	}
++
 +	int sys_write(int fd, const void *buff, size_t count, ssize_t *bytes_written) {
 +		return ENOSYS;
 +	}
@@ -279,16 +284,17 @@ index 0000000..990eca0
 +#endif
 diff --git mlibc-workdir/sysdeps/astral/include/astral/syscall.h mlibc-workdir/sysdeps/astral/include/astral/syscall.h
 new file mode 100644
-index 0000000..6ef92cd
+index 0000000..17c0045
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/include/astral/syscall.h
-@@ -0,0 +1,26 @@
+@@ -0,0 +1,27 @@
 +#ifndef _SYSCALL_H_INCLUDE
 +#define _SYSCALL_H_INCLUDE
 +
 +#define SYSCALL_PRINT 0
 +#define SYSCALL_MMAP 1
 +#define SYSCALL_OPENAT 2
++#define SYSCALL_READ 3
 +
 +#include <stddef.h>
 +#include <stdint.h>

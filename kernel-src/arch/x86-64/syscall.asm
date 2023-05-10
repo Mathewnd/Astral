@@ -2,12 +2,13 @@ section .rodata
 extern syscall_print
 extern syscall_mmap
 extern syscall_openat
+extern syscall_read
 syscalltab:
 dq syscall_print
 dq syscall_mmap
 dq syscall_openat
-
-syscallcount equ 3
+dq syscall_read
+syscallcount equ 4
 section .text
 global arch_syscall_entry
 ; on entry:
