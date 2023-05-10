@@ -33,7 +33,9 @@ static file_t* newfile() {
 }
 
 static void cleanfile(file_t *file) {
-	__assert(!"UNIMPLEMENTED");
+	vfs_close(file->vnode, fileflagstovnodeflags(file->flags));
+	VOP_RELEASE(file->vnode);
+	slab_free(filecache, file);
 }
 
 file_t *fd_get(int fd) {
