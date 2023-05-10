@@ -113,10 +113,10 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..b92f59e
+index 0000000..0f88fe5
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -0,0 +1,151 @@
+@@ -0,0 +1,152 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -244,7 +244,8 @@ index 0000000..b92f59e
 +	}
 +	
 +	int sys_close(int fd) {
-+		return ENOSYS;
++		long r;
++		return syscall(SYSCALL_CLOSE, &r, fd);
 +	}
 +
 +	int sys_vm_map(void *hint, size_t size, int prot, int flags, int fd, off_t offset, void **window) {
@@ -287,10 +288,10 @@ index 0000000..990eca0
 +#endif
 diff --git mlibc-workdir/sysdeps/astral/include/astral/syscall.h mlibc-workdir/sysdeps/astral/include/astral/syscall.h
 new file mode 100644
-index 0000000..1947f70
+index 0000000..bb2e40d
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/include/astral/syscall.h
-@@ -0,0 +1,28 @@
+@@ -0,0 +1,29 @@
 +#ifndef _SYSCALL_H_INCLUDE
 +#define _SYSCALL_H_INCLUDE
 +
@@ -299,6 +300,7 @@ index 0000000..1947f70
 +#define SYSCALL_OPENAT 2
 +#define SYSCALL_READ 3
 +#define SYSCALL_SEEK 4
++#define SYSCALL_CLOSE 5
 +
 +#include <stddef.h>
 +#include <stdint.h>
