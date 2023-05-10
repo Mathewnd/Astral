@@ -32,7 +32,7 @@ static int devfs_mount(vfs_t **vfs, vnode_t *mountpoint, vnode_t *backing, void 
 
 static int devfs_root(vfs_t *vfs, vnode_t **node) {
 	devfsroot->vnode.vfs = vfs;
-	*node = (vnode_t *)(&devfsroot);
+	*node = (vnode_t *)devfsroot;
 	return 0;
 }
 
@@ -42,7 +42,7 @@ int devfs_open(vnode_t **node, int flags, cred_t *cred) {
 		devnode = devnode->master;
 
 	if (devnode->devops->open == NULL)
-		return ENODEV;
+		return 0;
 
 	return devnode->devops->open(devnode->attr.rdevminor, flags);
 }
@@ -53,7 +53,7 @@ int devfs_close(vnode_t *node, int flags, cred_t *cred) {
 		devnode = devnode->master;
 
 	if (devnode->devops->close == NULL)
-		return ENODEV;
+		return 0;
 
 	return devnode->devops->close(devnode->attr.rdevminor, flags);
 }
