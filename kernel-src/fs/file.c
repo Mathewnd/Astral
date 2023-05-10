@@ -59,7 +59,7 @@ void fd_release(file_t *file) {
 	FILE_RELEASE(file);
 }
 
-int fd_new(vnode_t *vnode, int flags, file_t **rfile, int *rfd) {
+int fd_new(int flags, file_t **rfile, int *rfd) {
 	file_t *file = newfile();
 	if (file == NULL)
 		return ENOMEM;
@@ -93,8 +93,6 @@ int fd_new(vnode_t *vnode, int flags, file_t **rfile, int *rfd) {
 
 	spinlock_release(&proc->fdlock);
 
-	VOP_HOLD(vnode);
-	file->vnode = vnode;
 	*rfile = file;
 	*rfd = fd;
 	return 0;
