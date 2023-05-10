@@ -69,7 +69,11 @@ int fd_new(int flags, file_t **rfile, int *rfd) {
 
 	// find first free fd
 	int fd = -1;
-	for (fd = proc->fdfirst; fd < proc->fdcount && proc->fd[fd].file; ++fd);
+	int sfd;
+	for (sfd = proc->fdfirst; fd < proc->fdcount && proc->fd[fd].file; ++fd);
+
+	if (sfd != proc->fdcount)
+		fd = sfd;
 
 	// resize table if not found
 	if (fd == -1) {
