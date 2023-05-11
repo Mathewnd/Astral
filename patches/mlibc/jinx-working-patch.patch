@@ -71,7 +71,27 @@ index 0000000..0a0a4a0
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/astral.cpp mlibc-workdir/sysdeps/astral/generic/astral.cpp
 new file mode 100644
-index 0000000..e69de29
+index 0000000..7d5b1e3
+--- /dev/null
++++ mlibc-workdir/sysdeps/astral/generic/astral.cpp
+@@ -0,0 +1,17 @@
++#include <astral/archctl.h>
++#include <errno.h>
++
++#define ARCH_CTL_GSBASE 0
++#define ARCH_CTL_FSBASE 1
++
++#ifndef MLIBC_BUILDING_RTDL
++
++int syscall_archctl(int func, void *arg) {
++	long ret;
++	long error = syscall(SYSCALL_ARCHCTL, &ret, func, (uint64_t)arg);
++	if (error)
++		errno = error;
++	return error ? -1 : ret;
++}
++
++#endif
 diff --git mlibc-workdir/sysdeps/astral/generic/entry.cpp mlibc-workdir/sysdeps/astral/generic/entry.cpp
 new file mode 100644
 index 0000000..e5b087a
@@ -113,10 +133,10 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..0f88fe5
+index 0000000..1bf8c55
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -0,0 +1,152 @@
+@@ -0,0 +1,154 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -197,7 +217,8 @@ index 0000000..0f88fe5
 +	}
 +
 +	int sys_tcb_set(void *pointer) {
-+		return ENOSYS;
++		long r;
++		return syscall(SYSCALL_ARCHCTL, &r, ARCH_CTL_FSBASE, (uint64_t)pointer);
 +	}
 +
 +	int sys_futex_wait(int *pointer, int expected, const struct timespec *time) {
@@ -236,6 +257,7 @@ index 0000000..0f88fe5
 +	int sys_write(int fd, const void *buff, size_t count, ssize_t *bytes_written) {
 +		return ENOSYS;
 +	}
++
 +	int sys_seek(int fd, off_t offset, int whence, off_t *new_offset) {
 +		long ret = 0;
 +		long error = syscall(SYSCALL_SEEK, &ret, fd, offset, whence);
@@ -288,10 +310,10 @@ index 0000000..990eca0
 +#endif
 diff --git mlibc-workdir/sysdeps/astral/include/astral/syscall.h mlibc-workdir/sysdeps/astral/include/astral/syscall.h
 new file mode 100644
-index 0000000..bb2e40d
+index 0000000..2d4b960
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/include/astral/syscall.h
-@@ -0,0 +1,29 @@
+@@ -0,0 +1,30 @@
 +#ifndef _SYSCALL_H_INCLUDE
 +#define _SYSCALL_H_INCLUDE
 +
@@ -301,6 +323,7 @@ index 0000000..bb2e40d
 +#define SYSCALL_READ 3
 +#define SYSCALL_SEEK 4
 +#define SYSCALL_CLOSE 5
++#define SYSCALL_ARCHCTL 6
 +
 +#include <stddef.h>
 +#include <stdint.h>
