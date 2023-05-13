@@ -30,7 +30,7 @@ volatile struct limine_memmap_request pmm_liminemap = {
 	.revision = 0
 };
 
-static inline void bmset(void *addr, int v) {
+static inline void bmset(void *addr, uint64_t v) {
 	uintmax_t page = (uintptr_t)addr / PAGE_SIZE;
 	uintmax_t entry = page / 64;
 	uintmax_t offset = page % 64;
