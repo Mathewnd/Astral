@@ -133,10 +133,10 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..1bf8c55
+index 0000000..30fd3b0
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -0,0 +1,154 @@
+@@ -0,0 +1,157 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -255,7 +255,10 @@ index 0000000..1bf8c55
 +	}
 +
 +	int sys_write(int fd, const void *buff, size_t count, ssize_t *bytes_written) {
-+		return ENOSYS;
++		long writec;
++		long error = syscall(SYSCALL_WRITE, &writec, fd, (uint64_t)buff, count);
++		*bytes_written = writec;
++		return error;
 +	}
 +
 +	int sys_seek(int fd, off_t offset, int whence, off_t *new_offset) {
@@ -282,7 +285,7 @@ index 0000000..1bf8c55
 +	}
 +	
 +	int sys_isatty(int fd) {
-+		return ENOSYS;
++		return 0;
 +	}
 +
 +	int sys_clock_get(int clock, time_t *secs, long *nanos) {
@@ -310,10 +313,10 @@ index 0000000..990eca0
 +#endif
 diff --git mlibc-workdir/sysdeps/astral/include/astral/syscall.h mlibc-workdir/sysdeps/astral/include/astral/syscall.h
 new file mode 100644
-index 0000000..2d4b960
+index 0000000..ce00d62
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/include/astral/syscall.h
-@@ -0,0 +1,30 @@
+@@ -0,0 +1,31 @@
 +#ifndef _SYSCALL_H_INCLUDE
 +#define _SYSCALL_H_INCLUDE
 +
@@ -324,6 +327,7 @@ index 0000000..2d4b960
 +#define SYSCALL_SEEK 4
 +#define SYSCALL_CLOSE 5
 +#define SYSCALL_ARCHCTL 6
++#define SYSCALL_WRITE 7
 +
 +#include <stddef.h>
 +#include <stdint.h>
