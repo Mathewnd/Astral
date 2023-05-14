@@ -18,6 +18,7 @@ typedef struct fd_t {
 	int flags;
 } fd_t;
 
+file_t *fd_allocate();
 file_t *fd_get(int fd);
 void fd_release(file_t *file);
 int fd_new(int flags, file_t **file, int *fd);

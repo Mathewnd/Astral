@@ -38,6 +38,10 @@ static void cleanfile(file_t *file) {
 	slab_free(filecache, file);
 }
 
+file_t *fd_allocate() {
+	return newfile();
+}
+
 file_t *fd_get(int fd) {
 	proc_t *proc = _cpu()->thread->proc;
 	bool intstatus = interrupt_set(false);
