@@ -28,6 +28,7 @@ syscallret_t syscall_read(context_t *context, int fd, void *buffer, size_t size)
 	if (ret.errno)
 		goto cleanup;
 
+	file->offset += bytesread;
 	ret.ret = bytesread;
 	ret.errno = 0;
 
