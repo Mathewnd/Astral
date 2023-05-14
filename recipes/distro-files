@@ -1,0 +1,15 @@
+name=distro-files
+revision=1
+from_source=distro-files
+
+configure() {
+	true
+}
+
+build() {
+	true
+}
+
+install() {
+	cp -r ${source_dir}/* ${dest_dir}
+}
