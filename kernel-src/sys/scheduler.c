@@ -26,6 +26,8 @@ static rqueue_t runqueue[RUNQUEUE_COUNT];
 static uint64_t runqueuebitmap;
 static spinlock_t runqueuelock;
 
+static pid_t currpid = 1;
+
 proc_t *sched_newproc() {
 	proc_t *proc = slab_allocate(processcache);
 	if (proc == NULL)
@@ -52,6 +54,8 @@ proc_t *sched_newproc() {
 		return NULL;
 	}
 
+	proc->pid = __atomic_fetch_add(&currpid, 1, __ATOMIC_SEQ_CST);
+
 	return proc;
 }
 
@@ -72,6 +76,9 @@ thread_t *sched_newthread(void *ip, size_t kstacksize, int priority, proc_t *pro
 	thread->vmmctx = proc ? NULL : &vmm_kernelctx;
 	thread->proc = proc;
 	thread->priority = priority;
+	if (proc)
+		thread->tid = __atomic_fetch_add(&currpid, 1, __ATOMIC_SEQ_CST);
+
 
 	CTX_INIT(&thread->context, proc != NULL);
 	CTX_SP(&thread->context) = proc ? (ctxreg_t)ustack : (ctxreg_t)thread->kernelstacktop;
@@ -112,7 +119,8 @@ static thread_t *runqueuenext(int minprio) {
 		}
 	}
 
-	thread->flags &= ~SCHED_THREAD_FLAGS_QUEUED;
+	if (thread)
+		thread->flags &= ~SCHED_THREAD_FLAGS_QUEUED;
 
 	leave:
 	interrupt_set(intstate);
@@ -340,7 +348,7 @@ void sched_init() {
 	_cpu()->schedtimerentry.repeatus = QUANTUM_US;
 	SPINLOCK_INIT(runqueuelock);
 
-	_cpu()->idlethread = sched_newthread(cpuidlethread, PAGE_SIZE * 4, 0, NULL, NULL);
+	_cpu()->idlethread = sched_newthread(cpuidlethread, PAGE_SIZE * 4, 3, NULL, NULL);
 	__assert(_cpu()->idlethread);
 	_cpu()->thread = sched_newthread(NULL, PAGE_SIZE * 32, 0, NULL, NULL);
 	__assert(_cpu()->thread);
@@ -366,7 +374,7 @@ void sched_runinit() {
 	__assert(proc);
 
 	vnode_t *initnode;
-	__assert(vfs_open(vfsroot, "/init", 0, &initnode) == 0);
+	__assert(vfs_open(vfsroot, "/usr/bin/bash", 0, &initnode) == 0);
 
 	auxv64list_t auxv64;
 	char *interp = NULL;
