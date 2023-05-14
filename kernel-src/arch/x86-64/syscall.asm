@@ -8,6 +8,8 @@ extern syscall_close
 extern syscall_archctl
 extern syscall_write
 extern syscall_getpid
+extern syscall_fstat
+extern syscall_fstatat
 syscalltab:
 dq syscall_print
 dq syscall_mmap
@@ -18,7 +20,9 @@ dq syscall_close
 dq syscall_archctl
 dq syscall_write
 dq syscall_getpid
-syscallcount equ 9
+dq syscall_fstat
+dq syscall_fstatat
+syscallcount equ 11
 section .text
 global arch_syscall_entry
 ; on entry:
