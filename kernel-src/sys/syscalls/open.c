@@ -14,8 +14,6 @@ syscallret_t syscall_openat(context_t *context, int dirfd, const char *path, int
 	// transform O_RDONLY, O_WRONLY, O_RDWR into FILE_READ and FILE_WRITE
 	++flags;
 
-	__assert((~FILE_KNOWN_FLAGS & flags) == 0);
-
 	vnode_t *dirnode = NULL;
 	file_t *dirfile;
 
