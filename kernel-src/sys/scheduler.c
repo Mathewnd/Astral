@@ -382,12 +382,32 @@ void sched_runinit() {
 		__assert(interpinterp == NULL);
 	}
 
-	vnode_t *stdinvnode;
-	__assert(vfs_open(vfsroot, "/dev/console", V_FFLAGS_READ, &stdinvnode) == 0);
+	vnode_t *stdinnode;
+	__assert(vfs_open(vfsroot, "/dev/console", V_FFLAGS_READ, &stdinnode) == 0);
 	vnode_t *stdoutnode;
 	__assert(vfs_open(vfsroot, "/dev/console", V_FFLAGS_WRITE, &stdoutnode) == 0);
 	vnode_t *stderrnode;
 	__assert(vfs_open(vfsroot, "/dev/console", V_FFLAGS_WRITE, &stderrnode) == 0);
+
+	file_t *stdin = fd_allocate();
+	file_t *stdout = fd_allocate();
+	file_t *stderr = fd_allocate();
+
+	stdin->vnode = stdinnode;
+	stdout->vnode = stdoutnode;
+	stderr->vnode = stderrnode;
+
+	stdin->flags = FILE_READ;
+	stdout->flags = stderr->flags = FILE_WRITE;
+	stdin->offset = stdout->offset = stderr->offset = 0;
+	stdin->mode = stdout->mode = stderr-> mode = 0644;
+
+	proc->fd[0].file = stdin;
+	proc->fd[0].flags = 0;
+	proc->fd[1].file = stdout;
+	proc->fd[1].flags = 0;
+	proc->fd[2].file = stderr;
+	proc->fd[2].flags = 0;
 
 	proc->cwd = vfsroot;
 	VOP_HOLD(vfsroot);
