@@ -73,7 +73,9 @@ void arch_context_saveandcall(void (*fn)(context_t *context), void *stack);
 	arch_context_switch(&thread->context);
 
 #define ARCH_CONTEXT_THREADSAVE(t, c) \
-	memcpy(&(t)->context, c, sizeof(context_t));
+	memcpy(&(t)->context, c, sizeof(context_t)); \
+	(t)->extracontext.gsbase = rdmsr(MSR_KERNELGSBASE); \
+	(t)->extracontext.fsbase = rdmsr(MSR_FSBASE);
 
 #define ARCH_CONTEXT_THREADLOAD(t, c) \
 	memcpy(c, &(t)->context, sizeof(context_t)); \
