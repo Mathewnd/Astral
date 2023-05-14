@@ -1,0 +1,23 @@
+name=bash
+revision=1
+from_source=bash
+imagedeps="base-devel"
+hostdeps="xgcc xbinutils"
+deps="mlibc"
+
+configure() {
+	${source_dir}/configure --host=x86_64-astral --prefix=${prefix} --without-bash-malloc --disable-readline
+}
+
+build() {
+	make -j ${parallelism}
+}
+
+install() {
+	make install DESTDIR=${dest_dir}
+	
+	mkdir -p ${dest_dir}/bin
+	pushd ${dest_dir}/bin
+	ln -sv ${prefix}/bin/bash sh
+	popd
+}
