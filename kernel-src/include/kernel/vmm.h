@@ -85,7 +85,7 @@ static inline int mmuflagstovnodeflags(mmuflags_t mmuflags) {
 	if (mmuflags & ARCH_MMU_FLAGS_READ)
 		flags |= V_FFLAGS_READ;
 	if (mmuflags & ARCH_MMU_FLAGS_WRITE)
-		flags |= V_FFLAGS_READ;
+		flags |= V_FFLAGS_WRITE;
 	if ((mmuflags & ARCH_MMU_FLAGS_NOEXEC) == 0)
 		flags |= V_FFLAGS_EXEC;
 
