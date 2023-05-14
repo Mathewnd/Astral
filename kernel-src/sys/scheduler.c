@@ -422,10 +422,10 @@ void sched_runinit() {
 	proc->root = vfsroot;
 	VOP_HOLD(vfsroot);
 
-	char *argv = {NULL};
-	char *envp = {NULL};
+	char *argv[] = {"/usr/bin/bash", "-l", NULL};
+	char *envp[] = {NULL};
 
-	void *stack = elf_preparestack(STACK_TOP, &auxv64, &argv, &envp);
+	void *stack = elf_preparestack(STACK_TOP, &auxv64, argv, envp);
 	__assert(stack);
 
 	// reenter kernel context
