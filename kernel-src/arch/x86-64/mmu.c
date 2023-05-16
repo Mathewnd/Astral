@@ -111,6 +111,24 @@ static bool add_page(pagetableptr_t top, void *vaddr, uint64_t entry, int depth)
 	return true;
 }
 
+static void destroy(uint64_t *table, int depth) {
+	for (int i = 0; i < 512; ++i) {
+		void *addr = (void *)((*table & ADDRMASK));
+		if (addr == NULL)
+			continue;
+
+		if (depth > 0)
+			destroy(MAKE_HHDM(addr), depth - 1);
+
+		pmm_free(addr, 1);
+	}
+}
+
+void arch_mmu_destroytable(pagetableptr_t table) {
+	destroy(MAKE_HHDM(table), 3);
+	pmm_free(table, 1);
+}
+
 bool arch_mmu_map(pagetableptr_t table, void *paddr, void *vaddr, mmuflags_t flags) {
 	uint64_t entry = ((uintptr_t)paddr & ADDRMASK) | flags;
 	return add_page(table, vaddr, entry, 0);

@@ -19,6 +19,7 @@
 typedef uint64_t mmuflags_t;
 typedef uint64_t * pagetableptr_t; // physical address
 
+void arch_mmu_destroytable(pagetableptr_t table);
 bool arch_mmu_map(pagetableptr_t table, void *paddr, void *vaddr, mmuflags_t flags);
 void arch_mmu_invalidate(void *vaddr);
 void arch_mmu_unmap(pagetableptr_t table, void *vaddr);
