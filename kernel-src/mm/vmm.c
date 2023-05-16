@@ -195,23 +195,25 @@ static void insertrange(vmmspace_t *space, vmmrange_t *newrange) {
 	}
 }
 
-static void destroyrange(vmmrange_t *range, uintmax_t _offset, size_t size) {
+#define DESTROY_FLAGS_NOSYNC 1
+
+static void destroyrange(vmmcontext_t *context, vmmrange_t *range, uintmax_t _offset, size_t size, int flags) {
 	uintmax_t top = _offset + size;
 	__assert(!(range->flags & VMM_FLAGS_COPY)); // TODO unimplemented
 
 	for (uintmax_t offset = _offset; offset < top; offset += PAGE_SIZE) {
 		void *vaddr = (void *)((uintptr_t)range->start + offset);
-		void *physical = arch_mmu_getphysical(_cpu()->vmmctx->pagetable, vaddr);
+		void *physical = arch_mmu_getphysical(context->pagetable, vaddr);
 		if (physical == NULL)
 			continue;
 
-		if (range->flags & VMM_FLAGS_FILE) {
+		if ((range->flags & VMM_FLAGS_FILE) && (range->flags & VMM_FLAGS_SHARED) && (flags & DESTROY_FLAGS_NOSYNC) == 0) {
 			VOP_LOCK(range->vnode);
 			__assert(VOP_MUNMAP(range->vnode, vaddr, range->offset + offset, mmuflagstovnodeflags(range->mmuflags), NULL) == 0); // XXX pass cred struct
 			VOP_UNLOCK(range->vnode);
 		} else {
 			pmm_free(physical, 1);
-			arch_mmu_unmap(_cpu()->vmmctx->pagetable, vaddr);
+			arch_mmu_unmap(context->pagetable, vaddr);
 		}
 	}
 
@@ -219,8 +221,9 @@ static void destroyrange(vmmrange_t *range, uintmax_t _offset, size_t size) {
 		VOP_RELEASE(range->vnode);
 }
 
-static void unmap(vmmspace_t *space, void *address, size_t size) {
+static void unmap(vmmcontext_t *context, void *address, size_t size) {
 	void *top = (void *)((uintptr_t)address + size);
+	vmmspace_t *space = &context->space;
 	vmmrange_t *range = space->ranges;
 
 	while (range) {
@@ -235,14 +238,14 @@ static void unmap(vmmspace_t *space, void *address, size_t size) {
 			if (range->next)
 				range->next->prev = range->prev;
 
-			destroyrange(range, 0, range->size);
+			destroyrange(context, range, 0, range->size, 0);
 			freerange(range);
 		} else if (address > range->start && top < rangetop) { // split
 			vmmrange_t *new = allocrange();
 			__assert(new); // XXX deal with this better
 			*new = *range;
 
-			destroyrange(range, (uintptr_t)address - (uintptr_t)range->start, size);
+			destroyrange(context, range, (uintptr_t)address - (uintptr_t)range->start, size, 0);
 
 			new->start = top;
 			new->size = (uintptr_t)rangetop - (uintptr_t)new->start;
@@ -258,7 +261,7 @@ static void unmap(vmmspace_t *space, void *address, size_t size) {
 			}
 		} else if (top > range->start && range->start >= address) { // partially unmap from start
 			size_t difference = (uintptr_t)top - (uintptr_t)range->start;
-			destroyrange(range, 0, difference);
+			destroyrange(context, range, 0, difference, 0);
 			range->start = (void *)((uintptr_t)range->start + difference);
 			range->size -= difference;
 
@@ -267,7 +270,7 @@ static void unmap(vmmspace_t *space, void *address, size_t size) {
 		} else if (address < rangetop && rangetop <= top){ // partially unmap from end
 			size_t difference = (uintptr_t)rangetop - (uintptr_t)address;
 			range->size -= difference;
-			destroyrange(range, range->size, difference);
+			destroyrange(context, range, range->size, difference, 0);
 		}
 
 		range = range->next;
@@ -435,7 +438,7 @@ void vmm_unmap(void *addr, size_t size, int flags) {
 
 	spinlock_acquire(&space->lock);
 
-	unmap(space, addr, size);
+	unmap(_cpu()->vmmctx, addr, size);
 
 	spinlock_release(&space->lock);
 }
@@ -467,6 +470,70 @@ vmmcontext_t *vmm_newcontext() {
 	}
 
 	return ctx;
+}
+
+void vmm_destroycontext(vmmcontext_t *context, int destroyrangeflags) {
+	vmmrange_t *range = context->space.ranges;
+	while (range) {
+		destroyrange(context, range, 0, range->size, destroyrangeflags);
+		vmmrange_t *next = range->next;
+		freerange(range);
+		range = next;
+	}
+
+	arch_mmu_destroytable(context->pagetable);
+	slab_free(ctxcache, context);
+}
+
+vmmcontext_t *vmm_fork(vmmcontext_t *oldcontext) {
+	// TODO copy on write
+	vmmcontext_t *newcontext = vmm_newcontext();
+	if (newcontext == NULL)
+		return NULL;
+
+	spinlock_acquire(&oldcontext->space.lock);
+
+	vmmrange_t *range = oldcontext->space.ranges;
+
+	while (range) {
+		vmmrange_t *newrange = allocrange();
+		if (newrange == NULL)
+			goto error;
+
+		memcpy(newrange, range, sizeof(vmmrange_t));
+
+		insertrange(&newcontext->space, newrange);
+		if (range->flags & VMM_FLAGS_FILE)
+			VOP_HOLD(range->vnode);
+
+		// copy any pages that are mapped
+
+		for (uintptr_t offset = 0; offset < newrange->size; offset += PAGE_SIZE) {
+			// XXX some types of mappings, like framebuffer shared mappings, will break if done this way
+			void *vaddr = (void *)((uintptr_t)newrange->start + offset);
+			void *phys = arch_mmu_getphysical(oldcontext->pagetable, vaddr);
+			if (phys == NULL)
+				continue;
+
+			void *palloc = pmm_alloc(1, PMM_SECTION_DEFAULT);
+			if (palloc == NULL)
+				goto error;
+
+			if (arch_mmu_map(newcontext->pagetable, palloc, vaddr, newrange->mmuflags) == false)
+				goto error;
+
+			memcpy(MAKE_HHDM(palloc), MAKE_HHDM(phys), PAGE_SIZE);
+		}
+
+		range = range->next;
+	}
+
+	spinlock_release(&oldcontext->space.lock);
+	return newcontext;
+	error:
+	spinlock_release(&oldcontext->space.lock);
+	vmm_destroycontext(newcontext, DESTROY_FLAGS_NOSYNC);
+	return NULL;
 }
 
 void vmm_switchcontext(vmmcontext_t *ctx) {
