@@ -10,6 +10,7 @@ extern syscall_write
 extern syscall_getpid
 extern syscall_fstat
 extern syscall_fstatat
+extern syscall_fork
 syscalltab:
 dq syscall_print
 dq syscall_mmap
@@ -22,7 +23,8 @@ dq syscall_write
 dq syscall_getpid
 dq syscall_fstat
 dq syscall_fstatat
-syscallcount equ 11
+dq syscall_fork
+syscallcount equ 12
 section .text
 global arch_syscall_entry
 ; on entry:
@@ -49,7 +51,7 @@ arch_syscall_entry:
 
 	; push context
 	push qword 0x1b ; user SS
-	push qword rcx
+	push qword rcx  ; user RSP
 	add qword [rsp], 8 ; correct the old stack pointer to before the return address push
 	push r11     ; rflags is stored in r11
 	push qword 0x23 ; user CS
@@ -89,6 +91,7 @@ arch_syscall_entry:
 	mov rdx, rsi
 	mov rsi, rdi
 	mov rdi, rsp
+	add rdi, 8 ; context pointer is after r9 argument
 	sti
 
 	cmp rax, syscallcount
