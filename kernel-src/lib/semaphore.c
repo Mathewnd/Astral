@@ -6,24 +6,24 @@ static void insert(semaphore_t *sem, thread_t *thread) {
 	if (sem->head == NULL) {
 		sem->head = thread;
 		sem->tail = thread;
-		thread->next = NULL;
-		thread->prev = NULL;
+		thread->sleepnext = NULL;
+		thread->sleepprev = NULL;
 		return;
 	}
 
-	sem->tail->next = _cpu()->thread;
-	_cpu()->thread->prev = sem->tail;
+	sem->tail->sleepnext = _cpu()->thread;
+	_cpu()->thread->sleepprev = sem->tail;
 }
 
 static thread_t *get(semaphore_t *sem) {
 	thread_t *thread = sem->head;
 	__assert(thread);
 
-	sem->head = sem->head->next;
+	sem->head = sem->head->sleepnext;
 	if (sem->head == NULL)
 		sem->tail = NULL;
 	else 
-		sem->head->prev = NULL;
+		sem->head->sleepprev = NULL;
 
 	return thread;
 }

@@ -17,6 +17,8 @@ typedef struct thread_t {
 	void *kernelstacktop;
 	struct thread_t *next;
 	struct thread_t *prev;
+	struct thread_t *sleepnext;
+	struct thread_t *sleepprev;
 	struct proc_t *proc;
 	struct cpu_t *cpu;
 	context_t context;
