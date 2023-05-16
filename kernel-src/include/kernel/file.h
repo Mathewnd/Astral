@@ -24,6 +24,7 @@ void fd_release(file_t *file);
 int fd_new(int flags, file_t **file, int *fd);
 int fd_close(int fd);
 int fd_dup(int oldfd, int newfd, bool exact, int flags, int *ret);
+int fd_clone(proc_t *proc);
 
 #define FILE_READ 1
 #define FILE_WRITE 2

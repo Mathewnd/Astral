@@ -131,3 +131,29 @@ int fd_close(int fd) {
 
 	return 0;
 }
+
+int fd_clone(proc_t *targproc) {
+	proc_t *proc = _cpu()->thread->proc;
+	int error = 0;
+	spinlock_acquire(&proc->fdlock);
+
+	targproc->fdcount = proc->fdcount;
+	targproc->fdfirst = proc->fdfirst;
+	targproc->fd = alloc(proc->fdcount * sizeof(fd_t));
+	if (targproc->fd == NULL) {
+		error = ENOMEM;
+		goto cleanup;
+	}
+
+	for (int i = 0; i < targproc->fdcount; ++i) {
+		if (proc->fd[i].file == NULL)
+			continue;
+
+		targproc->fd[i] = proc->fd[i];
+		FILE_HOLD(targproc->fd[i].file);
+	}
+
+	cleanup:
+	spinlock_release(&proc->fdlock);
+	return error;
+}
