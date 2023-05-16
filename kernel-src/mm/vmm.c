@@ -515,5 +515,8 @@ void vmm_init() {
 	__assert(vmm_map(&_rodata_start, (uintptr_t)&_rodata_end - (uintptr_t)&_rodata_start, 0, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_NOEXEC, NULL));
 	__assert(vmm_map(&_data_start, (uintptr_t)&_data_end - (uintptr_t)&_data_start, 0, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, NULL));
 
+	// null page
+	vmm_map(MAKE_HHDM(NULL), PAGE_SIZE, VMM_FLAGS_EXACT, ARCH_MMU_FLAGS_NOEXEC, NULL);
+
 	printspace(&kernelspace);
 }
