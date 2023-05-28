@@ -12,6 +12,8 @@
 
 #define GET_SLAB(x) (slab_t *)(ROUND_DOWN((uintptr_t)x, PAGE_SIZE) + SLAB_PAGE_OFFSET)
 
+#define SLAB_DEBUG 0
+
 // the cache responsible for allocating all others
 static scache_t selfcache = {
 	.size = sizeof(scache_t),
@@ -77,6 +79,18 @@ static void *takeobject(scache_t *cache, slab_t *slab) {
 		return NULL;
 
 	void **objend = slab->free;
+
+#if SLAB_DEBUG != 0
+	if (cache->size < SLAB_INDIRECT_CUTOFF) {
+		void *addr = (void *)objend;
+		void *base = (void *)ROUND_DOWN((uintptr_t)slab, PAGE_SIZE);
+		__assert(addr > base && addr < (void *)slab);
+	} else {
+		void *addr = slab->base + ((uintptr_t)objend - ROUND_DOWN((uintptr_t)slab, PAGE_SIZE)) / sizeof(void **) * cache->truesize;
+		__assert(addr > slab->base && (uintptr_t)addr < (uintptr_t)slab->base + cache->slabobjcount * cache->truesize);
+	}
+#endif
+
 	slab->free = *slab->free;
 	slab->used += 1;
 	*objend = NULL;
@@ -110,7 +124,7 @@ static slab_t *returnobject(scache_t *cache, void *obj) {
 		}
 		__assert(slab);
 		uintmax_t objn = ((uintptr_t)obj - (uintptr_t)slab->base) / cache->truesize;
-		void **base = (void **)ROUND_DOWN((uintptr_t)obj, PAGE_SIZE);
+		void **base = (void **)ROUND_DOWN((uintptr_t)slab, PAGE_SIZE);
 		freeptr = &base[objn];
 	}
 
