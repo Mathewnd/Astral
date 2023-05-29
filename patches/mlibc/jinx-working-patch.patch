@@ -133,10 +133,10 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..e108341
+index 0000000..f212b93
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -0,0 +1,190 @@
+@@ -0,0 +1,189 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -244,8 +244,7 @@ index 0000000..e108341
 +	}
 +
 +	[[noreturn]] void sys_exit(int status) {
-+		sys_libc_log("mlibc: program requested exit");
-+		sys_libc_panic();
++		syscall(SYSCALL_EXIT, NULL, status);
 +		__builtin_unreachable();
 +	}
 +
@@ -346,10 +345,10 @@ index 0000000..990eca0
 +#endif
 diff --git mlibc-workdir/sysdeps/astral/include/astral/syscall.h mlibc-workdir/sysdeps/astral/include/astral/syscall.h
 new file mode 100644
-index 0000000..e23be0d
+index 0000000..8a8d77d
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/include/astral/syscall.h
-@@ -0,0 +1,36 @@
+@@ -0,0 +1,37 @@
 +#ifndef _SYSCALL_H_INCLUDE
 +#define _SYSCALL_H_INCLUDE
 +
@@ -366,6 +365,7 @@ index 0000000..e23be0d
 +#define SYSCALL_FSTATAT 10
 +#define SYSCALL_FORK 11
 +#define SYSCALL_EXECVE 12
++#define SYSCALL_EXIT 13
 +
 +#include <stddef.h>
 +#include <stdint.h>

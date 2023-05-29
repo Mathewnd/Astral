@@ -5,11 +5,15 @@
 #include <kernel/vmm.h>
 #include <kernel/abi.h>
 #include <kernel/vfs.h>
+#include <semaphore.h>
 
 #define SCHED_THREAD_FLAGS_QUEUED 1
 #define SCHED_THREAD_FLAGS_RUNNING 2
 #define SCHED_THREAD_FLAGS_SLEEP 4
 #define SCHED_THREAD_FLAGS_INTERRUPTIBLE 8
+
+#define SCHED_PROC_STATE_NORMAL 0
+#define SCHED_PROC_STATE_ZOMBIE 1
 
 #define STACK_TOP (void *)0x0000800000000000
 #define INTERP_BASE (void *)0x00000beef0000000
@@ -39,6 +43,8 @@ typedef struct thread_t {
 
 typedef struct proc_t {
 	spinlock_t lock;
+	int status;
+	int state;
 	struct proc_t *sibling;
 	struct proc_t *parent;
 	struct proc_t *child;
@@ -56,13 +62,16 @@ typedef struct proc_t {
 	vnode_t *cwd;
 	vnode_t *root;
 	spinlock_t nodeslock;
+	semaphore_t waitsem;
 } proc_t;
 
 #include <arch/cpu.h>
 
+extern proc_t *sched_initproc;
+
 void sched_init();
 void sched_runinit();
-void sched_threadexit();
+__attribute__((noreturn)) void sched_threadexit();
 void sched_queue(thread_t *thread);
 void sched_stopcurrentthread();
 int sched_yield();

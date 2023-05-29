@@ -8,6 +8,7 @@
 #include <errno.h>
 #include <kernel/elf.h>
 #include <kernel/file.h>
+#include <semaphore.h>
 
 #define QUANTUM_US 100000
 #define SCHEDULER_STACK_SIZE 4096
@@ -26,6 +27,7 @@ static rqueue_t runqueue[RUNQUEUE_COUNT];
 static uint64_t runqueuebitmap;
 static spinlock_t runqueuelock;
 
+proc_t *sched_initproc;
 static pid_t currpid = 1;
 
 proc_t *sched_newproc() {
@@ -46,6 +48,7 @@ proc_t *sched_newproc() {
 	proc->fdcount = 3;
 	proc->fdfirst = 3;
 	SPINLOCK_INIT(proc->fdlock);
+	SEMAPHORE_INIT(&proc->waitsem, 0);
 
 	proc->fd = alloc(sizeof(fd_t) * 3);
 	if (proc->fd == NULL) {
@@ -189,31 +192,13 @@ __attribute__((noreturn)) void sched_stopcurrentthread() {
 	switchthread(next);
 }
 
-void sched_threadexit() {
+__attribute__((noreturn)) void sched_threadexit() {
 	interrupt_set(false);
 	thread_t *thread = _cpu()->thread;
 	proc_t *proc = thread->proc;
 
-	if (proc) {
-		spinlock_acquire(&proc->lock);
-
-		int toffset = -1;
-
-		for (int i = 0; i < proc->threadtablesize; ++i) {
-			if (proc->threads[i] == thread) {
-				toffset = i;
-				break;
-			}
-		}
-
-		__assert(toffset != -1);
-		--proc->runningthreadcount;
-
-		if (proc->runningthreadcount == 0) {
-			// TODO prepare proc state to be left as a zombie
-		}
-		spinlock_release(&proc->lock);
-	}
+	if (proc)
+		__atomic_fetch_sub(&currpid, 1, __ATOMIC_SEQ_CST);
 
 	_cpu()->thread = NULL;
 
@@ -372,6 +357,8 @@ void sched_runinit() {
 
 	proc_t *proc = sched_newproc();
 	__assert(proc);
+
+	sched_initproc = proc;
 
 	vnode_t *initnode;
 	__assert(vfs_open(vfsroot, "/usr/bin/bash", 0, &initnode) == 0);
