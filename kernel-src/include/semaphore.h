@@ -3,16 +3,15 @@
 
 #include <stdbool.h>
 #include <spinlock.h>
-#include <kernel/scheduler.h>
 
 #define SEM_TAIL 0
 #define SEM_HEAD 1
 
-typedef struct {
+typedef struct semaphore_t{
 	int i;
 	spinlock_t lock;
-	thread_t *tail;
-	thread_t *head;
+	struct thread_t *tail;
+	struct thread_t *head;
 } semaphore_t;
 
 #define SEMAPHORE_INIT(x, v) { \
@@ -25,5 +24,7 @@ typedef struct {
 int semaphore_wait(semaphore_t *sem, bool interruptible);
 void semaphore_signal(semaphore_t *sem);
 bool semaphore_test(semaphore_t *sem);
+
+#include <kernel/scheduler.h>
 
 #endif

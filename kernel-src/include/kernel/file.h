@@ -3,6 +3,7 @@
 
 #include <kernel/vfs.h>
 #include <mutex.h>
+#include <kernel/scheduler.h>
 
 typedef struct file_t {
 	vnode_t *vnode;
