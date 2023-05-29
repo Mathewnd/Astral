@@ -11,6 +11,9 @@
 #define SCHED_THREAD_FLAGS_SLEEP 4
 #define SCHED_THREAD_FLAGS_INTERRUPTIBLE 8
 
+#define STACK_TOP (void *)0x0000800000000000
+#define INTERP_BASE (void *)0x00000beef0000000
+
 struct proc_t;
 
 typedef struct thread_t {
