@@ -112,8 +112,8 @@ static bool add_page(pagetableptr_t top, void *vaddr, uint64_t entry, int depth)
 }
 
 static void destroy(uint64_t *table, int depth) {
-	for (int i = 0; i < 512; ++i) {
-		void *addr = (void *)((*table & ADDRMASK));
+	for (int i = 0; i < (depth == 3 ? 256 : 512); ++i) {
+		void *addr = (void *)((table[i] & ADDRMASK));
 		if (addr == NULL)
 			continue;
 
