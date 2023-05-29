@@ -76,7 +76,7 @@ syscallret_t syscall_execve(context_t *context, char *upath, char *uargv[], char
 
 	refnode = *path == '/' ? sched_getroot() : sched_getcwd();
 
-	ret.errno = vfs_lookup(&node, vfsroot, "/usr/bin/bash", NULL, 0);
+	ret.errno = vfs_lookup(&node, vfsroot, path, NULL, 0);
 	if (ret.errno)
 		goto error;
 
@@ -141,8 +141,6 @@ syscallret_t syscall_execve(context_t *context, char *upath, char *uargv[], char
 		CTX_SP(context) = (uint64_t)stack;
 		CTX_IP(context) = (uint64_t)entry;
 	}
-
-	printf("exec ret: %lu %lu\n", ret.ret, ret.errno);
 
 	return ret;
 }

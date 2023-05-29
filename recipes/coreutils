@@ -1,0 +1,19 @@
+name=coreutils
+revision=1
+from_source=coreutils
+imagedeps="base-devel gperf"
+hostdeps="xgcc xbinutils"
+deps="mlibc"
+
+configure() {
+	cp -pr ${source_dir}/* .
+	CFLAGS="-DSLOW_BUT_NO_HACKS $CFLAGS" ./configure --host=x86_64-astral --prefix=${prefix}
+}
+
+build() {
+	make -j ${parallelism}
+}
+
+install() {
+	make install DESTDIR=${dest_dir}
+}
