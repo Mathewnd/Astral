@@ -195,8 +195,6 @@ static void insertrange(vmmspace_t *space, vmmrange_t *newrange) {
 	}
 }
 
-#define DESTROY_FLAGS_NOSYNC 1
-
 static void destroyrange(vmmcontext_t *context, vmmrange_t *range, uintmax_t _offset, size_t size, int flags) {
 	uintmax_t top = _offset + size;
 	__assert(!(range->flags & VMM_FLAGS_COPY)); // TODO unimplemented
@@ -207,7 +205,7 @@ static void destroyrange(vmmcontext_t *context, vmmrange_t *range, uintmax_t _of
 		if (physical == NULL)
 			continue;
 
-		if ((range->flags & VMM_FLAGS_FILE) && (range->flags & VMM_FLAGS_SHARED) && (flags & DESTROY_FLAGS_NOSYNC) == 0) {
+		if ((range->flags & VMM_FLAGS_FILE) && (range->flags & VMM_FLAGS_SHARED) && (flags & VMM_DESTROY_FLAGS_NOSYNC) == 0) {
 			VOP_LOCK(range->vnode);
 			__assert(VOP_MUNMAP(range->vnode, vaddr, range->offset + offset, mmuflagstovnodeflags(range->mmuflags), NULL) == 0); // XXX pass cred struct
 			VOP_UNLOCK(range->vnode);
@@ -532,7 +530,7 @@ vmmcontext_t *vmm_fork(vmmcontext_t *oldcontext) {
 	return newcontext;
 	error:
 	spinlock_release(&oldcontext->space.lock);
-	vmm_destroycontext(newcontext, DESTROY_FLAGS_NOSYNC);
+	vmm_destroycontext(newcontext, VMM_DESTROY_FLAGS_NOSYNC);
 	return NULL;
 }
 
@@ -575,12 +573,13 @@ void vmm_init() {
 
 	for (uint64_t i = 0; i < pmm_liminemap.response->entry_count; ++i) {
 		struct limine_memmap_entry *e = pmm_liminemap.response->entries[i];
-		__assert(vmm_map(MAKE_HHDM(e->base), e->length, 0, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, NULL));
+		mmuflags_t mmuflags = ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC;
+		__assert(vmm_map(MAKE_HHDM(e->base), e->length, VMM_FLAGS_EXACT, mmuflags, NULL));
 	}
 
-	__assert(vmm_map(&_text_start, (uintptr_t)&_text_end - (uintptr_t)&_text_start, 0, ARCH_MMU_FLAGS_READ, NULL));
-	__assert(vmm_map(&_rodata_start, (uintptr_t)&_rodata_end - (uintptr_t)&_rodata_start, 0, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_NOEXEC, NULL));
-	__assert(vmm_map(&_data_start, (uintptr_t)&_data_end - (uintptr_t)&_data_start, 0, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, NULL));
+	__assert(vmm_map(&_text_start, (uintptr_t)&_text_end - (uintptr_t)&_text_start, VMM_FLAGS_EXACT, ARCH_MMU_FLAGS_READ, NULL));
+	__assert(vmm_map(&_rodata_start, (uintptr_t)&_rodata_end - (uintptr_t)&_rodata_start, VMM_FLAGS_EXACT, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_NOEXEC, NULL));
+	__assert(vmm_map(&_data_start, (uintptr_t)&_data_end - (uintptr_t)&_data_start, VMM_FLAGS_EXACT, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, NULL));
 
 	// null page
 	vmm_map(MAKE_HHDM(NULL), PAGE_SIZE, VMM_FLAGS_EXACT, ARCH_MMU_FLAGS_NOEXEC, NULL);

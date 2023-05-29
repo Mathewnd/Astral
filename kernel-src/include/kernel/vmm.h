@@ -19,6 +19,8 @@
 #define VMM_ACTION_WRITE 2
 #define VMM_ACTION_EXEC 4
 
+#define VMM_DESTROY_FLAGS_NOSYNC 1
+
 typedef struct {
 	vnode_t *node;
 	uintmax_t offset;
@@ -92,6 +94,7 @@ static inline int mmuflagstovnodeflags(mmuflags_t mmuflags) {
 	return flags;
 }
 
+void vmm_destroycontext(vmmcontext_t *context, int destroyrangeflags);
 vmmcontext_t *vmm_fork(vmmcontext_t *oldcontext);
 void *vmm_map(void *addr, size_t size, int flags, mmuflags_t mmuflags, void *private);
 void vmm_unmap(void *addr, size_t size, int flags);
