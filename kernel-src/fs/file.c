@@ -33,8 +33,10 @@ static file_t* newfile() {
 }
 
 static void cleanfile(file_t *file) {
-	vfs_close(file->vnode, fileflagstovnodeflags(file->flags));
-	VOP_RELEASE(file->vnode);
+	if (file->vnode) {
+		vfs_close(file->vnode, fileflagstovnodeflags(file->flags));
+		VOP_RELEASE(file->vnode);
+	}
 	slab_free(filecache, file);
 }
 
