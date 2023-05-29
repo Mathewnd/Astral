@@ -133,10 +133,10 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..3961e7f
+index 0000000..e108341
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -0,0 +1,185 @@
+@@ -0,0 +1,190 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -198,6 +198,11 @@ index 0000000..3961e7f
 +	int sys_getpgid(pid_t pid, pid_t *pgid) {
 +		*pgid = 1;
 +		return 0;
++	}
++
++	int sys_execve(const char *path, char *const argv[], char *const envp[]) {
++		long ret = 0;
++		return syscall(SYSCALL_EXECVE, &ret, (uint64_t)path, (uint64_t)argv, (uint64_t)envp);
 +	}
 +
 +	int sys_fork(pid_t *pid) {
@@ -341,10 +346,10 @@ index 0000000..990eca0
 +#endif
 diff --git mlibc-workdir/sysdeps/astral/include/astral/syscall.h mlibc-workdir/sysdeps/astral/include/astral/syscall.h
 new file mode 100644
-index 0000000..16c462d
+index 0000000..e23be0d
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/include/astral/syscall.h
-@@ -0,0 +1,35 @@
+@@ -0,0 +1,36 @@
 +#ifndef _SYSCALL_H_INCLUDE
 +#define _SYSCALL_H_INCLUDE
 +
@@ -360,6 +365,7 @@ index 0000000..16c462d
 +#define SYSCALL_FSTAT 9
 +#define SYSCALL_FSTATAT 10
 +#define SYSCALL_FORK 11
++#define SYSCALL_EXECVE 12
 +
 +#include <stddef.h>
 +#include <stdint.h>

@@ -11,6 +11,7 @@ extern syscall_getpid
 extern syscall_fstat
 extern syscall_fstatat
 extern syscall_fork
+extern syscall_execve
 syscalltab:
 dq syscall_print
 dq syscall_mmap
@@ -24,7 +25,8 @@ dq syscall_getpid
 dq syscall_fstat
 dq syscall_fstatat
 dq syscall_fork
-syscallcount equ 12
+dq syscall_execve
+syscallcount equ 13
 section .text
 global arch_syscall_entry
 ; on entry:
