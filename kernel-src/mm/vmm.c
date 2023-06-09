@@ -55,8 +55,9 @@ static vmmrange_t *allocrange() {
 		} else if (cache->header.next == NULL)
 			cache->header.next = newcache();
 
-		cache = cache->header.next;
+		vmmcache_t *next = cache->header.next;
 		spinlock_release(&cache->header.lock);
+		cache = next;
 	}
 
 	return range;
