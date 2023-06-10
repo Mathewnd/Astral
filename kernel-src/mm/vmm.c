@@ -471,15 +471,11 @@ vmmcontext_t *vmm_newcontext() {
 	return ctx;
 }
 
-void vmm_destroycontext(vmmcontext_t *context, int destroyrangeflags) {
-	vmmrange_t *range = context->space.ranges;
-	while (range) {
-		destroyrange(context, range, 0, range->size, destroyrangeflags);
-		vmmrange_t *next = range->next;
-		freerange(range);
-		range = next;
-	}
-
+void vmm_destroycontext(vmmcontext_t *context) {
+	vmmcontext_t *oldctx = _cpu()->thread->vmmctx;
+	vmm_switchcontext(context);
+	vmm_unmap(context->space.start, context->space.end - context->space.start, 0);
+	vmm_switchcontext(oldctx);
 	arch_mmu_destroytable(context->pagetable);
 	slab_free(ctxcache, context);
 }
@@ -531,7 +527,7 @@ vmmcontext_t *vmm_fork(vmmcontext_t *oldcontext) {
 	return newcontext;
 	error:
 	spinlock_release(&oldcontext->space.lock);
-	vmm_destroycontext(newcontext, VMM_DESTROY_FLAGS_NOSYNC);
+	vmm_destroycontext(newcontext);
 	return NULL;
 }
 

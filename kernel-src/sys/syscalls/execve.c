@@ -123,7 +123,7 @@ syscallret_t syscall_execve(context_t *context, char *upath, char *uargv[], char
 
 	if (vmmctx && ret.errno) {
 		vmm_switchcontext(oldctx);
-		vmm_destroycontext(vmmctx, 0);
+		vmm_destroycontext(vmmctx);
 	}
 
 	if (refnode)
@@ -136,8 +136,7 @@ syscallret_t syscall_execve(context_t *context, char *upath, char *uargv[], char
 		free(interp);
 
 	if (ret.errno == 0) {
-		// TODO sync mmap files (unmap all lower memory first before destroying context?)
-		vmm_destroycontext(oldctx, 0);
+		vmm_destroycontext(oldctx);
 		CTX_SP(context) = (uint64_t)stack;
 		CTX_IP(context) = (uint64_t)entry;
 	}

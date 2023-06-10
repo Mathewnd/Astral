@@ -97,8 +97,9 @@ void sched_destroythread(thread_t *thread) {
 }
 
 void sched_destroyproc(proc_t *proc) {
-	free(proc->threads);
-	slab_free(processcache, proc);
+	//free(proc->threads);
+	//free(proc->fd);
+	//slab_free(processcache, proc);
 }
 
 static thread_t *runqueuenext(int minprio) {
@@ -197,8 +198,14 @@ __attribute__((noreturn)) void sched_threadexit() {
 	thread_t *thread = _cpu()->thread;
 	proc_t *proc = thread->proc;
 
-	if (proc)
-		__atomic_fetch_sub(&currpid, 1, __ATOMIC_SEQ_CST);
+	vmmcontext_t *oldctx = thread->vmmctx;
+	vmm_switchcontext(&vmm_kernelctx);
+
+	if (proc) {
+		__atomic_fetch_sub(&proc->runningthreadcount, 1, __ATOMIC_SEQ_CST);
+		if (proc->runningthreadcount == 0)
+			vmm_destroycontext(oldctx);
+	}
 
 	_cpu()->thread = NULL;
 
