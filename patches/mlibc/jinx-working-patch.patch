@@ -133,7 +133,7 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..afd1ebc
+index 0000000..601407e
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
 @@ -0,0 +1,193 @@
@@ -314,8 +314,8 @@ index 0000000..afd1ebc
 +	}
 +
 +	int sys_vm_unmap(void *pointer, size_t size) {
-+		// TODO UNSTUB
-+		return ENOSYS;
++		long ret;
++		return syscall(SYSCALL_MUNMAP, &ret, (uintptr_t)pointer, size);
 +	}
 +	
 +	int sys_isatty(int fd) {
@@ -349,10 +349,10 @@ index 0000000..990eca0
 +#endif
 diff --git mlibc-workdir/sysdeps/astral/include/astral/syscall.h mlibc-workdir/sysdeps/astral/include/astral/syscall.h
 new file mode 100644
-index 0000000..43c4367
+index 0000000..1562c23
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/include/astral/syscall.h
-@@ -0,0 +1,38 @@
+@@ -0,0 +1,39 @@
 +#ifndef _SYSCALL_H_INCLUDE
 +#define _SYSCALL_H_INCLUDE
 +
@@ -371,6 +371,7 @@ index 0000000..43c4367
 +#define SYSCALL_EXECVE 12
 +#define SYSCALL_EXIT 13
 +#define SYSCALL_WAITPID 14
++#define SYSCALL_MUNMAP 15
 +
 +#include <stddef.h>
 +#include <stdint.h>

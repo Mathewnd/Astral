@@ -14,6 +14,7 @@ extern syscall_fork
 extern syscall_execve
 extern syscall_exit
 extern syscall_waitpid
+extern syscall_munmap
 syscalltab:
 dq syscall_print
 dq syscall_mmap
@@ -30,7 +31,8 @@ dq syscall_fork
 dq syscall_execve
 dq syscall_exit
 dq syscall_waitpid
-syscallcount equ 15
+dq syscall_munmap
+syscallcount equ 16
 section .text
 global arch_syscall_entry
 ; on entry:
