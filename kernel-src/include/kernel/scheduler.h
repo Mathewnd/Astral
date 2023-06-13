@@ -82,6 +82,7 @@ proc_t *sched_newproc();
 vnode_t *sched_getcwd();
 vnode_t *sched_getroot();
 thread_t *sched_newthread(void *ip, size_t kstacksize, int priority, proc_t *proc, void *ustack);
-
+void sched_destroyproc(proc_t *);
+void sched_destroythread(thread_t *);
 
 #endif

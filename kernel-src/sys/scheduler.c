@@ -40,7 +40,9 @@ proc_t *sched_newproc() {
 		slab_free(processcache, proc);
 		return NULL;
 	}
+
 	// TODO move this to slab
+	proc->state = SCHED_PROC_STATE_NORMAL;
 	proc->threadtablesize = 1;
 	proc->runningthreadcount = 1;
 	SPINLOCK_INIT(proc->lock);
@@ -97,9 +99,9 @@ void sched_destroythread(thread_t *thread) {
 }
 
 void sched_destroyproc(proc_t *proc) {
-	//free(proc->threads);
-	//free(proc->fd);
-	//slab_free(processcache, proc);
+	free(proc->threads);
+	free(proc->fd);
+	slab_free(processcache, proc);
 }
 
 static thread_t *runqueuenext(int minprio) {
