@@ -133,10 +133,10 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..f212b93
+index 0000000..afd1ebc
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -0,0 +1,189 @@
+@@ -0,0 +1,193 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -151,57 +151,56 @@ index 0000000..f212b93
 +
 +namespace mlibc {
 +	
-+	// stub
-+
 +	int sys_setuid(uid_t id) {
++		// TODO UNSTUB
 +		return 0;
 +	}
-+
-+	// stub
 +
 +	int sys_setgid(gid_t id) {
++		// TODO UNSTUB
 +		return 0;
 +	}
-+	
-+	// stub
 +
 +	uid_t sys_getuid() {
++		// TODO UNSTUB
 +		return 0;
 +	}
-+
-+	// stub
 +
 +	gid_t sys_getgid() {
++		// TODO UNSTUB
 +		return 0;
 +	}
-+
-+	// stub
 +
 +	uid_t sys_geteuid() {
++		// TODO UNSTUB
 +		return 0;
 +	}
-+
-+	// stub
 +
 +	gid_t sys_getegid() {
++		// TODO UNSTUB
 +		return 0;
 +	}
 +	
-+	// stub
-+	
 +	pid_t sys_getppid() {
++		// TODO UNSTUB
 +		return 1;
 +	}
-+	
-+	// stub
 +
 +	int sys_getpgid(pid_t pid, pid_t *pgid) {
++		// TODO UNSTUB
 +		*pgid = 1;
 +		return 0;
 +	}
 +
++	int sys_waitpid(pid_t pid, int *status, int flags, struct rusage *ru, pid_t *ret_pid) {
++		long ret;
++		long err = syscall(SYSCALL_WAITPID, &ret, pid, (uint64_t)status, flags);
++		*ret_pid = ret;
++		return err;
++	}
++
 +	int sys_execve(const char *path, char *const argv[], char *const envp[]) {
-+		long ret = 0;
++		long ret;
 +		return syscall(SYSCALL_EXECVE, &ret, (uint64_t)path, (uint64_t)argv, (uint64_t)envp);
 +	}
 +
@@ -240,7 +239,7 @@ index 0000000..f212b93
 +	
 +	[[noreturn]] void sys_libc_panic() {
 +		sys_libc_log("mlibc: panic");
-+		for (;;) ;
++		sys_exit(1);
 +	}
 +
 +	[[noreturn]] void sys_exit(int status) {
@@ -254,9 +253,11 @@ index 0000000..f212b93
 +	}
 +
 +	int sys_futex_wait(int *pointer, int expected, const struct timespec *time) {
++		// TODO UNSTUB
 +		return ENOSYS;
 +	}
 +	int sys_futex_wake(int *pointer) {
++		// TODO UNSTUB
 +		return ENOSYS;
 +	}
 +	
@@ -313,14 +314,17 @@ index 0000000..f212b93
 +	}
 +
 +	int sys_vm_unmap(void *pointer, size_t size) {
++		// TODO UNSTUB
 +		return ENOSYS;
 +	}
 +	
 +	int sys_isatty(int fd) {
++		// TODO UNSTUB
 +		return 0;
 +	}
 +
 +	int sys_clock_get(int clock, time_t *secs, long *nanos) {
++		// TODO UNSTUB
 +		return ENOSYS;
 +	}
 +
@@ -345,10 +349,10 @@ index 0000000..990eca0
 +#endif
 diff --git mlibc-workdir/sysdeps/astral/include/astral/syscall.h mlibc-workdir/sysdeps/astral/include/astral/syscall.h
 new file mode 100644
-index 0000000..8a8d77d
+index 0000000..43c4367
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/include/astral/syscall.h
-@@ -0,0 +1,37 @@
+@@ -0,0 +1,38 @@
 +#ifndef _SYSCALL_H_INCLUDE
 +#define _SYSCALL_H_INCLUDE
 +
@@ -366,6 +370,7 @@ index 0000000..8a8d77d
 +#define SYSCALL_FORK 11
 +#define SYSCALL_EXECVE 12
 +#define SYSCALL_EXIT 13
++#define SYSCALL_WAITPID 14
 +
 +#include <stddef.h>
 +#include <stdint.h>
