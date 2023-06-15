@@ -85,12 +85,16 @@ int devfs_lookup(vnode_t *node, char *name, vnode_t **result, cred_t *cred) {
 		return EINVAL;
 
 	void *v;
+	VOP_LOCK(node);
 	int error = hashtable_get(&nametable, &v, name, strlen(name));
-	if (error)
+	if (error) {
+		VOP_UNLOCK(node);
 		return error;
+	}
 
 	vnode_t *rnode = v;
 	VOP_HOLD(rnode);
+	VOP_UNLOCK(node);
 	*result = rnode;
 
 	return 0;
@@ -106,8 +110,10 @@ int devfs_getattr(vnode_t *node, vattr_t *attr, cred_t *cred) {
 		return err;
 	}
 
+	VOP_LOCK(node);
 	*attr = devnode->attr;
 	attr->type = node->type;
+	VOP_UNLOCK(node);
 
 	return 0;
 }
@@ -116,18 +122,18 @@ int devfs_setattr(vnode_t *node, vattr_t *attr, cred_t *cred) {
 	devnode_t *devnode = (devnode_t *)node;
 
 	if (devnode->physical && devnode->physical != node) {
-		VOP_LOCK(devnode->physical);
 		int err = VOP_GETATTR(devnode->physical, attr, cred);
-		VOP_UNLOCK(devnode->physical);
 		return err;
 	}
 
+	VOP_LOCK(node);
 	devnode->attr.gid = attr->gid;
 	devnode->attr.uid = attr->uid;
 	devnode->attr.mode = attr->mode;
 	devnode->attr.atime = attr->atime;
 	devnode->attr.mtime = attr->mtime;
 	devnode->attr.ctime = attr->ctime;
+	VOP_UNLOCK(node);
 	return 0;
 }
 
@@ -170,6 +176,7 @@ int devfs_access(vnode_t *node, mode_t mode, cred_t *cred) {
 }
 
 int devfs_inactive(vnode_t *node) {
+	VOP_LOCK(node);
 	devnode_t *devnode = (devnode_t *)node;
 	vnode_t *master = (vnode_t *)devnode->master;
 	if (devnode->physical && devnode->physical != node)
@@ -186,12 +193,17 @@ int devfs_create(vnode_t *parent, char *name, vattr_t *attr, int type, vnode_t *
 
 	size_t namelen = strlen(name);
 	void *v;
-	if (hashtable_get(&nametable, &v, name, namelen) == 0)
+	VOP_LOCK(parent);
+	if (hashtable_get(&nametable, &v, name, namelen) == 0) {
+		VOP_UNLOCK(parent);
 		return EEXIST;
+	}
 
 	devnode_t *node = slab_allocate(nodecache);
-	if (node == NULL)
+	if (node == NULL) {
+		VOP_UNLOCK(parent);
 		return ENOMEM;
+	}
 
 	timespec_t time = timekeeper_time();
 	vattr_t tmpattr = *attr;
@@ -208,11 +220,13 @@ int devfs_create(vnode_t *parent, char *name, vattr_t *attr, int type, vnode_t *
 
 	int error = hashtable_set(&nametable, node, name, namelen, true);
 	if (error) {
+		VOP_UNLOCK(parent);
 		slab_free(nodecache, node);
 		return error;
 	}
 
 	VOP_HOLD(&node->vnode);
+	VOP_UNLOCK(parent);
 	*result = &node->vnode;
 
 	return 0;

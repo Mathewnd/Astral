@@ -49,9 +49,7 @@ syscallret_t syscall_seek(context_t *context, int fd, off_t offset, int whence) 
 		}
 		case SEEK_END: {
 			vattr_t attr;
-			VOP_LOCK(file->vnode);
 			ret.errno = VOP_GETATTR(file->vnode, &attr, &_cpu()->thread->proc->cred);
-			VOP_UNLOCK(file->vnode);
 			if (ret.errno) 
 				goto cleanup;
 			file->offset = attr.size;

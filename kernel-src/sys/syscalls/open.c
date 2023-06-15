@@ -54,9 +54,7 @@ syscallret_t syscall_openat(context_t *context, int dirfd, const char *path, int
 		goto cleanup;
 
 	vattr_t attr;
-	VOP_LOCK(vnode);
 	ret.errno = VOP_GETATTR(vnode, &attr, &_cpu()->thread->proc->cred);
-	VOP_UNLOCK(vnode);
 	if (ret.errno)
 		goto cleanup;
 

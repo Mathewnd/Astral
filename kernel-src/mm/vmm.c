@@ -207,9 +207,7 @@ static void destroyrange(vmmcontext_t *context, vmmrange_t *range, uintmax_t _of
 			continue;
 
 		if ((range->flags & VMM_FLAGS_FILE) && (range->flags & VMM_FLAGS_SHARED) && (flags & VMM_DESTROY_FLAGS_NOSYNC) == 0) {
-			VOP_LOCK(range->vnode);
 			__assert(VOP_MUNMAP(range->vnode, vaddr, range->offset + offset, mmuflagstovnodeflags(range->mmuflags), NULL) == 0); // XXX pass cred struct
-			VOP_UNLOCK(range->vnode);
 		} else {
 			pmm_free(physical, 1);
 			arch_mmu_unmap(context->pagetable, vaddr);
@@ -316,9 +314,7 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 
 	if (range->flags & VMM_FLAGS_FILE) {
 		uintmax_t mapoffset = (uintptr_t)addr - (uintptr_t)range->start;
-		VOP_LOCK(range->vnode);
 		__assert(VOP_MMAP(range->vnode, addr, range->offset + mapoffset, mmuflagstovnodeflags(range->mmuflags), NULL) == 0); // XXX pass cred struct
-		VOP_UNLOCK(range->vnode);
 		status = true;
 	} else {
 		void *paddr = pmm_alloc(1, PMM_SECTION_DEFAULT);

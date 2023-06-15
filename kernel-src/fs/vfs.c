@@ -84,9 +84,7 @@ int vfs_open(vnode_t *ref, char *path, int flags, vnode_t **res) {
 	if (err)
 		return err;
 
-	VOP_LOCK(*res);
 	err = VOP_OPEN(res, flags, getcred());
-	VOP_UNLOCK(*res);
 	if (err)
 		VOP_RELEASE(*res);
 
@@ -94,9 +92,7 @@ int vfs_open(vnode_t *ref, char *path, int flags, vnode_t **res) {
 }
 
 int vfs_close(vnode_t *node, int flags) {
-	VOP_LOCK(node);
 	int err = VOP_CLOSE(node, flags, getcred());
-	VOP_UNLOCK(node);
 	return err;
 }
 
@@ -109,9 +105,7 @@ int vfs_create(vnode_t *ref, char *path, vattr_t *attr, int type, vnode_t **node
 		goto cleanup;
 
 	vnode_t *ret;
-	VOP_LOCK(parent);
 	err = VOP_CREATE(parent, component, attr, type, &ret, getcred());
-	VOP_UNLOCK(parent);
 	VOP_RELEASE(parent);
 	if (err)
 		goto cleanup;
@@ -127,16 +121,12 @@ int vfs_create(vnode_t *ref, char *path, vattr_t *attr, int type, vnode_t **node
 }
 
 int vfs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t *written, int flags) {
-	VOP_LOCK(node);
 	int err = VOP_WRITE(node, buffer, size, offset, flags, written, getcred());
-	VOP_UNLOCK(node);
 	return err;
 }
 
 int vfs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t *bytesread, int flags) {
-	VOP_LOCK(node);
 	int err = VOP_READ(node, buffer, size, offset, flags, bytesread, getcred());
-	VOP_UNLOCK(node);
 	return err;
 }
 
@@ -160,14 +150,10 @@ int vfs_link(vnode_t *destref, char *destpath, vnode_t *linkref, char *linkpath,
 			VOP_RELEASE(parent);
 			goto cleanup;
 		}
-		VOP_LOCK(parent);
 		err = VOP_LINK(targetnode, parent, component, getcred());
-		VOP_UNLOCK(parent);
 		VOP_RELEASE(targetnode);
 	} else {
-		VOP_LOCK(parent);
 		err = VOP_SYMLINK(parent, component, attr, linkpath, getcred());
-		VOP_UNLOCK(parent);
 	}
 
 	VOP_RELEASE(parent);
@@ -184,9 +170,7 @@ int vfs_unlink(vnode_t *ref, char *path) {
 	if (err)
 		goto cleanup;
 
-	VOP_LOCK(parent);
 	VOP_UNLINK(parent, component, getcred());
-	VOP_UNLOCK(parent);
 	VOP_RELEASE(parent);
 
 	cleanup:
@@ -303,9 +287,7 @@ int vfs_lookup(vnode_t **result, vnode_t *start, char *path, char *lastcomp, int
 			}
 		}
 
-		VOP_LOCK(current);
 		error = VOP_LOOKUP(current, component, &next, getcred());
-		VOP_UNLOCK(current);
 		if (error)
 			break;
 
@@ -326,9 +308,7 @@ int vfs_lookup(vnode_t **result, vnode_t *start, char *path, char *lastcomp, int
 		if (next->type == V_TYPE_LINK && (islast == false || (islast == true && (flags & VFS_LOOKUP_NOLINK) == 0))) {
 			// get path
 			char *linkderef;
-			VOP_LOCK(next);
 			error = VOP_READLINK(next, &linkderef, getcred());
-			VOP_UNLOCK(next);
 			if (error) {
 				VOP_RELEASE(next);
 				break;

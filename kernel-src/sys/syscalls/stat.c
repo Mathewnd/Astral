@@ -8,9 +8,7 @@
 
 static int dostat(vnode_t *vnode, stat_t *stat) {
 	vattr_t attr;
-	VOP_LOCK(vnode);
 	int e = VOP_GETATTR(vnode, &attr, &_cpu()->thread->proc->cred);
-	VOP_UNLOCK(vnode);
 	if (e)
 		return e;
 
