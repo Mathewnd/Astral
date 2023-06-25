@@ -226,8 +226,6 @@ void arch_apic_initap() {
 		if (current->acpiid == _cpu()->acpiid || current->acpiid == 0xff)
 			writelapic(APIC_LVT_LINT0 + 0x10 * current->lint, (nmiisr->id & 0xff) | LVT_DELIVERY_NMI | (current->flags << 12));
 	}
-
-	interrupt_set(true);
 }
 
 void arch_apic_eoi() {

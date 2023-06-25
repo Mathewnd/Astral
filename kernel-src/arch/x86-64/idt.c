@@ -82,6 +82,7 @@ void arch_idt_reload() {
 		interrupt_register(i, exceptisr, NULL, IPL_MAX);
 
 	_cpu()->ipl = IPL_NORMAL;
+	interrupt_set(true);
 }
 
 void arch_interrupt_disable() {
