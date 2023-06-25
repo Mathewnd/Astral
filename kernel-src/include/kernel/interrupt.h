@@ -33,5 +33,6 @@ isr_t *interrupt_allocate(void (*func)(isr_t *self, context_t *ctx), void (*eoi)
 long interrupt_loweripl(long newipl);
 long interrupt_raiseipl(long ipl);
 bool interrupt_set(bool status);
+void interrupt_raise(isr_t *isr);
 
 #endif

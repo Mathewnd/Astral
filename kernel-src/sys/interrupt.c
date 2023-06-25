@@ -29,6 +29,15 @@ static void insertinqueue(isr_t *isr) {
 	_cpu()->isrqueue = isr;
 }
 
+static void runisr(isr_t *isr, context_t *ctx) {
+		long oldipl = interrupt_raiseipl(isr->priority);
+
+		isr->func(isr, ctx);
+		interrupt_set(false);
+
+		interrupt_loweripl(oldipl);
+}
+
 static void dopending(context_t *ctx) {
 	bool entrystatus = _cpu()->intstatus;
 	if (entrystatus) {
@@ -40,7 +49,6 @@ static void dopending(context_t *ctx) {
 	isr_t *iterator = _cpu()->isrqueue;
 
 	// build a list of pending ISRs and remove them from the main queue
-
 	while (iterator) {
 		isr_t *next = iterator->next;
 		if (_cpu()->ipl > iterator->priority) {
@@ -70,12 +78,7 @@ static void dopending(context_t *ctx) {
 			list->prev = NULL;
 		isr->pending = false;
 
-		long oldipl = interrupt_raiseipl(isr->priority);
-
-		isr->func(isr, ctx);
-		interrupt_set(false);
-
-		interrupt_loweripl(oldipl);
+		runisr(isr, ctx);
 
 		// if any new interrupts are pending, they will be taken care of here
 		// XXX this is kinda hacky could be very very bad if there are a lot of interrupts
@@ -98,12 +101,7 @@ void interrupt_isr(int vec, context_t *ctx) {
 		_panic("Unregistered interrupt", ctx);
 
 	if (_cpu()->ipl > isr->priority) {
-		long oldipl = interrupt_raiseipl(isr->priority);
-
-		isr->func(isr, ctx);
-		interrupt_set(false);
-
-		interrupt_loweripl(oldipl);
+		runisr(isr, ctx);
 		dopending(ctx);
 	} else {
 		insertinqueue(isr);
@@ -114,6 +112,19 @@ void interrupt_isr(int vec, context_t *ctx) {
 		isr->eoi(isr);
 
 	_cpu()->intstatus = ARCH_CONTEXT_INTSTATUS(ctx);
+}
+
+void interrupt_raise(isr_t *isr) {
+	bool entrystate = interrupt_set(false);
+
+	if (isr->pending)
+		goto cleanup;
+
+	insertinqueue(isr);
+	isr->pending = true;
+
+	cleanup:
+	interrupt_set(entrystate);
 }
 
 void interrupt_register(int vector, void (*func)(isr_t *self, context_t *ctx), void (*eoi)(isr_t *self), long priority) {
