@@ -5,6 +5,7 @@
 #include <panic.h>
 #include <kernel/interrupt.h>
 #include <string.h>
+#include <arch/cpu.h>
 
 typedef struct {
 	uint16_t size;
@@ -79,6 +80,8 @@ void arch_idt_reload() {
 	// make sure to reserve the first 32 isrs for exceptions with a dummy panic isr
 	for (int i = 0; i < 32; ++i)
 		interrupt_register(i, exceptisr, NULL, IPL_MAX);
+
+	_cpu()->ipl = IPL_NORMAL;
 }
 
 void arch_interrupt_disable() {

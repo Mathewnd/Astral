@@ -227,7 +227,6 @@ void arch_apic_initap() {
 			writelapic(APIC_LVT_LINT0 + 0x10 * current->lint, (nmiisr->id & 0xff) | LVT_DELIVERY_NMI | (current->flags << 12));
 	}
 
-	_cpu()->ipl = IPL_NORMAL;
 	interrupt_set(true);
 }
 
