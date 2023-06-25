@@ -36,15 +36,18 @@ arch_context_switch:
 ; saves context on the stack and passes as the argument to a function
 ; since this uses the C system V abi, some registers can be clobbered (in this case, r10 and r11)
 ; rdi has the pointer to the function to call
-; rsi has the pointer to the stack the function should have on call
-; if the main function returns, just return normally
+; rsi has the pointer to the stack the function should have on call. if NULL the stack is not changed
+; if the main function returns, do a context switch as the registers could have been changed
 global arch_context_saveandcall
 arch_context_saveandcall:
 	mov r11, [rsp] 	; save return address on scratch register
 	mov r10, rsp
 	add r10, 8 	; stack pointer before the call instruction
 
+	test rsi,rsi
+	jz .nostackchange
 	mov rsp, rsi	; use desired stack
+	.nostackchange:
 	push qword 0x10 ; SS
 	push r10 	; RSP
 	pushf 		; movs and pushes don't affect flags
@@ -75,9 +78,9 @@ arch_context_saveandcall:
 
 	mov r11, rdi 	; save function to call
 	mov rdi, rsp 	; first argument is the context struct
-	push r10     	; save old stack
 	call r11 	; jump to the desired function
 
-	pop rsp		; restore old stack
-	sub rsp, 8
-	ret
+	; do context switch to return
+	cli
+	mov rdi, rsp
+	call arch_context_switch
