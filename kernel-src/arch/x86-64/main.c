@@ -22,6 +22,7 @@
 #include <arch/ps2.h>
 #include <kernel/keyboard.h>
 #include <kernel/console.h>
+#include <kernel/dpc.h>
 
 static cpu_t bsp_cpu;
 
@@ -31,6 +32,7 @@ void kernel_entry() {
 	arch_gdt_reload();
 	arch_idt_setup();
 	arch_idt_reload();
+	dpc_init();
 	pmm_init();
 	term_init();
 	logging_sethook(term_putchar);

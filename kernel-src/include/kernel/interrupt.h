@@ -15,6 +15,7 @@
 #define IPL_MAX 0
 #define IPL_TIMER 1
 #define IPL_KEYBOARD 2
+#define IPL_DPC 900
 #define IPL_NORMAL 1000
 
 struct _isr_t;

@@ -10,6 +10,7 @@
 #include <kernel/vmm.h>
 #include <kernel/timer.h>
 #include <kernel/scheduler.h>
+#include <kernel/dpc.h>
 
 typedef struct cpu_t {
 	thread_t *thread;
@@ -26,6 +27,7 @@ typedef struct cpu_t {
 	timerentry_t schedtimerentry;
 	void *schedulerstack;
 	isr_t *isrqueue;
+	dpc_t *dpcqueue;
 } cpu_t;
 
 #define CPU_HALT() asm volatile("hlt")
