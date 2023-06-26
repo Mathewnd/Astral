@@ -38,10 +38,10 @@ void timer_isr(timer_t *timer, context_t *context) {
 	timerentry_t *oldentry = timer->queue;
 	timer->queue = timer->queue->next;
 
-	oldentry->func(oldentry->private, context);
-
 	if (oldentry->repeatus)
 		insert(timer, oldentry, oldentry->repeatus);
+
+	dpc_enqueue(&oldentry->dpc, oldentry->fn, oldentry->arg);
 
 	if (timer->queue) {
 		// TODO handle this
@@ -79,12 +79,16 @@ void timer_stop(timer_t *timer) {
 	interrupt_loweripl(oldipl);
 }
 
-void timer_insert(timer_t *timer, timerentry_t* entry, time_t us) {
+void timer_insert(timer_t *timer, timerentry_t *entry, dpcfn_t fn, dpcarg_t arg, time_t us, bool repeating) {
 	long oldipl = interrupt_raiseipl(IPL_TIMER);
 	spinlock_acquire(&timer->lock);
 
 	if (timer->running)
 		timer->tickcurrent += timer->stop(timer);
+
+	entry->repeatus = repeating ? us : 0;
+	entry->fn = fn;
+	entry->arg = arg;
 
 	insert(timer, entry, us);
 

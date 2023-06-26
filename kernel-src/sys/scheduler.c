@@ -297,9 +297,10 @@ vnode_t *sched_getroot() {
 	return getnodeslock(&proc->root);
 }
 
-static void timerhook(void *private, context_t *context) {
+static void timerhook(context_t *context, dpcarg_t arg) {
 	thread_t* current = _cpu()->thread;
 
+	interrupt_set(false);
 	spinlock_acquire(&runqueuelock);
 
 	thread_t *next = runqueuenext(current->priority);
@@ -338,8 +339,6 @@ void sched_init() {
 	__assert(_cpu()->schedulerstack);
 	_cpu()->schedulerstack = (void *)((uintptr_t)_cpu()->schedulerstack + SCHEDULER_STACK_SIZE);
 
-	_cpu()->schedtimerentry.func = timerhook;
-	_cpu()->schedtimerentry.repeatus = QUANTUM_US;
 	SPINLOCK_INIT(runqueuelock);
 
 	_cpu()->idlethread = sched_newthread(cpuidlethread, PAGE_SIZE * 4, 3, NULL, NULL);
@@ -347,7 +346,7 @@ void sched_init() {
 	_cpu()->thread = sched_newthread(NULL, PAGE_SIZE * 32, 0, NULL, NULL);
 	__assert(_cpu()->thread);
 
-	timer_insert(_cpu()->timer, &_cpu()->schedtimerentry, QUANTUM_US);
+	timer_insert(_cpu()->timer, &_cpu()->schedtimerentry, timerhook, NULL, QUANTUM_US, true);
 	// XXX move this resume to a more appropriate place
 	timer_resume(_cpu()->timer);
 }
