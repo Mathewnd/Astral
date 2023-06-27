@@ -38,6 +38,10 @@ static int devfs_root(vfs_t *vfs, vnode_t **node) {
 
 int devfs_open(vnode_t **node, int flags, cred_t *cred) {
 	devnode_t *devnode = (devnode_t *)(*node);
+
+	if (devnode->devops == NULL)
+		return 0;
+
 	if (devnode->master)
 		devnode = devnode->master;
 
@@ -49,6 +53,10 @@ int devfs_open(vnode_t **node, int flags, cred_t *cred) {
 
 int devfs_close(vnode_t *node, int flags, cred_t *cred) {
 	devnode_t *devnode = (devnode_t *)node;
+
+	if (devnode->devops == NULL)
+		return 0;
+
 	if (devnode->master)
 		devnode = devnode->master;
 
@@ -217,6 +225,7 @@ int devfs_create(vnode_t *parent, char *name, vattr_t *attr, int type, vnode_t *
 	node->attr.rdevminor = tmpattr.rdevminor;
 	node->physical = &node->vnode;
 	node->vnode.vfs = parent->vfs;
+	node->vnode.type = type;
 
 	int error = hashtable_set(&nametable, node, name, namelen, true);
 	if (error) {
@@ -231,6 +240,42 @@ int devfs_create(vnode_t *parent, char *name, vattr_t *attr, int type, vnode_t *
 
 	return 0;
 }
+
+static int devfs_getdents(vnode_t *node, dent_t *buffer, size_t count, uintmax_t offset, size_t *readcount) {
+	if (node != (vnode_t *)devfsroot)
+		return EINVAL;
+
+	VOP_LOCK(node);
+
+	devnode_t *devnode = (devnode_t *)node;
+
+	*readcount = 0;
+	size_t current = 0;
+
+	HASHTABLE_FOREACH(&nametable) {
+		if (current < offset) {
+			++current;
+			continue;
+		}
+
+		if (*readcount == count)
+			break;
+
+		dent_t *ent = &buffer[*readcount];
+
+		ent->d_ino = devnode->attr.inode;
+		ent->d_off = offset;
+		ent->d_reclen = sizeof(dent_t);
+		ent->d_type = vfs_getposixtype(node->type);
+		strcpy(ent->d_name, entry->key);
+
+		*readcount += 1;
+	}
+
+	VOP_UNLOCK(node);
+	return 0;
+}
+
 
 static int devfs_enodev() {
 	return ENODEV;
@@ -258,7 +303,8 @@ static vops_t vnops = {
 	.readlink = devfs_enodev,
 	.inactive = devfs_enodev,
 	.mmap = devfs_mmap,
-	.munmap = devfs_munmap
+	.munmap = devfs_munmap,
+	.getdents = devfs_getdents
 };
 
 static void ctor(scache_t *cache, void *obj) {
