@@ -44,9 +44,32 @@ file_t *fd_allocate() {
 	return newfile();
 }
 
+static int getfree(int start) {
+	proc_t *proc = _cpu()->thread->proc;
+	int fd = -1;
+	int sfd;
+	for (sfd = start; sfd < proc->fdcount && proc->fd[sfd].file; ++sfd);
+
+	if (sfd != proc->fdcount)
+		fd = sfd;
+
+	return fd;
+}
+
+static int growtable(int newcount) {
+	proc_t *proc = _cpu()->thread->proc;
+	__assert(newcount > proc->fdcount);
+	void *newtable = realloc(proc->fd, sizeof(fd_t) * newcount);
+	if (newtable == NULL)
+		return ENOMEM;
+
+	proc->fd = newtable;
+	proc->fdcount = newcount;
+	return 0;
+}
+
 file_t *fd_get(int fd) {
 	proc_t *proc = _cpu()->thread->proc;
-	bool intstatus = interrupt_set(false);
 	spinlock_acquire(&proc->fdlock);
 
 	file_t *file = fd < proc->fdcount ? proc->fd[fd].file : NULL;
@@ -54,7 +77,6 @@ file_t *fd_get(int fd) {
 		FILE_HOLD(file);
 
 	spinlock_release(&proc->fdlock);
-	interrupt_set(intstatus);
 
 	if (file)
 		MUTEX_ACQUIRE(&file->mutex, false);
@@ -76,25 +98,17 @@ int fd_new(int flags, file_t **rfile, int *rfd) {
 	spinlock_acquire(&proc->fdlock);
 
 	// find first free fd
-	int fd = -1;
-	int sfd;
-	for (sfd = proc->fdfirst; fd < proc->fdcount && proc->fd[fd].file; ++fd);
-
-	if (sfd != proc->fdcount)
-		fd = sfd;
+	int fd = getfree(proc->fdfirst);
 
 	// resize table if not found
 	if (fd == -1) {
-		void *newtable = realloc(proc->fd, sizeof(fd_t) * (proc->fdcount + 1));
-		if (newtable == NULL) {
+		fd = proc->fdcount;
+		int error = growtable(fd + 1);
+		if (error) {
 			spinlock_release(&proc->fdlock);
 			cleanfile(file);
-			return ENOMEM;
+			return error;
 		}
-
-		proc->fd = newtable;
-		fd = proc->fdcount;
-		++proc->fdcount;
 	}
 
 	proc->fdfirst = fd + 1;
@@ -112,7 +126,6 @@ int fd_new(int flags, file_t **rfile, int *rfd) {
 
 int fd_close(int fd) {
 	proc_t *proc = _cpu()->thread->proc;
-	bool intstatus = interrupt_set(false);
 	spinlock_acquire(&proc->fdlock);
 
 	file_t *file = fd < proc->fdcount ? proc->fd[fd].file : NULL;
@@ -122,7 +135,6 @@ int fd_close(int fd) {
 	}
 
 	spinlock_release(&proc->fdlock);
-	interrupt_set(intstatus);
 
 	if (file) {
 		FILE_RELEASE(file);
@@ -158,4 +170,51 @@ int fd_clone(proc_t *targproc) {
 	cleanup:
 	spinlock_release(&proc->fdlock);
 	return error;
+}
+
+int fd_dup(int oldfd, int newfd, bool exact, int fdflags, int *retfd) {
+	proc_t *proc = _cpu()->thread->proc;
+	int err = 0;
+	spinlock_acquire(&proc->fdlock);
+
+	file_t *file = oldfd < proc->fdcount ? proc->fd[oldfd].file : NULL;
+	if (file == NULL) {
+		err = EBADF;
+		goto cleanup;
+	}
+
+	if (exact) {
+		if (newfd >= proc->fdcount) {
+			err = growtable(newfd + 1);
+			if (err)
+				goto cleanup;
+		}
+
+		if (proc->fd[newfd].file)
+			FILE_RELEASE(proc->fd[newfd].file);
+
+		proc->fd[newfd].file = file;
+		proc->fd[newfd].flags = fdflags;
+		*retfd = newfd;
+	} else {
+		int fd = getfree(newfd);
+
+		if (fd == -1) {
+			size_t newsize = newfd < proc->fdcount ? proc->fdcount + 1 : newfd;
+			fd = newsize - 1;
+			err = growtable(newsize);
+			if (err)
+				goto cleanup;
+		}
+
+		proc->fd[fd].file = file;
+		proc->fd[fd].flags = fdflags;
+		*retfd = fd;
+	}
+
+	FILE_HOLD(file);
+
+	cleanup:
+	spinlock_release(&proc->fdlock);
+	return err;
 }
