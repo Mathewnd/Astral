@@ -14,3 +14,5 @@ kernel-src/io/printf.c
 kernel-src/flanterm
 sysroot
 minimalsysroot
+tools/init/init
+tools/init/main.o

@@ -369,7 +369,7 @@ void sched_runinit() {
 	sched_initproc = proc;
 
 	vnode_t *initnode;
-	__assert(vfs_open(vfsroot, "/usr/bin/bash", 0, &initnode) == 0);
+	__assert(vfs_open(vfsroot, "/init", 0, &initnode) == 0);
 
 	auxv64list_t auxv64;
 	char *interp = NULL;
@@ -417,7 +417,7 @@ void sched_runinit() {
 	proc->root = vfsroot;
 	VOP_HOLD(vfsroot);
 
-	char *argv[] = {"/usr/bin/bash", "-l", NULL};
+	char *argv[] = {"/init", "-l", NULL};
 	char *envp[] = {NULL};
 
 	void *stack = elf_preparestack(STACK_TOP, &auxv64, argv, envp);
