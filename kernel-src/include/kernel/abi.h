@@ -74,4 +74,8 @@ typedef struct {
 #define GETTYPE(m) (((m) >> 12) & 0xF)
 #define MAKETYPE(m) (((m) & 0xF) << 12)
 
+#define TODEV(major,minor) (((major & 0xFFF) << 8) + (minor & 0xFF))
+#define MAJORDEV(dev) ((dev >> 8) & 0xFFF)
+#define MINORDEV(dev) (dev & 0xFF)
+
 #endif

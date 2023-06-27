@@ -12,8 +12,8 @@ static int dostat(vnode_t *vnode, stat_t *stat) {
 	if (e)
 		return e;
 
-
-	// TODO dev rdev
+	stat->dev = 0; // TODO properly return this
+	stat->rdev = TODEV(attr.rdevmajor, attr.rdevminor);
 	stat->ino = attr.inode;
 	stat->nlink = attr.nlinks;
 	stat->mode = attr.mode | MAKETYPE(vfs_getposixtype(attr.type));
