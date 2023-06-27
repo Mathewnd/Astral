@@ -265,5 +265,5 @@ void arch_mmu_init() {
 	}
 
 	arch_mmu_switch(FROM_HHDM(template));
-	interrupt_register(14, pfisr, NULL, IPL_MAX);
+	interrupt_register(14, pfisr, NULL, IPL_IGNORE);
 }

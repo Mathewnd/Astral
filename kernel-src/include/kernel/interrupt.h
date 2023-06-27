@@ -11,7 +11,7 @@
 	#error Unsupported architecture!
 #endif
 
-#define IPL_EXCEPT  -1
+#define IPL_IGNORE  -1
 #define IPL_MAX 0
 #define IPL_TIMER 1
 #define IPL_KEYBOARD 2

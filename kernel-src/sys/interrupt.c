@@ -30,12 +30,15 @@ static void insertinqueue(isr_t *isr) {
 }
 
 static void runisr(isr_t *isr, context_t *ctx) {
-		long oldipl = interrupt_raiseipl(isr->priority);
+		long oldipl = -1;
+		if (isr->priority != IPL_IGNORE)
+			oldipl = interrupt_raiseipl(isr->priority);
 
 		isr->func(isr, ctx);
 		interrupt_set(false);
 
-		interrupt_loweripl(oldipl);
+		if (isr->priority != IPL_IGNORE)
+			interrupt_loweripl(oldipl);
 }
 
 static void dopending(context_t *ctx) {

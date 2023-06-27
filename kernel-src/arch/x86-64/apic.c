@@ -201,7 +201,7 @@ void arch_apic_initap() {
 	writelapic(APIC_LVT_LINT1, LVT_MASK);
 	writelapic(APIC_LVT_ERROR, LVT_MASK);
 	writelapic(APIC_LVT_TIMER, LVT_MASK);
-	interrupt_register(0xff, spurious, NULL, IPL_MAX); // XXX for now max ipl suffices, however it's likely not the best one
+	interrupt_register(0xff, spurious, NULL, IPL_IGNORE);
 	writelapic(APIC_REG_SPURIOUS, 0x1FF);
 
 	_cpu()->id = readlapic(APIC_REG_ID) >> 24;
