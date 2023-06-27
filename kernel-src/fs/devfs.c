@@ -327,7 +327,8 @@ void devfs_init() {
 	__assert(devfsroot);
 	devfsroot->vnode.type = V_TYPE_DIR;
 	devfsroot->vnode.flags = V_FLAGS_ROOT;
-	__assert(vfs_register(&vfsops, "devfs") == 0); 
+	__assert(vfs_register(&vfsops, "devfs") == 0);
+	__assert(hashtable_set(&nametable, devfsroot, ".", 1, true) == 0);
 }
 
 // register new device 
