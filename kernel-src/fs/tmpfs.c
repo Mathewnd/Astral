@@ -439,6 +439,42 @@ static int tmpfs_munmap(vnode_t *node, void *addr, uintmax_t offset, int flags, 
 	return 0;
 }
 
+
+static int tmpfs_getdents(vnode_t *node, dent_t *buffer, size_t count, uintmax_t offset, size_t *readcount) {
+	if (node->type != V_TYPE_DIR)
+		return ENOTDIR;
+
+	VOP_LOCK(node);
+
+	tmpfsnode_t *tmpnode = (tmpfsnode_t *)node;
+
+	*readcount = 0;
+	size_t current = 0;
+
+	HASHTABLE_FOREACH(&tmpnode->children) {
+		if (current < offset) {
+			++current;
+			continue;
+		}
+
+		if (*readcount == count)
+			break;
+
+		dent_t *ent = &buffer[*readcount];
+
+		ent->d_ino = tmpnode->attr.inode;
+		ent->d_off = offset;
+		ent->d_reclen = sizeof(dent_t);
+		ent->d_type = vfs_getposixtype(node->type);
+		strcpy(ent->d_name, entry->key);
+
+		*readcount += 1;
+	}
+
+	VOP_UNLOCK(node);
+	return 0;
+}
+
 static int tmpfs_inactive(vnode_t *node) {
 	freenode((tmpfsnode_t *)node);
 	return 0;
@@ -466,7 +502,8 @@ static vops_t vnops = {
 	.readlink = tmpfs_readlink,
 	.inactive = tmpfs_inactive,
 	.mmap = tmpfs_mmap,
-	.munmap = tmpfs_munmap
+	.munmap = tmpfs_munmap,
+	.getdents = tmpfs_getdents
 };
 
 static tmpfsnode_t *newnode(vfs_t *vfs, int type) {

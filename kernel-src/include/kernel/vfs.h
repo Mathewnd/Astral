@@ -89,6 +89,7 @@ typedef struct vops_t {
 	int (*inactive)(vnode_t *node);
 	int (*mmap)(vnode_t *node, void *addr, uintmax_t offset, int flags, cred_t *cred);
 	int (*munmap)(vnode_t *node, void *addr, uintmax_t offset, int flags, cred_t *cred);
+	int (*getdents)(vnode_t *node, dent_t *buffer, size_t count, uintmax_t offset, size_t *readcount);
 } vops_t;
 
 #define VFS_MOUNT(vfs, mp, b, d) (vfs)->ops->mount(vfs, mp, b, d)
@@ -99,7 +100,6 @@ typedef struct vops_t {
 #define VOP_LOCK(v) spinlock_acquire(&(v)->lock)
 #define VOP_UNLOCK(v) spinlock_release(&(v)->lock)
 
-// these are expected to be called with the vnode(s) locked
 #define VOP_OPEN(v, f, c) (*v)->ops->open(v, f, c)
 #define VOP_CLOSE(v, f, c) (v)->ops->close(v, f, c)
 #define VOP_READ(v, b, s, o, f, r, c) (v)->ops->read(v, b, s, o, f, r, c)
@@ -115,8 +115,7 @@ typedef struct vops_t {
 #define VOP_READLINK(v, l, c) (v)->ops->readlink(v, l, c)
 #define VOP_MMAP(v, a, o, f, c) (v)->ops->mmap(v, a, o, f, c)
 #define VOP_MUNMAP(v, a, o, f, c) (v)->ops->munmap(v, a, o, f, c)
-
-// lock not needed unless atomicity is desired
+#define VOP_GETDENTS(v, b, c, o, rc) (v)->ops->getdents(v, b, c, o, rc)
 #define VOP_POLL(v, p) (v)->ops->poll(v, p);
 #define VOP_HOLD(v) __atomic_add_fetch(&(v)->refcount, 1, __ATOMIC_SEQ_CST)
 #define VOP_RELEASE(v) {\
@@ -144,5 +143,26 @@ int vfs_unlink(vnode_t *ref, char *path);
 #define VFS_LOOKUP_NOLINK 2
 #define VFS_LOOKUP_INTERNAL 0x80000000
 int vfs_lookup(vnode_t **result, vnode_t *start, char *path, char *lastcomp, int flags);
+
+static inline mode_t vfs_getposixtype(int type) {
+	switch (type) {
+		case V_TYPE_REGULAR:
+			return TYPE_REGULAR;
+		case V_TYPE_DIR:
+			return TYPE_DIR;
+		case V_TYPE_CHDEV:
+			return TYPE_CHARDEV;
+		case V_TYPE_BLKDEV:
+			return TYPE_BLOCKDEV;
+		case V_TYPE_FIFO:
+			return TYPE_FIFO;
+		case V_TYPE_LINK:
+			return TYPE_LINK;
+		case V_TYPE_SOCKET:
+			return TYPE_SOCKET;
+		default:
+			return 0;
+	}
+}
 
 #endif

@@ -133,10 +133,10 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..601407e
+index 0000000..c177a55
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -0,0 +1,193 @@
+@@ -0,0 +1,206 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -190,6 +190,15 @@ index 0000000..601407e
 +		// TODO UNSTUB
 +		*pgid = 1;
 +		return 0;
++	}
++
++	int sys_read_entries(int handle, void *buffer, size_t max_size, size_t *bytes_read) {
++		long ret;
++		long err = syscall(SYSCALL_GETDENTS, &ret, handle, (uint64_t)buffer, max_size);
++		if (err)
++			return err;
++		*bytes_read = ret;
++		return err;
 +	}
 +
 +	int sys_waitpid(pid_t pid, int *status, int flags, struct rusage *ru, pid_t *ret_pid) {
@@ -280,6 +289,10 @@ index 0000000..601407e
 +		return 0;
 +	};
 +
++	int sys_open_dir(const char *path, int *handle) {
++		return sys_open(path, O_DIRECTORY, 0, handle);
++	}
++
 +	int sys_read(int fd, void *buff, size_t count, ssize_t *bytes_read) {
 +		long readc;
 +		long error = syscall(SYSCALL_READ, &readc, fd, (uint64_t)buff, count);
@@ -349,10 +362,10 @@ index 0000000..990eca0
 +#endif
 diff --git mlibc-workdir/sysdeps/astral/include/astral/syscall.h mlibc-workdir/sysdeps/astral/include/astral/syscall.h
 new file mode 100644
-index 0000000..1562c23
+index 0000000..6b0e993
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/include/astral/syscall.h
-@@ -0,0 +1,39 @@
+@@ -0,0 +1,40 @@
 +#ifndef _SYSCALL_H_INCLUDE
 +#define _SYSCALL_H_INCLUDE
 +
@@ -372,6 +385,7 @@ index 0000000..1562c23
 +#define SYSCALL_EXIT 13
 +#define SYSCALL_WAITPID 14
 +#define SYSCALL_MUNMAP 15
++#define SYSCALL_GETDENTS 16
 +
 +#include <stddef.h>
 +#include <stdint.h>

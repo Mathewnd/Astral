@@ -44,4 +44,34 @@ typedef struct {
 	long __unused[3];
 } stat_t;
 
+#define DT_UNKNOWN 0
+#define DT_FIFO 1
+#define DT_CHR 2
+#define DT_DIR 4
+#define DT_BLK 6
+#define DT_REG 8
+#define DT_LNK 10
+#define DT_SOCK 12
+#define DT_WHT 14
+
+typedef struct {
+	ino_t d_ino;
+	off_t d_off;
+	unsigned short d_reclen;
+	unsigned char d_type;
+	char d_name[1024];
+} dent_t;
+
+#define TYPE_FIFO 1
+#define TYPE_CHARDEV 2
+#define TYPE_DIR 4
+#define TYPE_BLOCKDEV 6
+#define TYPE_REGULAR 8
+#define TYPE_LINK 10
+#define TYPE_SOCKET 12
+
+#define GETMODE(m) (0xFFF & (m))
+#define GETTYPE(m) (((m) >> 12) & 0xF)
+#define MAKETYPE(m) (((m) & 0xF) << 12)
+
 #endif
