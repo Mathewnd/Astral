@@ -57,6 +57,9 @@ static int getfree(int start) {
 }
 
 static int growtable(int newcount) {
+	if (newcount > FDTABLE_LIMIT)
+		return EMFILE;
+
 	proc_t *proc = _cpu()->thread->proc;
 	__assert(newcount > proc->fdcount);
 	void *newtable = realloc(proc->fd, sizeof(fd_t) * newcount);
@@ -184,6 +187,11 @@ int fd_dup(int oldfd, int newfd, bool exact, int fdflags, int *retfd) {
 	}
 
 	if (exact) {
+		if (newfd >= FDTABLE_LIMIT) {
+			err = EBADF;
+			goto cleanup;
+		}
+
 		if (newfd >= proc->fdcount) {
 			err = growtable(newfd + 1);
 			if (err)

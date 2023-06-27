@@ -63,4 +63,6 @@ static inline int fileflagstovnodeflags(int flags) {
 #define O_RSYNC 04010000
 #define O_TMPFILE 020000000
 
+#define FDTABLE_LIMIT 256
+
 #endif
