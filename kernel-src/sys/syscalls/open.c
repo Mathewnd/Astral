@@ -5,6 +5,23 @@
 #include <errno.h>
 #include <logging.h>
 
+#define O_CREAT	0100
+#define O_EXCL 0200
+#define O_NOCTTY 0400
+#define O_TRUNC	01000
+#define O_APPEND 02000
+#define O_NONBLOCK 04000
+#define O_DSYNC 010000
+#define O_ASYNC 020000
+#define O_LARGEFILE 0100000
+#define O_DIRECTORY 0200000
+#define O_NOFOLLOW 0400000
+#define O_NOATIME 01000000
+#define O_CLOEXEC 02000000
+#define O_SYNC 04010000
+#define O_RSYNC 04010000
+#define O_TMPFILE 020000000
+
 syscallret_t syscall_openat(context_t *context, int dirfd, const char *path, int flags, mode_t mode) {
 	syscallret_t ret = {
 		.ret = -1,
@@ -50,8 +67,24 @@ syscallret_t syscall_openat(context_t *context, int dirfd, const char *path, int
 
 	vnode_t *vnode = NULL;
 	ret.errno = vfs_open(dirnode, pathbuf, fileflagstovnodeflags(flags), &vnode);
+
+	if (ret.errno == ENOENT && (flags & O_CREAT)) {
+		vattr_t attr = {
+			.mode = mode,
+			.gid = _cpu()->thread->proc->cred.gid,
+			.uid = _cpu()->thread->proc->cred.uid
+		};
+
+		ret.errno = vfs_create(dirnode, pathbuf, &attr, V_TYPE_REGULAR, &vnode);
+	}
+
 	if (ret.errno)
 		goto cleanup;
+
+	if ((flags & O_DIRECTORY) && vnode->type != V_TYPE_DIR) {
+		ret.errno = ENOTDIR;
+		goto cleanup;
+	}
 
 	vattr_t attr;
 	ret.errno = VOP_GETATTR(vnode, &attr, &_cpu()->thread->proc->cred);
