@@ -297,6 +297,28 @@ vnode_t *sched_getroot() {
 	return getnodeslock(&proc->root);
 }
 
+static void setnodeslock(vnode_t **addr, vnode_t *new) {
+	proc_t *proc = _cpu()->thread->proc;
+	vnode_t *oldnode;
+	VOP_HOLD(new);
+	bool intstatus = interrupt_set(false);
+	spinlock_acquire(&proc->nodeslock);
+	oldnode = *addr;
+	*addr = new;
+	spinlock_release(&proc->nodeslock);
+	interrupt_set(intstatus);
+	VOP_RELEASE(oldnode);
+}
+
+void sched_setcwd(vnode_t *new) {
+	proc_t *proc = _cpu()->thread->proc;
+	setnodeslock(&proc->cwd, new);
+}
+void sched_setroot(vnode_t *new) {
+	proc_t *proc = _cpu()->thread->proc;
+	setnodeslock(&proc->root, new);
+}
+
 static void timerhook(context_t *context, dpcarg_t arg) {
 	thread_t* current = _cpu()->thread;
 
