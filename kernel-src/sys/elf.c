@@ -84,6 +84,10 @@ static int load(vnode_t *vnode, elfph64_t *ph) {
 		// zero remaining parts of the first page if needed
 		if (remaining && msize) {
 			size_t remainingmsize = remaining > msize ? msize : remaining;
+			size_t pagediff = ROUND_UP(mempos, PAGE_SIZE) - mempos;
+			if (remainingmsize > ROUND_UP(mempos, PAGE_SIZE) - mempos)
+				remainingmsize = pagediff;
+
 			memset((void *)mempos, 0, remainingmsize);
 			msize -= remainingmsize;
 			mempos += remainingmsize;
