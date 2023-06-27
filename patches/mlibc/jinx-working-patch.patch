@@ -133,10 +133,10 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..c177a55
+index 0000000..74b6be1
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -0,0 +1,206 @@
+@@ -0,0 +1,226 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -190,6 +190,26 @@ index 0000000..c177a55
 +		// TODO UNSTUB
 +		*pgid = 1;
 +		return 0;
++	}
++
++	int sys_fcntl(int fd, int request, va_list args, int *result) {
++		long arg = va_arg(args, uint64_t);
++		long ret;
++		long err = syscall(SYSCALL_FCNTL, &ret, fd, request, arg);
++		*result = ret;
++		return err;
++	}
++
++	int sys_dup(int fd, int flags, int *newfd) {
++		long ret;
++		long err = syscall(SYSCALL_DUP, &ret, fd);
++		*newfd = ret;
++		return err;
++	}
++
++	int sys_dup2(int fd, int flags, int newfd) {
++		long ret;
++		return syscall(SYSCALL_DUP2, &ret, fd, newfd);
 +	}
 +
 +	int sys_read_entries(int handle, void *buffer, size_t max_size, size_t *bytes_read) {
@@ -362,10 +382,10 @@ index 0000000..990eca0
 +#endif
 diff --git mlibc-workdir/sysdeps/astral/include/astral/syscall.h mlibc-workdir/sysdeps/astral/include/astral/syscall.h
 new file mode 100644
-index 0000000..6b0e993
+index 0000000..f884f36
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/include/astral/syscall.h
-@@ -0,0 +1,40 @@
+@@ -0,0 +1,44 @@
 +#ifndef _SYSCALL_H_INCLUDE
 +#define _SYSCALL_H_INCLUDE
 +
@@ -386,6 +406,10 @@ index 0000000..6b0e993
 +#define SYSCALL_WAITPID 14
 +#define SYSCALL_MUNMAP 15
 +#define SYSCALL_GETDENTS 16
++#define SYSCALL_DUP 17
++#define SYSCALL_DUP2 18
++#define SYSCALL_DUP3 19
++#define SYSCALL_FCNTL 20
 +
 +#include <stddef.h>
 +#include <stdint.h>
