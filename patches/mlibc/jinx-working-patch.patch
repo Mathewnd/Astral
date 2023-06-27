@@ -133,10 +133,10 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..74b6be1
+index 0000000..ce76c73
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -0,0 +1,226 @@
+@@ -0,0 +1,231 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -190,6 +190,11 @@ index 0000000..74b6be1
 +		// TODO UNSTUB
 +		*pgid = 1;
 +		return 0;
++	}
++
++	int sys_chdir(const char *path) {
++		long ret;
++		return syscall(SYSCALL_CHDIR, &ret, (uint64_t)path);
 +	}
 +
 +	int sys_fcntl(int fd, int request, va_list args, int *result) {
@@ -382,10 +387,10 @@ index 0000000..990eca0
 +#endif
 diff --git mlibc-workdir/sysdeps/astral/include/astral/syscall.h mlibc-workdir/sysdeps/astral/include/astral/syscall.h
 new file mode 100644
-index 0000000..f884f36
+index 0000000..e768d90
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/include/astral/syscall.h
-@@ -0,0 +1,44 @@
+@@ -0,0 +1,45 @@
 +#ifndef _SYSCALL_H_INCLUDE
 +#define _SYSCALL_H_INCLUDE
 +
@@ -410,6 +415,7 @@ index 0000000..f884f36
 +#define SYSCALL_DUP2 18
 +#define SYSCALL_DUP3 19
 +#define SYSCALL_FCNTL 20
++#define SYSCALL_CHDIR 21
 +
 +#include <stddef.h>
 +#include <stdint.h>

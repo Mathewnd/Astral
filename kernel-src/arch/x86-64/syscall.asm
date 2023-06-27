@@ -20,6 +20,7 @@ extern syscall_dup
 extern syscall_dup2
 extern syscall_dup3
 extern syscall_fcntl
+extern syscall_chdir
 syscalltab:
 dq syscall_print
 dq syscall_mmap
@@ -42,7 +43,8 @@ dq syscall_dup
 dq syscall_dup2
 dq syscall_dup3
 dq syscall_fcntl
-syscallcount equ 21
+dq syscall_chdir
+syscallcount equ 22
 section .text
 global arch_syscall_entry
 ; on entry:
