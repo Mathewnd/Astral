@@ -8,9 +8,13 @@ int main() {
 	printf("init: Welcome to Astral!\n");
 
 	struct passwd* pw = getpwuid(getuid());
-	//setenv("PWD", pw->pw_dir, 1);
+	if (chdir(pw->pw_dir) == -1) {
+		perror("init: chdir to user home directory failed");
+		return EXIT_FAILURE;
+	}
+
+	setenv("PWD", pw->pw_dir, 1);
 	setenv("HOME", pw->pw_dir, 1);
-	//chdir(pw->pw_dir);
 	setenv("PATH", "/bin:/usr/bin:/usr/local/bin:/sbin:/usr/sbin:/usr/local/sbin", 1);
 	setenv("TERM", "linux", 1);
 
