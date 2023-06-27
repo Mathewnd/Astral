@@ -133,10 +133,10 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..ce76c73
+index 0000000..e00428e
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -0,0 +1,231 @@
+@@ -0,0 +1,235 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -305,13 +305,17 @@ index 0000000..ce76c73
 +		return sys_vm_unmap(pointer, size);
 +	}
 +	
-+	int sys_open(const char *pathname, int flags, mode_t mode, int *fd) {
++	int sys_openat(int dirfd, const char *path, int flags, mode_t mode, int *fd) {
 +		long ret;
-+		long err = syscall(SYSCALL_OPENAT, &ret, AT_FDCWD, (uint64_t)pathname, flags, mode);
++		long err = syscall(SYSCALL_OPENAT, &ret, dirfd, (uint64_t)path, flags, mode);
 +		if (err)
 +			return err;
 +		*fd = ret;
 +		return 0;
++	}
++
++	int sys_open(const char *pathname, int flags, mode_t mode, int *fd) {
++		return sys_openat(AT_FDCWD, pathname, flags, mode, fd);
 +	};
 +
 +	int sys_open_dir(const char *path, int *handle) {
