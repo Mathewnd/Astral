@@ -76,7 +76,7 @@ syscallret_t syscall_execve(context_t *context, char *upath, char *uargv[], char
 
 	refnode = *path == '/' ? sched_getroot() : sched_getcwd();
 
-	ret.errno = vfs_lookup(&node, vfsroot, path, NULL, 0);
+	ret.errno = vfs_lookup(&node, refnode, path, NULL, 0);
 	if (ret.errno)
 		goto error;
 
@@ -92,7 +92,7 @@ syscallret_t syscall_execve(context_t *context, char *upath, char *uargv[], char
 
 	if (interp) {
 		vnode_t *interpnode;
-		ret.errno = vfs_open(vfsroot, interp, 0, &interpnode);
+		ret.errno = vfs_lookup(&interpnode, refnode, interp, NULL, 0);
 		if (ret.errno)
 			goto error;
 
@@ -103,6 +103,7 @@ syscallret_t syscall_execve(context_t *context, char *upath, char *uargv[], char
 			goto error;
 
 		__assert(interpinterp == NULL);
+		VOP_RELEASE(interpnode);
 	}
 
 	void *stack = elf_preparestack(STACK_TOP, &auxv64, argv, envp);

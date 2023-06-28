@@ -99,6 +99,7 @@ syscallret_t syscall_fstatat(context_t *ctx, int dirfd, char *upath, stat_t *ust
 
 	// TODO safe memcpy
 	*ustat = buf;
+	ret.ret = 0;
 
 	cleanup:
 	if (node)
