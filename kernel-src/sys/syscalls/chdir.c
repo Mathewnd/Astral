@@ -31,6 +31,7 @@ syscallret_t syscall_chdir(context_t *, const char *upath) {
 	}
 
 	sched_setcwd(new);
+	ret.ret = 0;
 
 	cleanup:
 	if (new)
