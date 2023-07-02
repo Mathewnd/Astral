@@ -21,6 +21,7 @@ extern syscall_dup2
 extern syscall_dup3
 extern syscall_fcntl
 extern syscall_chdir
+extern syscall_pipe2
 syscalltab:
 dq syscall_print
 dq syscall_mmap
@@ -44,7 +45,8 @@ dq syscall_dup2
 dq syscall_dup3
 dq syscall_fcntl
 dq syscall_chdir
-syscallcount equ 22
+dq syscall_pipe2
+syscallcount equ 23
 section .text
 global arch_syscall_entry
 ; on entry:
@@ -110,6 +112,14 @@ arch_syscall_entry:
 	mov rcx, rdx
 	mov rdx, rsi
 	mov rsi, rdi
+
+	; call logging function
+
+	mov rdi, rax
+	extern arch_syscall_log
+	call arch_syscall_log ; compiled with __attribute__((no_caller_saved_registers)) 
+
+	; prepare context argument
 	mov rdi, rsp
 	add rdi, 8 ; context pointer is after r9 argument
 	sti
@@ -123,6 +133,15 @@ arch_syscall_entry:
 	call syscall_invalid
 	.return:
 	cli
+
+	; call return logging function
+
+	mov rdi, rax
+	mov rsi, rdx
+	extern arch_syscall_log_return
+	call arch_syscall_log_return ; compiled with __attribute__((no_caller_saved_registers)) 
+
+
 	; restore context
 	add rsp, 32 ; r9 argument, cr2, gs, and fs are not popped.
 	pop rbx

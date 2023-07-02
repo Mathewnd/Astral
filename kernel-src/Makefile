@@ -10,7 +10,7 @@ LDFLAGS=-ffreestanding -nostdlib -lgcc -Wl,-T,"$(ARCHDIR)/kernel.ld" -g
 PRINTFOPTS=-DPRINTF_DISABLE_SUPPORT_FLOAT
 # flanterm includes break if the headers are moved into the include dir in the tree
 FLANTERMINCDIR=$(shell pwd)/flanterm
-CFLAGS=-g -ffreestanding -mcmodel=kernel -O2 -mno-red-zone -mno-mmx -mno-sse -mno-sse2 -nostdlib -Wall -I "${INCDIR}" -I "$(ARCHINCDIR)" -I "$(FLANTERMINCDIR)" $(PRINTFOPTS)
+CFLAGS=-g -ffreestanding -mcmodel=kernel -O2 -mno-red-zone -mgeneral-regs-only -mno-mmx -mno-sse -mno-sse2 -nostdlib -Wall -I "${INCDIR}" -I "$(ARCHINCDIR)" -I "$(FLANTERMINCDIR)" $(PRINTFOPTS)
 ASFLAGS=-felf64
 
 astral:	$(OBJS)
