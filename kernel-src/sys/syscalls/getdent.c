@@ -39,12 +39,13 @@ syscallret_t syscall_getdents(context_t *, int dirfd, void *ubuffer, size_t read
 		goto cleanup;
 	}
 
-	ret.errno = VOP_GETDENTS(fd->vnode, buffer, count, fd->offset, &ret.ret); 
+	size_t offset = fd->offset;
+	ret.errno = VOP_GETDENTS(fd->vnode, buffer, count, offset, &ret.ret);
 
 	if (ret.errno)
 		goto cleanup;
 
-	fd->offset += ret.ret;
+	fd->offset = offset + ret.ret;
 
 	ret.ret *= sizeof(dent_t);
 

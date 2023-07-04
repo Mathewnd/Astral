@@ -1,7 +1,9 @@
 #include <kernel/syscalls.h>
 #include <kernel/vfs.h>
 #include <kernel/file.h>
+#include <arch/cpu.h>
 #include <errno.h>
+#include <logging.h>
 
 syscallret_t syscall_read(context_t *context, int fd, void *buffer, size_t size) {
 	syscallret_t ret = {
@@ -23,12 +25,13 @@ syscallret_t syscall_read(context_t *context, int fd, void *buffer, size_t size)
 
 	// TODO pass flags
 	size_t bytesread;
+	uintmax_t offset = file->offset;
 	ret.errno = vfs_read(file->vnode, kernelbuff, size, file->offset, &bytesread, 0);
 
 	if (ret.errno)
 		goto cleanup;
 
-	file->offset += bytesread;
+	file->offset = offset + bytesread;
 	ret.ret = bytesread;
 	ret.errno = 0;
 

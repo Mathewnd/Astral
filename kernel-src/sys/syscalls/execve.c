@@ -112,6 +112,8 @@ syscallret_t syscall_execve(context_t *context, char *upath, char *uargv[], char
 		goto error;
 	}
 
+	ret.ret = 0;
+
 	// TODO kill other threads and close CLOEXEC fds
 
 	error:

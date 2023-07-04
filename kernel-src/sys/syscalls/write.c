@@ -26,12 +26,13 @@ syscallret_t syscall_write(context_t *context, int fd, void *buffer, size_t size
 
 	// TODO pass flags
 	size_t byteswritten;
-	ret.errno = vfs_write(file->vnode, kernelbuff, size, file->offset, &byteswritten, 0);
+	uintmax_t offset = file->offset;
+	ret.errno = vfs_write(file->vnode, kernelbuff, size, offset, &byteswritten, 0);
 
 	if (ret.errno)
 		goto cleanup;
 
-	file->offset += byteswritten;
+	file->offset = offset + byteswritten;
 	ret.ret = byteswritten;
 	ret.errno = 0;
 cleanup:

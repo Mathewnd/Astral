@@ -8,7 +8,7 @@
 syscallret_t syscall_openat(context_t *context, int dirfd, const char *path, int flags, mode_t mode) {
 	syscallret_t ret = {
 		.ret = -1,
-		.errno = 0
+		.errno = -1
 	};
 
 	// transform O_RDONLY, O_WRONLY, O_RDWR into FILE_READ and FILE_WRITE
@@ -89,13 +89,9 @@ syscallret_t syscall_openat(context_t *context, int dirfd, const char *path, int
 		VOP_RELEASE(vnode);
 	}
 
-	if (newfile) {
-		if (ret.errno) {
-			__assert(fd_close(newfd) == 0);
-		} else {
-			fd_release(newfile);
-		}
-	}
+	if (newfile && ret.errno)
+		__assert(fd_close(newfd) == 0);
+
 
 	if (pathbuf)
 		free(pathbuf);

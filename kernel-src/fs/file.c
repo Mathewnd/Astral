@@ -81,14 +81,10 @@ file_t *fd_get(int fd) {
 
 	spinlock_release(&proc->fdlock);
 
-	if (file)
-		MUTEX_ACQUIRE(&file->mutex, false);
-
 	return file;
 }
 
 void fd_release(file_t *file) {
-	MUTEX_RELEASE(&file->mutex);
 	FILE_RELEASE(file);
 }
 
@@ -117,8 +113,6 @@ int fd_new(int flags, file_t **rfile, int *rfd) {
 	proc->fdfirst = fd + 1;
 	proc->fd[fd].file = file;
 	proc->fd[fd].flags = flags;
-	MUTEX_ACQUIRE(&file->mutex, false);
-	FILE_HOLD(file);
 
 	spinlock_release(&proc->fdlock);
 

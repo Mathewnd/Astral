@@ -30,21 +30,24 @@ syscallret_t syscall_seek(context_t *context, int fd, off_t offset, int whence) 
 
 	// TODO device check seek
 
+	uintmax_t curroffset = file->offset;
+	uintmax_t newoffset = 0;
+
 	switch (whence) {
 		case SEEK_SET:
-		file->offset = offset;
+		newoffset = offset;
 		break;
 		case SEEK_CUR: {
-			uintmax_t newoffset = file->offset + offset;
-			if (offset > 0 && newoffset < file->offset) {
+			uintmax_t newoffset = curroffset + offset;
+			if (offset > 0 && newoffset < curroffset) {
 				ret.errno = EOVERFLOW;
 				goto cleanup;
 			}
-			if (offset < 0 && newoffset > file->offset) {
+			if (offset < 0 && newoffset > curroffset) {
 				ret.errno = EINVAL;
 				goto cleanup;
 			}
-			file->offset = newoffset;
+			newoffset = newoffset;
 			break;
 		}
 		case SEEK_END: {
@@ -52,11 +55,12 @@ syscallret_t syscall_seek(context_t *context, int fd, off_t offset, int whence) 
 			ret.errno = VOP_GETATTR(file->vnode, &attr, &_cpu()->thread->proc->cred);
 			if (ret.errno) 
 				goto cleanup;
-			file->offset = attr.size;
+			newoffset = attr.size;
 			break;
 		}
 	}
 
+	file->offset = newoffset;
 	ret.ret = file->offset;
 	ret.errno = 0;
 

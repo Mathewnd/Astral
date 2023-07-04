@@ -33,10 +33,12 @@ syscallret_t syscall_fcntl(context_t *, int fd, int cmd, uint64_t arg) {
 			ret.ret = file->flags;
 			break;
 		case F_SETFL:
+			FILE_LOCK(file);
 			arg &= ~(O_RDONLY | O_WRONLY | O_RDWR | O_CREAT | O_EXCL | O_NOCTTY | O_TRUNC);	
 			file->flags &= ~(O_APPEND | O_ASYNC | O_NOATIME | O_NONBLOCK);
 			file->flags |= arg;
 			ret.ret = 0;
+			FILE_UNLOCK(file);
 			break;
 		case F_SETFD:
 		case F_GETFD: // TODO implement this
@@ -47,8 +49,7 @@ syscallret_t syscall_fcntl(context_t *, int fd, int cmd, uint64_t arg) {
 			break;
 	}
 
-	if (file)
-		fd_release(file);
+	fd_release(file);
 
 	ret.errno = 0;
 	return ret;
