@@ -211,6 +211,7 @@ static volatile struct limine_kernel_address_request kaddrreq = {
 #define ERROR_FETCH   16
 
 static void pfisr(isr_t *self, context_t *ctx) {
+	interrupt_set(true);
 	int vmmerror = 0;
 	if (ctx->error & ERROR_PRESENT)
 		vmmerror |= VMM_ACTION_READ;
