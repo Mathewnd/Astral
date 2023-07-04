@@ -133,7 +133,7 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..e76adfd
+index 0000000..6b6d167
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
 @@ -0,0 +1,246 @@
@@ -372,8 +372,8 @@ index 0000000..e76adfd
 +	}
 +	
 +	int sys_isatty(int fd) {
-+		// TODO UNSTUB
-+		return 0;
++		long ret;
++		return syscall(SYSCALL_ISATTY, &ret, fd);
 +	}
 +
 +	int sys_clock_get(int clock, time_t *secs, long *nanos) {
@@ -402,10 +402,10 @@ index 0000000..990eca0
 +#endif
 diff --git mlibc-workdir/sysdeps/astral/include/astral/syscall.h mlibc-workdir/sysdeps/astral/include/astral/syscall.h
 new file mode 100644
-index 0000000..e432092
+index 0000000..09c7dd4
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/include/astral/syscall.h
-@@ -0,0 +1,46 @@
+@@ -0,0 +1,47 @@
 +#ifndef _SYSCALL_H_INCLUDE
 +#define _SYSCALL_H_INCLUDE
 +
@@ -432,6 +432,7 @@ index 0000000..e432092
 +#define SYSCALL_FCNTL 20
 +#define SYSCALL_CHDIR 21
 +#define SYSCALL_PIPE2 22
++#define SYSCALL_ISATTY 23
 +
 +#include <stddef.h>
 +#include <stdint.h>

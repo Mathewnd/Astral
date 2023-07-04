@@ -22,6 +22,7 @@ extern syscall_dup3
 extern syscall_fcntl
 extern syscall_chdir
 extern syscall_pipe2
+extern syscall_isatty
 syscalltab:
 dq syscall_print
 dq syscall_mmap
@@ -46,7 +47,8 @@ dq syscall_dup3
 dq syscall_fcntl
 dq syscall_chdir
 dq syscall_pipe2
-syscallcount equ 23
+dq syscall_isatty
+syscallcount equ 24
 section .text
 global arch_syscall_entry
 ; on entry:

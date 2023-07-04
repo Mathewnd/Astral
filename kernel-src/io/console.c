@@ -153,9 +153,14 @@ static int write(int minor, void *buffer, size_t size, uintmax_t offset, int fla
 	return 0;
 }
 
+static int isatty(int minor) {
+	return 0;
+}
+
 static devops_t devops = {
 	.write = write,
-	.read = read
+	.read = read,
+	.isatty = isatty
 };
 
 void console_init() {

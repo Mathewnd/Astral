@@ -183,6 +183,14 @@ int devfs_access(vnode_t *node, mode_t mode, cred_t *cred) {
 	return 0;
 }
 
+int devfs_isatty(vnode_t *node) {
+	devnode_t *devnode = (devnode_t *)node;
+	if (devnode->master)
+		devnode = devnode->master;
+
+	return devnode->devops->isatty ? devnode->devops->isatty(devnode->attr.rdevminor) : ENOTTY;
+}
+
 int devfs_inactive(vnode_t *node) {
 	VOP_LOCK(node);
 	devnode_t *devnode = (devnode_t *)node;
@@ -304,7 +312,8 @@ static vops_t vnops = {
 	.inactive = devfs_enodev,
 	.mmap = devfs_mmap,
 	.munmap = devfs_munmap,
-	.getdents = devfs_getdents
+	.getdents = devfs_getdents,
+	.isatty = devfs_isatty
 };
 
 static void ctor(scache_t *cache, void *obj) {

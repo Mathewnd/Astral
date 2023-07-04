@@ -16,6 +16,7 @@ typedef struct {
 	int (*poll)(int minor, int events);
 	int (*mmap)(int minor, void *addr, uintmax_t offset, int flags);
 	int (*munmap)(int minor, void *addr, uintmax_t offset, int flags);
+	int (*isatty)(int minor);
 } devops_t;
 
 typedef struct devnode_t {
