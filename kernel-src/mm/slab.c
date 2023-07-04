@@ -70,6 +70,9 @@ static bool growcache(scache_t *cache) {
 
 
 	slab->next = cache->empty;
+	slab->prev = NULL;
+	if (slab->next)
+		slab->next->prev = slab;
 	cache->empty = slab;
 	return true;
 }
@@ -159,25 +162,24 @@ void *slab_allocate(scache_t *cache) {
 
 	if (slab == cache->empty) {
 		cache->empty = slab->next;
-		if (slab->prev)
-			slab->prev->next = slab->next;
 		if (slab->next)
-			slab->next->prev = slab->prev;
+			slab->next->prev = NULL;
+
 		if (cache->partial)
 			cache->partial->prev = slab;
+
 		slab->next = cache->partial;
 		slab->prev = NULL;
 		cache->partial = slab;
-	}
-
-	if (slab->used == cache->slabobjcount) {
+	} else if (slab->used == cache->slabobjcount) {
 		cache->partial = slab->next;
-		if (slab->prev)
-			slab->prev->next = slab->next;
+
 		if (slab->next)
-			slab->next->prev = slab->prev;
+			slab->next->prev = NULL;
+
 		if (cache->full)
 			cache->full->prev = slab;
+
 		slab->next = cache->full;
 		slab->prev = NULL;
 		cache->full = slab;
@@ -195,28 +197,34 @@ void slab_free(scache_t *cache, void *addr) {
 	__assert(slab);
 
 	if (slab->used == 0) {
-		cache->partial = slab->next;
-		if (slab->prev)
+		if (slab->prev == NULL)
+			cache->partial = slab->next;
+		else
 			slab->prev->next = slab->next;
+
 		if (slab->next)
 			slab->next->prev = slab->prev;
-		if (cache->empty)
-			cache->empty->prev = slab;
+
 		slab->next = cache->empty;
 		slab->prev = NULL;
+		if (slab->next)
+			slab->next->prev = slab;
 		cache->empty = slab;
 	}
 	
 	if (slab->used == cache->slabobjcount - 1) {
-		cache->full = slab->next;
-		if (slab->prev)
+		if (slab->prev == NULL)
+			cache->full = slab->next;
+		else
 			slab->prev->next = slab->next;
+
 		if (slab->next)
 			slab->next->prev = slab->prev;
-		if (cache->partial)
-			cache->partial->prev = slab;
+
 		slab->next = cache->partial;
 		slab->prev = NULL;
+		if (slab->next)
+			slab->next->prev = slab;
 		cache->partial = slab;
 	}
 	spinlock_release(&cache->lock);
