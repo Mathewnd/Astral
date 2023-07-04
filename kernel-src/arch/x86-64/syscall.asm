@@ -115,6 +115,7 @@ arch_syscall_entry:
 
 	; call logging function
 
+	sti
 	mov rdi, rax
 	extern arch_syscall_log
 	call arch_syscall_log ; compiled with __attribute__((no_caller_saved_registers)) 
@@ -122,7 +123,6 @@ arch_syscall_entry:
 	; prepare context argument
 	mov rdi, rsp
 	add rdi, 8 ; context pointer is after r9 argument
-	sti
 
 	cmp rax, syscallcount
 	jae .nosyscall

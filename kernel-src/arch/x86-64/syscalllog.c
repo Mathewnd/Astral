@@ -1,5 +1,6 @@
 #include <logging.h>
 #include <arch/e9.h>
+#include <arch/cpu.h>
 
 #define SYSCALL_COUNT 23
 #define LOGSTR(x) arch_e9_puts(x)
@@ -69,7 +70,7 @@ __attribute__((no_caller_saved_registers)) void arch_syscall_log(int syscall, ui
 	LOGSTR(printbuff);
 }
 
-__attribute__((no_caller_saved_registers)) void arch_syscall_log_return(int syscall, uint64_t ret, uint64_t errno) {
+__attribute__((no_caller_saved_registers)) void arch_syscall_log_return(uint64_t ret, uint64_t errno) {
 	char printbuff[1024];
 
 	thread_t *thread = _cpu()->thread;
