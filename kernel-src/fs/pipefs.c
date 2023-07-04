@@ -45,10 +45,10 @@ int pipefs_close(vnode_t *node, int flags, cred_t *cred) {
 	}
 
 	if (pipenode->readers == 0)
-		event_signal(&pipenode->writeevent);
+		event_signal(&pipenode->readevent);
 
 	if (pipenode->writers == 0)
-		event_signal(&pipenode->readevent);
+		event_signal(&pipenode->writeevent);
 
 	VOP_UNLOCK(node);
 	return 0;
