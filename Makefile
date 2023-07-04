@@ -30,7 +30,7 @@ full:
 	cd sysroot; tar -cf $(INITRD) *
 
 minimal:
-	./jinx install minimalsysroot mlibc
+	./jinx install minimalsysroot mlibc bash coreutils
 	cd minimalsysroot; tar -cf $(INITRD) *
 
 kernel:
