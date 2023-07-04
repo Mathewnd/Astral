@@ -196,7 +196,6 @@ __attribute__((noreturn)) void sched_stopcurrentthread() {
 }
 
 __attribute__((noreturn)) void sched_threadexit() {
-	interrupt_set(false);
 	thread_t *thread = _cpu()->thread;
 	proc_t *proc = thread->proc;
 
@@ -205,10 +204,12 @@ __attribute__((noreturn)) void sched_threadexit() {
 
 	if (proc) {
 		__atomic_fetch_sub(&proc->runningthreadcount, 1, __ATOMIC_SEQ_CST);
+		__assert(oldctx != &vmm_kernelctx);
 		if (proc->runningthreadcount == 0)
 			vmm_destroycontext(oldctx);
 	}
 
+	interrupt_set(false);
 	_cpu()->thread = NULL;
 
 	// because a thread deallocating its own data is a nightmare, thread deallocation and such will be left to whoever frees the proc it's tied to
@@ -229,6 +230,7 @@ static void yield(context_t *context) {
 
 	if (next || sleeping) {
 		ARCH_CONTEXT_THREADSAVE(thread, context);
+
 		if (sleeping)
 			spinlock_release(&thread->sleeplock);
 		else
