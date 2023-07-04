@@ -21,9 +21,11 @@ typedef struct semaphore_t{
 		(x)->head = NULL; \
 	}
 
+
 int semaphore_wait(semaphore_t *sem, bool interruptible);
 void semaphore_signal(semaphore_t *sem);
 bool semaphore_test(semaphore_t *sem);
+bool semaphore_haswaiters(semaphore_t *sem);
 
 #include <kernel/scheduler.h>
 

@@ -3,27 +3,27 @@
 #include <logging.h>
 
 static void insert(semaphore_t *sem, thread_t *thread) {
-	if (sem->head == NULL) {
-		sem->head = thread;
-		sem->tail = thread;
-		thread->sleepnext = NULL;
-		thread->sleepprev = NULL;
-		return;
-	}
+	thread->sleepnext = sem->head;
+	thread->sleepprev = NULL;
+	sem->head = thread;
 
-	sem->tail->sleepnext = _cpu()->thread;
-	_cpu()->thread->sleepprev = sem->tail;
+	if (sem->tail == NULL)
+		sem->tail = thread;
+
+	if (thread->sleepnext)
+		thread->sleepnext->sleepprev = thread;
 }
 
 static thread_t *get(semaphore_t *sem) {
-	thread_t *thread = sem->head;
+	thread_t *thread = sem->tail;
 	__assert(thread);
 
-	sem->head = sem->head->sleepnext;
-	if (sem->head == NULL)
-		sem->tail = NULL;
-	else 
-		sem->head->sleepprev = NULL;
+	sem->tail = thread->sleepprev;
+
+	if (sem->tail == NULL)
+		sem->head = NULL;
+	else
+		sem->tail->sleepnext = NULL;
 
 	return thread;
 }
@@ -37,10 +37,12 @@ int semaphore_wait(semaphore_t *sem, bool interruptible) {
 		insert(sem, _cpu()->thread);
 		sched_preparesleep(interruptible);
 		spinlock_release(&sem->lock);
-		return sched_yield();
+		ret = sched_yield();
+		goto leave;
 	}
 
 	spinlock_release(&sem->lock);
+	leave:
 	interrupt_set(intstate);
 	return ret;
 }
@@ -55,6 +57,17 @@ void semaphore_signal(semaphore_t *sem) {
 	}
 	spinlock_release(&sem->lock);
 	interrupt_set(intstate);
+}
+
+bool semaphore_haswaiters(semaphore_t *sem) {
+	bool intstate = interrupt_set(false);
+	spinlock_acquire(&sem->lock);
+
+	bool v = sem->head != NULL;
+
+	spinlock_release(&sem->lock);
+	interrupt_set(intstate);
+	return v;
 }
 
 bool semaphore_test(semaphore_t *sem) {
