@@ -23,6 +23,7 @@
 #include <kernel/keyboard.h>
 #include <kernel/console.h>
 #include <kernel/dpc.h>
+#include <kernel/pipefs.h>
 
 static cpu_t bsp_cpu;
 
@@ -50,6 +51,7 @@ void kernel_entry() {
 	vfs_init();
 	tmpfs_init();
 	devfs_init();
+	pipefs_init();
 	printf("mounting tmpfs on /\n");
 	__assert(vfs_mount(NULL, vfsroot, "/", "tmpfs", NULL) == 0);
 	initrd_unpack();
