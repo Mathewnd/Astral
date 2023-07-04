@@ -86,7 +86,6 @@ void arch_context_saveandcall(void (*fn)(context_t *context), void *stack);
 	wrmsr(MSR_KERNELGSBASE, (t)->extracontext.gsbase); \
 	wrmsr(MSR_FSBASE, (t)->extracontext.fsbase);
 
-#define ARCH_CONTEXT_INTSTATUS(x) \
-	(x)->rflags & 0x200 ? true : false;
+#define ARCH_CONTEXT_INTSTATUS(x) ((x)->rflags & 0x200 ? true : false)
 
 #endif
