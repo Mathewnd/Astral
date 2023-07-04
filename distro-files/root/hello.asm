@@ -1,12 +1,12 @@
 section .text
 global _start
 _start: 
-	mov rax, 9
+	mov rax, 7
 	mov rdi, 1
 	mov rsi, msg
 	mov rdx, 14
 	syscall
-	mov rax,15
+	mov rax, 13
 	xor rdi, rdi
 	syscall
 section .data
