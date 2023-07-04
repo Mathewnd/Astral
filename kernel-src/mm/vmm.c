@@ -161,6 +161,7 @@ static void insertrange(vmmspace_t *space, vmmrange_t *newrange) {
 		space->ranges = newrange;
 		newrange->next = range;
 		range->prev = newrange;
+		newrange->prev = NULL;
 		goto fragcheck;
 	}
 
@@ -185,6 +186,9 @@ static void insertrange(vmmspace_t *space, vmmrange_t *newrange) {
 		vmmrange_t *oldrange = newrange->next;
 		newrange->size += oldrange->size;
 		newrange->next = oldrange->next;
+		if (oldrange->next)
+			oldrange->next->prev = newrange;
+
 		freerange(oldrange);
 	}
 
@@ -192,8 +196,13 @@ static void insertrange(vmmspace_t *space, vmmrange_t *newrange) {
 		vmmrange_t *oldrange = newrange->prev;
 		oldrange->size += newrange->size;
 		oldrange->next = newrange->next;
+
+		if (newrange->next)
+			newrange->next->prev = oldrange;
+
 		freerange(newrange);
 	}
+
 }
 
 static void destroyrange(vmmcontext_t *context, vmmrange_t *range, uintmax_t _offset, size_t size, int flags) {
@@ -224,6 +233,7 @@ static void unmap(vmmcontext_t *context, void *address, size_t size) {
 	vmmrange_t *range = space->ranges;
 
 	while (range) {
+		__assert(range != space->ranges || range->prev == NULL);
 		void *rangetop = RANGE_TOP(range);
 		// completely unmapped
 		if (range->start >= address && rangetop <= top) {
@@ -247,7 +257,6 @@ static void unmap(vmmcontext_t *context, void *address, size_t size) {
 			new->start = top;
 			new->size = (uintptr_t)rangetop - (uintptr_t)new->start;
 			range->size = (uintptr_t)address - (uintptr_t)range->start;
-
 			new->prev = range;
 			range->next = new;
 
