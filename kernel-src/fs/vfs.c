@@ -153,7 +153,7 @@ int vfs_link(vnode_t *destref, char *destpath, vnode_t *linkref, char *linkpath,
 		err = VOP_LINK(targetnode, parent, component, getcred());
 		VOP_RELEASE(targetnode);
 	} else {
-		err = VOP_SYMLINK(parent, component, attr, linkpath, getcred());
+		err = VOP_SYMLINK(parent, component, attr, destpath, getcred());
 	}
 
 	VOP_RELEASE(parent);
@@ -319,7 +319,7 @@ int vfs_lookup(vnode_t **result, vnode_t *start, char *path, char *lastcomp, int
 			vnode_t *derefresult = NULL;
 
 			// get the start node of the dereference
-			vnode_t *derefstart = next;
+			vnode_t *derefstart = current;
 
 			if (*linkderef == '/' && _cpu()->thread && _cpu()->thread->proc) {
 				spinlock_acquire(&_cpu()->thread->proc->lock);

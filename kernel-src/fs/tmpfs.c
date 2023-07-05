@@ -361,6 +361,8 @@ static int tmpfs_symlink(vnode_t *node, char *name, vattr_t *attr, char *path, c
 	if (pathbuf == NULL)
 		return ENOMEM;
 
+	strcpy(pathbuf, path);
+
 	vnode_t *linknode = NULL;
 
 	int err = tmpfs_create(node, name, attr, V_TYPE_LINK, &linknode, cred);
