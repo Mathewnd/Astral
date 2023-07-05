@@ -1,0 +1,18 @@
+name=gcc
+revision=1
+from_source=gcc
+imagedeps="base-devel"
+hostrundeps="automake autoconf xgcc xbinutils libstdc++-v3"
+deps="mlibc gmp mpfr mpc"
+
+configure() {
+	${source_dir}/configure --host=x86_64-astral --target=x86_64-astral --prefix=${prefix} --enable-languages=c,c++ --with-sysroot=/ --with-build-sysroot=${sysroot_dir}
+}
+
+build() {
+	make -j${parallelism} all-gcc all-target-libgcc all-target-libstdc++-v3
+}
+
+install() {
+	make install-gcc install-target-libgcc install-target-libstdc++-v3 DESTDIR="${dest_dir}"
+}
