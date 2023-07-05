@@ -37,9 +37,6 @@ __attribute__((noreturn)) void syscall_exit(context_t *context, int status) {
 	}
 
 	if (lastchild) {
-		if (lastchild->sibling->state == SCHED_PROC_STATE_ZOMBIE)
-			haszombie = true;
-
 		lastchild->sibling = sched_initproc->child;
 		sched_initproc->child = proc->child;
 	}

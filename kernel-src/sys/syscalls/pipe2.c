@@ -15,8 +15,7 @@ static void open(file_t *file, vnode_t *node, int flags) {
 }
 
 syscallret_t syscall_pipe2(context_t *, int flags) {
-	// TODO support them
-	__assert(flags == 0);
+	__assert((flags & ~(O_CLOEXEC | O_NONBLOCK)) == 0);
 	syscallret_t ret = {
 		.ret = -1
 	};
@@ -33,17 +32,17 @@ syscallret_t syscall_pipe2(context_t *, int flags) {
 	// node held again because two files will point to the same node
 	VOP_HOLD(node);
 
-	ret.errno = fd_new(0, &readfile, &readfd);
+	ret.errno = fd_new(flags & O_CLOEXEC, &readfile, &readfd);
 	if (ret.errno)
 		goto error;
 
-	open(readfile, node, FILE_READ);
+	open(readfile, node, FILE_READ | (flags & O_NONBLOCK));
 
-	ret.errno = fd_new(0, &writefile, &writefd);
+	ret.errno = fd_new(flags & O_CLOEXEC, &writefile, &writefd);
 	if (ret.errno)
 		goto error;
 
-	open(writefile, node, FILE_WRITE);
+	open(writefile, node, FILE_WRITE | (flags & O_NONBLOCK));
 
 	ret.errno = 0;
 	ret.ret = (uint64_t)readfd | ((uint64_t)writefd << 32);

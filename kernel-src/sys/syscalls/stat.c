@@ -88,7 +88,7 @@ syscallret_t syscall_fstatat(context_t *ctx, int dirfd, char *upath, stat_t *ust
 	}
 
 	vnode_t *node = NULL;
-	ret.errno = vfs_lookup(&node, dirnode, upath, NULL, flags & AT_SYMLINK_NOFOLLOW ? VFS_LOOKUP_NOLINK : 0);
+	ret.errno = vfs_lookup(&node, dirnode, path, NULL, flags & AT_SYMLINK_NOFOLLOW ? VFS_LOOKUP_NOLINK : 0);
 	if (ret.errno)
 		goto cleanup;
 
@@ -109,5 +109,8 @@ syscallret_t syscall_fstatat(context_t *ctx, int dirfd, char *upath, stat_t *ust
 		fd_release(file);
 	else
 		VOP_RELEASE(dirnode);
+
+	free(path);
+
 	return ret;
 }

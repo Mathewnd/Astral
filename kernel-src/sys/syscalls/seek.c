@@ -37,8 +37,8 @@ syscallret_t syscall_seek(context_t *context, int fd, off_t offset, int whence) 
 		case SEEK_SET:
 		newoffset = offset;
 		break;
-		case SEEK_CUR: {
-			uintmax_t newoffset = curroffset + offset;
+		case SEEK_CUR:
+			newoffset = curroffset + offset;
 			if (offset > 0 && newoffset < curroffset) {
 				ret.errno = EOVERFLOW;
 				goto cleanup;
@@ -47,9 +47,7 @@ syscallret_t syscall_seek(context_t *context, int fd, off_t offset, int whence) 
 				ret.errno = EINVAL;
 				goto cleanup;
 			}
-			newoffset = newoffset;
 			break;
-		}
 		case SEEK_END: {
 			vattr_t attr;
 			ret.errno = VOP_GETATTR(file->vnode, &attr, &_cpu()->thread->proc->cred);
@@ -60,8 +58,9 @@ syscallret_t syscall_seek(context_t *context, int fd, off_t offset, int whence) 
 		}
 	}
 
+	printf("ret: new %lu old %lu whence %d\n", newoffset, file->offset, whence);
 	file->offset = newoffset;
-	ret.ret = file->offset;
+	ret.ret = newoffset;
 	ret.errno = 0;
 
 	cleanup:

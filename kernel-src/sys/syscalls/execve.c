@@ -91,8 +91,9 @@ syscallret_t syscall_execve(context_t *context, char *upath, char *uargv[], char
 		goto error;
 
 	if (interp) {
-		vnode_t *interpnode;
-		ret.errno = vfs_lookup(&interpnode, refnode, interp, NULL, 0);
+		vnode_t *interpnode = NULL;
+		vnode_t *interprefnode = *interp == '/' ? sched_getroot() : sched_getcwd();
+		ret.errno = vfs_lookup(&interpnode, interprefnode, interp, NULL, 0);
 		if (ret.errno)
 			goto error;
 
