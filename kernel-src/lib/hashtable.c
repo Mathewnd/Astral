@@ -84,6 +84,7 @@ int hashtable_get(hashtable_t *table, void **value, void *key, size_t keysize) {
 
 int hashtable_remove(hashtable_t *table, void *key, size_t keysize) {
 	uintmax_t hash = hashbuffer(key, keysize);
+	uintmax_t tableoffset = hash % table->capacity;
 
 	hashentry_t *entry = getentry(table, key, keysize, hash);
 
@@ -92,6 +93,8 @@ int hashtable_remove(hashtable_t *table, void *key, size_t keysize) {
 
 	if (entry->prev)
 		entry->prev->next = entry->next;
+	else
+		table->entries[tableoffset] = entry->next;
 
 	if (entry->next)
 		entry->next->prev = entry->prev;
