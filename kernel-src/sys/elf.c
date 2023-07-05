@@ -80,7 +80,7 @@ static int load(vnode_t *vnode, elfph64_t *ph) {
 		msize -= firstpagecount;
 		fsize -= firstpagecount;
 		foffset += firstpagecount;
-		uintmax_t remaining = mempos % PAGE_SIZE;
+		uintmax_t remaining = PAGE_SIZE - (mempos % PAGE_SIZE);
 		// zero remaining parts of the first page if needed
 		if (remaining && msize) {
 			size_t remainingmsize = remaining > msize ? msize : remaining;
