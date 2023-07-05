@@ -2,6 +2,8 @@
 #include <arch/e9.h>
 #include <arch/cpu.h>
 
+#ifdef SYSCALL_LOGGING
+
 #define SYSCALL_COUNT 25
 #define LOGSTR(x) arch_e9_puts(x)
 
@@ -63,7 +65,10 @@ static char *args[] = {
 	"dirfd %d pathname %d flags %d" // unlinkat
 };
 
+#endif
+
 __attribute__((no_caller_saved_registers)) void arch_syscall_log(int syscall, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5, uint64_t a6) {
+#ifdef SYSCALL_LOGGING
 	char argbuff[768];
 	char printbuff[1024];
 
@@ -74,9 +79,11 @@ __attribute__((no_caller_saved_registers)) void arch_syscall_log(int syscall, ui
 	snprintf(printbuff, 1024, "\e[92msyscall: pid %d tid %d: %s: %s\n\e[0m", proc->pid, thread->tid, syscall < SYSCALL_COUNT ? name[syscall] : "invalid syscall", argbuff);
 
 	LOGSTR(printbuff);
+#endif
 }
 
 __attribute__((no_caller_saved_registers)) void arch_syscall_log_return(uint64_t ret, uint64_t errno) {
+#ifdef SYSCALL_LOGGING
 	char printbuff[1024];
 
 	thread_t *thread = _cpu()->thread;
@@ -84,4 +91,5 @@ __attribute__((no_caller_saved_registers)) void arch_syscall_log_return(uint64_t
 
 	snprintf(printbuff, 1024, "\e[94msyscall return: pid %d tid %d: %lu %lu\n\e[0m", proc->pid, thread->tid, ret, errno);
 	LOGSTR(printbuff);
+#endif
 }
