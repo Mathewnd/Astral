@@ -30,7 +30,7 @@ full:
 	cd sysroot; tar --format=ustar -cf $(INITRD) *
 
 minimal:
-	./jinx install minimalsysroot mlibc bash coreutils
+	./jinx install minimalsysroot mlibc bash coreutils init distro-files
 	cd minimalsysroot; tar --format=ustar -cf $(INITRD) *
 
 kernel:
