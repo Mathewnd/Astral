@@ -34,16 +34,6 @@ int fd_clone(proc_t *proc);
 #define FILE_WRITE 2
 #define FILE_KNOWN_FLAGS 3
 
-static inline int fileflagstovnodeflags(int flags) {
-	int vnflags = 0;
-	if (flags & FILE_READ)
-		vnflags |= V_FFLAGS_READ;
-	if (flags & FILE_WRITE)
-		vnflags |= V_FFLAGS_WRITE;
-
-	return vnflags;
-}
-
 #define O_RDONLY 0
 #define O_WRONLY 1
 #define O_RDWR 2
@@ -65,6 +55,18 @@ static inline int fileflagstovnodeflags(int flags) {
 #define O_SYNC 04010000
 #define O_RSYNC 04010000
 #define O_TMPFILE 020000000
+
+static inline int fileflagstovnodeflags(int flags) {
+	int vnflags = 0;
+	if (flags & FILE_READ)
+		vnflags |= V_FFLAGS_READ;
+	if (flags & FILE_WRITE)
+		vnflags |= V_FFLAGS_WRITE;
+	if (flags & O_NONBLOCK)
+		vnflags |= V_FFLAGS_NONBLOCKING;
+
+	return vnflags;
+}
 
 #define FDTABLE_LIMIT 256
 
