@@ -30,7 +30,8 @@ static char *name[] = {
 	"chdir",
 	"pipe2",
 	"isatty",
-	"faccessat"
+	"faccessat",
+	"unlinkat"
 };
 
 static char *args[] = {
@@ -58,7 +59,8 @@ static char *args[] = {
 	"path %s", // chdir
 	"flags %d", // pipe2
 	"fd %d", // isatty
-	"dirfd %d pathname %s mode %d flags %d" // faccessat
+	"dirfd %d pathname %s mode %d flags %d", // faccessat
+	"dirfd %d pathname %d flags %d" // unlinkat
 };
 
 __attribute__((no_caller_saved_registers)) void arch_syscall_log(int syscall, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5, uint64_t a6) {
