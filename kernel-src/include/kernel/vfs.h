@@ -92,6 +92,7 @@ typedef struct vops_t {
 	int (*munmap)(vnode_t *node, void *addr, uintmax_t offset, int flags, cred_t *cred);
 	int (*getdents)(vnode_t *node, dent_t *buffer, size_t count, uintmax_t offset, size_t *readcount);
 	int (*isatty)(vnode_t *node);
+	int (*ioctl)(vnode_t *node, unsigned long request, void *arg, int *result);
 } vops_t;
 
 #define VFS_MOUNT(vfs, mp, b, d) (vfs)->ops->mount(vfs, mp, b, d)
@@ -120,6 +121,7 @@ typedef struct vops_t {
 #define VOP_GETDENTS(v, b, c, o, rc) (v)->ops->getdents(v, b, c, o, rc)
 #define VOP_POLL(v, p) (v)->ops->poll(v, p)
 #define VOP_ISATTY(v) ((v)->ops->isatty ? (v)->ops->isatty(v) : ENOTTY)
+#define VOP_IOCTL(v, r, a, rp) ((v)->ops->ioctl ? (v)->ops->ioctl(v, r, a, rp) : ENOTTY)
 #define VOP_HOLD(v) __atomic_add_fetch(&(v)->refcount, 1, __ATOMIC_SEQ_CST)
 #define VOP_RELEASE(v) {\
 		if (__atomic_sub_fetch(&(v)->refcount, 1, __ATOMIC_SEQ_CST) == 0) {\

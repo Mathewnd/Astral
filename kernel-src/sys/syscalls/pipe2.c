@@ -46,7 +46,6 @@ syscallret_t syscall_pipe2(context_t *, int flags) {
 
 	ret.errno = 0;
 	ret.ret = (uint64_t)readfd | ((uint64_t)writefd << 32);
-	printf("pipe2: readfd %d writefd %d wrefcount %d\n", readfd, writefd, writefile->refcount);
 
 	return ret;
 

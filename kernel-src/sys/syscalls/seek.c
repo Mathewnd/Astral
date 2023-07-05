@@ -58,7 +58,6 @@ syscallret_t syscall_seek(context_t *context, int fd, off_t offset, int whence) 
 		}
 	}
 
-	printf("ret: new %lu old %lu whence %d\n", newoffset, file->offset, whence);
 	file->offset = newoffset;
 	ret.ret = newoffset;
 	ret.errno = 0;

@@ -25,6 +25,7 @@ extern syscall_pipe2
 extern syscall_isatty
 extern syscall_faccessat
 extern syscall_unlinkat
+extern syscall_ioctl
 syscalltab:
 dq syscall_print
 dq syscall_mmap
@@ -52,7 +53,8 @@ dq syscall_pipe2
 dq syscall_isatty
 dq syscall_faccessat
 dq syscall_unlinkat
-syscallcount equ 26
+dq syscall_ioctl
+syscallcount equ 27
 section .text
 global arch_syscall_entry
 ; on entry:
