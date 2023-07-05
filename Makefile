@@ -27,11 +27,11 @@ initrd:
 
 full:
 	./jinx sysroot
-	cd sysroot; tar -cf $(INITRD) *
+	cd sysroot; tar --format=ustar -cf $(INITRD) *
 
 minimal:
 	./jinx install minimalsysroot mlibc bash coreutils
-	cd minimalsysroot; tar -cf $(INITRD) *
+	cd minimalsysroot; tar --format=ustar -cf $(INITRD) *
 
 kernel:
 	rm -f builds/astral.configured
