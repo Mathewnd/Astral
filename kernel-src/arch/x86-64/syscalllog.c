@@ -2,7 +2,7 @@
 #include <arch/e9.h>
 #include <arch/cpu.h>
 
-#define SYSCALL_COUNT 24
+#define SYSCALL_COUNT 25
 #define LOGSTR(x) arch_e9_puts(x)
 
 static char *name[] = {
@@ -29,7 +29,8 @@ static char *name[] = {
 	"fcntl",
 	"chdir",
 	"pipe2",
-	"isatty"
+	"isatty",
+	"faccessat"
 };
 
 static char *args[] = {
@@ -57,6 +58,7 @@ static char *args[] = {
 	"path %s", // chdir
 	"flags %d", // pipe2
 	"fd %d", // isatty
+	"dirfd %d pathname %s mode %d flags %d" // faccessat
 };
 
 __attribute__((no_caller_saved_registers)) void arch_syscall_log(int syscall, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5, uint64_t a6) {
