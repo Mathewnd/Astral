@@ -21,24 +21,9 @@ syscallret_t syscall_mkdirat(context_t *, int dirfd, const char *upath, mode_t m
 
 	vnode_t *dirnode = NULL;
 	file_t *file = NULL;
-	if (*path == '/') {
-		dirnode = sched_getroot();
-	} else if (dirfd == AT_FDCWD) {
-		dirnode = sched_getcwd();
-	} else {
-		file = fd_get(dirfd);
-		if (file == NULL) {
-			ret.errno = EBADF;
-			goto cleanup;
-		}
-
-		dirnode = file->vnode;
-
-		if (dirnode->type != V_TYPE_DIR) {
-			ret.errno = ENOTDIR;
-			goto cleanup;
-		}
-	}
+	ret.errno = dirfd_enter(path, dirfd, &file, &dirnode);
+	if (ret.errno)
+		goto cleanup;
 
 	vattr_t attr = {
 		.mode = mode,
@@ -51,10 +36,8 @@ syscallret_t syscall_mkdirat(context_t *, int dirfd, const char *upath, mode_t m
 
 	cleanup:
 
-	if (file)
-		fd_release(file);
-	else
-		VOP_RELEASE(dirnode);
+	if (dirnode)
+		dirfd_leave(dirnode, file);
 
 	free(path);
 

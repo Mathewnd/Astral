@@ -31,24 +31,9 @@ syscallret_t syscall_unlinkat(context_t *, int dirfd, const char *upath, int fla
 		goto cleanup;
 	}
 
-	if (*path == '/') {
-		dirnode = sched_getroot();
-	} else if (dirfd == AT_FDCWD) {
-		dirnode = sched_getcwd();
-	} else {
-		file = fd_get(dirfd);
-		if (file == NULL) {
-			ret.errno = EBADF;
-			goto cleanup;
-		}
-
-		dirnode = file->vnode;
-
-		if (dirnode->type != V_TYPE_DIR) {
-			ret.errno = ENOTDIR;
-			goto cleanup;
-		}
-	}
+	ret.errno = dirfd_enter(path, dirfd, &file, &dirnode);
+	if (ret.errno)
+		goto cleanup;
 
 	// TODO rmdir flag
 
@@ -67,10 +52,8 @@ syscallret_t syscall_unlinkat(context_t *, int dirfd, const char *upath, int fla
 	if (node)
 		VOP_RELEASE(node);
 
-	if (file)
-		fd_release(file);
-	else
-		VOP_RELEASE(dirnode);
+	if (dirnode)
+		dirfd_leave(dirnode, file);
 
 	free(path);
 

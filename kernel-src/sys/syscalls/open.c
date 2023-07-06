@@ -15,31 +15,13 @@ syscallret_t syscall_openat(context_t *context, int dirfd, const char *path, int
 	++flags;
 
 	vnode_t *dirnode = NULL;
-	file_t *dirfile;
+	file_t *dirfile = NULL;
 
 	size_t pathsize = strlen(path); // TODO u_strlen
 	char *pathbuf = alloc(pathsize + 1);
 	strcpy(pathbuf, path); // TODO u_strcpy
 
-	if (*pathbuf == '/') {
-		dirnode = sched_getroot();
-		dirfile = NULL;
-	} else if (dirfd == AT_FDCWD) {
-		dirnode = sched_getcwd();
-		dirfile = NULL;
-	} else {
-		dirfile = fd_get(dirfd);
-		if (dirfile == NULL) {
-			ret.errno = EBADF;
-			goto cleanup;
-		}
-
-		dirnode = dirfile->vnode;
-		if (dirnode->type != V_TYPE_DIR) {
-			ret.errno = ENOTDIR;
-			goto cleanup;
-		}
-	}
+	ret.errno = dirfd_enter(pathbuf, dirfd, &dirfile, &dirnode);
 
 	// TODO pass CLOEXEC to fd
 	file_t *newfile = NULL;
@@ -96,11 +78,8 @@ syscallret_t syscall_openat(context_t *context, int dirfd, const char *path, int
 	if (pathbuf)
 		free(pathbuf);
 
-	if (dirfile) {
-		fd_release(dirfile);
-	} else if (dirnode){
-		VOP_RELEASE(dirnode);
-	}
+	if (dirnode)
+		dirfd_leave(dirnode, dirfile);
 
 	return ret;
 }

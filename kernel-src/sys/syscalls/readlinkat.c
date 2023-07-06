@@ -9,8 +9,7 @@ syscallret_t syscall_readlinkat(context_t *, int dirfd, const char *upath, char 
 		.ret = -1
 	};
 
-	char *path = alloc(strlen(upath + 1));
-
+	char *path = alloc(strlen(upath) + 1);
 	if (path == NULL) {
 		ret.errno = ENOMEM;
 		return ret;
