@@ -102,11 +102,7 @@ static int tmpfs_getattr(vnode_t *node, vattr_t *attr, cred_t *cred) {
 static int tmpfs_setattr(vnode_t *node, vattr_t *attr, cred_t *cred) {
 	VOP_LOCK(node);
 	tmpfsnode_t *tmpnode = (tmpfsnode_t *)node;
-	int err = tmpfs_resize(tmpnode, attr->size);
-	if (err) {
-		VOP_UNLOCK(node);
-		return err;
-	}
+
 	tmpnode->attr.gid = attr->gid;
 	tmpnode->attr.uid = attr->uid;
 	tmpnode->attr.mode = attr->mode;
