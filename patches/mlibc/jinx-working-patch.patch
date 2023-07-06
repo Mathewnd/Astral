@@ -133,10 +133,10 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..28f6942
+index 0000000..97b963a
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -0,0 +1,295 @@
+@@ -0,0 +1,301 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -347,10 +347,12 @@ index 0000000..28f6942
 +	}
 +
 +	int sys_futex_wait(int *pointer, int expected, const struct timespec *time) {
++		mlibc::infoLogger() << "mlibc: futex wait is a stub" << frg::endlog;
 +		// TODO UNSTUB
 +		return ENOSYS;
 +	}
 +	int sys_futex_wake(int *pointer) {
++		mlibc::infoLogger() << "mlibc: futex wake is a stub" << frg::endlog;
 +		// TODO UNSTUB
 +		return ENOSYS;
 +	}
@@ -426,8 +428,12 @@ index 0000000..28f6942
 +	}
 +
 +	int sys_clock_get(int clock, time_t *secs, long *nanos) {
-+		// TODO UNSTUB
-+		return ENOSYS;
++		struct timespec ts;
++		long ret;
++		int err = syscall(SYSCALL_CLOCKGET, &ret, clock, (uint64_t)&ts);
++		*secs = ts.tv_sec;
++		*nanos = ts.tv_nsec;
++		return err;
 +	}
 +
 +} // namespace mlibc
@@ -451,10 +457,10 @@ index 0000000..990eca0
 +#endif
 diff --git mlibc-workdir/sysdeps/astral/include/astral/syscall.h mlibc-workdir/sysdeps/astral/include/astral/syscall.h
 new file mode 100644
-index 0000000..a569d38
+index 0000000..96da753
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/include/astral/syscall.h
-@@ -0,0 +1,51 @@
+@@ -0,0 +1,52 @@
 +#ifndef _SYSCALL_H_INCLUDE
 +#define _SYSCALL_H_INCLUDE
 +
@@ -486,6 +492,7 @@ index 0000000..a569d38
 +#define SYSCALL_UNLINKAT 25
 +#define SYSCALL_IOCTL 26
 +#define SYSCALL_MKDIRAT 27
++#define SYSCALL_CLOCKGET 28
 +
 +#include <stddef.h>
 +#include <stdint.h>
