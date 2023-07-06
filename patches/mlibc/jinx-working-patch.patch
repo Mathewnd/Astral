@@ -133,10 +133,10 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..97b963a
+index 0000000..0b9a48b
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -0,0 +1,301 @@
+@@ -0,0 +1,322 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -209,6 +209,27 @@ index 0000000..97b963a
 +		memcpy(buf->machine, "x86_64", 7);
 +		memcpy(buf->domainname, ASTRALHOSTNAME, strlen(ASTRALHOSTNAME)+1);
 +		return 0;
++	}
++
++	static int dolink(int oldfd, const char *oldpath, int newfd, const char *newpath, int flags, int type) {
++		long ret;
++		return syscall(SYSCALL_LINKAT, &ret, oldfd, (uint64_t)oldpath, newfd, (uint64_t)newpath, flags, type);
++	}
++
++	int sys_linkat(int olddirfd, const char *old_path, int newdirfd, const char *new_path, int flags) {
++		return dolink(olddirfd, old_path, newdirfd, new_path, flags, 0);
++	}
++
++	int sys_link(const char *old_path, const char *new_path) {
++		return sys_linkat(AT_FDCWD, old_path, AT_FDCWD, new_path, 0);
++	}
++	
++	int sys_symlinkat(const char *target_path, int dirfd, const char *link_path) {
++		return dolink(AT_FDCWD, target_path, dirfd, link_path, 0, 1);
++	}
++
++	int sys_symlink(const char *target_path, const char *link_path) {
++		return sys_symlinkat(target_path, AT_FDCWD, link_path);
 +	}
 +
 +	int sys_mkdirat(int dirfd, const char *path, mode_t mode) {
@@ -309,7 +330,7 @@ index 0000000..97b963a
 +		long ret;
 +		switch (fsfdt) {
 +			case fsfd_target::path:
-+				return syscall(SYSCALL_FSTATAT, &ret, AT_FDCWD, (uint64_t)path, (uint64_t)statbuf, 0);
++				return syscall(SYSCALL_FSTATAT, &ret, AT_FDCWD, (uint64_t)path, (uint64_t)statbuf, flags);
 +			case fsfd_target::fd:
 +				return syscall(SYSCALL_FSTAT, &ret, fd, (uint64_t)statbuf);
 +			case fsfd_target::fd_path:
@@ -457,10 +478,10 @@ index 0000000..990eca0
 +#endif
 diff --git mlibc-workdir/sysdeps/astral/include/astral/syscall.h mlibc-workdir/sysdeps/astral/include/astral/syscall.h
 new file mode 100644
-index 0000000..96da753
+index 0000000..ee926b6
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/include/astral/syscall.h
-@@ -0,0 +1,52 @@
+@@ -0,0 +1,53 @@
 +#ifndef _SYSCALL_H_INCLUDE
 +#define _SYSCALL_H_INCLUDE
 +
@@ -493,6 +514,7 @@ index 0000000..96da753
 +#define SYSCALL_IOCTL 26
 +#define SYSCALL_MKDIRAT 27
 +#define SYSCALL_CLOCKGET 28
++#define SYSCALL_LINKAT 29
 +
 +#include <stddef.h>
 +#include <stdint.h>
