@@ -4,7 +4,7 @@
 
 #ifdef SYSCALL_LOGGING
 
-#define SYSCALL_COUNT 30
+#define SYSCALL_COUNT 33
 #define LOGSTR(x) arch_e9_puts(x)
 
 static char *name[] = {
@@ -38,7 +38,9 @@ static char *name[] = {
 	"mkdirat",
 	"clockget",
 	"linkat",
-	"readlinkat"
+	"readlinkat",
+	"fchmod",
+	"fchmodat"
 };
 
 static char *args[] = {
@@ -72,7 +74,9 @@ static char *args[] = {
 	"dirfd %d path %s mode %o", // mkdirat
 	"clockid %d timespec %p", // clockget
 	"olddirfd %d oldpath %s newdirfd %d oldpath %s flags %d type %d", // linkat
-	"dirfd %d path %s buffer %p buffer length %lu" // readlinkat
+	"dirfd %d path %s buffer %p buffer length %lu", // readlinkat
+	"fd %d mode %o", // fchmod
+	"dirfd %d path %s mode %o flags %d" // fchmodat
 };
 
 #endif

@@ -133,10 +133,10 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..90bfad3
+index 0000000..569f811
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -0,0 +1,329 @@
+@@ -0,0 +1,343 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -209,6 +209,20 @@ index 0000000..90bfad3
 +		memcpy(buf->machine, "x86_64", 7);
 +		memcpy(buf->domainname, ASTRALHOSTNAME, strlen(ASTRALHOSTNAME)+1);
 +		return 0;
++	}
++
++	int sys_fchmod(int fd, mode_t mode) {
++		long ret;
++		return syscall(SYSCALL_FCHMOD, &ret, fd, mode);
++	}
++
++	int sys_fchmodat(int fd, const char *pathname, mode_t mode, int flags) {
++		long ret;
++		return syscall(SYSCALL_FCHMODAT, &ret, fd, (uint64_t)pathname, mode, flags);
++	}
++
++	int sys_chmod(const char *pathname, mode_t mode) {
++		return sys_fchmodat(AT_FDCWD, pathname, mode, 0);
 +	}
 +
 +	int sys_readlink(const char *path, void *buffer, size_t max_size, ssize_t *length) {
@@ -485,10 +499,10 @@ index 0000000..990eca0
 +#endif
 diff --git mlibc-workdir/sysdeps/astral/include/astral/syscall.h mlibc-workdir/sysdeps/astral/include/astral/syscall.h
 new file mode 100644
-index 0000000..fa60d43
+index 0000000..d058baa
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/include/astral/syscall.h
-@@ -0,0 +1,54 @@
+@@ -0,0 +1,56 @@
 +#ifndef _SYSCALL_H_INCLUDE
 +#define _SYSCALL_H_INCLUDE
 +
@@ -523,6 +537,8 @@ index 0000000..fa60d43
 +#define SYSCALL_CLOCKGET 28
 +#define SYSCALL_LINKAT 29
 +#define SYSCALL_READLINKAT 30
++#define SYSCALL_FCHMOD 31
++#define SYSCALL_FCHMODAT 32
 +
 +#include <stddef.h>
 +#include <stdint.h>
