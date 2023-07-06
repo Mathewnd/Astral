@@ -133,10 +133,10 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..8c06e96
+index 0000000..28f6942
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -0,0 +1,267 @@
+@@ -0,0 +1,295 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -190,6 +190,34 @@ index 0000000..8c06e96
 +		// TODO UNSTUB
 +		*pgid = 1;
 +		return 0;
++	}
++
++	#define ASTRALHOSTNAME "astral"
++
++	int sys_gethostname(char *buffer, size_t bufsize) {
++		// TODO unstub
++		memcpy(buffer, ASTRALHOSTNAME, strlen(ASTRALHOSTNAME));
++		return 0;
++	}
++
++	int sys_uname(struct utsname *buf) {
++		// TODO unstub
++		memcpy(buf->sysname, "Astral", 7);
++		memcpy(buf->nodename, ASTRALHOSTNAME, strlen(ASTRALHOSTNAME)+1);
++		memcpy(buf->version, "rw-0.0.1", 9);
++		memcpy(buf->release, "Astral", 13);
++		memcpy(buf->machine, "x86_64", 7);
++		memcpy(buf->domainname, ASTRALHOSTNAME, strlen(ASTRALHOSTNAME)+1);
++		return 0;
++	}
++
++	int sys_mkdirat(int dirfd, const char *path, mode_t mode) {
++		long ret;
++		return syscall(SYSCALL_MKDIRAT, &ret, dirfd, (uint64_t)path, mode);
++	}
++
++	int sys_mkdir(const char *path, mode_t mode) {
++		return sys_mkdirat(AT_FDCWD, path, mode);
 +	}
 +
 +	int sys_ioctl(int fd, unsigned long request, void *arg, int *result) {
@@ -423,10 +451,10 @@ index 0000000..990eca0
 +#endif
 diff --git mlibc-workdir/sysdeps/astral/include/astral/syscall.h mlibc-workdir/sysdeps/astral/include/astral/syscall.h
 new file mode 100644
-index 0000000..294c8ab
+index 0000000..a569d38
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/include/astral/syscall.h
-@@ -0,0 +1,50 @@
+@@ -0,0 +1,51 @@
 +#ifndef _SYSCALL_H_INCLUDE
 +#define _SYSCALL_H_INCLUDE
 +
@@ -457,6 +485,7 @@ index 0000000..294c8ab
 +#define SYSCALL_FACCESSAT 24
 +#define SYSCALL_UNLINKAT 25
 +#define SYSCALL_IOCTL 26
++#define SYSCALL_MKDIRAT 27
 +
 +#include <stddef.h>
 +#include <stdint.h>

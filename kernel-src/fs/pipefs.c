@@ -238,6 +238,7 @@ static void ctor(scache_t *cache, void *obj) {
 	node->attr.inode = ++currentinode;
 	EVENT_INIT(&node->writeevent);
 	EVENT_INIT(&node->readevent);
+	node->vnode.type = V_TYPE_FIFO;
 }
 
 void pipefs_init() {

@@ -4,7 +4,7 @@
 
 #ifdef SYSCALL_LOGGING
 
-#define SYSCALL_COUNT 25
+#define SYSCALL_COUNT 28
 #define LOGSTR(x) arch_e9_puts(x)
 
 static char *name[] = {
@@ -33,7 +33,9 @@ static char *name[] = {
 	"pipe2",
 	"isatty",
 	"faccessat",
-	"unlinkat"
+	"unlinkat",
+	"ioctl",
+	"mkdirat"
 };
 
 static char *args[] = {
@@ -62,7 +64,9 @@ static char *args[] = {
 	"flags %d", // pipe2
 	"fd %d", // isatty
 	"dirfd %d pathname %s mode %d flags %d", // faccessat
-	"dirfd %d pathname %d flags %d" // unlinkat
+	"dirfd %d pathname %d flags %d", // unlinkat
+	"fd %d request %lu argument %d", // ioctl
+	"dirfd %d path %s mode %o" // mkdirat
 };
 
 #endif
