@@ -78,4 +78,6 @@ typedef struct {
 #define MAJORDEV(dev) ((dev >> 8) & 0xFFF)
 #define MINORDEV(dev) (dev & 0xFF)
 
+#define AT_SYMLINK_NOFOLLOW 0x100
+
 #endif

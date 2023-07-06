@@ -52,8 +52,6 @@ syscallret_t syscall_fstat(context_t *ctx, int fd, stat_t *ustat) {
 	return ret;
 }
 
-#define AT_SYMLINK_NOFOLLOW 0x100
-
 syscallret_t syscall_fstatat(context_t *ctx, int dirfd, char *upath, stat_t *ustat, int flags) {
 	syscallret_t ret = {
 		.ret = -1

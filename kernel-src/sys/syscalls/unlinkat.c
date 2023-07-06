@@ -5,8 +5,6 @@
 #include <arch/cpu.h>
 #include <string.h>
 
-#define AT_SYMLINK_NOFOLLOW 0x100
-
 syscallret_t syscall_unlinkat(context_t *, int dirfd, const char *upath, int flags) {
 	syscallret_t ret = {
 		.ret = -1
