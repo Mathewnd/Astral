@@ -166,6 +166,7 @@ static int tmpfs_create(vnode_t *parent, char *name, vattr_t *attr, int type, vn
 	tmpattr.ctime = time;
 	tmpattr.mtime = time;
 	tmpattr.size = 0;
+	tmpattr.type = type;
 	int error = tmpfs_setattr(node, &tmpattr, cred);
 	tmpnode->attr.nlinks = 1;
 
@@ -335,7 +336,7 @@ static int tmpfs_link(vnode_t *node, vnode_t *dir, char *name, cred_t *cred) {
 	tmpfsnode_t *tmpdir = (tmpfsnode_t *)dir;
 	size_t namelen = strlen(name);
 	void *v;
-	VOP_LOCK(node);
+	VOP_LOCK(dir);
 	if (hashtable_get(&tmpdir->children, &v, name, namelen) == 0) {
 		VOP_UNLOCK(node);
 		return EEXIST;
@@ -364,7 +365,6 @@ static int tmpfs_symlink(vnode_t *node, char *name, vattr_t *attr, char *path, c
 	strcpy(pathbuf, path);
 
 	vnode_t *linknode = NULL;
-
 	int err = tmpfs_create(node, name, attr, V_TYPE_LINK, &linknode, cred);
 	if (err) {
 		free(pathbuf);
@@ -463,11 +463,12 @@ static int tmpfs_getdents(vnode_t *node, dent_t *buffer, size_t count, uintmax_t
 			break;
 
 		dent_t *ent = &buffer[*readcount];
+		tmpfsnode_t *itmpnode = entry->value;
 
-		ent->d_ino = tmpnode->attr.inode;
+		ent->d_ino = itmpnode->attr.inode;
 		ent->d_off = offset;
 		ent->d_reclen = sizeof(dent_t);
-		ent->d_type = vfs_getposixtype(node->type);
+		ent->d_type = vfs_getposixtype(itmpnode->vnode.type);
 		strcpy(ent->d_name, entry->key);
 
 		*readcount += 1;

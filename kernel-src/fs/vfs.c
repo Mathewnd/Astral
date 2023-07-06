@@ -144,7 +144,7 @@ int vfs_link(vnode_t *destref, char *destpath, vnode_t *linkref, char *linkpath,
 		goto cleanup;
 
 	if (type == V_TYPE_REGULAR) {
-		vnode_t *targetnode;
+		vnode_t *targetnode = NULL;
 		err = vfs_lookup(&targetnode, destref, destpath, NULL, 0);
 		if (err) {
 			VOP_RELEASE(parent);
