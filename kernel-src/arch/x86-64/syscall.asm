@@ -29,6 +29,7 @@ extern syscall_ioctl
 extern syscall_mkdirat
 extern syscall_clockget
 extern syscall_linkat
+extern syscall_readlinkat
 syscalltab:
 dq syscall_print
 dq syscall_mmap
@@ -60,7 +61,8 @@ dq syscall_ioctl
 dq syscall_mkdirat
 dq syscall_clockget
 dq syscall_linkat
-syscallcount equ 30
+dq syscall_readlinkat
+syscallcount equ 31
 section .text
 global arch_syscall_entry
 ; on entry:

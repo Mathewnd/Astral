@@ -37,7 +37,8 @@ static char *name[] = {
 	"ioctl",
 	"mkdirat",
 	"clockget",
-	"linkat"
+	"linkat",
+	"readlinkat"
 };
 
 static char *args[] = {
@@ -70,7 +71,8 @@ static char *args[] = {
 	"fd %d request %lu argument %d", // ioctl
 	"dirfd %d path %s mode %o", // mkdirat
 	"clockid %d timespec %p", // clockget
-	"olddirfd %d oldpath %s newdirfd %d oldpath %s flags %d type %d" // linkat
+	"olddirfd %d oldpath %s newdirfd %d oldpath %s flags %d type %d", // linkat
+	"dirfd %d path %s buffer %p buffer length %lu" // readlinkat
 };
 
 #endif
