@@ -67,6 +67,8 @@ typedef struct proc_t {
 
 #include <arch/cpu.h>
 
+#define UMASK(mode) ((mode) & ~_cpu()->thread->proc->umask)
+
 extern proc_t *sched_initproc;
 
 void sched_init();

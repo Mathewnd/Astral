@@ -32,6 +32,7 @@ extern syscall_linkat
 extern syscall_readlinkat
 extern syscall_fchmod
 extern syscall_fchmodat
+extern syscall_umask
 syscalltab:
 dq syscall_print
 dq syscall_mmap
@@ -66,7 +67,8 @@ dq syscall_linkat
 dq syscall_readlinkat
 dq syscall_fchmod
 dq syscall_fchmodat
-syscallcount equ 33
+dq syscall_umask
+syscallcount equ 34
 section .text
 global arch_syscall_entry
 ; on entry:

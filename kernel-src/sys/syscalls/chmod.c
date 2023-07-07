@@ -11,7 +11,7 @@ static int dochmod(vnode_t *node, mode_t mode) {
 	if (e)
 		return e;
 
-	attr.mode = mode;
+	attr.mode = UMASK(mode);
 
 	return VOP_SETATTR(node, &attr, cred);
 }

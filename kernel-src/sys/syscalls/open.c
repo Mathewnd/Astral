@@ -35,7 +35,7 @@ syscallret_t syscall_openat(context_t *context, int dirfd, const char *path, int
 
 	if (ret.errno == ENOENT && (flags & O_CREAT)) {
 		vattr_t attr = {
-			.mode = mode,
+			.mode = UMASK(mode),
 			.gid = _cpu()->thread->proc->cred.gid,
 			.uid = _cpu()->thread->proc->cred.uid
 		};

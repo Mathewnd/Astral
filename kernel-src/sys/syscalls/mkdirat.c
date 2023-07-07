@@ -26,7 +26,7 @@ syscallret_t syscall_mkdirat(context_t *, int dirfd, const char *upath, mode_t m
 		goto cleanup;
 
 	vattr_t attr = {
-		.mode = mode,
+		.mode = UMASK(mode),
 		.gid = _cpu()->thread->proc->cred.gid,
 		.uid = _cpu()->thread->proc->cred.uid
 	};

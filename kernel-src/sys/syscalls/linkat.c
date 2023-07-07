@@ -40,7 +40,8 @@ syscallret_t syscall_linkat(context_t *, int olddirfd, const char *uoldpath, int
 
 	vattr_t attr = {
 		.gid = _cpu()->thread->proc->cred.gid,
-		.uid = _cpu()->thread->proc->cred.uid
+		.uid = _cpu()->thread->proc->cred.uid,
+		.mode = UMASK(0777)
 	};
 
 	ret.errno = vfs_link(olddirnode, oldpath, newdirnode, newpath, type == 0 ? V_TYPE_REGULAR : V_TYPE_LINK, &attr);
