@@ -20,7 +20,6 @@ static void initarea(scache_t *cache, void *obj) {
 }
 
 static scache_t *getcachefromsize(size_t size) {
-	// XXX find a faster way to check this
 	scache_t *cache = NULL;
 	for (int i = 0; i < CACHE_COUNT; ++i) {
 		if (size <= allocsizes[i]) {

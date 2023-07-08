@@ -215,8 +215,12 @@ static void destroyrange(vmmcontext_t *context, vmmrange_t *range, uintmax_t _of
 		if (physical == NULL)
 			continue;
 
+		thread_t *thread = _cpu()->thread;
+		proc_t *proc = thread ? thread->proc : NULL;
+		cred_t *cred = proc ? &proc->cred : NULL;
+
 		if ((range->flags & VMM_FLAGS_FILE) && (range->flags & VMM_FLAGS_SHARED) && (flags & VMM_DESTROY_FLAGS_NOSYNC) == 0) {
-			__assert(VOP_MUNMAP(range->vnode, vaddr, range->offset + offset, mmuflagstovnodeflags(range->mmuflags), NULL) == 0); // XXX pass cred struct
+			__assert(VOP_MUNMAP(range->vnode, vaddr, range->offset + offset, mmuflagstovnodeflags(range->mmuflags), cred) == 0);
 		} else {
 			pmm_free(physical, 1);
 			arch_mmu_unmap(context->pagetable, vaddr);
@@ -320,10 +324,13 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 		goto cleanup;
 
 	// TODO CoW
+	thread_t *thread = _cpu()->thread;
+	proc_t *proc = thread ? thread->proc : NULL;
+	cred_t *cred = proc ? &proc->cred : NULL;
 
 	if (range->flags & VMM_FLAGS_FILE) {
 		uintmax_t mapoffset = (uintptr_t)addr - (uintptr_t)range->start;
-		__assert(VOP_MMAP(range->vnode, addr, range->offset + mapoffset, mmuflagstovnodeflags(range->mmuflags), NULL) == 0); // XXX pass cred struct
+		__assert(VOP_MMAP(range->vnode, addr, range->offset + mapoffset, mmuflagstovnodeflags(range->mmuflags), cred) == 0);
 		status = true;
 	} else {
 		void *paddr = pmm_alloc(1, PMM_SECTION_DEFAULT);
