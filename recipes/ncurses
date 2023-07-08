@@ -1,0 +1,26 @@
+name=ncurses
+revision=1
+from_source=ncurses
+imagedeps="base-devel"
+hostdeps="xgcc xbinutils libstdc++-v3"
+deps="mlibc"
+
+configure() {
+	${source_dir}/configure --host=x86_64-astral --prefix=${prefix} --with-shared --without-normal --with-termlib --enable-pc-files --enable-widec
+}
+
+build() {
+	make -j${parallelism}
+}
+
+install() {
+	make install DESTDIR="${dest_dir}"
+
+	echo "INPUT(-lncursesw)" > ${dest_dir}${prefix}/lib/libncurses.so
+	echo "INPUT(-ltinfow)" > ${dest_dir}${prefix}/lib/libtinfo.so
+	echo "INPUT(-lmenuw)" > ${dest_dir}${prefix}/lib/libmenu.so
+	echo "INPUT(-lformw)" > ${dest_dir}${prefix}/lib/libform.so
+	echo "INPUT(-lpanelw)" > ${dest_dir}${prefix}/lib/libpanel.so
+	echo "INPUT(-lncursesw)" > ${dest_dir}${prefix}/lib/libcursesw.so
+	cp ${dest_dir}${prefix}/lib/libncurses.so ${dest_dir}${prefix}/lib/libcurses.so
+}

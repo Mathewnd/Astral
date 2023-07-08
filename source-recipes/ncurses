@@ -1,0 +1,9 @@
+name=ncurses
+version=6.3
+source_method=tarball
+tarball_url="https://ftp.gnu.org/gnu/ncurses/ncurses-${version}.tar.gz"
+tarball_sha512=5373f228cba6b7869210384a607a2d7faecfcbfef6dbfcd7c513f4e84fbd8bcad53ac7db2e7e84b95582248c1039dcfc7c4db205a618f7da22a166db482f0105
+
+regenerate() {
+       	true
+}
