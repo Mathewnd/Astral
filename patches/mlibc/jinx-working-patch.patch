@@ -133,10 +133,10 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..023c581
+index 0000000..d233630
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -0,0 +1,422 @@
+@@ -0,0 +1,427 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -208,6 +208,11 @@ index 0000000..023c581
 +		memcpy(buf->release, "Astral", 13);
 +		memcpy(buf->machine, "x86_64", 7);
 +		memcpy(buf->domainname, ASTRALHOSTNAME, strlen(ASTRALHOSTNAME)+1);
++		return 0;
++	}
++
++	int sys_fsync(int fd) {
++		// TODO as the VFS does not do caching as of yet, this system call is stubbed and should be implemented once caching is done
 +		return 0;
 +	}
 +
