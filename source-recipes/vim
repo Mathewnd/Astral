@@ -1,0 +1,9 @@
+name=vim
+version=9.0.1676
+source_method=tarball
+tarball_url="https://github.com/vim/vim/archive/refs/tags/v${version}.tar.gz"
+tarball_sha512=89e2e142d2dcbd162efd3f552ac745c2f2aaa905c08f8ffb88122feb53c9150a8906cfbfbba6203c186d7651276c8582ffc39c0b54f5bbf81e9a32546e7b1715
+
+regenerate() {
+        true
+}
