@@ -3,10 +3,10 @@ revision=1
 from_source=bash
 imagedeps="base-devel"
 hostdeps="xgcc xbinutils"
-deps="mlibc"
+deps="readline mlibc"
 
 configure() {
-	${source_dir}/configure --host=x86_64-astral --prefix=${prefix} --without-bash-malloc --disable-readline
+	${source_dir}/configure --host=x86_64-astral --prefix=${prefix} --without-bash-malloc
 }
 
 build() {
