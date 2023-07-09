@@ -102,6 +102,38 @@ void timer_insert(timer_t *timer, timerentry_t *entry, dpcfn_t fn, dpcarg_t arg,
 	interrupt_loweripl(oldipl);
 }
 
+void timer_remove(timer_t *timer, timerentry_t *entry) {
+	long oldipl = interrupt_raiseipl(IPL_TIMER);
+	spinlock_acquire(&timer->lock);
+
+	if (timer->running)
+		timer->tickcurrent += timer->stop(timer);
+
+	timerentry_t *iterator = timer->queue;
+	timerentry_t *prev = NULL;
+
+	while (iterator && iterator != entry) {
+		prev = iterator;
+		iterator = iterator->next;
+	}
+
+	__assert(iterator);
+
+	if (prev == NULL)
+		timer->queue = iterator->next;
+	else
+		prev->next = iterator->next;
+
+	if (timer->running) {
+		// TODO handle difference being 0
+		__assert(timer->queue->absolutetick > timer->tickcurrent);
+		timer->arm(timer->queue->absolutetick - timer->tickcurrent);
+	}
+
+	spinlock_release(&timer->lock);
+	interrupt_loweripl(oldipl);
+}
+
 timer_t *timer_new(time_t ticksperus, void (*arm)(time_t), time_t (*stop)()) {
 	timer_t *timer = alloc(sizeof(timer_t));
 	if (timer == NULL)
