@@ -4,7 +4,7 @@
 
 #ifdef SYSCALL_LOGGING
 
-#define SYSCALL_COUNT 34
+#define SYSCALL_COUNT 35
 #define LOGSTR(x) arch_e9_puts(x)
 
 static char *name[] = {
@@ -41,7 +41,8 @@ static char *name[] = {
 	"readlinkat",
 	"fchmod",
 	"fchmodat",
-	"umask"
+	"umask",
+	"poll"
 };
 
 static char *args[] = {
@@ -78,7 +79,8 @@ static char *args[] = {
 	"dirfd %d path %s buffer %p buffer length %lu", // readlinkat
 	"fd %d mode %o", // fchmod
 	"dirfd %d path %s mode %o flags %d", // fchmodat
-	"mode %o" // umask
+	"mode %o", // umask
+	"fds %p nfds %d timeout %d" // poll
 };
 
 #endif

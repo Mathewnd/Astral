@@ -145,7 +145,7 @@ int devfs_setattr(vnode_t *node, vattr_t *attr, cred_t *cred) {
 	return 0;
 }
 
-int devfs_poll(vnode_t *node, int events) {
+int devfs_poll(vnode_t *node, polldata_t *data, int events) {
 	devnode_t *devnode = (devnode_t *)node;
 	if (devnode->master)
 		devnode = devnode->master;
@@ -153,7 +153,7 @@ int devfs_poll(vnode_t *node, int events) {
 	if (devnode->devops->poll == NULL)
 		return ENODEV;
 
-	return devnode->devops->poll(devnode->attr.rdevminor, events);
+	return devnode->devops->poll(devnode->attr.rdevminor, data, events);
 }
 
 int devfs_mmap(vnode_t *node, void *addr, uintmax_t offset, int flags, cred_t *cred) {

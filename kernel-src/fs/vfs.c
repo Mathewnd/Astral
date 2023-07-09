@@ -5,6 +5,7 @@
 #include <kernel/alloc.h>
 #include <errno.h>
 #include <arch/cpu.h>
+#include <kernel/poll.h>
 
 #define PATHNAME_MAX 512
 #define MAXLINKDEPTH 64
@@ -25,6 +26,18 @@ static cred_t *getcred() {
 		return &kernelcred;
 	else
 		return &_cpu()->thread->proc->cred;
+}
+
+int vfs_pollstub(vnode_t *node, struct polldata *, int events) {
+	int revents = 0;
+
+	if (events & POLLIN)
+		revents |= POLLIN;
+
+	if (events & POLLOUT)
+		revents |= POLLOUT;
+
+	return revents;
 }
 
 void vfs_init() {

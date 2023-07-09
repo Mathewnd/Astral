@@ -7,6 +7,7 @@
 #include <logging.h>
 #include <errno.h>
 #include <kernel/abi.h>
+#include <kernel/poll.h>
 
 #define BUFFER_SIZE 16 * PAGE_SIZE
 
@@ -147,7 +148,7 @@ int pipefs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int
 	return error;
 }
 
-int pipefs_poll(vnode_t *node, int events) {
+int pipefs_poll(vnode_t *node, polldata_t *data, int events) {
 	pipenode_t *pipenode = (pipenode_t *)node;
 	int revents = 0;
 	VOP_LOCK(node);

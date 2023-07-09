@@ -3,6 +3,8 @@
 
 #include <kernel/vfs.h>
 
+#include <kernel/poll.h>
+
 #define DEV_MAJOR_NULL 1
 #define DEV_MAJOR_FULL 2
 #define DEV_MAJOR_ZERO 3
@@ -13,7 +15,7 @@ typedef struct {
 	int (*close)(int minor, int flags);
 	int (*read)(int minor, void *buffer, size_t size, uintmax_t offset, int flags, size_t *readc);
 	int (*write)(int minor, void *buffer, size_t size, uintmax_t offset, int flags, size_t *writec);
-	int (*poll)(int minor, int events);
+	int (*poll)(int minor, polldata_t *data, int events);
 	int (*mmap)(int minor, void *addr, uintmax_t offset, int flags);
 	int (*munmap)(int minor, void *addr, uintmax_t offset, int flags);
 	int (*isatty)(int minor);

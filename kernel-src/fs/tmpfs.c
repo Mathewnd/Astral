@@ -29,17 +29,6 @@ static int tmpfs_mount(vfs_t **vfs, vnode_t *mountpoint, vnode_t *backing, void 
 	return 0;
 }
 
-static int tmpfs_poll(vnode_t *node, int event) {
-	int ret = 0;
-
-	if (event & POLLIN)
-		ret |= POLLIN;
-	if (event & POLLOUT)
-		ret |= POLLOUT;
-
-	return ret;
-}
-
 #define DATAMMUFLAGS (ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_NOEXEC)
 
 // expects to be called with node locked
@@ -491,7 +480,7 @@ static vops_t vnops = {
 	.getattr = tmpfs_getattr,
 	.setattr = tmpfs_setattr,
 	.lookup = tmpfs_lookup,
-	.poll = tmpfs_poll,
+	.poll = vfs_pollstub,
 	.read = tmpfs_read,
 	.write = tmpfs_write,
 	.access = tmpfs_access,

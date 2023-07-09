@@ -72,6 +72,8 @@ typedef struct vfsops_t {
 	int (*root)(vfs_t *vfs, vnode_t **root);
 } vfsops_t;
 
+struct polldata;
+
 typedef struct vops_t {
 	int (*open)(vnode_t **node, int flags, cred_t *cred);
 	int (*close)(vnode_t *node, int flags, cred_t *cred);
@@ -81,7 +83,7 @@ typedef struct vops_t {
 	int (*create)(vnode_t *parent, char *name, vattr_t *attr, int type, vnode_t **result, cred_t *cred);
 	int (*getattr)(vnode_t *node, vattr_t *attr, cred_t *cred);
 	int (*setattr)(vnode_t *node, vattr_t *attr, cred_t *cred);
-	int (*poll)(vnode_t *node, int events);
+	int (*poll)(vnode_t *node, struct polldata *, int events);
 	int (*access)(vnode_t *node, mode_t mode, cred_t *cred);
 	int (*unlink)(vnode_t *node, char *name, cred_t *cred);
 	int (*link)(vnode_t *node, vnode_t *dir, char *name, cred_t *cred);
@@ -119,7 +121,7 @@ typedef struct vops_t {
 #define VOP_MMAP(v, a, o, f, c) (v)->ops->mmap(v, a, o, f, c)
 #define VOP_MUNMAP(v, a, o, f, c) (v)->ops->munmap(v, a, o, f, c)
 #define VOP_GETDENTS(v, b, c, o, rc) (v)->ops->getdents(v, b, c, o, rc)
-#define VOP_POLL(v, p) (v)->ops->poll(v, p)
+#define VOP_POLL(v, d, p) (v)->ops->poll(v, d, p)
 #define VOP_ISATTY(v) ((v)->ops->isatty ? (v)->ops->isatty(v) : ENOTTY)
 #define VOP_IOCTL(v, r, a, rp) ((v)->ops->ioctl ? (v)->ops->ioctl(v, r, a, rp) : ENOTTY)
 #define VOP_HOLD(v) __atomic_add_fetch(&(v)->refcount, 1, __ATOMIC_SEQ_CST)
@@ -143,6 +145,7 @@ int vfs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t 
 int vfs_create(vnode_t *ref, char *path, vattr_t *attr, int type, vnode_t **node);
 int vfs_link(vnode_t *destref, char *destpath, vnode_t *linkref, char *linkpath, int type, vattr_t *attr);
 int vfs_unlink(vnode_t *ref, char *path);
+int vfs_pollstub(vnode_t *node, struct polldata *, int events);
 
 #define VFS_LOOKUP_PARENT 1
 #define VFS_LOOKUP_NOLINK 2
