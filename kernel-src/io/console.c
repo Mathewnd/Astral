@@ -15,7 +15,7 @@ static mutex_t readmutex;
 static semaphore_t readsemaphore;
 static ringbuffer_t readbuffer;
 static thread_t *thread;
-static termios_t termios;
+static volatile termios_t termios;
 static pollheader_t pollheader;
 
 void console_write(char *str, size_t count) {
@@ -65,8 +65,7 @@ static void consolethread() {
 
 			if (packet.ascii == '\r' && (termios.c_iflag & ICRNL))
 				packet.ascii = '\n';
-
-			if (packet.ascii == '\n' && (termios.c_iflag & INLCR))
+			else if (packet.ascii == '\n' && (termios.c_iflag & INLCR))
 				packet.ascii = '\r';
 
 			if (packet.flags & (KBPACKET_FLAGS_LEFTCTRL | KBPACKET_FLAGS_RIGHTCTRL)) {

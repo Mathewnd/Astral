@@ -29,8 +29,6 @@ syscallret_t syscall_readlinkat(context_t *, int dirfd, const char *upath, char 
 	if (ret.errno)
 		goto cleanup;
 
-	printf("buffer: %p\n", buffer);
-
 	ret.errno = VOP_READLINK(node, &buffer, &_cpu()->thread->proc->cred);
 	if (ret.errno)
 		goto cleanup;
@@ -43,7 +41,6 @@ syscallret_t syscall_readlinkat(context_t *, int dirfd, const char *upath, char 
 	ret.ret = copylen;
 
 	cleanup:
-	printf("buffer (cl): %p\n", buffer);
 
 	if (buffer)
 		free(buffer);

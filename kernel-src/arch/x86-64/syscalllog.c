@@ -72,7 +72,7 @@ static char *args[] = {
 	"fd %d", // isatty
 	"dirfd %d pathname %s mode %d flags %d", // faccessat
 	"dirfd %d pathname %d flags %d", // unlinkat
-	"fd %d request %lu argument %d", // ioctl
+	"fd %d request %lu argument %p", // ioctl
 	"dirfd %d path %s mode %o", // mkdirat
 	"clockid %d timespec %p", // clockget
 	"olddirfd %d oldpath %s newdirfd %d oldpath %s flags %d type %d", // linkat
