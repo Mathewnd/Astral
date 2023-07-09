@@ -16,9 +16,6 @@ syscallret_t syscall_poll(context_t *, pollfd_t *fds, size_t nfds, int timeoutms
 		.ret = -1
 	};
 
-	// timeouts are not supported yet
-	__assert(timeoutms <= 0);
-
 	if ((void *)fds > USERSPACE_END) {
 		ret.errno = EFAULT;
 		return ret;
@@ -60,9 +57,8 @@ syscallret_t syscall_poll(context_t *, pollfd_t *fds, size_t nfds, int timeoutms
 	}
 
 	if (eventcount == 0 && timeoutms != 0) {
-		// TODO timeout
-		ret.errno = poll_dowait(&desc);
-		if (ret.errno == 0) {
+		ret.errno = poll_dowait(&desc, (timeoutms == -1 ? 0 : timeoutms) * 1000);
+		if (ret.errno == 0 && desc.event) {
 			int fd = ((uintptr_t)desc.event - (uintptr_t)desc.data) / sizeof(pollfd_t);
 			fdsbuff[fd].revents = desc.data[fd].revents;
 			eventcount = 1;

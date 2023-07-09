@@ -64,7 +64,20 @@ void poll_leave(polldesc_t *desc) {
 	}
 }
 
-int poll_dowait(polldesc_t *desc) {
+static void timeout(context_t *, dpcarg_t arg) {
+	polldesc_t *desc = arg;
+
+	MUTEX_TRY(&desc->eventlock);
+
+	if (spinlock_try(&desc->lock))
+		sched_wakeup(desc->thread, 1);
+
+	MUTEX_RELEASE(&desc->eventlock);
+}
+
+int poll_dowait(polldesc_t *desc, size_t ustimeout) {
+	timerentry_t sleepentry = {0};
+
 	MUTEX_ACQUIRE(&desc->eventlock, false);
 	if (desc->event) {
 		MUTEX_RELEASE(&desc->eventlock);
@@ -72,12 +85,26 @@ int poll_dowait(polldesc_t *desc) {
 	}
 
 	sched_preparesleep(true);
+
+	if (ustimeout != 0) {
+		sched_targetcpu(_cpu());
+		timer_insert(_cpu()->timer, &sleepentry, timeout, desc, ustimeout, false);
+	}
+
 	spinlock_release(&desc->lock);
 	MUTEX_RELEASE(&desc->eventlock);
 	int ret = sched_yield();
 	// on return, the desc lock is REQUIRED to be left locked by the poll_event function.
 	// XXX interruptible wait breaks this
 	__assert(spinlock_try(&desc->lock) == false);
+
+	if (ustimeout != 0 && ret != 1) {
+		timer_remove(_cpu()->timer, &sleepentry);
+		sched_targetcpu(NULL);
+	}
+
+	ret = ret == 1 ? 0 : ret;
+
 	return ret;
 }
 

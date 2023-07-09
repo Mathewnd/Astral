@@ -36,7 +36,7 @@ typedef struct polldata {
 int poll_initdesc(polldesc_t *, size_t size);
 void poll_add(pollheader_t *, polldata_t *, int events);
 void poll_leave(polldesc_t *);
-int poll_dowait(polldesc_t *);
+int poll_dowait(polldesc_t *, size_t ustimeout);
 void poll_event(pollheader_t *, int events);
 void poll_destroydesc(polldesc_t *);
 
