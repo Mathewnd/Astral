@@ -34,6 +34,7 @@ extern syscall_fchmod
 extern syscall_fchmodat
 extern syscall_umask
 extern syscall_poll
+extern syscall_nanosleep
 syscalltab:
 dq syscall_print
 dq syscall_mmap
@@ -70,7 +71,8 @@ dq syscall_fchmod
 dq syscall_fchmodat
 dq syscall_umask
 dq syscall_poll
-syscallcount equ 35
+dq syscall_nanosleep
+syscallcount equ 36
 section .text
 global arch_syscall_entry
 ; on entry:
