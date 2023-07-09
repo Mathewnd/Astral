@@ -10,6 +10,7 @@
 #include <arch/mmu.h>
 
 extern volatile struct limine_framebuffer_request fb_liminereq;
+static size_t xs, ys, fbxs, fbys;
 
 // TODO make more efficient. works for now
 static void *internalalloc(size_t n) {
@@ -28,6 +29,13 @@ void term_putchar(char c) {
 	flanterm_write(term_ctx, &c, 1);
 }
 
+void term_getsize(size_t *x, size_t *y, size_t *fbx, size_t *fby) {
+	*x = xs;
+	*y = ys;
+	*fbx = fbxs;
+	*fby = fbys;
+}
+
 void term_init() {
 	__assert(fb_liminereq.response);
 	__assert(fb_liminereq.response->framebuffer_count);
@@ -40,6 +48,11 @@ void term_init() {
 	term_ctx = flanterm_fb_init(internalalloc, fb->address, fb->width, fb->height, fb->pitch,
 		NULL, NULL, NULL, &defaultbg, &defaultfg, NULL, NULL, NULL,
 		0, 0, 1, 1, 1, 0);
+
+	xs = term_ctx->cols;
+	ys = term_ctx->rows;
+	fbxs = fb->width;
+	fbys = fb->height;
 
 	__assert(term_ctx);
 }
