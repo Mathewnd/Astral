@@ -1,0 +1,36 @@
+diff --git vim-clean/src/errors.h vim-workdir/src/errors.h
+index 9b40cb2..fa995ac 100644
+--- vim-clean/src/errors.h
++++ vim-workdir/src/errors.h
+@@ -3297,8 +3297,8 @@ EXTERN char e_could_not_set_handler_for_timeout_str[]
+ 	INIT(= N_("E1287: Could not set handler for timeout: %s"));
+ EXTERN char e_could_not_reset_handler_for_timeout_str[]
+ 	INIT(= N_("E1288: Could not reset handler for timeout: %s"));
+-EXTERN char e_could_not_check_for_pending_sigalrm_str[]
+-	INIT(= N_("E1289: Could not check for pending SIGALRM: %s"));
++//EXTERN char e_could_not_check_for_pending_sigalrm_str[]
++//	INIT(= N_("E1289: Could not check for pending SIGALRM: %s"));
+ #endif
+ #endif
+ #ifdef FEAT_EVAL
+diff --git vim-clean/src/os_unix.c vim-workdir/src/os_unix.c
+index 31f66b1..0244c96 100644
+--- vim-clean/src/os_unix.c
++++ vim-workdir/src/os_unix.c
+@@ -8526,6 +8526,7 @@ stop_timeout(void)
+     volatile sig_atomic_t *
+ start_timeout(long msec)
+ {
++    return &timeout_flag;
+     struct itimerval	interval = {
+ 	    {0, 0},				    // Do not repeat.
+ 	    {msec / 1000, (msec % 1000) * 1000}};   // Timeout interval
+@@ -8554,7 +8555,7 @@ start_timeout(long msec)
+     if (unlikely(ret != 0 || alarm_pending < 0))
+     {
+ 	// Just catching coding errors. Write an error message, but carry on.
+-	semsg(_(e_could_not_check_for_pending_sigalrm_str), strerror(errno));
++	//semsg(_(e_could_not_check_for_pending_sigalrm_str), strerror(errno));
+ 	alarm_pending = FALSE;
+     }
+ 
