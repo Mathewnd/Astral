@@ -106,6 +106,31 @@ void sched_destroyproc(proc_t *proc) {
 	slab_free(processcache, proc);
 }
 
+static thread_t *getinrunqueue(rqueue_t *rq) {
+	thread_t *thread = rq->list;
+
+	while (thread) {
+		if (thread->cputarget == NULL || thread->cputarget == _cpu())
+			break;
+
+		thread = thread->next;
+	}
+
+	if (thread) {
+		if (thread->prev)
+			thread->prev->next = thread->next;
+		else
+			rq->list = thread->next;
+
+		if (thread->next)
+			thread->next->prev = thread->prev;
+		else
+			rq->last = thread->prev;
+	}
+
+	return thread;
+}
+
 static thread_t *runqueuenext(int minprio) {
 	bool intstate = interrupt_set(false);
 
@@ -115,17 +140,12 @@ static thread_t *runqueuenext(int minprio) {
 		goto leave;
 
 	// TODO use the bitmap for this
-	for (int i = 0; i < RUNQUEUE_COUNT && i <= minprio; ++i) {
-		if (runqueue[i].list) {
-			thread = runqueue[i].list;
-			runqueue[i].list = thread->next;
-			if (runqueue[i].list == NULL) {
-				runqueue[i].last = NULL;
-				runqueuebitmap &= ~((uint64_t)1 << i);
-			}
-			break;
-		}
+	for (int i = 0; i < RUNQUEUE_COUNT && i <= minprio && thread == NULL; ++i) {
+		thread = getinrunqueue(&runqueue[i]);
+		if (thread && runqueue[i].list == NULL)
+			runqueuebitmap &= ~((uint64_t)1 << i);
 	}
+
 
 	if (thread)
 		thread->flags &= ~SCHED_THREAD_FLAGS_QUEUED;
@@ -353,6 +373,12 @@ static void cpuidlethread() {
 	interrupt_set(true);
 	while (1)
 		CPU_HALT();
+}
+
+void sched_targetcpu(cpu_t *cpu) {
+	bool intstatus = interrupt_set(false);
+	_cpu()->thread->cputarget = cpu;
+	interrupt_set(intstatus);
 }
 
 void sched_init() {

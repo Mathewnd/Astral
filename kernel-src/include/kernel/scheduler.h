@@ -28,6 +28,7 @@ typedef struct thread_t {
 	struct thread_t *sleepprev;
 	struct proc_t *proc;
 	struct cpu_t *cpu;
+	struct cpu_t *cputarget;
 	context_t context;
 	extracontext_t extracontext;
 	void *kernelstack;
@@ -88,5 +89,6 @@ void sched_setroot(vnode_t *);
 thread_t *sched_newthread(void *ip, size_t kstacksize, int priority, proc_t *proc, void *ustack);
 void sched_destroyproc(proc_t *);
 void sched_destroythread(thread_t *);
+void sched_targetcpu(struct cpu_t *cpu);
 
 #endif
