@@ -60,6 +60,7 @@ proc_t *sched_newproc() {
 	}
 
 	proc->pid = __atomic_fetch_add(&currpid, 1, __ATOMIC_SEQ_CST);
+	proc->umask = 022; // default umask
 
 	return proc;
 }
@@ -86,6 +87,7 @@ thread_t *sched_newthread(void *ip, size_t kstacksize, int priority, proc_t *pro
 
 
 	CTX_INIT(&thread->context, proc != NULL);
+	CTX_XINIT(&thread->extracontext, proc != NULL);
 	CTX_SP(&thread->context) = proc ? (ctxreg_t)ustack : (ctxreg_t)thread->kernelstacktop;
 	CTX_IP(&thread->context) = (ctxreg_t)ip;
 	SPINLOCK_INIT(thread->sleeplock);
