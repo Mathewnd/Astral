@@ -19,6 +19,7 @@ syscallret_t syscall_readlinkat(context_t *, int dirfd, const char *upath, char 
 
 	file_t *file = NULL;
 	vnode_t *dirnode = NULL;
+	char *buffer = NULL;
 	ret.errno = dirfd_enter(path, dirfd, &file, &dirnode);
 	if (ret.errno)
 		goto cleanup;
@@ -28,7 +29,7 @@ syscallret_t syscall_readlinkat(context_t *, int dirfd, const char *upath, char 
 	if (ret.errno)
 		goto cleanup;
 
-	char *buffer = NULL;
+	printf("buffer: %p\n", buffer);
 
 	ret.errno = VOP_READLINK(node, &buffer, &_cpu()->thread->proc->cred);
 	if (ret.errno)
@@ -42,6 +43,7 @@ syscallret_t syscall_readlinkat(context_t *, int dirfd, const char *upath, char 
 	ret.ret = copylen;
 
 	cleanup:
+	printf("buffer (cl): %p\n", buffer);
 
 	if (buffer)
 		free(buffer);
