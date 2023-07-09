@@ -43,7 +43,8 @@ static char *name[] = {
 	"fchmodat",
 	"umask",
 	"poll",
-	"nanosleep"
+	"nanosleep",
+	"ftruncate"
 };
 
 static char *args[] = {
@@ -82,7 +83,8 @@ static char *args[] = {
 	"dirfd %d path %s mode %o flags %d", // fchmodat
 	"mode %o", // umask
 	"fds %p nfds %d timeout %d", // poll
-	"time %p remaining %p" // nanosleep
+	"time %p remaining %p", // nanosleep
+	"fd %d size %lu" // ftruncate
 };
 
 #endif

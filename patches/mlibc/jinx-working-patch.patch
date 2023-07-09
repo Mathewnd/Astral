@@ -133,10 +133,10 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..22db6d2
+index 0000000..f7b6375
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -0,0 +1,438 @@
+@@ -0,0 +1,443 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -214,6 +214,11 @@ index 0000000..22db6d2
 +	int sys_fsync(int fd) {
 +		// TODO as the VFS does not do caching as of yet, this system call is stubbed and should be implemented once caching is done
 +		return 0;
++	}
++
++	int sys_ftruncate(int fd, size_t size) {
++		long ret;
++		return syscall(SYSCALL_FTRUNCATE, &ret, fd, size);
 +	}
 +
 +	int sys_sleep(time_t *secs, long *nanos) {
@@ -594,10 +599,10 @@ index 0000000..990eca0
 +#endif
 diff --git mlibc-workdir/sysdeps/astral/include/astral/syscall.h mlibc-workdir/sysdeps/astral/include/astral/syscall.h
 new file mode 100644
-index 0000000..4426771
+index 0000000..76b4800
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/include/astral/syscall.h
-@@ -0,0 +1,59 @@
+@@ -0,0 +1,60 @@
 +#ifndef _SYSCALL_H_INCLUDE
 +#define _SYSCALL_H_INCLUDE
 +
@@ -637,6 +642,7 @@ index 0000000..4426771
 +#define SYSCALL_UMASK 33
 +#define SYSCALL_POLL 34
 +#define SYSCALL_NANOSLEEP 35
++#define SYSCALL_FTRUNCATE 36
 +
 +#include <stddef.h>
 +#include <stdint.h>
