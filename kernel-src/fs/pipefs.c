@@ -227,7 +227,8 @@ static vops_t vnops = {
 	.inactive = pipefs_inactive,
 	.mmap = pipefs_enodev,
 	.munmap = pipefs_enodev,
-	.getdents = pipefs_enodev
+	.getdents = pipefs_enodev,
+	.resize = pipefs_enodev
 };
 
 static void ctor(scache_t *cache, void *obj) {

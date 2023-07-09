@@ -56,6 +56,12 @@ syscallret_t syscall_openat(context_t *context, int dirfd, const char *path, int
 	if (ret.errno)
 		goto cleanup;
 
+	if (vnode->type == V_TYPE_REGULAR && (flags & O_TRUNC)) {
+		ret.errno = VOP_RESIZE(vnode, 0, &_cpu()->thread->proc->cred);
+		if (ret.errno)
+			goto cleanup;
+	}
+
 	// node refcount is already increased by open
 	newfile->vnode = vnode;
 	newfile->flags = flags;

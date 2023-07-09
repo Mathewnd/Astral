@@ -32,7 +32,7 @@ static int tmpfs_mount(vfs_t **vfs, vnode_t *mountpoint, vnode_t *backing, void 
 #define DATAMMUFLAGS (ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_NOEXEC)
 
 // expects to be called with node locked
-static int tmpfs_resize(tmpfsnode_t *node, size_t size) {
+static int resize(tmpfsnode_t *node, size_t size) {
 	if (size == node->attr.size || node->vnode.type != V_TYPE_REGULAR)
 		return 0;
 
@@ -264,7 +264,7 @@ static int tmpfs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offse
 
 	VOP_LOCK(node);
 	if (top > tmpnode->attr.size) {
-		int err = tmpfs_resize(tmpnode, top);
+		int err = resize(tmpnode, top);
 		if (err) {
 			VOP_UNLOCK(node);
 			return err;
@@ -468,6 +468,15 @@ static int tmpfs_inactive(vnode_t *node) {
 	return 0;
 }
 
+static int tmpfs_resize(vnode_t *node, size_t size, cred_t *) {
+	VOP_LOCK(node);
+
+	int err = resize((tmpfsnode_t *)node, size);
+
+	VOP_UNLOCK(node);
+	return err;
+}
+
 static vfsops_t vfsops = {
 	.mount = tmpfs_mount,
 	.root = tmpfs_root
@@ -491,7 +500,8 @@ static vops_t vnops = {
 	.inactive = tmpfs_inactive,
 	.mmap = tmpfs_mmap,
 	.munmap = tmpfs_munmap,
-	.getdents = tmpfs_getdents
+	.getdents = tmpfs_getdents,
+	.resize = tmpfs_resize
 };
 
 static tmpfsnode_t *newnode(vfs_t *vfs, int type) {

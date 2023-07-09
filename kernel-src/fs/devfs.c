@@ -322,7 +322,8 @@ static vops_t vnops = {
 	.munmap = devfs_munmap,
 	.getdents = devfs_getdents,
 	.isatty = devfs_isatty,
-	.ioctl = devfs_ioctl
+	.ioctl = devfs_ioctl,
+	.resize = devfs_enodev
 };
 
 static void ctor(scache_t *cache, void *obj) {
