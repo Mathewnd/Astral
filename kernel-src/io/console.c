@@ -7,6 +7,7 @@
 #include <errno.h>
 #include <kernel/keyboard.h>
 #include <termios.h>
+#include <kernel/poll.h>
 
 #define BUFFER_SIZE 4096
 static mutex_t writemutex;
@@ -15,6 +16,7 @@ static semaphore_t readsemaphore;
 static ringbuffer_t readbuffer;
 static thread_t *thread;
 static termios_t termios;
+static pollheader_t pollheader;
 
 void console_write(char *str, size_t count) {
 	MUTEX_ACQUIRE(&writemutex, false);
@@ -29,6 +31,20 @@ void console_putc(char c) {
 }
 
 #define THREAD_BUFFER_SIZE 128
+
+// taken from https://en.wikipedia.org/wiki/ANSI_escape_code#Terminal_input_sequences
+
+#define HOME_STR "\e[1~"
+#define INSERT_STR "\e[2~"
+#define DELETE_STR "\e[3~"
+#define END_STR "\e[4~"
+#define PGUP_STR "\e[5~"
+#define PGDN_STR "\e[6~"
+
+#define UP_STR "\e[A"
+#define DOWN_STR "\e[B"
+#define RIGHT_STR "\e[C"
+#define LEFT_STR "\e[D"
 
 static void consolethread() {
 	char buffer[THREAD_BUFFER_SIZE + 1];
@@ -53,8 +69,47 @@ static void consolethread() {
 			if (packet.ascii == '\n' && (termios.c_iflag & INLCR))
 				packet.ascii = '\r';
 
-			// TODO TRANSLATE TO CTRL CODE IF APPLICABLE
+			if (packet.flags & (KBPACKET_FLAGS_LEFTCTRL | KBPACKET_FLAGS_RIGHTCTRL)) {
+				if (!((packet.ascii > 'a' && packet.ascii < 'z') || (packet.ascii > 'A' && packet.ascii < 'Z')))
+					continue;
+
+				packet.ascii = packet.ascii > 'a' ? packet.ascii - 0x60 : packet.ascii - 0x40;
+			}
 		} else {
+			switch (packet.keycode) {
+				case KEYCODE_HOME:
+					target = HOME_STR;
+					break;
+				case KEYCODE_INSERT:
+					target = INSERT_STR;
+					break;
+				case KEYCODE_DELETE:
+					target = DELETE_STR;
+					break;
+				case KEYCODE_END:
+					target = END_STR;
+					break;
+				case KEYCODE_PAGEUP:
+					target = PGUP_STR;
+					break;
+				case KEYCODE_PAGEDOWN:
+					target = PGDN_STR;
+					break;
+				case KEYCODE_UP:
+					target = UP_STR;
+					break;
+				case KEYCODE_DOWN:
+					target = DOWN_STR;
+					break;
+				case KEYCODE_RIGHT:
+					target = RIGHT_STR;
+					break;
+				case KEYCODE_LEFT:
+					target = LEFT_STR;
+					break;
+				default:
+					continue;
+			}
 			// TODO SWITCH OF SPECIAL KEYS
 		}
 
@@ -90,11 +145,15 @@ static void consolethread() {
 
 			if (flush) {
 				MUTEX_ACQUIRE(&readmutex, false);
-				bool hasdata = readbuffer.write - readbuffer.read > 0;
 				ringbuffer_write(&readbuffer, buffer, buffpos);
 				buffpos = 0;
-				if (hasdata == false)
+				size_t datacount = RINGBUFFER_DATACOUNT(&readbuffer);
+				if (datacount) {
+					if (datacount >= termios.c_cc[VMIN])
+						poll_event(&pollheader, POLLIN);
+
 					semaphore_signal(&readsemaphore);
+				}
 				MUTEX_RELEASE(&readmutex);
 			}
 		} else {
@@ -102,10 +161,14 @@ static void consolethread() {
 				console_write(target, targetlen);
 
 			MUTEX_ACQUIRE(&readmutex, false);
-			bool hasdata = readbuffer.write - readbuffer.read > 0;
 			ringbuffer_write(&readbuffer, target, targetlen);
-			if (hasdata == false)
+			size_t datacount = RINGBUFFER_DATACOUNT(&readbuffer);
+			if (datacount) {
+				if (datacount >= termios.c_cc[VMIN])
+					poll_event(&pollheader, POLLIN);
+
 				semaphore_signal(&readsemaphore);
+			}
 			MUTEX_RELEASE(&readmutex);
 		}
 	}
@@ -153,6 +216,51 @@ static int write(int minor, void *buffer, size_t size, uintmax_t offset, int fla
 	return 0;
 }
 
+static int poll(int minor, polldata_t *data, int events) {
+	int revents = 0;
+
+	if (events & POLLOUT)
+		events |= POLLOUT;
+
+	MUTEX_ACQUIRE(&readmutex, false);
+
+	size_t datacount = RINGBUFFER_DATACOUNT(&readbuffer);
+
+	if ((events & POLLIN) && datacount >= termios.c_cc[VMIN])
+		revents |= POLLIN;
+
+	MUTEX_RELEASE(&readmutex);
+
+	if (revents == 0 && data)
+		poll_add(&pollheader, data, events);
+
+	return revents;
+}
+
+static int ioctl(int minor, unsigned long req, void *arg, int *result) {
+	switch (req) {
+		case TIOCGWINSZ:
+			size_t x, y, fbx, fby;
+			term_getsize(&x, &y, &fbx, &fby);
+			winsize_t *w = arg;
+			w->ws_col = x;
+			w->ws_row = y;
+			w->ws_xpixel = fbx;
+			w->ws_ypixel = fby;
+			break;
+		case TCGETS:
+			*(termios_t *)arg = termios;
+			break;
+		case TCSETS:
+			termios = *(termios_t *)arg;
+			break;
+		default:
+			return ENOTTY;
+	}
+
+	return 0;
+}
+
 static int isatty(int minor) {
 	return 0;
 }
@@ -160,7 +268,9 @@ static int isatty(int minor) {
 static devops_t devops = {
 	.write = write,
 	.read = read,
-	.isatty = isatty
+	.isatty = isatty,
+	.poll = poll,
+	.ioctl = ioctl
 };
 
 void console_init() {
@@ -179,4 +289,6 @@ void console_init() {
     	termios.ibaud = 38400;
     	termios.obaud = 38400;
 	termios.c_cc[VMIN] = 1;
+
+	POLL_INITHEADER(&pollheader);
 }

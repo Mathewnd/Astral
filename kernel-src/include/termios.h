@@ -16,6 +16,17 @@ typedef unsigned int tcflag_t;
 #define ICRNL 0000400
 #define OCRNL 0000010
 
+#define TCGETS 0x5401
+#define TCSETS 0x5402
+#define TIOCGWINSZ 0x5413
+
+typedef struct {
+    unsigned short ws_row;
+    unsigned short ws_col;
+    unsigned short ws_xpixel;
+    unsigned short ws_ypixel;
+} winsize_t;
+
 typedef struct {
         tcflag_t c_iflag;
         tcflag_t c_oflag;
