@@ -2,7 +2,6 @@
 builds
 host-builds
 host-pkgs
-host-recipes
 iso
 jinx
 pkgs
