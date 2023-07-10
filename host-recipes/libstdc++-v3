@@ -1,0 +1,20 @@
+name=libstdc++-v3
+revision=1
+from_source=gcc
+imagedeps="base-devel"
+hostdeps="automake autoconf xbinutils xgcc"
+deps="mlibc"
+
+configure() {
+	true
+}
+
+build() {
+	cd ${base_dir}/host-builds/xgcc
+	make all-target-libstdc++-v3 -j7
+}
+
+install(){
+	cd ${base_dir}/host-builds/xgcc
+	make DESTDIR="${dest_dir}" install-target-libstdc++-v3
+}

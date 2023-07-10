@@ -1,0 +1,18 @@
+name=xgcc
+revision=1
+from_source=gcc
+imagedeps="base-devel"
+hostdeps="automake autoconf xbinutils pkgconfig"
+deps="mlibc-headers"
+
+configure() {
+	${source_dir}/configure --target=x86_64-astral --prefix=${prefix} --with-sysroot=${sysroot_dir} --enable-languages=c,c++ -enable-threads=posix --disable-multilib
+}
+
+build() {
+	make all-gcc all-target-libgcc -j ${parallelism}
+}
+
+install(){
+	make DESTDIR="${dest_dir}" install-gcc install-target-libgcc
+}

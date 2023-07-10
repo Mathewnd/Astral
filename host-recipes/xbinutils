@@ -1,0 +1,17 @@
+name=xbinutils
+revision=1
+from_source=binutils
+imagedeps="base-devel gcc"
+hostdeps="automake autoconf"
+
+configure() {
+	${source_dir}/configure --target=x86_64-astral --prefix=${prefix} --with-sysroot=${sysroot_dir} --disable-werror
+}
+
+build() {
+	make -j${parallelism}
+}
+
+install() {
+	make install DESTDIR="${dest_dir}"
+}
