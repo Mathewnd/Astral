@@ -23,6 +23,7 @@ $(ISO): limine.cfg liminebg.bmp $(KERNEL) initrd
 	xorriso -as mkisofs -b limine-cd.bin -no-emul-boot -boot-load-size 4 -boot-info-table --efi-boot limine-cd-efi.bin -efi-boot-part --efi-boot-image --protective-msdos-label $(ISODIR) -o $(ISO)
 
 initrd:
+	mkdir -p $(ISODIR)
 	make $(DISTROTYPE)
 
 full:
@@ -30,7 +31,7 @@ full:
 	cd sysroot; tar --format=ustar -cf $(INITRD) *
 
 minimal:
-	./jinx install minimalsysroot mlibc bash coreutils init distro-files
+	./jinx install minimalsysroot mlibc bash coreutils init distro-files vim nano
 	cd minimalsysroot; tar --format=ustar -cf $(INITRD) *
 
 kernel:
