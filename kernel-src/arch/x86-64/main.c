@@ -24,6 +24,7 @@
 #include <kernel/console.h>
 #include <kernel/dpc.h>
 #include <kernel/pipefs.h>
+#include <kernel/fb.h>
 
 static cpu_t bsp_cpu;
 
@@ -66,6 +67,7 @@ void kernel_entry() {
 	pseudodevices_init();
 	keyboard_init();
 	arch_ps2_init();
+	fb_init();
 
 	console_init();
 	logging_sethook(console_putc);
