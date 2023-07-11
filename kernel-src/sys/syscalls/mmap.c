@@ -40,16 +40,30 @@ syscallret_t syscall_mmap(context_t *context, void *hint, size_t len, int prot, 
 	if ((prot & PROT_EXEC) == 0)
 		mmuflags |= ARCH_MMU_FLAGS_NOEXEC;
 
-	bool file = (flags & MAP_ANONYMOUS) == 0;
+	bool isfile = (flags & MAP_ANONYMOUS) == 0;
 	int vmmflags = 0;
 
 	// XXX this isn't the correct behaviour for MAP_FIXED
 	if (flags & MAP_FIXED)
 		vmmflags |= VMM_FLAGS_EXACT;
 
+	if ((flags & MAP_PRIVATE) == 0)
+		vmmflags |= VMM_FLAGS_FILE;
+
+	if (flags & MAP_SHARED)
+		vmmflags |= VMM_FLAGS_SHARED;
+
 	vmmfiledesc_t vfd;
-	// TODO file mappings
-	__assert(file == false);
+	file_t *file = NULL;
+	if (isfile) {
+		file = fd_get(fd);
+		if (file == NULL) {
+			ret.errno = EBADF;
+			return ret;
+		}
+		vfd.node = file->vnode;
+		vfd.offset = offset;
+	}
 
 	if (hint < USERSPACE_START)
 		hint = USERSPACE_START;
@@ -57,5 +71,9 @@ syscallret_t syscall_mmap(context_t *context, void *hint, size_t len, int prot, 
 	ret.ret = (uint64_t)vmm_map(hint, len, vmmflags, mmuflags, &vfd);
 	if (ret.ret == 0)
 		ret.errno = ENOMEM;
+
+	if (isfile)
+		fd_release(file);
+
 	return ret;
 }
