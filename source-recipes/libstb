@@ -1,0 +1,9 @@
+name=libstb
+version=5736b15f7ea0ffb08dd38af21067c314d6a3aae9
+source_method=tarball
+tarball_url="https://github.com/nothings/stb/archive/${version}.tar.gz"
+tarball_sha512=55bc75284cf8a092c527d1ae18c461c9d0ab6aacdcf3b873abde54c06d9b8a0ae249ce47c7ad25809e075bfbb58e9c879d43e1df2708083860c07ac3bbb30d60
+
+regenerate() {
+	true
+}

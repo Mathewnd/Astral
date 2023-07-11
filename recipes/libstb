@@ -1,0 +1,16 @@
+name=libstb
+revision=1
+from_source=libstb
+
+configure() {
+	true
+}
+
+build() {
+	true
+}
+
+install() {
+	mkdir -p ${dest_dir}/${prefix}/include/
+	cp -r ${source_dir}/*.h ${dest_dir}/${prefix}/include/
+}
