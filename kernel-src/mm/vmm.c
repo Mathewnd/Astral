@@ -205,13 +205,13 @@ static void insertrange(vmmspace_t *space, vmmrange_t *newrange) {
 
 }
 
-static void destroyrange(vmmcontext_t *context, vmmrange_t *range, uintmax_t _offset, size_t size, int flags) {
+static void destroyrange(vmmrange_t *range, uintmax_t _offset, size_t size, int flags) {
 	uintmax_t top = _offset + size;
 	__assert(!(range->flags & VMM_FLAGS_COPY)); // TODO unimplemented
 
 	for (uintmax_t offset = _offset; offset < top; offset += PAGE_SIZE) {
 		void *vaddr = (void *)((uintptr_t)range->start + offset);
-		void *physical = arch_mmu_getphysical(context->pagetable, vaddr);
+		void *physical = arch_mmu_getphysical(_cpu()->vmmctx->pagetable, vaddr);
 		if (physical == NULL)
 			continue;
 
@@ -223,7 +223,7 @@ static void destroyrange(vmmcontext_t *context, vmmrange_t *range, uintmax_t _of
 			__assert(VOP_MUNMAP(range->vnode, vaddr, range->offset + offset, mmuflagstovnodeflags(range->mmuflags) | (range->flags & VMM_FLAGS_SHARED ? V_FFLAGS_SHARED : 0), cred) == 0);
 		} else {
 			pmm_free(physical, 1);
-			arch_mmu_unmap(context->pagetable, vaddr);
+			arch_mmu_unmap(_cpu()->vmmctx->pagetable, vaddr);
 		}
 	}
 
@@ -231,11 +231,9 @@ static void destroyrange(vmmcontext_t *context, vmmrange_t *range, uintmax_t _of
 		VOP_RELEASE(range->vnode);
 }
 
-static void unmap(vmmcontext_t *context, void *address, size_t size) {
+static void unmap(vmmspace_t *space, void *address, size_t size) {
 	void *top = (void *)((uintptr_t)address + size);
-	vmmspace_t *space = &context->space;
 	vmmrange_t *range = space->ranges;
-
 	while (range) {
 		__assert(range != space->ranges || range->prev == NULL);
 		void *rangetop = RANGE_TOP(range);
@@ -249,14 +247,14 @@ static void unmap(vmmcontext_t *context, void *address, size_t size) {
 			if (range->next)
 				range->next->prev = range->prev;
 
-			destroyrange(context, range, 0, range->size, 0);
+			destroyrange(range, 0, range->size, 0);
 			freerange(range);
 		} else if (address > range->start && top < rangetop) { // split
 			vmmrange_t *new = allocrange();
 			__assert(new); // XXX deal with this better
 			*new = *range;
 
-			destroyrange(context, range, (uintptr_t)address - (uintptr_t)range->start, size, 0);
+			destroyrange(range, (uintptr_t)address - (uintptr_t)range->start, size, 0);
 
 			new->start = top;
 			new->size = (uintptr_t)rangetop - (uintptr_t)new->start;
@@ -271,7 +269,7 @@ static void unmap(vmmcontext_t *context, void *address, size_t size) {
 			}
 		} else if (top > range->start && range->start >= address) { // partially unmap from start
 			size_t difference = (uintptr_t)top - (uintptr_t)range->start;
-			destroyrange(context, range, 0, difference, 0);
+			destroyrange(range, 0, difference, 0);
 			range->start = (void *)((uintptr_t)range->start + difference);
 			range->size -= difference;
 
@@ -280,7 +278,7 @@ static void unmap(vmmcontext_t *context, void *address, size_t size) {
 		} else if (address < rangetop && rangetop <= top){ // partially unmap from end
 			size_t difference = (uintptr_t)rangetop - (uintptr_t)address;
 			range->size -= difference;
-			destroyrange(context, range, range->size, difference, 0);
+			destroyrange(range, range->size, difference, 0);
 		}
 
 		range = range->next;
@@ -403,6 +401,10 @@ void *vmm_map(void *addr, volatile size_t size, int flags, mmuflags_t mmuflags, 
 		// allocate to virtual memory
 		for (uintmax_t i = 0; i < size; i += PAGE_SIZE) {
 			void *allocated = pmm_alloc(1, PMM_SECTION_DEFAULT);
+			if (allocated == NULL) {
+				retaddr = NULL;
+				goto cleanup;
+			}
 
 			if (arch_mmu_map(_cpu()->vmmctx->pagetable, allocated, (void *)((uintptr_t)start + i), mmuflags) == false) {
 				for (uintmax_t j = 0; j < size; j += PAGE_SIZE) {
@@ -448,8 +450,7 @@ void vmm_unmap(void *addr, size_t size, int flags) {
 		return;
 
 	spinlock_acquire(&space->lock);
-
-	unmap(_cpu()->vmmctx, addr, size);
+	unmap(space, addr, size);
 
 	spinlock_release(&space->lock);
 }
