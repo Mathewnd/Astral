@@ -113,15 +113,19 @@
 #define KEYCODE_INSERT 110
 #define KEYCODE_DELETE 111
 
+#include <spinlock.h>
 #include <semaphore.h>
 #include <ringbuffer.h>
+#include <kernel/poll.h>
 
 typedef uintmax_t keycode_t;
 
 typedef struct {
 	ringbuffer_t packetbuffer;
 	semaphore_t semaphore;
+	spinlock_t lock;
 	int flags;
+	pollheader_t pollheader;
 } keyboard_t;
 
 typedef struct {

@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <kernel/devfs.h>
 #include <hashtable.h>
+#include <kernel/poll.h>
 
 #define BUFFER_PACKET_CAPACITY 100
 #define BUFFER_SIZE (BUFFER_PACKET_CAPACITY * sizeof(kbpacket_t))
@@ -93,11 +94,19 @@ void keyboard_sendpacket(keyboard_t *kb, kbpacket_t *packet) {
 
 	packet->ascii = table[packet->keycode];
 
+	spinlock_acquire(&kb->lock);
+
 	if (ringbuffer_write(&kb->packetbuffer, packet, sizeof(kbpacket_t)) != 0)
 		semaphore_signal(&kb->semaphore);
 
+	spinlock_release(&kb->lock);
+
+	spinlock_acquire(&keyboard_console->lock);
+
 	if (ringbuffer_write(&keyboard_console->packetbuffer, packet, sizeof(kbpacket_t)) != 0)
 		semaphore_signal(&keyboard_console->semaphore);
+
+	spinlock_release(&keyboard_console->lock);
 
 	interrupt_loweripl(ipl);
 }
@@ -108,39 +117,124 @@ int keyboard_wait(keyboard_t *kb, kbpacket_t *packet) {
 		return e;
 	long ipl = interrupt_raiseipl(IPL_KEYBOARD);
 
+	spinlock_acquire(&kb->lock);
 	__assert(ringbuffer_read(&kb->packetbuffer, packet, sizeof(kbpacket_t)) == sizeof(kbpacket_t));
+	spinlock_release(&kb->lock);
 
 	interrupt_loweripl(ipl);
 	return 0;
 }
 
 bool keyboard_get(keyboard_t *kb, kbpacket_t *packet) {
+	if (semaphore_test(&kb->semaphore) == false)
+		return false;
+
 	long ipl = interrupt_raiseipl(IPL_KEYBOARD);
 
+	spinlock_acquire(&kb->lock);
 	bool ok = ringbuffer_read(&kb->packetbuffer, packet, sizeof(kbpacket_t)) == sizeof(kbpacket_t);
+	spinlock_release(&kb->lock);
 
 	interrupt_loweripl(ipl);
 	return ok;
 }
 
 static hashtable_t kbtable;
+static mutex_t tablelock;
+
+static keyboard_t* getkb(int kb) {
+	void *kbp = NULL;
+	MUTEX_ACQUIRE(&tablelock, false);
+	hashtable_get(&kbtable, &kbp, &kb, sizeof(kb));
+	MUTEX_RELEASE(&tablelock);
+	return kbp;
+}
+
+static int read(int minor, void *buffer, size_t size, uintmax_t offset, int flags, size_t *readc) {
+	keyboard_t *kb = getkb(minor);
+	if (kb == NULL)
+		return ENODEV;
+
+	*readc = 0;
+	size_t count = size / sizeof(kbpacket_t);
+	if (count == 0)
+		return 0;
+
+	for (int i = 0; i < count; ++i) {
+		kbpacket_t *buff = (kbpacket_t *)((uintptr_t)buffer + i * sizeof(kbpacket_t));
+		bool ok = keyboard_get(kb, buff);
+		if (ok == false) {
+			if (i == 0 && (flags & V_FFLAGS_NONBLOCKING) == 0) {
+				int err = keyboard_wait(kb, buff);
+				*readc += err ? 0 : sizeof(kbpacket_t);
+				return err;
+			}
+
+			break;
+		}
+
+		*readc += sizeof(kbpacket_t);
+	}
+
+	return 0;
+}
+
+
+
+static int poll(int minor, polldata_t *data, int events) {
+	int revents = 0;
+	keyboard_t *kb = getkb(minor);
+	if (kb == NULL)
+		return POLLERR;
+
+	if (events & POLLIN) {
+		long ipl = interrupt_raiseipl(IPL_KEYBOARD);
+		spinlock_acquire(&kb->lock);
+		size_t dataleft = RINGBUFFER_DATACOUNT(&kb->packetbuffer);
+		spinlock_release(&kb->lock);
+		interrupt_loweripl(ipl);
+		if (dataleft)
+			revents |= POLLIN;
+	}
+
+	if (revents == 0 && data)
+		poll_add(&kb->pollheader, data, events);
+
+	return revents;
+}
+
+static devops_t devops = {
+	.read = read,
+	.poll = poll
+};
 
 keyboard_t *keyboard_new() {
 	keyboard_t *kb = newkb();
 	if (kb == NULL)
 		return NULL;
 
+	MUTEX_ACQUIRE(&tablelock, false);
+
 	if (hashtable_set(&kbtable, kb, &currentkbnum, sizeof(currentkbnum), true)) {
+		MUTEX_RELEASE(&tablelock);
 		destroykb(kb);
 		return NULL;
 	}
 
-	// TODO keyboard device
+	MUTEX_RELEASE(&tablelock);
+
+	char name[12];
+	snprintf(name, 12, "keyboard%d", currentkbnum);
+
+	__assert(devfs_register(&devops, name, V_TYPE_CHDEV, DEV_MAJOR_KEYBOARD, currentkbnum, 0644) == 0);
+
+	POLL_INITHEADER(&kb->pollheader);
 	++currentkbnum;
 	return kb;
 }
 
 void keyboard_init() {
+	MUTEX_INIT(&tablelock);
 	keyboard_console = newkb();
 	__assert(keyboard_console);
 	__assert(hashtable_init(&kbtable, 20) == 0);
