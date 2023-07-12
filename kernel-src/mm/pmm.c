@@ -8,6 +8,7 @@
 uintptr_t hhdmbase;
 static size_t memorysize;
 static size_t physicalpagecount;
+static size_t used;
 
 typedef struct {
 	spinlock_t lock;
@@ -93,6 +94,7 @@ void *pmm_alloc(size_t size, int section) {
 				bmset((void *)((page + j) * PAGE_SIZE), 0);
 
 			spinlock_release(&bmsections[i].lock);
+			__atomic_add_fetch(&used, 1, __ATOMIC_SEQ_CST);
 			return (void *)(page * PAGE_SIZE);
 		}
 		spinlock_release(&bmsections[i].lock);
@@ -114,9 +116,17 @@ void pmm_free(void *addr, size_t size) {
 				bmset((void *)((page + j) * PAGE_SIZE), 1);
 
 			spinlock_release(&bmsections[i].lock);
+			__atomic_sub_fetch(&used, 1, __ATOMIC_SEQ_CST);
 			return;
 		}
 	}
+}
+
+void pmm_getinfo(size_t *pages, size_t *usedpages) {
+	if (pages)
+		*pages = physicalpagecount;
+	if (usedpages)
+		*usedpages = used;
 }
 
 #define TOP_1MB (0x100000 / PAGE_SIZE)

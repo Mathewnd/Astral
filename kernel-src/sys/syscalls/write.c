@@ -24,10 +24,9 @@ syscallret_t syscall_write(context_t *context, int fd, void *buffer, size_t size
 	// TODO safe memcpy
 	memcpy(kernelbuff, buffer, size);
 
-	// TODO pass flags
 	size_t byteswritten;
 	uintmax_t offset = file->offset;
-	ret.errno = vfs_write(file->vnode, kernelbuff, size, offset, &byteswritten, 0);
+	ret.errno = vfs_write(file->vnode, kernelbuff, size, offset, &byteswritten, fileflagstovnodeflags(file->flags));
 
 	if (ret.errno)
 		goto cleanup;

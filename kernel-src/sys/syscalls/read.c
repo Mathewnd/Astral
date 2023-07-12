@@ -23,10 +23,9 @@ syscallret_t syscall_read(context_t *context, int fd, void *buffer, size_t size)
 		goto cleanup;
 	}
 
-	// TODO pass flags
 	size_t bytesread;
 	uintmax_t offset = file->offset;
-	ret.errno = vfs_read(file->vnode, kernelbuff, size, file->offset, &bytesread, 0);
+	ret.errno = vfs_read(file->vnode, kernelbuff, size, file->offset, &bytesread, fileflagstovnodeflags(file->flags));
 
 	if (ret.errno)
 		goto cleanup;
