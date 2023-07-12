@@ -1,0 +1,19 @@
+name=doomgeneric
+revision=1
+from_source=doomgeneric
+imagedeps="base-devel"
+hostdeps="xgcc xbinutils"
+deps="mlibc"
+
+configure() {
+	cp -rp ${source_dir}/doomgeneric/* .
+}
+
+build() {
+	make
+}
+
+install() {
+	mkdir -p ${dest_dir}/usr/bin
+	cp -f doomgeneric ${dest_dir}/usr/bin/doomgeneric
+}

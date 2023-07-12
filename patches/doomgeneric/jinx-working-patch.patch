@@ -1,0 +1,226 @@
+diff --git doomgeneric-clean/doomgeneric/Makefile doomgeneric-workdir/doomgeneric/Makefile
+index ceecc57..4bb288c 100644
+--- doomgeneric-clean/doomgeneric/Makefile
++++ doomgeneric-workdir/doomgeneric/Makefile
+@@ -12,17 +12,17 @@ else
+ endif
+ 
+ 
+-CC=clang  # gcc or g++
++CC=x86_64-astral-gcc
+ CFLAGS+=-ggdb3 -Os
+ LDFLAGS+=-Wl,--gc-sections
+ CFLAGS+=-ggdb3 -Wall -DNORMALUNIX -DLINUX -DSNDSERV -D_DEFAULT_SOURCE # -DUSEASM
+-LIBS+=-lm -lc -lX11
++LIBS+=-lm -lc
+ 
+ # subdirectory for objects
+ OBJDIR=build
+ OUTPUT=doomgeneric
+ 
+-SRC_DOOM = i_main.o dummy.o am_map.o doomdef.o doomstat.o dstrings.o d_event.o d_items.o d_iwad.o d_loop.o d_main.o d_mode.o d_net.o f_finale.o f_wipe.o g_game.o hu_lib.o hu_stuff.o info.o i_cdmus.o i_endoom.o i_joystick.o i_scale.o i_sound.o i_system.o i_timer.o memio.o m_argv.o m_bbox.o m_cheat.o m_config.o m_controls.o m_fixed.o m_menu.o m_misc.o m_random.o p_ceilng.o p_doors.o p_enemy.o p_floor.o p_inter.o p_lights.o p_map.o p_maputl.o p_mobj.o p_plats.o p_pspr.o p_saveg.o p_setup.o p_sight.o p_spec.o p_switch.o p_telept.o p_tick.o p_user.o r_bsp.o r_data.o r_draw.o r_main.o r_plane.o r_segs.o r_sky.o r_things.o sha1.o sounds.o statdump.o st_lib.o st_stuff.o s_sound.o tables.o v_video.o wi_stuff.o w_checksum.o w_file.o w_main.o w_wad.o z_zone.o w_file_stdc.o i_input.o i_video.o doomgeneric.o doomgeneric_xlib.o
++SRC_DOOM = i_main.o dummy.o am_map.o doomdef.o doomstat.o dstrings.o d_event.o d_items.o d_iwad.o d_loop.o d_main.o d_mode.o d_net.o f_finale.o f_wipe.o g_game.o hu_lib.o hu_stuff.o info.o i_cdmus.o i_endoom.o i_joystick.o i_scale.o i_sound.o i_system.o i_timer.o memio.o m_argv.o m_bbox.o m_cheat.o m_config.o m_controls.o m_fixed.o m_menu.o m_misc.o m_random.o p_ceilng.o p_doors.o p_enemy.o p_floor.o p_inter.o p_lights.o p_map.o p_maputl.o p_mobj.o p_plats.o p_pspr.o p_saveg.o p_setup.o p_sight.o p_spec.o p_switch.o p_telept.o p_tick.o p_user.o r_bsp.o r_data.o r_draw.o r_main.o r_plane.o r_segs.o r_sky.o r_things.o sha1.o sounds.o statdump.o st_lib.o st_stuff.o s_sound.o tables.o v_video.o wi_stuff.o w_checksum.o w_file.o w_main.o w_wad.o z_zone.o w_file_stdc.o i_input.o i_video.o doomgeneric.o doomgeneric_astral.o
+ OBJS += $(addprefix $(OBJDIR)/, $(SRC_DOOM))
+ 
+ all:	 $(OUTPUT)
+diff --git doomgeneric-workdir/doomgeneric/doomgeneric_astral.c doomgeneric-workdir/doomgeneric/doomgeneric_astral.c
+new file mode 100644
+index 0000000..d9c5bfb
+--- /dev/null
++++ doomgeneric-workdir/doomgeneric/doomgeneric_astral.c
+@@ -0,0 +1,195 @@
++#include "doomkeys.h"
++
++#include "doomgeneric.h"
++
++#include <ctype.h>
++#include <stdio.h>
++#include <string.h>
++#include <unistd.h>
++#include <sys/time.h>
++#include <linux/fb.h>
++#include <termios.h>
++#include <errno.h>
++#include <fcntl.h>
++
++static int fbfd;
++static int kbfd;
++static struct fb_var_screeninfo fbvs;
++static struct fb_fix_screeninfo fbfs;
++static void* frame;
++static struct termios ttysave;
++
++static struct timespec starttime;
++
++static int seekordie(int fd, off_t offset, int whence){
++	int ret = lseek(fd, offset, whence);
++	if(ret == -1){
++		printf("doomgeneric: lseek failed on fd %d: %s", fd, strerror(errno));
++		exit(errno);
++	}
++	return ret;
++}
++
++static int ioctlordie(int fd, unsigned long request, void* arg){
++	int ret = ioctl(fd, request, arg);
++	if(ret == -1){
++		printf("doomgeneric: ioctl failed on fd %d: %s\n", fd, strerror(errno));	
++		exit(errno);
++	}
++	return ret;
++}
++
++static int openordie(char* name, int flags, int mode){
++	int fd = open(name, flags, mode);
++	if(fd == -1){
++		printf("doomgeneric: failed to open %s: %s\n", name, strerror(errno));
++		exit(errno);
++	}
++	return fd;
++}
++
++static int writeordie(int fd, void* buff, size_t count){
++	int writec = write(fd, buff, count);
++	if(writec == -1){
++		printf("doomgeneric: write failed on fd %d: %s\n", fd, strerror(errno));
++		exit(errno);
++	}
++
++	return writec;
++}
++
++static int readordie(int fd, void* buff, size_t count){
++	int readc = read(fd, buff, count);
++	if(readc == -1){
++		printf("doomgeneric: read failed on fd %d: %s\n", fd, strerror(errno));
++		exit(errno);
++	}
++	return readc;
++}
++
++void cleanup(){
++	tcsetattr(1, TCSAFLUSH, &ttysave);
++}
++
++void DG_Init(){
++	
++	// open needed files
++
++	fbfd = openordie("/dev/fb0", O_WRONLY, 0);
++	kbfd = openordie("/dev/keyboard0", O_RDONLY | O_NONBLOCK, 0);
++
++	// get needed fb info
++	
++	ioctlordie(fbfd, FBIOGET_VSCREENINFO, &fbvs);
++	ioctlordie(fbfd, FBIOGET_FSCREENINFO, &fbfs);
++
++
++	// make tty raw and nonblocking
++	
++	struct termios tty;
++
++	tcgetattr(1, &tty);
++	ttysave = tty;
++	cfmakeraw(&tty);
++	tty.c_cc[VMIN] = 0;
++	tcsetattr(1, TCSAFLUSH, &tty);
++	atexit(cleanup);
++
++	char a[100];	
++	while (read(kbfd, a, 100)) ;
++}
++
++void DG_DrawFrame(){
++	// prepare the frame for writing
++
++	// TODO handle bpp stuff
++	
++	off_t moffset = fbfs.line_length * (fbvs.yres / 2 - DOOMGENERIC_RESY/2) + (fbvs.xres / 2 - DOOMGENERIC_RESX / 2) * (fbvs.bits_per_pixel / 8);
++
++	for(uintmax_t y = 0; y < DOOMGENERIC_RESY; ++y){
++		uintptr_t foffset = 0;
++		foffset = fbfs.line_length * y;
++		seekordie(fbfd, moffset + fbfs.line_length * y, SEEK_SET);
++		writeordie(fbfd, DG_ScreenBuffer + DOOMGENERIC_RESX*y, DOOMGENERIC_RESX*4);
++	}
++
++}
++
++typedef struct {
++        char ascii;
++        uintmax_t keycode;
++        int flags;
++} kbpacket_t;
++
++#define KEYCODE_A 30
++#define KEYCODE_S 31
++#define KEYCODE_D 32
++#define KEYCODE_W 17
++#define KEYCODE_LEFTCTRL 29
++#define KEYCODE_ENTER 28
++#define KEYCODE_ESCAPE 1
++#define KEYCODE_RIGHTSHIFT 54
++#define KEYCODE_LEFTSHIFT 42
++#define KEYCODE_SPACE 57
++#define KEYCODE_RIGHTCTRL 97
++#define KBPACKET_FLAGS_RELEASED 1
++
++int DG_GetKey(int* pressed, unsigned char* doomkey){
++	kbpacket_t buff;
++	if(readordie(kbfd, &buff, sizeof(kbpacket_t)) == 0)
++		return 0;
++
++	char key;
++	switch(buff.keycode){
++		case KEYCODE_A:
++			key = KEY_LEFTARROW;
++			break;
++		case KEYCODE_W:
++			key = KEY_UPARROW;
++			break;
++		case KEYCODE_S:
++			key = KEY_DOWNARROW;
++			break;
++		case KEYCODE_D:
++			key = KEY_RIGHTARROW;
++			break;
++		case KEYCODE_ENTER:
++			key = KEY_ENTER;
++			break;
++		case KEYCODE_LEFTCTRL:
++		case KEYCODE_RIGHTCTRL:
++			key = KEY_FIRE;
++			break;
++		case KEYCODE_LEFTSHIFT:
++		case KEYCODE_RIGHTSHIFT:
++			key = KEY_RSHIFT;
++			break;
++		case KEYCODE_ESCAPE:
++			key = KEY_ESCAPE;
++			break;
++		case KEYCODE_SPACE:
++			key = KEY_USE;
++			break;
++		default:
++			key = buff.ascii;
++			break;
++	}
++
++	*doomkey = key;
++	*pressed = buff.flags & KBPACKET_FLAGS_RELEASED ? 0 : 1;
++	return 1;
++}
++
++void DG_SleepMs(uint32_t ms){
++	//usleep(ms * 1000);
++}
++
++uint32_t DG_GetTicksMs(){
++	struct timespec time;
++
++	clock_gettime(CLOCK_REALTIME, &time);
++
++	return time.tv_sec * 1000 + time.tv_nsec / 1000000;
++}
++
++void DG_SetWindowTitle(const char* title){}
