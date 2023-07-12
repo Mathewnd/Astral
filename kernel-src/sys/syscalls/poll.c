@@ -68,6 +68,7 @@ syscallret_t syscall_poll(context_t *, pollfd_t *fds, size_t nfds, int timeoutms
 	memcpy(fds, fdsbuff, fdsbuffsize);
 
 	poll_leave(&desc);
+	poll_destroydesc(&desc);
 
 	ret.ret = eventcount;
 
