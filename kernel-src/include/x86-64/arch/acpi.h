@@ -63,6 +63,20 @@ typedef struct {
 	uint8_t pageprot;
 } __attribute__((packed)) hpet_t;
 
+typedef struct {
+	uint64_t address;
+	uint16_t sgn;
+	uint8_t startbus;
+	uint8_t endbus;
+	uint32_t reserved;
+} __attribute__((packed)) mcfgentry_t;
+
+typedef struct {
+	sdtheader_t header;
+	uint64_t reserved;
+	mcfgentry_t entries[];
+} __attribute__((packed)) mcfg_t;
+
 #define ACPI_MADT_TYPE_LAPIC 0
 #define ACPI_MADT_TYPE_IOAPIC 1
 #define ACPI_MADT_TYPE_OVERRIDE 2
