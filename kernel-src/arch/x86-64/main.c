@@ -25,6 +25,7 @@
 #include <kernel/dpc.h>
 #include <kernel/pipefs.h>
 #include <kernel/fb.h>
+#include <kernel/pci.h>
 
 static cpu_t bsp_cpu;
 
@@ -65,6 +66,7 @@ void kernel_entry() {
 	__assert(vfs_mount(NULL, vfsroot, "/dev", "devfs", NULL) == 0);
 
 	pseudodevices_init();
+	pci_init();
 	keyboard_init();
 	arch_ps2_init();
 	fb_init();
