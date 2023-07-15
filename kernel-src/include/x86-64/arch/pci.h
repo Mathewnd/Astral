@@ -51,7 +51,7 @@ static uint32_t mcfg_read32(int bus, int device, int function, uint32_t offset) 
 		return 0xffffffff;
 
 	uint64_t base = (uint64_t)MAKE_HHDM(entry->address);
-	uint32_t *address = (uint32_t *)(base + ((bus - entry->startbus) << 20) + (device << 15) + (function << 12));
+	uint32_t *address = (uint32_t *)(base | ((bus - entry->startbus) << 20) | (device << 15) | (function << 12) | (offset & ~0x3));
 
 	return *address;
 }
@@ -60,7 +60,7 @@ static void mcfg_write32(int bus, int device, int function, uint32_t offset, uin
 	mcfgentry_t *entry = getmcfgentry(bus);
 
 	uint64_t base = (uint64_t)MAKE_HHDM(entry->address);
-	uint32_t *address = (uint32_t *)(base + ((bus - entry->startbus) << 20) + (device << 15) + (function << 12));
+	uint32_t *address = (uint32_t *)(base | ((bus - entry->startbus) << 20) | (device << 15) | (function << 12) | (offset & ~0x3));
 
 	*address = value;
 }
