@@ -509,6 +509,8 @@ static tmpfsnode_t *newnode(vfs_t *vfs, int type) {
 	if (node == NULL)
 		return NULL;
 
+	memset(node, 0, sizeof(tmpfsnode_t));
+
 	if (type == V_TYPE_DIR) {
 		if (hashtable_init(&node->children, 32)) {
 			slab_free(nodecache, node);
@@ -522,7 +524,6 @@ static tmpfsnode_t *newnode(vfs_t *vfs, int type) {
 		}
 	}
 
-	memset(&node->attr, 0, sizeof(vattr_t));
 	node->attr.type = type;
 	node->attr.inode = ++((tmpfs_t *)vfs)->inodenumber;
 	node->vnode.type = type;
