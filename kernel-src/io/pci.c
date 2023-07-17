@@ -2,6 +2,7 @@
 #include <arch/pci.h>
 #include <kernel/pci.h>
 #include <kernel/alloc.h>
+#include <kernel/vmm.h>
 
 uint8_t pci_read8(int bus, int device, int function, uint32_t offset) {
 	return (pci_archread32(bus, device, function, offset) >> ((offset & 0b11) * 8)) & 0xff;
@@ -52,28 +53,48 @@ int pci_getcapoffset(pcienum_t *e, int cap, int n) {
 	return offset;
 }
 
+void pci_setcommand(pcienum_t *e, int mask, int v) {
+	uint16_t current = pci_read16(e->bus, e->device, e->function, PCI_CONFIG_COMMAND);
+
+	if (v)
+		current |= mask;
+	else
+		current &= ~mask;
+
+	pci_write16(e->bus, e->device, e->function, PCI_CONFIG_COMMAND, current);
+}
+
+#define BAR_MAP_FLAGS (ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_NOEXEC)
+
+void *pci_mapbar(pcibar_t bar) {
+	__assert(bar.mmio);
+	return vmm_map(NULL, bar.length, VMM_FLAGS_PHYSICAL, BAR_MAP_FLAGS | (bar.prefetchable ? ARCH_MMU_FLAGS_WT : ARCH_MMU_FLAGS_UC), (void *)bar.address);
+}
+
 #define BAR_IO 1
 #define BAR_TYPE_MASK 0x6
 #define BAR_TYPE_64BIT 0x4
+#define BAR_PREFETCHABLE 0x8
 
 pcibar_t pci_getbar(pcienum_t *e, int n) {
-	// TODO map bars (also taking in count the prefetchable flag)
 	pcibar_t ret;
 	int offset = 0x10 + n * 4;
 
 	uint32_t bar = pci_read32(e->bus, e->device, e->function, offset);
 	if (bar & BAR_IO) {
 		ret.mmio = false;
+		ret.prefetchable = false;
 		ret.address = bar & 0xfffffffc;
 		pci_write32(e->bus, e->device, e->function, offset, -1);
 		ret.length = ~(pci_read32(e->bus, e->device, e->function, offset) & 0xfffffffc) + 1;
 		pci_write32(e->bus, e->device, e->function, offset, bar);
 	} else {
 		ret.mmio = true;
+		ret.prefetchable = bar & BAR_PREFETCHABLE;
 		ret.address = bar & 0xfffffff0;
 		ret.length = -1;
 		if ((bar & BAR_TYPE_MASK) == BAR_TYPE_64BIT)
-			ret.address = (uint64_t)pci_read32(e->bus, e->device, e->function, offset + 4) << 32;
+			ret.address += (uint64_t)pci_read32(e->bus, e->device, e->function, offset + 4) << 32;
 
 		pci_write32(e->bus, e->device, e->function, offset, -1);
 		ret.length = ~(pci_read32(e->bus, e->device, e->function, offset) & 0xfffffff0) + 1;
