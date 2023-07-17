@@ -16,6 +16,10 @@
 #define ARCH_MMU_FLAGS_USER (uint64_t)4
 #define ARCH_MMU_FLAGS_NOEXEC ((uint64_t)1 << 63)
 
+#define ARCH_MMU_FLAGS_WB 0
+#define ARCH_MMU_FLAGS_WT (1 << 3)
+#define ARCH_MMU_FLAGS_UC (1 << 4)
+
 typedef uint64_t mmuflags_t;
 typedef uint64_t * pagetableptr_t; // physical address
 
