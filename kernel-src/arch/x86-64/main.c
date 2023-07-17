@@ -26,6 +26,7 @@
 #include <kernel/pipefs.h>
 #include <kernel/fb.h>
 #include <kernel/pci.h>
+#include <kernel/nvme.h>
 
 static cpu_t bsp_cpu;
 
@@ -70,6 +71,7 @@ void kernel_entry() {
 	keyboard_init();
 	arch_ps2_init();
 	fb_init();
+	nvme_init();
 
 	console_init();
 	logging_sethook(console_putc);
