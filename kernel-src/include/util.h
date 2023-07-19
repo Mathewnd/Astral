@@ -12,4 +12,8 @@ static inline long ilog2(long x) {
 	return sizeof(long) * 8 - __builtin_clz(x) - 1;
 }
 
+static inline long min(long x, long y) {
+	return x > y ? y : x;
+}
+
 #endif
