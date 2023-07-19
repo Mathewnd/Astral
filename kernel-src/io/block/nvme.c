@@ -52,7 +52,9 @@
 	EVENT_INIT(&(pair)->event); \
 	SUB_INIT(&(pair)->sub, opcode, fused, memaccess, nsid);
 
+#define SUB_DW0_OPCODE_WRITE 0x1
 #define SUB_DW0_OPCODE_CREATEIOSUBQUEUE 0x1
+#define SUB_DW0_OPCODE_READ 0x2
 #define SUB_DW0_OPCODE_CREATEIOCOMPQUEUE 0x5
 #define SUB_DW0_OPCODE_IDENTIFY 0x6
 #define SUB_DW0_OPCODE_SETFEATURES 0x9
@@ -63,7 +65,10 @@
 #define COMP_CMDINFO_PHASE(x) (((x) >> 16) & 1)
 #define COMP_CMDINFO_STATUS(x) (((x) >> 17) & 0x7fff)
 
-#define GET_DOORBELL(bar0, id, completion, stride) (volatile uint32_t *)((uintptr_t)(bar0) + 0x1000 + (((id) + (completion)) * (4 << (stride))))
+#define GET_DOORBELL(bar0, id, completion, stride) (volatile uint32_t *)((uintptr_t)(bar0) + 0x1000 + (((id) * 2 + (completion)) * (4 << (stride))))
+
+#define CTLRID_QSIZE_MIN(x) ((x) & 0xf)
+#define CTLRID_QSIZE_MAX(x) (((x) >> 4) & 0xf)
 
 typedef struct {
 	uint16_t metadatasize;
@@ -249,6 +254,13 @@ typedef struct nvmecontroller_t {
 	uintmax_t queueindex;
 	queuepair_t *ioqueues;
 } nvmecontroller_t;
+
+typedef struct {
+	nvmecontroller_t *controller;
+	int id;
+	size_t blocksize;
+	size_t capacity;
+} nvmenamespace_t;
 
 #define CAP_COMMANDSET_NVM 1
 
@@ -459,16 +471,99 @@ static void newioqueuepair(nvmecontroller_t *controller, queuepair_t *pair, int 
 	SEMAPHORE_INIT(&pair->entrysem, QUEUEPAIR_ENTRY_COUNT);
 }
 
+static queuepair_t *pickioqueue(nvmecontroller_t *controller) {
+	uintmax_t index = __atomic_fetch_add(&controller->queueindex, 1, __ATOMIC_SEQ_CST);
+	index %= controller->paircount;
+	return &controller->ioqueues[index];
+}
+
+static int ioread(nvmenamespace_t *namespace, uint64_t prp[2], uint64_t lba, uint64_t count) {
+	entrypair_t pair = {0};
+	PAIR_INIT(&pair, SUB_DW0_OPCODE_READ, SUB_DW0_UNFUSED, SUB_DW0_PRP, 0);
+
+	queuepair_t *queue = pickioqueue(namespace->controller);
+
+	pair.sub.namespace = namespace->id;
+	pair.sub.datapointer[0] = prp[0];
+	pair.sub.datapointer[1] = prp[1];
+	pair.sub.command[0] = lba & 0xffffffff;
+	pair.sub.command[1] = (lba >> 32) & 0xffffffff;
+	pair.sub.command[2] = (count - 1) & 0xffff;
+
+	enqueueandwait(queue, &pair);
+
+	return COMP_CMDINFO_STATUS(pair.comp.cmdinfo) ? EIO : 0;
+}
+
+static int iowrite(nvmenamespace_t *namespace, uint64_t prp[2], uint64_t lba, uint64_t count) {
+	entrypair_t pair = {0};
+	PAIR_INIT(&pair, SUB_DW0_OPCODE_WRITE, SUB_DW0_UNFUSED, SUB_DW0_PRP, 0);
+
+	queuepair_t *queue = pickioqueue(namespace->controller);
+
+	pair.sub.namespace = namespace->id;
+	pair.sub.datapointer[0] = prp[0];
+	pair.sub.datapointer[1] = prp[1];
+	pair.sub.command[0] = lba & 0xffffffff;
+	pair.sub.command[1] = (lba >> 32) & 0xffffffff;
+	pair.sub.command[2] = (count - 1) & 0xffff;
+
+	enqueueandwait(queue, &pair);
+
+	return COMP_CMDINFO_STATUS(pair.comp.cmdinfo) ? EIO : 0;
+}
+
+#define PAGES_FLAGS (ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC)
+
+static int rwblocks(nvmenamespace_t *namespace, void *buffer, uintmax_t lba, size_t count, bool write, bool pagealignedbuffer) {
+	// TODO this is pretty inefficient and will be replaced later
+	__assert(namespace->blocksize < PAGE_SIZE * 2);
+	void *phys = pmm_alloc(2, PMM_SECTION_DEFAULT);
+	if (phys == NULL)
+		return ENOMEM;
+
+	uint64_t prp[2] = {(uint64_t)phys, (uint64_t)phys + PAGE_SIZE};
+	int err = 0;
+
+	for (int i = 0; i < count; ++i) {
+		void *bufferp = (void *)((uintptr_t)buffer + i * namespace->blocksize);
+
+		if (write)
+			memcpy(MAKE_HHDM(phys), bufferp, namespace->blocksize);
+
+		err = write ? iowrite(namespace, prp, lba + i, 1) : ioread(namespace, prp, lba + i, 1);
+		if (err)
+			goto cleanup;
+
+		if (!write)
+			memcpy(bufferp, MAKE_HHDM(phys), namespace->blocksize);
+	}
+
+	cleanup:
+	pmm_free(phys, 2);
+	return err;
+}
+
 static void initnamespace(nvmecontroller_t *controller, int id) {
-	// identify namespace
 	namespaceid_t *namespaceid = alloc(IDENTIFY_SIZE);
 	__assert(namespaceid);
 	__assert(IDENTIFY_NAMESPACE(controller, namespaceid, id) == 0);
 
-	// allocate namespace structure
-	// get lba format
-	// get blocksize
-	// get capacity
+	nvmenamespace_t *namespace = alloc(sizeof(nvmenamespace_t));
+	__assert(namespace);
+
+	namespace->controller = controller;
+	namespace->id = id;
+	namespace->capacity = namespaceid->lbacapacity;
+
+	int lbaformat = namespaceid->lbaformattedsize & 0xf;
+	namespace->blocksize = 1 << namespaceid->lbaformat[lbaformat].lbadatasize;
+
+	printf("nvme%lun%lu: %lu blocks with %lu bytes per block\n", controller->id, id, namespace->capacity, namespace->blocksize);
+
+	char name[10];
+	snprintf(name, 10, "nvme%lun%lu", controller->id, id);
+
 	// register to the outside
 
 	free(namespaceid);
@@ -533,7 +628,7 @@ static void initcontroller(pcienum_t *e) {
 
 	CC_SETCOMMANDSET(cc, CC_COMMANDSET_NVM);
 	CC_SETARBITRATION(cc, CC_ARBITRATION_ROUNDROBIN);
-	CC_SETPAGESIZE(cc, ilog2(PAGE_SIZE) - 12);
+	CC_SETPAGESIZE(cc, log2(PAGE_SIZE) - 12);
 
 	bar0->cc = cc;
 
@@ -599,6 +694,21 @@ static void initcontroller(pcienum_t *e) {
 
 	resetsoftwareprogress(controller);
 
+	// validate SQ entry size and CQ entry size and set it on CC
+	int minsqlog2 = CTLRID_QSIZE_MIN(controllerid->sqentrysize);
+	int maxsqlog2 = CTLRID_QSIZE_MAX(controllerid->sqentrysize);
+	int mincqlog2 = CTLRID_QSIZE_MIN(controllerid->cqentrysize);
+	int maxcqlog2 = CTLRID_QSIZE_MAX(controllerid->cqentrysize);
+	int sqlog2 = log2(sizeof(subentry_t));
+	int cqlog2 = log2(sizeof(compentry_t));
+
+	__assert(maxsqlog2 >= sqlog2 && sqlog2 >= minsqlog2);
+	__assert(maxcqlog2 >= cqlog2 && cqlog2 >= mincqlog2);
+
+	CC_SETCOMPENTRYSIZE(cc, log2(sizeof(compentry_t)));
+	CC_SETSUBENTRYSIZE(cc, log2(sizeof(subentry_t)));
+	bar0->cc = cc;
+
 	// get namespace list
 	uint32_t *namespacelist = alloc(IDENTIFY_SIZE);
 	__assert(namespacelist);
@@ -609,7 +719,7 @@ static void initcontroller(pcienum_t *e) {
 	size_t iocount;
 	__assert(allocateioqueues(controller, iomin, &iocount) == 0);
 	iocount = min(iomin, iocount);
-	printf("nvme: using %lu I/O queues\n", iocount);
+	printf("nvme%lu: using %lu I/O queues\n", controller->id, iocount);
 	controller->paircount = iocount;
 
 	// create i/o queues
