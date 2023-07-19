@@ -64,6 +64,58 @@ void pci_setcommand(pcienum_t *e, int mask, int v) {
 	pci_write16(e->bus, e->device, e->function, PCI_CONFIG_COMMAND, current);
 }
 
+typedef struct {
+	uint32_t addresslow;
+	uint32_t addresshigh;
+	uint32_t data;
+	uint32_t control;
+} __attribute__((packed)) msixmessage_t;
+
+void pci_msixadd(pcienum_t *e, int msixvec, int vec, int edgetrigger, int deassert) {
+	__assert(e->msix.exists);
+	__assert(msixvec < e->irq.msix.entrycount);
+
+	pcibar_t bir = pci_getbar(e, e->irq.msix.bir);
+
+	volatile msixmessage_t *table = (msixmessage_t *)(bir.address + e->irq.msix.tableoffset);
+	uint32_t data;
+	uint64_t address = msiformatmessage(&data, vec, edgetrigger, deassert);
+
+	table[msixvec].addresslow = address & 0xffffffff;
+	table[msixvec].addresshigh = (address >> 32) & 0xffffffff;
+	table[msixvec].data = data;
+	table[msixvec].control = 0;
+}
+
+void pci_msixsetmask(pcienum_t *e, int v) {
+	uint16_t msgctl = pci_read16(e->bus, e->device, e->function, e->msix.offset + 2);
+	msgctl = v ? msgctl | 0x4000 : msgctl & ~0x4000;
+	pci_write16(e->bus, e->device, e->function, e->msix.offset + 2, msgctl);
+}
+
+size_t pci_initmsix(pcienum_t *e) {
+	if (e->msix.exists == false)
+		return 0;
+
+	uint16_t msgctl = pci_read16(e->bus, e->device, e->function, e->msix.offset + 2);
+	msgctl |= 0xc000;
+	pci_write16(e->bus, e->device, e->function, e->msix.offset + 2, msgctl);
+
+	e->irq.msix.entrycount = (msgctl & 0x3ff) + 1;
+
+	uint32_t bir = pci_read32(e->bus, e->device, e->function, e->msix.offset + 4);
+	e->irq.msix.bir = bir & 0x7;
+	e->irq.msix.tableoffset = bir & ~0x7;
+
+	bir = pci_read32(e->bus, e->device, e->function, e->msix.offset + 8);
+	e->irq.msix.pbir = bir & 0x7;
+	e->irq.msix.pboffset = bir & ~0x7;
+
+	pci_setcommand(e, PCI_COMMAND_IRQDISABLE, 1);
+
+	return e->irq.msix.entrycount;
+}
+
 #define BAR_MAP_FLAGS (ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_NOEXEC)
 
 void *pci_mapbar(pcibar_t bar) {
@@ -77,6 +129,9 @@ void *pci_mapbar(pcibar_t bar) {
 #define BAR_PREFETCHABLE 0x8
 
 pcibar_t pci_getbar(pcienum_t *e, int n) {
+	if (e->bar[n].length)
+		return e->bar[n];
+
 	pcibar_t ret;
 	int offset = 0x10 + n * 4;
 
@@ -99,8 +154,11 @@ pcibar_t pci_getbar(pcienum_t *e, int n) {
 		pci_write32(e->bus, e->device, e->function, offset, -1);
 		ret.length = ~(pci_read32(e->bus, e->device, e->function, offset) & 0xfffffff0) + 1;
 		pci_write32(e->bus, e->device, e->function, offset, bar);
+		ret.address = (uint64_t)pci_mapbar(ret);
+		__assert(ret.address);
 	}
 
+	e->bar[n] = ret;
 	return ret;
 }
 

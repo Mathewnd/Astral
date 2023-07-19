@@ -11,7 +11,7 @@
 #define PCI_CONFIG_COMMAND 0x4
 	#define PCI_COMMAND_IO 0x1
 	#define PCI_COMMAND_MMIO 0x2
-	#define PCI_COMMAND_IRQ 0x400
+	#define PCI_COMMAND_IRQDISABLE 0x400
 #define PCI_CONFIG_STATUS 0x6
 	#define PCI_STATUS_HASCAP 0x10
 
@@ -35,6 +35,13 @@ typedef struct {
 	int offset;
 } pcicap_t;
 
+typedef struct {
+	uintptr_t address;
+	size_t length;
+	bool mmio;
+	bool prefetchable;
+} pcibar_t;
+
 typedef struct pcienum_t {
 	struct pcienum_t *next;
 	int bus;
@@ -49,14 +56,17 @@ typedef struct pcienum_t {
 	int revision;
 	pcicap_t msi;
 	pcicap_t msix;
+	pcibar_t bar[6];
+	union {
+		struct {
+			int bir;
+			uintmax_t tableoffset;
+			int pbir;
+			uintmax_t pboffset;
+			size_t entrycount;
+		} msix;
+	} irq;
 } pcienum_t;
-
-typedef struct {
-	uintptr_t address;
-	size_t length;
-	bool mmio;
-	bool prefetchable;
-} pcibar_t;
 
 uint8_t pci_read8(int bus, int device, int function, uint32_t offset);
 uint16_t pci_read16(int bus, int device, int function, uint32_t offset);
@@ -69,6 +79,9 @@ int pci_getcapoffset(pcienum_t *e, int cap, int n);
 pcibar_t pci_getbar(pcienum_t *e, int bar);
 void *pci_mapbar(pcibar_t bar);
 void pci_setcommand(pcienum_t *e, int mask, int v);
+size_t pci_initmsix(pcienum_t *e);
+void pci_msixsetmask(pcienum_t *e, int v);
+void pci_msixadd(pcienum_t *e, int msixvec, int vec, int edgetrigger, int deassert);
 void pci_init();
 
 #endif

@@ -8,6 +8,7 @@
 #include <arch/io.h>
 #include <arch/acpi.h>
 #include <kernel/pmm.h>
+#include <arch/cpu.h>
 
 static size_t mcfgentrycount;
 static mcfgentry_t *mcfgentries;
@@ -63,6 +64,11 @@ static void mcfg_write32(int bus, int device, int function, uint32_t offset, uin
 	uint32_t *address = (uint32_t *)(base | ((bus - entry->startbus) << 20) | (device << 15) | (function << 12) | (offset & ~0x3));
 
 	*address = value;
+}
+
+static uint64_t msiformatmessage(uint32_t *data, int vector, int edgetrigger, int deassert) {
+	*data = (edgetrigger << 15) | (deassert << 14) | vector;
+	return 0xfee00000 | (_cpu()->id << 12);
 }
 
 static void pci_archinit() {
