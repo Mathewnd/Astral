@@ -8,8 +8,8 @@ static inline long abs(long x) {
 	return x < 0 ? -x : x;
 }
 
-static inline long ilog2(long x) {
-	return sizeof(long) * 8 - __builtin_clz(x) - 1;
+static inline unsigned long log2(unsigned long x) {
+	return sizeof(unsigned long) * 8 - __builtin_clzll(x) - 1;
 }
 
 static inline long min(long x, long y) {
