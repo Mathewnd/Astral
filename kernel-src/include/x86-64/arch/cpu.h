@@ -11,6 +11,9 @@
 #include <kernel/timer.h>
 #include <kernel/scheduler.h>
 #include <kernel/dpc.h>
+#include <arch/apic.h>
+
+#define ARCH_EOI arch_apic_eoi
 
 typedef struct cpu_t {
 	thread_t *thread;
