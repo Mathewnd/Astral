@@ -7,6 +7,7 @@
 
 #ifdef __x86_64__
 	#define MAX_ISR_COUNT 256
+	#define INTERRUPT_IDTOVECTOR(id) ((id) & 0xffffffff)
 #else
 	#error Unsupported architecture!
 #endif
@@ -15,6 +16,7 @@
 #define IPL_MAX 0
 #define IPL_TIMER 1
 #define IPL_KEYBOARD 2
+#define IPL_DISK 500
 #define IPL_DPC 900
 #define IPL_NORMAL 1000
 
