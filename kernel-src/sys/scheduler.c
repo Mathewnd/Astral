@@ -369,10 +369,11 @@ static void timerhook(context_t *context, dpcarg_t arg) {
 }
 
 static void cpuidlethread() {
-	// TODO check every interrupt rather than waiting for a scheduler timer interrupt
 	interrupt_set(true);
-	while (1)
+	while (1) {
 		CPU_HALT();
+		sched_yield();
+	}
 }
 
 void sched_targetcpu(cpu_t *cpu) {
