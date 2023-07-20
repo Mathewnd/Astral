@@ -27,6 +27,7 @@
 #include <kernel/fb.h>
 #include <kernel/pci.h>
 #include <kernel/nvme.h>
+#include <kernel/block.h>
 
 static cpu_t bsp_cpu;
 
@@ -66,6 +67,7 @@ void kernel_entry() {
 	printf("mounting devfs on /dev\n");
 	__assert(vfs_mount(NULL, vfsroot, "/dev", "devfs", NULL) == 0);
 
+	block_init();
 	pseudodevices_init();
 	pci_init();
 	keyboard_init();

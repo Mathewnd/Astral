@@ -11,6 +11,7 @@
 #define DEV_MAJOR_CONSOLE 4
 #define DEV_MAJOR_FB 5
 #define DEV_MAJOR_KEYBOARD 6
+#define DEV_MAJOR_BLOCK 7
 
 typedef struct {
 	int (*open)(int minor, int flags);
