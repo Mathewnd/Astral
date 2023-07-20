@@ -5,6 +5,7 @@
 #include <kernel/alloc.h>
 #include <kernel/devfs.h>
 #include <string.h>
+#include <kernel/vmm.h>
 
 #define DISK_READ(desc, buf, lba, size) (desc)->read(desc->private, buf, lba, size)
 #define DISK_WRITE(desc, buf, lba, size) (desc)->write(desc->private, buf, lba, size)
@@ -50,12 +51,110 @@ typedef struct {
 #define MBR_TYPE_FREE 0
 #define MBR_TYPE_GPT 0xee
 
-static devops_t devops = {
-
-};
 static mutex_t tablemutex;
 static int currentid = 1;
 static hashtable_t blocktable;
+
+static blockdesc_t *getdesc(int id) {
+	void *ret;
+	MUTEX_ACQUIRE(&tablemutex, false);
+	int err = hashtable_get(&blocktable, &ret, &id, sizeof(id));
+	MUTEX_RELEASE(&tablemutex);
+	return err ? NULL : ret;
+}
+
+static void bytestolba(blockdesc_t *desc, uintmax_t offset, size_t size, uintmax_t *lbaoffset, size_t *lbacount, uintmax_t *startoffset) {
+	*lbaoffset = offset / desc->blocksize;
+	*startoffset = offset % desc->blocksize;
+	size_t end = offset + size;
+	size_t toplba = ROUND_UP(end, desc->blocksize) / desc->blocksize;
+	*lbacount = toplba - *lbaoffset;
+}
+
+#define MAP_FLAGS (ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC)
+
+static int rwblock(int minor, void *buffer, size_t size, uintmax_t offset, int flags, bool write, size_t *done) {
+	blockdesc_t *desc = getdesc(minor);
+	if (desc == NULL)
+		return ENODEV;
+
+	uintmax_t bytetop = desc->blockcapacity * desc->blocksize;
+
+	// offset past end
+	if (offset >= bytetop) {
+		*done = 0;
+		return 0;
+	}
+
+	uintmax_t top = size + offset;
+	// overflow check
+	if (offset > top)
+		top = -1l;
+
+	// top of read goes past end
+	if (top > bytetop)
+		size = bytetop - offset;
+
+	size_t lbaoffset, lbacount, startoffset;
+	bytestolba(desc, offset, size, &lbaoffset, &lbacount, &startoffset);
+
+	void *lbabuffer = vmm_map(NULL, lbacount * desc->blocksize, VMM_FLAGS_ALLOCATE, MAP_FLAGS, NULL);
+	if (lbabuffer == NULL)
+		return ENOMEM;
+
+	int error = DISK_READ(desc, lbabuffer, lbaoffset + desc->lbaoffset, lbacount);
+	if (error)
+		goto cleanup;
+
+	if (write) {
+		memcpy((void *)((uintptr_t)lbabuffer + startoffset), buffer, size);
+		error = DISK_WRITE(desc, lbabuffer, lbaoffset + desc->lbaoffset, lbacount);
+		if (error)
+			goto cleanup;
+	}
+
+	if (!write)
+		memcpy(buffer, (void *)((uintptr_t)lbabuffer + startoffset), size);
+
+	*done = size;
+
+	cleanup:
+	vmm_unmap(lbabuffer, lbacount * desc->blocksize, 0);
+	return error;
+}
+
+static int read(int minor, void *buffer, size_t size, uintmax_t offset, int flags, size_t *readc) {
+	return rwblock(minor, buffer, size, offset, flags, false, readc);
+}
+
+static int write(int minor, void *buffer, size_t size, uintmax_t offset, int flags, size_t *writec) {
+	return rwblock(minor, buffer, size, offset, flags, true, writec);
+}
+
+static int ioctl(int minor, unsigned long request, void *arg, int *result) {
+	blockdesc_t *desc = getdesc(minor);
+	if (desc == NULL)
+		return ENODEV;
+
+	int ret = 0;
+
+	switch (request) {
+		case BLOCK_IOCTL_GETDESC:
+			*(blockdesc_t *)arg = *desc;
+			break;
+		default:
+			ret = ENOTTY;
+			break;
+	}
+
+	return ret;
+}
+
+static devops_t devops = {
+	.read = read,
+	.write = write,
+	.ioctl = ioctl
+};
 
 static int registerdesc(blockdesc_t *desc, char *name) {
 	MUTEX_ACQUIRE(&tablemutex, false);

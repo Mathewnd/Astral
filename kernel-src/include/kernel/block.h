@@ -7,6 +7,8 @@
 #define BLOCK_TYPE_DISK 0
 #define BLOCK_TYPE_PART 1
 
+#define BLOCK_IOCTL_GETDESC 0xb10ccd35c
+
 typedef struct {
 	void *private;
 	int type;
