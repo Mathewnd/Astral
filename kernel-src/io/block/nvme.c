@@ -10,6 +10,7 @@
 #include <event.h>
 #include <arch/cpu.h>
 #include <errno.h>
+#include <kernel/block.h>
 
 #define CC_ENABLE(cc) cc = (cc) | 1
 #define CC_DISABLE(cc) cc = (cc) & ~1
@@ -279,6 +280,7 @@ static void nvme_dpc(context_t *, dpcarg_t arg) {
 		event_signal(&pair->entries[subid]->event);
 
 		pair->entries[subid] = NULL;
+		semaphore_signal(&pair->entrysem);
 
 		++pair->completion.index;
 		pair->completion.index %= pair->completion.entrycount;
@@ -544,6 +546,14 @@ static int rwblocks(nvmenamespace_t *namespace, void *buffer, uintmax_t lba, siz
 	return err;
 }
 
+static int read(void *private, void *buffer, uintmax_t lba, size_t count) {
+	return rwblocks(private, buffer, lba, count, false, false);
+}
+
+static int write(void *private, void *buffer, uintmax_t lba, size_t count) {
+	return rwblocks(private, buffer, lba, count, true, false);
+}
+
 static void initnamespace(nvmecontroller_t *controller, int id) {
 	namespaceid_t *namespaceid = alloc(IDENTIFY_SIZE);
 	__assert(namespaceid);
@@ -564,7 +574,17 @@ static void initnamespace(nvmecontroller_t *controller, int id) {
 	char name[10];
 	snprintf(name, 10, "nvme%lun%lu", controller->id, id);
 
-	// register to the outside
+	blockdesc_t desc = {
+		.private = namespace,
+		.type = BLOCK_TYPE_DISK,
+		.lbaoffset = 0,
+		.blockcapacity = namespace->capacity,
+		.blocksize = namespace->blocksize,
+		.read = read,
+		.write = write
+	};
+
+	block_register(&desc, name);
 
 	free(namespaceid);
 }
