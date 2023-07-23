@@ -98,10 +98,26 @@ typedef struct vops_t {
 	int (*resize)(vnode_t *node, size_t newsize, cred_t *cred);
 } vops_t;
 
+#define VFS_INIT(v, o, f) \
+	(v)->next = NULL; \
+	(v)->ops = o; \
+	(v)->nodecovered = NULL; \
+	(v)->root = NULL; \
+	(v)->flags = f;
+
 #define VFS_MOUNT(vfs, mp, b, d) (vfs)->ops->mount(vfs, mp, b, d)
 #define VFS_UNMOUNT(vfs) (vfs)->ops->unmount(vfs)
 #define VFS_ROOT(vfs, r) (vfs)->ops->root(vfs, r)
 #define VFS_SYNC(vfs) (vfs)->ops->sync(vfs)
+
+#define VOP_INIT(vn, o, f, t, v) \
+	(vn)->ops = o; \
+	SPINLOCK_INIT((vn)->lock); \
+	(vn)->refcount = 1; \
+	(vn)->flags = f; \
+	(vn)->type = t; \
+	(vn)->vfs = v; \
+	(vn)->vfsmounted = NULL; 
 
 #define VOP_LOCK(v) spinlock_acquire(&(v)->lock)
 #define VOP_UNLOCK(v) spinlock_release(&(v)->lock)
@@ -130,7 +146,7 @@ typedef struct vops_t {
 #define VOP_RELEASE(v) {\
 		if (__atomic_sub_fetch(&(v)->refcount, 1, __ATOMIC_SEQ_CST) == 0) {\
 			(v)->ops->inactive(v); \
-			v = NULL; \
+			(v) = NULL; \
 		} \
 	}
 

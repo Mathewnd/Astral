@@ -438,7 +438,7 @@ static int createiosubqueue(nvmecontroller_t *controller, queuedesc_t *desc, siz
 	entrypair_t pair = {0};
 	PAIR_INIT(&pair, SUB_DW0_OPCODE_CREATEIOSUBQUEUE, SUB_DW0_UNFUSED, SUB_DW0_PRP, 0);
 
-	size_t size = entrycount * sizeof(compentry_t);
+	size_t size = entrycount * sizeof(subentry_t);
 	size_t pagesize = ROUND_UP(size, PAGE_SIZE) / PAGE_SIZE;
 
 	void *queuepages = pmm_alloc(pagesize, PMM_SECTION_DEFAULT);
