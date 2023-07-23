@@ -7,16 +7,31 @@
 // ptr: data capacity (allocsizes size)
 // ptr + sizeof(size_t): current size
 // ptr + sizeof(size_t) * 2: data
+// ptr + datasize: poison value
 
+#define USE_POISON 0
+#define POISON_VALUE 0xdeadbeefbadc0ffel
 #define CACHE_COUNT 12
+
+#define CAPACITY_SIZE(cache) cache->size - sizeof(size_t) * 2 - USE_POISON * sizeof(size_t)
 
 static size_t allocsizes[CACHE_COUNT] = {32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536};
 static scache_t *caches[CACHE_COUNT];
 
 static void initarea(scache_t *cache, void *obj) {
 	size_t *ptr = obj;
-	*ptr = cache->size - sizeof(size_t) * 2;
+	*ptr = CAPACITY_SIZE(cache);
 	memset(ptr + 2, 0, *ptr);
+	#if USE_POISON == 1
+	*((size_t *)((uintptr_t)obj + cache->size - sizeof(size_t))) = POISON_VALUE;
+	#endif
+}
+
+static void dtor(scache_t *cache, void *obj) {
+#if USE_POISON == 1
+	__assert(*(size_t *)((uintptr_t)obj + cache->size - sizeof(size_t)) == POISON_VALUE);
+#endif
+	initarea(cache, obj);
 }
 
 static scache_t *getcachefromsize(size_t size) {
@@ -34,9 +49,10 @@ static scache_t *getcachefromsize(size_t size) {
 void *alloc(size_t size) {
 	scache_t *cache = getcachefromsize(size);
 	size_t *ret = slab_allocate(cache);
-	*(ret + 1) = size;
 	if (ret == NULL)
 		return NULL;
+	__assert(*ret == CAPACITY_SIZE(cache));
+	*(ret + 1) = size;
 	return ret + 2;
 }
 
@@ -81,7 +97,7 @@ void *realloc(void *ptr, size_t size) {
 
 void alloc_init() {
 	for (int i = 0; i < CACHE_COUNT; ++i) {
-		caches[i] = slab_newcache(allocsizes[i] + sizeof(size_t) * 2, 0, initarea, initarea);
+		caches[i] = slab_newcache(allocsizes[i] + sizeof(size_t) * 2 + sizeof(size_t) * USE_POISON, 0, initarea, dtor);
 		__assert(caches[i]);
 	}
 }

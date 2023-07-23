@@ -42,6 +42,16 @@ static inline void bmset(void *addr, uint64_t v) {
 	bitmap[entry] = entryval;
 }
 
+static inline bool bmget(void *addr) {
+	uintmax_t page = (uintptr_t)addr / PAGE_SIZE;
+	uintmax_t entry = page / 64;
+	uintmax_t offset = page % 64;
+
+	uint64_t entryval = bitmap[entry];
+	entryval &= ((uint64_t)1 << offset);
+	return entryval;
+}
+
 static uintmax_t getfreearea(bmsection_t *section, size_t size) {
 	uintmax_t result = 0;
 	uintmax_t found = 0;
@@ -112,8 +122,10 @@ void pmm_free(void *addr, size_t size) {
 			if ((uintptr_t)addr / PAGE_SIZE < bmsections[i].searchstart)
 				bmsections[i].searchstart = (uintptr_t)addr / PAGE_SIZE;
 
-			for (uintmax_t j = 0; j < size; ++j)
+			for (uintmax_t j = 0; j < size; ++j) {
+				__assert(bmget((void *)((page + j) * PAGE_SIZE)) == false);
 				bmset((void *)((page + j) * PAGE_SIZE), 1);
+			}
 
 			spinlock_release(&bmsections[i].lock);
 			__atomic_sub_fetch(&used, 1, __ATOMIC_SEQ_CST);

@@ -87,10 +87,10 @@ static void *takeobject(scache_t *cache, slab_t *slab) {
 	if (cache->size < SLAB_INDIRECT_CUTOFF) {
 		void *addr = (void *)objend;
 		void *base = (void *)ROUND_DOWN((uintptr_t)slab, PAGE_SIZE);
-		__assert(addr > base && addr < (void *)slab);
+		__assert(addr >= base && addr < (void *)slab);
 	} else {
 		void *addr = slab->base + ((uintptr_t)objend - ROUND_DOWN((uintptr_t)slab, PAGE_SIZE)) / sizeof(void **) * cache->truesize;
-		__assert(addr > slab->base && (uintptr_t)addr < (uintptr_t)slab->base + cache->slabobjcount * cache->truesize);
+		__assert(addr >= slab->base && (uintptr_t)addr < (uintptr_t)slab->base + cache->slabobjcount * cache->truesize);
 	}
 #endif
 
