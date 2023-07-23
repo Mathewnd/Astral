@@ -527,6 +527,76 @@ static int ext2_getdents(vnode_t *vnode, dent_t *buffer, size_t count, uintmax_t
 	return err;
 }
 
+static int ext2_access(vnode_t *vnode, mode_t mode, cred_t *cred) {
+	// TODO permission checks
+	return 0;
+}
+
+static int ext2_readlink(vnode_t *vnode, char **link, cred_t *cred) {
+	ext2node_t *node = (ext2node_t *)vnode;
+	ext2fs_t *fs = (ext2fs_t *)vnode->vfs;
+	if (vnode->type != V_TYPE_LINK)
+		return EINVAL;
+
+	VOP_LOCK(vnode);
+	int err = 0;
+
+	size_t linksize = INODE_SIZE(&node->inode);
+	char *buf = alloc(linksize + 1);
+
+	// if the length of a symlink is larger than 60 bytes, its stored normally
+	// otherwise, its stored in the inode strucutre itself
+	if (linksize > 60)
+		err = rwbytes(fs, node, buf, linksize, 0, false);
+	else
+		memcpy(buf, node->inode.directpointer, linksize);
+
+	buf[linksize] = '\0';
+
+	VOP_UNLOCK(vnode);
+	if (err)
+		free(buf);
+	else
+		*link = buf;
+
+	return err;
+}
+
+static int ext2_read(vnode_t *vnode, void *buffer, size_t size, uintmax_t offset, int flags, size_t *readc, cred_t *cred) {
+	ext2node_t *node = (ext2node_t *)vnode;
+	ext2fs_t *fs = (ext2fs_t *)vnode->vfs;
+	uintmax_t endoffset = offset + size;
+	int err = 0;
+	VOP_LOCK(vnode);
+
+	size_t inodesize = INODE_SIZE(&node->inode);
+
+	if (offset >= inodesize) {
+		*readc = 0;
+		goto cleanup;
+	}
+
+	// check for overflow
+	if (offset > endoffset)
+		endoffset = -1ll;
+
+	if (endoffset > inodesize) {
+		endoffset = inodesize;
+		size = endoffset - offset;
+	}
+
+	if (size == 0)
+		goto cleanup;
+
+	err = rwbytes(fs, node, buffer, size, offset, false);
+
+	*readc = err ? -1 : size;
+
+	cleanup:
+	VOP_UNLOCK(vnode);
+	return err;
+}
+
 // TODO move root variable to vfs
 static int ext2_root(vfs_t *vfs, vnode_t **vnodep) {
 	ext2fs_t *fs = (ext2fs_t *)vfs;
@@ -639,13 +709,29 @@ static vfsops_t vfsops = {
 	.root = ext2_root
 };
 
+	/*
+	int (*write)(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int flags, size_t *writec, cred_t *cred);
+	int (*create)(vnode_t *parent, char *name, vattr_t *attr, int type, vnode_t **result, cred_t *cred);
+	int (*unlink)(vnode_t *node, char *name, cred_t *cred);
+	int (*link)(vnode_t *node, vnode_t *dir, char *name, cred_t *cred);
+	int (*symlink)(vnode_t *parent, char *name, vattr_t *attr, char *path, cred_t *cred);
+	int (*inactive)(vnode_t *node);
+	int (*mmap)(vnode_t *node, void *addr, uintmax_t offset, int flags, cred_t *cred);
+	int (*munmap)(vnode_t *node, void *addr, uintmax_t offset, int flags, cred_t *cred);
+	int (*resize)(vnode_t *node, size_t newsize, cred_t *cred);
+	*/
+
 static vops_t vnops = {
+	.read = ext2_read,
 	.getdents = ext2_getdents,
 	.lookup = ext2_lookup,
 	.getattr = ext2_getattr,
 	.setattr = ext2_setattr,
 	.open = ext2_open,
-	.close = ext2_close
+	.close = ext2_close,
+	.poll = vfs_pollstub,
+	.access = ext2_access,
+	.readlink = ext2_readlink
 };
 
 void ext2_init() {

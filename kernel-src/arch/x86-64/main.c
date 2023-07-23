@@ -28,6 +28,7 @@
 #include <kernel/pci.h>
 #include <kernel/nvme.h>
 #include <kernel/block.h>
+#include <kernel/ext2.h>
 
 static cpu_t bsp_cpu;
 
@@ -56,6 +57,7 @@ void kernel_entry() {
 	tmpfs_init();
 	devfs_init();
 	pipefs_init();
+	ext2_init();
 	printf("mounting tmpfs on /\n");
 	__assert(vfs_mount(NULL, vfsroot, "/", "tmpfs", NULL) == 0);
 	initrd_unpack();
