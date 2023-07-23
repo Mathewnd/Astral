@@ -19,6 +19,11 @@ syscallret_t syscall_openat(context_t *context, int dirfd, const char *path, int
 
 	size_t pathsize = strlen(path); // TODO u_strlen
 	char *pathbuf = alloc(pathsize + 1);
+	if (pathbuf == NULL) {
+		ret.errno = ENOMEM;
+		return ret;
+	}
+
 	strcpy(pathbuf, path); // TODO u_strcpy
 
 	ret.errno = dirfd_enter(pathbuf, dirfd, &dirfile, &dirnode);
