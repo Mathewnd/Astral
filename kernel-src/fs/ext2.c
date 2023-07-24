@@ -145,9 +145,11 @@ typedef struct {
 
 typedef uint32_t blockptr_t;
 
+#define GROUP_GETINODE(fs, x) ((x) * (fs)->superblock.inodespergroup + 1)
 #define GROUP_GETBLOCK(fs, x) ((x) * (fs)->superblock.blockspergroup + (fs)->superblock.superblockstart)
 #define BLOCK_GETDISKOFFSET(fs, x) ((fs)->blocksize * (x))
 #define BLOCK_GETGROUP(fs, x) (((x) - (fs)->superblock.superblockstart) / (fs)->superblock.blockspergroup)
+#define BLOCK_GETINDEX(fs, x) (((x) - (fs)->superblock.superblockstart) % (fs)->superblock.blockspergroup)
 #define INODE_GETGROUP(fs, x) (((x) - 1) / (fs)->superblock.inodespergroup)
 #define INODE_GETINDEX(fs, x) (((x) - 1) % (fs)->superblock.inodespergroup)
 #define INODE_GETDISKOFFSET(fs, table, x) ((table) + INODE_GETINDEX(fs, x) * (fs)->superblock.inodesize)
@@ -170,32 +172,36 @@ static int syncsuperblock(ext2fs_t *fs) {
 	return vfs_write(fs->backing, &fs->superblock, sizeof(ext2superblock_t), SUPERBLOCK_OFFSET, &tmp, 0);
 }
 
-static int allocateblock(ext2fs_t *fs, uintmax_t *block) {
+// allocates either a block or an inode
+static int allocatestructure(ext2fs_t *fs, uintmax_t *retid, bool inode) {
 	MUTEX_ACQUIRE(&fs->descriptorlock, false);
-	uintmax_t bg = fs->lowestfreeblockbg;
+	uintmax_t bg = inode ? fs->lowestfreeinodebg : fs->lowestfreeblockbg;
 
 	int e = 0;
 	blockgroupdesc_t desc;
 
 	// safe to check outside of the superblock lock, as nothing that doesn't already
 	// hold the descriptorlock would change this variable
-	if (fs->superblock.unallocatedblocks == 0) {
+	if (inode ? fs->superblock.unallocatedinodes == 0 : fs->superblock.unallocatedblocks == 0) {
 		e = ENOSPC;
 		goto cleanup;
 	}
 
-	// iterate through block groups to find one with a free descriptor
+	// iterate through block groups to find one with free structures
 	for (; bg < fs->bgcount; ++bg) {
 		size_t readc;
 		e = vfs_read(fs->backing, &desc, sizeof(blockgroupdesc_t), DESC_GETDISKOFFSET(fs, bg), &readc, 0);
 		if (e)
 			goto cleanup;
 
-		if (desc.freeblocks)
+		if (inode ? desc.freeinodes : desc.freeblocks)
 			break;
 	}
 
-	fs->lowestfreeblockbg = bg;
+	if (inode)
+		fs->lowestfreeinodebg = bg;
+	else
+		fs->lowestfreeblockbg = bg;
 
 	if (bg == fs->bgcount) {
 		e = ENOSPC;
@@ -203,58 +209,141 @@ static int allocateblock(ext2fs_t *fs, uintmax_t *block) {
 	}
 
 	// XXX maybe it shouldn't be assumed this will always be a power of 2?
-	size_t bmsize = fs->superblock.blockspergroup / 8;
+	size_t bmsize = (inode ? fs->superblock.inodespergroup : fs->superblock.blockspergroup) / 8;
 	uint8_t *bm = alloc(bmsize);
 	if (bm == NULL) {
 		e = ENOMEM;
-		goto cleanup;;
+		goto cleanup;
 	}
 
 	// read bitmap into buffer
 	size_t readc;
-	e = vfs_read(fs->backing, bm, bmsize, BLOCK_GETDISKOFFSET(fs, desc.blockbitmap), &readc, 0);
+	e = vfs_read(fs->backing, bm, bmsize, BLOCK_GETDISKOFFSET(fs, inode ? desc.inodebitmap : desc.blockbitmap), &readc, 0);
 	if (e)
 		goto cleanup;
 
-	uintmax_t blockfound = 0;
+	uintmax_t structurefound = 0;
 	int i;
 	// find free block in it
 	for (i = 0; i < bmsize; ++i) {
 		// in ext2, a 1 means an used entry and a 0 means a free entry.
-		// this is bad for iterating and finding free blocks and getting a free block using __builtin_ctz
+		// this is bad for iterating and finding free structures and getting a free structure using __builtin_ctz
 		// therefore we do a logical NOT in it. now 0 means an used entry and 1 means a free entry.
 		uint8_t v = ~bm[i];
 		if (v) {
 			int offset = __builtin_ctz(v);
 			bm[i] |= 1 << offset; //set as used
-			blockfound = GROUP_GETBLOCK(fs, bg) + i * 8 + offset;
+			structurefound = (inode ? GROUP_GETINODE(fs, bg) : GROUP_GETBLOCK(fs, bg)) + i * 8 + offset;
 			break;
 		}
 	}
 
-	__assert(blockfound);
+	__assert(structurefound);
 
 	// sync bitmap back into disk
 	size_t writec;
-	e = vfs_write(fs->backing, bm, bmsize, BLOCK_GETDISKOFFSET(fs, desc.blockbitmap), &writec, 0);
+	e = vfs_write(fs->backing, bm, bmsize, BLOCK_GETDISKOFFSET(fs, inode ? desc.inodebitmap : desc.blockbitmap), &writec, 0);
 	if (e)
 		goto cleanup;
 
-	// update block group desc free block count
+	// update block group desc free structure count
 	// TODO if an error happens here, the filesystem should probably be marked to be in an unclean state.
-	--desc.freeblocks;
+	if (inode)
+		desc.freeinodes -= 1;
+	else
+		desc.freeblocks -= 1;
+
 	e = vfs_write(fs->backing, &desc, sizeof(blockgroupdesc_t), DESC_GETDISKOFFSET(fs, bg), &writec, 0);
 	if (e)
 		goto cleanup;
 
-	if (desc.freeblocks == 0)
-		++fs->lowestfreeblockbg;
+	// update lowest free block group if there are no more free structures in the current one
+	if ((inode ? desc.freeinodes : desc.freeblocks) == 0) {
+		if (inode)
+			fs->lowestfreeinodebg += 1;
+		else
+			fs->lowestfreeblockbg += 1;
+	}
 
-	*block = blockfound;
+	*retid = structurefound;
 
-	// update superblock unallocated block count
+	// update superblock unallocated structure count
 	MUTEX_ACQUIRE(&fs->superblocklock, false);
-	--fs->superblock.unallocatedblocks;
+	if (inode)
+		fs->superblock.unallocatedinodes -= 1;
+	else
+		fs->superblock.unallocatedblocks -= 1;
+	e = syncsuperblock(fs);
+	MUTEX_RELEASE(&fs->superblocklock);
+
+	cleanup:
+	MUTEX_RELEASE(&fs->descriptorlock);
+	return e;
+}
+
+// frees a block or an inode
+static int freestructure(ext2fs_t *fs, uintmax_t id, bool inode) {
+	int e = 0;
+	int bg = inode ? INODE_GETGROUP(fs, id) : BLOCK_GETGROUP(fs, id);
+	MUTEX_ACQUIRE(&fs->descriptorlock, false);
+
+	blockgroupdesc_t desc;
+	size_t readc;
+	e = vfs_read(fs->backing, &desc, sizeof(blockgroupdesc_t), DESC_GETDISKOFFSET(fs, bg), &readc, 0);
+	if (e)
+		goto cleanup;
+
+	// XXX maybe it shouldn't be assumed this will always be a power of 2?
+	size_t bmsize = (inode ? fs->superblock.inodespergroup : fs->superblock.blockspergroup) / 8;
+	uint8_t *bm = alloc(bmsize);
+	if (bm == NULL) {
+		e = ENOMEM;
+		goto cleanup;
+	}
+
+	// read bitmap into buffer
+	e = vfs_read(fs->backing, bm, bmsize, BLOCK_GETDISKOFFSET(fs, inode ? desc.inodebitmap : desc.blockbitmap), &readc, 0);
+	if (e)
+		goto cleanup;
+
+	int index = inode ? INODE_GETINDEX(fs, id) : BLOCK_GETINDEX(fs, id);
+	int bmoffset = index / 8;
+	int bmindex = index % 8;
+
+	// 0 means free
+	bm[bmoffset] &= ~(1 << bmindex);
+
+	// sync bitmap back into disk
+	size_t writec;
+	e = vfs_write(fs->backing, bm, bmsize, BLOCK_GETDISKOFFSET(fs, inode ? desc.inodebitmap : desc.blockbitmap), &writec, 0);
+	if (e)
+		goto cleanup;
+
+	// update block group desc free structure count
+	// TODO if an error happens here, the filesystem should probably be marked to be in an unclean state.
+	if (inode)
+		desc.freeinodes += 1;
+	else
+		desc.freeblocks += 1;
+
+	e = vfs_write(fs->backing, &desc, sizeof(blockgroupdesc_t), DESC_GETDISKOFFSET(fs, bg), &writec, 0);
+	if (e)
+		goto cleanup;
+
+	// update lowest free block group if block group is lower
+	if (bg < (inode ? fs->lowestfreeinodebg : fs->lowestfreeblockbg)) {
+		if (inode)
+			fs->lowestfreeinodebg = bg;
+		else
+			fs->lowestfreeblockbg = bg;
+	}
+
+	// update superblock unallocated structure count
+	MUTEX_ACQUIRE(&fs->superblocklock, false);
+	if (inode)
+		fs->superblock.unallocatedinodes += 1;
+	else
+		fs->superblock.unallocatedblocks += 1;
 	e = syncsuperblock(fs);
 	MUTEX_RELEASE(&fs->superblocklock);
 
@@ -609,7 +698,7 @@ static int ext2_getdents(vnode_t *vnode, dent_t *buffer, size_t count, uintmax_t
 			buffer[i].d_type = vfs_getposixtype(ext2denttovfstypetable[dent->type]);
 			memcpy(buffer[i].d_name, dent->name, dent->namelen);
 			buffer[i].d_name[dent->namelen] = '\0';
-			++i;
+			i += 1;
 		}
 
 		offset += dent->size;
@@ -794,7 +883,7 @@ static int ext2_mount(vfs_t **vfs, vnode_t *mountpoint, vnode_t *backing, void *
 		goto cleanup;
 
 	VFS_INIT(&fs->vfs, &vfsops, 0);
-	++fs->superblock.mountsaftercheck;
+	fs->superblock.mountsaftercheck += 1;
 	fs->superblock.timeoflastmount = timekeeper_time().s;
 	fs->backing = backing;
 	err = syncsuperblock(fs);
