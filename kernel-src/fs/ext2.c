@@ -129,17 +129,23 @@ typedef struct {
 typedef struct {
 	vfs_t vfs;
 	ext2superblock_t superblock;
-	mutex_t superblocklock;
 	vnode_t *backing;
 	size_t blocksize;
-	mutex_t rootlock;
+	size_t bgcount;
 	ext2node_t *root;
-	mutex_t inodetablelock;
-	hashtable_t inodetable;
+	hashtable_t inodetable; // hashtable of in memory inodes (indexed with inode id)
+	uintmax_t lowestfreeinodebg;
+	uintmax_t lowestfreeblockbg;
+	mutex_t rootlock; // protects the root variable
+	mutex_t inodetablelock; // protects the inodetable hashtable
+	mutex_t superblocklock; // protects the superblock
+	mutex_t descriptorlock; // protects the block group descriptor table and related structures like the bitmaps. also protects the lowestfree*bg variables
+	mutex_t inodewritelock; // protects on disk inode tables
 } ext2fs_t;
 
 typedef uint32_t blockptr_t;
 
+#define GROUP_GETBLOCK(fs, x) ((x) * (fs)->superblock.blockspergroup + (fs)->superblock.superblockstart)
 #define BLOCK_GETDISKOFFSET(fs, x) ((fs)->blocksize * (x))
 #define BLOCK_GETGROUP(fs, x) (((x) - (fs)->superblock.superblockstart) / (fs)->superblock.blockspergroup)
 #define INODE_GETGROUP(fs, x) (((x) - 1) / (fs)->superblock.inodespergroup)
@@ -161,14 +167,104 @@ static scache_t *nodecache;
 
 static int syncsuperblock(ext2fs_t *fs) {
 	size_t tmp;
+	return vfs_write(fs->backing, &fs->superblock, sizeof(ext2superblock_t), SUPERBLOCK_OFFSET, &tmp, 0);
+}
+
+static int allocateblock(ext2fs_t *fs, uintmax_t *block) {
+	MUTEX_ACQUIRE(&fs->descriptorlock, false);
+	uintmax_t bg = fs->lowestfreeblockbg;
+
+	int e = 0;
+	blockgroupdesc_t desc;
+
+	// safe to check outside of the superblock lock, as nothing that doesn't already
+	// hold the descriptorlock would change this variable
+	if (fs->superblock.unallocatedblocks == 0) {
+		e = ENOSPC;
+		goto cleanup;
+	}
+
+	// iterate through block groups to find one with a free descriptor
+	for (; bg < fs->bgcount; ++bg) {
+		size_t readc;
+		e = vfs_read(fs->backing, &desc, sizeof(blockgroupdesc_t), DESC_GETDISKOFFSET(fs, bg), &readc, 0);
+		if (e)
+			goto cleanup;
+
+		if (desc.freeblocks)
+			break;
+	}
+
+	fs->lowestfreeblockbg = bg;
+
+	if (bg == fs->bgcount) {
+		e = ENOSPC;
+		goto cleanup;
+	}
+
+	// XXX maybe it shouldn't be assumed this will always be a power of 2?
+	size_t bmsize = fs->superblock.blockspergroup / 8;
+	uint8_t *bm = alloc(bmsize);
+	if (bm == NULL) {
+		e = ENOMEM;
+		goto cleanup;;
+	}
+
+	// read bitmap into buffer
+	size_t readc;
+	e = vfs_read(fs->backing, bm, bmsize, BLOCK_GETDISKOFFSET(fs, desc.blockbitmap), &readc, 0);
+	if (e)
+		goto cleanup;
+
+	uintmax_t blockfound = 0;
+	int i;
+	// find free block in it
+	for (i = 0; i < bmsize; ++i) {
+		// in ext2, a 1 means an used entry and a 0 means a free entry.
+		// this is bad for iterating and finding free blocks and getting a free block using __builtin_ctz
+		// therefore we do a logical NOT in it. now 0 means an used entry and 1 means a free entry.
+		uint8_t v = ~bm[i];
+		if (v) {
+			int offset = __builtin_ctz(v);
+			bm[i] |= 1 << offset; //set as used
+			blockfound = GROUP_GETBLOCK(fs, bg) + i * 8 + offset;
+			break;
+		}
+	}
+
+	__assert(blockfound);
+
+	// sync bitmap back into disk
+	size_t writec;
+	e = vfs_write(fs->backing, bm, bmsize, BLOCK_GETDISKOFFSET(fs, desc.blockbitmap), &writec, 0);
+	if (e)
+		goto cleanup;
+
+	// update block group desc free block count
+	// TODO if an error happens here, the filesystem should probably be marked to be in an unclean state.
+	--desc.freeblocks;
+	e = vfs_write(fs->backing, &desc, sizeof(blockgroupdesc_t), DESC_GETDISKOFFSET(fs, bg), &writec, 0);
+	if (e)
+		goto cleanup;
+
+	if (desc.freeblocks == 0)
+		++fs->lowestfreeblockbg;
+
+	*block = blockfound;
+
+	// update superblock unallocated block count
 	MUTEX_ACQUIRE(&fs->superblocklock, false);
-	int e = vfs_write(fs->backing, &fs->superblock, sizeof(ext2superblock_t), SUPERBLOCK_OFFSET, &tmp, 0);
+	--fs->superblock.unallocatedblocks;
+	e = syncsuperblock(fs);
 	MUTEX_RELEASE(&fs->superblocklock);
+
+	cleanup:
+	MUTEX_RELEASE(&fs->descriptorlock);
 	return e;
 }
 
 static int readinode(ext2fs_t *fs, inode_t *buffer, int inode) {
-	// get inode table offset
+	// get inode table offset. descriptor lock not held because the position of the table is fixed
 	blockgroupdesc_t desc;
 	size_t readc;
 	int e = vfs_read(fs->backing, &desc, sizeof(blockgroupdesc_t), DESC_GETDISKOFFSET(fs, INODE_GETGROUP(fs, inode)), &readc, 0);
@@ -178,7 +274,7 @@ static int readinode(ext2fs_t *fs, inode_t *buffer, int inode) {
 	if (readc != sizeof(blockgroupdesc_t))
 		return EIO;
 
-	// read inode into buffer
+	// read inode into buffer. inode table lock not held because not a writing operation and the inode lock is already held
 	e = vfs_read(fs->backing, buffer, sizeof(inode_t), INODE_GETDISKOFFSET(fs, BLOCK_GETDISKOFFSET(fs, desc.inodetable), inode), &readc, 0);
 	if (e)
 		return e;
@@ -190,7 +286,7 @@ static int readinode(ext2fs_t *fs, inode_t *buffer, int inode) {
 }
 
 static int writeinode(ext2fs_t *fs, inode_t *buffer, int inode) {
-	// get inode table offset
+	// get inode table offset. descriptor lock not held because the position of the table is fixed
 	blockgroupdesc_t desc;
 	size_t count;
 	int e = vfs_read(fs->backing, &desc, sizeof(blockgroupdesc_t), DESC_GETDISKOFFSET(fs, INODE_GETGROUP(fs, inode)), &count, 0);
@@ -200,8 +296,10 @@ static int writeinode(ext2fs_t *fs, inode_t *buffer, int inode) {
 	if (count != sizeof(blockgroupdesc_t))
 		return EIO;
 
+	MUTEX_ACQUIRE(&fs->inodewritelock, false);
 	// write inode from buffer
 	e = vfs_write(fs->backing, buffer, sizeof(inode_t), INODE_GETDISKOFFSET(fs, BLOCK_GETDISKOFFSET(fs, desc.inodetable), inode), &count, 0);
+	MUTEX_RELEASE(&fs->inodewritelock);
 	if (e)
 		return e;
 
@@ -645,6 +743,8 @@ static int ext2_mount(vfs_t **vfs, vnode_t *mountpoint, vnode_t *backing, void *
 	MUTEX_INIT(&fs->superblocklock);
 	MUTEX_INIT(&fs->inodetablelock);
 	MUTEX_INIT(&fs->rootlock);
+	MUTEX_INIT(&fs->inodewritelock);
+	MUTEX_INIT(&fs->descriptorlock);
 
 	// read superblock
 
@@ -671,6 +771,14 @@ static int ext2_mount(vfs_t **vfs, vnode_t *mountpoint, vnode_t *backing, void *
 		goto cleanup;
 	}
 
+	size_t inobgcount = ROUND_UP(fs->superblock.inodecount, fs->superblock.inodespergroup) / fs->superblock.inodespergroup;
+	size_t blkbgcount = ROUND_UP(fs->superblock.blockcount, fs->superblock.blockspergroup) / fs->superblock.blockspergroup;
+
+	if (inobgcount != blkbgcount) {
+		printf("ext2: block group count from inode count and block count differ\n");
+		goto cleanup;
+	}
+
 	// TODO features check
 
 	if (fs->superblock.mountsaftercheck == fs->superblock.maxmountsbeforecheck)
@@ -693,6 +801,7 @@ static int ext2_mount(vfs_t **vfs, vnode_t *mountpoint, vnode_t *backing, void *
 
 	VOP_HOLD(backing);
 
+	fs->bgcount = inobgcount;
 	fs->blocksize = 1024 << fs->superblock.blocksize;
 	*vfs = &fs->vfs;
 	err = 0;
