@@ -90,7 +90,7 @@ typedef struct {
 	uint32_t dtime;
 	uint16_t gid;
 	uint16_t links;
-	uint32_t physicalsectorcount;
+	uint32_t sectcount; // in 512 byte blocks
 	uint32_t flags;
 	uint32_t osvalue;
 	uint32_t directpointer[12];
@@ -116,6 +116,13 @@ typedef struct {
 #define INODE_TYPEPERM_PERM(x) ((x) & 0xfff)
 #define INODE_TYPEPERM_TYPE(x) (((x) >> 12) & 0xf)
 #define INODE_SIZE(x) (INODE_TYPEPERM_TYPE((x)->typeperm) == INODE_TYPE_DIR ? (x)->sizelow : (((uint64_t)(x)->sizehigh << 32) | (uint64_t)(x)->sizelow))
+#define INODE_SETSIZE(x, size) { \
+	(x)->sizelow = size & 0xffffffff; \
+	if (INODE_TYPEPERM_TYPE((x)->typeperm) != INODE_TYPE_DIR) \
+		(x)->sizehigh = (size >> 32) & 0xffffffff; \
+}
+
+#define INODE_SECTSIZE 512
 #define EXT2NODE_INIT(vn, vop, f, t, v, i) \
 	VOP_INIT(&(vn)->vnode, vop, f, t, v); \
 	(vn)->id = i;
@@ -153,6 +160,7 @@ typedef uint32_t blockptr_t;
 #define INODE_GETGROUP(fs, x) (((x) - 1) / (fs)->superblock.inodespergroup)
 #define INODE_GETINDEX(fs, x) (((x) - 1) % (fs)->superblock.inodespergroup)
 #define INODE_GETDISKOFFSET(fs, table, x) ((table) + INODE_GETINDEX(fs, x) * (fs)->superblock.inodesize)
+#define INODE_SECTSPERBLOCK(fs) ((fs)->blocksize / INODE_SECTSIZE)
 #define DESC_GETDISKOFFSET(fs, x) (BLOCK_GETDISKOFFSET(fs, (fs)->superblock.superblockstart + 1) + sizeof(blockgroupdesc_t) * (x))
 #define BLOCKS_IN_INDIRECT(fs) ((fs)->blocksize / sizeof(blockptr_t))
 
@@ -450,6 +458,206 @@ static int getinodeblock(ext2fs_t *fs, ext2node_t *node, uintmax_t index, blockp
 		return e;
 
 	return vfs_read(fs->backing, block, sizeof(blockptr_t), BLOCK_GETDISKOFFSET(fs, singlyptr) + singlyoffset, &readc, 0);
+}
+
+static int allocandset(ext2fs_t *fs, ext2node_t *node, uintmax_t setoffset, blockptr_t *newvalue) {
+	uintmax_t block = 0;
+	int e = allocatestructure(fs, &block, false);
+	if (e)
+		return e;
+	blockptr_t blockptr = block;
+	size_t writec;
+	e = vfs_write(fs->backing, &blockptr, sizeof(blockptr_t), setoffset, &writec, 0);
+	if (e) {
+		freestructure(fs, block, false); // TODO in case of error set filesystem as unclean?
+		return e;
+	}
+
+	node->inode.sectcount += INODE_SECTSPERBLOCK(fs);
+
+	return e;
+}
+
+static int inodeallocateindirect(ext2fs_t *fs, ext2node_t *node, int indirect) {
+	uintmax_t v;
+	int e = allocatestructure(fs, &v, false);
+	if (e)
+		return e;
+
+	switch (indirect) {
+		case 1:
+			node->inode.singlypointer = v;
+			break;
+		case 2:
+			node->inode.doublypointer = v;
+			break;
+		case 3:
+			node->inode.triplypointer = v;
+			break;
+	}
+
+	node->inode.sectcount += INODE_SECTSPERBLOCK(fs);
+
+	return e;
+}
+
+static int setinodeblock(ext2fs_t *fs, ext2node_t *node, uintmax_t index, blockptr_t block) {
+	// no indirection needed
+	size_t blocksinindirect = BLOCKS_IN_INDIRECT(fs);
+	bool usedirect = index < 12;
+	bool usesingly = false;
+	bool usedoubly = false;
+	bool usetriply = false;
+	uintmax_t singly = -1;
+	uintmax_t doubly = -1;
+	uintmax_t directindex = index;
+	uintmax_t singlyindex = -1;
+	uintmax_t doublyindex = -1;
+	uintmax_t triplyindex = -1;
+	uintmax_t singlyoffset = -1;
+	uintmax_t doublyoffset = -1;
+	uintmax_t triplyoffset = -1;
+
+	if (usedirect == false) {
+		index -= 12;
+		usesingly = true;
+		singly = index / blocksinindirect;
+		singlyindex = index % blocksinindirect;
+		singlyoffset = singlyindex * sizeof(blockptr_t);
+	}
+
+	if (usesingly && singly > 0) {
+		singly -= 1;
+		usedoubly = true;
+		doubly = singly / blocksinindirect;
+		doublyindex = singly % blocksinindirect;
+		doublyoffset = doublyindex * sizeof(blockptr_t);
+	}
+
+	if (usedoubly && doubly > 0) {
+		doubly -= 1;
+		usetriply = true;
+		triplyindex = doubly % blocksinindirect;
+		triplyoffset = triplyindex * sizeof(blockptr_t);
+	}
+
+	blockptr_t oldblock = 0;
+
+	if (usedirect) {
+		oldblock = node->inode.directpointer[directindex];
+		node->inode.directpointer[directindex] = block;
+	} else {
+		size_t count;
+		blockptr_t doublyptr;
+		blockptr_t singlyptr;
+
+		int e = 0;
+
+		// get doublyptr
+		if (usetriply && node->inode.triplypointer == 0) {
+			// allocate triply and doubly
+			e = inodeallocateindirect(fs, node, 3);
+			if (e)
+				return e;
+
+			e = allocandset(fs, node, BLOCK_GETDISKOFFSET(fs, node->inode.triplypointer) + triplyoffset, &doublyptr);
+			if (e)
+				return e;
+		} else if (usetriply) {
+			// use already allocated triply
+			uintmax_t offset = BLOCK_GETDISKOFFSET(fs, node->inode.triplypointer) + triplyoffset;
+			e = vfs_read(fs->backing, &doublyptr, sizeof(blockptr_t), offset, &count, 0);
+			if (e)
+				return e;
+
+			// allocate doubly if needed
+			if (doublyptr == 0)
+				e = allocandset(fs, node, offset, &doublyptr);
+			if (e)
+				return e;
+		} else {
+			// no triply used, allocate doubly if needed
+			if (node->inode.doublypointer == 0)
+				e = inodeallocateindirect(fs, node, 2);
+			if (e)
+				return e;
+
+			doublyptr = node->inode.doublypointer;
+		}
+
+		// doubly is guaranteed to be allocated
+		// get singlyptr
+		if (usedoubly) {
+			uintmax_t offset = BLOCK_GETDISKOFFSET(fs, doublyptr) + doublyoffset;
+			e = vfs_read(fs->backing, &singlyptr, sizeof(blockptr_t), offset, &count, 0);
+			if (e)
+				return e;
+
+			// allocate singly if needed
+			if (singlyptr == 0)
+				e = allocandset(fs, node, offset, &singlyptr);
+			if (e)
+				return e;
+		} else {
+			// no doubly used, allocate singly if needed
+			if (node->inode.singlypointer == 0)
+				e = inodeallocateindirect(fs, node, 1);
+			if (e)
+				return e;
+
+			singlyptr = node->inode.singlypointer;
+		}
+
+		// singly guaranteed to be allocated past this point
+		// read old block and set new block
+		uintmax_t offset = BLOCK_GETDISKOFFSET(fs, singlyptr) + singlyoffset;
+		e = vfs_read(fs->backing, &oldblock, sizeof(blockptr_t), offset, &count, 0);
+		if (e)
+			return e;
+		e = vfs_write(fs->backing, &block, sizeof(blockptr_t), offset, &count, 0);
+		if (e)
+			return e;
+	}
+
+	if (oldblock) {
+		node->inode.sectcount -= INODE_SECTSPERBLOCK(fs);
+		freestructure(fs, oldblock, false); // TODO set as unclean in case of error?
+	}
+
+	if (block)
+		node->inode.sectcount += INODE_SECTSPERBLOCK(fs);
+
+	return writeinode(fs, &node->inode, node->id); // TODO set fs as unclean if an error happened here?
+}
+
+static int resizeinode(ext2fs_t *fs, ext2node_t *node, size_t newsize) {
+	size_t newblockcount = ROUND_UP(newsize, fs->blocksize) / fs->blocksize;
+	size_t currentblockcount = ROUND_UP(INODE_SIZE(&node->inode), fs->blocksize) / fs->blocksize;
+
+	if (newblockcount > currentblockcount) {
+		// grow
+		for (int i = currentblockcount; i < newblockcount; ++i) {
+			uintmax_t newblock;
+			int e = allocatestructure(fs, &newblock, false);
+			if (e)
+				return e;
+			e = setinodeblock(fs, node, i, newblock);
+			if (e)
+				return e; // TODO set as unclean?
+		}
+	} else if (newblockcount < currentblockcount) {
+		// shrink
+		for (int i = newblockcount; i < currentblockcount; ++i) {
+			int e = setinodeblock(fs, node, i, 0);
+			if (e)
+				return e;
+		}
+	}
+
+	INODE_SETSIZE(&node->inode, newsize);
+
+	writeinode(fs, &node->inode, node->id); // TODO if error mark fs as unclean
+	return 0;
 }
 
 static int rwblocks(ext2fs_t *fs, ext2node_t *node, void *buffer, size_t count, uintmax_t index, bool write) {
@@ -784,6 +992,45 @@ static int ext2_read(vnode_t *vnode, void *buffer, size_t size, uintmax_t offset
 	return err;
 }
 
+int ext2_write(vnode_t *vnode, void *buffer, size_t size, uintmax_t offset, int flags, size_t *writec, cred_t *cred) {
+	ext2node_t *node = (ext2node_t *)vnode;
+	ext2fs_t *fs = (ext2fs_t *)vnode->vfs;
+	uintmax_t endoffset = offset + size;
+	VOP_LOCK(vnode);
+	int err = 0;
+	size_t inodesize = INODE_SIZE(&node->inode);
+
+	// overflow check
+	if (offset > endoffset)
+		endoffset = -1ll;
+
+	if (endoffset > inodesize) {
+		err = resizeinode(fs, node, endoffset);
+		if (err)
+			goto cleanup;
+	}
+
+	err = rwbytes(fs, node, buffer, size, offset, true);
+	*writec = err ? -1 : size;
+	if (err)
+		goto cleanup;
+
+	// TODO mtime
+
+	cleanup:
+	VOP_UNLOCK(vnode);
+	return err;
+}
+
+int ext2_resize(vnode_t *vnode, size_t newsize, cred_t *cred) {
+	ext2node_t *node = (ext2node_t *)vnode;
+	ext2fs_t *fs = (ext2fs_t *)vnode->vfs;
+	VOP_LOCK(vnode);
+	int e = resizeinode(fs, node, newsize);
+	VOP_UNLOCK(vnode);
+	return e;
+}
+
 // TODO move root variable to vfs
 static int ext2_root(vfs_t *vfs, vnode_t **vnodep) {
 	ext2fs_t *fs = (ext2fs_t *)vfs;
@@ -908,7 +1155,6 @@ static vfsops_t vfsops = {
 };
 
 	/*
-	int (*write)(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int flags, size_t *writec, cred_t *cred);
 	int (*create)(vnode_t *parent, char *name, vattr_t *attr, int type, vnode_t **result, cred_t *cred);
 	int (*unlink)(vnode_t *node, char *name, cred_t *cred);
 	int (*link)(vnode_t *node, vnode_t *dir, char *name, cred_t *cred);
@@ -916,10 +1162,10 @@ static vfsops_t vfsops = {
 	int (*inactive)(vnode_t *node);
 	int (*mmap)(vnode_t *node, void *addr, uintmax_t offset, int flags, cred_t *cred);
 	int (*munmap)(vnode_t *node, void *addr, uintmax_t offset, int flags, cred_t *cred);
-	int (*resize)(vnode_t *node, size_t newsize, cred_t *cred);
 	*/
 
 static vops_t vnops = {
+	.write = ext2_write,
 	.read = ext2_read,
 	.getdents = ext2_getdents,
 	.lookup = ext2_lookup,
@@ -929,7 +1175,8 @@ static vops_t vnops = {
 	.close = ext2_close,
 	.poll = vfs_pollstub,
 	.access = ext2_access,
-	.readlink = ext2_readlink
+	.readlink = ext2_readlink,
+	.resize = ext2_resize
 };
 
 void ext2_init() {
