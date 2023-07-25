@@ -9,7 +9,7 @@
 
 static devnode_t *devfsroot;
 
-static spinlock_t tablelock;
+static mutex_t tablelock;
 static hashtable_t devtable;
 static hashtable_t nametable;
 
@@ -94,7 +94,9 @@ int devfs_lookup(vnode_t *node, char *name, vnode_t **result, cred_t *cred) {
 
 	void *v;
 	VOP_LOCK(node);
+	MUTEX_ACQUIRE(&tablelock, false);
 	int error = hashtable_get(&nametable, &v, name, strlen(name));
+	MUTEX_RELEASE(&tablelock);
 	if (error) {
 		VOP_UNLOCK(node);
 		return error;
@@ -339,7 +341,7 @@ void devfs_init() {
 	__assert(hashtable_init(&devtable, 50) == 0);
 	__assert(hashtable_init(&nametable, 50) == 0);
 	nodecache = slab_newcache(sizeof(devnode_t), 0, ctor, ctor);
-	SPINLOCK_INIT(tablelock);
+	MUTEX_INIT(&tablelock);
 	__assert(nodecache);
 
 	devfsroot = slab_allocate(nodecache);
@@ -350,6 +352,23 @@ void devfs_init() {
 	__assert(hashtable_set(&nametable, devfsroot, ".", 1, true) == 0);
 }
 
+int devfs_getbyname(char *name, vnode_t **ret) {
+	void *v;
+	MUTEX_ACQUIRE(&tablelock, false);
+	int error = hashtable_get(&nametable, &v, name, strlen(name));
+	if (error)
+		goto cleanup;
+
+	vnode_t *node = v;
+
+	VOP_HOLD(node);
+
+	*ret = node;
+
+	cleanup:
+	MUTEX_RELEASE(&tablelock);
+	return error;
+}
 // register new device 
 int devfs_register(devops_t *devops, char *name, int type, int major, int minor, mode_t mode) {
 	__assert(type == V_TYPE_CHDEV || type == V_TYPE_BLKDEV);
@@ -361,9 +380,9 @@ int devfs_register(devops_t *devops, char *name, int type, int major, int minor,
 
 	int key[2] = {major, minor};
 
-	spinlock_acquire(&tablelock);
+	MUTEX_ACQUIRE(&tablelock, false);
 	int error = hashtable_set(&devtable, master, key, sizeof(key), true);
-	spinlock_release(&tablelock);
+	MUTEX_RELEASE(&tablelock);
 	if (error) {
 		slab_free(nodecache, master);
 		return error;
@@ -378,9 +397,9 @@ int devfs_register(devops_t *devops, char *name, int type, int major, int minor,
 
 	error = vfs_create((vnode_t *)devfsroot, name, &attr, type, &newvnode);
 	if (error) {
-		spinlock_acquire(&tablelock);
+		MUTEX_ACQUIRE(&tablelock, false);
 		__assert(hashtable_remove(&devtable, key, sizeof(key) == 0));
-		spinlock_release(&tablelock);
+		MUTEX_RELEASE(&tablelock);
 		slab_free(nodecache, master);
 		return error;
 	}
@@ -396,10 +415,10 @@ int devfs_register(devops_t *devops, char *name, int type, int major, int minor,
 // allocate a pointer node to the master node associated with device major and minor
 int devfs_getnode(vnode_t *physical, int major, int minor, vnode_t **node) {
 	int key[2] = {major, minor};
-	spinlock_acquire(&tablelock);
+	MUTEX_ACQUIRE(&tablelock, false);
 	void *r;
 	int err = hashtable_get(&devtable, &r, key, sizeof(key));
-	spinlock_release(&tablelock);
+	MUTEX_RELEASE(&tablelock);
 	if (err)
 		return err == ENOENT ? ENXIO : err;
 

@@ -84,6 +84,7 @@ static int tmpfs_getattr(vnode_t *node, vattr_t *attr, cred_t *cred) {
 	VOP_LOCK(node);
 	tmpfsnode_t *tmpnode = (tmpfsnode_t *)node;
 	*attr = tmpnode->attr;
+	attr->blocksused = node->type == V_TYPE_DIR ? 1 : tmpnode->pagecount;
 	VOP_UNLOCK(node);
 	return 0;
 }
@@ -315,6 +316,9 @@ static int tmpfs_unlink(vnode_t *node, char *name, cred_t *cred) {
 }
 
 static int tmpfs_link(vnode_t *node, vnode_t *dir, char *name, cred_t *cred) {
+	if (node->vfs != dir->vfs)
+		return EXDEV;
+
 	if (dir->type != V_TYPE_DIR)
 		return ENOTDIR;
 
