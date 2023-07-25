@@ -8,6 +8,11 @@ int main() {
 	printf("init: Welcome to Astral!\n");
 
 	struct passwd* pw = getpwuid(getuid());
+	if (pw == NULL) {
+		perror("init: failed to open /etc/passwd");
+		return EXIT_FAILURE;
+	}
+
 	if (chdir(pw->pw_dir) == -1) {
 		perror("init: chdir to user home directory failed");
 		return EXIT_FAILURE;
