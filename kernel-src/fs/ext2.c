@@ -112,7 +112,8 @@ typedef struct {
 #define INODE_TYPE_SYMLINK 0xa
 #define INODE_TYPE_SOCKET 0xc
 
-#define INODE_TYPEPERM_SETPERM(typeperm, x) typeperm = ((typeperm) & ~0xfff) | ((x) & 0xfff)
+#define INODE_TYPEPERM_SETTYPE(typeperm, x) typeperm = ((typeperm) & ~0xf000) | (((x) & 0xf) << 12)
+#define INODE_TYPEPERM_SETPERM(typeperm, x) typeperm = ((typeperm) & ~0x0fff) | ((x) & 0xfff)
 #define INODE_TYPEPERM_PERM(x) ((x) & 0xfff)
 #define INODE_TYPEPERM_TYPE(x) (((x) >> 12) & 0xf)
 #define INODE_SIZE(x) (INODE_TYPEPERM_TYPE((x)->typeperm) == INODE_TYPE_DIR ? (x)->sizelow : (((uint64_t)(x)->sizehigh << 32) | (uint64_t)(x)->sizelow))
@@ -164,12 +165,33 @@ typedef uint32_t blockptr_t;
 #define DESC_GETDISKOFFSET(fs, x) (BLOCK_GETDISKOFFSET(fs, (fs)->superblock.superblockstart + 1) + sizeof(blockgroupdesc_t) * (x))
 #define BLOCKS_IN_INDIRECT(fs) ((fs)->blocksize / sizeof(blockptr_t))
 
-static int ext2tovfstypetable[] = {
+
+static const int ext2tovfstypetable[] = {
 	-1, V_TYPE_FIFO, V_TYPE_CHDEV, -1, V_TYPE_DIR, -1, V_TYPE_BLKDEV, -1, V_TYPE_REGULAR, -1, V_TYPE_LINK, -1, V_TYPE_SOCKET
 };
 
-static int ext2denttovfstypetable[] = {
+static const int ext2denttovfstypetable[] = {
 	-1, V_TYPE_REGULAR, V_TYPE_DIR, V_TYPE_CHDEV, V_TYPE_BLKDEV, V_TYPE_FIFO, V_TYPE_SOCKET, V_TYPE_LINK
+};
+
+static const int vfstoext2denttypetable[] = {
+	[V_TYPE_REGULAR] = 1,
+	[V_TYPE_DIR] = 2,
+	[V_TYPE_CHDEV] = 3,
+	[V_TYPE_BLKDEV] = 4,
+	[V_TYPE_FIFO] = 5,
+	[V_TYPE_SOCKET] = 6,
+	[V_TYPE_LINK] = 7
+};
+
+static const int vfstoext2typetable[] = {
+	[V_TYPE_FIFO] = 1,
+	[V_TYPE_CHDEV] = 2,
+	[V_TYPE_DIR] = 4,
+	[V_TYPE_BLKDEV] = 6,
+	[V_TYPE_REGULAR] = 8,
+	[V_TYPE_LINK] = 10,
+	[V_TYPE_SOCKET] = 12
 };
 
 static vops_t vnops;
@@ -178,6 +200,23 @@ static scache_t *nodecache;
 static int syncsuperblock(ext2fs_t *fs) {
 	size_t tmp;
 	return vfs_write(fs->backing, &fs->superblock, sizeof(ext2superblock_t), SUPERBLOCK_OFFSET, &tmp, 0);
+}
+
+static int changedircount(ext2fs_t *fs, int bg, int change) {
+	MUTEX_ACQUIRE(&fs->descriptorlock, false);
+	blockgroupdesc_t desc;
+	size_t count;
+	int e = vfs_read(fs->backing, &desc, sizeof(blockgroupdesc_t), DESC_GETDISKOFFSET(fs, bg), &count, 0);
+	if (e)
+		goto cleanup;
+
+	desc.dircount += change;
+
+	e = vfs_write(fs->backing, &desc, sizeof(blockgroupdesc_t), DESC_GETDISKOFFSET(fs, bg), &count, 0);
+
+	cleanup:
+	MUTEX_RELEASE(&fs->descriptorlock);
+	return e;
 }
 
 // allocates either a block or an inode
@@ -682,7 +721,7 @@ static int rwblocks(ext2fs_t *fs, ext2node_t *node, void *buffer, size_t count, 
 }
 
 static int rwblock(ext2fs_t *fs, ext2node_t *node, void *buffer, size_t count, uintmax_t offset, uintmax_t index, bool write) {
-	__assert(offset + count < fs->blocksize);
+	__assert(offset + count <= fs->blocksize);
 	blockptr_t block;
 	int e = getinodeblock(fs, node, index, &block);
 	if (e)
@@ -731,6 +770,107 @@ static int rwbytes(ext2fs_t *fs, ext2node_t *node, void *buffer, size_t count, u
 
 	// r/w remaining block if there's any data left and return
 	return count ? rwblock(fs, node, buffer, count, 0, index, write) : 0;
+}
+
+#define BUFFER_MAP_FLAGS (ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC)
+
+static int findindir(ext2fs_t *fs, ext2node_t *node, char *name, int *inode) {
+	// XXX loading the whole dir into memory at once isn't the best idea but works for now
+	void *dirbuffer = vmm_map(NULL, INODE_SIZE(&node->inode) + 1, VMM_FLAGS_ALLOCATE, BUFFER_MAP_FLAGS, NULL); // + 1 to make sure there is at least one page mapped
+	if (dirbuffer == NULL)
+		return ENOMEM;
+
+	int err = rwbytes(fs, node, dirbuffer, INODE_SIZE(&node->inode), 0, false);
+	if (err)
+		goto cleanup;
+
+	uintmax_t offset = 0;
+	int inodefound = 0;
+	size_t namelen = strlen(name);
+
+	// iterate through directory to find the inode number
+	while (offset < INODE_SIZE(&node->inode)) {
+		ext2dent_t *dent = (ext2dent_t *)((uintptr_t)dirbuffer + offset);
+
+		if (namelen == dent->namelen && dent->inode && strncmp(name, dent->name, dent->namelen) == 0)
+			inodefound = dent->inode;
+
+		__assert(dent->size);
+		offset += dent->size;
+	}
+
+	if (inodefound == 0)
+		err = ENOENT;
+	else
+		*inode = inodefound;
+
+	cleanup:
+	if (dirbuffer)
+		vmm_unmap(dirbuffer, INODE_SIZE(&node->inode) + 1, 0);
+
+	return err;
+}
+
+static int insertdent(ext2fs_t *fs, ext2node_t *node, char *name, int inode, int type) {
+	size_t namelen = strlen(name);
+	size_t entlen = ROUND_UP(sizeof(ext2dent_t) + namelen, 4);
+	ext2dent_t *dentbuffer = alloc(entlen);
+	if (dentbuffer == NULL)
+		return ENOMEM;
+
+	dentbuffer->inode = inode;
+	dentbuffer->namelen = namelen;
+	dentbuffer->type = type;
+	memcpy(dentbuffer->name, name, namelen);
+
+	size_t inodesize = INODE_SIZE(&node->inode);
+	// XXX mapping the whole dir into memory isn't the best idea
+	void *dirbuffer = vmm_map(NULL, inodesize + 1, VMM_FLAGS_ALLOCATE, BUFFER_MAP_FLAGS, NULL); // + 1 to make sure there is at least one page mapped
+	int err = dirbuffer ? 0 : ENOMEM;
+	if (err)
+		goto cleanup;
+
+	err = rwbytes(fs, node, dirbuffer, inodesize, 0, false);
+	if (err)
+		goto cleanup;
+
+	ext2dent_t *splitdent = NULL;
+	uintmax_t offset = 0;
+	size_t truesize, freesize;
+	while (offset < inodesize) {
+		splitdent = (ext2dent_t *)((uintptr_t)dirbuffer + offset);
+		truesize = ROUND_UP(sizeof(ext2dent_t) + splitdent->namelen, 4);
+		freesize = splitdent->size - truesize;
+
+		if (entlen <= freesize)
+			break;
+
+		__assert(splitdent->size);
+		offset += splitdent->size;
+	}
+
+	// need to grow dir?
+	if (offset >= inodesize) {
+		err = resizeinode(fs, node, inodesize + fs->blocksize); // directory size has to be block aligned
+		if (err)
+			goto cleanup;
+
+		dentbuffer->size = fs->blocksize;
+		// TODO if this fails set fs as unclean
+		err = rwbytes(fs, node, dentbuffer, dentbuffer->size, inodesize, true);
+	} else {
+		size_t writesize = splitdent->size;
+		splitdent->size = truesize;
+		dentbuffer->size = freesize;
+		memcpy((void *)((uintptr_t)splitdent + truesize), dentbuffer, entlen);
+		err = rwbytes(fs, node, splitdent, writesize, offset, true);
+	}
+
+	cleanup:
+	if (dirbuffer)
+		vmm_unmap(dirbuffer, inodesize + 1, 0);
+	free(dentbuffer);
+	return err;
 }
 
 static int ext2_open(vnode_t **vnode, int flags, cred_t *cred) {
@@ -782,43 +922,16 @@ static int ext2_setattr(vnode_t *vnode, vattr_t *attr, cred_t *cred) {
 	return e;
 }
 
-#define BUFFER_MAP_FLAGS (ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC)
-
 static int ext2_lookup(vnode_t *vnode, char *name, vnode_t **result, cred_t *cred) {
 	ext2node_t *node = (ext2node_t *)vnode;
 	ext2fs_t *fs = (ext2fs_t *)node->vnode.vfs;
 	ext2node_t *newnode = NULL;
 	VOP_LOCK(vnode);
 
-	int err = 0;
-	// XXX loading the whole dir into memory at once isn't the best idea but works for now
-	void *dirbuffer = vmm_map(NULL, INODE_SIZE(&node->inode), VMM_FLAGS_ALLOCATE, BUFFER_MAP_FLAGS, NULL);
-	if (dirbuffer == NULL) {
-		err = ENOMEM;
-		goto cleanup;
-	}
-
-	err = rwbytes(fs, node, dirbuffer, INODE_SIZE(&node->inode), 0, false);
+	int inode = 0;
+	int err = findindir(fs, node, name, &inode);
 	if (err)
 		goto cleanup;
-
-	uintmax_t offset = 0;
-	int inode = 0;
-
-	// iterate through directory to find the inode number
-	while (offset < INODE_SIZE(&node->inode)) {
-		ext2dent_t *dent = (ext2dent_t *)((uintptr_t)dirbuffer + offset);
-
-		if (dent->inode && strncmp(name, dent->name, dent->namelen) == 0)
-			inode = dent->inode;
-
-		offset += dent->size;
-	}
-
-	if (inode == 0) {
-		err = ENOENT;
-		goto cleanup;
-	}
 
 	MUTEX_ACQUIRE(&fs->inodetablelock, false);
 
@@ -866,9 +979,6 @@ static int ext2_lookup(vnode_t *vnode, char *name, vnode_t **result, cred_t *cre
 		VOP_RELEASE(tmp);
 	}
 
-	if (dirbuffer)
-		vmm_unmap(dirbuffer, INODE_SIZE(&node->inode), 0);
-
 	VOP_UNLOCK(vnode);
 	return err;
 }
@@ -881,7 +991,7 @@ static int ext2_getdents(vnode_t *vnode, dent_t *buffer, size_t count, uintmax_t
 
 	int err = 0;
 	// XXX loading the whole dir into memory at once isn't the best idea but works for now
-	void *dirbuffer = vmm_map(NULL, INODE_SIZE(&node->inode), VMM_FLAGS_ALLOCATE, BUFFER_MAP_FLAGS, NULL);
+	void *dirbuffer = vmm_map(NULL, INODE_SIZE(&node->inode) + 1, VMM_FLAGS_ALLOCATE, BUFFER_MAP_FLAGS, NULL); // + 1 to make sure there is at least one page mapped
 	if (dirbuffer == NULL) {
 		err = ENOMEM;
 		goto cleanup;
@@ -916,7 +1026,7 @@ static int ext2_getdents(vnode_t *vnode, dent_t *buffer, size_t count, uintmax_t
 
 	cleanup:
 	if (dirbuffer)
-		vmm_unmap(dirbuffer, INODE_SIZE(&node->inode), 0);
+		vmm_unmap(dirbuffer, INODE_SIZE(&node->inode) + 1, 0);
 
 	VOP_UNLOCK(vnode);
 	return err;
@@ -1029,6 +1139,111 @@ int ext2_resize(vnode_t *vnode, size_t newsize, cred_t *cred) {
 	int e = resizeinode(fs, node, newsize);
 	VOP_UNLOCK(vnode);
 	return e;
+}
+
+static int ext2_link(vnode_t *vnode, vnode_t *dirvnode, char *name, cred_t *cred) {
+	if (vnode->vfs != dirvnode->vfs)
+		return EXDEV;
+
+	ext2node_t *node = (ext2node_t *)vnode;
+	ext2node_t *dirnode = (ext2node_t *)dirvnode;
+	ext2fs_t *fs = (ext2fs_t *)dirvnode->vfs;
+	VOP_LOCK(dirvnode);
+	VOP_LOCK(vnode);
+	int inode;
+	int err = findindir(fs, dirnode, name, &inode);
+	if (err == 0)
+		err = EEXIST;
+	if (err != ENOENT)
+		goto cleanup;
+
+	err = insertdent(fs, dirnode, name, node->id, vfstoext2denttypetable[vnode->type]);
+	if (err)
+		goto cleanup;
+
+	node->inode.links += 1;
+
+	writeinode(fs, &node->inode, node->id); // TODO mark as unclean if error
+
+	cleanup:
+	VOP_UNLOCK(vnode);
+	VOP_UNLOCK(dirvnode);
+	return err;
+}
+
+static int ext2_create(vnode_t *parent, char *name, vattr_t *attr, int type, vnode_t **result, cred_t *cred) {
+	ext2node_t *node = (ext2node_t *)parent;
+	ext2fs_t *fs = (ext2fs_t *)parent->vfs;
+	VOP_LOCK(parent);
+	ext2node_t *newnode = slab_allocate(nodecache);
+	EXT2NODE_INIT(newnode, &vnops, 0, type, parent->vfs, 0);
+
+	int inodetmp;
+	int err = findindir(fs, node, name, &inodetmp);
+	if (err == 0)
+		err = EEXIST;
+	if (err != ENOENT)
+		goto cleanup;
+
+	uintmax_t id = 0;
+	err = allocatestructure(fs, &id, true);
+	if (err)
+		goto cleanup;
+
+	newnode->id = id;
+	memset(&newnode->inode, 0, sizeof(inode_t));
+	newnode->inode = (inode_t){
+		.typeperm = 0, // TODO
+		.uid = attr->uid,
+		.atime = timekeeper_time().s,
+		.ctime = timekeeper_time().s,
+		.mtime = timekeeper_time().s,
+		.gid = attr->gid,
+		.links = type == V_TYPE_DIR ? 2 : 1 // directories have 2 links at the beggining, the parent link and the . link
+	};
+
+	INODE_TYPEPERM_SETTYPE(newnode->inode.typeperm, vfstoext2typetable[type]);
+	INODE_TYPEPERM_SETPERM(newnode->inode.typeperm, attr->mode);
+
+	err = writeinode(fs, &newnode->inode, id);
+	if (err)
+		goto cleanup;
+
+	err = insertdent(fs, node, name, newnode->id, vfstoext2denttypetable[type]);
+	if (err)
+		goto cleanup;
+
+	MUTEX_ACQUIRE(&fs->inodetablelock, false);
+	err = hashtable_set(&fs->inodetable, newnode, &newnode->id, sizeof(newnode->id), true);
+	MUTEX_RELEASE(&fs->inodetablelock);
+	if (err) // TODO if this fails set fs as unclean (directory entry is still there)
+		goto cleanup;
+
+	VOP_HOLD(&newnode->vnode);
+	*result = &newnode->vnode;
+
+	// create . and .. entries and increase block group dir count if dir TODO if any error set as unclean
+	if (type == V_TYPE_DIR) {
+		insertdent(fs, newnode, ".", newnode->id, vfstoext2denttypetable[V_TYPE_DIR]);
+		insertdent(fs, newnode, "..", node->id, vfstoext2denttypetable[V_TYPE_DIR]);
+		node->inode.links += 1;
+		writeinode(fs, &node->inode, node->id);
+		changedircount(fs, INODE_GETGROUP(fs, newnode->id), 1);
+	}
+
+	cleanup:
+	if (err && id)
+		freestructure(fs, id, true); // TODO if error set as unclean
+
+	if (err)
+		slab_free(nodecache, newnode);
+
+	VOP_UNLOCK(parent);
+	return err;
+}
+
+static int ext2_symlink(vnode_t *parentvnode, char *name, vattr_t *attr, char *path, cred_t *cred) {
+	return ENOSYS;
 }
 
 // TODO move root variable to vfs
@@ -1155,10 +1370,7 @@ static vfsops_t vfsops = {
 };
 
 	/*
-	int (*create)(vnode_t *parent, char *name, vattr_t *attr, int type, vnode_t **result, cred_t *cred);
 	int (*unlink)(vnode_t *node, char *name, cred_t *cred);
-	int (*link)(vnode_t *node, vnode_t *dir, char *name, cred_t *cred);
-	int (*symlink)(vnode_t *parent, char *name, vattr_t *attr, char *path, cred_t *cred);
 	int (*inactive)(vnode_t *node);
 	int (*mmap)(vnode_t *node, void *addr, uintmax_t offset, int flags, cred_t *cred);
 	int (*munmap)(vnode_t *node, void *addr, uintmax_t offset, int flags, cred_t *cred);
@@ -1176,7 +1388,10 @@ static vops_t vnops = {
 	.poll = vfs_pollstub,
 	.access = ext2_access,
 	.readlink = ext2_readlink,
-	.resize = ext2_resize
+	.resize = ext2_resize,
+	.link = ext2_link,
+	.create = ext2_create,
+	.symlink = ext2_symlink
 };
 
 void ext2_init() {
