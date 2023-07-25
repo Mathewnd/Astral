@@ -47,7 +47,7 @@ syscallret_t syscall_mmap(context_t *context, void *hint, size_t len, int prot, 
 	if (flags & MAP_FIXED)
 		vmmflags |= VMM_FLAGS_EXACT;
 
-	if ((flags & MAP_PRIVATE) == 0)
+	if ((flags & MAP_ANONYMOUS) == 0)
 		vmmflags |= VMM_FLAGS_FILE;
 
 	if (flags & MAP_SHARED)
