@@ -46,11 +46,11 @@ syscallret_t syscall_fcntl(context_t *, int fd, int cmd, uint64_t arg) {
 			break;
 		default:
 			ret.errno = EINVAL;
-			break;
+			goto cleanup;
 	}
-
-	fd_release(file);
-
 	ret.errno = 0;
+
+	cleanup:
+	fd_release(file);
 	return ret;
 }

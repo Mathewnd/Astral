@@ -27,7 +27,7 @@ syscallret_t syscall_mmap(context_t *context, void *hint, size_t len, int prot, 
 	__assert((~KNOWN_PROT & prot) == 0);
 
 	// check alignment
-	if (len == 0 || (uintptr_t)hint % PAGE_SIZE || len % PAGE_SIZE) {
+	if (len == 0 || (uintptr_t)hint % PAGE_SIZE) {
 		ret.errno = EINVAL;
 		return ret;
 	}
