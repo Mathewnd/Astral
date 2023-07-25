@@ -13,7 +13,7 @@
 #define SUPERBLOCK_OFFSET 1024
 #define SB_SIGNATURE 0xef53
 #define SB_STATE_CLEAN 1
-#define SB_STATE_ERROR 2
+#define SB_STATE_UNCLEAN 2
 #define SB_ERRORACTION_IGNORE 1
 #define SB_ERRORACTION_READONLY 2
 #define SB_ERRORACTION_PANIC 3
@@ -166,6 +166,14 @@ typedef uint32_t blockptr_t;
 #define DESC_GETDISKOFFSET(fs, x) (BLOCK_GETDISKOFFSET(fs, (fs)->superblock.superblockstart + 1) + sizeof(blockgroupdesc_t) * (x))
 #define BLOCKS_IN_INDIRECT(fs) ((fs)->blocksize / sizeof(blockptr_t))
 
+#define ASSERT_UNCLEAN(fs, x) \
+	if (!(x)) { \
+		printf("ext2: assert %s on line %d on function %s failed. setting filesystem as unclean\n", #x, __LINE__, __func__); \
+		MUTEX_ACQUIRE(&fs->superblocklock, false); \
+		fs->superblock.state = SB_STATE_UNCLEAN; \
+		syncsuperblock(fs); \
+		MUTEX_RELEASE(&fs->superblocklock); \
+	}
 
 static const int ext2tovfstypetable[] = {
 	-1, V_TYPE_FIFO, V_TYPE_CHDEV, -1, V_TYPE_DIR, -1, V_TYPE_BLKDEV, -1, V_TYPE_REGULAR, -1, V_TYPE_LINK, -1, V_TYPE_SOCKET
@@ -256,7 +264,6 @@ static int allocatestructure(ext2fs_t *fs, uintmax_t *retid, bool inode) {
 		goto cleanup;
 	}
 
-	// XXX maybe it shouldn't be assumed this will always be a power of 2?
 	size_t bmsize = (inode ? fs->superblock.inodespergroup : fs->superblock.blockspergroup) / 8;
 	uint8_t *bm = alloc(bmsize);
 	if (bm == NULL) {
@@ -295,13 +302,13 @@ static int allocatestructure(ext2fs_t *fs, uintmax_t *retid, bool inode) {
 		goto cleanup;
 
 	// update block group desc free structure count
-	// TODO if an error happens here, the filesystem should probably be marked to be in an unclean state.
 	if (inode)
 		desc.freeinodes -= 1;
 	else
 		desc.freeblocks -= 1;
 
 	e = vfs_write(fs->backing, &desc, sizeof(blockgroupdesc_t), DESC_GETDISKOFFSET(fs, bg), &writec, 0);
+	ASSERT_UNCLEAN(fs, e == 0);
 	if (e)
 		goto cleanup;
 
@@ -323,6 +330,7 @@ static int allocatestructure(ext2fs_t *fs, uintmax_t *retid, bool inode) {
 		fs->superblock.unallocatedblocks -= 1;
 	e = syncsuperblock(fs);
 	MUTEX_RELEASE(&fs->superblocklock);
+	ASSERT_UNCLEAN(fs, e == 0);
 
 	cleanup:
 	MUTEX_RELEASE(&fs->descriptorlock);
@@ -341,7 +349,6 @@ static int freestructure(ext2fs_t *fs, uintmax_t id, bool inode) {
 	if (e)
 		goto cleanup;
 
-	// XXX maybe it shouldn't be assumed this will always be a power of 2?
 	size_t bmsize = (inode ? fs->superblock.inodespergroup : fs->superblock.blockspergroup) / 8;
 	uint8_t *bm = alloc(bmsize);
 	if (bm == NULL) {
@@ -369,7 +376,7 @@ static int freestructure(ext2fs_t *fs, uintmax_t id, bool inode) {
 		goto cleanup;
 
 	// update block group desc free structure count
-	// TODO if an error happens here, the filesystem should probably be marked to be in an unclean state.
+	ASSERT_UNCLEAN(fs, e == 0);
 	if (inode)
 		desc.freeinodes += 1;
 	else
@@ -510,7 +517,7 @@ static int allocandset(ext2fs_t *fs, ext2node_t *node, uintmax_t setoffset, bloc
 	size_t writec;
 	e = vfs_write(fs->backing, &blockptr, sizeof(blockptr_t), setoffset, &writec, 0);
 	if (e) {
-		freestructure(fs, block, false); // TODO in case of error set filesystem as unclean?
+		ASSERT_UNCLEAN(fs, freestructure(fs, block, false) == 0);
 		return e;
 	}
 
@@ -530,7 +537,7 @@ static int inodeallocateindirect(ext2fs_t *fs, ext2node_t *node, int indirect) {
 	size_t writec;
 	e = vfs_write(fs->backing, util_zerobuffer, fs->blocksize, BLOCK_GETDISKOFFSET(fs, v), &writec, 0);
 	if (e) {
-		freestructure(fs, v, false); // TODO if error mark as unclean
+		ASSERT_UNCLEAN(fs, freestructure(fs, v, false) == 0);
 		return e;
 	}
 
@@ -671,13 +678,15 @@ static int setinodeblock(ext2fs_t *fs, ext2node_t *node, uintmax_t index, blockp
 
 	if (oldblock) {
 		node->inode.sectcount -= INODE_SECTSPERBLOCK(fs);
-		freestructure(fs, oldblock, false); // TODO set as unclean in case of error?
+		ASSERT_UNCLEAN(fs, freestructure(fs, oldblock, false) == 0);
 	}
 
 	if (block)
 		node->inode.sectcount += INODE_SECTSPERBLOCK(fs);
 
-	return writeinode(fs, &node->inode, node->id); // TODO set fs as unclean if an error happened here?
+	int e = writeinode(fs, &node->inode, node->id);
+	ASSERT_UNCLEAN(fs, e == 0);
+	return e;
 }
 
 static int resizeinode(ext2fs_t *fs, ext2node_t *node, size_t newsize) {
@@ -692,8 +701,9 @@ static int resizeinode(ext2fs_t *fs, ext2node_t *node, size_t newsize) {
 			if (e)
 				return e;
 			e = setinodeblock(fs, node, i, newblock);
+			ASSERT_UNCLEAN(fs, e == 0);
 			if (e)
-				return e; // TODO set as unclean?
+				return e;
 		}
 	} else if (newblockcount < currentblockcount) {
 		// shrink
@@ -706,7 +716,7 @@ static int resizeinode(ext2fs_t *fs, ext2node_t *node, size_t newsize) {
 
 	INODE_SETSIZE(&node->inode, newsize);
 
-	writeinode(fs, &node->inode, node->id); // TODO if error mark fs as unclean
+	ASSERT_UNCLEAN(fs, writeinode(fs, &node->inode, node->id) == 0);
 	return 0;
 }
 
@@ -839,7 +849,7 @@ static int insertdent(ext2fs_t *fs, ext2node_t *node, char *name, int inode, int
 	memcpy(dentbuffer->name, name, namelen);
 
 	size_t inodesize = INODE_SIZE(&node->inode);
-	// XXX mapping the whole dir into memory isn't the best idea
+	// XXX loading the whole dir into memory isn't the best idea
 	void *dirbuffer = vmm_map(NULL, inodesize + 1, VMM_FLAGS_ALLOCATE, BUFFER_MAP_FLAGS, NULL); // + 1 to make sure there is at least one page mapped
 	int err = dirbuffer ? 0 : ENOMEM;
 	if (err)
@@ -853,8 +863,8 @@ static int insertdent(ext2fs_t *fs, ext2node_t *node, char *name, int inode, int
 	uintmax_t offset = 0;
 	size_t truesize, freesize;
 	while (offset < inodesize) {
-		splitdent = (ext2dent_t *)((uintptr_t)dirbuffer + offset); // TODO unused dents
-		truesize = ROUND_UP(sizeof(ext2dent_t) + splitdent->namelen, 4);
+		splitdent = (ext2dent_t *)((uintptr_t)dirbuffer + offset);
+		truesize = splitdent->inode == 0 ? 0 : ROUND_UP(sizeof(ext2dent_t) + splitdent->namelen, 4);
 		freesize = splitdent->size - truesize;
 
 		if (entlen <= freesize)
@@ -871,8 +881,8 @@ static int insertdent(ext2fs_t *fs, ext2node_t *node, char *name, int inode, int
 			goto cleanup;
 
 		dentbuffer->size = fs->blocksize;
-		// TODO if this fails set fs as unclean
 		err = rwbytes(fs, node, dentbuffer, dentbuffer->size, inodesize, true);
+		ASSERT_UNCLEAN(fs, err == 0);
 	} else {
 		size_t writesize = splitdent->size;
 		splitdent->size = truesize;
@@ -976,7 +986,6 @@ static int freeindirect(ext2fs_t *fs, uintmax_t block, int depth) {
 }
 
 static void freeinode(ext2fs_t *fs, inode_t *inode, int id) {
-	// TODO if any error happens here, set fs as unclean
 	int err = 0;
 
 	int type = INODE_TYPEPERM_TYPE(inode->typeperm);
@@ -1003,10 +1012,14 @@ static void freeinode(ext2fs_t *fs, inode_t *inode, int id) {
 	err |= freestructure(fs, id, true);
 	if (type == INODE_TYPE_DIR)
 		err |= changedircount(fs, INODE_GETGROUP(fs, id), -1);
+	ASSERT_UNCLEAN(fs, err == 0);
 }
 
-static int ext2_open(vnode_t **vnode, int flags, cred_t *cred) {
-	// TODO device files
+static int ext2_open(vnode_t **vnodep, int flags, cred_t *cred) {
+	vnode_t *vnode = *vnodep;
+	int type = vnode->type;
+	// TODO these types of files
+	__assert(type == V_TYPE_REGULAR || type == V_TYPE_DIR || type == V_TYPE_LINK);
 	return 0;
 }
 
@@ -1257,7 +1270,8 @@ int ext2_write(vnode_t *vnode, void *buffer, size_t size, uintmax_t offset, int 
 	if (err)
 		goto cleanup;
 
-	// TODO mtime
+	node->inode.mtime = timekeeper_time().s;
+	ASSERT_UNCLEAN(fs, writeinode(fs, &node->inode, node->id) == 0);
 
 	cleanup:
 	VOP_UNLOCK(vnode);
@@ -1295,7 +1309,7 @@ static int ext2_link(vnode_t *vnode, vnode_t *dirvnode, char *name, cred_t *cred
 
 	node->inode.links += 1;
 
-	writeinode(fs, &node->inode, node->id); // TODO mark as unclean if error
+	ASSERT_UNCLEAN(fs, writeinode(fs, &node->inode, node->id) == 0);
 
 	cleanup:
 	VOP_UNLOCK(vnode);
@@ -1325,7 +1339,7 @@ static int ext2_create(vnode_t *parent, char *name, vattr_t *attr, int type, vno
 	newnode->id = id;
 	memset(&newnode->inode, 0, sizeof(inode_t));
 	newnode->inode = (inode_t){
-		.typeperm = 0, // TODO
+		.typeperm = 0,
 		.uid = attr->uid,
 		.atime = timekeeper_time().s,
 		.ctime = timekeeper_time().s,
@@ -1348,24 +1362,25 @@ static int ext2_create(vnode_t *parent, char *name, vattr_t *attr, int type, vno
 	MUTEX_ACQUIRE(&fs->inodetablelock, false);
 	err = hashtable_set(&fs->inodetable, newnode, &newnode->id, sizeof(newnode->id), true);
 	MUTEX_RELEASE(&fs->inodetablelock);
-	if (err) // TODO if this fails set fs as unclean (directory entry is still there)
+	ASSERT_UNCLEAN(fs, err == 0);
+	if (err)
 		goto cleanup;
 
 	VOP_HOLD(&newnode->vnode);
 	*result = &newnode->vnode;
 
-	// create . and .. entries and increase block group dir count if dir TODO if any error set as unclean
+	// create . and .. entries and increase block group dir count if dir
 	if (type == V_TYPE_DIR) {
-		insertdent(fs, newnode, ".", newnode->id, vfstoext2denttypetable[V_TYPE_DIR]);
-		insertdent(fs, newnode, "..", node->id, vfstoext2denttypetable[V_TYPE_DIR]);
+		ASSERT_UNCLEAN(fs, insertdent(fs, newnode, ".", newnode->id, vfstoext2denttypetable[V_TYPE_DIR]) == 0);
+		ASSERT_UNCLEAN(fs, insertdent(fs, newnode, "..", node->id, vfstoext2denttypetable[V_TYPE_DIR]) == 0);
 		node->inode.links += 1;
-		writeinode(fs, &node->inode, node->id);
-		changedircount(fs, INODE_GETGROUP(fs, newnode->id), 1);
+		ASSERT_UNCLEAN(fs, writeinode(fs, &node->inode, node->id) == 0);
+		ASSERT_UNCLEAN(fs, changedircount(fs, INODE_GETGROUP(fs, newnode->id), 1) == 0);
 	}
 
 	cleanup:
 	if (err && id)
-		freestructure(fs, id, true); // TODO if error set as unclean
+		ASSERT_UNCLEAN(fs, freestructure(fs, id, true) == 0);
 
 	if (err)
 		slab_free(nodecache, newnode);
@@ -1400,16 +1415,16 @@ static int ext2_symlink(vnode_t *vnode, char *name, vattr_t *attr, char *path, c
 		err = rwbytes(fs, newnode, path, linklen, 0, true);
 		if (err)
 			goto cleanup;
-		// TODO in case of error, unlink
 	}
 
 	INODE_SETSIZE(&newnode->inode, linklen);
-	// TODO in case of error, unlink
 	err = writeinode(fs, &newnode->inode, newnode->id);
 
 	VOP_RELEASE(newvnode);
 
 	cleanup:
+	if (err)
+		ASSERT_UNCLEAN(fs, VOP_UNLINK(vnode, name, cred) == 0);
 	VOP_UNLOCK(newvnode);
 	VOP_UNLOCK(vnode);
 	return err;
@@ -1472,21 +1487,25 @@ static int ext2_unlink(vnode_t *vnode, char *name, cred_t *cred) {
 	err = hashtable_get(&fs->inodetable, &v, &inode, sizeof(inode));
 	if (err == ENOENT) {
 		inode_t buff;
-		err = readinode(fs, &buff, inode); // TODO if error mark as unclean
+		err = readinode(fs, &buff, inode);
+		ASSERT_UNCLEAN(fs, err == 0);
+		if (err == 0) {
+			if (INODE_TYPEPERM_TYPE(buff.typeperm) == INODE_TYPE_DIR) { // account for . entry
+				isdir = true;
+				buff.links -= 1;
+			}
 
-		if (INODE_TYPEPERM_TYPE(buff.typeperm) == INODE_TYPE_DIR) { // account for . entry
-			isdir = true;
-			buff.links -= 1;
+			if (--buff.links == 0)
+				freeinode(fs, &buff, inode);
+			else
+				err = writeinode(fs, &buff, inode);
+
+			ASSERT_UNCLEAN(fs, err == 0);
 		}
-
-		if (--buff.links == 0)
-			freeinode(fs, &buff, inode);
-		else
-			err = writeinode(fs, &buff, inode); // TODO if error mark as unclean
-
 		MUTEX_RELEASE(&fs->inodetablelock);
 	} else if (err) {
-		MUTEX_RELEASE(&fs->inodetablelock); // TODO mark as unclean
+		ASSERT_UNCLEAN(fs, !"Failed to get from inode table");
+		MUTEX_RELEASE(&fs->inodetablelock);
 		goto cleanup;
 	} else {
 		ext2node_t *unlinknode = v;
@@ -1499,7 +1518,8 @@ static int ext2_unlink(vnode_t *vnode, char *name, cred_t *cred) {
 		}
 
 		int nlinks = --unlinknode->inode.links;
-		err = writeinode(fs, &unlinknode->inode, unlinknode->id); // TODO mark as unclean
+		err = writeinode(fs, &unlinknode->inode, unlinknode->id);
+		ASSERT_UNCLEAN(fs, err == 0);
 		VOP_UNLOCK(&unlinknode->vnode);
 		if (nlinks == 0) {
 			vnode_t *unlinkvnode = v;
@@ -1511,7 +1531,7 @@ static int ext2_unlink(vnode_t *vnode, char *name, cred_t *cred) {
 
 	if (isdir) { // account for .. entry in unlinked dir
 		--node->inode.links;
-		writeinode(fs, &node->inode, node->id); // TODO unclean if error
+		ASSERT_UNCLEAN(fs, writeinode(fs, &node->inode, node->id) == 0);
 	}
 
 	cleanup:
@@ -1577,6 +1597,9 @@ static int ext2_root(vfs_t *vfs, vnode_t **vnodep) {
 	fs->root = node;
 
 	leave:
+	if (err && node)
+		slab_free(nodecache, node);
+
 	MUTEX_RELEASE(&fs->rootlock);
 	return err;
 }
@@ -1655,6 +1678,8 @@ static int ext2_mount(vfs_t **vfs, vnode_t *mountpoint, vnode_t *backing, void *
 	fs->blocksize = 1024 << fs->superblock.blocksize;
 	*vfs = &fs->vfs;
 	err = 0;
+
+	ASSERT_UNCLEAN(fs, fs->blocksize == 123546667);
 
 	cleanup:
 	if (err)
