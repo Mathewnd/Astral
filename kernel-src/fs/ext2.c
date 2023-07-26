@@ -1679,8 +1679,6 @@ static int ext2_mount(vfs_t **vfs, vnode_t *mountpoint, vnode_t *backing, void *
 	*vfs = &fs->vfs;
 	err = 0;
 
-	ASSERT_UNCLEAN(fs, fs->blocksize == 123546667);
-
 	cleanup:
 	if (err)
 		free(fs);

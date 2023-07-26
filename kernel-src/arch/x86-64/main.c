@@ -29,6 +29,7 @@
 #include <kernel/nvme.h>
 #include <kernel/block.h>
 #include <kernel/ext2.h>
+#include <kernel/cmdline.h>
 
 static cpu_t bsp_cpu;
 
@@ -45,6 +46,7 @@ void kernel_entry() {
 	arch_mmu_init();
 	vmm_init();
 	alloc_init();
+	cmdline_parse();
 	arch_acpi_init();
 	arch_apic_init();
 	cpu_initstate();
@@ -58,16 +60,6 @@ void kernel_entry() {
 	devfs_init();
 	pipefs_init();
 	ext2_init();
-	printf("mounting tmpfs on /\n");
-	__assert(vfs_mount(NULL, vfsroot, "/", "tmpfs", NULL) == 0);
-	initrd_unpack();
-
-	vattr_t attr = {0};
-	attr.mode = 0644;
-	__assert(vfs_create(vfsroot, "/dev", &attr, V_TYPE_DIR, NULL) == 0);
-
-	printf("mounting devfs on /dev\n");
-	__assert(vfs_mount(NULL, vfsroot, "/dev", "devfs", NULL) == 0);
 
 	block_init();
 	pseudodevices_init();
@@ -76,9 +68,29 @@ void kernel_entry() {
 	arch_ps2_init();
 	fb_init();
 	nvme_init();
-
 	console_init();
 	logging_sethook(console_putc);
+
+	char *root   = cmdline_get("root");
+	char *rootfs = cmdline_get("rootfs");
+
+	printf("mounting %s (%s) on /\n", root == NULL ? "none" : root, rootfs);
+
+	vnode_t *backing;
+	if (root) {
+		__assert(devfs_getbyname(root, &backing) == 0);
+	} else {
+		backing = NULL;
+	}
+
+	__assert(vfs_mount(backing, vfsroot, "/", rootfs, NULL) == 0);
+
+	if (backing) {
+		VOP_RELEASE(backing);
+	}
+
+	if (cmdline_get("initrd"))
+		initrd_unpack();
 
 	sched_runinit();
 	sched_threadexit();
