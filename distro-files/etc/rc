@@ -1,1 +1,6 @@
-mkdir /tmp
+#!/usr/bin/bash
+mkdir -p /dev
+mount /dev devfs
+
+mkdir -p /tmp
+mount /tmp tmpfs
