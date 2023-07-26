@@ -1,6 +1,7 @@
 #ifndef _VFS_H
 #define _VFS_H
 
+#include <mutex.h>
 #include <spinlock.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -57,7 +58,7 @@ typedef struct vfs_t {
 
 typedef struct vnode_t {
 	struct vops_t *ops;
-	spinlock_t lock;
+	mutex_t lock;
 	int refcount;
 	int flags;
 	int type;
@@ -112,15 +113,15 @@ typedef struct vops_t {
 
 #define VOP_INIT(vn, o, f, t, v) \
 	(vn)->ops = o; \
-	SPINLOCK_INIT((vn)->lock); \
+	MUTEX_INIT(&(vn)->lock); \
 	(vn)->refcount = 1; \
 	(vn)->flags = f; \
 	(vn)->type = t; \
 	(vn)->vfs = v; \
 	(vn)->vfsmounted = NULL; 
 
-#define VOP_LOCK(v) spinlock_acquire(&(v)->lock)
-#define VOP_UNLOCK(v) spinlock_release(&(v)->lock)
+#define VOP_LOCK(v) MUTEX_ACQUIRE(&(v)->lock, false)
+#define VOP_UNLOCK(v) MUTEX_RELEASE(&(v)->lock)
 
 #define VOP_OPEN(v, f, c) (*v)->ops->open(v, f, c)
 #define VOP_CLOSE(v, f, c) (v)->ops->close(v, f, c)

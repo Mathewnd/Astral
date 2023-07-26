@@ -1,4 +1,5 @@
 #include <semaphore.h>
+#include <kernel/scheduler.h>
 #include <errno.h>
 #include <logging.h>
 

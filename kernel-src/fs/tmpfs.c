@@ -530,11 +530,7 @@ static tmpfsnode_t *newnode(vfs_t *vfs, int type) {
 
 	node->attr.type = type;
 	node->attr.inode = ++((tmpfs_t *)vfs)->inodenumber;
-	node->vnode.type = type;
-	node->vnode.refcount = 1;
-	SPINLOCK_INIT(node->vnode.lock);
-	node->vnode.ops = &vnops;
-	node->vnode.vfs = vfs;
+	VOP_INIT(&node->vnode, &vnops, 0, type, vfs);
 	return node;
 }
 

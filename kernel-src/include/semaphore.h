@@ -27,6 +27,4 @@ void semaphore_signal(semaphore_t *sem);
 bool semaphore_test(semaphore_t *sem);
 bool semaphore_haswaiters(semaphore_t *sem);
 
-#include <kernel/scheduler.h>
-
 #endif

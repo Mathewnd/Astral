@@ -331,9 +331,7 @@ static vops_t vnops = {
 static void ctor(scache_t *cache, void *obj) {
 	devnode_t *node = obj;
 	memset(node, 0, sizeof(devnode_t));
-	node->vnode.refcount = 1;
-	SPINLOCK_INIT(node->vnode.lock);
-	node->vnode.ops = &vnops;
+	VOP_INIT(&node->vnode, &vnops, 0, 0, NULL)
 	node->attr.inode = ++currentinode;
 }
 

@@ -2,7 +2,7 @@
 #define _VMM_H
 
 #include <arch/mmu.h>
-#include <spinlock.h>
+#include <mutex.h>
 #include <kernel/vfs.h>
 
 #define VMM_FLAGS_PAGESIZE 1

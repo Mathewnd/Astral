@@ -2,6 +2,8 @@
 #include <kernel/alloc.h>
 #include <kernel/timekeeper.h>
 #include <kernel/slab.h>
+#include <kernel/vmm.h>
+#include <arch/cpu.h>
 #include <kernel/pmm.h>
 #include <hashtable.h>
 #include <mutex.h>
