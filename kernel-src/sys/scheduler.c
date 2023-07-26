@@ -9,6 +9,7 @@
 #include <kernel/elf.h>
 #include <kernel/file.h>
 #include <semaphore.h>
+#include <kernel/devfs.h>
 
 #define QUANTUM_US 100000
 #define SCHEDULER_STACK_SIZE 4096
@@ -438,20 +439,21 @@ void sched_runinit() {
 		__assert(interpinterp == NULL);
 	}
 
-	vnode_t *stdinnode;
-	__assert(vfs_open(vfsroot, "/dev/console", V_FFLAGS_READ, &stdinnode) == 0);
-	vnode_t *stdoutnode;
-	__assert(vfs_open(vfsroot, "/dev/console", V_FFLAGS_WRITE, &stdoutnode) == 0);
-	vnode_t *stderrnode;
-	__assert(vfs_open(vfsroot, "/dev/console", V_FFLAGS_WRITE, &stderrnode) == 0);
+	vnode_t *consolenode;
+	__assert(devfs_getbyname("console", &consolenode) == 0);
+	__assert(VOP_OPEN(&consolenode, V_FFLAGS_READ, &proc->cred) == 0)
+	VOP_HOLD(consolenode);
+	__assert(VOP_OPEN(&consolenode, V_FFLAGS_WRITE, &proc->cred) == 0)
+	VOP_HOLD(consolenode);
+	__assert(VOP_OPEN(&consolenode, V_FFLAGS_WRITE, &proc->cred) == 0)
 
 	file_t *stdin = fd_allocate();
 	file_t *stdout = fd_allocate();
 	file_t *stderr = fd_allocate();
 
-	stdin->vnode = stdinnode;
-	stdout->vnode = stdoutnode;
-	stderr->vnode = stderrnode;
+	stdin->vnode = consolenode;
+	stdout->vnode = consolenode;
+	stderr->vnode = consolenode;
 
 	stdin->flags = FILE_READ;
 	stdout->flags = stderr->flags = FILE_WRITE;
