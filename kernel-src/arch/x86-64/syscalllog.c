@@ -4,7 +4,7 @@
 
 #ifdef SYSCALL_LOGGING
 
-#define SYSCALL_COUNT 35
+#define SYSCALL_COUNT 38
 #define LOGSTR(x) arch_e9_puts(x)
 
 static char *name[] = {
@@ -44,7 +44,8 @@ static char *name[] = {
 	"umask",
 	"poll",
 	"nanosleep",
-	"ftruncate"
+	"ftruncate",
+	"mount"
 };
 
 static char *args[] = {
@@ -84,7 +85,8 @@ static char *args[] = {
 	"mode %o", // umask
 	"fds %p nfds %d timeout %d", // poll
 	"time %p remaining %p", // nanosleep
-	"fd %d size %lu" // ftruncate
+	"fd %d size %lu", // ftruncate
+	"backing %s mountpoint %s fs %s flags %d data %p" // mount
 };
 
 #endif

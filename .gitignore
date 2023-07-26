@@ -15,3 +15,5 @@ sysroot
 minimalsysroot
 tools/init/init
 tools/init/main.o
+tools/mount/mount
+tools/mount/main.o
