@@ -17,7 +17,7 @@ static vmmcache_t *newcache() {
 	ptr->header.freecount = VMM_RANGES_PER_CACHE; 
 	ptr->header.firstfree = 0;
 	ptr->header.next = NULL;
-	SPINLOCK_INIT(ptr->header.lock);
+	MUTEX_INIT(&ptr->header.lock);
 
 	for (uintmax_t i = 0; i < VMM_RANGES_PER_CACHE; ++i) {
 		ptr->ranges[i].size = 0;
@@ -43,20 +43,20 @@ static vmmrange_t *allocrange() {
 	vmmcache_t *cache = cachelist;
 	vmmrange_t *range = NULL;
 	while (cache) {
-		spinlock_acquire(&cache->header.lock);
+		MUTEX_ACQUIRE(&cache->header.lock, false);
 		if (cache->header.freecount > 0) {
 			--cache->header.freecount;
 			uintmax_t r = getentrynumber(cache);
 			cache->header.firstfree = r + 1;
 			range = &cache->ranges[r];
 			range->size = -1; // set as allocated temporarily
-			spinlock_release(&cache->header.lock);
+			MUTEX_RELEASE(&cache->header.lock);
 			break;
 		} else if (cache->header.next == NULL)
 			cache->header.next = newcache();
 
 		vmmcache_t *next = cache->header.next;
-		spinlock_release(&cache->header.lock);
+		MUTEX_RELEASE(&cache->header.lock);
 		cache = next;
 	}
 
@@ -65,7 +65,7 @@ static vmmrange_t *allocrange() {
 
 static void freerange(vmmrange_t *range) {
 	vmmcache_t *cache = (vmmcache_t *)ROUND_DOWN((uintptr_t)range, PAGE_SIZE);
-	spinlock_acquire(&cache->header.lock);
+	MUTEX_ACQUIRE(&cache->header.lock, false);
 
 	int rangeoffset = ((uintptr_t)range - (uintptr_t)cache->ranges) / sizeof(vmmrange_t);
 	range->size = 0;
@@ -73,7 +73,7 @@ static void freerange(vmmrange_t *range) {
 	if (cache->header.firstfree > rangeoffset)
 		cache->header.firstfree = rangeoffset;
 
-	spinlock_release(&cache->header.lock);
+	MUTEX_RELEASE(&cache->header.lock);
 }
 
 // ranges are separated into kernel and user. the kernel has a temporary user context
@@ -297,7 +297,7 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 	if (space == NULL || (space == &kernelspace && user))
 		return false;
 
-	spinlock_acquire(&space->lock);
+	MUTEX_ACQUIRE(&space->lock, false);
 	vmmrange_t *range = getrange(space, addr);
 
 	bool status = false;
@@ -339,7 +339,7 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 	}
 
 	cleanup:
-	spinlock_release(&space->lock);
+	MUTEX_RELEASE(&space->lock);
 	return status;
 }
 
@@ -360,7 +360,7 @@ void *vmm_map(void *addr, volatile size_t size, int flags, mmuflags_t mmuflags, 
 	if (space == NULL)
 		return NULL;
 
-	spinlock_acquire(&space->lock);
+	MUTEX_ACQUIRE(&space->lock, false);
 	vmmrange_t *range = NULL;
 
 	void *start = getfreerange(space, addr, size);
@@ -431,7 +431,7 @@ void *vmm_map(void *addr, volatile size_t size, int flags, mmuflags_t mmuflags, 
 	if (start == NULL && range)
 		freerange(range);
 
-	spinlock_release(&space->lock);
+	MUTEX_RELEASE(&space->lock);
 	return retaddr;
 }
 
@@ -449,10 +449,10 @@ void vmm_unmap(void *addr, size_t size, int flags) {
 	if (space == NULL)
 		return;
 
-	spinlock_acquire(&space->lock);
+	MUTEX_ACQUIRE(&space->lock, false);
 	unmap(space, addr, size);
 
-	spinlock_release(&space->lock);
+	MUTEX_RELEASE(&space->lock);
 }
 
 static scache_t *ctxcache;
@@ -461,7 +461,7 @@ static void ctxctor(scache_t *cache, void *obj) {
 	vmmcontext_t *ctx = obj;
 	ctx->space.start = USERSPACE_START;
 	ctx->space.end = USERSPACE_END;
-	SPINLOCK_INIT(ctx->space.lock);
+	MUTEX_INIT(&ctx->space.lock);
 	ctx->space.ranges = NULL;
 }
 
@@ -499,7 +499,7 @@ vmmcontext_t *vmm_fork(vmmcontext_t *oldcontext) {
 	if (newcontext == NULL)
 		return NULL;
 
-	spinlock_acquire(&oldcontext->space.lock);
+	MUTEX_ACQUIRE(&oldcontext->space.lock, false);
 
 	vmmrange_t *range = oldcontext->space.ranges;
 
@@ -536,10 +536,10 @@ vmmcontext_t *vmm_fork(vmmcontext_t *oldcontext) {
 		range = range->next;
 	}
 
-	spinlock_release(&oldcontext->space.lock);
+	MUTEX_RELEASE(&oldcontext->space.lock);
 	return newcontext;
 	error:
-	spinlock_release(&oldcontext->space.lock);
+	MUTEX_RELEASE(&oldcontext->space.lock);
 	vmm_destroycontext(newcontext);
 	return NULL;
 }
@@ -571,6 +571,7 @@ extern volatile struct limine_memmap_request pmm_liminemap;
 
 void vmm_init() {
 	__assert(sizeof(vmmcache_t) <= PAGE_SIZE);
+	MUTEX_INIT(&kernelspace.lock);
 
 	cachelist = newcache();
 	vmm_kernelctx.pagetable = arch_mmu_newtable();

@@ -43,7 +43,7 @@ typedef struct vmmrange_t{
 } vmmrange_t;
 
 typedef struct {
-	spinlock_t lock;
+	mutex_t lock;
 	struct vmmcache_t *next;
 	size_t freecount;
 	uintmax_t firstfree;
@@ -57,7 +57,7 @@ typedef struct vmmcache_t {
 } vmmcache_t;
 
 typedef struct {
-	spinlock_t lock;
+	mutex_t lock;
 	vmmrange_t *ranges;
 	void *start;
 	void *end;
