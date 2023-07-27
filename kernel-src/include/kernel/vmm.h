@@ -58,6 +58,7 @@ typedef struct vmmcache_t {
 
 typedef struct {
 	mutex_t lock;
+	mutex_t pflock;
 	vmmrange_t *ranges;
 	void *start;
 	void *end;

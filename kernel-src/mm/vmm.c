@@ -202,7 +202,6 @@ static void insertrange(vmmspace_t *space, vmmrange_t *newrange) {
 
 		freerange(newrange);
 	}
-
 }
 
 static void destroyrange(vmmrange_t *range, uintmax_t _offset, size_t size, int flags) {
@@ -297,7 +296,7 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 	if (space == NULL || (space == &kernelspace && user))
 		return false;
 
-	MUTEX_ACQUIRE(&space->lock, false);
+	MUTEX_ACQUIRE(&space->pflock, false);
 	vmmrange_t *range = getrange(space, addr);
 
 	bool status = false;
@@ -339,7 +338,7 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 	}
 
 	cleanup:
-	MUTEX_RELEASE(&space->lock);
+	MUTEX_RELEASE(&space->pflock);
 	return status;
 }
 
@@ -449,10 +448,16 @@ void vmm_unmap(void *addr, size_t size, int flags) {
 	if (space == NULL)
 		return;
 
+	// the pagefault handler lock is acquired
+	// in order to prevent some consistency issues
+	// when other threads are running on the same address space.
+	// the lock ordering is still pflock -> lock on both
+	// vmm_pagefault and vmm_unmap.
+	MUTEX_ACQUIRE(&space->pflock, false);
 	MUTEX_ACQUIRE(&space->lock, false);
 	unmap(space, addr, size);
-
 	MUTEX_RELEASE(&space->lock);
+	MUTEX_RELEASE(&space->pflock);
 }
 
 static scache_t *ctxcache;
@@ -462,6 +467,7 @@ static void ctxctor(scache_t *cache, void *obj) {
 	ctx->space.start = USERSPACE_START;
 	ctx->space.end = USERSPACE_END;
 	MUTEX_INIT(&ctx->space.lock);
+	MUTEX_INIT(&ctx->space.pflock);
 	ctx->space.ranges = NULL;
 }
 
@@ -572,6 +578,7 @@ extern volatile struct limine_memmap_request pmm_liminemap;
 void vmm_init() {
 	__assert(sizeof(vmmcache_t) <= PAGE_SIZE);
 	MUTEX_INIT(&kernelspace.lock);
+	MUTEX_INIT(&kernelspace.pflock);
 
 	cachelist = newcache();
 	vmm_kernelctx.pagetable = arch_mmu_newtable();
