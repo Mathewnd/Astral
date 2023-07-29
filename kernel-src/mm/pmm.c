@@ -4,22 +4,30 @@
 #include <string.h>
 #include <arch/mmu.h>
 #include <spinlock.h>
+#include <util.h>
 
 uintptr_t hhdmbase;
 static size_t memorysize;
-static size_t physicalpagecount;
-static size_t used;
+static size_t pagecount;
+
+static spinlock_t freelistlock;
+static page_t *freelists[PMM_SECTION_COUNT];
+static page_t *standbylists[PMM_SECTION_COUNT];
 
 typedef struct {
-	spinlock_t lock;
-	uintmax_t base;
-	uintmax_t top;
+	uintmax_t baseid;
+	uintmax_t topid;
 	uintmax_t searchstart;
-} bmsection_t;
+} section_t;
 
-static bmsection_t bmsections[PMM_SECTION_COUNT];
+#define TOP_1MB (0x100000 / PAGE_SIZE)
+#define TOP_4GB ((uint64_t)0x100000000 / PAGE_SIZE)
 
-static uint64_t *bitmap;
+static section_t sections[PMM_SECTION_COUNT] = {
+	{0, TOP_1MB, 0},
+	{TOP_1MB, TOP_4GB, TOP_1MB},
+	{TOP_4GB, 0xffffffffffffffffl, TOP_4GB}
+};
 
 static volatile struct limine_hhdm_request hhdmreq = {
 	.id = LIMINE_HHDM_REQUEST,
@@ -31,169 +39,215 @@ volatile struct limine_memmap_request pmm_liminemap = {
 	.revision = 0
 };
 
-static inline void bmset(void *addr, uint64_t v) {
-	uintmax_t page = (uintptr_t)addr / PAGE_SIZE;
-	uintmax_t entry = page / 64;
-	uintmax_t offset = page % 64;
+static page_t* pages;
 
-	uint64_t entryval = bitmap[entry];
-	entryval &= ~((uint64_t)1 << offset);
-	entryval |= v << offset;
-	bitmap[entry] = entryval;
+#define PAGE_GETID(page) (((uintptr_t)(page) - (uintptr_t)pages) / sizeof(page_t))
+#define PAGE_BOUNDARYCHECK(pageid) \
+	__assert((pageid) * PAGE_SIZE < (uintptr_t)pages || (pageid) * PAGE_SIZE >= (uintptr_t)&pages[pagecount])
+
+static void insertinfreelist(page_t *page) {
+	uintmax_t pageid = PAGE_GETID(page);
+	PAGE_BOUNDARYCHECK(pageid);
+	struct page_t **list;
+
+	int section;
+
+	if (pageid < TOP_1MB)
+		section = PMM_SECTION_1MB;
+	else if (pageid < TOP_4GB)
+		section = PMM_SECTION_4GB;
+	else
+		section = PMM_SECTION_DEFAULT;
+
+	list = page->backing ? &standbylists[section] : &freelists[section];
+
+	if (sections[section].searchstart > pageid)
+		sections[section].searchstart = pageid;
+
+	page->freenext = *list;
+	page->freeprev = NULL;
+	*list = page;
+	if (page->freenext)
+		page->freenext->freeprev = page;
 }
 
-static inline bool bmget(void *addr) {
-	uintmax_t page = (uintptr_t)addr / PAGE_SIZE;
-	uintmax_t entry = page / 64;
-	uintmax_t offset = page % 64;
+static void removefromfreelist(page_t *page) {
+	uintmax_t pageid = PAGE_GETID(page);
+	PAGE_BOUNDARYCHECK(pageid);
+	struct page_t **list;
 
-	uint64_t entryval = bitmap[entry];
-	entryval &= ((uint64_t)1 << offset);
-	return entryval;
+	int section;
+
+	if (pageid < TOP_1MB)
+		section = PMM_SECTION_1MB;
+	else if (pageid < TOP_4GB)
+		section = PMM_SECTION_4GB;
+	else
+		section = PMM_SECTION_DEFAULT;
+
+	list = page->backing ? &standbylists[section] : &freelists[section];
+
+	if (page->freeprev)
+		page->freeprev->freenext = page->freenext;
+	else
+		*list = page->freenext;
+
+	if (page->freenext)
+		page->freenext->freeprev = page->freeprev;
 }
 
-static uintmax_t getfreearea(bmsection_t *section, size_t size) {
-	uintmax_t result = 0;
-	uintmax_t found = 0;
+void pmm_hold(void *addr) {
+	page_t *page = &pages[((uintptr_t)addr / PAGE_SIZE)];
+	__atomic_add_fetch(&page->refcount, 1, __ATOMIC_SEQ_CST);
+}
 
-	for (uintmax_t search = section->searchstart; search < section->top && found < size; ++search) {
-		uintmax_t entry = search / 64;
-		uintmax_t offset = search % 64;
+void pmm_release(void *addr) {
+	page_t *page = &pages[(uintptr_t)addr / PAGE_SIZE];
+	__assert(page->refcount != 0);
 
-		if (bitmap[entry] == 0) {
-			search += 63 - offset; // 63 because search gets incremented on continue
-			result = 0;
-			found = 0;
-			continue;
-		}
-
-		if (((bitmap[entry] >> offset) & 1) == 0) {
-			found = 0;
-			result = 0;
-			continue;
-		}
-
-		if (found == 0)
-			result = search;
-
-		++found;
+	uintmax_t newrefcount = __atomic_sub_fetch(&page->refcount, 1, __ATOMIC_SEQ_CST);
+	if (newrefcount == 0) {
+		spinlock_acquire(&freelistlock);
+		insertinfreelist(page);
+		if (page->backing == NULL)
+			page->flags |= PAGE_FLAGS_FREE;
+		spinlock_release(&freelistlock);
 	}
-
-	return result;
 }
 
-static inline void initsection(int section, uintmax_t base, uintmax_t top) {
-	bmsections[section] = (bmsection_t){
-		.base = base,
-		.top = top,
-		.searchstart = base
-	};
-	SPINLOCK_INIT(bmsections[section].lock);
+static void doalloc(page_t *page) {
+	__assert(page->refcount == 0);
+	memset(page, 0, sizeof(page_t));
+	page->refcount = 1;
+	page->flags &= ~PAGE_FLAGS_FREE;
 }
 
-void *pmm_alloc(size_t size, int section) {
+void *pmm_allocpage(int section) {
+	spinlock_acquire(&freelistlock);
+	page_t *page = NULL;
+
 	for (int i = section; i >= 0; --i) {
-		spinlock_acquire(&bmsections[i].lock);
-		uintmax_t page = getfreearea(&bmsections[i], size);
-
+		page = freelists[i];
 		if (page) {
-			if (page == bmsections[i].searchstart)
-				bmsections[i].searchstart += size;
-
-			for (size_t j = 0; j < size; ++j)
-				bmset((void *)((page + j) * PAGE_SIZE), 0);
-
-			spinlock_release(&bmsections[i].lock);
-			__atomic_add_fetch(&used, 1, __ATOMIC_SEQ_CST);
-			return (void *)(page * PAGE_SIZE);
-		}
-		spinlock_release(&bmsections[i].lock);
-	}
-	return NULL;
-}
-
-void pmm_free(void *addr, size_t size) {
-	uintmax_t page = (uintptr_t)addr / PAGE_SIZE;
-
-	for (int i = 0; i < PMM_SECTION_COUNT; ++i) {
-		if (page >= bmsections[i].base && page < bmsections[i].top) {
-			spinlock_acquire(&bmsections[i].lock);
-
-			if ((uintptr_t)addr / PAGE_SIZE < bmsections[i].searchstart)
-				bmsections[i].searchstart = (uintptr_t)addr / PAGE_SIZE;
-
-			for (uintmax_t j = 0; j < size; ++j) {
-				__assert(bmget((void *)((page + j) * PAGE_SIZE)) == false);
-				bmset((void *)((page + j) * PAGE_SIZE), 1);
-			}
-
-			spinlock_release(&bmsections[i].lock);
-			__atomic_sub_fetch(&used, 1, __ATOMIC_SEQ_CST);
-			return;
+			removefromfreelist(page);
+			break;
 		}
 	}
+
+	// TODO get page from standby list and call to remove from cache
+
+	spinlock_release(&freelistlock);
+	void *address = NULL;
+	if (page) {
+		address = (void *)(PAGE_GETID(page) * PAGE_SIZE);
+		doalloc(page);
+	}
+
+	return address;
 }
 
-void pmm_getinfo(size_t *pages, size_t *usedpages) {
-	if (pages)
-		*pages = physicalpagecount;
-	if (usedpages)
-		*usedpages = used;
+void pmm_makefree(void *address, size_t count) {
+	memorysize += PAGE_SIZE * count;
+	__assert(((uintptr_t)address % PAGE_SIZE) == 0);
+	uintmax_t baseid = (uintptr_t)address / PAGE_SIZE;
+	for (int i = 0; i < count; ++i) {
+		uintmax_t pageid = baseid + i;
+		PAGE_BOUNDARYCHECK(pageid);
+		page_t *page = &pages[pageid];
+		insertinfreelist(page);
+	}
 }
-
-#define TOP_1MB (0x100000 / PAGE_SIZE)
-#define TOP_4GB ((uint64_t)0x100000000 / PAGE_SIZE)
 
 void pmm_init() {
 	__assert(hhdmreq.response);
 	hhdmbase = hhdmreq.response->offset;
 	__assert(pmm_liminemap.response);
 
-	uintmax_t topofmemory = 0;
-
-	// get size of memory and print memory map
-	printf("memory map:\n");
+	// get size of memory, top of usable memory, biggest section and print memory map
+	size_t top = 0;
+	struct limine_memmap_entry *biggest = NULL;
+	printf("pmm: ranges:\n");
 	for (size_t i = 0; i < pmm_liminemap.response->entry_count; ++i) {
 		struct limine_memmap_entry *e = pmm_liminemap.response->entries[i];
-		printf("%016p -> %016p: %d\n", e->base, e->base + e->length, e->type);
+		printf("pmm: %016p -> %016p: %d\n", e->base, e->base + e->length, e->type);
+		if (e->type == LIMINE_MEMMAP_USABLE || e->type == LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE) {
+			size_t sectiontop = e->base + e->length;
+			if (sectiontop > top)
+				top = sectiontop;
+		}
 		if (e->type == LIMINE_MEMMAP_USABLE) {
-			topofmemory = e->base + e->length;
+			if (biggest == NULL || e->length > biggest->length)
+				biggest = e;
 			memorysize += e->length;
 		}
 	}
 
-	physicalpagecount = topofmemory / PAGE_SIZE;
+	pages = MAKE_HHDM((page_t *)biggest->base);
+	pagecount = ROUND_UP(top, PAGE_SIZE) / PAGE_SIZE;
+	memset(pages, 0, pagecount / sizeof(page_t));
+	printf("pmm: %d pages used for page list\n", ROUND_UP(pagecount * sizeof(page_t), PAGE_SIZE) / PAGE_SIZE);
 
-	size_t bitmapsize = physicalpagecount / 8;
-
-	// find out where to put the bitmap
-	for (uintmax_t i = 0; i < pmm_liminemap.response->entry_count; ++i) {
+	// place pages in free lists
+	for (size_t i = 0; i < pmm_liminemap.response->entry_count; ++i) {
 		struct limine_memmap_entry *e = pmm_liminemap.response->entries[i];
-		if (e->type == LIMINE_MEMMAP_USABLE && e->length >= bitmapsize)
-			bitmap = (uint64_t *)e->base;
-	}
-	__assert(bitmap);
-
-	memset(bitmap, 0, bitmapsize);
-
-	// set free pages
-	for (uintmax_t i = 0; i < pmm_liminemap.response->entry_count; ++i) {
-		struct limine_memmap_entry *e = pmm_liminemap.response->entries[i];
-		if (e->type != LIMINE_MEMMAP_USABLE)
-			continue;
-
-		for (uintmax_t offset = 0; offset < e->length; offset += PAGE_SIZE)
-			bmset((void *)(e->base + offset), 1);
+		if (e->type == LIMINE_MEMMAP_USABLE) {
+			int firstusablepage = e == biggest ? ROUND_UP(e->base + pagecount * sizeof(page_t), PAGE_SIZE) / PAGE_SIZE : e->base / PAGE_SIZE;
+			for (int i = firstusablepage; i < (e->base + e->length) / PAGE_SIZE; ++i) {
+				pages[i].flags |= PAGE_FLAGS_FREE;
+				insertinfreelist(&pages[i]);
+			}
+		}
 	}
 
-	// set bitmap as used
-	for (uintmax_t offset = 0; offset < bitmapsize; offset += PAGE_SIZE)
-		bmset((void *)((uintptr_t)bitmap + offset), 0);
+	SPINLOCK_INIT(freelistlock);
+}
 
-	// prepare sections
-	// for all cases this section will always be present so hardcode its values (otherwise the system wouldn't even get here)
-	initsection(PMM_SECTION_1MB, 1, TOP_1MB);
-	initsection(PMM_SECTION_4GB, TOP_1MB, physicalpagecount > TOP_4GB ? TOP_4GB : physicalpagecount);
-	initsection(PMM_SECTION_DEFAULT, TOP_4GB, physicalpagecount > TOP_4GB ? physicalpagecount : TOP_4GB);
-	bitmap = MAKE_HHDM(bitmap);
+void *pmm_alloc(size_t size, int section) {
+	__assert(size);
+	// pmm_allocpage is more suited for single page allocations, so use that instead
+	if (size == 1)
+		return pmm_allocpage(section);
+
+	spinlock_acquire(&freelistlock);
+
+	uintmax_t page = 0;
+	size_t found = 0;
+
+	for (; section >= 0; --section) {
+		for (page = sections[section].searchstart; page < sections[section].topid; ++page) {
+			if (page >= pagecount)
+				break;
+
+			if (pages[page].flags & PAGE_FLAGS_FREE) {
+				++found;
+			} else
+				found = 0;
+
+			if (found == size)
+				goto gotpages;
+		}
+		found = 0;
+	}
+
+	gotpages:
+	void *addr = NULL;
+	if (found == size) {
+		page = page - (found - 1);
+		addr = (void *)(page * PAGE_SIZE);
+		for (int i = 0; i < size; ++i) {
+			removefromfreelist(&pages[page + i]);
+			doalloc(&pages[page + i]);
+		}
+	}
+
+	spinlock_release(&freelistlock);
+	return addr;
+}
+
+void pmm_free(void *addr, size_t size) {
+	__assert(size);
+	// release multiple pages at once
+	__assert(((uintptr_t)addr % PAGE_SIZE) == 0);
+	for (int i = 0; i < size; ++i)
+		pmm_release((void *)((uintptr_t)addr + PAGE_SIZE * i));
 }

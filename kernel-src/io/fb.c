@@ -129,14 +129,14 @@ static int mmap(int minor, void *addr, uintmax_t offset, int flags) {
 		return arch_mmu_map(_cpu()->vmmctx->pagetable, FROM_HHDM((void *)((uintptr_t)fbs[minor]->address + offset)), addr, vnodeflagstommuflags(flags)) ? 0 : ENOMEM;
 	} else {
 		size_t size = offset + PAGE_SIZE < end ? PAGE_SIZE : end - offset;
-		paddr = pmm_alloc(1, PMM_SECTION_DEFAULT);
+		paddr = pmm_allocpage(PMM_SECTION_DEFAULT);
 		if (paddr == NULL)
 			return ENOMEM;
 
 		memcpy(MAKE_HHDM(paddr), (void *)((uintptr_t)fbs[minor]->address + offset), size);
 
 		if (arch_mmu_map(_cpu()->vmmctx->pagetable, paddr, addr, vnodeflagstommuflags(flags)) == false) {
-			pmm_free(paddr, 1);
+			pmm_release(paddr);
 			return ENOMEM;
 		}
 
@@ -148,7 +148,7 @@ static int munmap(int minor, void *addr, uintmax_t offset, int flags) {
 	void *phys = arch_mmu_getphysical(_cpu()->vmmctx->pagetable, addr);
 	arch_mmu_unmap(_cpu()->vmmctx->pagetable, addr);
 	if ((flags & V_FFLAGS_SHARED) == 0) {
-		pmm_free(phys, 1);
+		pmm_release(phys);
 	}
 
 	return 0;

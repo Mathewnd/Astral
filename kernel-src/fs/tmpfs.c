@@ -392,12 +392,12 @@ static int tmpfs_readlink(vnode_t *node, char **link, cred_t *cred) {
 #define MMAPTMPFLAGS (ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_NOEXEC | ARCH_MMU_FLAGS_WRITE)
 
 static int tmpfs_mmap(vnode_t *node, void *addr, uintmax_t offset, int flags, cred_t *cred) {
-	void *paddr = pmm_alloc(1, PMM_SECTION_DEFAULT);
+	void *paddr = pmm_allocpage(PMM_SECTION_DEFAULT);
 	if (paddr == NULL)
 		return ENOMEM;
 
 	if (arch_mmu_map(_cpu()->vmmctx->pagetable, paddr, addr, MMAPTMPFLAGS) == false) {
-		pmm_free(paddr, 1);
+		pmm_release(paddr);
 		return ENOMEM;
 	}
 
@@ -405,7 +405,7 @@ static int tmpfs_mmap(vnode_t *node, void *addr, uintmax_t offset, int flags, cr
 	int e = tmpfs_read(node, addr, PAGE_SIZE, offset, flags, &readc, cred);
 	if (e) {
 		arch_mmu_unmap(_cpu()->vmmctx->pagetable, addr);
-		pmm_free(paddr, 1);
+		pmm_release(paddr);
 		return e;
 	}
 
@@ -426,7 +426,7 @@ static int tmpfs_munmap(vnode_t *node, void *addr, uintmax_t offset, int flags, 
 	void *paddr = arch_mmu_getphysical(_cpu()->vmmctx->pagetable, addr);
 	__assert(paddr);
 	arch_mmu_unmap(_cpu()->vmmctx->pagetable, addr);
-	pmm_free(paddr, 1);
+	pmm_release(paddr);
 	return 0;
 }
 

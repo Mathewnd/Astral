@@ -10,7 +10,7 @@
 #define RANGE_TOP(x) (void *)((uintptr_t)x->start + x->size)
 
 static vmmcache_t *newcache() {
-	vmmcache_t *ptr = pmm_alloc(1, PMM_SECTION_DEFAULT);
+	vmmcache_t *ptr = pmm_allocpage(PMM_SECTION_DEFAULT);
 	if (ptr == NULL)
 		return NULL;
 	ptr = MAKE_HHDM(ptr);
@@ -221,7 +221,7 @@ static void destroyrange(vmmrange_t *range, uintmax_t _offset, size_t size, int 
 		if ((range->flags & VMM_FLAGS_FILE) && (range->flags & VMM_FLAGS_SHARED) && (flags & VMM_DESTROY_FLAGS_NOSYNC) == 0) {
 			__assert(VOP_MUNMAP(range->vnode, vaddr, range->offset + offset, mmuflagstovnodeflags(range->mmuflags) | (range->flags & VMM_FLAGS_SHARED ? V_FFLAGS_SHARED : 0), cred) == 0);
 		} else {
-			pmm_free(physical, 1);
+			pmm_release(physical);
 			arch_mmu_unmap(_cpu()->vmmctx->pagetable, vaddr);
 		}
 	}
@@ -330,7 +330,7 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 		__assert(VOP_MMAP(range->vnode, addr, range->offset + mapoffset, mmuflagstovnodeflags(range->mmuflags) | (range->flags & VMM_FLAGS_SHARED ? V_FFLAGS_SHARED : 0), cred) == 0);
 		status = true;
 	} else {
-		void *paddr = pmm_alloc(1, PMM_SECTION_DEFAULT);
+		void *paddr = pmm_allocpage(PMM_SECTION_DEFAULT);
 		__assert(paddr); // XXX handle these better than an assert once there are signals and such
 		__assert(arch_mmu_map(_cpu()->vmmctx->pagetable, paddr, addr, range->mmuflags));
 		memset(MAKE_HHDM(paddr), 0, PAGE_SIZE);
@@ -399,7 +399,7 @@ void *vmm_map(void *addr, volatile size_t size, int flags, mmuflags_t mmuflags, 
 	} else if (flags & VMM_FLAGS_ALLOCATE) {
 		// allocate to virtual memory
 		for (uintmax_t i = 0; i < size; i += PAGE_SIZE) {
-			void *allocated = pmm_alloc(1, PMM_SECTION_DEFAULT);
+			void *allocated = pmm_allocpage(PMM_SECTION_DEFAULT);
 			if (allocated == NULL) {
 				retaddr = NULL;
 				goto cleanup;
@@ -411,7 +411,7 @@ void *vmm_map(void *addr, volatile size_t size, int flags, mmuflags_t mmuflags, 
 						void *physical = arch_mmu_getphysical(_cpu()->vmmctx->pagetable, virt);
 
 						if (physical) {
-							pmm_free(physical, 1);
+							pmm_release(physical);
 							arch_mmu_unmap(_cpu()->vmmctx->pagetable, virt);
 						}
 				}
@@ -529,7 +529,7 @@ vmmcontext_t *vmm_fork(vmmcontext_t *oldcontext) {
 			if (phys == NULL)
 				continue;
 
-			void *palloc = pmm_alloc(1, PMM_SECTION_DEFAULT);
+			void *palloc = pmm_allocpage(PMM_SECTION_DEFAULT);
 			if (palloc == NULL)
 				goto error;
 

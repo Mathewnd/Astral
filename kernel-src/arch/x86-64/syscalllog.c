@@ -86,7 +86,7 @@ static char *args[] = {
 	"fds %p nfds %d timeout %d", // poll
 	"time %p remaining %p", // nanosleep
 	"fd %d size %lu", // ftruncate
-	"backing %s mountpoint %s fs %s flags %d data %p" // mount
+	"backing %p mountpoint %s fs %s flags %d data %p" // mount
 };
 
 #endif

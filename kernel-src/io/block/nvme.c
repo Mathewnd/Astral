@@ -233,7 +233,7 @@ typedef struct {
 	int phase;
 } queuedesc_t;
 
-#define QUEUEPAIR_ENTRY_COUNT 256
+#define QUEUEPAIR_ENTRY_COUNT (PAGE_SIZE / sizeof(subentry_t))
 
 typedef struct {
 	queuedesc_t submission;
@@ -350,7 +350,7 @@ static int identify(nvmecontroller_t *controller, void *buffer, int what, int na
 	entrypair_t pair = {0};
 	PAIR_INIT(&pair, SUB_DW0_OPCODE_IDENTIFY, SUB_DW0_UNFUSED, SUB_DW0_PRP, 0);
 
-	pair.sub.datapointer[0] = (uint64_t)pmm_alloc(1, PMM_SECTION_DEFAULT);
+	pair.sub.datapointer[0] = (uint64_t)pmm_allocpage(PMM_SECTION_DEFAULT);
 	if (pair.sub.datapointer[0] == 0)
 		return ENOMEM;
 
@@ -519,30 +519,33 @@ static int iowrite(nvmenamespace_t *namespace, uint64_t prp[2], uint64_t lba, ui
 
 static int rwblocks(nvmenamespace_t *namespace, void *buffer, uintmax_t lba, size_t count, bool write, bool pagealignedbuffer) {
 	// TODO this is pretty inefficient and will be replaced later
-	__assert(namespace->blocksize < PAGE_SIZE * 2);
-	void *phys = pmm_alloc(2, PMM_SECTION_DEFAULT);
-	if (phys == NULL)
-		return ENOMEM;
+	__assert(namespace->blocksize <= PAGE_SIZE);
 
-	uint64_t prp[2] = {(uint64_t)phys, (uint64_t)phys + PAGE_SIZE};
+	uint64_t prp[2] = {(uint64_t)pmm_allocpage(PMM_SECTION_DEFAULT), 0};
 	int err = 0;
+	if (prp[0] == 0)
+		goto cleanup;
 
 	for (int i = 0; i < count; ++i) {
 		void *bufferp = (void *)((uintptr_t)buffer + i * namespace->blocksize);
 
-		if (write)
-			memcpy(MAKE_HHDM(phys), bufferp, namespace->blocksize);
+		if (write) {
+			memcpy(MAKE_HHDM(prp[0]), bufferp, namespace->blocksize);
+		}
 
 		err = write ? iowrite(namespace, prp, lba + i, 1) : ioread(namespace, prp, lba + i, 1);
 		if (err)
 			goto cleanup;
 
-		if (!write)
-			memcpy(bufferp, MAKE_HHDM(phys), namespace->blocksize);
+		if (!write) {
+			memcpy(bufferp, MAKE_HHDM(prp[0]), namespace->blocksize);
+		}
 	}
 
 	cleanup:
-	pmm_free(phys, 2);
+	if (prp[0])
+		pmm_release((void *)prp[0]);
+
 	return err;
 }
 

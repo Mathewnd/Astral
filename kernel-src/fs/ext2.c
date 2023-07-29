@@ -1435,12 +1435,12 @@ static int ext2_symlink(vnode_t *vnode, char *name, vattr_t *attr, char *path, c
 #define MMAPTMPFLAGS (ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_NOEXEC | ARCH_MMU_FLAGS_WRITE)
 
 static int ext2_mmap(vnode_t *node, void *addr, uintmax_t offset, int flags, cred_t *cred) {
-	void *paddr = pmm_alloc(1, PMM_SECTION_DEFAULT);
+	void *paddr = pmm_allocpage(PMM_SECTION_DEFAULT);
 	if (paddr == NULL)
 		return ENOMEM;
 
 	if (arch_mmu_map(_cpu()->vmmctx->pagetable, paddr, addr, MMAPTMPFLAGS) == false) {
-		pmm_free(paddr, 1);
+		pmm_release(paddr);
 		return ENOMEM;
 	}
 
@@ -1448,7 +1448,7 @@ static int ext2_mmap(vnode_t *node, void *addr, uintmax_t offset, int flags, cre
 	int e = ext2_read(node, addr, PAGE_SIZE, offset, flags, &readc, cred);
 	if (e) {
 		arch_mmu_unmap(_cpu()->vmmctx->pagetable, addr);
-		pmm_free(paddr, 1);
+		pmm_release(paddr);
 		return e;
 	}
 
@@ -1469,7 +1469,7 @@ static int ext2_munmap(vnode_t *node, void *addr, uintmax_t offset, int flags, c
 	void *paddr = arch_mmu_getphysical(_cpu()->vmmctx->pagetable, addr);
 	__assert(paddr);
 	arch_mmu_unmap(_cpu()->vmmctx->pagetable, addr);
-	pmm_free(paddr, 1);
+	pmm_release(paddr);
 	return 0;
 }
 

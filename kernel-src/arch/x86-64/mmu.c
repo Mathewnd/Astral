@@ -68,7 +68,7 @@ static bool add_page(pagetableptr_t top, void *vaddr, uint64_t entry, int depth)
 
 	uint64_t *pdpt = next(pml4[pml4offset]);
 	if (pdpt == NULL) {
-		pdpt = pmm_alloc(1, PMM_SECTION_DEFAULT);
+		pdpt = pmm_allocpage(PMM_SECTION_DEFAULT);
 		if (pdpt == NULL)
 			return false;
 		pml4[pml4offset] = (uint64_t)pdpt | INTERMEDIATE_FLAGS;
@@ -83,7 +83,7 @@ static bool add_page(pagetableptr_t top, void *vaddr, uint64_t entry, int depth)
 	
 	uint64_t *pd = next(pdpt[pdptoffset]);
 	if (pd == NULL) {
-		pd = pmm_alloc(1, PMM_SECTION_DEFAULT);
+		pd = pmm_allocpage(PMM_SECTION_DEFAULT);
 		if (pd == NULL)
 			return false;
 		pdpt[pdptoffset] = (uint64_t)pd | INTERMEDIATE_FLAGS;
@@ -98,7 +98,7 @@ static bool add_page(pagetableptr_t top, void *vaddr, uint64_t entry, int depth)
 	
 	uint64_t *pt = next(pd[pdoffset]);
 	if (pt == NULL) {
-		pt = pmm_alloc(1, PMM_SECTION_DEFAULT);
+		pt = pmm_allocpage(PMM_SECTION_DEFAULT);
 		if (pt == NULL)
 			return false;
 		pd[pdoffset] = (uint64_t)pt | INTERMEDIATE_FLAGS;
@@ -120,13 +120,13 @@ static void destroy(uint64_t *table, int depth) {
 		if (depth > 0)
 			destroy(MAKE_HHDM(addr), depth - 1);
 
-		pmm_free(addr, 1);
+		pmm_release(addr);
 	}
 }
 
 void arch_mmu_destroytable(pagetableptr_t table) {
 	destroy(MAKE_HHDM(table), 3);
-	pmm_free(table, 1);
+	pmm_release(table);
 }
 
 bool arch_mmu_map(pagetableptr_t table, void *paddr, void *vaddr, mmuflags_t flags) {
@@ -170,7 +170,7 @@ void arch_mmu_switch(pagetableptr_t table) {
 static pagetableptr_t template;
 
 pagetableptr_t arch_mmu_newtable() {
-	pagetableptr_t table = pmm_alloc(1, PMM_SECTION_DEFAULT);
+	pagetableptr_t table = pmm_allocpage(PMM_SECTION_DEFAULT);
 	if (table == NULL)
 		return NULL;
 	memcpy(MAKE_HHDM(table), template, PAGE_SIZE);
@@ -227,13 +227,13 @@ static void pfisr(isr_t *self, context_t *ctx) {
 }
 
 void arch_mmu_init() {
-	template = pmm_alloc(1, PMM_SECTION_DEFAULT);
+	template = pmm_allocpage(PMM_SECTION_DEFAULT);
 	__assert(template);
 	template = MAKE_HHDM(template);
 	memset(template, 0, PAGE_SIZE);
 
 	for (int i = 256; i < 512; ++i) {
-		uint64_t *entry = pmm_alloc(1, PMM_SECTION_DEFAULT);
+		uint64_t *entry = pmm_allocpage(PMM_SECTION_DEFAULT);
 		__assert(entry);
 		memset(MAKE_HHDM(entry), 0, PAGE_SIZE);
 		template[i] = (uint64_t)entry | INTERMEDIATE_FLAGS;
