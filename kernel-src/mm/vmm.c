@@ -352,9 +352,8 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 				printf("vmm: out of memory to do copy on write on address space\n");
 				status = false;
 			} else {
-				// this assert should always succeed, here just to make sure
 				memcpy(MAKE_HHDM(newphys), MAKE_HHDM(oldphys), PAGE_SIZE);
-				__assert(arch_mmu_map(_cpu()->vmmctx->pagetable, newphys, addr, range->mmuflags));
+				arch_mmu_remap(_cpu()->vmmctx->pagetable, newphys, addr, range->mmuflags);
 				pmm_release(oldphys);
 				status = true;
 			}
@@ -556,14 +555,10 @@ vmmcontext_t *vmm_fork(vmmcontext_t *oldcontext) {
 			if (phys == NULL)
 				continue;
 
-			void *palloc = pmm_allocpage(PMM_SECTION_DEFAULT);
-			if (palloc == NULL)
+			if (arch_mmu_map(newcontext->pagetable, phys, vaddr, newrange->mmuflags & ~ARCH_MMU_FLAGS_WRITE) == false)
 				goto error;
-
-			if (arch_mmu_map(newcontext->pagetable, palloc, vaddr, newrange->mmuflags) == false)
-				goto error;
-
-			memcpy(MAKE_HHDM(palloc), MAKE_HHDM(phys), PAGE_SIZE);
+			pmm_hold(phys);
+			arch_mmu_remap(oldcontext->pagetable, phys, vaddr, newrange->mmuflags & ~ARCH_MMU_FLAGS_WRITE);
 		}
 
 		range = range->next;
