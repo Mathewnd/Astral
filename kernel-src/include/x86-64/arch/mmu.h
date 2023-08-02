@@ -30,6 +30,8 @@ void arch_mmu_unmap(pagetableptr_t table, void *vaddr);
 void arch_mmu_remap(pagetableptr_t table, void *paddr, void *vaddr, mmuflags_t flags);
 void arch_mmu_switch(pagetableptr_t table);
 void *arch_mmu_getphysical(pagetableptr_t table, void *vaddr);
+bool arch_mmu_ispresent(pagetableptr_t table, void *vaddr);
+bool arch_mmu_iswritable(pagetableptr_t table, void *vaddr);
 pagetableptr_t arch_mmu_newtable();
 void arch_mmu_init();
 

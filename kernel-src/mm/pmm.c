@@ -184,7 +184,7 @@ void pmm_init() {
 
 	pages = MAKE_HHDM((page_t *)biggest->base);
 	pagecount = ROUND_UP(top, PAGE_SIZE) / PAGE_SIZE;
-	memset(pages, 0, pagecount / sizeof(page_t));
+	memset(pages, 0, pagecount * sizeof(page_t));
 	printf("pmm: %d pages used for page list\n", ROUND_UP(pagecount * sizeof(page_t), PAGE_SIZE) / PAGE_SIZE);
 
 	// place pages in free lists

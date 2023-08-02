@@ -5,6 +5,7 @@
 #include <logging.h>
 #include <kernel/interrupt.h>
 #include <kernel/vmm.h>
+#include <arch/cpu.h>
 
 #define ADDRMASK (uint64_t)0x7ffffffffffff000
 #define   PTMASK (uint64_t)0b111111111000000000000
@@ -160,6 +161,16 @@ void *arch_mmu_getphysical(pagetableptr_t table, void *vaddr) {
 	if (entry == NULL)
 		return NULL;
 	return (void *)(*entry & ADDRMASK);
+}
+
+bool arch_mmu_ispresent(pagetableptr_t table, void *vaddr) {
+	uint64_t *entry = get_page(table, vaddr);
+	return entry == NULL ? false : *entry & ARCH_MMU_FLAGS_READ;
+}
+
+bool arch_mmu_iswritable(pagetableptr_t table, void *vaddr) {
+	uint64_t *entry = get_page(table, vaddr);
+	return entry == NULL ? false : *entry & ARCH_MMU_FLAGS_WRITE;
 }
 
 void arch_mmu_switch(pagetableptr_t table) {

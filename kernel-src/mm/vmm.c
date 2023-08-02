@@ -285,6 +285,8 @@ static void unmap(vmmspace_t *space, void *address, size_t size) {
 
 }
 
+static void *zeropage;
+
 bool vmm_pagefault(void *addr, bool user, int actions) {
 	if (user == false && addr > USERSPACE_END)
 		return false;
@@ -320,20 +322,45 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 	if (invalidactions & actions)
 		goto cleanup;
 
-	// TODO CoW
 	thread_t *thread = _cpu()->thread;
 	proc_t *proc = thread ? thread->proc : NULL;
 	cred_t *cred = proc ? &proc->cred : NULL;
 
-	if (range->flags & VMM_FLAGS_FILE) {
-		uintmax_t mapoffset = (uintptr_t)addr - (uintptr_t)range->start;
-		__assert(VOP_MMAP(range->vnode, addr, range->offset + mapoffset, mmuflagstovnodeflags(range->mmuflags) | (range->flags & VMM_FLAGS_SHARED ? V_FFLAGS_SHARED : 0), cred) == 0);
-		status = true;
+	if (arch_mmu_ispresent(_cpu()->vmmctx->pagetable, addr) == false) {
+		// page not present in the page tables
+		if (range->flags & VMM_FLAGS_FILE) {
+			uintmax_t mapoffset = (uintptr_t)addr - (uintptr_t)range->start;
+			__assert(VOP_MMAP(range->vnode, addr, range->offset + mapoffset, mmuflagstovnodeflags(range->mmuflags) | (range->flags & VMM_FLAGS_SHARED ? V_FFLAGS_SHARED : 0), cred) == 0);
+			status = true;
+		} else {
+			// anonymous memory. map the zero'd page
+			status = arch_mmu_map(_cpu()->vmmctx->pagetable, zeropage, addr, range->mmuflags & ~ARCH_MMU_FLAGS_WRITE);
+			if (!status)
+				printf("vmm: out of memory to map zero page into address space\n");
+			else
+				pmm_hold(zeropage);
+		}
+	} else if (arch_mmu_iswritable(_cpu()->vmmctx->pagetable, addr) == false){
+		// page present but not writeable in the page tables
+		if ((range->flags & VMM_FLAGS_FILE) && (range->flags & VMM_FLAGS_SHARED)) {
+			// TODO shared file mappings (set as dirty and set as writable on PTE)
+		} else {
+			void *oldphys = arch_mmu_getphysical(_cpu()->vmmctx->pagetable, addr);
+			// do copy on write
+			void *newphys = pmm_allocpage(PMM_SECTION_DEFAULT);
+			if (newphys == NULL) {
+				printf("vmm: out of memory to do copy on write on address space\n");
+				status = false;
+			} else {
+				// this assert should always succeed, here just to make sure
+				memcpy(MAKE_HHDM(newphys), MAKE_HHDM(oldphys), PAGE_SIZE);
+				__assert(arch_mmu_map(_cpu()->vmmctx->pagetable, newphys, addr, range->mmuflags));
+				pmm_release(oldphys);
+				status = true;
+			}
+		}
 	} else {
-		void *paddr = pmm_allocpage(PMM_SECTION_DEFAULT);
-		__assert(paddr); // XXX handle these better than an assert once there are signals and such
-		__assert(arch_mmu_map(_cpu()->vmmctx->pagetable, paddr, addr, range->mmuflags));
-		memset(MAKE_HHDM(paddr), 0, PAGE_SIZE);
+		// another thread already did the work, so just return success
 		status = true;
 	}
 
@@ -576,6 +603,7 @@ extern void *_rodata_end;
 extern volatile struct limine_memmap_request pmm_liminemap;
 
 void vmm_init() {
+	// set up initial state
 	__assert(sizeof(vmmcache_t) <= PAGE_SIZE);
 	MUTEX_INIT(&kernelspace.lock);
 	MUTEX_INIT(&kernelspace.pflock);
@@ -589,18 +617,24 @@ void vmm_init() {
 
 	vmm_switchcontext(&vmm_kernelctx);
 
+	// map HHDM
 	for (uint64_t i = 0; i < pmm_liminemap.response->entry_count; ++i) {
 		struct limine_memmap_entry *e = pmm_liminemap.response->entries[i];
 		mmuflags_t mmuflags = ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC;
 		__assert(vmm_map(MAKE_HHDM(e->base), e->length, VMM_FLAGS_EXACT, mmuflags, NULL));
 	}
 
+	// map kernel
 	__assert(vmm_map(&_text_start, (uintptr_t)&_text_end - (uintptr_t)&_text_start, VMM_FLAGS_EXACT, ARCH_MMU_FLAGS_READ, NULL));
 	__assert(vmm_map(&_rodata_start, (uintptr_t)&_rodata_end - (uintptr_t)&_rodata_start, VMM_FLAGS_EXACT, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_NOEXEC, NULL));
 	__assert(vmm_map(&_data_start, (uintptr_t)&_data_end - (uintptr_t)&_data_start, VMM_FLAGS_EXACT, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, NULL));
 
 	// null page
 	vmm_map(MAKE_HHDM(NULL), PAGE_SIZE, VMM_FLAGS_EXACT, ARCH_MMU_FLAGS_NOEXEC, NULL);
+
+	// zero page
+	zeropage = pmm_allocpage(PMM_SECTION_DEFAULT);
+	memset(MAKE_HHDM(zeropage), 0, PAGE_SIZE);
 
 	printspace(&kernelspace);
 }
