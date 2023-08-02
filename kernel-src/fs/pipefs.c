@@ -234,7 +234,7 @@ static vops_t vnops = {
 static void ctor(scache_t *cache, void *obj) {
 	pipenode_t *node = obj;
 	memset(node, 0, sizeof(pipenode_t));
-	VOP_INIT(&node->vnode, &vnops, 0, 0, NULL);
+	VOP_INIT(&node->vnode, &vnops, 0, V_TYPE_FIFO, NULL);
 	node->attr.inode = ++currentinode;
 	EVENT_INIT(&node->writeevent);
 	EVENT_INIT(&node->readevent);
