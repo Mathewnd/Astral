@@ -1,0 +1,13 @@
+diff --git tar-clean/build-aux/config.sub tar-workdir/build-aux/config.sub
+index f6ede1d..5b7f3f8 100755
+--- tar-clean/build-aux/config.sub
++++ tar-workdir/build-aux/config.sub
+@@ -1727,7 +1727,7 @@ case $os in
+ 	# Now accept the basic system types.
+ 	# The portable systems comes first.
+ 	# Each alternative MUST end in a * to match a version number.
+-	gnu* | android* | bsd* | mach* | minix* | genix* | ultrix* | irix* \
++	gnu* | android* | astral* | bsd* | mach* | minix* | genix* | ultrix* | irix* \
+ 	     | *vms* | esix* | aix* | cnk* | sunos | sunos[34]* \
+ 	     | hpux* | unos* | osf* | luna* | dgux* | auroraux* | solaris* \
+ 	     | sym* |  plan9* | psp* | sim* | xray* | os68k* | v88r* \

@@ -206,7 +206,6 @@ static void insertrange(vmmspace_t *space, vmmrange_t *newrange) {
 
 static void destroyrange(vmmrange_t *range, uintmax_t _offset, size_t size, int flags) {
 	uintmax_t top = _offset + size;
-	__assert(!(range->flags & VMM_FLAGS_COPY)); // TODO unimplemented
 
 	for (uintmax_t offset = _offset; offset < top; offset += PAGE_SIZE) {
 		void *vaddr = (void *)((uintptr_t)range->start + offset);
@@ -218,7 +217,7 @@ static void destroyrange(vmmrange_t *range, uintmax_t _offset, size_t size, int 
 		proc_t *proc = thread ? thread->proc : NULL;
 		cred_t *cred = proc ? &proc->cred : NULL;
 
-		if ((range->flags & VMM_FLAGS_FILE) && (range->flags & VMM_FLAGS_SHARED) && (flags & VMM_DESTROY_FLAGS_NOSYNC) == 0) {
+		if ((range->flags & VMM_FLAGS_FILE) && (range->flags & VMM_FLAGS_SHARED)) {
 			__assert(VOP_MUNMAP(range->vnode, vaddr, range->offset + offset, mmuflagstovnodeflags(range->mmuflags) | (range->flags & VMM_FLAGS_SHARED ? V_FFLAGS_SHARED : 0), cred) == 0);
 		} else {
 			pmm_release(physical);
@@ -402,8 +401,6 @@ void *vmm_map(void *addr, volatile size_t size, int flags, mmuflags_t mmuflags, 
 	range->flags = VMM_PERMANENT_FLAGS_MASK & flags;
 	range->mmuflags = mmuflags;
 
-	// TODO CoW
-
 	if (flags & VMM_FLAGS_FILE) {
 		// XXX make sure that writes can't happen to executable memory mapped files and check file permissions
 		vmmfiledesc_t *desc = private;
@@ -526,7 +523,6 @@ void vmm_destroycontext(vmmcontext_t *context) {
 }
 
 vmmcontext_t *vmm_fork(vmmcontext_t *oldcontext) {
-	// TODO copy on write
 	vmmcontext_t *newcontext = vmm_newcontext();
 	if (newcontext == NULL)
 		return NULL;

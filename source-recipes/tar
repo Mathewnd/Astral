@@ -1,0 +1,9 @@
+name=tar
+version=1.35
+source_method=tarball
+tarball_url="https://ftp.gnu.org/gnu/tar/tar-${version}.tar.gz"
+tarball_sha512=38dca8fbc193859770902c31aa6a6cf7a8fcd28687792b5aa8ba938bf39ce1e25c1b0de05f2a982b7b371eeb13502eb67cd27428ae1ade439bd6771aa9d05271
+
+regenerate() {
+	true
+}
