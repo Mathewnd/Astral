@@ -2,6 +2,7 @@
 #include <limine.h>
 #include <logging.h>
 #include <kernel/alloc.h>
+#include <kernel/vmm.h>
 #include <kernel/pmm.h>
 #include <string.h>
 
@@ -40,6 +41,16 @@ void arch_acpi_init() {
 	// FIXME search if no response
 	__assert(rsdpreq.response);
 	rsdp_t *rsdp = rsdpreq.response->address;
+	uintmax_t pageoffset = (uintptr_t)rsdp % PAGE_SIZE;
+
+	// map rsdp
+	// make sure it doesn't cross a page boundary
+	// TODO support this
+	__assert(ROUND_DOWN((uintptr_t)rsdp, PAGE_SIZE) == ROUND_DOWN((uintptr_t)rsdp - 1 + sizeof(rsdp_t), PAGE_SIZE));
+
+	void *virt = vmm_map(NULL, sizeof(rsdp_t), VMM_FLAGS_PHYSICAL, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_NOEXEC, FROM_HHDM(rsdp));
+	__assert(virt);
+	rsdp = (rsdp_t *)((uintptr_t)virt + pageoffset);
 
 	if (rsdp->revision == 0) {
 		printf("\e[93mACPI version 1.0 -- Using RSDT instead of XSDT.\e[0m\n");
