@@ -7,12 +7,13 @@ static bool reset_selftest(int port) {
 	bool timeout = false;
 	int attempts = 0;
 
-	while (r == RESEND && attempts < 10) {
+	while (r == RESEND && attempts < 5) {
 		device_command(port, DEVICE_CMD_RESETSELFTEST);
 		r = read_data_timeout(5, &timeout);
+		++attempts;
 	}
 
-	if (attempts == 10)
+	if (attempts == 5)
 		timeout = true;
 
 	if (!timeout) {
@@ -43,8 +44,10 @@ void arch_ps2_init() {
 	write_data(control);
 
 	write_command(CTLR_CMD_SELFTEST);
-	if (read_data() != CTLR_SELFTEST_OK)
+	if (read_data() != CTLR_SELFTEST_OK) {
 		printf("ps2: controller self test failed.\n");
+		return;
+	}
 
 	write_command(CTLR_CMD_WRITECFG);
 	write_data(control); // restore config if it was reset
@@ -61,7 +64,6 @@ void arch_ps2_init() {
 	else
 		write_command(CTLR_CMD_DISABLEP2); // disable second port again
 
-	// self test ports
 	int workingflag = 0;
 
 	write_command(CTLR_CMD_P1SELFTEST);
@@ -75,7 +77,7 @@ void arch_ps2_init() {
 		if (read_data() == 0)
 			workingflag |= 2;
 		else
-			printf("ps2: econd port self test failed!\n");
+			printf("ps2: second port self test failed!\n");
 	}
 
 	if (workingflag == 0) {
@@ -105,10 +107,10 @@ void arch_ps2_init() {
 
 	int connectedflag = 0;
 
-	if (workingflag & 1 && reset_selftest(1))
+	if ((workingflag & 1) && reset_selftest(1))
 		connectedflag |= 1;
 
-	if (workingflag & 2 && reset_selftest(2))
+	if ((workingflag & 2) && reset_selftest(2))
 		connectedflag |= 2;
 
 	// XXX should id each one for proper identification
