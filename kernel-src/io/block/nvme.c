@@ -678,13 +678,14 @@ static void initcontroller(pcienum_t *e) {
 
 	if (STATUS_FATAL(bar0->status)) {
 		printf("nvme: controller returned fatal while initializing\n");
+		pmm_free(acq, 2);
 		return;
 	}
 
 	nvmecontroller_t *controller = alloc(sizeof(nvmecontroller_t));
 	__assert(controller);
 
-	controller->id = ctlrid++;
+	controller->id = ctlrid;
 	controller->bar0 = bar0;
 	controller->dbstride = CAP_DOORBELLSTRIDE(bar0->cap);
 	controller->maxentries = CAP_MAXENTRIES(bar0->cap);
@@ -713,7 +714,17 @@ static void initcontroller(pcienum_t *e) {
 	__assert(controllerid);
 	__assert(IDENTIFY_CONTROLLER(controller, controllerid) == 0);
 
-	__assert(controllerid->type == CONTROLLER_TYPE_IO);
+	// <=1.3 controllers will report a 0 in this field. >=1.4 controllers have a proper type here
+	if (controllerid->type != 0 && controllerid->type != CONTROLLER_TYPE_IO) {
+		printf("nvme: controller type not supported\n");
+		// FIXME free ISRs
+		pmm_free(acq, 2);
+		free(controllerid);
+		free(controller);
+		return;
+	}
+
+	++ctlrid;
 
 	resetsoftwareprogress(controller);
 
