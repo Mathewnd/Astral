@@ -1,0 +1,9 @@
+name=e2fsprogs
+version=1.47.0
+source_method=tarball
+tarball_url="https://github.com/tytso/e2fsprogs/archive/refs/tags/v1.47.0.tar.gz"
+tarball_sha512=9cb895f7deed8ee513595b7c232db8345cb7e54e6cbb33e6eeab31c860c892cbc9d721756ac1429e6731e219e1c6aacc25075d517e979397c66bf764bc8bc9fa
+
+regenerate() {
+	true
+}

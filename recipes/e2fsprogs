@@ -1,0 +1,18 @@
+name=e2fsprogs
+revision=1
+from_source=e2fsprogs
+imagedeps="base-devel"
+hostdeps="xgcc xbinutils"
+deps="mlibc"
+
+configure() {
+	${source_dir}/configure --host=x86_64-astral --prefix=${prefix}
+}
+
+build() {
+	make -j ${parallelism}
+}
+
+install() {
+	make install DESTDIR=${dest_dir}
+}
