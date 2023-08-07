@@ -207,6 +207,7 @@ int elf_load(vnode_t *vnode, void *base, void **entry, char **interpreter, auxv6
 
 #define STACK_MMUFLAGS (ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC | ARCH_MMU_FLAGS_USER)
 #define STACK_SIZE (1024 * 1024 * 4)
+#define STACK_TOP_BUFFER 8
 
 void *elf_preparestack(void *top, auxv64list_t *auxv64, char **argv, char **envp) {
 	size_t argc;
@@ -223,8 +224,8 @@ void *elf_preparestack(void *top, auxv64list_t *auxv64, char **argv, char **envp
 	// make sure stack will be 16 byte aligned on entry
 	int alignment = ((argc + 1) + (envc + 1) + 1) & 1 ? 8 : 0;
 
-	// env data + arg data + pointers to arg and env data + argc
-	size_t initialsize = argdatasize + envdatasize + (argc + envc) * sizeof(char *) + sizeof(size_t) + sizeof(auxv64list_t) + alignment;
+	// env data + arg data + pointers to arg and env data + argc + buffer at the top
+	size_t initialsize = argdatasize + envdatasize + (argc + envc) * sizeof(char *) + sizeof(size_t) + sizeof(auxv64list_t) + alignment + STACK_TOP_BUFFER;
 
 	size_t initialsizeround = ROUND_UP(initialsize, PAGE_SIZE);
 	void *initialpagebase = (void *)((uintptr_t)top - initialsizeround);
@@ -236,6 +237,7 @@ void *elf_preparestack(void *top, auxv64list_t *auxv64, char **argv, char **envp
 	if (vmm_map(stackbase, unallocatedsize, VMM_FLAGS_EXACT, STACK_MMUFLAGS, NULL) == NULL)
 		return NULL;
 
+	top = (void *)((uintptr_t)top - STACK_TOP_BUFFER);
 
 	char *argdatastart = (char *)((uintptr_t)top - argdatasize);
 	char *envdatastart = (char *)((uintptr_t)argdatastart - envdatasize);
