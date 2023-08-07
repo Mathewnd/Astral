@@ -3,25 +3,10 @@
 #include <kernel/slab.h>
 #include <errno.h>
 #include <string.h>
-
-#define FNV1PRIME  0x100000001b3ull
-#define FNV1OFFSET 0xcbf29ce484222325ull
+#include <util.h>
 
 static scache_t *hashentrycache;
 
-// FNV-1a hash implementation
-static uint64_t hashbuffer(void *buffer, size_t size) {
-	uint8_t *ptr = buffer;
-	uint8_t *top = ptr + size;
-	uint64_t h = FNV1OFFSET;
-
-	while (ptr < top) {
-		h ^= *ptr++;
-		h *= FNV1PRIME;
-	}
-
-	return h;
-}
 static hashentry_t *getentry(hashtable_t *table, void *key, size_t keysize, uintmax_t hash) {
 	uintmax_t tableoffset = hash % table->capacity;
 
@@ -37,7 +22,7 @@ static hashentry_t *getentry(hashtable_t *table, void *key, size_t keysize, uint
 }
 
 int hashtable_set(hashtable_t *table, void *value, void *key, size_t keysize, bool allocate) {
-	uintmax_t hash = hashbuffer(key, keysize);
+	uintmax_t hash = fnv1ahash(key, keysize);
 
 	hashentry_t *entry = getentry(table, key, keysize, hash);
 
@@ -71,7 +56,7 @@ int hashtable_set(hashtable_t *table, void *value, void *key, size_t keysize, bo
 }
 
 int hashtable_get(hashtable_t *table, void **value, void *key, size_t keysize) {
-	uintmax_t hash = hashbuffer(key, keysize);
+	uintmax_t hash = fnv1ahash(key, keysize);
 
 	hashentry_t *entry = getentry(table, key, keysize, hash);
 
@@ -83,7 +68,7 @@ int hashtable_get(hashtable_t *table, void **value, void *key, size_t keysize) {
 }
 
 int hashtable_remove(hashtable_t *table, void *key, size_t keysize) {
-	uintmax_t hash = hashbuffer(key, keysize);
+	uintmax_t hash = fnv1ahash(key, keysize);
 	uintmax_t tableoffset = hash % table->capacity;
 
 	hashentry_t *entry = getentry(table, key, keysize, hash);
