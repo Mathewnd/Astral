@@ -229,7 +229,7 @@ static void enumeratedevice(int bus, int device) {
 
 void pci_init() {
 	pci_archinit();
-	for (size_t bus = 0; bus < 1; ++bus) {
+	for (size_t bus = 0; bus < 256; ++bus) {
 		for (size_t device = 0; device < 32; ++device) {
 			if (DOESNTEXIST(bus, device, 0))
 				continue;
