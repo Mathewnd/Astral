@@ -1,0 +1,18 @@
+name=limine
+from_source=limine
+revision=1
+imagedeps="base-devel mtools nasm"
+hostdeps="xgcc xbinutils"
+deps="mlibc"
+
+configure() {
+	"${source_dir}/configure" --host=x86_64-astral --enable-bios-cd --enable-bios-pxe --enable-bios --enable-uefi-ia32 --enable-uefi-x86-64 --enable-uefi-cd --prefix="${prefix}"
+}
+
+build() {
+	make -j${parallelism}
+}
+
+install() {
+	make install DESTDIR=${dest_dir}
+}
