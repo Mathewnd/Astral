@@ -135,10 +135,10 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..23128c0
+index 0000000..26d9be2
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -0,0 +1,448 @@
+@@ -0,0 +1,487 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -150,6 +150,45 @@ index 0000000..23128c0
 +#include <stdlib.h>
 +#include <poll.h>
 +#include <sys/select.h>
++
++#ifndef MLIBC_BUILDING_RTDL
++// (s)brk is emulated in the libc rather than being
++// an actual system call.
++#define SBRK_BUFFER_SIZE (1024 * 1024 * 16)
++static void *sbrkbuffer;
++static off_t sbrkoffset;
++
++extern "C" void *sbrk(intptr_t increment) {
++	// allocate the buffer if its the first time sbrk is called
++	if (sbrkbuffer == NULL) {
++		int e = mlibc::sys_vm_map(NULL, SBRK_BUFFER_SIZE, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0, &sbrkbuffer);
++		if (e) {
++			errno = e;
++			return NULL;
++		}
++	}
++
++	if (increment == 0)
++		return sbrkbuffer;
++
++	off_t newoffset = sbrkoffset + increment;
++	if (newoffset < 0) {
++		// offset goes below what we allocated, this is bad
++		errno = EINVAL;
++		return NULL;
++	}
++
++	if (newoffset >= SBRK_BUFFER_SIZE) {
++		// new offset goes past what was allocated
++		errno = ENOMEM;
++		return NULL;
++	}
++
++	void *ret = (void *)((uintptr_t)sbrkbuffer + increment);
++	sbrkoffset = newoffset;
++	return ret;
++}
++#endif
 +
 +namespace mlibc {
 +	
