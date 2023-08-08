@@ -19,8 +19,8 @@ jinx:
 
 $(ISO): limine.cfg liminebg.bmp $(KERNEL) initrd
 	mkdir -p $(ISODIR)
-	cp $(KERNEL) liminebg.bmp limine.cfg $(LIMINEDIR)/limine.sys $(LIMINEDIR)/limine-cd.bin $(LIMINEDIR)/limine-cd-efi.bin $(ISODIR)
-	xorriso -as mkisofs -b limine-cd.bin -no-emul-boot -boot-load-size 4 -boot-info-table --efi-boot limine-cd-efi.bin -efi-boot-part --efi-boot-image --protective-msdos-label $(ISODIR) -o $(ISO)
+	cp $(KERNEL) liminebg.bmp limine.cfg $(LIMINEDIR)/limine-bios.sys $(LIMINEDIR)/limine-bios-cd.bin $(LIMINEDIR)/limine-uefi-cd.bin $(ISODIR)
+	xorriso -as mkisofs -b limine-bios-cd.bin -no-emul-boot -boot-load-size 4 -boot-info-table --efi-boot limine-uefi-cd.bin -efi-boot-part --efi-boot-image --protective-msdos-label $(ISODIR) -o $(ISO)
 
 initrd:
 	mkdir -p $(ISODIR)
@@ -31,7 +31,7 @@ full:
 	cd sysroot; tar --format=ustar -cf $(INITRD) *
 
 minimal:
-	./jinx install minimalsysroot mlibc bash coreutils init distro-files vim nano
+	./jinx install minimalsysroot mlibc bash coreutils init distro-files vim nano mount
 	cd minimalsysroot; tar --format=ustar -cf $(INITRD) *
 
 kernel:
