@@ -208,7 +208,7 @@ static void dogpt(blockdesc_t *desc, char *name) {
 	__assert(tablebuffer);
 	__assert(DISK_READ(desc, tablebuffer, header->entryarraylbastart, tablelbasize) == 0);
 
-	// name + 'p' + 3 digits (max gpt partition count is 4) + '\0'
+	// name + 'p' + 3 digits (max gpt partition count is 128) + '\0'
 	size_t namebuflen = strlen(name) + 5;
 	char partname[namebuflen];
 	int partid = 1;
