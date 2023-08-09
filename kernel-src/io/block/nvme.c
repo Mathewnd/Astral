@@ -348,14 +348,13 @@ static void enqueueandwait(queuepair_t *queuepair, entrypair_t *entries) {
 
 static int identify(nvmecontroller_t *controller, void *buffer, int what, int namespace) {
 	entrypair_t pair = {0};
-	PAIR_INIT(&pair, SUB_DW0_OPCODE_IDENTIFY, SUB_DW0_UNFUSED, SUB_DW0_PRP, 0);
+	PAIR_INIT(&pair, SUB_DW0_OPCODE_IDENTIFY, SUB_DW0_UNFUSED, SUB_DW0_PRP, namespace);
 
 	pair.sub.datapointer[0] = (uint64_t)pmm_allocpage(PMM_SECTION_DEFAULT);
 	if (pair.sub.datapointer[0] == 0)
 		return ENOMEM;
 
 	pair.sub.command[0] = what;
-	pair.sub.namespace = namespace;
 
 	enqueueandwait(&controller->adminqueue, &pair);
 
@@ -481,11 +480,10 @@ static queuepair_t *pickioqueue(nvmecontroller_t *controller) {
 
 static int ioread(nvmenamespace_t *namespace, uint64_t prp[2], uint64_t lba, uint64_t count) {
 	entrypair_t pair = {0};
-	PAIR_INIT(&pair, SUB_DW0_OPCODE_READ, SUB_DW0_UNFUSED, SUB_DW0_PRP, 0);
+	PAIR_INIT(&pair, SUB_DW0_OPCODE_READ, SUB_DW0_UNFUSED, SUB_DW0_PRP, namespace->id);
 
 	queuepair_t *queue = pickioqueue(namespace->controller);
 
-	pair.sub.namespace = namespace->id;
 	pair.sub.datapointer[0] = prp[0];
 	pair.sub.datapointer[1] = prp[1];
 	pair.sub.command[0] = lba & 0xffffffff;
@@ -499,11 +497,10 @@ static int ioread(nvmenamespace_t *namespace, uint64_t prp[2], uint64_t lba, uin
 
 static int iowrite(nvmenamespace_t *namespace, uint64_t prp[2], uint64_t lba, uint64_t count) {
 	entrypair_t pair = {0};
-	PAIR_INIT(&pair, SUB_DW0_OPCODE_WRITE, SUB_DW0_UNFUSED, SUB_DW0_PRP, 0);
+	PAIR_INIT(&pair, SUB_DW0_OPCODE_WRITE, SUB_DW0_UNFUSED, SUB_DW0_PRP, namespace->id);
 
 	queuepair_t *queue = pickioqueue(namespace->controller);
 
-	pair.sub.namespace = namespace->id;
 	pair.sub.datapointer[0] = prp[0];
 	pair.sub.datapointer[1] = prp[1];
 	pair.sub.command[0] = lba & 0xffffffff;

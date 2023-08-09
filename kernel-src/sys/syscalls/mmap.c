@@ -25,6 +25,7 @@ syscallret_t syscall_mmap(context_t *context, void *hint, size_t len, int prot, 
 
 	__assert((~KNOWN_FLAGS & flags) == 0);
 	__assert((~KNOWN_PROT & prot) == 0);
+	__assert(!((flags & MAP_PRIVATE) && (flags & MAP_SHARED)));
 
 	// check alignment
 	if (len == 0 || (uintptr_t)hint % PAGE_SIZE) {

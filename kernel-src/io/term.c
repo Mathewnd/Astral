@@ -49,10 +49,10 @@ void term_init() {
 		NULL, NULL, NULL, &defaultbg, &defaultfg, NULL, NULL, NULL,
 		0, 0, 1, 1, 1, 0);
 
+	__assert(term_ctx);
+
 	xs = term_ctx->cols;
 	ys = term_ctx->rows;
 	fbxs = fb->width;
 	fbys = fb->height;
-
-	__assert(term_ctx);
 }

@@ -1309,6 +1309,11 @@ static int ext2_link(vnode_t *vnode, vnode_t *dirvnode, char *name, cred_t *cred
 	if (err)
 		goto cleanup;
 
+	// if the node is in memory without any filesystem links,
+	// undo the release done by ext2_unlink
+	if (node->inode.links == 0)
+		VOP_HOLD(&node->vnode);
+
 	node->inode.links += 1;
 
 	ASSERT_UNCLEAN(fs, writeinode(fs, &node->inode, node->id) == 0);
