@@ -257,6 +257,11 @@ static void unmap(vmmspace_t *space, void *address, size_t size) {
 			new->start = top;
 			new->size = (uintptr_t)rangetop - (uintptr_t)new->start;
 			range->size = (uintptr_t)address - (uintptr_t)range->start;
+
+			if (range->next)
+				range->next->prev = new;
+
+			// new->next is set by the copy in *new = *range
 			new->prev = range;
 			range->next = new;
 
