@@ -128,7 +128,8 @@ int fd_close(int fd) {
 	file_t *file = fd < proc->fdcount ? proc->fd[fd].file : NULL;
 	if (file) {
 		proc->fd[fd].file = NULL;
-		proc->fdfirst = fd;
+		if (proc->fdfirst > fd)
+			proc->fdfirst = fd;
 	}
 
 	spinlock_release(&proc->fdlock);
