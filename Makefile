@@ -50,7 +50,10 @@ clean:
 	rm jinx
 
 run:
-	qemu-system-x86_64 $(QEMUFLAGS) -d int
+	qemu-system-x86_64 $(QEMUFLAGS)
+
+run-gdb:
+	qemu-system-x86_64 $(QEMUFLAGS) -S -s
 
 run-kvm:
 	qemu-system-x86_64 $(QEMUFLAGS) -enable-kvm -cpu host
