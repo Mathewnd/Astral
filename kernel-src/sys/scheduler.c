@@ -36,6 +36,8 @@ proc_t *sched_newproc() {
 	if (proc == NULL)
 		return NULL;
 
+	memset(proc, 0, sizeof(proc_t));
+
 	proc->threads = alloc(sizeof(thread_t *));
 	if (proc->threads == NULL) {
 		slab_free(processcache, proc);
@@ -70,6 +72,8 @@ thread_t *sched_newthread(void *ip, size_t kstacksize, int priority, proc_t *pro
 	thread_t *thread = slab_allocate(threadcache);
 	if (thread == NULL)
 		return NULL;
+
+	memset(thread, 0, sizeof(thread_t));
 
 	thread->kernelstack = vmm_map(NULL, kstacksize, VMM_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_NOEXEC, NULL);
 	if (thread->kernelstack == NULL) {
