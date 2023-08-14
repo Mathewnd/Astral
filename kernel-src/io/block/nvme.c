@@ -17,8 +17,8 @@
 #define CC_SETCOMMANDSET(cc, cmd) cc = ((cc) & ~0b1110000) | ((cmd) << 4)
 #define CC_SETPAGESIZE(cc, pagesize) cc = ((cc) & ~0b11110000000) | ((pagesize) << 7)
 #define CC_SETARBITRATION(cc, arbitration) cc = ((cc) & ~0b11100000000000) | ((arbitration) << 11)
-#define CC_SETCOMPENTRYSIZE(cc, size) cc = ((cc) & ~0b11110000000000000000) | ((size) << 16)
-#define CC_SETSUBENTRYSIZE(cc, size) cc = ((cc) & ~0b111100000000000000000000) | ((size) << 20)
+#define CC_SETSUBENTRYSIZE(cc, size) cc = ((cc) & ~0b11110000000000000000) | ((size) << 16)
+#define CC_SETCOMPENTRYSIZE(cc, size) cc = ((cc) & ~0b111100000000000000000000) | ((size) << 20)
 #define CC_COMMANDSET_NVM 0
 #define CC_ARBITRATION_ROUNDROBIN 0
 
