@@ -18,8 +18,8 @@ static inline timespec_t timespec_add(timespec_t a, timespec_t b) {
 }
 
 static inline time_t timespec_diffms(timespec_t a, timespec_t b) {
-	time_t nsecdiff = abs(a.ns - a.ns);
-	time_t secdiff = abs(a.s - a.s);
+	time_t nsecdiff = abs(a.ns - b.ns);
+	time_t secdiff = abs(a.s - b.s);
 	return nsecdiff / 1000000 + secdiff * 1000;
 }
 
