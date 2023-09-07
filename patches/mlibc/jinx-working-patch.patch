@@ -58,6 +58,41 @@ index 3474615..e034881 100644
  }
  
  char **backtrace_symbols(void *const *, int) {
+diff --git mlibc-clean/options/posix/generic/unistd-stubs.cpp mlibc-workdir/options/posix/generic/unistd-stubs.cpp
+index 79feb9a..c32ef5a 100644
+--- mlibc-clean/options/posix/generic/unistd-stubs.cpp
++++ mlibc-workdir/options/posix/generic/unistd-stubs.cpp
+@@ -547,9 +547,15 @@ ssize_t readlink(const char *__restrict path, char *__restrict buffer, size_t ma
+ 	return length;
+ }
+ 
+-ssize_t readlinkat(int, const char *__restrict, char *__restrict, size_t) {
+-	__ensure(!"Not implemented");
+-	__builtin_unreachable();
++ssize_t readlinkat(int dirfd, const char *__restrict path, char *__restrict buf, size_t bufsiz) {
++	ssize_t num_read;
++
++	MLIBC_CHECK_OR_ENOSYS(mlibc::sys_readlinkat, -1);
++	if(int e = mlibc::sys_readlinkat(dirfd, path, buf, bufsiz, &num_read); e) {
++		errno = e;
++		return -1;
++	}
++	return num_read;
+ }
+ 
+ int rmdir(const char *path) {
+diff --git mlibc-clean/options/posix/include/mlibc/posix-sysdeps.hpp mlibc-workdir/options/posix/include/mlibc/posix-sysdeps.hpp
+index 7e06153..390e179 100644
+--- mlibc-clean/options/posix/include/mlibc/posix-sysdeps.hpp
++++ mlibc-workdir/options/posix/include/mlibc/posix-sysdeps.hpp
+@@ -70,6 +70,7 @@ int sys_close(int fd);
+ [[gnu::weak]] int sys_statvfs(const char *path, struct statvfs *out);
+ [[gnu::weak]] int sys_fstatvfs(int fd, struct statvfs *out);
+ [[gnu::weak]] int sys_readlink(const char *path, void *buffer, size_t max_size, ssize_t *length);
++[[gnu::weak]] int sys_readlinkat(int dirfd, const char *path, void *buffer, size_t max_size, ssize_t *length);
+ [[gnu::weak]] int sys_rmdir(const char *path);
+ [[gnu::weak]] int sys_ftruncate(int fd, size_t size);
+ [[gnu::weak]] int sys_fallocate(int fd, off_t offset, size_t size);
 diff --git mlibc-workdir/sysdeps/astral/crt-x86_64/crt0.S mlibc-workdir/sysdeps/astral/crt-x86_64/crt0.S
 new file mode 100644
 index 0000000..0a0a4a0
@@ -135,10 +170,10 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..26d9be2
+index 0000000..310a6df
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -0,0 +1,487 @@
+@@ -0,0 +1,501 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -257,6 +292,16 @@ index 0000000..26d9be2
 +		return 0;
 +	}
 +
++	int sys_utimensat(int dirfd, const char *pathname, const struct timespec times[2], int flags) {
++		long ret;
++		return syscall(SYSCALL_UTIMENSAT, &ret, dirfd, (uint64_t)pathname, (uint64_t)times, flags);
++	}
++
++	int sys_fchownat(int dirfd, const char *pathname, uid_t owner, gid_t group, int flags) {
++		long ret;
++		return syscall(SYSCALL_FCHOWNAT, &ret, dirfd, (uint64_t)pathname, owner, group, flags);
++	}
++
 +	int sys_mount(const char *source, const char *target, const char *fstype, unsigned long flags, const void *data) {
 +		long ret;
 +		return syscall(SYSCALL_MOUNT, &ret, (uint64_t)source, (uint64_t)target, (uint64_t)fstype, flags, (uint64_t)data);
@@ -371,11 +416,15 @@ index 0000000..26d9be2
 +		return sys_fchmodat(AT_FDCWD, pathname, mode, 0);
 +	}
 +
-+	int sys_readlink(const char *path, void *buffer, size_t max_size, ssize_t *length) {
++	int sys_readlinkat(int dirfd, const char *path, void *buffer, size_t max_size, ssize_t *length) {
 +		long ret;
-+		long error = syscall(SYSCALL_READLINKAT, &ret, AT_FDCWD, (uint64_t)path, (uint64_t)buffer, max_size);
++		long error = syscall(SYSCALL_READLINKAT, &ret, dirfd, (uint64_t)path, (uint64_t)buffer, max_size);
 +		*length = ret;
 +		return error;
++	}
++
++	int sys_readlink(const char *path, void *buffer, size_t max_size, ssize_t *length) {
++		return sys_readlinkat(AT_FDCWD, path, buffer, max_size, length);
 +	}
 +
 +	static int dolink(int oldfd, const char *oldpath, int newfd, const char *newpath, int flags, int type) {
@@ -645,10 +694,10 @@ index 0000000..990eca0
 +#endif
 diff --git mlibc-workdir/sysdeps/astral/include/astral/syscall.h mlibc-workdir/sysdeps/astral/include/astral/syscall.h
 new file mode 100644
-index 0000000..2fda766
+index 0000000..71460b3
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/include/astral/syscall.h
-@@ -0,0 +1,61 @@
+@@ -0,0 +1,63 @@
 +#ifndef _SYSCALL_H_INCLUDE
 +#define _SYSCALL_H_INCLUDE
 +
@@ -690,6 +739,8 @@ index 0000000..2fda766
 +#define SYSCALL_NANOSLEEP 35
 +#define SYSCALL_FTRUNCATE 36
 +#define SYSCALL_MOUNT 37
++#define SYSCALL_FCHOWNAT 38
++#define SYSCALL_UTIMENSAT 39
 +
 +#include <stddef.h>
 +#include <stdint.h>
