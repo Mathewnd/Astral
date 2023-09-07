@@ -1,0 +1,30 @@
+diff --git xz-clean/src/xz/message.c xz-workdir/src/xz/message.c
+index abf30ad..4331696 100644
+--- xz-clean/src/xz/message.c
++++ xz-workdir/src/xz/message.c
+@@ -149,8 +149,8 @@ message_init(void)
+ 	sa.sa_handler = &progress_signal_handler;
+ 
+ 	for (size_t i = 0; message_progress_sigs[i] != 0; ++i)
+-		if (sigaction(message_progress_sigs[i], &sa, NULL))
+-			message_signal_handler();
++		if (sigaction(message_progress_sigs[i], &sa, NULL)) ;
++			//message_signal_handler();
+ #endif
+ 
+ 	return;
+diff --git xz-clean/src/xz/signals.c xz-workdir/src/xz/signals.c
+index 7aef463..6ea2540 100644
+--- xz-clean/src/xz/signals.c
++++ xz-workdir/src/xz/signals.c
+@@ -105,8 +105,8 @@ signals_init(void)
+ 			continue;
+ 
+ 		// Establish the signal handler.
+-		if (sigaction(sigs[i], &my_sa, NULL))
+-			message_signal_handler();
++		if (sigaction(sigs[i], &my_sa, NULL)) ;
++		//	message_signal_handler();
+ 	}
+ 
+ 	signals_are_initialized = true;
