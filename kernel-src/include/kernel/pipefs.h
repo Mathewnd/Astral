@@ -5,6 +5,7 @@
 #include <ringbuffer.h>
 #include <semaphore.h>
 #include <event.h>
+#include <kernel/poll.h>
 
 typedef struct pipenode_t {
 	vnode_t vnode;
@@ -12,6 +13,7 @@ typedef struct pipenode_t {
 	ringbuffer_t data;
 	size_t readers, writers;
 	event_t readevent, writeevent;
+	pollheader_t pollheader;
 } pipenode_t;
 
 void pipefs_init();

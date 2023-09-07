@@ -90,8 +90,10 @@ int pipefs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int 
 
 	*readc = ringbuffer_read(&pipenode->data, buffer, size);
 
-	if (*readc < datacount)
+	if (*readc < datacount) {
+		poll_event(&pipenode->pollheader, POLLOUT);
 		event_signal(&pipenode->writeevent);
+	}
 
 	event_signal(&pipenode->readevent);
 
@@ -138,8 +140,10 @@ int pipefs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int
 
 	*writec = ringbuffer_write(&pipenode->data, buffer, size);
 
-	if (datacount + *writec < BUFFER_SIZE)
+	if (datacount + *writec < BUFFER_SIZE) {
+		poll_event(&pipenode->pollheader, POLLIN);
 		event_signal(&pipenode->readevent);
+	}
 
 	event_signal(&pipenode->writeevent);
 
@@ -166,6 +170,9 @@ int pipefs_poll(vnode_t *node, polldata_t *data, int events) {
 		else if (RINGBUFFER_DATACOUNT(&pipenode->data) < BUFFER_SIZE)
 			revents |= POLLOUT;
 	}
+
+	if (revents == 0 && data)
+		poll_add(&pipenode->pollheader, data, events);
 
 	VOP_UNLOCK(node);
 	return revents;
@@ -238,6 +245,7 @@ static void ctor(scache_t *cache, void *obj) {
 	node->attr.inode = ++currentinode;
 	EVENT_INIT(&node->writeevent);
 	EVENT_INIT(&node->readevent);
+	POLL_INITHEADER(&node->pollheader);
 }
 
 void pipefs_init() {
