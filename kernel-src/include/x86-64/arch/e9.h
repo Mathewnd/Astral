@@ -3,5 +3,6 @@
 
 void arch_e9_putc(char);
 void arch_e9_puts(char *);
+void arch_e9_initdev();
 
 #endif

@@ -63,6 +63,7 @@ void kernel_entry() {
 
 	block_init();
 	pseudodevices_init();
+	arch_e9_initdev();
 	pci_init();
 	keyboard_init();
 	arch_ps2_init();
