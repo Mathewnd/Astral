@@ -9,7 +9,8 @@
 
 syscallret_t syscall_seek(context_t *context, int fd, off_t offset, int whence) {
 	syscallret_t ret = {
-		.ret = -1
+		.ret = -1,
+		.errno = 0
 	};
 
 	if (whence > 2) {
@@ -28,15 +29,30 @@ syscallret_t syscall_seek(context_t *context, int fd, off_t offset, int whence) 
 		goto cleanup;
 	}
 
-	// TODO device check seek
-
+	size_t size = -1;
 	uintmax_t curroffset = file->offset;
 	uintmax_t newoffset = 0;
 
+	// determine size
+
+	if (file->vnode->type == V_TYPE_CHDEV) {
+		ret.errno = VOP_MAXSEEK(file->vnode, &size);
+		if (ret.errno) {
+			ret.errno = ESPIPE;
+			goto cleanup;
+		}
+	} else {
+		vattr_t attr;
+		ret.errno = VOP_GETATTR(file->vnode, &attr, &_cpu()->thread->proc->cred);
+		if (ret.errno)
+			goto cleanup;
+		size = attr.size;
+	}
+
 	switch (whence) {
 		case SEEK_SET:
-		newoffset = offset;
-		break;
+			newoffset = offset;
+			break;
 		case SEEK_CUR:
 			newoffset = curroffset + offset;
 			if (offset > 0 && newoffset < curroffset) {
@@ -48,14 +64,9 @@ syscallret_t syscall_seek(context_t *context, int fd, off_t offset, int whence) 
 				goto cleanup;
 			}
 			break;
-		case SEEK_END: {
-			vattr_t attr;
-			ret.errno = VOP_GETATTR(file->vnode, &attr, &_cpu()->thread->proc->cred);
-			if (ret.errno) 
-				goto cleanup;
-			newoffset = attr.size;
+		case SEEK_END:
+			newoffset = size;
 			break;
-		}
 	}
 
 	file->offset = newoffset;

@@ -201,6 +201,14 @@ int devfs_ioctl(vnode_t *node, unsigned long request, void *arg, int *ret) {
 	return devnode->devops->ioctl ? devnode->devops->ioctl(devnode->attr.rdevminor, request, arg, ret) : ENOTTY;
 }
 
+int devfs_maxseek(vnode_t *node, size_t *max) {
+	devnode_t *devnode = (devnode_t *)node;
+	if (devnode->master)
+		devnode = devnode->master;
+
+	return devnode->devops->maxseek ? devnode->devops->maxseek(devnode->attr.rdevminor, max) : ENOTTY;
+}
+
 int devfs_inactive(vnode_t *node) {
 	VOP_LOCK(node);
 	devnode_t *devnode = (devnode_t *)node;
@@ -325,6 +333,7 @@ static vops_t vnops = {
 	.getdents = devfs_getdents,
 	.isatty = devfs_isatty,
 	.ioctl = devfs_ioctl,
+	.maxseek = devfs_maxseek,
 	.resize = devfs_enodev
 };
 

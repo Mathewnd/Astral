@@ -96,6 +96,7 @@ typedef struct vops_t {
 	int (*getdents)(vnode_t *node, dent_t *buffer, size_t count, uintmax_t offset, size_t *readcount);
 	int (*isatty)(vnode_t *node);
 	int (*ioctl)(vnode_t *node, unsigned long request, void *arg, int *result);
+	int (*maxseek)(vnode_t *node, size_t *max);
 	int (*resize)(vnode_t *node, size_t newsize, cred_t *cred);
 } vops_t;
 
@@ -142,6 +143,7 @@ typedef struct vops_t {
 #define VOP_POLL(v, d, p) (v)->ops->poll(v, d, p)
 #define VOP_ISATTY(v) ((v)->ops->isatty ? (v)->ops->isatty(v) : ENOTTY)
 #define VOP_IOCTL(v, r, a, rp) ((v)->ops->ioctl ? (v)->ops->ioctl(v, r, a, rp) : ENOTTY)
+#define VOP_MAXSEEK(v, rp) ((v)->ops->maxseek ? (v)->ops->maxseek(v, rp) : ENOTTY)
 #define VOP_RESIZE(v, s, c) (v)->ops->resize(v, s, c)
 #define VOP_HOLD(v) __atomic_add_fetch(&(v)->refcount, 1, __ATOMIC_SEQ_CST)
 #define VOP_RELEASE(v) {\
