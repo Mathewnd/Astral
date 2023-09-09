@@ -26,6 +26,16 @@ syscallret_t syscall_write(context_t *context, int fd, void *buffer, size_t size
 
 	size_t byteswritten;
 	uintmax_t offset = file->offset;
+
+	if (file->flags & O_APPEND) {
+		vattr_t attr;
+		ret.errno = VOP_GETATTR(file->vnode, &attr, &_cpu()->thread->proc->cred);
+		if (ret.errno)
+			goto cleanup;
+
+		offset = attr.size;
+	}
+
 	ret.errno = vfs_write(file->vnode, kernelbuff, size, offset, &byteswritten, fileflagstovnodeflags(file->flags));
 
 	if (ret.errno)
