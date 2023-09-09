@@ -141,6 +141,9 @@ static int ioctl(int minor, unsigned long request, void *arg, int *result) {
 	switch (request) {
 		case BLOCK_IOCTL_GETDESC:
 			*(blockdesc_t *)arg = *desc;
+			((blockdesc_t *)arg)->write = NULL;
+			((blockdesc_t *)arg)->read = NULL;
+			((blockdesc_t *)arg)->private = NULL;
 			break;
 		default:
 			ret = ENOTTY;
