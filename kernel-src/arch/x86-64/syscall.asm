@@ -99,19 +99,22 @@ global arch_syscall_entry
 ; rax has return value
 arch_syscall_entry:
 	swapgs
-	; save return address on user stack
-	push rcx
-	mov rcx, [gs:0x0] ; thread pointer
-	mov rcx, [rcx] ; kernel stack top
-	xchg rsp, rcx ; switch stack pointers
+	; saving the syscall number on cr2 is cursed but we need this extra register
+	; and taking a page fault here would result in a triple fault anyways
+	; because it's still using the user stack
+	mov cr2, rax
+	; rax can be used just fine now
+	mov rax, [gs:0x0] ; thread pointer
+	mov rax, [rax] ; kernel stack top
+	xchg rsp, rax ; switch stack pointers
 
 	; push context
 	push qword 0x1b ; user SS
-	push qword rcx  ; user RSP
-	add qword [rsp], 8 ; correct the old stack pointer to before the return address push
+	push qword rax  ; user RSP
+	mov rax, cr2 ; restore syscall number
 	push r11     ; rflags is stored in r11
 	push qword 0x23 ; user CS
-	push qword [rcx] ; save return RIP
+	push qword rcx ; save return RIP
 	push qword 0 ; error
 	push rbp
 	push rsi
@@ -169,12 +172,10 @@ arch_syscall_entry:
 	cli
 
 	; call return logging function
-
 	mov rdi, rax
 	mov rsi, rdx
 	extern arch_syscall_log_return
 	call arch_syscall_log_return ; compiled with __attribute__((no_caller_saved_registers)) 
-
 
 	; restore context
 	add rsp, 32 ; r9 argument, cr2, gs, and fs are not popped.
