@@ -61,8 +61,9 @@ syscallret_t syscall_waitpid(context_t *context, pid_t pid, int *status, int opt
 	spinlock_release(&proc->lock);
 
 	// TODO memory safe operation
+	// TODO the signal number goes in the low byte of status
 	if (status)
-		*status = iterator->status;
+		*status = iterator->status << 8;
 
 	for (int i = 0; i < iterator->threadtablesize; ++i) {
 		if (iterator->threads[i] == NULL)
