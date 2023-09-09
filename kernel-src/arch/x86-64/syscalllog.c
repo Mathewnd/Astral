@@ -90,7 +90,7 @@ static char *args[] = {
 	"fd %d size %lu", // ftruncate
 	"backing %p mountpoint %s fs %s flags %d data %p", // mount
 	"fd %d path %s owner %d group %d flags %x", // fchownat
-	"dirfd %d path %s times %p flags %x" // utimensat
+	"dirfd %d path %p times %p flags %x" // utimensat
 };
 
 #endif
