@@ -12,9 +12,9 @@ syscallret_t syscall_utimensat(context_t *, int fd, char *upath, timespec_t uts[
 
 	timespec_t ts[2];
 	if (uts == NULL)
-		memcpy(ts, uts, sizeof(timespec_t) * 2);
-	else
 		ts[0] = ts[1] = timekeeper_time();
+	else
+		memcpy(ts, uts, sizeof(timespec_t) * 2);
 
 	vnode_t *node = NULL;
 	vnode_t *dirnode = NULL;
