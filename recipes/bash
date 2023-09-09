@@ -6,7 +6,8 @@ hostdeps="xgcc xbinutils"
 deps="readline mlibc"
 
 configure() {
-	${source_dir}/configure --host=x86_64-astral --prefix=${prefix} --without-bash-malloc
+	cp -rp ${source_dir}/* .
+	./configure --host=x86_64-astral --prefix=${prefix} --without-bash-malloc
 }
 
 build() {

@@ -170,10 +170,10 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..310a6df
+index 0000000..8029348
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -0,0 +1,501 @@
+@@ -0,0 +1,513 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -289,6 +289,18 @@ index 0000000..310a6df
 +
 +	int sys_fsync(int fd) {
 +		// TODO as the VFS does not do caching as of yet, this system call is stubbed and should be implemented once caching is done
++		return 0;
++	}
++
++	int sys_sigprocmask(int how, const sigset_t *__restrict set,
++		sigset_t *__restrict retrieve) {
++		mlibc::infoLogger() << "mlibc: sigprocmask is a stub" << frg::endlog;
++		return 0;
++	}
++
++	int sys_sigaction(int, const struct sigaction *__restrict,
++		struct sigaction *__restrict) {
++		mlibc::infoLogger() << "mlibc: sigaction is a stub" << frg::endlog;
 +		return 0;
 +	}
 +
