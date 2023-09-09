@@ -1,0 +1,9 @@
+name=gawk
+version=5.2.2
+source_method=tarball
+tarball_url="https://ftp.gnu.org/gnu/gawk/gawk-${version}.tar.xz"
+tarball_sha512="90611e4daba7226d5ce8230843bf479dc71c0101740c005d851ef7c5b935b6cd4c42089b858abc1619adc05ed25fc7234f993690a76d2ea0b8e61bcbb7dc5a58"
+hostdeps="autoconf automake pkgconfig libtool"
+regenerate() {
+	sed -i 's/extras//' Makefile.in
+}

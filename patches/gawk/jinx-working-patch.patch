@@ -1,0 +1,26 @@
+diff --git gawk-clean/build-aux/config.sub gawk-workdir/build-aux/config.sub
+index de4259e..e9e2707 100755
+--- gawk-clean/build-aux/config.sub
++++ gawk-workdir/build-aux/config.sub
+@@ -1727,7 +1727,7 @@ case $os in
+ 	# Now accept the basic system types.
+ 	# The portable systems comes first.
+ 	# Each alternative MUST end in a * to match a version number.
+-	gnu* | android* | bsd* | mach* | minix* | genix* | ultrix* | irix* \
++	gnu* | android* | astral* | bsd* | mach* | minix* | genix* | ultrix* | irix* \
+ 	     | *vms* | esix* | aix* | cnk* | sunos | sunos[34]* \
+ 	     | hpux* | unos* | osf* | luna* | dgux* | auroraux* | solaris* \
+ 	     | sym* |  plan9* | psp* | sim* | xray* | os68k* | v88r* \
+diff --git gawk-clean/test/Makefile.am gawk-workdir/test/Makefile.am
+index cc99dfa..155153c 100644
+--- gawk-clean/test/Makefile.am
++++ gawk-workdir/test/Makefile.am
+@@ -1670,7 +1670,7 @@ NEED_TESTOUTCMP = \
+ 	beginfile2 double2 exit fmttest hsprint posix profile5 space
+ 
+ CMP = cmp
+-AWKPROG = ../gawk$(EXEEXT)
++AWKPROG = test
+ SORT = sort
+ SORT2 = LC_ALL=C sort
+ 

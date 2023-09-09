@@ -1,0 +1,19 @@
+name=gawk
+revision=1
+from_source=gawk
+imagedeps="base-devel"
+hostdeps="xgcc xbinutils"
+deps="mlibc"
+
+configure() {
+	cp -rp ${source_dir}/* .
+	./configure --host=x86_64-astral --prefix=${prefix} --disable-nls --disable-extensions
+}
+
+build() {
+	make -j ${parallelism}
+}
+
+install() {
+	make install DESTDIR=${dest_dir}
+}
