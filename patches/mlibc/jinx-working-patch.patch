@@ -170,10 +170,10 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..8029348
+index 0000000..afe037d
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -0,0 +1,513 @@
+@@ -0,0 +1,522 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -302,6 +302,15 @@ index 0000000..8029348
 +		struct sigaction *__restrict) {
 +		mlibc::infoLogger() << "mlibc: sigaction is a stub" << frg::endlog;
 +		return 0;
++	}
++
++	int sys_renameat(int olddirfd, const char *old_path, int newdirfd, const char *new_path) {
++		long ret;
++		return syscall(SYSCALL_RENAMEAT, &ret, olddirfd, (uint64_t)old_path, newdirfd, (uint64_t)new_path);
++	}
++
++	int sys_rename(const char *path, const char *new_path) {
++		sys_renameat(AT_FDCWD, path, AT_FDCWD, new_path);
 +	}
 +
 +	int sys_utimensat(int dirfd, const char *pathname, const struct timespec times[2], int flags) {
@@ -706,10 +715,10 @@ index 0000000..990eca0
 +#endif
 diff --git mlibc-workdir/sysdeps/astral/include/astral/syscall.h mlibc-workdir/sysdeps/astral/include/astral/syscall.h
 new file mode 100644
-index 0000000..71460b3
+index 0000000..21afcaa
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/include/astral/syscall.h
-@@ -0,0 +1,63 @@
+@@ -0,0 +1,64 @@
 +#ifndef _SYSCALL_H_INCLUDE
 +#define _SYSCALL_H_INCLUDE
 +
@@ -753,6 +762,7 @@ index 0000000..71460b3
 +#define SYSCALL_MOUNT 37
 +#define SYSCALL_FCHOWNAT 38
 +#define SYSCALL_UTIMENSAT 39
++#define SYSCALL_RENAMEAT 40
 +
 +#include <stddef.h>
 +#include <stdint.h>
