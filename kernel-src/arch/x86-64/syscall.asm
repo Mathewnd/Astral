@@ -39,6 +39,7 @@ extern syscall_ftruncate
 extern syscall_mount
 extern syscall_fchownat
 extern syscall_utimensat
+extern syscall_renameat
 syscalltab:
 dq syscall_print
 dq syscall_mmap
@@ -80,7 +81,8 @@ dq syscall_ftruncate
 dq syscall_mount
 dq syscall_fchownat
 dq syscall_utimensat
-syscallcount equ 40
+dq syscall_renameat
+syscallcount equ 41
 section .text
 global arch_syscall_entry
 ; on entry:

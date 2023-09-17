@@ -98,6 +98,7 @@ typedef struct vops_t {
 	int (*ioctl)(vnode_t *node, unsigned long request, void *arg, int *result);
 	int (*maxseek)(vnode_t *node, size_t *max);
 	int (*resize)(vnode_t *node, size_t newsize, cred_t *cred);
+	int (*rename)(vnode_t *source, char *oldname, vnode_t *target, char *newname, int flags);
 } vops_t;
 
 #define VFS_INIT(v, o, f) \
@@ -145,6 +146,7 @@ typedef struct vops_t {
 #define VOP_IOCTL(v, r, a, rp) ((v)->ops->ioctl ? (v)->ops->ioctl(v, r, a, rp) : ENOTTY)
 #define VOP_MAXSEEK(v, rp) ((v)->ops->maxseek ? (v)->ops->maxseek(v, rp) : ENOTTY)
 #define VOP_RESIZE(v, s, c) (v)->ops->resize(v, s, c)
+#define VOP_RENAME(s, o, t, n, f) (s)->ops->rename(s, o, t, n, f)
 #define VOP_HOLD(v) __atomic_add_fetch(&(v)->refcount, 1, __ATOMIC_SEQ_CST)
 #define VOP_RELEASE(v) {\
 		if (__atomic_sub_fetch(&(v)->refcount, 1, __ATOMIC_SEQ_CST) == 0) {\

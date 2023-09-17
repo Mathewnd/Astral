@@ -334,7 +334,8 @@ static vops_t vnops = {
 	.isatty = devfs_isatty,
 	.ioctl = devfs_ioctl,
 	.maxseek = devfs_maxseek,
-	.resize = devfs_enodev
+	.resize = devfs_enodev,
+	.rename = devfs_enodev
 };
 
 static void ctor(scache_t *cache, void *obj) {

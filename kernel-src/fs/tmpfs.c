@@ -343,6 +343,68 @@ static int tmpfs_link(vnode_t *node, vnode_t *dir, char *name, cred_t *cred) {
 	return 0;
 }
 
+static int tmpfs_rename(vnode_t *source, char *oldname, vnode_t *target, char *newname, int flags) {
+	if (source->vfs != target->vfs)
+		return EXDEV;
+
+	if (source->type != V_TYPE_DIR || target->type != V_TYPE_DIR)
+		return ENOTDIR;
+
+	tmpfsnode_t *sourcedir = (tmpfsnode_t *)source;
+	tmpfsnode_t *targetdir = (tmpfsnode_t *)target;
+
+	size_t oldlen = strlen(oldname);
+	size_t newlen = strlen(newname);
+
+	if (target != source) {
+		VOP_LOCK(source);
+		VOP_LOCK(target);
+	} else {
+		VOP_LOCK(target);
+	}
+
+	// get original node
+	void *v;
+	int error = hashtable_get(&sourcedir->children, &v, oldname, oldlen);
+	if (error)
+		goto cleanup;
+
+	vnode_t *node = v;
+	vnode_t *oldnode = NULL;
+
+	// get old node in target
+	error = hashtable_get(&targetdir->children, &v, newname, newlen);
+	if (error != ENOENT && error != 0)
+		goto cleanup;
+	else if (error == 0) // found
+		oldnode = v;
+
+	// same link, rename is a no-op
+	if (sourcedir == targetdir && strcmp(oldname, newname) == 0)
+		goto cleanup;
+
+	// link node to new name
+	error = hashtable_set(&targetdir->children, node, newname, newlen, true);
+	if (error)
+		goto cleanup;
+
+	// remove old link. should not fail
+	__assert(hashtable_remove(&sourcedir->children, oldname, oldlen) == 0);
+
+	if (oldnode)
+		VOP_RELEASE(oldnode);
+
+	cleanup:
+	if (target != source) {
+		VOP_UNLOCK(target);
+		VOP_UNLOCK(source);
+	} else {
+		VOP_UNLOCK(target);
+	}
+
+	return error;
+}
+
 static int tmpfs_symlink(vnode_t *node, char *name, vattr_t *attr, char *path, cred_t *cred) {
 	if (node->type != V_TYPE_DIR)
 		return ENOTDIR;
@@ -458,7 +520,7 @@ static int tmpfs_getdents(vnode_t *node, dent_t *buffer, size_t count, uintmax_t
 		ent->d_off = offset;
 		ent->d_reclen = sizeof(dent_t);
 		ent->d_type = vfs_getposixtype(itmpnode->vnode.type);
-		strcpy(ent->d_name, entry->key);
+		memcpy(ent->d_name, entry->key, entry->keysize);
 
 		*readcount += 1;
 	}
@@ -505,7 +567,8 @@ static vops_t vnops = {
 	.mmap = tmpfs_mmap,
 	.munmap = tmpfs_munmap,
 	.getdents = tmpfs_getdents,
-	.resize = tmpfs_resize
+	.resize = tmpfs_resize,
+	.rename = tmpfs_rename
 };
 
 static tmpfsnode_t *newnode(vfs_t *vfs, int type) {
