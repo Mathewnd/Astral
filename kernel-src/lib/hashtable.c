@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <string.h>
 #include <util.h>
+#include <logging.h>
 
 static scache_t *hashentrycache;
 
@@ -44,11 +45,15 @@ int hashtable_set(hashtable_t *table, void *value, void *key, size_t keysize, bo
 		memcpy(entry->key, key, keysize);
 		entry->prev = NULL;
 		entry->next = table->entries[tableoffset];
+		if (entry->next)
+			entry->next->prev = entry;
+
 		entry->value = value;
 		entry->keysize = keysize;
 		entry->hash = hash;
 		table->entries[tableoffset] = entry;
 		++table->entrycount;
+
 		return 0;
 	}
 
