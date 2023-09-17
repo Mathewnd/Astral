@@ -30,7 +30,8 @@ syscallret_t syscall_fcntl(context_t *, int fd, int cmd, uint64_t arg) {
 			}
 			break;
 		case F_GETFL:
-			ret.ret = file->flags;
+			// decrement to convert internal read/write flags to O_RDONLY etc
+			ret.ret = file->flags - 1;
 			break;
 		case F_SETFL:
 			FILE_LOCK(file);
