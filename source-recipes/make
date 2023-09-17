@@ -1,0 +1,8 @@
+name=make
+version=4.4
+source_method=tarball
+tarball_url="https://mirror.fcix.net/gnu/make/make-${version}.tar.gz"
+tarball_sha512="4be73f494295dcfa10034531b0d920cfdb5438bc20625f863f5c878549c140e1e67195162580c53060c3c11c67a2c739c09051f02cdd283e5aa9ebcd68975a1f"
+regenerate() {
+	true
+}

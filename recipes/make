@@ -1,0 +1,19 @@
+name=make
+revision=1
+from_source=make
+imagedeps="base-devel"
+hostdeps="xgcc xbinutils"
+deps="mlibc"
+
+configure() {
+	cp -rp ${source_dir}/* .
+	./configure --host=x86_64-astral --prefix=${prefix}
+}
+
+build() {
+	make -j ${parallelism}
+}
+
+install() {
+	make install DESTDIR=${dest_dir}
+}
