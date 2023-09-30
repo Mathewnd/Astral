@@ -213,7 +213,7 @@ static void enumeratefunction(int bus, int device, int function) {
 	}
 
 	char *irqtype = e->msix.exists ? "msi-x" : (e->msi.exists ? "msi" : "no interrupts");
-	printf("pci: found %02x:%02x.%x %02x%02x: %04x:%04x (rev %2x) (%s)\n", bus, device, function, e->class, e->subclass, e->vendor, e->device, e->revision, irqtype);
+	printf("pci: found %02x:%02x.%x %02x%02x: %04x:%04x (rev %2x) (%s)\n", bus, device, function, e->class, e->subclass, e->vendor, e->deviceid, e->revision, irqtype);
 }
 
 static void enumeratedevice(int bus, int device) {

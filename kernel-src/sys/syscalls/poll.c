@@ -30,14 +30,13 @@ syscallret_t syscall_poll(context_t *, pollfd_t *fds, size_t nfds, int timeoutms
 
 	memcpy(fdsbuff, fds, fdsbuffsize);
 
-	polldesc_t desc = {0};
+	polldesc_t desc;
 	// when nfds is 0, poll is used as a sleep.
 	// therefore, initialize the desc size to one descriptor in that case.
 	ret.errno = poll_initdesc(&desc, nfds == 0 ? 1 : nfds);
 	if (ret.errno) {
 		goto cleanup;
 	}
-	__assert(spinlock_try(&desc.lock));
 
 	size_t eventcount = 0;
 

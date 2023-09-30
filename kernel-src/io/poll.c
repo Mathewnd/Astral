@@ -30,6 +30,8 @@ static void removefromlist(polldata_t **list, polldata_t *data) {
 int poll_initdesc(polldesc_t *desc, size_t size) {
 	__assert(size);
 
+	memset(desc, 0, sizeof(polldesc_t));
+
 	desc->data = alloc(sizeof(polldata_t) * size);
 	if (desc->data == NULL)
 		return ENOMEM;
@@ -40,6 +42,7 @@ int poll_initdesc(polldesc_t *desc, size_t size) {
 	MUTEX_INIT(&desc->eventlock);
 	for (uintmax_t i = 0; i < size; ++i)
 		desc->data[i].desc = desc;
+	__assert(spinlock_try(&desc->lock));
 
 	return 0;
 }
@@ -118,7 +121,6 @@ void poll_event(pollheader_t *header, int events) {
 		polldesc_t *desc = iterator->desc;
 		polldata_t *next = iterator->next;
 		MUTEX_ACQUIRE(&desc->eventlock, false);
-		// TODO POLLHUP and POLLERR
 		int revents = iterator->events & events;
 
 		if (spinlock_try(&desc->lock) == false) {

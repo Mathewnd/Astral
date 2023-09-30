@@ -52,7 +52,6 @@ static mmuflags_t flagstommuflags(int flags) {
 }
 
 static int load(vnode_t *vnode, elfph64_t *ph) {
-	// TODO verify that the load address doesn't intersect the kernel
 	int error = 0;
 	uintmax_t foffset = ph->offset;
 	uintptr_t mempos = ph->memaddr;
