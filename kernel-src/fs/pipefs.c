@@ -46,13 +46,39 @@ int pipefs_close(vnode_t *node, int flags, cred_t *cred) {
 	}
 
 	if (pipenode->readers == 0)
-		event_signal(&pipenode->readevent);
+		poll_event(&pipenode->pollheader, POLLERR);
 
 	if (pipenode->writers == 0)
-		event_signal(&pipenode->writeevent);
+		poll_event(&pipenode->pollheader, POLLHUP);
 
 	VOP_UNLOCK(node);
 	return 0;
+}
+
+static int internalpoll(vnode_t *node, polldata_t *data, int events) {
+	pipenode_t *pipenode = (pipenode_t *)node;
+	int revents = 0;
+
+	if (events & POLLIN) {
+		events |= POLLHUP;
+		if (pipenode->writers == 0)
+			revents |= POLLHUP;
+		else if (RINGBUFFER_DATACOUNT(&pipenode->data) > 0)
+			revents |= POLLIN;
+	}
+
+	if (events & POLLOUT) {
+		events |= POLLERR;
+		if (pipenode->readers == 0)
+			revents |= POLLERR;
+		else if (RINGBUFFER_DATACOUNT(&pipenode->data) < BUFFER_SIZE)
+			revents |= POLLOUT;
+	}
+
+	if (revents == 0 && data)
+		poll_add(&pipenode->pollheader, data, events);
+
+	return revents;
 }
 
 int pipefs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int flags, size_t *readc, cred_t *cred) {
@@ -61,41 +87,45 @@ int pipefs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int 
 
 	int error = 0;
 	*readc = 0;
-	size_t datacount = 0;
 
 	// wait until there is data to read or return if nonblock
-	while (datacount == 0) {
-		datacount = RINGBUFFER_DATACOUNT(&pipenode->data);
-		if (datacount == 0) {
-			if (pipenode->writers == 0)
-				goto leave;
+	while (1) {
+		// check for available data or if the write end has been closed
+		int revents = internalpoll(node, NULL, POLLIN);
+		if (revents)
+			break;
 
-			if (flags & V_FFLAGS_NONBLOCKING) {
-				error = EAGAIN;
-				goto leave;
-			}
-
-			// to make it harder for a race condition to happen TODO figure out a way to fix this
-			bool status = interrupt_set(false);
-			VOP_UNLOCK(node);
-
-			error = event_wait(&pipenode->writeevent, true);
-			interrupt_set(status);
-			if (error)
-				return error;
-
-			VOP_LOCK(node);
+		if (flags & V_FFLAGS_NONBLOCKING) {
+			error = EAGAIN;
+			goto leave;
 		}
+
+		// do the wait
+		polldesc_t desc = {0};
+		error = poll_initdesc(&desc, 1);
+		if (error)
+			goto leave;
+
+		revents = internalpoll(node, &desc.data[0], POLLIN);
+
+		VOP_UNLOCK(node);
+
+		error = poll_dowait(&desc, 0);
+
+		poll_leave(&desc);
+		poll_destroydesc(&desc);
+
+		if (error)
+			return error;
+
+		VOP_LOCK(node);
 	}
 
 	*readc = ringbuffer_read(&pipenode->data, buffer, size);
 
-	if (*readc < datacount) {
+	// signal that there is space to write for any threads blocked on this pipe
+	if (*readc)
 		poll_event(&pipenode->pollheader, POLLOUT);
-		event_signal(&pipenode->writeevent);
-	}
-
-	event_signal(&pipenode->readevent);
 
 	leave:
 	VOP_UNLOCK(node);
@@ -109,27 +139,37 @@ int pipefs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int
 	int error = 0;
 	*writec = 0;
 
-	// wait until there is space to write data into or return if nonblock
-	size_t datacount = BUFFER_SIZE;
-	while (datacount == BUFFER_SIZE && pipenode->readers) {
-		datacount = RINGBUFFER_DATACOUNT(&pipenode->data);
-		if (datacount == BUFFER_SIZE) {
-			if (flags & V_FFLAGS_NONBLOCKING) {
-				error = EAGAIN;
-				goto leave;
-			}
+	// wait until there is space to write data or return if nonblock
+	while (1) {
+		// check for space or if the read end has been closed
+		int revents = internalpoll(node, NULL, POLLOUT);
+		if (revents)
+			break;
 
-			// to make it harder for a race condition to happen TODO figure out a way to fix this
-			bool status = interrupt_set(false);
-			VOP_UNLOCK(node);
-
-			error = event_wait(&pipenode->readevent, true);
-			interrupt_set(status);
-			if (error)
-				return error;
-
-			VOP_LOCK(node);
+		if (flags & V_FFLAGS_NONBLOCKING) {
+			error = EAGAIN;
+			goto leave;
 		}
+
+		// do the wait
+		polldesc_t desc = {0};
+		error = poll_initdesc(&desc, 1);
+		if (error)
+			goto leave;
+
+		revents = internalpoll(node, &desc.data[0], POLLOUT);
+
+		VOP_UNLOCK(node);
+
+		error = poll_dowait(&desc, 0);
+
+		poll_leave(&desc);
+		poll_destroydesc(&desc);
+
+		if (error)
+			return error;
+
+		VOP_LOCK(node);
 	}
 
 	if (pipenode->readers == 0) {
@@ -140,12 +180,8 @@ int pipefs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int
 
 	*writec = ringbuffer_write(&pipenode->data, buffer, size);
 
-	if (datacount + *writec < BUFFER_SIZE) {
-		poll_event(&pipenode->pollheader, POLLIN);
-		event_signal(&pipenode->readevent);
-	}
-
-	event_signal(&pipenode->writeevent);
+	__assert(*writec);
+	poll_event(&pipenode->pollheader, POLLIN);
 
 	leave:
 	VOP_UNLOCK(node);
@@ -153,26 +189,10 @@ int pipefs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int
 }
 
 int pipefs_poll(vnode_t *node, polldata_t *data, int events) {
-	pipenode_t *pipenode = (pipenode_t *)node;
 	int revents = 0;
 	VOP_LOCK(node);
 
- 	if (events & POLLIN) {
-		if (pipenode->writers == 0)
-			revents |= POLLHUP;
-		else if (RINGBUFFER_DATACOUNT(&pipenode->data) > 0)
-			revents |= POLLIN;
-	}
-
-	if (events & POLLOUT) {
-		if (pipenode->readers == 0)
-			revents |= POLLERR;
-		else if (RINGBUFFER_DATACOUNT(&pipenode->data) < BUFFER_SIZE)
-			revents |= POLLOUT;
-	}
-
-	if (revents == 0 && data)
-		poll_add(&pipenode->pollheader, data, events);
+	revents = internalpoll(node, data, events);
 
 	VOP_UNLOCK(node);
 	return revents;
@@ -244,8 +264,6 @@ static void ctor(scache_t *cache, void *obj) {
 	memset(node, 0, sizeof(pipenode_t));
 	VOP_INIT(&node->vnode, &vnops, 0, V_TYPE_FIFO, NULL);
 	node->attr.inode = ++currentinode;
-	EVENT_INIT(&node->writeevent);
-	EVENT_INIT(&node->readevent);
 	POLL_INITHEADER(&node->pollheader);
 }
 
