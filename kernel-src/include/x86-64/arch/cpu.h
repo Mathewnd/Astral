@@ -34,6 +34,7 @@ typedef struct cpu_t {
 } cpu_t;
 
 #define CPU_HALT() asm volatile("hlt")
+#define CPU_PAUSE() asm volatile("pause")
 
 static inline cpu_t *_cpu() {
 	return (cpu_t *)rdmsr(MSR_GSBASE);

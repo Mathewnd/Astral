@@ -20,9 +20,12 @@ static void *internalalloc(size_t n) {
 }
 
 static struct flanterm_context *term_ctx;
+static mutex_t term_mutex;
 
 void term_write(char *str, size_t count) {
+	MUTEX_ACQUIRE(&term_mutex, false);
 	flanterm_write(term_ctx, str, count);
+	MUTEX_RELEASE(&term_mutex);
 }
 
 void term_putchar(char c) {
@@ -55,4 +58,6 @@ void term_init() {
 	ys = term_ctx->rows;
 	fbxs = fb->width;
 	fbys = fb->height;
+
+	MUTEX_INIT(&term_mutex);
 }

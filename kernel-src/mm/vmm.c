@@ -339,10 +339,11 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 		} else {
 			// anonymous memory. map the zero'd page
 			status = arch_mmu_map(_cpu()->vmmctx->pagetable, zeropage, addr, range->mmuflags & ~ARCH_MMU_FLAGS_WRITE);
-			if (!status)
+			if (!status) {
 				printf("vmm: out of memory to map zero page into address space\n");
-			else
+			} else {
 				pmm_hold(zeropage);
+			}
 		}
 	} else if (arch_mmu_iswritable(_cpu()->vmmctx->pagetable, addr) == false){
 		// page present but not writeable in the page tables

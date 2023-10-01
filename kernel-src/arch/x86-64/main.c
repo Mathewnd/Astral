@@ -30,11 +30,14 @@
 #include <kernel/block.h>
 #include <kernel/ext2.h>
 #include <kernel/cmdline.h>
+#include <arch/smp.h>
+#include <kernel/e1000.h>
 
 static cpu_t bsp_cpu;
 
 void kernel_entry() {
 	cpu_set(&bsp_cpu);
+	logging_init();
 	logging_sethook(arch_e9_putc);
 	arch_gdt_reload();
 	arch_idt_setup();

@@ -1,6 +1,7 @@
 #ifndef _SEMAPHORE_H
 #define _SEMAPHORE_H
 
+#include <stddef.h>
 #include <stdbool.h>
 #include <spinlock.h>
 
