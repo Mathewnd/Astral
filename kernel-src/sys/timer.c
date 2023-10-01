@@ -30,6 +30,19 @@ static void insert(timer_t *timer, timerentry_t *entry, time_t us) {
 	}
 }
 
+// expects IPL to be at least IPL_DPC
+static void timercheck(timer_t *timer) {
+	while (timer->queue && timer->queue->absolutetick == timer->tickcurrent) {
+		timerentry_t *entry = timer->queue;
+		timer->queue = timer->queue->next;
+
+		if (entry->repeatus)
+			insert(timer, entry, entry->repeatus);
+
+		dpc_enqueue(&entry->dpc, entry->fn, entry->arg);
+	}
+}
+
 void timer_isr(timer_t *timer, context_t *context) {
 	spinlock_acquire(&timer->lock);
 
@@ -44,8 +57,7 @@ void timer_isr(timer_t *timer, context_t *context) {
 	dpc_enqueue(&oldentry->dpc, oldentry->fn, oldentry->arg);
 
 	if (timer->queue) {
-		// TODO handle this
-		__assert(timer->queue->absolutetick > timer->tickcurrent);
+		timercheck(timer);
 		timer->arm(timer->queue->absolutetick - timer->tickcurrent);
 	}
 
@@ -53,6 +65,7 @@ void timer_isr(timer_t *timer, context_t *context) {
 }
 
 void timer_resume(timer_t *timer) {
+	long oldipl = interrupt_raiseipl(IPL_TIMER);
 	spinlock_acquire(&timer->lock);
 
 	timer->running = true;
@@ -60,12 +73,12 @@ void timer_resume(timer_t *timer) {
 	if (timer->queue == NULL)
 		goto leave;
 
-	// TODO handle difference being 0
-	__assert(timer->queue->absolutetick > timer->tickcurrent);
+	timercheck(timer);
 	timer->arm(timer->queue->absolutetick - timer->tickcurrent);
 
 	leave:
 	spinlock_release(&timer->lock);
+	interrupt_loweripl(oldipl);
 }
 
 void timer_stop(timer_t *timer) {
@@ -93,8 +106,7 @@ void timer_insert(timer_t *timer, timerentry_t *entry, dpcfn_t fn, dpcarg_t arg,
 	insert(timer, entry, us);
 
 	if (timer->running) {
-		// TODO handle difference being 0
-		__assert(timer->queue->absolutetick > timer->tickcurrent);
+		timercheck(timer);
 		timer->arm(timer->queue->absolutetick - timer->tickcurrent);
 	}
 
@@ -125,8 +137,7 @@ void timer_remove(timer_t *timer, timerentry_t *entry) {
 		prev->next = iterator->next;
 
 	if (timer->running) {
-		// TODO handle difference being 0
-		__assert(timer->queue->absolutetick > timer->tickcurrent);
+		timercheck(timer);
 		timer->arm(timer->queue->absolutetick - timer->tickcurrent);
 	}
 
