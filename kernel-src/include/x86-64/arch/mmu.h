@@ -34,5 +34,6 @@ bool arch_mmu_ispresent(pagetableptr_t table, void *vaddr);
 bool arch_mmu_iswritable(pagetableptr_t table, void *vaddr);
 pagetableptr_t arch_mmu_newtable();
 void arch_mmu_init();
+void arch_mmu_apswitch();
 
 #endif

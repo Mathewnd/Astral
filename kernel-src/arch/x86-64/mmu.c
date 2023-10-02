@@ -177,7 +177,7 @@ void arch_mmu_switch(pagetableptr_t table) {
 	asm volatile("mov %%rax, %%cr3" : : "a"(table));
 }
 
-// hhdm pointer to template to be used for new mappings
+// hhdm pointer to template to be used for new mappings and smp bootup
 static pagetableptr_t template;
 
 pagetableptr_t arch_mmu_newtable() {
@@ -276,6 +276,10 @@ void arch_mmu_init() {
 		}
 	}
 
+	arch_mmu_apswitch();
+}
+
+void arch_mmu_apswitch() {
 	arch_mmu_switch(FROM_HHDM(template));
 	interrupt_register(14, pfisr, NULL, IPL_IGNORE);
 }

@@ -58,6 +58,7 @@ void kernel_entry() {
 	timekeeper_init(arch_hpet_ticks, u);
 	arch_apic_timerinit();
 	sched_init();
+	arch_smp_wakeup();
 	vfs_init();
 	tmpfs_init();
 	devfs_init();
