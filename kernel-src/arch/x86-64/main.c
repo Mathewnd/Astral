@@ -31,7 +31,6 @@
 #include <kernel/ext2.h>
 #include <kernel/cmdline.h>
 #include <arch/smp.h>
-#include <kernel/e1000.h>
 
 static cpu_t bsp_cpu;
 
