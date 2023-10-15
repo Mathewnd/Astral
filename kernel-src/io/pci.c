@@ -146,9 +146,10 @@ pcibar_t pci_getbar(pcienum_t *e, int n) {
 	} else {
 		ret.mmio = true;
 		ret.prefetchable = bar & BAR_PREFETCHABLE;
-		ret.address = bar & 0xfffffff0;
+		ret.address = ret.physical = bar & 0xfffffff0;
 		ret.length = -1;
-		if ((bar & BAR_TYPE_MASK) == BAR_TYPE_64BIT)
+		ret.is64bits = (bar & BAR_TYPE_MASK) == BAR_TYPE_64BIT;
+		if (ret.is64bits)
 			ret.address += (uint64_t)pci_read32(e->bus, e->device, e->function, offset + 4) << 32;
 
 		pci_write32(e->bus, e->device, e->function, offset, -1);

@@ -5,6 +5,8 @@
 #include <stddef.h>
 #include <stdbool.h>
 
+#define PCI_BAR_BASE 0x10
+
 // 2 byte fields
 #define PCI_CONFIG_VENDOR 0x0
 #define PCI_CONFIG_DEVICEID 0x2
@@ -37,8 +39,10 @@ typedef struct {
 
 typedef struct {
 	uintptr_t address;
+	uintptr_t physical;
 	size_t length;
 	bool mmio;
+	bool is64bits;
 	bool prefetchable;
 } pcibar_t;
 
