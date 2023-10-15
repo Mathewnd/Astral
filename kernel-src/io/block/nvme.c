@@ -597,6 +597,10 @@ static void initcontroller(pcienum_t *e) {
 	volatile nvmebar0_t *bar0 = (volatile nvmebar0_t *)bar0p.address;
 	__assert(bar0);
 
+	pci_setcommand(e, PCI_COMMAND_MMIO, 1);
+	pci_setcommand(e, PCI_COMMAND_IO, 0);
+	pci_setcommand(e, PCI_COMMAND_IRQDISABLE, 1);
+
 	int vmajor = VERSION_MAJOR(bar0->version);
 	int vminor = VERSION_MINOR(bar0->version);
 	int vpatch = VERSION_PATCH(bar0->version);
@@ -617,9 +621,6 @@ static void initcontroller(pcienum_t *e) {
 		(1 << (CAP_MAXPAGESIZE(bar0->cap) + 12)) < PAGE_SIZE) {
 		printf("nvme: controller doesn't support the processor page size\n");
 	}
-
-	pci_setcommand(e, PCI_COMMAND_MMIO, 1);
-	pci_setcommand(e, PCI_COMMAND_IO, 0);
 
 	// enable interrupts
 
