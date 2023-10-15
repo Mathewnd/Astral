@@ -387,6 +387,19 @@ void sched_targetcpu(cpu_t *cpu) {
 	interrupt_set(intstatus);
 }
 
+static void timeout(context_t *, dpcarg_t arg) {
+	thread_t *thread = arg;
+	sched_wakeup(thread, 0);
+}
+
+void sched_sleepus(size_t us) {
+	timerentry_t sleepentry = {0};
+	sched_preparesleep(false);
+
+	timer_insert(_cpu()->timer, &sleepentry, timeout, _cpu()->thread, us, false);
+	sched_yield();
+}
+
 void sched_init() {
 	threadcache = slab_newcache(sizeof(thread_t), 0, NULL, NULL);
 	__assert(threadcache);

@@ -90,5 +90,6 @@ thread_t *sched_newthread(void *ip, size_t kstacksize, int priority, proc_t *pro
 void sched_destroyproc(proc_t *);
 void sched_destroythread(thread_t *);
 void sched_targetcpu(struct cpu_t *cpu);
+void sched_sleepus(size_t us);
 
 #endif
