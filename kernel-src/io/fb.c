@@ -76,6 +76,15 @@ static struct limine_framebuffer **fbs;
 static fixinfo_t *fixinfos;
 static varinfo_t *varinfos;
 
+static int maxseek(int minor, size_t *max) {
+	if (minor >= count)
+		return ENODEV;
+
+	*max = fbs[minor]->pitch * fbs[minor]->height;
+
+	return 0;
+}
+
 static int read(int minor, void *buffer, size_t size, uintmax_t offset, int flags, size_t *readc) {
 	if (minor >= count)
 		return ENODEV;
@@ -160,7 +169,7 @@ static int munmap(int minor, void *addr, uintmax_t offset, int flags) {
 #define FBIOBLANK		0x4611
 
 static int ioctl(int minor, unsigned long request, void *arg, int *result){
-        if(minor >= count)
+        if (minor >= count)
                 return ENODEV;
 
         switch (request) {
@@ -182,7 +191,8 @@ static devops_t ops = {
 	.write = write,
 	.mmap = mmap,
 	.munmap = munmap,
-	.ioctl = ioctl
+	.ioctl = ioctl,
+	.maxseek = maxseek
 };
 
 void fb_init() {
