@@ -1,0 +1,29 @@
+name=bzip2
+revision=1
+from_source=bzip2
+imagedeps="base-devel"
+hostdeps="xgcc xbinutils"
+deps="mlibc"
+
+configure() {
+	cp -rpf ${source_dir}/* .
+	sed -i 's@\(ln -s -f \)$(prefix)/bin/@\1@' Makefile
+	sed -i "s@(prefix)/man@(prefix)/share/man@g" Makefile
+	make -f Makefile-libbz2_so CC=x86_64-astral-gcc
+	make clean
+}
+
+build() {
+	make -j${parallelism} CC=x86_64-astral-gcc
+}
+
+install() {
+	make install PREFIX=${dest_dir}/${prefix}
+	cp -av libbz2.so.* ${dest_dir}/${prefix}/lib
+	ln -sv libbz2.so.1.0.8 ${dest_dir}${prefix}/lib/libbz2.so
+	cp -v bzip2-shared ${dest_dir}/${prefix}/bin/bzip2
+	for i in ${dest_dir}/${prefix}/bin/{bzcat,bunzip2}; do
+	  ln -sfv bzip2 $i
+	done
+	rm -fv ${dest_dir}/${prefix}/lib/libbz2.a
+}

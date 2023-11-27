@@ -3,7 +3,7 @@ revision=1
 from_source=tar
 imagedeps="base-devel"
 hostdeps="xgcc xbinutils"
-deps="mlibc xz"
+deps="mlibc xz bzip2 zlib"
 
 configure() {
 	cp -rpf ${source_dir}/* .
