@@ -44,8 +44,8 @@ static void runisr(isr_t *isr, context_t *ctx) {
 static void dopending(context_t *ctx) {
 	bool entrystatus = _cpu()->intstatus;
 	if (entrystatus) {
-		_cpu()->intstatus = false;
 		arch_interrupt_disable();
+		_cpu()->intstatus = false;
 	}
 
 	isr_t *list = NULL;
