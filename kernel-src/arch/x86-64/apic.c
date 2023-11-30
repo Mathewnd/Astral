@@ -18,6 +18,7 @@
 #define APIC_REG_EOI 0xB0
 #define APIC_REG_SPURIOUS 0xF0
 #define APIC_REG_ICR_LO 0x300
+#define APIC_REG_ICR_LO_STATUS (1 << 12)
 #define APIC_REG_ICR_HI 0x310
 #define APIC_LVT_TIMER 0x320
 #define APIC_LVT_THERMAL 0x330
@@ -277,6 +278,13 @@ void arch_apic_timerinit() {
 
 	_cpu()->timer = timer_new(ticksperus, armtimer, stoptimer);
 	__assert(_cpu()->timer);
+}
+
+void arch_apic_sendipi(uint8_t cpu, uint8_t vec, uint8_t dest, uint8_t mode, uint8_t level) {
+	while (readlapic(APIC_REG_ICR_LO) & APIC_REG_ICR_LO_STATUS) CPU_PAUSE();
+
+	writelapic(APIC_REG_ICR_HI, (uint32_t)cpu << 24);
+	writelapic(APIC_REG_ICR_LO, vec | (level << 14) | (mode << 15) | (dest << 18));
 }
 
 void arch_apic_init() {
