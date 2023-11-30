@@ -6,6 +6,7 @@
 #include <kernel/interrupt.h>
 #include <kernel/vmm.h>
 #include <arch/cpu.h>
+#include <arch/smp.h>
 
 #define ADDRMASK (uint64_t)0x7ffffffffffff000
 #define   PTMASK (uint64_t)0b111111111000000000000
@@ -136,6 +137,7 @@ bool arch_mmu_map(pagetableptr_t table, void *paddr, void *vaddr, mmuflags_t fla
 }
 
 void arch_mmu_invalidate(void *vaddr) {
+	arch_mmu_tlbshootdown(vaddr);
 	asm volatile ("invlpg (%%rax)" : : "a"(vaddr));
 }
 
@@ -186,6 +188,38 @@ pagetableptr_t arch_mmu_newtable() {
 		return NULL;
 	memcpy(MAKE_HHDM(table), template, PAGE_SIZE);
 	return table;
+}
+
+static void *mmupage = NULL;
+static spinlock_t shootdownlock;
+static int remaining = 0;
+
+void arch_mmu_tlbipi(isr_t *isr, context_t *context) {
+	asm volatile ("invlpg (%%rax)" : : "a"(mmupage));
+	__atomic_sub_fetch(&remaining, 1, __ATOMIC_SEQ_CST);
+}
+
+void arch_mmu_tlbshootdown(void *page) {
+	// scheduler not up yet, nothing to do
+	if (_cpu()->thread == NULL)
+		return;
+
+	if (page >= KERNELSPACE_START ||
+	(_cpu()->thread->proc->runningthreadcount > 1 && page >= USERSPACE_START && page < USERSPACE_END)) {
+		// shoot down if page is in the kernel space or in a multithreaded userland application
+		int oldipl = interrupt_raiseipl(IPL_DPC);
+		spinlock_acquire(&shootdownlock);
+
+		mmupage = page;
+		remaining = arch_smp_cpusawake - 1;
+
+		arch_smp_sendipi(NULL, &_cpu()->isr[0xfe], ARCH_SMP_IPI_OTHERCPUS);
+
+		while (__atomic_load_n(&remaining, __ATOMIC_SEQ_CST)) CPU_PAUSE();
+
+		spinlock_release(&shootdownlock);
+		interrupt_loweripl(oldipl);
+	}
 }
 
 extern void *_text_start;
@@ -282,4 +316,5 @@ void arch_mmu_init() {
 void arch_mmu_apswitch() {
 	arch_mmu_switch(FROM_HHDM(template));
 	interrupt_register(14, pfisr, NULL, IPL_IGNORE);
+	interrupt_register(0xfe, arch_mmu_tlbipi, ARCH_EOI, IPL_IGNORE);
 }

@@ -35,5 +35,6 @@ bool arch_mmu_iswritable(pagetableptr_t table, void *vaddr);
 pagetableptr_t arch_mmu_newtable();
 void arch_mmu_init();
 void arch_mmu_apswitch();
+void arch_mmu_tlbshootdown(void *page);
 
 #endif
