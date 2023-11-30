@@ -11,6 +11,7 @@
 #define SCHED_THREAD_FLAGS_RUNNING 2
 #define SCHED_THREAD_FLAGS_SLEEP 4
 #define SCHED_THREAD_FLAGS_INTERRUPTIBLE 8
+#define SCHED_THREAD_FLAGS_PREEMPTED 16
 
 #define SCHED_PROC_STATE_NORMAL 0
 #define SCHED_PROC_STATE_ZOMBIE 1
@@ -91,5 +92,6 @@ void sched_destroyproc(proc_t *);
 void sched_destroythread(thread_t *);
 void sched_targetcpu(struct cpu_t *cpu);
 void sched_sleepus(size_t us);
+void sched_apentry();
 
 #endif

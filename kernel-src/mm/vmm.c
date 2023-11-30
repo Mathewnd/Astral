@@ -635,3 +635,7 @@ void vmm_init() {
 
 	printspace(&kernelspace);
 }
+
+void vmm_apinit() {
+	vmm_switchcontext(&vmm_kernelctx);
+}

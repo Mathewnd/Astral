@@ -12,7 +12,7 @@
 #include <kernel/devfs.h>
 
 #define QUANTUM_US 100000
-#define SCHEDULER_STACK_SIZE 4096
+#define SCHEDULER_STACK_SIZE PAGE_SIZE
 
 static scache_t *threadcache;
 static scache_t *processcache;
@@ -151,7 +151,6 @@ static thread_t *runqueuenext(int minprio) {
 			runqueuebitmap &= ~((uint64_t)1 << i);
 	}
 
-
 	if (thread)
 		thread->flags &= ~SCHED_THREAD_FLAGS_QUEUED;
 
@@ -173,6 +172,14 @@ static __attribute__((noreturn)) void switchthread(thread_t *thread) {
 	thread->cpu = _cpu();
 	if (current)
 		current->flags &= ~SCHED_THREAD_FLAGS_RUNNING;
+
+	__assert((thread->flags & SCHED_THREAD_FLAGS_RUNNING) == 0);
+
+	if (current && current->flags & SCHED_THREAD_FLAGS_SLEEP)
+		spinlock_release(&current->sleeplock);
+
+	thread->flags |= SCHED_THREAD_FLAGS_RUNNING;
+
 	ARCH_CONTEXT_SWITCHTHREAD(thread);
 	__builtin_unreachable();
 }
@@ -258,9 +265,7 @@ static void yield(context_t *context) {
 	if (next || sleeping) {
 		ARCH_CONTEXT_THREADSAVE(thread, context);
 
-		if (sleeping)
-			spinlock_release(&thread->sleeplock);
-		else
+		if (sleeping == false)
 			runqueueinsert(thread);
 
 		if (next == NULL)
@@ -348,32 +353,44 @@ void sched_setroot(vnode_t *new) {
 	setnodeslock(&proc->root, new);
 }
 
-static void timerhook(context_t *context, dpcarg_t arg) {
-	thread_t* current = _cpu()->thread;
-
-	interrupt_set(false);
+// once a scheduler dpc gets run, the return context is set to this function using the scheduler stack
+static void dopreempt() {
+	// interrupts are disabled, the thread context is already saved
 	spinlock_acquire(&runqueuelock);
 
+	thread_t *current = _cpu()->thread;
 	thread_t *next = runqueuenext(current->priority);
 
+	current->flags &= ~SCHED_THREAD_FLAGS_PREEMPTED;
 	if (next) {
 		current->flags &= ~SCHED_THREAD_FLAGS_RUNNING;
-		ARCH_CONTEXT_THREADSAVE(current, context);
-
 		runqueueinsert(current);
-
-		ARCH_CONTEXT_THREADLOAD(next, context);
-		_cpu()->thread = next;
-		next->flags |= SCHED_THREAD_FLAGS_RUNNING;
-		next->cpu = _cpu();
-		if (next->vmmctx != current->vmmctx)
-			vmm_switchcontext(next->vmmctx);
+	} else {
+		next = current;
 	}
 
 	spinlock_release(&runqueuelock);
+	switchthread(next);
+}
+
+static void timerhook(context_t *context, dpcarg_t arg) {
+	thread_t* current = _cpu()->thread;
+	interrupt_set(false);
+
+	// no need to preempt it again
+	if (current->flags & SCHED_THREAD_FLAGS_PREEMPTED)
+		return;
+
+	current->flags |= SCHED_THREAD_FLAGS_PREEMPTED;
+	ARCH_CONTEXT_THREADSAVE(current, context);
+
+	CTX_INIT(context, false);
+	CTX_SP(context) = (uintptr_t)_cpu()->schedulerstack;
+	CTX_IP(context) = (uintptr_t)dopreempt;
 }
 
 static void cpuidlethread() {
+	sched_targetcpu(_cpu());
 	interrupt_set(true);
 	while (1) {
 		CPU_HALT();
@@ -400,13 +417,26 @@ void sched_sleepus(size_t us) {
 	sched_yield();
 }
 
+void sched_apentry() {
+	_cpu()->schedulerstack = vmm_map(NULL, SCHEDULER_STACK_SIZE, VMM_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, NULL);
+	__assert(_cpu()->schedulerstack);
+	_cpu()->schedulerstack = (void *)((uintptr_t)_cpu()->schedulerstack + SCHEDULER_STACK_SIZE);
+
+	_cpu()->idlethread = sched_newthread(cpuidlethread, PAGE_SIZE * 4, 3, NULL, NULL);
+	__assert(_cpu()->idlethread);
+
+	timer_insert(_cpu()->timer, &_cpu()->schedtimerentry, timerhook, NULL, QUANTUM_US, true);
+	timer_resume(_cpu()->timer);
+	sched_stopcurrentthread();
+}
+
 void sched_init() {
 	threadcache = slab_newcache(sizeof(thread_t), 0, NULL, NULL);
 	__assert(threadcache);
 	processcache = slab_newcache(sizeof(proc_t), 0, NULL, NULL);
 	__assert(processcache);
 
-	_cpu()->schedulerstack = alloc(SCHEDULER_STACK_SIZE);
+	_cpu()->schedulerstack = vmm_map(NULL, SCHEDULER_STACK_SIZE, VMM_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, NULL);
 	__assert(_cpu()->schedulerstack);
 	_cpu()->schedulerstack = (void *)((uintptr_t)_cpu()->schedulerstack + SCHEDULER_STACK_SIZE);
 
