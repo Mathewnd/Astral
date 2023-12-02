@@ -1,0 +1,30 @@
+diff --git nyancat-clean/Makefile nyancat-workdir/Makefile
+index 36cb8fa..9f1e288 100644
+--- nyancat-clean/Makefile
++++ nyancat-workdir/Makefile
+@@ -33,7 +33,9 @@ distcheck: $(distdir).tar.gz
+ 	@echo "*** Package $(distdir).tar.gz is ready for distribution."
+ 
+ install: all
+-	install src/nyancat /usr/bin/${package}
+-	gzip -9 -c < nyancat.1 > /usr/share/man/man1/nyancat.1.gz
++	mkdir -p $(DESTDIR)/usr/bin
++	install src/nyancat $(DESTDIR)/usr/bin/${package}
++	mkdir -p $(DESTDIR)/usr/share/man/man1
++	gzip -9 -c < nyancat.1 > $(DESTDIR)/usr/share/man/man1/nyancat.1.gz
+ 
+ .PHONY: FORCE all clean check dist distcheck install
+diff --git nyancat-clean/src/nyancat.c nyancat-workdir/src/nyancat.c
+index dd3288f..44d6e22 100644
+--- nyancat-clean/src/nyancat.c
++++ nyancat-workdir/src/nyancat.c
+@@ -62,9 +62,7 @@
+ 
+ #include <sys/ioctl.h>
+ 
+-#ifndef TIOCGWINSZ
+ #include <termios.h>
+-#endif
+ 
+ #ifdef ECHO
+ #undef ECHO

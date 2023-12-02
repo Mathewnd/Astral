@@ -1,0 +1,18 @@
+name=nyancat
+revision=1
+from_source=nyancat
+imagedeps="base-devel"
+hostdeps="xgcc xbinutils"
+deps="mlibc"
+
+configure() {
+	cp -rp ${source_dir}/* .
+}
+
+build() {
+	CC=x86_64-astral-gcc make -j${parallelism}
+}
+
+install() {
+	make install DESTDIR="${dest_dir}"
+}
