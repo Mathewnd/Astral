@@ -30,6 +30,7 @@
 	#define PCI_HEADERTYPE_STANDARD 0
 #define PCI_CONFIG_CAP 0x34
 	#define PCI_CAP_MSI 0x5
+	#define PCI_CAP_VENDORSPECIFIC 0x9
 	#define PCI_CAP_MSIX 0x11
 
 typedef struct {
@@ -87,5 +88,13 @@ size_t pci_initmsix(pcienum_t *e);
 void pci_msixsetmask(pcienum_t *e, int v);
 void pci_msixadd(pcienum_t *e, int msixvec, int vec, int edgetrigger, int deassert);
 void pci_init();
+
+#define PCI_READ32(e, offset) pci_read32(e->bus, e->device, e->function, offset)
+#define PCI_READ16(e, offset) pci_read16(e->bus, e->device, e->function, offset)
+#define PCI_READ8(e, offset) pci_read8(e->bus, e->device, e->function, offset)
+#define PCI_WRITE32(e, offset, value) pci_write32(e->bus, e->device, e->function, offset, value)
+#define PCI_WRITE16(e, offset, value) pci_write16(e->bus, e->device, e->function, offset, value)
+#define PCI_WRITE8(e, offset, value) pci_write8(e->bus, e->device, e->function, offset, value)
+
 
 #endif
