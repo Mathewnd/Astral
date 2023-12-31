@@ -31,6 +31,7 @@
 #include <kernel/ext2.h>
 #include <kernel/cmdline.h>
 #include <arch/smp.h>
+#include <kernel/virtio.h>
 
 static cpu_t bsp_cpu;
 
@@ -72,6 +73,7 @@ void kernel_entry() {
 	arch_ps2_init();
 	fb_init();
 	nvme_init();
+	virtio_init();
 	console_init();
 	logging_sethook(console_putc);
 
