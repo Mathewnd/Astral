@@ -30,6 +30,11 @@ static thread_t *get(semaphore_t *sem) {
 }
 
 int semaphore_wait(semaphore_t *sem, bool interruptible) {
+	if (_cpu()->thread == NULL) {
+		while (semaphore_test(sem) == false) CPU_PAUSE();
+		return 0;
+	}
+
 	bool intstate = interrupt_set(false);
 	int ret = 0;
 	spinlock_acquire(&sem->lock);
