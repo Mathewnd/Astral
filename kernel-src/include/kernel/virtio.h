@@ -36,11 +36,17 @@ typedef struct {
 	size_t notifymultiplier;
 } viodevice_t;
 
+typedef struct {
+	void *address;
+	size_t size;
+	uint16_t *notify;
+	uint16_t lastusedindex;
+} vioqueue_t;
+
 void virtio_init();
 size_t virtio_queuesize(viodevice_t *viodevice, int queue);
-uint16_t *virtio_queuenotifyaddress(viodevice_t *viodevice, int queue);
 void virtio_enablequeue(viodevice_t *viodevice, int queue);
-void *virtio_createqueue(viodevice_t *viodevice, int queue, size_t size, int msix);
+void *virtio_createqueue(viodevice_t *viodevice, vioqueue_t *vioqueue, int queue, size_t size, int msix);
 void virtio_enabledevice(viodevice_t *viodevice);
 
 #define VIO_CONFIG_STATUS_SET(x, v) (x)->config->status |= v
@@ -97,12 +103,12 @@ struct {
 */
 
 #define VIO_QUEUE_BYTESIZE(s) (sizeof(viobuffer_t) * (s) + sizeof(uint16_t) * ((s) + 6) + sizeof(viousedentry_t) * (s))
-#define VIO_QUEUE_BUFFERS(q, s) ((volatile viobuffer_t *)(q))
-#define VIO_QUEUE_DRV(q, s) ((volatile uint16_t *)((uintptr_t)(q) + (s) * sizeof(viobuffer_t)))
-#define VIO_QUEUE_DRV_IDX(q, s) ((volatile uint16_t *)((uintptr_t)(q) + (s) * sizeof(viobuffer_t)))[1]
-#define VIO_QUEUE_DRV_RING(q, s) ((volatile uint16_t *)((uintptr_t)(q) + (s) * sizeof(viobuffer_t) + 2 * sizeof(uint16_t)))
-#define VIO_QUEUE_DEV(q, s) ((volatile uint16_t *)((uintptr_t)(q) + (s) * sizeof(viobuffer_t) + sizeof(uint16_t) * ((s) + 3 + (1 - ((s) % 2)))))
-#define VIO_QUEUE_DEV_IDX(q, s)  ((volatile uint16_t *)((uintptr_t)(q) + (s) * sizeof(viobuffer_t) + sizeof(uint16_t) * ((s) + 3 + (1 - ((s) % 2)))))[1]
-#define VIO_QUEUE_DEV_RING(q, s)  ((volatile viousedentry_t *)((uintptr_t)(q) + (s) * sizeof(viobuffer_t) + sizeof(uint16_t) * ((s) + 5 + (1 - ((s) % 2)))))
+#define VIO_QUEUE_BUFFERS(q) ((volatile viobuffer_t *)(q)->address)
+#define VIO_QUEUE_DRV(q) ((volatile uint16_t *)((uintptr_t)(q)->address + (q)->size * sizeof(viobuffer_t)))
+#define VIO_QUEUE_DRV_IDX(q) ((volatile uint16_t *)((uintptr_t)(q)->address + (q)->size * sizeof(viobuffer_t)))[1]
+#define VIO_QUEUE_DRV_RING(q) ((volatile uint16_t *)((uintptr_t)(q)->address + (q)->size * sizeof(viobuffer_t) + 2 * sizeof(uint16_t)))
+#define VIO_QUEUE_DEV(q) ((volatile uint16_t *)((uintptr_t)(q)->address + (q)->size * sizeof(viobuffer_t) + sizeof(uint16_t) * ((q)->size + 3 + (1 - ((q)->size % 2)))))
+#define VIO_QUEUE_DEV_IDX(q)  ((volatile uint16_t *)((uintptr_t)(q)->address + (q)->size * sizeof(viobuffer_t) + sizeof(uint16_t) * ((q)->size + 3 + (1 - ((q)->size % 2)))))[1]
+#define VIO_QUEUE_DEV_RING(q)  ((volatile viousedentry_t *)((uintptr_t)(q)->address + (q)->size * sizeof(viobuffer_t) + sizeof(uint16_t) * ((q)->size + 5 + (1 - ((q)->size % 2)))))
 
 #endif

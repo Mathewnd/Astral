@@ -33,12 +33,12 @@ void virtio_enablequeue(viodevice_t *viodevice, int queue) {
 	viodevice->config->queueenable = 1;
 }
 
-uint16_t *virtio_queuenotifyaddress(viodevice_t *viodevice, int queue) {
-	viodevice->config->queueselect = queue;
-	return (uint16_t *)((uintptr_t)viodevice->notify + viodevice->config->queuenotifyoffset * viodevice->notifymultiplier);
+static uint16_t *virtio_queuenotifyaddress(viodevice_t *viodevice, int queue) {
+       viodevice->config->queueselect = queue;
+       return (uint16_t *)((uintptr_t)viodevice->notify + viodevice->config->queuenotifyoffset * viodevice->notifymultiplier);
 }
 
-void *virtio_createqueue(viodevice_t *viodevice, int queue, size_t size, int msix) {
+void *virtio_createqueue(viodevice_t *viodevice, vioqueue_t *vioqueue, int queue, size_t size, int msix) {
 	size_t bytesize = VIO_QUEUE_BYTESIZE(size);
 	size_t pagesize = ROUND_UP(bytesize, PAGE_SIZE) / PAGE_SIZE;
 
@@ -46,13 +46,19 @@ void *virtio_createqueue(viodevice_t *viodevice, int queue, size_t size, int msi
 	__assert(queuephys);
 	memset(MAKE_HHDM(queuephys), 0, bytesize);
 
+	vioqueue->address = queuephys;
+	vioqueue->size = size;
+	vioqueue->notify = virtio_queuenotifyaddress(viodevice, queue);
+
 	viodevice->config->queueselect = queue;
 	viodevice->config->queuesize = size;
 	viodevice->config->queuemsixvector = msix;
 	__assert(viodevice->config->queuemsixvector == msix);
-	viodevice->config->queuedesc = (uint64_t)VIO_QUEUE_BUFFERS(queuephys, size);
-	viodevice->config->queuedriver = (uint64_t)VIO_QUEUE_DRV(queuephys, size);
-	viodevice->config->queuedevice = (uint64_t)VIO_QUEUE_DEV(queuephys, size);
+	viodevice->config->queuedesc = (uint64_t)VIO_QUEUE_BUFFERS(vioqueue);
+	viodevice->config->queuedriver = (uint64_t)VIO_QUEUE_DRV(vioqueue);
+	viodevice->config->queuedevice = (uint64_t)VIO_QUEUE_DEV(vioqueue);
+
+	vioqueue->address = MAKE_HHDM(queuephys);
 
 	return queuephys;
 }

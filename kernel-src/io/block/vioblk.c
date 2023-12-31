@@ -19,14 +19,11 @@ typedef struct {
 	viodevice_t *viodevice;
 	size_t capacity;
 	int id;
-	void *queue;
-	size_t queuesize;
+	vioqueue_t queue;
 	dpc_t queuedpc;
 	spinlock_t queuelock;
 	semaphore_t queuesem;
 	event_t *queuewaiting[QUEUE_MAX_SIZE / 2];
-	uint16_t *queuenotify;
-	uint16_t queuelastindex;
 } vioblkdev_t;
 
 typedef struct {
@@ -43,11 +40,11 @@ static scache_t *headercache;
 
 static void vioblk_dpc(context_t *context, dpcarg_t arg) {
 	vioblkdev_t *blkdev = arg;
-	volatile viobuffer_t *buffers = VIO_QUEUE_BUFFERS(blkdev->queue, blkdev->queuesize);
+	volatile viobuffer_t *buffers = VIO_QUEUE_BUFFERS(&blkdev->queue);
 	spinlock_acquire(&blkdev->queuelock);
-	while (blkdev->queuelastindex != VIO_QUEUE_DEV_IDX(blkdev->queue, blkdev->queuesize)) {
-		int idx = blkdev->queuelastindex++ % blkdev->queuesize;
-		int buffidx = VIO_QUEUE_DEV_RING(blkdev->queue, blkdev->queuesize)[idx].index;
+	while (blkdev->queue.lastusedindex != VIO_QUEUE_DEV_IDX(&blkdev->queue)) {
+		int idx = blkdev->queue.lastusedindex++ % blkdev->queue.size;
+		int buffidx = VIO_QUEUE_DEV_RING(&blkdev->queue)[idx].index;
 		__assert(blkdev->queuewaiting[buffidx / 2]);
 		event_signal(blkdev->queuewaiting[buffidx / 2]);
 		blkdev->queuewaiting[buffidx / 2] = NULL;
@@ -75,7 +72,7 @@ static void vioblk_enqueue(vioblkdev_t *blkdev, void *driver, size_t driverlen, 
 
 	spinlock_acquire(&blkdev->queuelock);
 	int idx = 0;
-	volatile viobuffer_t *buffers = VIO_QUEUE_BUFFERS(blkdev->queue, blkdev->queuesize);
+	volatile viobuffer_t *buffers = VIO_QUEUE_BUFFERS(&blkdev->queue);
 	while (buffers[idx].address && idx < QUEUE_MAX_SIZE)
 		++idx;
 
@@ -90,12 +87,12 @@ static void vioblk_enqueue(vioblkdev_t *blkdev, void *driver, size_t driverlen, 
 	buffers[idx + 1].length = devicelen;
 	buffers[idx + 1].flags = VIO_QUEUE_BUFFER_DEVICE;
 
-	size_t driveridx = VIO_QUEUE_DRV_IDX(blkdev->queue, blkdev->queuesize)++;
-	VIO_QUEUE_DRV_RING(blkdev->queue, blkdev->queuesize)[driveridx % blkdev->queuesize] = idx;
+	size_t driveridx = VIO_QUEUE_DRV_IDX(&blkdev->queue)++;
+	VIO_QUEUE_DRV_RING(&blkdev->queue)[driveridx % blkdev->queue.size] = idx;
 
 	blkdev->queuewaiting[idx / 2] = &event;
 
-	*blkdev->queuenotify = 0;
+	*blkdev->queue.notify = 0;
 	spinlock_release(&blkdev->queuelock);
 
 	event_wait(&event, false);
@@ -151,7 +148,7 @@ int vioblk_newdevice(viodevice_t *viodevice) {
 		return 1;
 	}
 
-	size_t intcount = pci_initmsix(viodevice->e);
+	pci_initmsix(viodevice->e);
 
 	// TODO support several queues
 	// no extra features will be used yet
@@ -179,10 +176,9 @@ int vioblk_newdevice(viodevice_t *viodevice) {
 	__assert(hashtable_set(&inttable, blkdev, &isr->id, sizeof(isr->id), true) == 0);
 
 	// initialize queue
-	blkdev->queuesize = min(QUEUE_MAX_SIZE, virtio_queuesize(viodevice, 0));
-	blkdev->queue = MAKE_HHDM(virtio_createqueue(viodevice, 0, blkdev->queuesize, 0));
-	blkdev->queuenotify = virtio_queuenotifyaddress(viodevice, 0);
-	SEMAPHORE_INIT(&blkdev->queuesem, blkdev->queuesize / 2);
+	size_t size = min(QUEUE_MAX_SIZE, virtio_queuesize(viodevice, 0));
+	virtio_createqueue(viodevice, &blkdev->queue, 0, size, 0);
+	SEMAPHORE_INIT(&blkdev->queuesem, blkdev->queue.size / 2);
 	SPINLOCK_INIT(blkdev->queuelock);
 
 	virtio_enablequeue(viodevice, 0);
