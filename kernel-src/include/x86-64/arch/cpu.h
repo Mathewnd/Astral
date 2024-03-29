@@ -36,6 +36,14 @@ typedef struct cpu_t {
 #define CPU_HALT() asm volatile("hlt")
 #define CPU_PAUSE() asm volatile("pause")
 
+static inline uint32_t cpu_to_be_d(uint32_t d) {
+	return __builtin_bswap32(d);
+}
+
+static inline uint16_t cpu_to_be_w(uint16_t w) {
+	return __builtin_bswap16(w);
+}
+
 static inline cpu_t *_cpu() {
 	return (cpu_t *)rdmsr(MSR_GSBASE);
 }
