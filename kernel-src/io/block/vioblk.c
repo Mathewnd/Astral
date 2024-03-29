@@ -151,10 +151,7 @@ int vioblk_newdevice(viodevice_t *viodevice) {
 	pci_initmsix(viodevice->e);
 
 	// TODO support several queues
-	// no extra features will be used yet
-	VIO_CONFIG_STATUS_SET(viodevice, VIO_CONFIG_STATUS_FEATURESOK);
-	if ((viodevice->config->status & VIO_CONFIG_STATUS_FEATURESOK) == 0)
-		return 1;
+	__assert(virtio_negotiatefeatures(viodevice, VIO_FEATURE_VERSION_1) == VIO_FEATURE_VERSION_1);
 
 	// initialize device object
 	vioblkdev_t *blkdev = alloc(sizeof(vioblkdev_t));

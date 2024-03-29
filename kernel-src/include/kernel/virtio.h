@@ -46,8 +46,11 @@ typedef struct {
 void virtio_init();
 size_t virtio_queuesize(viodevice_t *viodevice, int queue);
 void virtio_enablequeue(viodevice_t *viodevice, int queue);
+uint64_t virtio_negotiatefeatures(viodevice_t *viodevice, uint64_t features);
 void *virtio_createqueue(viodevice_t *viodevice, vioqueue_t *vioqueue, int queue, size_t size, int msix);
 void virtio_enabledevice(viodevice_t *viodevice);
+
+#define VIO_FEATURE_VERSION_1 (1l << 32)
 
 #define VIO_CONFIG_STATUS_SET(x, v) (x)->config->status |= v
 #define VIO_CONFIG_STATUS_ACK 1

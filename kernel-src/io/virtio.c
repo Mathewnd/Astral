@@ -17,9 +17,11 @@ static char *devname[] = {
 
 void vioblk_init();
 int vioblk_newdevice(viodevice_t *);
+void vionet_init();
+int vionet_newdevice(viodevice_t *);
 
 static int (*drivedevice[]) (viodevice_t *) = {
-	NULL,
+	vionet_newdevice,
 	vioblk_newdevice
 };
 
@@ -31,6 +33,24 @@ size_t virtio_queuesize(viodevice_t *viodevice, int queue) {
 void virtio_enablequeue(viodevice_t *viodevice, int queue) {
 	viodevice->config->queueselect = queue;
 	viodevice->config->queueenable = 1;
+}
+
+uint64_t virtio_negotiatefeatures(viodevice_t *viodevice, uint64_t features) {
+	viodevice->config->devicefeatureselect = 0;
+	uint64_t offered = viodevice->config->devicefeature;
+	viodevice->config->devicefeatureselect = 1;
+	offered |= (uint64_t)viodevice->config->devicefeature << 32;
+	uint64_t negotiable = features & offered;
+
+	viodevice->config->driverfeatureselect = 0;
+	viodevice->config->driverfeature = negotiable & 0xffffffff;
+	viodevice->config->driverfeatureselect = 1;
+	viodevice->config->driverfeature = (negotiable >> 32) & 0xffffffff;
+
+	VIO_CONFIG_STATUS_SET(viodevice, VIO_CONFIG_STATUS_FEATURESOK);
+	__assert(viodevice->config->status & VIO_CONFIG_STATUS_FEATURESOK);
+
+	return negotiable;
 }
 
 static uint16_t *virtio_queuenotifyaddress(viodevice_t *viodevice, int queue) {
@@ -79,6 +99,7 @@ void virtio_enabledevice(viodevice_t *viodevice) {
 static void virtio_newdevice(pcienum_t *e) {
 	pci_setcommand(e, PCI_COMMAND_MMIO, 1);
 	pci_setcommand(e, PCI_COMMAND_IO, 0);
+	pci_setcommand(e, PCI_COMMAND_BUSMASTER, 1);
 	pci_setcommand(e, PCI_COMMAND_IRQDISABLE, 1);
 
 	int devtype = e->deviceid - VIRTIO_DEVICE_MIN;
@@ -146,6 +167,7 @@ static void virtio_newdevice(pcienum_t *e) {
 
 void virtio_init() {
 	vioblk_init();
+	vionet_init();
 
 	for (int dev = VIRTIO_DEVICE_MIN; dev <= VIRTIO_DEVICE_MAX; ++dev) {
 		int i = 0;
