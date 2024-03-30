@@ -113,7 +113,7 @@ void keyboard_sendpacket(keyboard_t *kb, kbpacket_t *packet) {
 
 int keyboard_wait(keyboard_t *kb, kbpacket_t *packet) {
 	int e = semaphore_wait(&kb->semaphore, true);
-	if (e == EINTR)
+	if (e == SCHED_WAKEUP_REASON_INTERRUPTED)
 		return e;
 	long ipl = interrupt_raiseipl(IPL_KEYBOARD);
 

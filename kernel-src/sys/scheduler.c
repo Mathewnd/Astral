@@ -296,7 +296,7 @@ void sched_wakeup(thread_t *thread, int reason) {
 	bool intstate = interrupt_set(false);
 	spinlock_acquire(&thread->sleeplock);
 
-	if ((thread->flags & SCHED_THREAD_FLAGS_SLEEP) == 0 || (reason == EINTR && (thread->flags & SCHED_THREAD_FLAGS_INTERRUPTIBLE) == 0)) {
+	if ((thread->flags & SCHED_THREAD_FLAGS_SLEEP) == 0 || ((reason == SCHED_WAKEUP_REASON_INTERRUPTED) && (thread->flags & SCHED_THREAD_FLAGS_INTERRUPTIBLE) == 0)) {
 		spinlock_release(&thread->sleeplock);
 		interrupt_set(intstate);
 		return;
