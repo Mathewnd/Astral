@@ -14,6 +14,7 @@ typedef struct timerentry_t {
 	dpcfn_t fn;
 	dpcarg_t arg;
 	dpc_t dpc;
+	bool fired;
 } timerentry_t;
 
 typedef struct {

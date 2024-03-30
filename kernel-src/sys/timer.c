@@ -47,12 +47,15 @@ void timer_isr(timer_t *timer, context_t *context) {
 	spinlock_acquire(&timer->lock);
 
 	__assert(timer->queue);
+
 	timer->tickcurrent = timer->queue->absolutetick;
 	timerentry_t *oldentry = timer->queue;
 	timer->queue = timer->queue->next;
 
 	if (oldentry->repeatus)
 		insert(timer, oldentry, oldentry->repeatus);
+	else
+		oldentry->fired = true;
 
 	dpc_enqueue(&oldentry->dpc, oldentry->fn, oldentry->arg);
 
@@ -102,6 +105,7 @@ void timer_insert(timer_t *timer, timerentry_t *entry, dpcfn_t fn, dpcarg_t arg,
 	entry->repeatus = repeating ? us : 0;
 	entry->fn = fn;
 	entry->arg = arg;
+	entry->fired = false;
 
 	insert(timer, entry, us);
 
@@ -115,11 +119,14 @@ void timer_insert(timer_t *timer, timerentry_t *entry, dpcfn_t fn, dpcarg_t arg,
 }
 
 void timer_remove(timer_t *timer, timerentry_t *entry) {
+	timer_stop(timer);
+
 	long oldipl = interrupt_raiseipl(IPL_TIMER);
 	spinlock_acquire(&timer->lock);
 
-	if (timer->running)
-		timer->tickcurrent += timer->stop(timer);
+	// if it had already fired by the time the lock was reached
+	if (entry->fired == true)
+		goto cleanup;
 
 	timerentry_t *iterator = timer->queue;
 	timerentry_t *prev = NULL;
@@ -136,13 +143,11 @@ void timer_remove(timer_t *timer, timerentry_t *entry) {
 	else
 		prev->next = iterator->next;
 
-	if (timer->running) {
-		timercheck(timer);
-		timer->arm(timer->queue->absolutetick - timer->tickcurrent);
-	}
-
+	cleanup:
 	spinlock_release(&timer->lock);
 	interrupt_loweripl(oldipl);
+
+	timer_resume(timer);
 }
 
 timer_t *timer_new(time_t ticksperus, void (*arm)(time_t), time_t (*stop)()) {
