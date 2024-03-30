@@ -44,6 +44,14 @@ static inline uint16_t cpu_to_be_w(uint16_t w) {
 	return __builtin_bswap16(w);
 }
 
+static inline uint32_t be_to_cpu_d(uint32_t d) {
+	return __builtin_bswap32(d);
+}
+
+static inline uint16_t be_to_cpu_w(uint16_t w) {
+	return __builtin_bswap16(w);
+}
+
 static inline cpu_t *_cpu() {
 	return (cpu_t *)rdmsr(MSR_GSBASE);
 }
