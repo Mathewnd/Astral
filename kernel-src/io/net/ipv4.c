@@ -1,4 +1,5 @@
 #include <kernel/net.h>
+#include <kernel/eth.h>
 #include <arch/cpu.h>
 #include <logging.h>
 
