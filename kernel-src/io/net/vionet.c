@@ -41,8 +41,24 @@ typedef struct {
 
 static hashtable_t irqtable; // isr id -> netdev
 
+static void rx_dpc(context_t *context, dpcarg_t arg) {
+	vionetdev_t *netdev = arg;
+	volatile viobuffer_t *buffers = VIO_QUEUE_BUFFERS(&netdev->rxqueue);
+	while (netdev->rxqueue.lastusedindex != VIO_QUEUE_DEV_IDX(&netdev->rxqueue)) {
+		int idx = netdev->rxqueue.lastusedindex++ % netdev->rxqueue.size;
+		int buffidx = VIO_QUEUE_DEV_RING(&netdev->rxqueue)[idx].index;
+		void *ethbufferphys = (void *)(buffers[buffidx].address + sizeof(vioframe_t));
+		eth_process((netdev_t *)netdev, MAKE_HHDM(ethbufferphys));
+		VIO_QUEUE_DRV_RING(&netdev->rxqueue)[VIO_QUEUE_DRV_IDX(&netdev->rxqueue)++] = buffidx;
+		*netdev->rxqueue.notify = 0;
+	}
+}
+
 static void rx_irq(isr_t *isr, context_t *context) {
-	__assert(!"rxirq");
+	void *v;
+	__assert(hashtable_get(&irqtable, &v, &isr->id, sizeof(isr->id)) == 0);
+	vionetdev_t *netdev = v;
+	dpc_enqueue(&netdev->txdpc, rx_dpc, netdev);
 }
 
 static void tx_dpc(context_t *context, dpcarg_t arg) {
@@ -162,6 +178,7 @@ int vionet_newdevice(viodevice_t *viodevice) {
 	netdev->netdev.mtu = 1500;
 	netdev->netdev.sendpacket = vionet_sendpacket;
 	netdev->netdev.allocdesc = vionet_allocdesc;
+	__assert(hashtable_init(&netdev->netdev.arpcache, 30) == 0);
 
 	// initialize queues
 	size_t rxsize = min(QUEUE_MAX_SIZE, virtio_queuesize(viodevice, 0));
