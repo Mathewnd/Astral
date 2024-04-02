@@ -22,6 +22,7 @@ typedef struct {
 typedef struct netdev_t {
 	mac_t mac;
 	size_t mtu;
+	uint32_t ip;
 	hashtable_t arpcache;
 	int (*allocdesc)(size_t requestedsize, netdesc_t *desc);
 	int (*sendpacket)(struct netdev_t *_internal, netdesc_t desc, mac_t targetmac, int proto);
@@ -57,13 +58,14 @@ typedef struct {
 #define MAC_EQUAL(m1,m2) (memcmp(m1, m2, sizeof(mac_t)) == 0)
 
 #define IPV4_PROTO_UDP 0x11
+#define IPV4_BROADCAST_ADDRESS 0xffffffff
 
 void arp_init();
+void ipv4_init();
 void udp_init();
 void arp_process(netdev_t *netdev, void *buffer);
-int udp_allocdesc(netdev_t *netdev, size_t requestedsize, netdesc_t *desc);
+int arp_lookup(netdev_t *netdev, uint32_t ip, mac_t *mac);
 int udp_sendpacket(netdev_t *netdev, netdesc_t desc, uint32_t ip, uint16_t srcport, uint16_t dstport);
-int ipv4_allocdesc(netdev_t *netdev, size_t requestedsize, netdesc_t *desc);
-int ipv4_sendpacket(netdev_t *netdev, netdesc_t desc, uint32_t ip, int proto);
+int ipv4_sendpacket(void *buffer, size_t packetsize, uint32_t ip, int proto, netdev_t *broadcastdev);
 
 #endif
