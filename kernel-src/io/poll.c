@@ -39,7 +39,7 @@ int poll_initdesc(polldesc_t *desc, size_t size) {
 	desc->thread = _cpu()->thread;
 	desc->size = size;
 	SPINLOCK_INIT(desc->lock);
-	MUTEX_INIT(&desc->eventlock);
+	SPINLOCK_INIT(desc->eventlock);
 	for (uintmax_t i = 0; i < size; ++i)
 		desc->data[i].desc = desc;
 	__assert(spinlock_try(&desc->lock));
@@ -48,11 +48,13 @@ int poll_initdesc(polldesc_t *desc, size_t size) {
 }
 
 void poll_add(pollheader_t *header, polldata_t *data, int events) {
-	MUTEX_ACQUIRE(&header->lock, false);
+	bool intstate = interrupt_set(false);
+	spinlock_acquire(&header->lock);
 	data->events = events;
 	data->header = header;
 	insertinheader(header, data);
-	MUTEX_RELEASE(&header->lock);
+	spinlock_release(&header->lock);
+	interrupt_set(intstate);
 }
 
 void poll_leave(polldesc_t *desc) {
@@ -61,29 +63,35 @@ void poll_leave(polldesc_t *desc) {
 		if (header == NULL)
 			continue;
 
-		MUTEX_ACQUIRE(&header->lock, false);
+		bool intstate = interrupt_set(false);
+		spinlock_acquire(&header->lock);
 		removefromlist(&header->data, &desc->data[i]);
-		MUTEX_RELEASE(&header->lock);
+		spinlock_release(&header->lock);
+		interrupt_set(intstate);
 	}
 }
 
 static void timeout(context_t *, dpcarg_t arg) {
 	polldesc_t *desc = arg;
 
-	MUTEX_TRY(&desc->eventlock);
+	bool intstate = interrupt_set(false);
+	spinlock_acquire(&desc->eventlock);
 
 	if (spinlock_try(&desc->lock))
 		sched_wakeup(desc->thread, 1);
 
-	MUTEX_RELEASE(&desc->eventlock);
+	spinlock_release(&desc->eventlock);
+	interrupt_set(intstate);
 }
 
 int poll_dowait(polldesc_t *desc, size_t ustimeout) {
 	timerentry_t sleepentry = {0};
 
-	MUTEX_ACQUIRE(&desc->eventlock, false);
+	bool intstate = interrupt_set(false);
+	spinlock_acquire(&desc->eventlock);
 	if (desc->event) {
-		MUTEX_RELEASE(&desc->eventlock);
+		spinlock_release(&desc->eventlock);
+		interrupt_set(intstate);
 		return 0;
 	}
 
@@ -95,7 +103,7 @@ int poll_dowait(polldesc_t *desc, size_t ustimeout) {
 	}
 
 	spinlock_release(&desc->lock);
-	MUTEX_RELEASE(&desc->eventlock);
+	spinlock_release(&desc->eventlock);
 	int ret = sched_yield();
 	// on return, the desc lock is REQUIRED to be left locked by the poll_event function.
 	// XXX interruptible wait breaks this
@@ -106,13 +114,16 @@ int poll_dowait(polldesc_t *desc, size_t ustimeout) {
 		sched_targetcpu(NULL);
 	}
 
+	interrupt_set(intstate);
+
 	ret = ret == 1 ? 0 : ret;
 
 	return ret;
 }
 
 void poll_event(pollheader_t *header, int events) {
-	MUTEX_ACQUIRE(&header->lock, false);
+	bool intstate = interrupt_set(false);
+	spinlock_acquire(&header->lock);
 	polldata_t *pending = header->data;
 	header->data = NULL;
 	polldata_t *iterator = pending;
@@ -120,7 +131,7 @@ void poll_event(pollheader_t *header, int events) {
 	while (iterator) {
 		polldesc_t *desc = iterator->desc;
 		polldata_t *next = iterator->next;
-		MUTEX_ACQUIRE(&desc->eventlock, false);
+		spinlock_acquire(&desc->eventlock);
 		int revents = iterator->events & events;
 
 		if (spinlock_try(&desc->lock) == false) {
@@ -133,12 +144,10 @@ void poll_event(pollheader_t *header, int events) {
 			desc->event = iterator;
 		}
 
-		MUTEX_RELEASE(&desc->eventlock);
+		spinlock_release(&desc->eventlock);
 
 		iterator = next;
 	}
-
-	int ipl = interrupt_raiseipl(IPL_DPC);
 
 	iterator = pending;
 	while (iterator) {
@@ -148,8 +157,8 @@ void poll_event(pollheader_t *header, int events) {
 		iterator = next;
 	}
 
-	MUTEX_RELEASE(&header->lock);
-	interrupt_loweripl(ipl);
+	spinlock_release(&header->lock);
+	interrupt_set(intstate);
 }
 
 void poll_destroydesc(polldesc_t *desc) {
