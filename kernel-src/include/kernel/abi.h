@@ -81,4 +81,60 @@ typedef struct {
 #define AT_SYMLINK_NOFOLLOW 0x100
 #define AT_EMPTY_PATH 0x1000
 
+#define AF_INET 2
+
+#define SOCK_STREAM 1
+#define SOCK_DGRAM 2
+#define SOCK_RAW 3
+
+#define SO_BROADCAST 6
+#define SO_BINDTODEVICE 25
+
+#define SOL_SOCKET 1
+
+typedef struct {
+	unsigned short type;
+	char addr[];
+} abisockaddr_t;
+
+typedef struct {
+	uint16_t sin_family;
+	uint16_t sin_port;
+	uint32_t sin_addr;
+} __attribute__((packed)) inaddr_t;
+
+typedef struct {
+	void *addr;
+	size_t len;
+} iovec_t;
+
+static inline size_t iovec_size(iovec_t *iovec, size_t count) {
+	size_t size = 0;
+
+	for (int i = 0; i < count; ++i)
+		size += iovec[i].len;
+
+	return size;
+}
+
+typedef struct {
+	void *addr;
+	size_t addrlen;
+	iovec_t *iov;
+	size_t iovcount;
+	void *msgctrl;
+	size_t ctrllen;
+	int flags;
+} msghdr_t;
+
+#define IFNAMSIZ 16
+#define SIOCGIFHWADDR 0x8927
+
+typedef struct {
+	char name[IFNAMSIZ];
+	union {
+		abisockaddr_t addr;
+	};
+} ifreq_t;
+
 #endif
