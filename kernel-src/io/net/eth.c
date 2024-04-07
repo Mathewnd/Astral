@@ -15,12 +15,11 @@ void eth_process(netdev_t *netdev, void *buffer) {
 	if (!(MAC_EQUAL(&dst, &netdev->mac) || MAC_EQUAL(&dst, &broadcast)))
 		return;
 
-	printf("our machine!\n");
-
 	void *nextbuff = (void *)((uintptr_t)buffer + sizeof(ethframe_t));
 
 	switch (be_to_cpu_w(frame->type)) {
 		case ETH_PROTO_IP:
+			ipv4_process(netdev, nextbuff);
 			break;
 		case ETH_PROTO_ARP:
 			arp_process(netdev, nextbuff);
