@@ -14,6 +14,7 @@
 #define DEV_MAJOR_BLOCK 7
 #define DEV_MAJOR_E9 8
 #define DEV_MAJOR_URANDOM 9
+#define DEV_MAJOR_NET 10
 
 typedef struct {
 	int (*open)(int minor, int flags);

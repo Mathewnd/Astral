@@ -49,7 +49,7 @@ static void rx_dpc(context_t *context, dpcarg_t arg) {
 		int buffidx = VIO_QUEUE_DEV_RING(&netdev->rxqueue)[idx].index;
 		void *ethbufferphys = (void *)(buffers[buffidx].address + sizeof(vioframe_t));
 		eth_process((netdev_t *)netdev, MAKE_HHDM(ethbufferphys));
-		VIO_QUEUE_DRV_RING(&netdev->rxqueue)[VIO_QUEUE_DRV_IDX(&netdev->rxqueue)++] = buffidx;
+		VIO_QUEUE_DRV_RING(&netdev->rxqueue)[VIO_QUEUE_DRV_IDX(&netdev->rxqueue)++ % netdev->rxqueue.size] = buffidx;
 		*netdev->rxqueue.notify = 0;
 	}
 }
@@ -145,6 +145,7 @@ static int vionet_sendpacket(netdev_t *internal, netdesc_t desc, mac_t targetmac
 	netdev->txwait[idx] = &event;
 
 	*netdev->txqueue.notify = 0;
+
 	spinlock_release(&netdev->txlock);
 
 	event_wait(&event, false);
@@ -225,15 +226,14 @@ int vionet_newdevice(viodevice_t *viodevice) {
 
 	printf("vionet%d: mac: %02x:%02x:%02x:%02x:%02x:%02x\n", netdev->id, netdev->netdev.mac.address[0], netdev->netdev.mac.address[1], netdev->netdev.mac.address[2], netdev->netdev.mac.address[3], netdev->netdev.mac.address[4], netdev->netdev.mac.address[5]);
 
+	char name[10];
+	snprintf(name, 10, "vionet%d", netdev->id);
+
+	__assert(netdev_register((netdev_t *)netdev, name) == 0);
+
 	return 0;
 }
 
 void vionet_init() {
 	__assert(hashtable_init(&irqtable, 20) == 0);
-}
-
-netdev_t *vionet_temporary_getnetdev() {
-	HASHTABLE_FOREACH(&irqtable) {
-		return entry->value; 
-	}
 }
