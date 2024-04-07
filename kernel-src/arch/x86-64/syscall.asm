@@ -40,6 +40,11 @@ extern syscall_mount
 extern syscall_fchownat
 extern syscall_utimensat
 extern syscall_renameat
+extern syscall_socket
+extern syscall_bind
+extern syscall_sendmsg
+extern syscall_setsockopt
+extern syscall_recvmsg
 syscalltab:
 dq syscall_print
 dq syscall_mmap
@@ -82,7 +87,12 @@ dq syscall_mount
 dq syscall_fchownat
 dq syscall_utimensat
 dq syscall_renameat
-syscallcount equ 41
+dq syscall_socket
+dq syscall_bind
+dq syscall_sendmsg
+dq syscall_setsockopt
+dq syscall_recvmsg
+syscallcount equ 46
 section .text
 global arch_syscall_entry
 ; on entry:

@@ -32,6 +32,8 @@
 #include <kernel/cmdline.h>
 #include <arch/smp.h>
 #include <kernel/virtio.h>
+#include <kernel/net.h>
+#include <kernel/sock.h>
 
 static cpu_t bsp_cpu;
 
@@ -63,7 +65,13 @@ void kernel_entry() {
 	tmpfs_init();
 	devfs_init();
 	pipefs_init();
+	sockfs_init();
 	ext2_init();
+
+	netdev_init();
+	arp_init();
+	ipv4_init();
+	udp_init();
 
 	block_init();
 	pseudodevices_init();

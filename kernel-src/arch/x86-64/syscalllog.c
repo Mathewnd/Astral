@@ -4,7 +4,7 @@
 
 #ifdef SYSCALL_LOGGING
 
-#define SYSCALL_COUNT 41
+#define SYSCALL_COUNT 46
 #define LOGSTR(x) arch_e9_puts(x)
 
 static char *name[] = {
@@ -48,7 +48,12 @@ static char *name[] = {
 	"mount",
 	"fchownat",
 	"utimensat",
-	"renameat"
+	"renameat",
+	"socket",
+	"bind",
+	"sendmsg",
+	"setsockopt",
+	"recvmsg"
 };
 
 static char *args[] = {
@@ -92,7 +97,12 @@ static char *args[] = {
 	"backing %p mountpoint %s fs %s flags %d data %p", // mount
 	"fd %d path %s owner %d group %d flags %x", // fchownat
 	"dirfd %d path %p times %p flags %x", // utimensat
-	"olddirfd %d oldpath %s newdirfd %d newpath %s flags %d" // renameat
+	"olddirfd %d oldpath %s newdirfd %d newpath %s flags %d", // renameat
+	"domain %d type %d protocol %d\n", // socket
+	"fd %d addr %p len %d\n", // bind
+	"fd %d msghdr %p flags %d", // sendmsg
+	"fd %d level %d optname %d optval %p optlen %lu", // setsockopt
+	"fd %d msghdr %p flags %d", // recvmsg
 };
 
 #endif
