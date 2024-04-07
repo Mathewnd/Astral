@@ -18,7 +18,13 @@ void ringbuffer_destroy(ringbuffer_t *ringbuffer) {
 	vmm_unmap(ringbuffer->data, ROUND_UP(ringbuffer->size, PAGE_SIZE), 0);
 }
 
-size_t ringbuffer_read(ringbuffer_t* ringbuffer, void *buffer, size_t count) {
+size_t ringbuffer_truncate(ringbuffer_t *ringbuffer, size_t count) {
+	size_t truecount = min(RINGBUFFER_DATACOUNT(ringbuffer), count);
+	ringbuffer->read += truecount;
+	return truecount;
+}
+
+size_t ringbuffer_read(ringbuffer_t *ringbuffer, void *buffer, size_t count) {
 	uint8_t *ptr = buffer;
 	size_t readc = 0;
 	for (; readc < count; ++readc) {
@@ -32,7 +38,7 @@ size_t ringbuffer_read(ringbuffer_t* ringbuffer, void *buffer, size_t count) {
 	return readc;
 }
 
-size_t ringbuffer_write(ringbuffer_t* ringbuffer, void *buffer, size_t count) {
+size_t ringbuffer_write(ringbuffer_t *ringbuffer, void *buffer, size_t count) {
 	uint8_t *ptr = buffer;
 	size_t writec = 0;
 	for (;writec < count; ++writec) {
