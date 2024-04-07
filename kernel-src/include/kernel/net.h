@@ -8,6 +8,11 @@
 #include <mutex.h>
 #include <event.h>
 #include <string.h>
+#include <arch/cpu.h>
+#include <kernel/abi.h>
+#include <kernel/alloc.h>
+#include <errno.h>
+#include <logging.h>
 
 typedef struct {
 	void *address;
@@ -53,6 +58,13 @@ typedef struct {
 	uint32_t addr;
 } ipv4addr_t;
 
+typedef struct {
+	union {
+		ipv4addr_t ipv4addr;
+		char unaddr[256];
+	};
+} sockaddr_t;
+
 #define NET_BROADCAST_MAC (mac_t){.address = {0xff,0xff,0xff,0xff,0xff,0xff}}
 
 #define MAC_EQUAL(m1,m2) (memcmp(m1, m2, sizeof(mac_t)) == 0)
@@ -63,9 +75,14 @@ typedef struct {
 void arp_init();
 void ipv4_init();
 void udp_init();
+void netdev_init();
+void udp_process(netdev_t *netdev, void *buffer, uint32_t ip);
 void arp_process(netdev_t *netdev, void *buffer);
 int arp_lookup(netdev_t *netdev, uint32_t ip, mac_t *mac);
-int udp_sendpacket(netdev_t *netdev, netdesc_t desc, uint32_t ip, uint16_t srcport, uint16_t dstport);
+int udp_sendpacket(void *buffer, size_t packetsize, uint32_t ip, uint16_t srcport, uint16_t dstport, netdev_t *broadcastdev);
 int ipv4_sendpacket(void *buffer, size_t packetsize, uint32_t ip, int proto, netdev_t *broadcastdev);
+void ipv4_process(netdev_t *netdev, void *nextbuff);
+int netdev_register(netdev_t *netdev, char *name);
+netdev_t *netdev_getdev(char *name);
 
 #endif
