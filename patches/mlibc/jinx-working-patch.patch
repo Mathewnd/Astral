@@ -1,8 +1,8 @@
 diff --git mlibc-clean/abis/linux/in.h mlibc-workdir/abis/linux/in.h
-index bb5b6ef..bd2f740 100644
+index eb7be7b..eb83b56 100644
 --- mlibc-clean/abis/linux/in.h
 +++ mlibc-workdir/abis/linux/in.h
-@@ -88,6 +88,9 @@ struct group_req {
+@@ -109,6 +109,9 @@ struct group_source_req {
  
  #define IPPORT_RESERVED 1024
  
@@ -13,15 +13,15 @@ index bb5b6ef..bd2f740 100644
  #define IPPROTO_HOPOPTS  0
  #define IPPROTO_ICMP     1
 diff --git mlibc-clean/meson.build mlibc-workdir/meson.build
-index 2261926..b5e6108 100644
+index 471604e..3c5bea0 100644
 --- mlibc-clean/meson.build
 +++ mlibc-workdir/meson.build
-@@ -153,6 +153,12 @@ elif host_machine.system() == 'dripos'
- 	rtdl_include_dirs += include_directories('sysdeps/dripos/include')
+@@ -248,6 +248,12 @@ elif host_machine.system() == 'dripos'
+ 	rtld_include_dirs += include_directories('sysdeps/dripos/include')
  	libc_include_dirs += include_directories('sysdeps/dripos/include')
  	subdir('sysdeps/dripos')
 +elif host_machine.system() == 'astral'
-+        rtdl_include_dirs += include_directories('sysdeps/astral/include')
++        rtld_include_dirs += include_directories('sysdeps/astral/include')
 +        libc_include_dirs += include_directories('sysdeps/astral/include')
 +	internal_conf.set10('MLIBC_MAP_DSO_SEGMENTS', true)
 +	internal_conf.set10('MLIBC_MAP_FILE_WINDOWS', true)
@@ -30,10 +30,10 @@ index 2261926..b5e6108 100644
  	error('No sysdeps defined for OS: ' + host_machine.system())
  endif
 diff --git mlibc-clean/options/ansi/generic/string-stubs.cpp mlibc-workdir/options/ansi/generic/string-stubs.cpp
-index d03e342..8558b81 100644
+index 8defd0e..d6cb65b 100644
 --- mlibc-clean/options/ansi/generic/string-stubs.cpp
 +++ mlibc-workdir/options/ansi/generic/string-stubs.cpp
-@@ -402,7 +402,6 @@ char *strerror(int e) {
+@@ -406,7 +406,6 @@ char *strerror(int e) {
  	case ENOPROTOOPT: s = "Protocol not available (ENOPROTOOPT)"; break;
  	case ENOTEMPTY: s = "Directory not empty (ENOTEMPTY)"; break;
  	case ENOTRECOVERABLE: s = "Sate not recoverable (ENOTRECOVERABLE)"; break;
@@ -58,41 +58,46 @@ index 3474615..e034881 100644
  }
  
  char **backtrace_symbols(void *const *, int) {
+diff --git mlibc-clean/options/posix/generic/dlfcn-stubs.cpp mlibc-workdir/options/posix/generic/dlfcn-stubs.cpp
+index fc34a3b..b1a95a9 100644
+--- mlibc-clean/options/posix/generic/dlfcn-stubs.cpp
++++ mlibc-workdir/options/posix/generic/dlfcn-stubs.cpp
+@@ -1,4 +1,4 @@
+-
++#define _GNU_SOURCE
+ #include <bits/ensure.h>
+ #include <dlfcn.h>
+ 
 diff --git mlibc-clean/options/posix/generic/unistd-stubs.cpp mlibc-workdir/options/posix/generic/unistd-stubs.cpp
-index 79feb9a..c32ef5a 100644
+index 3279cc6..71837aa 100644
 --- mlibc-clean/options/posix/generic/unistd-stubs.cpp
 +++ mlibc-workdir/options/posix/generic/unistd-stubs.cpp
-@@ -547,9 +547,15 @@ ssize_t readlink(const char *__restrict path, char *__restrict buffer, size_t ma
- 	return length;
+@@ -1222,6 +1222,7 @@ void encrypt(char[64], int) {
  }
+ #endif
  
--ssize_t readlinkat(int, const char *__restrict, char *__restrict, size_t) {
--	__ensure(!"Not implemented");
--	__builtin_unreachable();
-+ssize_t readlinkat(int dirfd, const char *__restrict path, char *__restrict buf, size_t bufsiz) {
-+	ssize_t num_read;
++#if 0
+ #if __MLIBC_BSD_OPTION
+ void *sbrk(intptr_t increment) {
+ 	if(increment) {
+@@ -1238,3 +1239,4 @@ void *sbrk(intptr_t increment) {
+ 	return out;
+ }
+ #endif
++#endif
+diff --git mlibc-clean/options/rtld/generic/main.cpp mlibc-workdir/options/rtld/generic/main.cpp
+index 360ed37..62e5d39 100644
+--- mlibc-clean/options/rtld/generic/main.cpp
++++ mlibc-workdir/options/rtld/generic/main.cpp
+@@ -17,6 +17,8 @@
+ #include "elf.hpp"
+ #include "linker.hpp"
+ 
++#define _GNU_SOURCE
 +
-+	MLIBC_CHECK_OR_ENOSYS(mlibc::sys_readlinkat, -1);
-+	if(int e = mlibc::sys_readlinkat(dirfd, path, buf, bufsiz, &num_read); e) {
-+		errno = e;
-+		return -1;
-+	}
-+	return num_read;
- }
- 
- int rmdir(const char *path) {
-diff --git mlibc-clean/options/posix/include/mlibc/posix-sysdeps.hpp mlibc-workdir/options/posix/include/mlibc/posix-sysdeps.hpp
-index 7e06153..390e179 100644
---- mlibc-clean/options/posix/include/mlibc/posix-sysdeps.hpp
-+++ mlibc-workdir/options/posix/include/mlibc/posix-sysdeps.hpp
-@@ -70,6 +70,7 @@ int sys_close(int fd);
- [[gnu::weak]] int sys_statvfs(const char *path, struct statvfs *out);
- [[gnu::weak]] int sys_fstatvfs(int fd, struct statvfs *out);
- [[gnu::weak]] int sys_readlink(const char *path, void *buffer, size_t max_size, ssize_t *length);
-+[[gnu::weak]] int sys_readlinkat(int dirfd, const char *path, void *buffer, size_t max_size, ssize_t *length);
- [[gnu::weak]] int sys_rmdir(const char *path);
- [[gnu::weak]] int sys_ftruncate(int fd, size_t size);
- [[gnu::weak]] int sys_fallocate(int fd, off_t offset, size_t size);
+ #if __MLIBC_POSIX_OPTION
+ #include <dlfcn.h>
+ #endif
 diff --git mlibc-workdir/sysdeps/astral/crt-x86_64/crt0.S mlibc-workdir/sysdeps/astral/crt-x86_64/crt0.S
 new file mode 100644
 index 0000000..0a0a4a0
@@ -108,7 +113,7 @@ index 0000000..0a0a4a0
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/astral.cpp mlibc-workdir/sysdeps/astral/generic/astral.cpp
 new file mode 100644
-index 0000000..7d5b1e3
+index 0000000..f1edacc
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/astral.cpp
 @@ -0,0 +1,17 @@
@@ -118,7 +123,7 @@ index 0000000..7d5b1e3
 +#define ARCH_CTL_GSBASE 0
 +#define ARCH_CTL_FSBASE 1
 +
-+#ifndef MLIBC_BUILDING_RTDL
++#ifndef MLIBC_BUILDING_RTLD
 +
 +int syscall_archctl(int func, void *arg) {
 +	long ret;
@@ -170,10 +175,10 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..afe037d
+index 0000000..903a1b4
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -0,0 +1,522 @@
+@@ -0,0 +1,553 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -186,7 +191,7 @@ index 0000000..afe037d
 +#include <poll.h>
 +#include <sys/select.h>
 +
-+#ifndef MLIBC_BUILDING_RTDL
++#ifndef MLIBC_BUILDING_RTLD
 +// (s)brk is emulated in the libc rather than being
 +// an actual system call.
 +#define SBRK_BUFFER_SIZE (1024 * 1024 * 16)
@@ -304,6 +309,37 @@ index 0000000..afe037d
 +		return 0;
 +	}
 +
++	int sys_msg_recv(int fd, struct msghdr *hdr, int flags, ssize_t *length) {
++		long ret;
++		long err = syscall(SYSCALL_RECVMSG, &ret, fd, (uint64_t)hdr, flags);
++		*length = ret;
++		return err;
++	}
++
++	int sys_setsockopt(int fd, int layer, int number, const void *buffer, socklen_t size) {
++		long ret;
++		return syscall(SYSCALL_SETSOCKOPT, &ret, fd, layer, number, (uint64_t)buffer, size);
++	}
++
++	int sys_msg_send(int fd, const struct msghdr *hdr, int flags, ssize_t *length) {
++		long ret;
++		long err = syscall(SYSCALL_SENDMSG, &ret, fd, (uint64_t)hdr, flags);
++		*length = ret;
++		return err;
++	}
++	
++	int sys_bind(int fd, const struct sockaddr *addr_ptr, socklen_t addr_length) {
++		long ret;
++		return syscall(SYSCALL_BIND, &ret, fd, (uint64_t)addr_ptr, addr_length);
++	}
++
++	int sys_socket(int family, int type, int protocol, int *fd) {
++		long ret;
++		long err = syscall(SYSCALL_SOCKET, &ret, family, type, protocol);
++		*fd = ret;
++		return err;
++	}
++
 +	int sys_renameat(int olddirfd, const char *old_path, int newdirfd, const char *new_path) {
 +		long ret;
 +		return syscall(SYSCALL_RENAMEAT, &ret, olddirfd, (uint64_t)old_path, newdirfd, (uint64_t)new_path);
@@ -362,7 +398,7 @@ index 0000000..afe037d
 +	}
 +
 +// XXX emulate with ppoll
-+#ifndef MLIBC_BUILDING_RTDL
++#ifndef MLIBC_BUILDING_RTLD
 +	int sys_pselect(int num_fds, fd_set *read_set, fd_set *write_set, fd_set *except_set, const struct timespec *timeout, const sigset_t *sigmask, int *num_events) {
 +		pollfd *fds = (pollfd *)malloc(num_fds * sizeof(pollfd));
 +
@@ -715,10 +751,10 @@ index 0000000..990eca0
 +#endif
 diff --git mlibc-workdir/sysdeps/astral/include/astral/syscall.h mlibc-workdir/sysdeps/astral/include/astral/syscall.h
 new file mode 100644
-index 0000000..21afcaa
+index 0000000..29ce601
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/include/astral/syscall.h
-@@ -0,0 +1,64 @@
+@@ -0,0 +1,69 @@
 +#ifndef _SYSCALL_H_INCLUDE
 +#define _SYSCALL_H_INCLUDE
 +
@@ -763,6 +799,11 @@ index 0000000..21afcaa
 +#define SYSCALL_FCHOWNAT 38
 +#define SYSCALL_UTIMENSAT 39
 +#define SYSCALL_RENAMEAT 40
++#define SYSCALL_SOCKET 41
++#define SYSCALL_BIND 42
++#define SYSCALL_SENDMSG 43
++#define SYSCALL_SETSOCKOPT 44
++#define SYSCALL_RECVMSG 45
 +
 +#include <stddef.h>
 +#include <stdint.h>
@@ -785,12 +826,12 @@ index 0000000..21afcaa
 +#endif
 diff --git mlibc-workdir/sysdeps/astral/meson.build mlibc-workdir/sysdeps/astral/meson.build
 new file mode 100644
-index 0000000..8a3f4d7
+index 0000000..31d913e
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/meson.build
-@@ -0,0 +1,67 @@
+@@ -0,0 +1,75 @@
 +
-+rtdl_sources += files(
++rtld_sources += files(
 +	'generic/generic.cpp',
 +        'generic/astral.cpp',
 +)
@@ -805,24 +846,18 @@ index 0000000..8a3f4d7
 +
 +if not no_headers
 +	install_headers(
++		'include/abi-bits/access.h',
 +		'include/abi-bits/auxv.h',
-+                'include/abi-bits/suseconds_t.h',
-+                'include/abi-bits/fsblkcnt_t.h',
-+                'include/abi-bits/fsfilcnt_t.h',
-+                'include/abi-bits/clockid_t.h',
-+                'include/abi-bits/socklen_t.h',
-+                'include/abi-bits/socket.h',
-+                'include/abi-bits/statfs.h',
-+                'include/abi-bits/inotify.h',
-+                'include/abi-bits/poll.h',
 +		'include/abi-bits/seek-whence.h',
 +		'include/abi-bits/vm-flags.h',
 +		'include/abi-bits/errno.h',
 +		'include/abi-bits/fcntl.h',
 +		'include/abi-bits/in.h',
-+		'include/abi-bits/resource.h',
 +		'include/abi-bits/stat.h',
++		'include/abi-bits/statx.h',
 +		'include/abi-bits/signal.h',
++		'include/abi-bits/reboot.h',
++		'include/abi-bits/resource.h',
 +		'include/abi-bits/socket.h',
 +		'include/abi-bits/termios.h',
 +		'include/abi-bits/time.h',
@@ -835,13 +870,27 @@ index 0000000..8a3f4d7
 +		'include/abi-bits/nlink_t.h',
 +		'include/abi-bits/pid_t.h',
 +		'include/abi-bits/uid_t.h',
-+		'include/abi-bits/access.h',
 +		'include/abi-bits/wait.h',
++		'include/abi-bits/limits.h',
 +		'include/abi-bits/utsname.h',
-+               'include/abi-bits/limits.h',
-+               'include/abi-bits/shm.h',
-+               'include/abi-bits/epoll.h',
++		'include/abi-bits/ptrace.h',
++		'include/abi-bits/poll.h',
++		'include/abi-bits/epoll.h',
++		'include/abi-bits/packet.h',
++		'include/abi-bits/inotify.h',
++		'include/abi-bits/clockid_t.h',
++		'include/abi-bits/shm.h',
++		'include/abi-bits/mqueue.h',
++		'include/abi-bits/suseconds_t.h',
++		'include/abi-bits/fsfilcnt_t.h',
++		'include/abi-bits/fsblkcnt_t.h',
++		'include/abi-bits/socklen_t.h',
++		'include/abi-bits/statfs.h',
++		'include/abi-bits/statvfs.h',
 +		'include/abi-bits/ioctls.h',
++		'include/abi-bits/xattr.h',
++		'include/abi-bits/msg.h',
++		'include/abi-bits/vt.h',
 +		subdir: 'abi-bits'
 +	)
 +endif
@@ -858,20 +907,19 @@ index 0000000..8a3f4d7
 +endif
 diff --git mlibc-workdir/sysdeps/astral/threading/x86_64-thread-entry.S mlibc-workdir/sysdeps/astral/threading/x86_64-thread-entry.S
 new file mode 100644
-index 0000000..4cb3ae0
+index 0000000..33d258d
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/threading/x86_64-thread-entry.S
-@@ -0,0 +1,7 @@
+@@ -0,0 +1,6 @@
 + .section .text
 +.global __mlibc_thread_entry
 +__mlibc_thread_entry:
 +	pop %rdi
 +	pop %rsi
 +	pop %rdx
-+	call __mlibc_thread_trampoline
 diff --git mlibc-workdir/sysdeps/astral/threading/x86_64-thread.cpp mlibc-workdir/sysdeps/astral/threading/x86_64-thread.cpp
 new file mode 100644
-index 0000000..c234e77
+index 0000000..e2569fc
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/threading/x86_64-thread.cpp
 @@ -0,0 +1,58 @@
@@ -883,29 +931,29 @@ index 0000000..c234e77
 +#include <mlibc/tcb.hpp>
 +
 +
++	/*
 +extern "C" void __mlibc_thread_trampoline(void* (*fn)(void*), Tcb* tcb, void* arg){
-+
-+
 +	if (mlibc::sys_tcb_set(tcb))
 +		    __ensure(!"failed to set tcb for new thread");
 +
 +	while (__atomic_load_n(&tcb->tid, __ATOMIC_RELAXED) == 0)
 +		        mlibc::sys_futex_wait(&tcb->tid, 0, nullptr);	
 +
-+	tcb->returnValue = fn(arg);
++	//tcb->returnValue = fn(arg);
 +	
 +	__atomic_store_n(&tcb->didExit, 1, __ATOMIC_RELEASE);
 +	mlibc::sys_futex_wake(&tcb->didExit);
 +
 +	mlibc::sys_thread_exit();
 +}
++	*/
 +
 +#define DEFAULT_STACK 0x400000
 +
 +namespace mlibc{
++		/*
 +	
 +	int sys_prepare_stack(void **stack, void *entry, void *arg, void *tcb, size_t *stack_size, size_t *guard_size){
-+		
 +		// TODO guard
 +
 +		mlibc::infoLogger() << "mlibc: sys_prepare_stack() does not setup a guard!" << frg::endlog;
@@ -929,7 +977,7 @@ index 0000000..c234e77
 +		*stack = (void*)stack_it;
 +		
 +		return 0;
-+
 +	}
++		*/
 +	
 +}
