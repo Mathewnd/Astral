@@ -30,6 +30,13 @@ syscallret_t syscall_poll(context_t *, pollfd_t *fds, size_t nfds, int timeoutms
 
 	memcpy(fdsbuff, fds, fdsbuffsize);
 
+	// we need to keep holding the files so another thread doesn't close them and break everything
+	file_t **filebuff = alloc(sizeof(file_t *) * nfds);
+	if (filebuff == NULL) {
+		ret.errno = ENOMEM;
+		goto cleanup;
+	}
+
 	polldesc_t desc;
 	// when nfds is 0, poll is used as a sleep.
 	// therefore, initialize the desc size to one descriptor in that case.
@@ -41,6 +48,12 @@ syscallret_t syscall_poll(context_t *, pollfd_t *fds, size_t nfds, int timeoutms
 	size_t eventcount = 0;
 
 	for (uintmax_t i = 0; i < nfds; ++i) {
+		// negative fds are ignored and return nothing
+		if (fdsbuff[i].fd < 0) {
+			fdsbuff[i].revents = 0;
+			continue;
+		}
+
 		file_t *file = fd_get(fdsbuff[i].fd);
 		if (file == NULL) {
 			fdsbuff[i].revents = POLLNVAL;
@@ -48,13 +61,13 @@ syscallret_t syscall_poll(context_t *, pollfd_t *fds, size_t nfds, int timeoutms
 			continue;
 		}
 
+		filebuff[i] = file;
+
 		int revents = VOP_POLL(file->vnode, timeoutms == 0 ? NULL : &desc.data[i], fdsbuff[i].events);
 		if (revents) {
 			fdsbuff[i].revents = revents;
 			++eventcount;
 		}
-
-		fd_release(file);
 	}
 
 	if (eventcount == 0 && timeoutms != 0) {
@@ -71,10 +84,18 @@ syscallret_t syscall_poll(context_t *, pollfd_t *fds, size_t nfds, int timeoutms
 	poll_leave(&desc);
 	poll_destroydesc(&desc);
 
+	// release the files now
+	for (uintmax_t i = 0; i < nfds; ++i) {
+		if (filebuff[i])
+			fd_release(filebuff[i]);
+	}
+
 	ret.ret = eventcount;
 
 	cleanup:
-	free(fdsbuff);
+	if (filebuff)
+		free(filebuff);
 
+	free(fdsbuff);
 	return ret;
 }
