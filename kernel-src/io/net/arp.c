@@ -8,7 +8,7 @@
 #include <kernel/eth.h>
 #include <ringbuffer.h>
 
-#define CACHE_TIMEOUT_SEC 10
+#define CACHE_TIMEOUT_SEC 300
 #define CACHE_TIMEOUT_MS  (CACHE_TIMEOUT_SEC * 1000)
 #define LOOKUP_TIMEOUT_SEC 5
 
