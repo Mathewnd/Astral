@@ -283,11 +283,22 @@ static void udp_destroy(socket_t *socket) {
 	free(socket);
 }
 
+static int udp_poll(socket_t *socket, polldata_t *data, int events) {
+	int revents = 0;
+	MUTEX_ACQUIRE(&socket->mutex, false);
+
+	revents = internalpoll(socket, data, events);
+
+	MUTEX_RELEASE(&socket->mutex);
+	return revents;
+}
+
 static socketops_t socketops = {
 	.bind = udp_bind,
 	.send = udp_send,
 	.recv = udp_recv,
-	.destroy = udp_destroy
+	.destroy = udp_destroy,
+	.poll = udp_poll
 };
 
 socket_t *udp_createsocket() {
