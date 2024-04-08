@@ -17,6 +17,9 @@
 #ifndef SIOCADDRT
 	#define SIOCADDRT	0x890B
 #endif
+#ifndef SIOCSIFADDR
+	#define SIOCSIFADDR	0x8916
+#endif
 
 #define DHCPHDR_TYPE_CLIENT 1
 #define DHCPHDR_TYPE_SERVER 2
@@ -406,6 +409,19 @@ static void addroute(char *device, uint32_t addr, uint32_t gateway, uint32_t mas
 		logstrerror("failed to add route");
 }
 
+static void setifip(char *device, uint32_t addr) {
+	// get hardware address of device
+	struct ifreq buffer = {0};
+	strcpy(buffer.ifr_name, device);
+
+	struct sockaddr_in *sockaddr = (struct sockaddr_in *)&buffer.ifr_addr;
+	sockaddr->sin_family = AF_INET;
+	sockaddr->sin_addr.s_addr = htonl(addr);
+
+	if (ioctl(sockfd, SIOCSIFADDR, &buffer))
+		logstrerror("failed to set device ip address");
+}
+
 int main(int argc, char *argv[]) {
 	name = argv[0];
 
@@ -469,6 +485,7 @@ int main(int argc, char *argv[]) {
 
 	addroute(argv[1], 0, offer.router, 0, 1);
 	addroute(argv[1], offer.clientip, 0, offer.netmask, 10);
+	setifip(argv[1], offer.clientip);
 
 	return EXIT_SUCCESS;
 }
