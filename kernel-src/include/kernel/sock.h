@@ -89,7 +89,8 @@ static inline int sock_copymsghdr(msghdr_t *khdr, msghdr_t *uhdr) {
 
 static inline void sock_freemsghdr(msghdr_t *hdr) {
 	free(hdr->iov);
-	free(hdr->addr);
+	if (hdr->addr)
+		free(hdr->addr);
 }
 
 socket_t *udp_createsocket();
