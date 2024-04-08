@@ -94,7 +94,7 @@ typedef struct {
 
 typedef struct {
 	unsigned short type;
-	char addr[];
+	char addr[14];
 } abisockaddr_t;
 
 typedef struct {
@@ -129,6 +129,7 @@ typedef struct {
 
 #define IFNAMSIZ 16
 #define SIOCGIFHWADDR 0x8927
+#define SIOCADDRT 0x890b
 
 typedef struct {
 	char name[IFNAMSIZ];
@@ -136,5 +137,23 @@ typedef struct {
 		abisockaddr_t addr;
 	};
 } ifreq_t;
+
+typedef struct {
+	unsigned long int rt_pad1;
+	abisockaddr_t rt_dst;
+	abisockaddr_t rt_gateway;
+	abisockaddr_t rt_genmask;
+	unsigned short int rt_flags;
+	short int rt_pad2;
+	unsigned long int rt_pad3;
+	unsigned char rt_tos;
+	unsigned char rt_class;
+	short int rt_pad4[3];
+	short int rt_metric;
+	char *rt_dev;
+	unsigned long int rt_mtu;
+	unsigned long int rt_window;
+	unsigned short int rt_irtt;
+} abirtentry_t;
 
 #endif

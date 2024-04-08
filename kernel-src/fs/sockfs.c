@@ -65,6 +65,7 @@ int sockfs_setattr(vnode_t *node, vattr_t *attr, cred_t *cred) {
 int sockfs_ioctl(vnode_t *node, unsigned long request, void *arg, int *result) {
 	switch (request) {
 		case SIOCGIFHWADDR:
+		{
 			ifreq_t *ifreq = arg;
 			netdev_t *netdev = netdev_getdev(ifreq->name);
 			if (netdev) {
@@ -73,9 +74,56 @@ int sockfs_ioctl(vnode_t *node, unsigned long request, void *arg, int *result) {
 			} else {
 				return ENODEV;
 			}
-		default:
-			return EINVAL;
+			break;
+		}
+		case SIOCADDRT:
+		{
+			abirtentry_t abirtentry;
+			memcpy(&abirtentry, arg, sizeof(abirtentry_t));
+
+			abisockaddr_t abiaddr;
+			abisockaddr_t abigateway;
+			abisockaddr_t abimask;
+			memcpy(&abiaddr, (void *)&abirtentry.rt_dst, sizeof(abisockaddr_t));
+			memcpy(&abigateway, (void *)&abirtentry.rt_gateway, sizeof(abisockaddr_t));
+			memcpy(&abimask, (void *)&abirtentry.rt_genmask, sizeof(abisockaddr_t));
+
+			sockaddr_t addr;
+			sockaddr_t gateway;
+			sockaddr_t mask;
+
+			int e = sock_convertaddress(&addr, &abiaddr);
+			if (e)
+				return e;
+
+			e = sock_convertaddress(&gateway, &abigateway);
+			if (e)
+				return e;
+
+			e = sock_convertaddress(&mask, &abimask);
+			if (e)
+				return e;
+
+			char *dev = alloc(strlen(abirtentry.rt_dev) + 1);
+			if (dev == NULL)
+				return ENOMEM;
+			strcpy(dev, abirtentry.rt_dev);
+
+			netdev_t *netdev = netdev_getdev(dev);
+			if (netdev == NULL) {
+				free(dev);
+				return ENOMEM;
+			}
+
+			e = ipv4_addroute(netdev, addr.ipv4addr.addr, gateway.ipv4addr.addr, mask.ipv4addr.addr, abirtentry.rt_metric);
+
+			free(dev);
+			return e;
+			default:
+				return EINVAL;
+		}
 	}
+	return 0;
 }
 
 int sockfs_inactive(vnode_t *node) {

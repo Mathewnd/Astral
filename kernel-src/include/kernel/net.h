@@ -82,6 +82,7 @@ int arp_lookup(netdev_t *netdev, uint32_t ip, mac_t *mac);
 int udp_sendpacket(void *buffer, size_t packetsize, uint32_t ip, uint16_t srcport, uint16_t dstport, netdev_t *broadcastdev);
 int ipv4_sendpacket(void *buffer, size_t packetsize, uint32_t ip, int proto, netdev_t *broadcastdev);
 void ipv4_process(netdev_t *netdev, void *nextbuff);
+int ipv4_addroute(netdev_t *netdev, uint32_t addr, uint32_t gateway, uint32_t mask, int weight);
 int netdev_register(netdev_t *netdev, char *name);
 netdev_t *netdev_getdev(char *name);
 
