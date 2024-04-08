@@ -17,3 +17,5 @@ tools/init/init
 tools/init/main.o
 tools/mount/mount
 tools/mount/main.o
+tools/netd/main.o
+tools/netd/netd
