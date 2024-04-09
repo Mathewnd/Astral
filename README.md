@@ -2,6 +2,8 @@
 
 Astral is a 64 bit operating system with its own kernel written in C for the x86-64 architecture.
 
+![](https://raw.githubusercontent.com/Mathewnd/Astral/rewrite/screenshots/console.png)
+
 ## Features
 
 - SMP capable preemptible kernel
