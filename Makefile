@@ -35,8 +35,7 @@ minimal:
 	cd minimalsysroot; tar --format=ustar -cf $(INITRD) *
 
 kernel:
-	rm -f builds/astral.configured
-	rm -f builds/astral.installed
+	rm -f builds/astral.packaged
 	rm -f builds/astral.built
 	./jinx build astral
 
