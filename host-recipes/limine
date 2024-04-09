@@ -3,15 +3,12 @@ from_source=limine
 revision=1
 imagedeps="base-devel mtools nasm"
 
-configure() {
+build() {
 	# check here for target in order to build aarch64 targets if ever ported
 	"${source_dir}/configure" --enable-bios-cd --enable-bios-pxe --enable-bios --enable-uefi-ia32 --enable-uefi-x86-64 --enable-uefi-cd --prefix="${prefix}"
-}
-
-build() {
 	make -j${parallelism}
 }
 
-install() {
+package() {
 	make install DESTDIR=${dest_dir}
 }

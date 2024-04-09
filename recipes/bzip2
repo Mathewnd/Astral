@@ -5,19 +5,16 @@ imagedeps="base-devel"
 hostdeps="xgcc xbinutils"
 deps="mlibc"
 
-configure() {
+build() {
 	cp -rpf ${source_dir}/* .
 	sed -i 's@\(ln -s -f \)$(prefix)/bin/@\1@' Makefile
 	sed -i "s@(prefix)/man@(prefix)/share/man@g" Makefile
 	make -f Makefile-libbz2_so CC=x86_64-astral-gcc
 	make clean
-}
-
-build() {
 	make -j${parallelism} CC=x86_64-astral-gcc
 }
 
-install() {
+package() {
 	make install PREFIX=${dest_dir}/${prefix}
 	cp -av libbz2.so.* ${dest_dir}/${prefix}/lib
 	ln -sv libbz2.so.1.0.8 ${dest_dir}${prefix}/lib/libbz2.so

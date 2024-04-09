@@ -5,14 +5,11 @@ imagedeps="base-devel"
 hostdeps="xgcc xbinutils automake autoconf"
 deps="mlibc"
 
-configure() {
-	${source_dir}/configure --host=x86_64-astral --target=x86_64-astral --prefix=${prefix} --disable-werror
-}
-
 build() {
+	${source_dir}/configure --host=x86_64-astral --target=x86_64-astral --prefix=${prefix} --disable-werror
 	make -j${parallelism}
 }
 
-install() {
+package() {
 	make install DESTDIR="${dest_dir}"
 }

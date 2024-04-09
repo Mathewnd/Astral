@@ -1,19 +1,19 @@
 name=mlibc-headers
 from_source=mlibc
 revision=1
-deps="linux-headers"
-imagedeps="ninja meson base-devel"
-
-configure() {
-	meson --cross-file "${base_dir}/util/crossfile" --prefix="${prefix}" -Dlinux_kernel_headers="${sysroot}/${prefix}" -Dheaders_only=true "${source_dir}"
-}
+imagedeps="ninja meson base-devel rsync"
+builddeps="linux-headers"
 
 build() {
-	
+	meson setup --cross-file "${base_dir}/util/crossfile" --prefix="${prefix}"  -Dheaders_only=true "${source_dir}" 
 	ninja
-
+	mkdir linux
+	cp -rp ${base_dir}/sources/linux/* linux
 }
 
-install() {
+package() {
+	pushd linux
+	make headers_install ARCH=x86_64 INSTALL_HDR_PATH=${dest_dir}/${prefix}/
+	popd
 	DESTDIR=${dest_dir} ninja install
 }

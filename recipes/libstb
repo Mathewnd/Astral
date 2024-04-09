@@ -2,15 +2,7 @@ name=libstb
 revision=1
 from_source=libstb
 
-configure() {
-	true
-}
-
-build() {
-	true
-}
-
-install() {
+package() {
 	mkdir -p ${dest_dir}/${prefix}/include/
 	cp -r ${source_dir}/*.h ${dest_dir}/${prefix}/include/
 }

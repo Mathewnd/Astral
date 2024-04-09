@@ -5,14 +5,11 @@ imagedeps="base-devel mtools nasm"
 hostdeps="xgcc xbinutils"
 deps="mlibc"
 
-configure() {
-	"${source_dir}/configure" --host=x86_64-astral --enable-bios-cd --enable-bios-pxe --enable-bios --enable-uefi-ia32 --enable-uefi-x86-64 --enable-uefi-cd --prefix="${prefix}"
-}
-
 build() {
+	"${source_dir}/configure" --host=x86_64-astral --enable-bios-cd --enable-bios-pxe --enable-bios --enable-uefi-ia32 --enable-uefi-x86-64 --enable-uefi-cd --prefix="${prefix}"
 	make -j${parallelism}
 }
 
-install() {
+package() {
 	make install DESTDIR=${dest_dir}
 }

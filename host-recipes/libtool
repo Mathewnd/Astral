@@ -4,19 +4,14 @@ from_source=libtool
 hostdeps="autoconf automake"
 imagedeps="gcc help2man"
 
-
-configure() {
+build() {
 	cp -pr ${source_dir}/* .
 	./configure --prefix=${prefix}	
-}
-
-build() {
-	
 	make -j${parallelism}
 
 }
 
-install() {
+package() {
 
 	make install DESTDIR="${dest_dir}"
 

@@ -3,14 +3,10 @@ from_source=linux
 revision=1
 imagedeps="base-devel rsync"
 
-configure() {
-	cp -r ${source_dir}/* .
-}
-
 build() {
 	true
 }
 
-install() {
-	make headers_install ARCH=x86_64 INSTALL_HDR_PATH=${dest_dir}/${prefix}/
+package() {
+	true
 }

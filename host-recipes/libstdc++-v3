@@ -5,16 +5,13 @@ imagedeps="base-devel"
 hostdeps="automake autoconf xbinutils xgcc"
 deps="mlibc"
 
-configure() {
-	true
-}
-
 build() {
 	cd ${base_dir}/host-builds/xgcc
 	make all-target-libstdc++-v3 -j7
 }
 
-install(){
+package(){
 	cd ${base_dir}/host-builds/xgcc
 	make DESTDIR="${dest_dir}" install-target-libstdc++-v3
+	rm -rf ${dest_dir}/usr/local/lib/gcc/x86_64-astral/12.1.0/
 }

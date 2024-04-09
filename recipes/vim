@@ -5,7 +5,7 @@ imagedeps="base-devel"
 hostdeps="xgcc xbinutils"
 deps="ncurses mlibc"
 
-configure() {
+build() {
 	cp -rp ${source_dir}/* .
 	vim_cv_toupper_broken="no" \
 	ac_cv_small_wchar_t="no" \
@@ -22,13 +22,10 @@ configure() {
 	vim_cv_bcopy_handles_overlap="yes" \
 	vim_cv_memcpy_handles_overlap="yes" \
 	./configure --host=x86_64-astral --prefix=${prefix} --with-tlib=tinfo --disable-gtktest --disable-cion-cache-update --disable-desktop-database-update --disable-canberra --disable-selinux --disable-xsmp --disable-channel --disable-netbeans --enable-multibyte --disable-acl --disable-gpm --disable-sysmous --disable-nls --enable-gui="no" --without-x
-}
-
-build() {
 	make -j ${parallelism}
 }
 
-install() {
+package() {
 	make install DESTDIR=${dest_dir}
 	
 	mkdir -p ${dest_dir}/bin

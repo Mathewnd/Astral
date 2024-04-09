@@ -3,14 +3,11 @@ revision=1
 from_source=autoconf-archive
 imagedeps="gcc"
 
-configure() {
-	${source_dir}/configure --prefix=${prefix}
-}
-
 build() {
+	${source_dir}/configure --prefix=${prefix}
 	make -j${parallelism}
 }
 
-install() {
+package() {
 	make install DESTDIR="${dest_dir}"
 }

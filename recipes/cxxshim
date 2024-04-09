@@ -4,16 +4,12 @@ revision=1
 hostdeps="xgcc xbinutils"
 imagedeps="meson ninja base-devel"
 
-
-configure() {
-        meson --cross-file ${base_dir}/util/crossfile --prefix=${prefix} -Dinstall_headers=true ${source_dir}
-}
-
 build() {
+        meson --cross-file ${base_dir}/util/crossfile --prefix=${prefix} -Dinstall_headers=true ${source_dir}
         ninja
 }
 
-install() {
+package() {
         DESTDIR=${dest_dir} ninja install
 }
 

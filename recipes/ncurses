@@ -5,15 +5,12 @@ imagedeps="base-devel"
 hostdeps="xgcc xbinutils libstdc++-v3"
 deps="mlibc"
 
-configure() {
-	${source_dir}/configure --host=x86_64-astral --prefix=${prefix} --with-shared --without-normal --with-termlib --enable-pc-files --enable-widec
-}
-
 build() {
+	${source_dir}/configure --host=x86_64-astral --prefix=${prefix} --with-shared --without-normal --with-termlib --enable-pc-files --enable-widec
 	make -j${parallelism}
 }
 
-install() {
+package() {
 	make install DESTDIR="${dest_dir}"
 
 	echo "INPUT(-lncursesw)" > ${dest_dir}${prefix}/lib/libncurses.so

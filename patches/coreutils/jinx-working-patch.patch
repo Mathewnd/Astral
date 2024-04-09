@@ -1,0 +1,16 @@
+diff --git coreutils-clean/src/stat.c coreutils-workdir/src/stat.c
+index 3765a8f..f6b129f 100644
+--- coreutils-clean/src/stat.c
++++ coreutils-workdir/src/stat.c
+@@ -75,11 +75,7 @@
+ #include "xvasprintf.h"
+ #include "statx.h"
+ 
+-#if HAVE_STATX && defined STATX_INO
+-# define USE_STATX 1
+-#else
+ # define USE_STATX 0
+-#endif
+ 
+ #if USE_STATVFS
+ # define STRUCT_STATXFS_F_FSID_IS_INTEGER STRUCT_STATVFS_F_FSID_IS_INTEGER

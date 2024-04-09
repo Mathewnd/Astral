@@ -5,16 +5,13 @@ imagedeps="base-devel"
 hostdeps="xgcc xbinutils"
 deps="readline mlibc"
 
-configure() {
+build() {
 	cp -rp ${source_dir}/* .
 	./configure --host=x86_64-astral --prefix=${prefix} --without-bash-malloc
-}
-
-build() {
 	make -j ${parallelism}
 }
 
-install() {
+package() {
 	make install DESTDIR=${dest_dir}
 	
 	mkdir -p ${dest_dir}/bin

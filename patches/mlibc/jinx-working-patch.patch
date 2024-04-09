@@ -58,6 +58,19 @@ index 3474615..e034881 100644
  }
  
  char **backtrace_symbols(void *const *, int) {
+diff --git mlibc-clean/options/linux/include/bits/linux/linux_stat.h mlibc-workdir/options/linux/include/bits/linux/linux_stat.h
+index 59009c9..170d4a1 100644
+--- mlibc-clean/options/linux/include/bits/linux/linux_stat.h
++++ mlibc-workdir/options/linux/include/bits/linux/linux_stat.h
+@@ -9,7 +9,7 @@ extern "C" {
+ 
+ #ifndef __MLIBC_ABI_ONLY
+ 
+-int statx(int, const char *, int, unsigned int, struct statx *);
++//int statx(int, const char *, int, unsigned int, struct statx *);
+ 
+ #endif /* !__MLIBC_ABI_ONLY */
+ 
 diff --git mlibc-clean/options/posix/generic/dlfcn-stubs.cpp mlibc-workdir/options/posix/generic/dlfcn-stubs.cpp
 index fc34a3b..b1a95a9 100644
 --- mlibc-clean/options/posix/generic/dlfcn-stubs.cpp
@@ -175,7 +188,7 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..903a1b4
+index 0000000..8a814ec
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
 @@ -0,0 +1,553 @@
@@ -186,8 +199,8 @@ index 0000000..903a1b4
 +#include <astral/syscall.h>
 +#include <astral/archctl.h>
 +#include <string.h>
-+#include <asm/ioctls.h>
 +#include <stdlib.h>
++#include <asm/ioctls.h>
 +#include <poll.h>
 +#include <sys/select.h>
 +

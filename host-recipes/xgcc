@@ -5,14 +5,11 @@ imagedeps="base-devel"
 hostdeps="automake autoconf xbinutils pkgconfig"
 deps="mlibc-headers"
 
-configure() {
-	${source_dir}/configure --target=x86_64-astral --prefix=${prefix} --with-sysroot=${sysroot_dir} --enable-languages=c,c++ -enable-threads=posix --disable-multilib
-}
-
 build() {
+	${source_dir}/configure --target=x86_64-astral --prefix=${prefix} --with-sysroot=${sysroot_dir} --enable-languages=c,c++ -enable-threads=posix --disable-multilib
 	make all-gcc all-target-libgcc -j ${parallelism}
 }
 
-install(){
+package(){
 	make DESTDIR="${dest_dir}" install-gcc install-target-libgcc
 }

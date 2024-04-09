@@ -4,15 +4,12 @@ from_source=astral
 imagedeps="base-devel nasm"
 hostdeps="xgcc xbinutils limine"
 
-configure() {
-	cp -pr "${source_dir}"/* .
-}
-
 build() {
+	cp -pr "${source_dir}"/* .
 	CC="x86_64-astral-gcc" LD="x86_64-astral-gcc" AS="nasm" make -j${parallelism}
 }
 
-install() {
+package() {
 	mkdir -p "${dest_dir}/boot"
 	cp astral "${dest_dir}/boot"
 }

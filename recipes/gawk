@@ -5,15 +5,20 @@ imagedeps="base-devel"
 hostdeps="xgcc xbinutils"
 deps="mlibc"
 
-configure() {
+build() {
 	cp -rp ${source_dir}/* .
 	./configure --host=x86_64-astral --prefix=${prefix} --disable-nls --disable-extensions
-}
 
-build() {
+	# we need to remove the test as gawk seems to autoexecute it
+
+	echo "all:" > test/Makefile
+	echo "	echo ignore" >> test/Makefile
+	echo "install:" >> test/Makefile
+	echo "	echo ignore" >> test/Makefile
+
 	make -j ${parallelism}
 }
 
-install() {
+package() {
 	make install DESTDIR=${dest_dir}
 }

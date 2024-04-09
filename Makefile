@@ -14,7 +14,7 @@ all: jinx
 	make $(ISO)
 
 jinx:
-	curl https://raw.githubusercontent.com/mintsuki/jinx/trunk/jinx > jinx
+	curl https://raw.githubusercontent.com/mintsuki/jinx/87867554aa157115dde0899b1b8fd0bf9f949096/jinx > jinx
 	chmod +x jinx
 
 $(ISO): limine.cfg liminebg.bmp $(KERNEL) initrd

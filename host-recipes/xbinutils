@@ -4,14 +4,11 @@ from_source=binutils
 imagedeps="base-devel gcc"
 hostdeps="automake autoconf"
 
-configure() {
-	${source_dir}/configure --target=x86_64-astral --prefix=${prefix} --with-sysroot=${sysroot_dir} --disable-werror
-}
-
 build() {
+	${source_dir}/configure --target=x86_64-astral --prefix=${prefix} --with-sysroot=${sysroot_dir} --disable-werror
 	make -j${parallelism}
 }
 
-install() {
+package() {
 	make install DESTDIR="${dest_dir}"
 }

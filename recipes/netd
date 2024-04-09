@@ -5,14 +5,10 @@ imagedeps="base-devel"
 hostdeps="xbinutils xgcc"
 deps="mlibc"
 
-configure() {
-	true
-}
-
 build() {
 	make -C ${source_dir} -j ${parallelism}
 }
 
-install() {
+package() {
 	make -C ${source_dir} install PREFIX=${prefix} DESTDIR=${dest_dir}
 }

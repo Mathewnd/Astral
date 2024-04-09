@@ -5,15 +5,12 @@ imagedeps="base-devel"
 hostdeps="xgcc xbinutils"
 deps="mlibc gmp"
 
-configure() {
+build() {
 	cp -pr ${source_dir}/* .
 	./configure --host=x86_64-astral --prefix=${prefix}
-}
-
-build() {
 	make -j${parallelism}
 }
 
-install() {
+package() {
 	make install DESTDIR="${dest_dir}"
 }

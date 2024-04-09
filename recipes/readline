@@ -5,14 +5,11 @@ imagedeps="base-devel"
 hostdeps="xgcc xbinutils"
 deps="mlibc ncurses"
 
-configure() {
-	${source_dir}/configure --host=x86_64-astral --prefix=${prefix} --enable-multibyte --disable-static --enable-shared
-}
-
 build() {
+	${source_dir}/configure --host=x86_64-astral --prefix=${prefix} --enable-multibyte --disable-static --enable-shared
 	make -j${parallelism} SHLIB_LIBS="-lncursesw"
 }
 
-install() {
+package() {
 	make install SHLIB_LIBS="-lncursesw" DESTDIR="${dest_dir}"
 }
