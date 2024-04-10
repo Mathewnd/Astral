@@ -51,7 +51,6 @@ void loopback_init() {
 	loopbacknetdev.sendpacket = loopback_sendpacket;
 	loopbacknetdev.allocdesc = loopback_allocdesc;
 	loopbacknetdev.ip = 0x7f000001;
-	loopbacknetdev.doarp = false;
 	__assert(hashtable_init(&loopbacknetdev.arpcache, 30) == 0);
 
 	for (int i = 0; i < 6; ++i)

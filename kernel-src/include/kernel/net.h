@@ -29,7 +29,6 @@ typedef struct netdev_t {
 	size_t mtu;
 	uint32_t ip;
 	hashtable_t arpcache;
-	bool doarp;
 	int (*allocdesc)(size_t requestedsize, netdesc_t *desc);
 	int (*sendpacket)(struct netdev_t *_internal, netdesc_t desc, mac_t targetmac, int proto);
 } netdev_t;

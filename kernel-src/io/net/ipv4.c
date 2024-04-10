@@ -168,11 +168,9 @@ int ipv4_sendpacket(void *buffer, size_t packetsize, uint32_t ip, int proto, net
 		if (entry.netdev == NULL)
 			return 0; // if a packet can't be routed to anywhere just pretend it was sent somewhere
 
-		if (entry.netdev->doarp) {
-			int error = arp_lookup(entry.netdev, entry.gateway ? entry.gateway : ip, &mac);
-			if (error)
-				return error;
-		}
+		int error = arp_lookup(entry.netdev, entry.gateway ? entry.gateway : ip, &mac);
+		if (error)
+			return error;
 
 		netdev = entry.netdev;
 	} else {
