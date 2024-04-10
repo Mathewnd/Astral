@@ -198,7 +198,6 @@ int sockfs_newsocket(vnode_t **nodep, socket_t *socket) {
 
 	node->socket = socket;
 	*nodep = vnode;
-	POLL_INITHEADER(&socket->pollheader);
 
 	return 0;
 }

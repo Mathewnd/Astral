@@ -8,5 +8,11 @@ static socket_t *(*createsocket[])() = {
 
 socket_t *socket_create(int type) {
 	__assert(type < sizeof(createsocket) / sizeof(createsocket[0]));
-	return createsocket[type]();
+	socket_t *socket = createsocket[type]();
+	if (socket == NULL)
+		return NULL;
+
+	POLL_INITHEADER(&socket->pollheader);
+
+	return socket;
 }
