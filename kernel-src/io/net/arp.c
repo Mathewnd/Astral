@@ -11,6 +11,8 @@
 #define CACHE_TIMEOUT_SEC 300
 #define CACHE_TIMEOUT_MS  (CACHE_TIMEOUT_SEC * 1000)
 #define LOOKUP_TIMEOUT_SEC 5
+#define OPCODE_REQUEST 1
+#define OPCODE_REPLY 2
 
 typedef struct {
 	mac_t mac;
@@ -115,10 +117,35 @@ static semaphore_t psem;
 static spinlock_t ringlock;
 
 typedef struct {
+	int opcode;
 	netdev_t *netdev;
 	uint32_t ip;
 	mac_t mac;
 } bufferentry_t;
+
+static void send_reply(netdev_t *netdev, uint32_t ip, mac_t mac) {
+	arpframe_t frame = {
+		.hwtype = cpu_to_be_w(1),
+		.protocoltype = cpu_to_be_w(0x800),
+		.hwlen = 6,
+		.ptlen = 4,
+		.opcode = cpu_to_be_w(OPCODE_REPLY),
+		.srcpt = cpu_to_be_d(netdev->ip),
+		.dstpt = cpu_to_be_d(ip)
+	};
+
+	memcpy(&frame.srchw, &netdev->mac, sizeof(mac_t));
+	memcpy(&frame.dsthw, &mac, sizeof(mac_t));
+	netdesc_t desc;
+	int e = netdev->allocdesc(sizeof(arpframe_t), &desc);
+	if (e)
+		return;
+
+	memcpy((void *)((uintptr_t)desc.address + desc.curroffset), &frame, sizeof(frame));
+
+	e = netdev->sendpacket(netdev, desc, mac, ETH_PROTO_ARP);
+	// TODO free netdesc
+}
 
 static void handlerthreadfn() {
 	for (;;) {
@@ -132,13 +159,21 @@ static void handlerthreadfn() {
 		spinlock_release(&ringlock);
 		interrupt_loweripl(old);
 
-		MUTEX_ACQUIRE(&cachelock, false);
-		timespec_t time = timekeeper_time();
-		set(entry.netdev, entry.ip, entry.mac, time);
-		MUTEX_RELEASE(&cachelock);
-
+		switch (entry.opcode) {
+			case OPCODE_REPLY:
+				// add to cache
+				MUTEX_ACQUIRE(&cachelock, false);
+				timespec_t time = timekeeper_time();
+				set(entry.netdev, entry.ip, entry.mac, time);
+				MUTEX_RELEASE(&cachelock);
+				break;
+			case OPCODE_REQUEST:
+				// reply
+				send_reply(entry.netdev, entry.ip, entry.mac);
+		}
 	}
 }
+
 
 // executed in dpc context
 void arp_process(netdev_t *netdev, void *buffer) {
@@ -147,10 +182,10 @@ void arp_process(netdev_t *netdev, void *buffer) {
 	__assert(frame->protocoltype == cpu_to_be_w(0x800)); // ip
 	__assert(frame->hwlen == 6);
 	__assert(frame->ptlen == 4);
-	__assert(frame->opcode == cpu_to_be_w(2));
 	__assert(MAC_EQUAL(&frame->dsthw, &netdev->mac));
 
 	bufferentry_t entry = {
+		.opcode = cpu_to_be_w(frame->opcode),
 		.netdev = netdev,
 		.ip = be_to_cpu_d(frame->srcpt),
 		.mac = frame->srchw
@@ -168,7 +203,7 @@ static int sendrequest(netdev_t *netdev, uint32_t ip) {
 		.protocoltype = cpu_to_be_w(0x800),
 		.hwlen = 6,
 		.ptlen = 4,
-		.opcode = cpu_to_be_w(1),
+		.opcode = cpu_to_be_w(OPCODE_REQUEST),
 		.srcpt = 0,
 		.dsthw = (mac_t){{0,0,0,0,0,0}},
 		.dstpt = cpu_to_be_d(ip)
