@@ -179,6 +179,7 @@ int vionet_newdevice(viodevice_t *viodevice) {
 	netdev->netdev.mtu = 1500;
 	netdev->netdev.sendpacket = vionet_sendpacket;
 	netdev->netdev.allocdesc = vionet_allocdesc;
+	netdev->netdev.doarp = true;
 	__assert(hashtable_init(&netdev->netdev.arpcache, 30) == 0);
 
 	// initialize queues

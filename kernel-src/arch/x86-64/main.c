@@ -69,6 +69,7 @@ void kernel_entry() {
 	ext2_init();
 
 	netdev_init();
+	loopback_init();
 	arp_init();
 	ipv4_init();
 	udp_init();

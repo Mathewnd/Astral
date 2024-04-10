@@ -29,6 +29,7 @@ typedef struct netdev_t {
 	size_t mtu;
 	uint32_t ip;
 	hashtable_t arpcache;
+	bool doarp;
 	int (*allocdesc)(size_t requestedsize, netdesc_t *desc);
 	int (*sendpacket)(struct netdev_t *_internal, netdesc_t desc, mac_t targetmac, int proto);
 } netdev_t;
@@ -76,6 +77,8 @@ void arp_init();
 void ipv4_init();
 void udp_init();
 void netdev_init();
+void loopback_init();
+netdev_t *loopback_device();
 void udp_process(netdev_t *netdev, void *buffer, uint32_t ip);
 void arp_process(netdev_t *netdev, void *buffer);
 int arp_lookup(netdev_t *netdev, uint32_t ip, mac_t *mac);
