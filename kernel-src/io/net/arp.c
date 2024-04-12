@@ -260,9 +260,9 @@ int arp_lookup(netdev_t *netdev, uint32_t ip, mac_t *mac) {
 			break;
 		}
 	}
+	cleanup:
 	MUTEX_RELEASE(&cachelock);
 
-	cleanup:
 	return e;
 }
 
