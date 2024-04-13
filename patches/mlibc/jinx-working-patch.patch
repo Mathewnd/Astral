@@ -188,7 +188,7 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..8a814ec
+index 0000000..8d990b7
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
 @@ -0,0 +1,553 @@
@@ -656,12 +656,12 @@ index 0000000..8a814ec
 +	int sys_futex_wait(int *pointer, int expected, const struct timespec *time) {
 +		mlibc::infoLogger() << "mlibc: futex wait is a stub" << frg::endlog;
 +		// TODO UNSTUB
-+		return ENOSYS;
++		return 0;
 +	}
 +	int sys_futex_wake(int *pointer) {
 +		mlibc::infoLogger() << "mlibc: futex wake is a stub" << frg::endlog;
 +		// TODO UNSTUB
-+		return ENOSYS;
++		return 0;
 +	}
 +	
 +
