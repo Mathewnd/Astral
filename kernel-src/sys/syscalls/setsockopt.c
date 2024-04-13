@@ -31,6 +31,11 @@ syscallret_t syscall_setsockopt(context_t *, int fd, int level, int optname, voi
 		return ret;
 	}
 
+	if (file->vnode->type != V_TYPE_SOCKET) {
+		ret.errno = ENOTSOCK;
+		goto cleanup;
+	}
+
 	socket_t *socket = SOCKFS_SOCKET_FROM_NODE(file->vnode); 
 
 
@@ -58,6 +63,7 @@ syscallret_t syscall_setsockopt(context_t *, int fd, int level, int optname, voi
 
 	MUTEX_RELEASE(&socket->mutex);
 
+	cleanup:
 	ret.ret = ret.errno ? -1 : 0;
 
 	fd_release(file);

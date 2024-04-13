@@ -17,6 +17,8 @@ syscallret_t syscall_socket(context_t *, int domain, int type, int protocol) {
 
 			socktype = SOCKET_TYPE_UDP;
 			break;
+		case AF_LOCAL:
+			socktype = SOCKET_TYPE_LOCAL;
 	}
 
 	if (socktype == -1) {
@@ -33,7 +35,7 @@ syscallret_t syscall_socket(context_t *, int domain, int type, int protocol) {
 	vnode_t *vnode;
 	ret.errno = sockfs_newsocket(&vnode, socket);
 	if (ret.errno) {
-		// TODO delete socket
+		socket->ops->destroy(socket);
 		return ret;
 	}
 

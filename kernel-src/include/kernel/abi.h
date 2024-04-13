@@ -81,6 +81,7 @@ typedef struct {
 #define AT_SYMLINK_NOFOLLOW 0x100
 #define AT_EMPTY_PATH 0x1000
 
+#define AF_LOCAL 1
 #define AF_INET 2
 
 #define SOCK_STREAM 1
@@ -102,6 +103,11 @@ typedef struct {
 	uint16_t sin_port;
 	uint32_t sin_addr;
 } __attribute__((packed)) inaddr_t;
+
+typedef struct {
+	uint16_t sun_family;
+	char sun_path[108];
+} __attribute__((packed)) unaddr_t;
 
 typedef struct {
 	void *addr;

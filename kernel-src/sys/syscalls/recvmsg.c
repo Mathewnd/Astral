@@ -29,10 +29,15 @@ syscallret_t syscall_recvmsg(context_t *, int fd, msghdr_t *umsghdr, int flags) 
 		goto cleanup;
 	}
 
+	if (file->vnode->type != V_TYPE_SOCKET) {
+		ret.errno = ENOTSOCK;
+		goto cleanup;
+	}
+
 	sockaddr_t sockaddr;
 	socket_t *socket = SOCKFS_SOCKET_FROM_NODE(file->vnode);
 	size_t recvcount;
-	ret.errno = socket->ops->recv(socket, &sockaddr, buffer, buffersize, 0, &recvcount);
+	ret.errno = socket->ops->recv(socket, &sockaddr, buffer, buffersize, fileflagstovnodeflags(file->flags), &recvcount);
 	ret.ret = ret.errno ? -1 : recvcount;
 
 	uintmax_t iovoffset = 0;

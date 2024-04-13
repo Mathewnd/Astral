@@ -45,6 +45,9 @@ extern syscall_bind
 extern syscall_sendmsg
 extern syscall_setsockopt
 extern syscall_recvmsg
+extern syscall_listen
+extern syscall_connect
+extern syscall_accept
 syscalltab:
 dq syscall_print
 dq syscall_mmap
@@ -92,7 +95,10 @@ dq syscall_bind
 dq syscall_sendmsg
 dq syscall_setsockopt
 dq syscall_recvmsg
-syscallcount equ 46
+dq syscall_listen
+dq syscall_connect
+dq syscall_accept
+syscallcount equ 49
 section .text
 global arch_syscall_entry
 ; on entry:

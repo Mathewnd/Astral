@@ -35,6 +35,11 @@ syscallret_t syscall_sendmsg(context_t *, int fd, msghdr_t *umsghdr, int flags) 
 		goto cleanup; 
 	}
 
+	if (file->vnode->type != V_TYPE_SOCKET) {
+		ret.errno = ENOTSOCK;
+		goto cleanup;
+	}
+
 	sockaddr_t sockaddr;
 	if (msghdr.addr) {
 		ret.errno = sock_convertaddress(&sockaddr, msghdr.addr);
@@ -44,7 +49,7 @@ syscallret_t syscall_sendmsg(context_t *, int fd, msghdr_t *umsghdr, int flags) 
 
 	socket_t *socket = SOCKFS_SOCKET_FROM_NODE(file->vnode);
 	size_t sendcount;
-	ret.errno = socket->ops->send(socket, msghdr.addr ? &sockaddr : NULL, buffer, buffersize, 0, &sendcount);
+	ret.errno = socket->ops->send(socket, msghdr.addr ? &sockaddr : NULL, buffer, buffersize, fileflagstovnodeflags(file->flags), &sendcount);
 	ret.ret = ret.errno ? -1 : sendcount;
 
 	cleanup:

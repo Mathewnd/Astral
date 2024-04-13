@@ -188,10 +188,10 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..8d990b7
+index 0000000..37e2732
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -0,0 +1,553 @@
+@@ -0,0 +1,570 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -320,6 +320,23 @@ index 0000000..8d990b7
 +		struct sigaction *__restrict) {
 +		mlibc::infoLogger() << "mlibc: sigaction is a stub" << frg::endlog;
 +		return 0;
++	}
++
++	int sys_listen(int fd, int backlog) {
++		long ret;
++		return syscall(SYSCALL_LISTEN, &ret, fd, backlog);
++	}
++
++	int sys_accept(int fd, int *newfd, struct sockaddr *addr_ptr, socklen_t *addr_length, int flags) {
++		long ret;
++		long error = syscall(SYSCALL_ACCEPT, &ret, fd, (uint64_t)addr_ptr, (uint64_t)addr_length, flags);
++		*newfd = ret;
++		return error;
++	}
++
++	int sys_connect(int fd, const struct sockaddr *addr_ptr, socklen_t addr_length) {
++		long ret;
++		return syscall(SYSCALL_CONNECT, &ret, fd, (uint64_t)addr_ptr, addr_length);
 +	}
 +
 +	int sys_msg_recv(int fd, struct msghdr *hdr, int flags, ssize_t *length) {
@@ -764,10 +781,10 @@ index 0000000..990eca0
 +#endif
 diff --git mlibc-workdir/sysdeps/astral/include/astral/syscall.h mlibc-workdir/sysdeps/astral/include/astral/syscall.h
 new file mode 100644
-index 0000000..29ce601
+index 0000000..52590c3
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/include/astral/syscall.h
-@@ -0,0 +1,69 @@
+@@ -0,0 +1,72 @@
 +#ifndef _SYSCALL_H_INCLUDE
 +#define _SYSCALL_H_INCLUDE
 +
@@ -817,6 +834,9 @@ index 0000000..29ce601
 +#define SYSCALL_SENDMSG 43
 +#define SYSCALL_SETSOCKOPT 44
 +#define SYSCALL_RECVMSG 45
++#define SYSCALL_LISTEN 46
++#define SYSCALL_CONNECT 47
++#define SYSCALL_ACCEPT 48
 +
 +#include <stddef.h>
 +#include <stdint.h>

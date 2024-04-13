@@ -4,7 +4,7 @@
 
 #ifdef SYSCALL_LOGGING
 
-#define SYSCALL_COUNT 46
+#define SYSCALL_COUNT 48
 #define LOGSTR(x) arch_e9_puts(x)
 
 static char *name[] = {
@@ -53,7 +53,10 @@ static char *name[] = {
 	"bind",
 	"sendmsg",
 	"setsockopt",
-	"recvmsg"
+	"recvmsg",
+	"listen",
+	"connect",
+	"accept"
 };
 
 static char *args[] = {
@@ -103,6 +106,9 @@ static char *args[] = {
 	"fd %d msghdr %p flags %d", // sendmsg
 	"fd %d level %d optname %d optval %p optlen %lu", // setsockopt
 	"fd %d msghdr %p flags %d", // recvmsg
+	"fd %d backlog %d", // listen
+	"fd %d addr %p addrlen %lu", // connect
+	"fd %d addr %p addrlen %p" // accept
 };
 
 #endif
