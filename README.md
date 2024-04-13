@@ -35,3 +35,7 @@ There are a few targets in the makefile to run Astral with qemu:
 ``make run``
 
 ``make run-kvm``
+
+VirtualBox-specific instructions after you've created a new VM from the iso file:\
+`vboxmanage list vms`\
+`vboxmanage modifyvm <name of Astral VM> --hpet on`
