@@ -221,8 +221,11 @@ static int udp_recv(socket_t *socket, sockaddr_t *addr, void *buffer, size_t cou
 
 		int revents = internalpoll(socket, &desc.data[0], POLLIN);
 
-		if (revents)
+		if (revents) {
+			poll_leave(&desc);
+			poll_destroydesc(&desc);
 			break;
+		}
 
 		if (flags & V_FFLAGS_NONBLOCKING) {
 			e = EAGAIN;
@@ -312,10 +315,7 @@ socket_t *udp_createsocket() {
 		return NULL;
 	}
 	SPINLOCK_INIT(socket->ringbufferlock);
-
 	socket->socket.ops = &socketops;
-	socket->socket.state = SOCKET_STATE_UNBOUND;
-	MUTEX_INIT(&socket->socket.mutex);
-	socket->socket.type = SOCKET_TYPE_UDP;
+
 	return (socket_t *)socket;
 }
