@@ -137,7 +137,9 @@ static int load(vnode_t *vnode, elfph64_t *ph) {
 
 int elf_load(vnode_t *vnode, void *base, void **entry, char **interpreter, auxv64list_t *auxv64) {
 	// TODO return ETXTBUSY if node is open for writing
-	__assert(vnode->type == V_TYPE_REGULAR);
+	if (vnode->type != V_TYPE_REGULAR)
+		return EACCES;
+
 	elfheader64_t header;
 	int err = readexact(vnode, &header, sizeof(elfheader64_t), 0);
 	if (err)
