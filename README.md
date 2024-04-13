@@ -28,6 +28,10 @@ The build process only needs xorriso and curl on the host. All other needed pack
 
 To build the project, run ``make``. This will create a file named ``astral.iso``
 
+VirtualBox-specific instructions after you've created a new VM from the ``astral.iso``:\
+`vboxmanage list vms`\
+`vboxmanage modifyvm <name of Astral VM> --hpet on`
+
 ## Testing
 
 There are a few targets in the makefile to run Astral with qemu:
