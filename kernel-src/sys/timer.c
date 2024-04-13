@@ -102,6 +102,7 @@ void timer_insert(timer_t *timer, timerentry_t *entry, dpcfn_t fn, dpcarg_t arg,
 	if (timer->running)
 		timer->tickcurrent += timer->stop(timer);
 
+	memset(entry, 0, sizeof(timerentry_t));
 	entry->repeatus = repeating ? us : 0;
 	entry->fn = fn;
 	entry->arg = arg;
