@@ -40,6 +40,7 @@ int poll_initdesc(polldesc_t *desc, size_t size) {
 	desc->size = size;
 	SPINLOCK_INIT(desc->lock);
 	SPINLOCK_INIT(desc->eventlock);
+	SPINLOCK_INIT(desc->wakeuplock);
 	for (uintmax_t i = 0; i < size; ++i)
 		desc->data[i].desc = desc;
 	__assert(spinlock_try(&desc->lock));
@@ -106,8 +107,11 @@ int poll_dowait(polldesc_t *desc, size_t ustimeout) {
 	spinlock_release(&desc->eventlock);
 	int ret = sched_yield();
 	// on return, the desc lock is REQUIRED to be left locked by the poll_event function.
-	// XXX interruptible wait breaks this
-	__assert(spinlock_try(&desc->lock) == false);
+	// in the case of sleep being interrupted, wait until poll_event has done everything (if anything)
+	__assert(ret || spinlock_try(&desc->lock) == false);
+
+	if (ret)
+		spinlock_acquire(&desc->wakeuplock);
 
 	if (ustimeout != 0 && ret != 1) {
 		timer_remove(_cpu()->timer, &sleepentry);
@@ -134,7 +138,7 @@ void poll_event(pollheader_t *header, int events) {
 		spinlock_acquire(&desc->eventlock);
 		int revents = iterator->events & events;
 
-		if (spinlock_try(&desc->lock) == false) {
+		if (spinlock_try(&desc->lock) == false || spinlock_try(&desc->wakeuplock) == false) {
 			removefromlist(&pending, iterator);
 			insertinheader(header, iterator);
 		}
@@ -154,6 +158,7 @@ void poll_event(pollheader_t *header, int events) {
 		polldata_t *next = iterator->next;
 		sched_wakeup(iterator->desc->thread, 0);
 		insertinheader(header, iterator);
+		spinlock_release(&iterator->desc->wakeuplock);
 		iterator = next;
 	}
 

@@ -10,6 +10,7 @@ typedef struct {
 	thread_t *thread;
 	spinlock_t lock;
 	spinlock_t eventlock;
+	spinlock_t wakeuplock;
 	struct polldata *data;
 	struct polldata *event;
 	size_t size;

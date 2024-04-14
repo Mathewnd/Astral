@@ -34,10 +34,8 @@ syscallret_t syscall_nanosleep(context_t *, timespec_t *utime, timespec_t *remai
 
 	ret.errno = sched_yield();
 
-	if (ret.errno) {
-		// XXX interruptible wait might break things
+	if (ret.errno)
 		timer_remove(_cpu()->timer, &sleepentry);
-	}
 
 	sched_targetcpu(NULL);
 
