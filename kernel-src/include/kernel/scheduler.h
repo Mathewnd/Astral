@@ -44,6 +44,7 @@ typedef struct thread_t {
 	bool sleepintstatus;
 	spinlock_t sleeplock;
 	int wakeupreason;
+	bool shouldexit;
 } thread_t;
 
 typedef struct proc_t {

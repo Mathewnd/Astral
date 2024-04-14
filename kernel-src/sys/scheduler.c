@@ -262,6 +262,14 @@ static void yield(context_t *context) {
 
 	thread_t *next = runqueuenext(sleeping ? 0x0fffffff : thread->priority);
 
+	if (sleeping && thread->shouldexit && (thread->flags & SCHED_THREAD_FLAGS_INTERRUPTIBLE)) {
+		sleeping = false;
+		next = NULL;
+		thread->flags &= ~(SCHED_THREAD_FLAGS_SLEEP | SCHED_THREAD_FLAGS_INTERRUPTIBLE);
+		thread->wakeupreason = SCHED_WAKEUP_REASON_INTERRUPTED;
+		spinlock_release(&thread->sleeplock);
+	}
+
 	if (next || sleeping) {
 		ARCH_CONTEXT_THREADSAVE(thread, context);
 
