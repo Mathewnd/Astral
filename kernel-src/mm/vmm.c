@@ -373,6 +373,22 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 	return status;
 }
 
+void *vmm_getphysical(void *addr) {
+	addr = (void *)ROUND_DOWN((uintptr_t)addr, PAGE_SIZE);
+
+	vmmspace_t *space = getspace(addr);
+	if (space == NULL)
+		return NULL;
+
+	MUTEX_ACQUIRE(&space->lock, false);
+
+	void *physical = arch_mmu_getphysical(_cpu()->vmmctx->pagetable, addr);
+
+	MUTEX_RELEASE(&space->lock);
+	return physical;
+}
+
+
 void *vmm_map(void *addr, volatile size_t size, int flags, mmuflags_t mmuflags, void *private) {
 	if (addr == NULL)
 		addr = KERNELSPACE_START;
