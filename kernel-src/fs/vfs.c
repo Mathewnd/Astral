@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <arch/cpu.h>
 #include <kernel/poll.h>
+#include <kernel/sock.h>
 
 #define PATHNAME_MAX 512
 #define MAXLINKDEPTH 64
@@ -51,6 +52,12 @@ void vfs_init() {
 
 int vfs_register(vfsops_t *ops, char *name) {
 	return hashtable_set(&fstable, ops, name, strlen(name), true);
+}
+
+void vfs_inactive(vnode_t *vnode) {
+	if (vnode->socketbinding)
+		localsock_leavebinding(vnode);
+	vnode->ops->inactive(vnode);
 }
 
 int vfs_mount(vnode_t *backing, vnode_t *pathref, char *path, char *name, void *data) {

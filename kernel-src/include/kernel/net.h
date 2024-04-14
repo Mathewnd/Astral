@@ -58,13 +58,6 @@ typedef struct {
 	uint32_t addr;
 } ipv4addr_t;
 
-typedef struct {
-	union {
-		ipv4addr_t ipv4addr;
-		char unaddr[256];
-	};
-} sockaddr_t;
-
 #define NET_BROADCAST_MAC (mac_t){.address = {0xff,0xff,0xff,0xff,0xff,0xff}}
 
 #define MAC_EQUAL(m1,m2) (memcmp(m1, m2, sizeof(mac_t)) == 0)

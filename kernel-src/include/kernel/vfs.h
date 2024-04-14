@@ -64,6 +64,7 @@ typedef struct vnode_t {
 	int type;
 	vfs_t *vfs;
 	vfs_t *vfsmounted;
+	void *socketbinding;
 } vnode_t;
 
 typedef struct vfsops_t {
@@ -150,7 +151,7 @@ typedef struct vops_t {
 #define VOP_HOLD(v) __atomic_add_fetch(&(v)->refcount, 1, __ATOMIC_SEQ_CST)
 #define VOP_RELEASE(v) {\
 		if (__atomic_sub_fetch(&(v)->refcount, 1, __ATOMIC_SEQ_CST) == 0) {\
-			(v)->ops->inactive(v); \
+			vfs_inactive(v); \
 			(v) = NULL; \
 		} \
 	}
@@ -169,6 +170,7 @@ int vfs_create(vnode_t *ref, char *path, vattr_t *attr, int type, vnode_t **node
 int vfs_link(vnode_t *destref, char *destpath, vnode_t *linkref, char *linkpath, int type, vattr_t *attr);
 int vfs_unlink(vnode_t *ref, char *path);
 int vfs_pollstub(vnode_t *node, struct polldata *, int events);
+void vfs_inactive(vnode_t *node);
 
 #define VFS_LOOKUP_PARENT 1
 #define VFS_LOOKUP_NOLINK 2
