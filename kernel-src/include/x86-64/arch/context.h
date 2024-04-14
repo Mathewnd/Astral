@@ -98,5 +98,6 @@ void arch_context_saveandcall(void (*fn)(context_t *context), void *stack);
 	asm("ldmxcsr (%%rax)" : : "a"(&(t)->extracontext.mxcsr));
 
 #define ARCH_CONTEXT_INTSTATUS(x) ((x)->rflags & 0x200 ? true : false)
+#define ARCH_CONTEXT_ISUSER(x) ((x)->cs == 0x23)
 
 #endif

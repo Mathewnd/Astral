@@ -1,6 +1,9 @@
 section .text
 global arch_context_switch
 arch_context_switch:
+	extern sched_userspacecheck
+	call sched_userspacecheck ; compiled with no_caller_saved_registers
+
 	; rdi is the pointer to the context struct
 	mov rsp, rdi
 

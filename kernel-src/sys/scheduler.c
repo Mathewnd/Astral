@@ -229,6 +229,47 @@ __attribute__((noreturn)) void sched_stopcurrentthread() {
 	switchthread(next);
 }
 
+void sched_procexit() {
+	proc_t *proc = _cpu()->thread->proc;
+
+	// close fds
+	for (int fd = 0; fd < proc->fdcount; ++fd)
+		fd_close(fd);
+
+	// zombify the proc
+	spinlock_acquire(&proc->lock);
+
+	VOP_RELEASE(proc->root);
+	VOP_RELEASE(proc->cwd);
+
+	proc->state = SCHED_PROC_STATE_ZOMBIE;
+	proc_t *lastchild = proc->child;
+
+	spinlock_acquire(&sched_initproc->lock);
+
+	bool haszombie = false;
+
+	while (lastchild && lastchild->sibling) {
+		if (lastchild->state == SCHED_PROC_STATE_ZOMBIE)
+			haszombie = true;
+
+		lastchild->parent = sched_initproc;
+		lastchild = lastchild->sibling;
+	}
+
+	if (lastchild) {
+		lastchild->sibling = sched_initproc->child;
+		sched_initproc->child = proc->child;
+	}
+
+	spinlock_release(&sched_initproc->lock);
+	spinlock_release(&proc->lock);
+
+	semaphore_signal(&proc->parent->waitsem);
+	if (haszombie)
+		semaphore_signal(&sched_initproc->waitsem);
+}
+
 __attribute__((noreturn)) void sched_threadexit() {
 	thread_t *thread = _cpu()->thread;
 	proc_t *proc = thread->proc;
@@ -239,8 +280,13 @@ __attribute__((noreturn)) void sched_threadexit() {
 	if (proc) {
 		__atomic_fetch_sub(&proc->runningthreadcount, 1, __ATOMIC_SEQ_CST);
 		__assert(oldctx != &vmm_kernelctx);
-		if (proc->runningthreadcount == 0)
+		if (proc->runningthreadcount == 0) {
+			if (thread->shouldexit)
+				proc->status = -1;
+
+			sched_procexit();
 			vmm_destroycontext(oldctx);
+		}
 	}
 
 	interrupt_set(false);
@@ -251,6 +297,18 @@ __attribute__((noreturn)) void sched_threadexit() {
 	// FIXME this doesn't apply to kernel threads and something should be figured out for them
 
 	sched_stopcurrentthread();
+}
+
+// called right before going back to userspace in places like the syscall handler or arch_context_switch
+__attribute__((no_caller_saved_registers)) void sched_userspacecheck(context_t *context) {
+	thread_t *thread = _cpu()->thread;
+	if (thread == NULL || ARCH_CONTEXT_ISUSER(context) == false)
+		return;
+
+	if (thread->shouldexit) {
+		interrupt_set(true);
+		sched_threadexit();
+	}
 }
 
 void sched_stopotherthreads() {

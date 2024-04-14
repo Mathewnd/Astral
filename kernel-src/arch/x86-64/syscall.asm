@@ -195,6 +195,11 @@ arch_syscall_entry:
 	extern arch_syscall_log_return
 	call arch_syscall_log_return ; compiled with __attribute__((no_caller_saved_registers)) 
 
+	mov rdi, rsp
+	add rdi, 8 ; context pointer is after r9 argument
+	extern sched_userspacecheck
+	call sched_userspacecheck ; compiled with __attribute__((no_caller_saved_registers))
+
 	; restore context
 	add rsp, 32 ; r9 argument, cr2, gs, and fs are not popped.
 	pop rbx
