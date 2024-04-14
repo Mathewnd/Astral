@@ -69,6 +69,8 @@ typedef struct proc_t {
 	vnode_t *root;
 	spinlock_t nodeslock;
 	semaphore_t waitsem;
+	spinlock_t exiting;
+	bool nomorethreads;
 } proc_t;
 
 #include <arch/cpu.h>

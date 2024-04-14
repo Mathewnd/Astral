@@ -9,12 +9,29 @@ __attribute__((noreturn)) void syscall_exit(context_t *context, int status) {
 	thread_t *thread = _cpu()->thread; 
 	proc_t *proc = thread->proc;
 	__assert(proc != sched_initproc);
+	__assert(spinlock_try(&proc->exiting)); // only one thread can exit at the same time
 
-	// TODO stop other threads
+	// stop other threads
+	spinlock_acquire(&proc->lock);
+	proc->nomorethreads = true;
 
+	for (int i = 0; i < proc->threadtablesize; ++i) {
+		if (proc->threads[i] == NULL || proc->threads[i] == thread)
+			continue;
+
+		proc->threads[i]->shouldexit = true;
+		sched_wakeup(proc->threads[i], SCHED_WAKEUP_REASON_INTERRUPTED);
+	}
+
+	spinlock_release(&proc->lock);
+
+	while (__atomic_load_n(&proc->runningthreadcount, __ATOMIC_SEQ_CST) > 1) sched_yield();
+
+	// close fds
 	for (int fd = 0; fd < proc->fdcount; ++fd)
 		fd_close(fd);
 
+	// zombify the proc
 	spinlock_acquire(&proc->lock);
 
 	VOP_RELEASE(proc->root);
