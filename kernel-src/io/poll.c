@@ -110,8 +110,10 @@ int poll_dowait(polldesc_t *desc, size_t ustimeout) {
 	// in the case of sleep being interrupted, wait until poll_event has done everything (if anything)
 	__assert(ret || spinlock_try(&desc->lock) == false);
 
-	if (ret)
+	if (ret == SCHED_WAKEUP_REASON_INTERRUPTED) {
 		spinlock_acquire(&desc->wakeuplock);
+		ret = EINTR;
+	}
 
 	if (ustimeout != 0 && ret != 1) {
 		timer_remove(_cpu()->timer, &sleepentry);
