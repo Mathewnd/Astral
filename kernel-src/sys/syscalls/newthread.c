@@ -55,6 +55,11 @@ syscallret_t syscall_newthread(context_t *, void *entry, void *stack) {
 
 	proc->threads[i]->vmmctx = _cpu()->thread->vmmctx;
 
+	ret.errno = 0;
+	ret.ret = proc->threads[i]->tid;
+
+	__atomic_fetch_add(&proc->runningthreadcount, 1, __ATOMIC_SEQ_CST);
+
 	sched_queue(proc->threads[i]);
 
 	cleanup:
