@@ -80,6 +80,7 @@ typedef struct proc_t {
 extern proc_t *sched_initproc;
 
 void sched_init();
+void sched_stopotherthreads();
 void sched_runinit();
 __attribute__((noreturn)) void sched_threadexit();
 void sched_queue(thread_t *thread);

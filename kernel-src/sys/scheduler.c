@@ -253,6 +253,27 @@ __attribute__((noreturn)) void sched_threadexit() {
 	sched_stopcurrentthread();
 }
 
+void sched_stopotherthreads() {
+	thread_t *thread = _cpu()->thread;
+	proc_t *proc = thread->proc;
+	spinlock_acquire(&proc->lock);
+	proc->nomorethreads = true;
+
+	for (int i = 0; i < proc->threadtablesize; ++i) {
+		if (proc->threads[i] == NULL || proc->threads[i] == thread)
+			continue;
+
+		proc->threads[i]->shouldexit = true;
+		sched_wakeup(proc->threads[i], SCHED_WAKEUP_REASON_INTERRUPTED);
+	}
+
+	spinlock_release(&proc->lock);
+
+	while (__atomic_load_n(&proc->runningthreadcount, __ATOMIC_SEQ_CST) > 1) sched_yield();
+
+	proc->nomorethreads = false;
+}
+
 static void yield(context_t *context) {
 	thread_t *thread = _cpu()->thread;
 
