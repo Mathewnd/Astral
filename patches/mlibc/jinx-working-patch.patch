@@ -188,10 +188,10 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..2e216f9
+index 0000000..fce0f3b
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -0,0 +1,587 @@
+@@ -0,0 +1,594 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -320,6 +320,12 @@ index 0000000..2e216f9
 +		struct sigaction *__restrict) {
 +		mlibc::infoLogger() << "mlibc: sigaction is a stub" << frg::endlog;
 +		return 0;
++	}
++
++	int sys_futex_tid() {
++		long ret;
++		syscall(SYSCALL_GETTID, &ret);
++		return ret;
 +	}
 +
 +	#ifndef MLIBC_BUILDING_RTLD
@@ -687,17 +693,18 @@ index 0000000..2e216f9
 +		return syscall(SYSCALL_ARCHCTL, &r, ARCH_CTL_FSBASE, (uint64_t)pointer);
 +	}
 +
++	#define FUTEX_WAIT 0
++	#define FUTEX_WAKE 1
++
 +	int sys_futex_wait(int *pointer, int expected, const struct timespec *time) {
-+		mlibc::infoLogger() << "mlibc: futex wait is a stub" << frg::endlog;
-+		// TODO UNSTUB
-+		return 0;
++		long ret;
++		return syscall(SYSCALL_FUTEX, &ret, (uint64_t)pointer, FUTEX_WAIT, expected, (uint64_t)time);
 +	}
++
 +	int sys_futex_wake(int *pointer) {
-+		mlibc::infoLogger() << "mlibc: futex wake is a stub" << frg::endlog;
-+		// TODO UNSTUB
-+		return 0;
++		long ret;
++		return syscall(SYSCALL_FUTEX, &ret, (uint64_t)pointer, FUTEX_WAKE, INT_MAX, NULL);
 +	}
-+	
 +
 +	int sys_anon_allocate(size_t size, void **pointer) {
 +		size += 4096 - (size % 4096);
@@ -798,10 +805,10 @@ index 0000000..990eca0
 +#endif
 diff --git mlibc-workdir/sysdeps/astral/include/astral/syscall.h mlibc-workdir/sysdeps/astral/include/astral/syscall.h
 new file mode 100644
-index 0000000..a733e60
+index 0000000..c57a0fa
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/include/astral/syscall.h
-@@ -0,0 +1,74 @@
+@@ -0,0 +1,76 @@
 +#ifndef _SYSCALL_H_INCLUDE
 +#define _SYSCALL_H_INCLUDE
 +
@@ -856,6 +863,8 @@ index 0000000..a733e60
 +#define SYSCALL_ACCEPT 48
 +#define SYSCALL_NEWTHREAD 49
 +#define SYSCALL_THREADEXIT 50
++#define SYSCALL_FUTEX 51
++#define SYSCALL_GETTID 52
 +
 +#include <stddef.h>
 +#include <stdint.h>

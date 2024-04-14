@@ -50,6 +50,8 @@ extern syscall_connect
 extern syscall_accept
 extern syscall_newthread
 extern syscall_threadexit
+extern syscall_futex
+extern syscall_gettid
 syscalltab:
 dq syscall_print
 dq syscall_mmap
@@ -102,7 +104,9 @@ dq syscall_connect
 dq syscall_accept
 dq syscall_newthread
 dq syscall_threadexit
-syscallcount equ 51
+dq syscall_futex
+dq syscall_gettid
+syscallcount equ 53
 section .text
 global arch_syscall_entry
 ; on entry:

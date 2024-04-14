@@ -4,7 +4,7 @@
 
 #ifdef SYSCALL_LOGGING
 
-#define SYSCALL_COUNT 48
+#define SYSCALL_COUNT 53
 #define LOGSTR(x) arch_e9_puts(x)
 
 static char *name[] = {
@@ -56,7 +56,11 @@ static char *name[] = {
 	"recvmsg",
 	"listen",
 	"connect",
-	"accept"
+	"accept",
+	"newthread",
+	"threadexit",
+	"futex",
+	"gettid"
 };
 
 static char *args[] = {
@@ -108,7 +112,11 @@ static char *args[] = {
 	"fd %d msghdr %p flags %d", // recvmsg
 	"fd %d backlog %d", // listen
 	"fd %d addr %p addrlen %lu", // connect
-	"fd %d addr %p addrlen %p" // accept
+	"fd %d addr %p addrlen %p", // accept
+	"entry %p stack %p", // newthread
+	"N/A", // threadexit
+	"futex %p op %d value %d timespec %p", // futex
+	"N/A" // gettid
 };
 
 #endif
