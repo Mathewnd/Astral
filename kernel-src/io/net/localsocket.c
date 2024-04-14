@@ -365,8 +365,6 @@ static int localsock_accept(socket_t *_server, socket_t *_clientconnection, sock
 	clientconnection->pair = pair;
 	pair->server = clientconnection;
 
-	printf("created clientconnection %p\n", clientconnection);
-
 	// signal to the client that they can start sending data now
 	poll_event(&pair->client->socket.pollheader, POLLOUT);
 
@@ -591,7 +589,6 @@ static void localsock_destroy(socket_t *socket) {
 			peerp = &pair->server;
 			ourp = &pair->client;
 		} else {
-			printf("self: %p server: %p client: %p\n", socket, pair->server, pair->client);
 			__assert(!"freeing socket which is neither client nor server");
 		}
 
