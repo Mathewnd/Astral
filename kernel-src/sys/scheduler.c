@@ -270,6 +270,21 @@ void sched_procexit() {
 		semaphore_signal(&sched_initproc->waitsem);
 }
 
+static void threadexit_internal(context_t *) {
+	thread_t *thread = _cpu()->thread;
+	// we don't need to access the current thread anymore, as any state will be ignored and we are running on the scheduler stack
+	// as well as not being preempted at all
+	_cpu()->thread = NULL;
+
+	thread->flags |= SCHED_THREAD_FLAGS_DEAD;
+
+	// because a thread deallocating its own data is a nightmare, thread deallocation and such will be left to whoever frees the proc it's tied to
+	// (likely an exit(2) call)
+	// FIXME this doesn't apply to kernel threads and something should be figured out for them
+
+	sched_stopcurrentthread();
+}
+
 __attribute__((noreturn)) void sched_threadexit() {
 	thread_t *thread = _cpu()->thread;
 	proc_t *proc = thread->proc;
@@ -290,13 +305,8 @@ __attribute__((noreturn)) void sched_threadexit() {
 	}
 
 	interrupt_set(false);
-	_cpu()->thread = NULL;
-
-	// because a thread deallocating its own data is a nightmare, thread deallocation and such will be left to whoever frees the proc it's tied to
-	// (likely an exit(2) call)
-	// FIXME this doesn't apply to kernel threads and something should be figured out for them
-
-	sched_stopcurrentthread();
+	arch_context_saveandcall(threadexit_internal, _cpu()->schedulerstack);
+	__builtin_unreachable();
 }
 
 // called right before going back to userspace in places like the syscall handler or arch_context_switch
@@ -323,6 +333,7 @@ void sched_stopotherthreads() {
 
 		proc->threads[i]->shouldexit = true;
 		sched_wakeup(proc->threads[i], SCHED_WAKEUP_REASON_INTERRUPTED);
+		proc->threads[i] = NULL;
 	}
 
 	spinlock_release(&proc->lock);

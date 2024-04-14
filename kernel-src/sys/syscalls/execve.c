@@ -115,7 +115,7 @@ syscallret_t syscall_execve(context_t *context, char *upath, char *uargv[], char
 
 	ret.ret = 0;
 
-	// close CLOEXEC fds
+	// TODO close CLOEXEC fds
 
 	sched_stopotherthreads();
 

@@ -48,6 +48,8 @@ extern syscall_recvmsg
 extern syscall_listen
 extern syscall_connect
 extern syscall_accept
+extern syscall_newthread
+extern syscall_threadexit
 syscalltab:
 dq syscall_print
 dq syscall_mmap
@@ -98,7 +100,9 @@ dq syscall_recvmsg
 dq syscall_listen
 dq syscall_connect
 dq syscall_accept
-syscallcount equ 49
+dq syscall_newthread
+dq syscall_threadexit
+syscallcount equ 51
 section .text
 global arch_syscall_entry
 ; on entry:
