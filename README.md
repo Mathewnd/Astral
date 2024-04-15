@@ -18,7 +18,6 @@ Astral is a 64 bit operating system with its own kernel written in C for the x86
 
 - TCP
 - X.org port
-- PS/2 mouse driver
 - Quake
 
 ## Building
