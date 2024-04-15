@@ -15,6 +15,7 @@
 #define DEV_MAJOR_E9 8
 #define DEV_MAJOR_URANDOM 9
 #define DEV_MAJOR_NET 10
+#define DEV_MAJOR_MOUSE 11
 
 typedef struct {
 	int (*open)(int minor, int flags);

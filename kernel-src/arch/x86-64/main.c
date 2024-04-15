@@ -34,6 +34,7 @@
 #include <kernel/virtio.h>
 #include <kernel/net.h>
 #include <kernel/sock.h>
+#include <kernel/mouse.h>
 
 static cpu_t bsp_cpu;
 
@@ -79,6 +80,7 @@ void kernel_entry() {
 	arch_e9_initdev();
 	pci_init();
 	keyboard_init();
+	mouse_init();
 	arch_ps2_init();
 	fb_init();
 	nvme_init();

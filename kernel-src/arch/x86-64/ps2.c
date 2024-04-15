@@ -1,6 +1,7 @@
 #include <arch/ps2.h>
-#include <printf.h>
+#include <logging.h>
 #include <arch/ps2kbd.h>
+#include <arch/ps2mouse.h>
 
 static bool reset_selftest(int port) {
 	uint8_t r = RESEND;
@@ -17,10 +18,11 @@ static bool reset_selftest(int port) {
 		timeout = true;
 
 	if (!timeout) {
-		if (read_data() != DEVICE_SELFTEST_OK)
+		if (read_data() != DEVICE_SELFTEST_OK) {
 			printf("ps2: %s port device self test failed!\n", port == 1 ? "First" : "Second");
-		else
+		} else {
 			return true;
+		}
 	}
 
 	return false;
@@ -116,4 +118,6 @@ void arch_ps2_init() {
 	// XXX should id each one for proper identification
 	if (connectedflag & 1)
 		ps2kbd_init();
+	if (connectedflag & 2)
+		ps2mouse_init();
 }

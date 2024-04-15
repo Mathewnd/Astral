@@ -15,9 +15,10 @@
 #define IPL_IGNORE  -1
 #define IPL_MAX 0
 #define IPL_TIMER 1
-#define IPL_KEYBOARD 2
 #define IPL_NET 400
 #define IPL_DISK 500
+#define IPL_KEYBOARD 600
+#define IPL_MOUSE 650
 #define IPL_DPC 900
 #define IPL_NORMAL 1000
 
