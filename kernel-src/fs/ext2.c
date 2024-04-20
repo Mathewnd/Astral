@@ -1693,6 +1693,10 @@ static int ext2_mount(vfs_t **vfs, vnode_t *mountpoint, vnode_t *backing, void *
 	return err;
 }
 
+static int ext2_rename(vnode_t *source, char *oldname, vnode_t *target, char *newname, int flags) {
+	return ENOSYS;
+}
+
 static vfsops_t vfsops = {
 	.mount = ext2_mount,
 	.root = ext2_root
@@ -1717,7 +1721,8 @@ static vops_t vnops = {
 	.mmap = ext2_mmap,
 	.munmap = ext2_munmap,
 	.unlink = ext2_unlink,
-	.inactive = ext2_inactive
+	.inactive = ext2_inactive,
+	.rename = ext2_rename
 };
 
 void ext2_init() {
