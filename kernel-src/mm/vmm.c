@@ -303,6 +303,7 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 		return false;
 
 	MUTEX_ACQUIRE(&space->pflock, false);
+	MUTEX_ACQUIRE(&space->lock, false);
 	vmmrange_t *range = getrange(space, addr);
 
 	bool status = false;
@@ -369,6 +370,7 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 	}
 
 	cleanup:
+	MUTEX_RELEASE(&space->lock);
 	MUTEX_RELEASE(&space->pflock);
 	return status;
 }
