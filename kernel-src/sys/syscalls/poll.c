@@ -73,7 +73,7 @@ syscallret_t syscall_poll(context_t *, pollfd_t *fds, size_t nfds, int timeoutms
 	if (eventcount == 0 && timeoutms != 0) {
 		ret.errno = poll_dowait(&desc, (timeoutms == -1 ? 0 : timeoutms) * 1000);
 		if (ret.errno == 0 && desc.event) {
-			int fd = ((uintptr_t)desc.event - (uintptr_t)desc.data) / sizeof(pollfd_t);
+			int fd = ((uintptr_t)desc.event - (uintptr_t)desc.data) / sizeof(polldata_t);
 			fdsbuff[fd].revents = desc.data[fd].revents;
 			eventcount = 1;
 		}
