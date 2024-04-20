@@ -173,6 +173,9 @@ static int ioctl(int minor, unsigned long request, void *arg, int *result){
                 return ENODEV;
 
         switch (request) {
+		case FBIOBLANK:
+		case FBIOPUT_VSCREENINFO:
+			break;
 		case FBIOGET_FSCREENINFO:
 			*(fixinfo_t *)arg = fixinfos[minor];
 			break;
