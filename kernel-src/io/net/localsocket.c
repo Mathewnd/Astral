@@ -699,6 +699,22 @@ static int localsock_bind(socket_t *socket, sockaddr_t *addr) {
 	return error;
 }
 
+static size_t localsocket_datacount(socket_t *socket) {
+	localsocket_t *localsocket = (localsocket_t *)socket;
+	size_t nbytes = 0;
+	MUTEX_ACQUIRE(&socket->mutex, false);
+	if (localsocket->pair == NULL) 
+		goto cleanup;
+
+	MUTEX_ACQUIRE(&localsocket->pair->mutex, false);
+	nbytes = RINGBUFFER_DATACOUNT(&localsocket->ringbuffer);
+	MUTEX_RELEASE(&localsocket->pair->mutex);
+
+	cleanup:
+	MUTEX_RELEASE(&socket->mutex);
+	return nbytes;
+}
+
 // only called on vnode remove (vfs_inactive)
 void localsock_leavebinding(vnode_t *vnode) {
 	binding_t *binding = vnode->socketbinding;
@@ -724,7 +740,8 @@ static socketops_t socketops = {
 	.send = localsock_send,
 	.recv = localsock_recv,
 	.destroy = localsock_destroy,
-	.poll = localsock_poll
+	.poll = localsock_poll,
+	.datacount = localsocket_datacount
 };
 
 socket_t *localsock_createsocket() {
