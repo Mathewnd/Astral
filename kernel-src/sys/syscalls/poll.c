@@ -48,11 +48,11 @@ syscallret_t syscall_poll(context_t *, pollfd_t *fds, size_t nfds, int timeoutms
 	size_t eventcount = 0;
 
 	for (uintmax_t i = 0; i < nfds; ++i) {
+		fdsbuff[i].revents = 0;
+
 		// negative fds are ignored and return nothing
-		if (fdsbuff[i].fd < 0) {
-			fdsbuff[i].revents = 0;
+		if (fdsbuff[i].fd < 0)
 			continue;
-		}
 
 		file_t *file = fd_get(fdsbuff[i].fd);
 		if (file == NULL) {

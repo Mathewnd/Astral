@@ -10,6 +10,11 @@ syscallret_t syscall_utimensat(context_t *, int fd, char *upath, timespec_t uts[
 		.ret = -1
 	};
 
+	if (flags != 0) {
+		ret.errno = EINVAL;
+		return ret;
+	}
+
 	timespec_t ts[2];
 	if (uts == NULL)
 		ts[0] = ts[1] = timekeeper_time();
