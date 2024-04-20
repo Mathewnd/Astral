@@ -9,7 +9,7 @@ Astral is a 64 bit operating system with its own kernel written in C for the x86
 - SMP capable preemptible kernel
 - Networking (UDP, DHCP)
 - POSIX compatibility
-- Ports: mlibc, gcc, bash, doomgeneric, vim, nano and more
+- Ports: mlibc, X.org, gcc, bash, doomgeneric, vim, nano and more
 - Filesystems: tmpfs, devfs, ext2
 - Block devices: NVMe, virtio-block
 - Network devices: virtio-net
@@ -17,7 +17,6 @@ Astral is a 64 bit operating system with its own kernel written in C for the x86
 ## Current Goals
 
 - TCP
-- X.org port
 - Quake
 
 ## Building
