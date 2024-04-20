@@ -140,12 +140,12 @@ void poll_event(pollheader_t *header, int events) {
 		spinlock_acquire(&desc->eventlock);
 		int revents = iterator->events & events;
 
-		if (spinlock_try(&desc->lock) == false || spinlock_try(&desc->wakeuplock) == false) {
+		if (revents == 0 || spinlock_try(&desc->lock) == false || spinlock_try(&desc->wakeuplock) == false) {
 			removefromlist(&pending, iterator);
 			insertinheader(header, iterator);
 		}
 
-		if (revents && desc->event == NULL) {
+		if (desc->event == NULL) {
 			iterator->revents = revents;
 			desc->event = iterator;
 		}
