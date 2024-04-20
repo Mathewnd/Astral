@@ -1,0 +1,9 @@
+name=libice
+version=1.0.10
+source_method=tarball
+tarball_url="https://www.x.org/archive/individual/lib/libICE-${version}.tar.gz"
+tarball_sha512="2d4757f7325eb01180b5d7433cc350eb9606bd3afe82dabc8aa164feda75ef03a0624d74786e655c536c24a80d0ccb2f1e3ecbb04d3459b23f85455006ca8a91"
+hostdeps="autoconf automake util-macros pkgconfig libtool"
+regenerate() {
+        autoreconf -fvi
+}

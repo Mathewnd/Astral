@@ -1,0 +1,15 @@
+name=pixman
+revision=1
+from_source=pixman
+imagedeps="meson ninja gcc"
+hostdeps="xgcc xbinutils pkgconfig"
+deps="mlibc"
+
+build() {
+	meson --cross-file=${base_dir}/util/crossfile --prefix=${prefix} ${source_dir}
+	ninja
+}
+
+package() {
+	DESTDIR=${dest_dir} ninja install
+}

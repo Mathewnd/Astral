@@ -1,0 +1,15 @@
+name=libxrandr
+revision=1
+from_source=libxrandr
+imagedeps="gcc"
+hostdeps="xgcc xbinutils pkgconfig util-macros"
+deps="mlibc libx11 xorgproto util-macros libxext libxrender"
+
+build() {
+	${source_dir}/configure --prefix=${prefix} --host=x86_64-astral --disable-malloc0returnsnull
+	make -j${parallelism}
+}
+
+package() {
+	make DESTDIR=${dest_dir} install
+}

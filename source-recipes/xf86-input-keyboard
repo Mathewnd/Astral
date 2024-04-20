@@ -1,0 +1,9 @@
+name=xf86-input-keyboard
+version=2.0.0
+source_method=tarball
+tarball_url="https://xorg.freedesktop.org/archive/individual/driver/xf86-input-keyboard-${version}.tar.gz"
+tarball_sha512=2243d6b93315c0fdd97e57f62f86fcb26117a512817bfee0a5af76f686d5f8a5c8ea7b3f4e543e2d8ffc8d52129b6b575b9dc2a59e42fa8b23d8ba223544715a
+hostdeps="autoconf automake libtool pkgconfig util-macros"
+regenerate() {
+        autoreconf -fvi
+}

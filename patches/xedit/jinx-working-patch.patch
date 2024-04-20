@@ -1,0 +1,38 @@
+diff --git xedit-clean/lisp/mathimp.c xedit-workdir/lisp/mathimp.c
+index 0433968..3734efb 100644
+--- xedit-clean/lisp/mathimp.c
++++ xedit-workdir/lisp/mathimp.c
+@@ -29,6 +29,7 @@
+ 
+ /* $XFree86: xc/programs/xedit/lisp/mathimp.c,v 1.14tsi Exp $ */
+ 
++int finite(double);
+ 
+ /*
+  * Defines
+diff --git xedit-clean/lisp/mp/mpi.c xedit-workdir/lisp/mp/mpi.c
+index 7fcc30e..6984f09 100644
+--- xedit-clean/lisp/mp/mpi.c
++++ xedit-workdir/lisp/mp/mpi.c
+@@ -29,6 +29,8 @@
+ 
+ /* $XFree86: xc/programs/xedit/lisp/mp/mpi.c,v 1.12 2002/11/20 07:44:43 paulo Exp $ */
+ 
++int finite(double);
++
+ #include "mp.h"
+ 
+ #if defined(__UNIXOS2__) || defined(__APPLE__)
+diff --git xedit-clean/lisp/read.c xedit-workdir/lisp/read.c
+index 4103736..8898b1b 100644
+--- xedit-clean/lisp/read.c
++++ xedit-workdir/lisp/read.c
+@@ -29,6 +29,8 @@
+ 
+ /* $XFree86: xc/programs/xedit/lisp/read.c,v 1.36tsi Exp $ */
+ 
++int finite(double);
++
+ #include <errno.h>
+ #include "lisp/read.h"
+ #include "lisp/package.h"

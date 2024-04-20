@@ -1,0 +1,15 @@
+name=libxext
+revision=1
+from_source=libxext
+imagedeps="meson ninja base-devel"
+hostdeps="xgcc xbinutils pkgconfig"
+deps="mlibc libx11"
+
+build() {
+	${source_dir}/configure --prefix=${prefix} --host=x86_64-astral --enable-shared --disable-static --disable-malloc0returnsnull
+	make -j${parallelism}
+}
+
+package() {
+	make DESTDIR=${dest_dir} install
+}

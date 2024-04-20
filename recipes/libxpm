@@ -1,0 +1,15 @@
+name=libxpm
+revision=1
+from_source=libxpm
+imagedeps="meson ninja base-devel"
+hostdeps="xgcc xbinutils pkgconfig"
+deps="mlibc libx11 libxt libxext libxmu libxrender"
+
+build() {
+	${source_dir}/configure --prefix=${prefix} --host=x86_64-astral --enable-shared --disable-static
+	make -j${parallelism}
+}
+
+package() {
+	make DESTDIR=${dest_dir} install
+}

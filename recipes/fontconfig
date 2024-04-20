@@ -1,0 +1,15 @@
+name=fontconfig
+revision=1
+from_source=fontconfig
+imagedeps="base-devel python3 gperf"
+hostdeps="xgcc xbinutils pkgconfig"
+deps="mlibc freetype libexpat"
+
+build() {
+	${source_dir}/configure --prefix=${prefix} --host=x86_64-astral --enable-shared --disable-static
+	make -j${parallelism}
+}
+
+package() {
+	make DESTDIR=${dest_dir} install
+}

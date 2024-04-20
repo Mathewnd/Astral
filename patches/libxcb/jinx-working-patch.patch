@@ -1,0 +1,12 @@
+diff --git libxcb-clean/configure.ac libxcb-workdir/configure.ac
+index 4198a50..d583696 100644
+--- libxcb-clean/configure.ac
++++ libxcb-workdir/configure.ac
+@@ -54,6 +54,7 @@ PKG_CHECK_MODULES(XCBPROTO, xcb-proto >= 1.14)
+ NEEDED="xau >= 0.99.2"
+ case $host_os in
+ linux*) ;;
++astral*) ;;
+      *) NEEDED="$NEEDED pthread-stubs" ;;
+ esac
+ PKG_CHECK_MODULES(NEEDED, $NEEDED)

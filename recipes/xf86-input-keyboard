@@ -1,0 +1,15 @@
+name=xf86-input-keyboard
+revision=1
+from_source=xf86-input-keyboard
+imagedeps="gcc"
+hostdeps="xgcc xbinutils pkgconfig automake autoconf util-macros libtool"
+deps="mlibc xorg-server"
+
+build() {
+	SYSROOT=${sysroot_dir} ${source_dir}/configure --prefix=${prefix} --host=x86_64-astral --disable-static
+	make -j${parallelism}
+}
+
+package() {
+	make DESTDIR=${dest_dir} install
+}

@@ -188,7 +188,7 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..fce0f3b
+index 0000000..3d53e6b
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
 @@ -0,0 +1,594 @@
@@ -399,7 +399,7 @@ index 0000000..fce0f3b
 +	}
 +
 +	int sys_rename(const char *path, const char *new_path) {
-+		sys_renameat(AT_FDCWD, path, AT_FDCWD, new_path);
++		return sys_renameat(AT_FDCWD, path, AT_FDCWD, new_path);
 +	}
 +
 +	int sys_utimensat(int dirfd, const char *pathname, const struct timespec times[2], int flags) {

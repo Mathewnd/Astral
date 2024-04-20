@@ -1,0 +1,15 @@
+name=libxt
+revision=1
+from_source=libxt
+imagedeps="meson ninja base-devel"
+hostdeps="xgcc xbinutils pkgconfig util-macros"
+deps="mlibc xorgproto libx11 libice libsm"
+
+build() {
+	${source_dir}/configure --prefix=${prefix} --host=x86_64-astral --enable-shared --disable-static --disable-malloc0returnsnull
+	make -j${parallelism}
+}
+
+package() {
+	make DESTDIR=${dest_dir} install
+}

@@ -1,0 +1,17 @@
+name=libfontenc
+revision=1
+from_source=libfontenc
+imagedeps="gcc"
+hostdeps="xgcc xbinutils pkgconfig util-macros"
+deps="mlibc zlib xorgproto"
+
+build() {
+	${source_dir}/configure --prefix=${prefix} --host=x86_64-astral
+	make -j${parallelism}
+}
+
+package() {
+
+	make install DESTDIR=${dest_dir}
+
+}

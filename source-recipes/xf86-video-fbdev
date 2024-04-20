@@ -1,0 +1,9 @@
+name=xf86-video-fbdev
+version=0.5.0
+source_method=tarball
+tarball_url="https://www.x.org/pub/individual/driver/xf86-video-fbdev-${version}.tar.bz2"
+tarball_sha512="c1217b943bbe3301b3c2a8649ed1004c3c67b02607bd56bbc14f6dfa05e7f0184332c81a6a19595514745501ed88526aee932e555779b7c3a8233646b0979448"
+hostdeps="autoconf automake libtool pkgconfig util-macros"
+regenerate() {
+        autoreconf -fvi
+}

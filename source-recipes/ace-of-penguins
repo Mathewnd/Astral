@@ -1,0 +1,9 @@
+name=ace-of-penguins
+version=1.4
+source_method=tarball
+tarball_url="https://www.delorie.com/store/ace/ace-1.4.tar.gz"
+tarball_sha512=cd382db95dc17d75a76809c7f1e096e14f5863c1166aa5db7f93204ce949a9ed21979212946b9d3a09667f4a93b30f4cc44a220940f9b5dd8996f28ecb4a6dcc
+hostdeps="autoconf automake util-macros pkgconfig libtool"
+regenerate() {
+        autoreconf -fvi
+}

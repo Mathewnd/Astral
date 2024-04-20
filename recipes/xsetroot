@@ -1,0 +1,15 @@
+name=xsetroot
+revision=1
+from_source=xsetroot
+imagedeps="meson ninja base-devel"
+hostdeps="xgcc xbinutils pkgconfig"
+deps="mlibc xorg-server libxmu xbitmaps libxcursor"
+
+build() {
+	${source_dir}/configure --prefix=${prefix} --host=x86_64-astral
+	make -j${parallelism}
+}
+
+package() {
+	make DESTDIR=${dest_dir} install
+}

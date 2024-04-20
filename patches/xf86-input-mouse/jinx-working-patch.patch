@@ -1,0 +1,146 @@
+diff --git xf86-input-mouse-clean/configure.ac xf86-input-mouse-workdir/configure.ac
+index 6c453cd..e27bdcb 100644
+--- xf86-input-mouse-clean/configure.ac
++++ xf86-input-mouse-workdir/configure.ac
+@@ -84,6 +84,9 @@ case $host_os in
+   gnu*)
+     OS_MOUSE_NAME=hurd
+     ;;
++  astral*)
++    OS_MOUSE_NAME=astral
++    ;;
+ esac
+ AC_SUBST([OS_MOUSE_NAME])
+ 
+diff --git xf86-input-mouse-workdir/src/astral_mouse.c xf86-input-mouse-workdir/src/astral_mouse.c
+new file mode 100644
+index 0000000..49644ac
+--- /dev/null
++++ xf86-input-mouse-workdir/src/astral_mouse.c
+@@ -0,0 +1,126 @@
++#ifdef HAVE_XORG_CONFIG_H
++#include <xorg-config.h>
++#endif
++
++#include <xorg-server.h>
++#include <X11/X.h>
++#include <X11/Xproto.h>
++#include "inputstr.h"
++#include "scrnintstr.h"
++#include "mipointer.h"
++
++#include "xf86.h"
++#include "xf86Xinput.h"
++#include "mouse.h"
++#include "xf86_OSlib.h"
++#include "xisb.h"
++
++#include <stdio.h>
++#include <errno.h>
++#include <stdbool.h>
++
++#include <sys/stat.h>
++
++
++#define MOUSE_FLAG_RB 1
++#define MOUSE_FLAG_MB 2
++#define MOUSE_FLAG_LB 4
++#define MOUSE_FLAG_B4 8
++#define MOUSE_FLAG_B5 16
++
++
++typedef struct {
++        int flags;
++        int x,y,z;
++} mousepacket_t;
++
++static void astralReadInput(InputInfoPtr pInfo){
++	MouseDevPtr mouse = pInfo->private;
++	mousepacket_t packet;
++
++	while(read(pInfo->fd, &packet, sizeof(packet)) == sizeof(packet)){
++		int b = mouse->lastButtons;
++		b &= ~0x7;
++		b |= (packet.flags & MOUSE_FLAG_RB) ? 1 : 0;
++		b |= (packet.flags & MOUSE_FLAG_MB) ? 2 : 0;
++		b |= (packet.flags & MOUSE_FLAG_LB) ? 4 : 0;
++
++		mouse->PostEvent(pInfo, b, packet.x, -packet.y, packet.z, 0);
++	}
++	
++}
++
++static Bool astralPreInit(InputInfoPtr pInfo, const char* proto, int flag){
++	
++	MouseDevPtr mouse;
++	
++	mouse = pInfo->private;
++
++	mouse->protocol = proto;
++	
++	xf86ProcessCommonOptions(pInfo, pInfo->options);
++
++	pInfo->fd = xf86OpenSerial(pInfo->options);
++	if(pInfo->fd == -1){
++		xf86Msg(X_ERROR, "%s: cannot open mouse device!\n", pInfo->name);
++		return FALSE;
++	}
++	
++	mouse->CommonOptions(pInfo);
++	pInfo->read_input = astralReadInput;	
++	return true;
++
++
++}
++
++#define DEVPATH "/dev/mouse"
++
++static const char* getdevice(InputInfoPtr pInfo, const char* proto, int flag){
++	
++	struct stat st;
++
++	if(stat(DEVPATH, &st) == -1)
++		return NULL;
++
++	pInfo->options = xf86AddNewOption(pInfo->options, "Device", DEVPATH);
++	
++	return DEVPATH;
++
++}
++
++static int interfacesupport(){
++	return MSE_PS2;
++}
++
++static const char* names[] = {
++	"AstralMouseDev", NULL
++};
++
++static const char** protonames(){
++	return names;
++}
++
++static const char* defaultproto(){
++	return "AstralMouseDev";
++}
++
++static Bool isdefault(const char *protocol){
++	return strcmp(protocol, defaultproto()) == 0;
++}
++
++OSMouseInfoPtr OSMouseInit(int flag){
++	OSMouseInfoPtr p;
++
++	p = calloc(sizeof(OSMouseInfoRec), 1);
++
++	if (!p)
++	return NULL;
++	p->SupportedInterfaces = interfacesupport;
++	p->BuiltinNames = protonames;
++	p->FindDevice = getdevice;
++	p->DefaultProtocol = defaultproto;
++	p->CheckProtocol = isdefault;
++	p->PreInit = astralPreInit;
++	return p;
++}
++

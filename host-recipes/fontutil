@@ -1,0 +1,17 @@
+name=fontutil
+revision=1
+from_source=fontutil
+imagedeps="gcc"
+hostdeps="xgcc xbinutils pkgconfig util-macros xorgproto"
+
+
+build() {
+	${source_dir}/configure --prefix=${prefix}
+	make -j${parallelism}
+}
+
+package() {
+
+	make install DESTDIR=${dest_dir}
+
+}

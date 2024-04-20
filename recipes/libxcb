@@ -1,0 +1,15 @@
+name=libxcb
+revision=1
+from_source=libxcb
+imagedeps="python gcc"
+hostdeps="xgcc xbinutils pkgconfig util-macros libtool autoconf automake"
+deps="mlibc xorgproto libXau libXdmcp xcb-proto"
+
+build() {
+	${source_dir}/configure --host=x86_64-astral --prefix=${prefix} --disable-static --with-sysroot=${sysroot_dir}
+	make -j ${parallelism}
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+}

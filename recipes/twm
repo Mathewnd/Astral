@@ -1,0 +1,15 @@
+name=twm
+revision=1
+from_source=twm
+imagedeps="base-devel"
+hostdeps="xgcc xbinutils pkgconfig"
+deps="mlibc xorg-server xsetroot"
+
+build() {
+	${source_dir}/configure --prefix=${prefix} --host=x86_64-astral
+	make -j${parallelism}
+}
+
+package() {
+	make DESTDIR=${dest_dir} install
+}

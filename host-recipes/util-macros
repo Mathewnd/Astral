@@ -1,0 +1,16 @@
+name=util-macros
+revision=1
+from_source=util-macros
+imagedeps="base-devel"
+hostdeps="xgcc xbinutils pkgconfig"
+deps="mlibc"
+
+
+build() {
+	${source_dir}/configure --host=x86_64-astral --prefix=${prefix}
+	make -j ${parallelism}
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+}

@@ -1,0 +1,9 @@
+name=xclock
+version=1.1.1
+source_method=tarball
+tarball_url="https://www.x.org/pub/individual/app/xclock-${version}.tar.xz"
+tarball_sha512="059ea986bc7537c2796e8855676e8357bd8a7852fbac0839b3f8a9e3ffa088de41bc4e4961973353f0a7b7293366b81bc764d74f3dc4e90e361da06185d976e7"
+hostdeps="autoconf automake util-macros pkgconfig libtool"
+regenerate() {
+        autoreconf -fvi
+}

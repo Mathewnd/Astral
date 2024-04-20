@@ -1,0 +1,15 @@
+name=xtrans
+revision=1
+from_source=xtrans
+imagedeps="meson ninja gcc"
+hostdeps="xgcc xbinutils pkgconfig util-macros"
+deps="mlibc"
+
+build() {
+	${source_dir}/configure --prefix=${prefix} --host=x86_64-astral 
+	make -j${parallelism}
+}
+
+package() {
+	DESTDIR=${dest_dir} make install
+}

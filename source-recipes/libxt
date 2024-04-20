@@ -1,0 +1,9 @@
+name=libxt
+version=1.2.1
+source_method=tarball
+tarball_url="https://www.x.org/archive/individual/lib/libXt-${version}.tar.gz"
+tarball_sha512="73c2fd8a6590ab5ee93cf646e4f41fb71d424961ecbf9bc13c68abdf539c63ab0c59a4d3b22195ba21859523f4cf0e937648424532794a1350a5891061096503"
+hostdeps="autoconf automake util-macros pkgconfig libtool"
+regenerate() {
+        autoreconf -fvi
+}

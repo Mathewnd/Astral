@@ -1,0 +1,26 @@
+diff --git xclock-clean/Clock.c xclock-workdir/Clock.c
+index de6beb6..6d726ef 100644
+--- xclock-clean/Clock.c
++++ xclock-workdir/Clock.c
+@@ -1292,7 +1292,7 @@ static void
+ round_time(float _update, struct tm *tm, struct timeval *tv)
+ {
+     /* interval in milliseconds */
+-    unsigned long update = (int) (_update * 1000.0 + 0.5);
++    unsigned long update = roundf(_update * 1000.0 + 0.5);
+ 
+     /* compute milliseconds since midnight */
+     unsigned long old_secs = time_seconds(tm);
+diff --git xclock-clean/configure.ac xclock-workdir/configure.ac
+index 7d9847b..e15fecd 100644
+--- xclock-clean/configure.ac
++++ xclock-workdir/configure.ac
+@@ -41,8 +41,6 @@ XORG_DEFAULT_OPTIONS
+ 
+ AC_CHECK_FUNCS([strlcpy getpid nl_langinfo])
+ 
+-AM_ICONV
+-
+ dnl Required dependencies
+ PKG_CHECK_MODULES(XCLOCK, [xaw7 xmu x11 xproto >= 7.0.17])
+ XCLOCK_LIBS="$XCLOCK_LIBS $LIBICONV"

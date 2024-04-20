@@ -1,0 +1,15 @@
+name=xev
+revision=1
+from_source=xev
+imagedeps="gcc"
+hostdeps="xgcc xbinutils pkgconfig"
+deps="mlibc libx11 xorgproto libxrandr"
+
+build() {
+	${source_dir}/configure --prefix=${prefix} --host=x86_64-astral
+	make -j${parallelism}
+}
+
+package() {
+	make DESTDIR=${dest_dir} install
+}

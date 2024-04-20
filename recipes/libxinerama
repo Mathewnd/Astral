@@ -1,0 +1,15 @@
+name=libxinerama
+revision=1
+from_source=libxinerama
+imagedeps="gcc"
+hostdeps="xgcc xbinutils pkgconfig util-macros"
+deps="mlibc xorgproto libx11 libxext"
+
+build() {
+	${source_dir}/configure --prefix=${prefix} --host=x86_64-astral --disable-malloc0returnsnull
+	make -j${parallelism}
+}
+
+package() {
+	DESTDIR=${dest_dir} make install
+}

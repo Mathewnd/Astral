@@ -1,0 +1,16 @@
+name=xorgproto
+revision=1
+from_source=xorgproto
+imagedeps="meson ninja gcc"
+hostdeps="xgcc xbinutils pkgconfig"
+deps="mlibc"
+
+build() {
+	meson --cross-file=${base_dir}/util/crossfile --prefix=${prefix} -Dlegacy=true ${source_dir}
+	ninja
+}
+
+package() {
+	DESTDIR=${dest_dir} ninja install
+	rm -v ${dest_dir}/${prefix}/include/X11/extensions/XKBgeom.h # installed by libx11
+}

@@ -1,0 +1,16 @@
+name=libx11
+revision=1
+from_source=libx11
+imagedeps="meson ninja gcc"
+hostdeps="xgcc xbinutils pkgconfig"
+deps="mlibc xorgproto xtrans libxcb"
+
+build() {
+	${source_dir}/configure --prefix=${prefix} --host=x86_64-astral --disable-malloc0returnsnull
+	make -j${parallelism}
+}
+
+package() {
+	DESTDIR=${dest_dir} make install
+
+}
