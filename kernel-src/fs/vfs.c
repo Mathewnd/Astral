@@ -287,6 +287,7 @@ int vfs_lookup(vnode_t **result, vnode_t *start, char *path, char *lastcomp, int
 		}
 
 		if (islast && (flags & VFS_LOOKUP_PARENT)) {
+			__assert(lastcomp);
 			strcpy(lastcomp, component);
 			break;
 		}
