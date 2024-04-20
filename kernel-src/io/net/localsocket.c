@@ -55,7 +55,7 @@ static inline void pushbacklog(localsocket_t *server, localpair_t *pair) {
 static inline localpair_t *popbacklog(localsocket_t *server) {
 	__assert(server->backlogcurrentread < server->backlogcurrentwrite);
 	localpair_t *pair = server->backlog[server->backlogcurrentread];
-	server->backlog[server->backlogcurrentread] = NULL;
+	server->backlog[server->backlogcurrentread++] = NULL;
 	return pair;
 }
 
@@ -556,7 +556,7 @@ static int localsock_listen(socket_t *socket, int backlogsize) {
 
 	MUTEX_ACQUIRE(&localsocket->binding->mutex, false);
 
-	localsocket->backlog = alloc(sizeof(backlogsize) * sizeof(localpair_t));
+	localsocket->backlog = alloc(backlogsize * sizeof(localpair_t *));
 	if (localsocket->backlog == NULL) {
 		MUTEX_RELEASE(&localsocket->binding->mutex);
 		error = ENOMEM;
