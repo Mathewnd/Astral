@@ -172,8 +172,8 @@ int vfs_unlink(vnode_t *ref, char *path);
 int vfs_pollstub(vnode_t *node, struct polldata *, int events);
 void vfs_inactive(vnode_t *node);
 
-#define VFS_LOOKUP_PARENT 1
-#define VFS_LOOKUP_NOLINK 2
+#define VFS_LOOKUP_PARENT 0x20000000
+#define VFS_LOOKUP_NOLINK 0x40000000
 #define VFS_LOOKUP_INTERNAL 0x80000000
 int vfs_lookup(vnode_t **result, vnode_t *start, char *path, char *lastcomp, int flags);
 

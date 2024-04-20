@@ -23,6 +23,7 @@ static mouse_t *newmouse() {
 
 	POLL_INITHEADER(&mouse->pollheader);
 	SPINLOCK_INIT(mouse->lock);
+	MUTEX_INIT(&mouse->readmutex);
 
 	return mouse;
 }
@@ -77,11 +78,7 @@ static int read(int minor, void *buffer, size_t size, uintmax_t offset, int flag
 	if (packetcount == 0)
 		return error;
 
-	// disable interrupts here as to not lose any interrupts
-	// and because we cannot sleep with a raised ipl
-	bool oldintstatus = interrupt_set(false);
-	spinlock_acquire(&mouse->lock);
-
+	MUTEX_ACQUIRE(&mouse->readmutex, false);
 	// wait until there is data to read or return if nonblock
 	for (;;) {
 		polldesc_t desc = {0};
@@ -89,22 +86,33 @@ static int read(int minor, void *buffer, size_t size, uintmax_t offset, int flag
 		if (error)
 			goto leave;
 
+		// disable interrupts here as to not lose any interrupts
+		// and because we cannot sleep with a raised ipl
+		bool oldintstatus = interrupt_set(false);
+		spinlock_acquire(&mouse->lock);
+
 		int revents = internalpoll(mouse, &desc.data[0], POLLIN);
 
 		if (revents) {
+			spinlock_release(&mouse->lock);
+			interrupt_set(oldintstatus);
 			poll_leave(&desc);
 			poll_destroydesc(&desc);
 			break;
 		}
 
 		if (revents == 0 && flags & V_FFLAGS_NONBLOCKING) {
+			spinlock_release(&mouse->lock);
+			interrupt_set(oldintstatus);
+			poll_leave(&desc);
+			poll_destroydesc(&desc);
 			error = EAGAIN;
 			goto leave;
 		}
 
 		spinlock_release(&mouse->lock);
 		error = poll_dowait(&desc, 0);
-		spinlock_acquire(&mouse->lock);
+		interrupt_set(oldintstatus);
 
 		poll_leave(&desc);
 		poll_destroydesc(&desc);
@@ -117,8 +125,7 @@ static int read(int minor, void *buffer, size_t size, uintmax_t offset, int flag
 	__assert(*readc);
 
 	leave:
-	spinlock_release(&mouse->lock);
-	interrupt_set(oldintstatus);
+	MUTEX_RELEASE(&mouse->readmutex);
 
 	return error;
 }
@@ -128,11 +135,15 @@ static int poll(int minor, polldata_t *data, int events) {
 	if (mouse == NULL)
 		return POLLERR;
 
+	MUTEX_ACQUIRE(&mouse->readmutex, false);
+
 	long ipl = interrupt_raiseipl(IPL_MOUSE);
 	spinlock_acquire(&mouse->lock);
 	int revents = internalpoll(mouse, data, events);
 	spinlock_release(&mouse->lock);
 	interrupt_loweripl(ipl);
+
+	MUTEX_RELEASE(&mouse->readmutex);
 
 	return revents;
 }

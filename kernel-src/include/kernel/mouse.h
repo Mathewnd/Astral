@@ -3,6 +3,7 @@
 
 #include <ringbuffer.h>
 #include <kernel/poll.h>
+#include <mutex.h>
 
 #define MOUSE_FLAG_RB 1
 #define MOUSE_FLAG_MB 2
@@ -20,6 +21,7 @@ typedef struct {
 	spinlock_t lock;
 	pollheader_t pollheader;
 	int flags;
+	mutex_t readmutex;
 } mouse_t;
 
 void mouse_init();

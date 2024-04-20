@@ -36,6 +36,7 @@ typedef struct socketops_t {
 	int (*connect)(socket_t *socket, sockaddr_t *addr, uintmax_t data);
 	int (*listen)(socket_t *socket, int backlog);
 	int (*accept)(socket_t *server, socket_t *client, sockaddr_t *addr, uintmax_t flags);
+	size_t (*datacount)(socket_t *socket);
 	void (*destroy)(socket_t *socket);
 } socketops_t;
 

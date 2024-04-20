@@ -137,6 +137,7 @@ typedef struct {
 #define SIOCGIFHWADDR 0x8927
 #define SIOCADDRT 0x890b
 #define SIOCSIFADDR	0x8916
+#define FIONREAD 0x541B
 
 typedef struct {
 	char name[IFNAMSIZ];
