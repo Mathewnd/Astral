@@ -112,7 +112,7 @@ static char *args[] = {
 	"fd %d msghdr %p flags %d", // recvmsg
 	"fd %d backlog %d", // listen
 	"fd %d addr %p addrlen %lu", // connect
-	"fd %d addr %p addrlen %p", // accept
+	"fd %d addr %p addrlen %p flags %x", // accept
 	"entry %p stack %p", // newthread
 	"N/A", // threadexit
 	"futex %p op %d value %d timespec %p", // futex
