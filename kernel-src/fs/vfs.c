@@ -230,7 +230,10 @@ int vfs_lookup(vnode_t **result, vnode_t *start, char *path, char *lastcomp, int
 	size_t pathlen = strlen(path);
 
 	if (pathlen == 0) {
-		__assert((flags & VFS_LOOKUP_PARENT) == 0);
+		if (flags & VFS_LOOKUP_PARENT) {
+			return ENOENT;
+		}
+
 		vnode_t *r = start; 
 		int e = highestnodeinmp(start, &r);
 		if (e)
