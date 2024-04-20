@@ -134,9 +134,20 @@ int sockfs_ioctl(vnode_t *node, unsigned long request, void *arg, int *result) {
 
 			free(dev);
 			return e;
-			default:
-				return EINVAL;
 		}
+			case FIONREAD:
+		{
+			socket_t *socket = SOCKFS_SOCKET_FROM_NODE(node);
+			int *count = arg;
+			if (socket->ops->datacount == NULL)
+				return ENOTTY;
+
+			*count = socket->ops->datacount(socket);
+			printf("count %d\n", *count);
+			return 0;
+		}
+			default:
+				return ENOTTY;
 	}
 	return 0;
 }
