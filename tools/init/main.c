@@ -23,6 +23,7 @@ int main() {
 	setenv("HOME", pw->pw_dir, 1);
 	setenv("PATH", "/bin:/usr/bin:/usr/local/bin:/sbin:/usr/sbin:/usr/local/sbin", 1);
 	setenv("TERM", "linux", 1);
+	setenv("DISPLAY", ":0", 1);
 
 	// run rc to initialize environment (mount filesystems, etc)
 	printf("init: running /etc/rc\n");
