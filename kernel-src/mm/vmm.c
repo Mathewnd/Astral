@@ -395,6 +395,7 @@ void *vmm_map(void *addr, volatile size_t size, int flags, mmuflags_t mmuflags, 
 	if (addr == NULL)
 		addr = KERNELSPACE_START;
 
+	// XXX maps where addr is not page aligned can break
 	addr = (void *)ROUND_DOWN((uintptr_t)addr, PAGE_SIZE);
 	if (flags & VMM_FLAGS_PAGESIZE)
 		size *= PAGE_SIZE;
@@ -482,7 +483,9 @@ void *vmm_map(void *addr, volatile size_t size, int flags, mmuflags_t mmuflags, 
 }
 
 void vmm_unmap(void *addr, size_t size, int flags) {
+	// XXX maps where addr is not page aligned can break
 	addr = (void *)ROUND_DOWN((uintptr_t)addr, PAGE_SIZE);
+
 	if (flags & VMM_FLAGS_PAGESIZE)
 		size *= PAGE_SIZE;
 	else

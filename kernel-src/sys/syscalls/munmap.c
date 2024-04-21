@@ -18,7 +18,7 @@ syscallret_t syscall_munmap(context_t *ctx, void *addr, size_t length) {
 		return ret;
 	}
 
-	vmm_unmap(addr, length / PAGE_SIZE, 0);
+	vmm_unmap(addr, length, 0);
 
 	ret.ret = 0;
 	ret.errno = 0;
