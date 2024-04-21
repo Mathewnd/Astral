@@ -1,0 +1,76 @@
+diff --git tyrquake-clean/Makefile tyrquake-workdir/Makefile
+index 5709a79..9e492f9 100644
+--- tyrquake-clean/Makefile
++++ tyrquake-workdir/Makefile
+@@ -14,12 +14,12 @@ DOC_DIR          ?= doc
+ DIST_DIR         ?= dist
+ DEBUG            ?= N# Compile with debug info
+ OPTIMIZED_CFLAGS ?= Y# Enable compiler optimisations (if DEBUG != Y)
+-USE_X86_ASM      ?= $(I386_GUESS)
+-USE_SDL          ?= N# New (experimental) SDL video/sound/input targets
+-LOCALBASE        ?= /usr/local
++USE_X86_ASM      ?= N
++USE_SDL          ?= Y# New (experimental) SDL video/sound/input targets
++LOCALBASE        ?= /usr/
+ QBASEDIR         ?= .# Default basedir for quake data files (Linux/BSD only)
+-TARGET_OS        ?= $(HOST_OS)
+-TARGET_UNIX      ?= $(if $(filter UNIX,$(TARGET_OS)),$(HOST_UNIX),)
++TARGET_OS        ?= UNIX
++TARGET_UNIX      ?= Astral
+ 
+ # ============================================================================
+ 
+@@ -134,6 +134,10 @@ ifeq ($(TARGET_UNIX),linux)
+ CD_TARGET ?= linux
+ SND_TARGET ?= pulseaudio
+ endif
++ifeq ($(TARGET_UNIX),Astral)
++CD_TARGET ?= null
++SND_TARGET ?= null
++endif
+ endif
+ 
+ ifneq (,$(findstring $(TARGET_OS),WIN32 WIN64))
+@@ -349,9 +353,9 @@ QWSWDIR	= $(BUILD_DIR)/qwsw
+ QWGLDIR	= $(BUILD_DIR)/qwgl
+ QWSVDIR	= $(BUILD_DIR)/qwsv
+ 
+-APPS =	tyr-quake$(EXT) tyr-glquake$(EXT) \
+-	tyr-qwcl$(EXT) tyr-glqwcl$(EXT) \
+-	tyr-qwsv$(EXT)
++APPS =	tyr-quake$(EXT) #tyr-glquake$(EXT) \
++	#tyr-qwcl$(EXT) tyr-glqwcl$(EXT) \
++	#tyr-qwsv$(EXT)
+ 
+ default:	all
+ 
+@@ -936,7 +940,7 @@ CL_CPPFLAGS += -DX11
+ CL_OBJS += x11_core.o vid_x11_common.o
+ SW_OBJS += vid_x.o
+ GL_OBJS += vid_glx.o
+-CL_LIBS += X11 Xext Xxf86vm
++CL_LIBS += X11 Xext Xxf86vm c
+ ifneq ($(X11BASE),)
+ CL_CPPFLAGS += -idirafter $(X11BASE)/include
+ CL_LFLAGS += $(call libdir-check,$(X11BASE)/lib)
+diff --git tyrquake-clean/common/snd_dma.c tyrquake-workdir/common/snd_dma.c
+index 8e4852b..06656c0 100644
+--- tyrquake-clean/common/snd_dma.c
++++ tyrquake-workdir/common/snd_dma.c
+@@ -243,7 +243,7 @@ S_InitAmbients()
+ void
+ S_Init(void)
+ {
+-    if (COM_CheckParm("-nosound"))
++//    if (COM_CheckParm("-nosound"))
+ 	return;
+ 
+     if (COM_CheckParm("-simsound"))
+@@ -279,6 +279,7 @@ S_Init(void)
+ void
+ S_ClearOverflow()
+ {
++    return;
+     S_StopAllSounds(true);
+     struct known_sfx *known = known_sfx->overflow;
+ 

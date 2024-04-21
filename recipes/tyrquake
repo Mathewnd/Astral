@@ -1,0 +1,16 @@
+name=tyrquake
+revision=1
+from_source=tyrquake
+imagedeps="base-devel"
+hostdeps="xgcc xbinutils"
+deps="mlibc libx11 libxext libxxf86vm sdl2"
+
+build() {
+	cp -rp ${source_dir}/* .
+	make -j${parallelism} CC=x86_64-astral-gcc LFLAGS="-lc" V=1 LOCALBASE=${sysroot_dir} SDL_CFLAGS="-I${sysroot_dir}/${prefix}/include/SDL2" SDL_LFLAGS="-lSDL2" DEBUG=Y CD_TARGET=null CFLAGS=-msse2
+}
+
+package() {
+	mkdir -p ${dest_dir}/${prefix}/bin
+	cp -vf bin/* ${dest_dir}/${prefix}/bin/
+}
