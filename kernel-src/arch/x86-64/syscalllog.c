@@ -121,6 +121,7 @@ static char *args[] = {
 
 #endif
 
+extern size_t freepagecount;
 __attribute__((no_caller_saved_registers)) void arch_syscall_log(int syscall, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5, uint64_t a6) {
 #ifdef SYSCALL_LOGGING
 	char argbuff[768];
@@ -130,7 +131,7 @@ __attribute__((no_caller_saved_registers)) void arch_syscall_log(int syscall, ui
 	proc_t *proc = thread->proc;
 
 	snprintf(argbuff, 768, syscall < SYSCALL_COUNT ? args[syscall] : "N/A", a1, a2, a3, a4, a5, a6);
-	snprintf(printbuff, 1024, "\e[92msyscall: pid %d tid %d: %s: %s\n\e[0m", proc->pid, thread->tid, syscall < SYSCALL_COUNT ? name[syscall] : "invalid syscall", argbuff);
+	snprintf(printbuff, 1024, "\e[92msyscall: pid %d tid %d: %s: %s (%lu free pages)\n\e[0m", proc->pid, thread->tid, syscall < SYSCALL_COUNT ? name[syscall] : "invalid syscall", argbuff, freepagecount);
 
 	LOGSTR(printbuff);
 #endif
@@ -143,7 +144,7 @@ __attribute__((no_caller_saved_registers)) void arch_syscall_log_return(uint64_t
 	thread_t *thread = _cpu()->thread;
 	proc_t *proc = thread->proc;
 
-	snprintf(printbuff, 1024, "\e[94msyscall return: pid %d tid %d: %lu %lu\n\e[0m", proc->pid, thread->tid, ret, errno);
+	snprintf(printbuff, 1024, "\e[94msyscall return: pid %d tid %d: %lu %lu (%lu free pages)\n\e[0m", proc->pid, thread->tid, ret, errno, freepagecount);
 	LOGSTR(printbuff);
 #endif
 }

@@ -9,6 +9,7 @@
 uintptr_t hhdmbase;
 static size_t memorysize;
 static size_t pagecount;
+size_t freepagecount;
 
 static spinlock_t freelistlock;
 static page_t *freelists[PMM_SECTION_COUNT];
@@ -69,6 +70,8 @@ static void insertinfreelist(page_t *page) {
 	*list = page;
 	if (page->freenext)
 		page->freenext->freeprev = page;
+
+	++freepagecount;
 }
 
 static void removefromfreelist(page_t *page) {
@@ -94,6 +97,8 @@ static void removefromfreelist(page_t *page) {
 
 	if (page->freenext)
 		page->freenext->freeprev = page->freeprev;
+
+	--freepagecount;
 }
 
 void pmm_hold(void *addr) {
