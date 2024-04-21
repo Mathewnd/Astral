@@ -188,10 +188,10 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..3d53e6b
+index 0000000..40e434f
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -0,0 +1,594 @@
+@@ -0,0 +1,599 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -308,6 +308,11 @@ index 0000000..3d53e6b
 +	int sys_fsync(int fd) {
 +		// TODO as the VFS does not do caching as of yet, this system call is stubbed and should be implemented once caching is done
 +		return 0;
++	}
++
++	int sys_setitimer(int which, const struct itimerval *new_value, struct itimerval *old_value) {
++		// TODO unstub
++		return ENOSYS;
 +	}
 +
 +	int sys_sigprocmask(int how, const sigset_t *__restrict set,
