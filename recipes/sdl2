@@ -1,0 +1,53 @@
+name=sdl2
+revision=1
+from_source=sdl2
+imagedeps="meson ninja base-devel"
+hostdeps="xgcc xbinutils pkgconfig cmake libstdc++-v3"
+deps="mlibc libx11 libxext libxcursor libxinerama libxi libxfixes libxrandr libxrender libxxf86vm"
+
+build() {
+	cmake \
+	-GNinja \
+	-DCMAKE_TOOLCHAIN_FILE=${base_dir}/util/cmake \
+	-DCMAKE_INSTALL_PREFIX=${prefix} \
+	-DCMAKE_BUILD_TYPE=Release \
+	-DSDL_ALTIVEC=OFF \
+	-DSDL_DISKAUDIO=OFF \
+	-DSDL_DIRECTFB=ON \
+	-DSDL_OPENGL=OFF \
+	-DSDL_OPENGLES=OFF \
+	-DSDL_PTHREADS=ON \
+	-DSDL_PTHREADS_SEM=OFF \
+	-DSDL_OSS=OFF \
+	-DSDL_ALSA=OFF \
+	-DSDL_JACK=OFF \
+	-DSDL_ESD=OFF \
+	-DSDL_PULSEAUDIO=OFF \
+	-DSDL_ARTS=OFF \
+	-DSDL_NAS=OFF \
+	-DSDL_SNDIO=OFF \
+	-DSDL_FUSIONSOUND=OFF \
+	-DSDL_LIBSAMPLERATE=OFF \
+	-DSDL_RPATH=OFF \
+	-DSDL_X11=ON \
+	-DSDL_WAYLAND=OFF \
+	-DSDL_WAYLAND_QT_TOUCH=OFF \
+	-DSDL_RPI=OFF \
+	-DSDL_COCOA=OFF \
+	-DSDL_DIRECTX=OFF \
+	-DSDL_WASAPI=OFF \
+	-DSDL_RENDER_D3D=OFF \
+	-DSDL_VIVANTE=OFF \
+	-DSDL_VULKAN=OFF \
+	-DSDL_KMSDRM=OFF \
+	-DSDL_HIDAPI=OFF \
+	-DSDL_SHARED=ON \
+	-DSDL_STATIC=OFF \
+	${source_dir}
+
+	ninja -j${parallelism}
+}
+
+package() {
+	DESTDIR="${dest_dir}" ninja install
+}

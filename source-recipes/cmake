@@ -1,0 +1,9 @@
+name=cmake
+version=3.29.2
+source_method=tarball
+tarball_url="https://github.com/Kitware/CMake/releases/download/v${version}/cmake-${version}.tar.gz"
+tarball_sha512="0dad9e0e3ad9c1178d337cd3a14e9ce145e011175e9d9fce4961d12b8fe37091f9fdf05f4303cdd846408955b11bac3cfe5064f852833b99e31f5a7b82a9d1eb"
+
+regenerate() {
+	true
+}

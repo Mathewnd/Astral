@@ -1,0 +1,8 @@
+name=sdl2
+version=2.30.2
+source_method=tarball
+tarball_url="https://github.com/libsdl-org/SDL/archive/refs/tags/release-${version}.tar.gz"
+tarball_sha512="915f28c8406df36e6440b7d690c193076c3f886ad1b18c871c70869fe08dbe48d4ec5d2541d36d1b97ab26e1299fef2e3048e641e76ab4b63c687273968b0e5e"
+regenerate() {
+	true
+}

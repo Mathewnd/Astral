@@ -1,0 +1,14 @@
+name=cmake
+revision=1
+from_source=cmake
+imagedeps="gcc"
+
+build() {
+	${source_dir}/configure --prefix=${prefix} --parallel=${parallelism}
+	make -j${parallelism}
+}
+
+package() {
+	DESTDIR="${dest_dir}" make install
+	echo "include(Platform/UnixPaths)" > ${dest_dir}${prefix}/share/cmake-3.29/Modules/Platform/Astral.cmake
+}
