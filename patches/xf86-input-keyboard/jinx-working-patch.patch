@@ -23,14 +23,14 @@ index 0f71ce3..024edd3 100644
  AM_CONDITIONAL(SOLARIS, [test "x$IS_SOLARIS" = xyes])
  AM_CONDITIONAL(HURD, [test "x$IS_HURD" = xyes])
 diff --git xf86-input-keyboard-clean/src/Makefile.am xf86-input-keyboard-workdir/src/Makefile.am
-index 52f5f4d..7de71b9 100644
+index 52f5f4d..3899868 100644
 --- xf86-input-keyboard-clean/src/Makefile.am
 +++ xf86-input-keyboard-workdir/src/Makefile.am
 @@ -26,10 +26,15 @@ kbd_drv_la_SOURCES = kbd.c xf86OSKbd.h xf86Keymap.h atKeynames.h
  kbd_drv_la_LIBADD = $(XORG_LIBS)
  kbd_drv_ladir = @inputdir@
  
-+ASTRAL_SRCS = astral_kbd.c astral_KbdMap.c
++ASTRAL_SRCS = astral_kbd.c at_scancode.c
  BSD_SRCS = bsd_KbdMap.c bsd_kbd.c bsd_kbd.h at_scancode.c
  HURD_SRCS = hurd_kbd.c at_scancode.c
  SOLARIS_SRCS = sun_kbd.c sun_kbd.h sun_kbdMap.c
@@ -83,10 +83,10 @@ index 0000000..2ca19fd
 +}
 diff --git xf86-input-keyboard-workdir/src/astral_kbd.c xf86-input-keyboard-workdir/src/astral_kbd.c
 new file mode 100644
-index 0000000..c902c94
+index 0000000..9de5fa7
 --- /dev/null
 +++ xf86-input-keyboard-workdir/src/astral_kbd.c
-@@ -0,0 +1,90 @@
+@@ -0,0 +1,135 @@
 +#ifdef HAVE_CONFIG_H
 +#include <config.h>
 +#endif
@@ -119,6 +119,23 @@ index 0000000..c902c94
 +#define KBPACKET_FLAGS_RIGHTCTRL 64
 +#define KBPACKET_FLAGS_RIGHTSHIFT 128
 +
++#define KEYCODE_KEYPADENTER 96
++#define KEYCODE_RIGHTCTRL 97
++#define KEYCODE_KEYPADSLASH 98
++#define KEYCODE_SYSREQ 99
++#define KEYCODE_RIGHTALT 100
++#define KEYCODE_LINEFEED  101
++#define KEYCODE_HOME 102
++#define KEYCODE_UP 103
++#define KEYCODE_PAGEUP 104
++#define KEYCODE_LEFT 105
++#define KEYCODE_RIGHT 106
++#define KEYCODE_END 107
++#define KEYCODE_DOWN 108
++#define KEYCODE_PAGEDOWN 109
++#define KEYCODE_INSERT 110
++#define KEYCODE_DELETE 111
++
 +typedef struct {
 +        char ascii;
 +        uintmax_t keycode;
@@ -132,6 +149,26 @@ index 0000000..c902c94
 +	return Success;
 +}
 +
++static int keycodeMap[] = {
++	KEYCODE_KEYPADENTER, KEY_KP_Enter,
++	KEYCODE_RIGHTCTRL, KEY_RCtrl,
++	KEYCODE_KEYPADSLASH, KEY_KP_Divide,
++	KEYCODE_RIGHTALT, KEY_AltLang,
++	KEYCODE_LINEFEED, KEY_KP_Enter,
++	KEYCODE_HOME, KEY_Home,
++	KEYCODE_UP, KEY_Up,
++	KEYCODE_PAGEUP, KEY_PgUp,
++	KEYCODE_LEFT, KEY_Left,
++	KEYCODE_RIGHT, KEY_Right,
++	KEYCODE_END, KEY_End,
++	KEYCODE_DOWN, KEY_Down,
++	KEYCODE_PAGEDOWN, KEY_PgDown,
++	KEYCODE_INSERT, KEY_Insert,
++	KEYCODE_DELETE, KEY_Delete
++};
++
++#define KEYCODE_MAP_SIZE (sizeof(keycodeMap) / sizeof(int))
++
 +static int getleds(InputInfoPtr pInfo){return 0;}
 +
 +static int init(InputInfoPtr, int){return Success;}
@@ -140,14 +177,25 @@ index 0000000..c902c94
 +	KbdDevPtr kbd = (KbdDevPtr) info->private;
 +	kbpacket_t packet;
 +
-+	while(read(info->fd, &packet, sizeof(kbpacket_t)))
-+		kbd->PostEvent(info, packet.keycode, packet.flags & KBPACKET_FLAGS_RELEASED ? FALSE : TRUE);
++	while (read(info->fd, &packet, sizeof(kbpacket_t))) {
++		int keycode = packet.keycode;
++
++		// is it a keycode that isn't in the AT keymap?
++		for (int i = 0; i < KEYCODE_MAP_SIZE; i += 2) {
++			if (keycode == keycodeMap[i]) {
++				keycode = keycodeMap[i + 1];
++				break;
++			}
++		}
++		
++		kbd->PostEvent(info, keycode, (packet.flags & KBPACKET_FLAGS_RELEASED) ? FALSE : TRUE);
++	}
 +
 +}
 +
 +static Bool openkeyboard(InputInfoPtr info){
-+	char *kbdPath = xf86SetStrOption(info->options, "Device", "/dev/keyboard");
-+	info->fd = open("/dev/keyboard", O_NONBLOCK | O_RDONLY);
++	char *kbdPath = xf86SetStrOption(info->options, "Device", "/dev/keyboard0");
++	info->fd = open("/dev/keyboard0", O_NONBLOCK | O_RDONLY);
 +	if(info->fd == -1)
 +		FatalError("Failed to open keyboard (%s)\n",strerror(errno));
 +	
@@ -155,9 +203,6 @@ index 0000000..c902c94
 +	
 +	return TRUE;
 +}
-+
-+
-+void getmap(InputInfoPtr info, KeySymsPtr syms, CARD8 *map);
 +
 +Bool xf86OSKbdPreInit(InputInfoPtr info){
 +
@@ -169,7 +214,7 @@ index 0000000..c902c94
 +	kbd->Bell          = nop;
 +	kbd->SetLeds       = nop;
 +	kbd->GetLeds       = getleds;
-+	kbd->KbdGetMapping = getmap;
++	kbd->KbdGetMapping = nop;
 +	kbd->RemapScanCode = 0;
 +	kbd->OpenKeyboard  = openkeyboard;
 +
