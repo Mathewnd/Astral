@@ -1,0 +1,17 @@
+name=doomgeneric-x11
+revision=1
+from_source=doomgeneric
+imagedeps="base-devel"
+hostdeps="xgcc xbinutils"
+deps="mlibc libx11"
+
+build() {
+	cp -rp ${source_dir}/doomgeneric/* .
+	cp -vp Makefile.x11 Makefile
+	make
+}
+
+package() {
+	mkdir -p ${dest_dir}/usr/bin
+	cp -f doomgeneric ${dest_dir}/usr/bin/doomgeneric-x11
+}
