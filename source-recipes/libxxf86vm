@@ -1,0 +1,9 @@
+name=libxxf86vm
+version=1.1.5
+source_method=tarball
+tarball_url="https://www.x.org/archive/individual/lib/libXxf86vm-${version}.tar.xz"
+tarball_sha512="68226fcb9773a583ea417ab413146203dd7db6ff8a4d388285da972353355e11e179861a77c9fa284aefac025bb3bbf5a9537fa0bf246c782e0116a667c9d9b6"
+hostdeps="autoconf automake util-macros pkgconfig libtool"
+regenerate() {
+        autoreconf -fvi
+}
