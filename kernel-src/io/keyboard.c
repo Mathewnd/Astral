@@ -96,15 +96,18 @@ void keyboard_sendpacket(keyboard_t *kb, kbpacket_t *packet) {
 
 	spinlock_acquire(&kb->lock);
 
-	if (ringbuffer_write(&kb->packetbuffer, packet, sizeof(kbpacket_t)) != 0)
+	if (ringbuffer_write(&kb->packetbuffer, packet, sizeof(kbpacket_t)) != 0) {
 		semaphore_signal(&kb->semaphore);
-
+		poll_event(&kb->pollheader, POLLIN);
+	}
 	spinlock_release(&kb->lock);
 
 	spinlock_acquire(&keyboard_console->lock);
 
-	if (ringbuffer_write(&keyboard_console->packetbuffer, packet, sizeof(kbpacket_t)) != 0)
+	if (ringbuffer_write(&keyboard_console->packetbuffer, packet, sizeof(kbpacket_t)) != 0) {
 		semaphore_signal(&keyboard_console->semaphore);
+		poll_event(&keyboard_console->pollheader, POLLIN);
+	}
 
 	spinlock_release(&keyboard_console->lock);
 
