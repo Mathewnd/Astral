@@ -54,8 +54,14 @@ typedef struct {
 	} \
 	(x)->rflags = 0x200;
 
-#define CTX_XINIT(x, u) \
-	(x)->mxcsr = 0x1F80; // all exceptions masked
+// all sse exceptions masked
+// initialise the x87 FPU state as it would be after the FNINIT instruction
+#define CTX_XINIT(x, u) {\
+	(x)->mxcsr = 0x1F80; \
+	*((uint16_t *)&(x)->fx[0]) = 0x37f; \
+	*((uint16_t *)&(x)->fx[2]) = 0; \
+	(x)->fx[4] = 0; \
+	}
 
 #define CTX_SP(x) (x)->rsp
 #define CTX_IP(x) (x)->rip

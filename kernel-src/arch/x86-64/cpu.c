@@ -40,4 +40,13 @@ void cpu_initstate() {
 		"or  $0b11000000000, %%rax;"
 		"mov %%rax, %%cr4;"
 		: : : "rax");
+
+	// set NE in cr0 and reset x87 fpu
+	asm volatile(
+		"fninit;"
+		"mov %%cr0, %%rax;"
+		"or $0b100000, %%rax;"
+		"mov %%rax, %%cr0;"
+		: : : "rax"
+	);
 }
