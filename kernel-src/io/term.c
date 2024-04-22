@@ -39,6 +39,10 @@ void term_getsize(size_t *x, size_t *y, size_t *fbx, size_t *fby) {
 	*fby = fbys;
 }
 
+static void noop(void *, size_t) {
+
+}
+
 void term_init() {
 	__assert(fb_liminereq.response);
 	__assert(fb_liminereq.response->framebuffer_count);
@@ -48,7 +52,8 @@ void term_init() {
 	uint32_t defaultfg = 0xffffff;
 
 	// TODO add support for a background if desired by the user
-	term_ctx = flanterm_fb_init(internalalloc, fb->address, fb->width, fb->height, fb->pitch,
+	term_ctx = flanterm_fb_init(internalalloc, noop, fb->address, fb->width, fb->height, fb->pitch,
+		fb->red_mask_size, fb->red_mask_shift, fb->green_mask_size, fb->green_mask_shift, fb->blue_mask_size, fb->blue_mask_shift, 
 		NULL, NULL, NULL, &defaultbg, &defaultfg, NULL, NULL, NULL,
 		0, 0, 1, 1, 1, 0);
 

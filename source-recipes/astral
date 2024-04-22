@@ -3,7 +3,7 @@ version=0
 source_dir="kernel-src"
 allow_network="yes"
 imagedeps="wget"
-flanterm_commit="f95f5584fb87577908beff8cbe0f68fee8940517"
+flanterm_commit="347d9cf1e3fced64aa20ab278e2fdcc834086035"
 
 regenerate() {
 	rm -f include/limine.h
