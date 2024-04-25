@@ -11,7 +11,6 @@ static devnode_t *devfsroot;
 
 static mutex_t tablelock;
 static hashtable_t devtable;
-static hashtable_t nametable;
 
 static scache_t *nodecache;
 static uintmax_t currentinode;
@@ -89,13 +88,14 @@ int devfs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int 
 }
 
 int devfs_lookup(vnode_t *node, char *name, vnode_t **result, cred_t *cred) {
-	if (node != (vnode_t *)devfsroot)
-		return EINVAL;
+	devnode_t *devnode = (devnode_t *)node;
+	if (node->type != V_TYPE_DIR)
+		return ENOTDIR;
 
 	void *v;
 	VOP_LOCK(node);
 	MUTEX_ACQUIRE(&tablelock, false);
-	int error = hashtable_get(&nametable, &v, name, strlen(name));
+	int error = hashtable_get(&devnode->children, &v, name, strlen(name));
 	MUTEX_RELEASE(&tablelock);
 	if (error) {
 		VOP_UNLOCK(node);
@@ -115,7 +115,7 @@ int devfs_getattr(vnode_t *node, vattr_t *attr, cred_t *cred) {
 
 	if (devnode->physical && devnode->physical != node) {
 		VOP_LOCK(devnode->physical);
-		int err = VOP_SETATTR(devnode->physical, attr, cred);
+		int err = VOP_GETATTR(devnode->physical, attr, cred);
 		VOP_UNLOCK(devnode->physical);
 		return err;
 	}
@@ -132,7 +132,7 @@ int devfs_setattr(vnode_t *node, vattr_t *attr, cred_t *cred) {
 	devnode_t *devnode = (devnode_t *)node;
 
 	if (devnode->physical && devnode->physical != node) {
-		int err = VOP_GETATTR(devnode->physical, attr, cred);
+		int err = VOP_SETATTR(devnode->physical, attr, cred);
 		return err;
 	}
 
@@ -222,13 +222,15 @@ int devfs_inactive(vnode_t *node) {
 }
 
 int devfs_create(vnode_t *parent, char *name, vattr_t *attr, int type, vnode_t **result, cred_t *cred) {
-	if (parent != (vnode_t *)devfsroot || (type != V_TYPE_CHDEV && type != V_TYPE_BLKDEV))
+	if (type != V_TYPE_CHDEV && type != V_TYPE_BLKDEV && type != V_TYPE_DIR)
 		return EINVAL;
+
+	devnode_t *parentdevnode = (devnode_t *)parent;
 
 	size_t namelen = strlen(name);
 	void *v;
 	VOP_LOCK(parent);
-	if (hashtable_get(&nametable, &v, name, namelen) == 0) {
+	if (hashtable_get(&parentdevnode->children, &v, name, namelen) == 0) {
 		VOP_UNLOCK(parent);
 		return EEXIST;
 	}
@@ -253,12 +255,33 @@ int devfs_create(vnode_t *parent, char *name, vattr_t *attr, int type, vnode_t *
 	node->vnode.vfs = parent->vfs;
 	node->vnode.type = type;
 
-	int error = hashtable_set(&nametable, node, name, namelen, true);
+	if (type == V_TYPE_DIR) {
+		int error = hashtable_init(&node->children, 100);
+		if (error) {
+			slab_free(nodecache, node);
+			VOP_UNLOCK(parent);
+			return error;
+		}
+		if (hashtable_set(&node->children, node, ".", 1, true) || hashtable_set(&node->children, parent, "..", 2, true)) {
+			hashtable_destroy(&node->children);
+			slab_free(nodecache, node);
+			VOP_UNLOCK(parent);
+			return error;
+		}
+	}
+
+	int error = hashtable_set(&parentdevnode->children, node, name, namelen, true);
 	if (error) {
+		if (type == V_TYPE_DIR)
+			hashtable_destroy(&node->children);
 		VOP_UNLOCK(parent);
 		slab_free(nodecache, node);
 		return error;
 	}
+
+	// held here to reduce cleanup
+	if (type == V_TYPE_DIR)
+		VOP_HOLD(parent);
 
 	VOP_HOLD(&node->vnode);
 	VOP_UNLOCK(parent);
@@ -268,8 +291,8 @@ int devfs_create(vnode_t *parent, char *name, vattr_t *attr, int type, vnode_t *
 }
 
 static int devfs_getdents(vnode_t *node, dent_t *buffer, size_t count, uintmax_t offset, size_t *readcount) {
-	if (node != (vnode_t *)devfsroot)
-		return EINVAL;
+	if (node->type != V_TYPE_DIR)
+		return ENOTDIR;
 
 	VOP_LOCK(node);
 
@@ -278,7 +301,7 @@ static int devfs_getdents(vnode_t *node, dent_t *buffer, size_t count, uintmax_t
 	*readcount = 0;
 	size_t current = 0;
 
-	HASHTABLE_FOREACH(&nametable) {
+	HASHTABLE_FOREACH(&devnode->children) {
 		if (current < offset) {
 			++current;
 			continue;
@@ -287,12 +310,14 @@ static int devfs_getdents(vnode_t *node, dent_t *buffer, size_t count, uintmax_t
 		if (*readcount == count)
 			break;
 
+
+		devnode_t *currnode = entry->value;
 		dent_t *ent = &buffer[*readcount];
 
-		ent->d_ino = devnode->attr.inode;
+		ent->d_ino = currnode->attr.inode;
 		ent->d_off = offset;
 		ent->d_reclen = sizeof(dent_t);
-		ent->d_type = vfs_getposixtype(node->type);
+		ent->d_type = vfs_getposixtype(currnode->vnode.type);
 		strcpy(ent->d_name, entry->key);
 
 		*readcount += 1;
@@ -313,12 +338,12 @@ static vfsops_t vfsops = {
 };
 
 static vops_t vnops = {
-	.create = devfs_create,
+	.create = devfs_create, // this
 	.open = devfs_open,
 	.close = devfs_close,
 	.getattr = devfs_getattr,
 	.setattr = devfs_setattr,
-	.lookup = devfs_lookup,
+	.lookup = devfs_lookup, // this
 	.poll = devfs_poll,
 	.read = devfs_read,
 	.write = devfs_write,
@@ -327,11 +352,11 @@ static vops_t vnops = {
 	.link = devfs_enodev,
 	.symlink = devfs_enodev,
 	.readlink = devfs_enodev,
-	.inactive = devfs_enodev,
+	.inactive = devfs_enodev, // this
 	.mmap = devfs_mmap,
 	.munmap = devfs_munmap,
-	.getdents = devfs_getdents,
-	.isatty = devfs_isatty,
+	.getdents = devfs_getdents, // this
+	.isatty = devfs_isatty, 
 	.ioctl = devfs_ioctl,
 	.maxseek = devfs_maxseek,
 	.resize = devfs_enodev,
@@ -347,7 +372,6 @@ static void ctor(scache_t *cache, void *obj) {
 
 void devfs_init() {
 	__assert(hashtable_init(&devtable, 50) == 0);
-	__assert(hashtable_init(&nametable, 50) == 0);
 	nodecache = slab_newcache(sizeof(devnode_t), 0, ctor, ctor);
 	MUTEX_INIT(&tablelock);
 	__assert(nodecache);
@@ -356,25 +380,17 @@ void devfs_init() {
 	__assert(devfsroot);
 	devfsroot->vnode.type = V_TYPE_DIR;
 	devfsroot->vnode.flags = V_FLAGS_ROOT;
+	__assert(hashtable_init(&devfsroot->children, 100) == 0);
 	__assert(vfs_register(&vfsops, "devfs") == 0);
-	__assert(hashtable_set(&nametable, devfsroot, ".", 1, true) == 0);
+	__assert(hashtable_set(&devfsroot->children, devfsroot, ".", 1, true) == 0);
 }
 
 int devfs_getbyname(char *name, vnode_t **ret) {
-	void *v;
-	MUTEX_ACQUIRE(&tablelock, false);
-	int error = hashtable_get(&nametable, &v, name, strlen(name));
+	int error = vfs_lookup(ret, (vnode_t *)devfsroot, name, NULL, 0);
 	if (error)
 		goto cleanup;
 
-	vnode_t *node = v;
-
-	VOP_HOLD(node);
-
-	*ret = node;
-
 	cleanup:
-	MUTEX_RELEASE(&tablelock);
 	return error;
 }
 // register new device 
@@ -403,6 +419,7 @@ int devfs_register(devops_t *devops, char *name, int type, int major, int minor,
 
 	vnode_t *newvnode = NULL;
 
+	// the devfs node will have a reference from both the devtable and from the fs link
 	error = vfs_create((vnode_t *)devfsroot, name, &attr, type, &newvnode);
 	if (error) {
 		MUTEX_ACQUIRE(&tablelock, false);
@@ -415,7 +432,6 @@ int devfs_register(devops_t *devops, char *name, int type, int major, int minor,
 	devnode_t *newdevnode = (devnode_t *)newvnode;
 	master->attr = newdevnode->attr;
 	newdevnode->master = master;
-	VOP_RELEASE(newvnode);
 
 	return 0;
 }

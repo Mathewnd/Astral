@@ -4,6 +4,7 @@
 #include <kernel/vfs.h>
 
 #include <kernel/poll.h>
+#include <hashtable.h>
 
 #define DEV_MAJOR_NULL 1
 #define DEV_MAJOR_FULL 2
@@ -36,6 +37,7 @@ typedef struct devnode_t {
 	devops_t *devops;
 	vnode_t *physical;
 	struct devnode_t *master;
+	hashtable_t children;
 } devnode_t;
 
 void devfs_init();
