@@ -217,6 +217,10 @@ int devfs_inactive(vnode_t *node) {
 		VOP_RELEASE(devnode->physical);
 	if (devnode->master)
 		VOP_RELEASE(master);
+
+	if (devnode->devops && devnode->devops->inactive)
+		devnode->devops->inactive(devnode->attr.rdevminor);
+
 	slab_free(nodecache, node);
 	return 0;
 }
@@ -338,12 +342,12 @@ static vfsops_t vfsops = {
 };
 
 static vops_t vnops = {
-	.create = devfs_create, // this
+	.create = devfs_create,
 	.open = devfs_open,
 	.close = devfs_close,
 	.getattr = devfs_getattr,
 	.setattr = devfs_setattr,
-	.lookup = devfs_lookup, // this
+	.lookup = devfs_lookup,
 	.poll = devfs_poll,
 	.read = devfs_read,
 	.write = devfs_write,
@@ -352,10 +356,10 @@ static vops_t vnops = {
 	.link = devfs_enodev,
 	.symlink = devfs_enodev,
 	.readlink = devfs_enodev,
-	.inactive = devfs_enodev, // this
+	.inactive = devfs_enodev,
 	.mmap = devfs_mmap,
 	.munmap = devfs_munmap,
-	.getdents = devfs_getdents, // this
+	.getdents = devfs_getdents,
 	.isatty = devfs_isatty, 
 	.ioctl = devfs_ioctl,
 	.maxseek = devfs_maxseek,
@@ -457,4 +461,35 @@ int devfs_getnode(vnode_t *physical, int major, int minor, vnode_t **node) {
 	VOP_HOLD(physical);
 	*node = &newnode->vnode;
 	return 0;
+}
+
+void devfs_remove(char *name, int major, int minor) {
+	int key[2] = {major, minor};
+	// remove devtable reference
+	MUTEX_ACQUIRE(&tablelock, false);
+	__assert(hashtable_remove(&devtable, key, sizeof(key)) == 0);
+	MUTEX_RELEASE(&tablelock);
+
+	// get parent
+	vnode_t *parent;
+	char namebuff[100];
+	__assert(vfs_lookup(&parent, (vnode_t *)devfsroot, name, namebuff, VFS_LOOKUP_PARENT) == 0);
+	devnode_t *parentdevnode = (devnode_t *)parent;
+
+	VOP_LOCK(parent);
+
+	// get device vnode
+	void *tmp;
+	__assert(hashtable_get(&parentdevnode->children, &tmp, namebuff, strlen(namebuff)) == 0);
+	vnode_t *vnode = tmp;
+	devnode_t *node = tmp;
+	__assert(node->attr.rdevmajor == major && node->attr.rdevminor == minor);
+
+	__assert(hashtable_remove(&parentdevnode->children, namebuff, strlen(namebuff)) == 0);
+
+	VOP_UNLOCK(parent);
+
+	// release all the references to the removed node:
+	VOP_RELEASE(vnode);
+	VOP_RELEASE(vnode);
 }
