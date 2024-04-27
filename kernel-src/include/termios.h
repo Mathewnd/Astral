@@ -10,6 +10,7 @@ typedef unsigned int tcflag_t;
 #define NCCS 32
 #define ECHO 0000010
 #define ICANON 0000002
+#define VTIME 5
 #define VMIN 6
 #define INLCR 0000100
 #define IGNCR 0000200

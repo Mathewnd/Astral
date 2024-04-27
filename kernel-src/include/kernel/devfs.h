@@ -9,7 +9,7 @@
 #define DEV_MAJOR_NULL 1
 #define DEV_MAJOR_FULL 2
 #define DEV_MAJOR_ZERO 3
-#define DEV_MAJOR_CONSOLE 4
+#define DEV_MAJOR_TTY 4
 #define DEV_MAJOR_FB 5
 #define DEV_MAJOR_KEYBOARD 6
 #define DEV_MAJOR_BLOCK 7
@@ -17,6 +17,7 @@
 #define DEV_MAJOR_URANDOM 9
 #define DEV_MAJOR_NET 10
 #define DEV_MAJOR_MOUSE 11
+#define DEV_MAJOR_CONSOLE 12
 
 typedef struct {
 	int (*open)(int minor, int flags);
@@ -29,6 +30,7 @@ typedef struct {
 	int (*isatty)(int minor);
 	int (*ioctl)(int minor, unsigned long request, void *arg, int *result);
 	int (*maxseek)(int minor, size_t *max);
+	void (*inactive)(int minor);
 } devops_t;
 
 typedef struct devnode_t {
