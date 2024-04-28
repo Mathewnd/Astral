@@ -75,6 +75,7 @@ syscallret_t syscall_waitpid(context_t *context, pid_t pid, int *status, int opt
 	ret.errno = 0;
 
 	__assert(iterator);
-	sched_destroyproc(iterator);
+	// process will no longer be referenced by the child list
+	PROC_RELEASE(iterator);
 	return ret;
 }

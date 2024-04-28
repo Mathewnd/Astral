@@ -57,6 +57,8 @@ syscallret_t syscall_fork(context_t *ctx) {
 	ret.ret = nproc->pid;
 
 	sched_queue(nthread);
+	// proc starts with 1 refcount, release it here as to only have the thread reference
+	PROC_RELEASE(nproc);
 
 	cleanup:
 	return ret;

@@ -46,10 +46,12 @@ typedef struct thread_t {
 	spinlock_t sleeplock;
 	int wakeupreason;
 	bool shouldexit;
+	void *kernelarg;
 } thread_t;
 
 typedef struct proc_t {
 	spinlock_t lock;
+	int refcount;
 	int status;
 	int state;
 	struct proc_t *sibling;
@@ -77,6 +79,13 @@ typedef struct proc_t {
 #include <arch/cpu.h>
 
 #define UMASK(mode) ((mode) & ~_cpu()->thread->proc->umask)
+#define PROC_HOLD(v) __atomic_add_fetch(&(v)->refcount, 1, __ATOMIC_SEQ_CST)
+#define PROC_RELEASE(v) {\
+		if (__atomic_sub_fetch(&(v)->refcount, 1, __ATOMIC_SEQ_CST) == 0) {\
+			sched_inactiveproc(v); \
+			(v) = NULL; \
+		} \
+	}
 
 extern proc_t *sched_initproc;
 
@@ -101,5 +110,6 @@ void sched_destroythread(thread_t *);
 void sched_targetcpu(struct cpu_t *cpu);
 void sched_sleepus(size_t us);
 void sched_apentry();
+void sched_inactiveproc(proc_t *proc);
 
 #endif

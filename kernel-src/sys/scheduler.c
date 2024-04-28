@@ -51,6 +51,7 @@ proc_t *sched_newproc() {
 	SPINLOCK_INIT(proc->lock);
 	SPINLOCK_INIT(proc->nodeslock);
 	proc->fdcount = 3;
+	proc->refcount = 1;
 	proc->fdfirst = 3;
 	SPINLOCK_INIT(proc->fdlock);
 	SEMAPHORE_INIT(&proc->waitsem, 0);
@@ -87,8 +88,11 @@ thread_t *sched_newthread(void *ip, size_t kstacksize, int priority, proc_t *pro
 	thread->vmmctx = proc ? NULL : &vmm_kernelctx;
 	thread->proc = proc;
 	thread->priority = priority;
-	if (proc)
+	if (proc) {
+		// each thread holds one reference to proc
+		PROC_HOLD(proc);
 		thread->tid = __atomic_fetch_add(&currpid, 1, __ATOMIC_SEQ_CST);
+	}
 
 
 	CTX_INIT(&thread->context, proc != NULL, true);
@@ -229,8 +233,14 @@ __attribute__((noreturn)) void sched_stopcurrentthread() {
 	switchthread(next);
 }
 
+// called when all threads in a process have exited
 void sched_procexit() {
 	proc_t *proc = _cpu()->thread->proc;
+
+	// the process is going to be referenced by the child list, hold it
+	// it only holds it now because it has to have running threads to be in the list
+	// which hold a reference. it won't now since its a zombie, which is why it will be held
+	PROC_HOLD(proc);
 
 	// close fds
 	for (int fd = 0; fd < proc->fdcount; ++fd)
@@ -244,6 +254,7 @@ void sched_procexit() {
 
 	proc->state = SCHED_PROC_STATE_ZOMBIE;
 	proc_t *lastchild = proc->child;
+
 
 	spinlock_acquire(&sched_initproc->lock);
 
@@ -268,6 +279,14 @@ void sched_procexit() {
 	semaphore_signal(&proc->parent->waitsem);
 	if (haszombie)
 		semaphore_signal(&sched_initproc->waitsem);
+}
+
+void sched_inactiveproc(proc_t *proc) {
+	// proc refcount 0, we can free the structure
+	// TODO remove from the pid list
+
+	printf("destroying proc!\n");
+	sched_destroyproc(proc);
 }
 
 static void threadexit_internal(context_t *) {
@@ -301,6 +320,7 @@ __attribute__((noreturn)) void sched_threadexit() {
 
 			sched_procexit();
 			vmm_destroycontext(oldctx);
+			PROC_RELEASE(proc);
 		}
 	}
 
@@ -628,8 +648,11 @@ void sched_runinit() {
 
 	thread_t *uthread = sched_newthread(entry, PAGE_SIZE * 16, 1, proc, stack);
 	__assert(uthread);
+
 	uthread->vmmctx = vmmctx;
 	sched_queue(uthread);
 
 	VOP_RELEASE(initnode);
+	// proc starts with 1 refcount, release it here as to only have the thread reference
+	PROC_RELEASE(proc);
 }
