@@ -35,6 +35,7 @@
 #include <kernel/net.h>
 #include <kernel/sock.h>
 #include <kernel/mouse.h>
+#include <kernel/tty.h>
 
 static cpu_t bsp_cpu;
 
@@ -68,6 +69,8 @@ void kernel_entry() {
 	pipefs_init();
 	sockfs_init();
 	ext2_init();
+
+	tty_init();
 
 	netdev_init();
 	loopback_init();
