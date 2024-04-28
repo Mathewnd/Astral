@@ -44,7 +44,7 @@ typedef struct {
 	uint32_t mxcsr;
 } extracontext_t __attribute__((aligned(16)));
 
-#define CTX_INIT(x,u) \
+#define CTX_INIT(x,u,interrupts) \
 	if (u) { \
 		(x)->cs = 0x23; \
 		(x)->ds = (x)->es = (x)->ss = 0x1b; \
@@ -52,12 +52,12 @@ typedef struct {
 		(x)->cs = 0x8; \
 		(x)->ds = (x)->es = (x)->ss = 0x10; \
 	} \
-	(x)->rflags = 0x200;
+	(x)->rflags = interrupts ? 0x200 : 0;
 
 // all sse exceptions masked
 // initialise the x87 FPU state as it would be after the FNINIT instruction
 #define CTX_XINIT(x, u) {\
-	(x)->mxcsr = 0x1F80; \
+	(x)->mxcsr = 0x1f80; \
 	*((uint16_t *)&(x)->fx[0]) = 0x37f; \
 	*((uint16_t *)&(x)->fx[2]) = 0; \
 	(x)->fx[4] = 0; \

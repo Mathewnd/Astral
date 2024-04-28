@@ -91,7 +91,7 @@ thread_t *sched_newthread(void *ip, size_t kstacksize, int priority, proc_t *pro
 		thread->tid = __atomic_fetch_add(&currpid, 1, __ATOMIC_SEQ_CST);
 
 
-	CTX_INIT(&thread->context, proc != NULL);
+	CTX_INIT(&thread->context, proc != NULL, true);
 	CTX_XINIT(&thread->extracontext, proc != NULL);
 	CTX_SP(&thread->context) = proc ? (ctxreg_t)ustack : (ctxreg_t)thread->kernelstacktop;
 	CTX_IP(&thread->context) = (ctxreg_t)ip;
@@ -482,7 +482,7 @@ static void timerhook(context_t *context, dpcarg_t arg) {
 	current->flags |= SCHED_THREAD_FLAGS_PREEMPTED;
 	ARCH_CONTEXT_THREADSAVE(current, context);
 
-	CTX_INIT(context, false);
+	CTX_INIT(context, false, false);
 	CTX_SP(context) = (uintptr_t)_cpu()->schedulerstack;
 	CTX_IP(context) = (uintptr_t)dopreempt;
 }
