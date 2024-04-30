@@ -200,8 +200,8 @@ void arch_mmu_tlbipi(isr_t *isr, context_t *context) {
 }
 
 void arch_mmu_tlbshootdown(void *page) {
-	// scheduler not up yet, nothing to do
-	if (_cpu()->thread == NULL)
+	// scheduler not up yet, or there are no other cpus, nothing to do
+	if (_cpu()->thread == NULL || arch_smp_cpusawake == 1)
 		return;
 
 	if (page >= KERNELSPACE_START ||
