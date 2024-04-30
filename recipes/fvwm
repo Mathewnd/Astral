@@ -1,0 +1,20 @@
+name=fvwm
+revision=1
+from_source=fvwm
+imagedeps="base-devel"
+hostdeps="xgcc xbinutils pkgconfig"
+deps="mlibc libx11 libxinerama libxcursor libxt libevent libxrandr freetype libpng libxft"
+
+build() {
+	cp -rvp ${source_dir}/* .
+	ac_cv_func_setpgrp_void=yes \
+	ac_cv_func_mkstemp=yes \
+	has_safety_mkstemp=yes \
+	./configure --prefix=${prefix} --host=x86_64-astral
+
+	make -j${parallelism}
+}
+
+package() {
+	make DESTDIR=${dest_dir} install
+}

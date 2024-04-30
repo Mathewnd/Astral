@@ -1,0 +1,75 @@
+diff --git fvwm-clean/configure.ac fvwm-workdir/configure.ac
+index 23fa0b8..e785e5a 100644
+--- fvwm-clean/configure.ac
++++ fvwm-workdir/configure.ac
+@@ -1244,15 +1244,16 @@ fi
+ 
+ # check for mkstemp, see the discution on this subject on the fvwm workers
+ # list (2001-02-16 and 2001-02-24)
+-AM_SAFETY_CHECK_MKSTEMP
++#AM_SAFETY_CHECK_MKSTEMP
+ 
+ # Define some compatibility macros needed for config.h.
+-mg_DEFINE_IF_NOT([#include <X11/keysym.h>],
+-  [defined XK_Page_Up && defined XK_Page_Down],
+-  [COMPAT_OLD_KEYSYMDEF], [$X_CFLAGS],
+-  [Old AIX systems (3.2.5) don't define some common keysyms.])
+-AH_VERBATIM([_COMPAT_OLD_KEYSYMDEF],
+-[#ifdef COMPAT_OLD_KEYSYMDEF
++#mg_DEFINE_IF_NOT([#include <X11/keysym.h>],
++#  [defined XK_Page_Up && defined XK_Page_Down],
++#  [COMPAT_OLD_KEYSYMDEF], [$X_CFLAGS],
++# well I'm not running AIX so........
++#  [Old AIX systems (3.2.5) don't define some common keysyms.])
++#AH_VERBATIM([_COMPAT_OLD_KEYSYMDEF],
++#[#ifdef COMPAT_OLD_KEYSYMDEF
+ #  define XK_Page_Up   XK_Prior
+ #  define XK_Page_Down XK_Next
+ #endif])
+@@ -1514,4 +1515,4 @@ Fvwm3 Configuration:
+   Build man pages?                    $with_mandoc$problem_mandoc
+   Build html man pages?               $with_htmldoc$problem_htmldoc
+ 
+-"
+\ No newline at end of file
++"
+diff --git fvwm-clean/fvwm/fvwm3.c fvwm-workdir/fvwm/fvwm3.c
+index 2265fd4..7f489ab 100644
+--- fvwm-clean/fvwm/fvwm3.c
++++ fvwm-workdir/fvwm/fvwm3.c
+@@ -1703,7 +1703,7 @@ int main(int argc, char **argv)
+ 	g_argv[g_argc] = NULL;
+ 
+ 	FlocaleInit(LC_CTYPE, "", "", "fvwm");
+-	FGettextInit("fvwm", LOCALEDIR, "fvwm");
++	//FGettextInit("fvwm", LOCALEDIR, "fvwm");
+ 
+ 	setVersionInfo();
+ 	/* Put the default module directory into the environment so it can be
+@@ -2397,4 +2397,4 @@ int main(int argc, char **argv)
+ 	}
+ 
+ 	exit(0);
+-}
+\ No newline at end of file
++}
+diff --git fvwm-clean/libs/Ficonv.h fvwm-workdir/libs/Ficonv.h
+index 3f7e5ec..9a4a40a 100644
+--- fvwm-clean/libs/Ficonv.h
++++ fvwm-workdir/libs/Ficonv.h
+@@ -11,11 +11,11 @@
+ 
+ /* ---------------------------- global definitions ------------------------- */
+ 
+-#ifdef HAVE_ICONV
+-#define FiconvSupport 1
+-#else
++//#ifdef HAVE_ICONV
++//#define FiconvSupport 1
++//#else
+ #define FiconvSupport 0
+-#endif
++//#endif
+ 
+ #if FiconvSupport
+ 

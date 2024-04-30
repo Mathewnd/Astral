@@ -1,0 +1,9 @@
+name=fvwm
+version=1.1.0
+source_method=tarball
+tarball_url="https://github.com/fvwmorg/fvwm3/releases/download/${version}/fvwm3-${version}.tar.gz"
+tarball_sha512="47eea05cbdecf4da3313b9183fa938544b451b9f133d7a68062feb222c3c1af3873402f80b60485d603afe8cd23a03f3e86a503fc1f2070e1ad2e6e64d012341"
+hostdeps="autoconf automake util-macros pkgconfig libtool"
+regenerate() {
+        autoreconf -fvi
+}
