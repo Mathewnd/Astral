@@ -1,0 +1,15 @@
+name=libevent
+revision=1
+from_source=libevent
+imagedeps="base-devel"
+hostdeps="xgcc xbinutils"
+deps="mlibc"
+
+build() {
+	${source_dir}/configure --host=x86_64-astral --prefix=${prefix} --disable-static --enable-shared --disable-openssl
+	make -j${parallelism}
+}
+
+package() {
+	make install DESTDIR="${dest_dir}"
+}
