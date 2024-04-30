@@ -188,7 +188,7 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..40e434f
+index 0000000..00537fa
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
 @@ -0,0 +1,599 @@
@@ -317,13 +317,13 @@ index 0000000..40e434f
 +
 +	int sys_sigprocmask(int how, const sigset_t *__restrict set,
 +		sigset_t *__restrict retrieve) {
-+		mlibc::infoLogger() << "mlibc: sigprocmask is a stub" << frg::endlog;
++		//mlibc::infoLogger() << "mlibc: sigprocmask is a stub" << frg::endlog;
 +		return 0;
 +	}
 +
 +	int sys_sigaction(int, const struct sigaction *__restrict,
 +		struct sigaction *__restrict) {
-+		mlibc::infoLogger() << "mlibc: sigaction is a stub" << frg::endlog;
++		//mlibc::infoLogger() << "mlibc: sigaction is a stub" << frg::endlog;
 +		return 0;
 +	}
 +
