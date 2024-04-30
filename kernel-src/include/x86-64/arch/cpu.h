@@ -31,6 +31,7 @@ typedef struct cpu_t {
 	void *schedulerstack;
 	isr_t *isrqueue;
 	dpc_t *dpcqueue;
+	struct cpu_t *self;
 } cpu_t;
 
 #define CPU_HALT() asm volatile("hlt")
@@ -53,11 +54,14 @@ static inline uint16_t be_to_cpu_w(uint16_t w) {
 }
 
 static inline cpu_t *_cpu() {
-	return (cpu_t *)rdmsr(MSR_GSBASE);
+	volatile cpu_t *cpu;
+	asm volatile ("mov %%gs:0, %%rax" : "=a"(cpu));
+	return cpu->self;
 }
 
 static inline void cpu_set(cpu_t *ptr) {
-	wrmsr(MSR_GSBASE, (uint64_t)ptr);
+	ptr->self = ptr;
+	wrmsr(MSR_GSBASE, (uint64_t)&ptr->self);
 }
 
 void cpu_initstate();
