@@ -79,6 +79,7 @@ syscallret_t syscall_futex(context_t *, uint32_t *futexp, int op, uint32_t value
 
 	uint32_t *physical = vmm_getphysical(futexp);
 	futex_t *futex = getfutex(physical);
+	bool doleave = true;
 
 	switch (op) {
 		case FUTEX_WAKE:
@@ -145,6 +146,7 @@ syscallret_t syscall_futex(context_t *, uint32_t *futexp, int op, uint32_t value
 
 				// clean up if needed
 				if (futex->waiting == 0) {
+					doleave = false;
 					free(futex);
 					removefutex(physical);
 				}
@@ -157,7 +159,9 @@ syscallret_t syscall_futex(context_t *, uint32_t *futexp, int op, uint32_t value
 			ret.errno = ENOSYS;
 	}
 
-	poll_leave(&desc);
+	if (doleave)
+		poll_leave(&desc);
+
 	poll_destroydesc(&desc);
 
 	MUTEX_RELEASE(&futexmutex);
