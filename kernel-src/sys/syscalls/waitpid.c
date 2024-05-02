@@ -4,6 +4,9 @@
 #include <errno.h>
 #include <logging.h>
 
+#define WNOHANG 1
+#define KNOWN_FLAGS WNOHANG
+
 syscallret_t syscall_waitpid(context_t *context, pid_t pid, int *status, int options) {
 	syscallret_t ret = {
 		.ret = -1
@@ -11,7 +14,7 @@ syscallret_t syscall_waitpid(context_t *context, pid_t pid, int *status, int opt
 
 	// TODO address check
 	// TODO implement these
-	__assert(options == 0);
+	__assert((options & ~KNOWN_FLAGS) == 0);
 	__assert(pid == -1 || pid > 0);
 
 	thread_t *thread = _cpu()->thread;
@@ -30,7 +33,11 @@ syscallret_t syscall_waitpid(context_t *context, pid_t pid, int *status, int opt
 				return ret;
 			}
 			spinlock_release(&proc->lock);
-			if (semaphore_wait(&proc->waitsem, true)) {
+			if ((options & WNOHANG) && semaphore_test(&proc->waitsem) == false) {
+				ret.errno = 0;
+				ret.ret = 0;
+				return ret;
+			} else if ((options & WNOHANG) == 0 && semaphore_wait(&proc->waitsem, true)) {
 				ret.errno = EINTR;
 				return ret;
 			}
