@@ -5,6 +5,7 @@
 #include <termios.h>
 #include <kernel/poll.h>
 #include <ringbuffer.h>
+#include <kernel/vfs.h>
 
 #define DEVICE_BUFFER_SIZE 512
 #define READ_BUFFER_SIZE 4096
@@ -23,6 +24,7 @@ typedef struct {
 	ttydevicewritefn_t writetodevice;
 	int minor;
 	winsize_t winsize;
+	vnode_t *mastervnode;
 } tty_t;
 
 void tty_init();

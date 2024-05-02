@@ -10,6 +10,7 @@
 #include <kernel/file.h>
 #include <semaphore.h>
 #include <kernel/devfs.h>
+#include <kernel/jobctl.h>
 
 #define QUANTUM_US 100000
 #define SCHEDULER_STACK_SIZE PAGE_SIZE
@@ -55,6 +56,8 @@ proc_t *sched_newproc() {
 	proc->fdfirst = 3;
 	SPINLOCK_INIT(proc->fdlock);
 	SEMAPHORE_INIT(&proc->waitsem, 0);
+	SPINLOCK_INIT(proc->jobctllock);
+	SPINLOCK_INIT(proc->pgrp.lock);
 
 	proc->fd = alloc(sizeof(fd_t) * 3);
 	if (proc->fd == NULL) {
@@ -241,6 +244,8 @@ void sched_procexit() {
 	// it only holds it now because it has to have running threads to be in the list
 	// which hold a reference. it won't now since its a zombie, which is why it will be held
 	PROC_HOLD(proc);
+
+	jobctl_detach(proc);
 
 	// close fds
 	for (int fd = 0; fd < proc->fdcount; ++fd)
@@ -606,11 +611,11 @@ void sched_runinit() {
 
 	vnode_t *consolenode;
 	__assert(devfs_getbyname("console", &consolenode) == 0);
-	__assert(VOP_OPEN(&consolenode, V_FFLAGS_READ, &proc->cred) == 0)
+	__assert(VOP_OPEN(&consolenode, V_FFLAGS_READ | V_FFLAGS_NOCTTY, &proc->cred) == 0)
 	VOP_HOLD(consolenode);
-	__assert(VOP_OPEN(&consolenode, V_FFLAGS_WRITE, &proc->cred) == 0)
+	__assert(VOP_OPEN(&consolenode, V_FFLAGS_WRITE | V_FFLAGS_NOCTTY, &proc->cred) == 0)
 	VOP_HOLD(consolenode);
-	__assert(VOP_OPEN(&consolenode, V_FFLAGS_WRITE, &proc->cred) == 0)
+	__assert(VOP_OPEN(&consolenode, V_FFLAGS_WRITE | V_FFLAGS_NOCTTY, &proc->cred) == 0)
 
 	file_t *stdin = fd_allocate();
 	file_t *stdout = fd_allocate();

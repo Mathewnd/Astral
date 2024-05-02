@@ -3,8 +3,8 @@
 #include <errno.h>
 #include <kernel/file.h>
 #include <kernel/interrupt.h>
+#include <kernel/jobctl.h>
 
-#include <logging.h>
 syscallret_t syscall_fork(context_t *ctx) {
 	syscallret_t ret = {
 		.ret = -1,
@@ -53,6 +53,7 @@ syscallret_t syscall_fork(context_t *ctx) {
 
 	CTX_RET(&nthread->context) = 0;
 	CTX_ERRNO(&nthread->context) = 0;
+	jobctl_addproc(proc, nproc);
 
 	ret.ret = nproc->pid;
 

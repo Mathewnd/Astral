@@ -2,6 +2,7 @@
 #include <kernel/devfs.h>
 #include <logging.h>
 #include <kernel/alloc.h>
+#include <kernel/jobctl.h>
 
 #define TTY_MAX_COUNT 4096
 #define CONTROLLING_TTY_MINOR TTY_MAX_COUNT
@@ -237,6 +238,29 @@ static int isatty(int minor) {
 	return 0;
 }
 
+static int open(int minor, vnode_t **vnode, int flags) {
+	tty_t *tty = ttyget(minor);
+
+	if (minor == CONTROLLING_TTY_MINOR) {
+		// return controlling tty
+		tty_t *ctty = jobctl_getctty(_cpu()->thread->proc);
+
+		if (ctty == NULL) {
+			return ENXIO;
+		}
+
+		VOP_RELEASE(*vnode);
+		*vnode = (vnode_t *)(ctty->mastervnode);
+	} else if (tty == NULL) {
+		return ENODEV;
+	} else if ((flags & V_FFLAGS_NOCTTY) == 0) {
+		// set as controlling tty
+		jobctl_setctty(_cpu()->thread->proc, tty);
+	}
+
+	return 0;
+}
+
 static int allocminor(tty_t *tty) {
 	MUTEX_ACQUIRE(&listmutex, false);
 
@@ -264,7 +288,8 @@ static devops_t devops = {
 	.poll = poll,
 	.read = read,
 	.ioctl = ioctl,
-	.isatty = isatty
+	.isatty = isatty,
+	.open = open
 };
 
 tty_t *tty_create(char *name, ttydevicewritefn_t fn) {
@@ -310,6 +335,14 @@ tty_t *tty_create(char *name, ttydevicewritefn_t fn) {
 	tty->writetodevice = fn;
 	tty->minor = minor;
 
+	vnode_t *newnode;
+	__assert(devfs_getnode(NULL, DEV_MAJOR_TTY, minor, &newnode) == 0);
+
+	tty->mastervnode = (vnode_t *)((devnode_t *)newnode)->master;
+	VOP_HOLD(tty->mastervnode);
+
+	VOP_RELEASE(newnode);
+
 	return tty;
 	error:
 	if (tty->name)
@@ -320,6 +353,10 @@ tty_t *tty_create(char *name, ttydevicewritefn_t fn) {
 
 	free(tty);
 	return NULL;
+}
+
+void tty_unregister(char *name, tty_t *tty) {
+
 }
 
 void tty_destroy(char *name, tty_t *tty) {

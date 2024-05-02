@@ -4,7 +4,7 @@
 
 #ifdef SYSCALL_LOGGING
 
-#define SYSCALL_COUNT 53
+#define SYSCALL_COUNT 58
 #define LOGSTR(x) arch_e9_puts(x)
 
 static char *name[] = {
@@ -60,7 +60,12 @@ static char *name[] = {
 	"newthread",
 	"threadexit",
 	"futex",
-	"gettid"
+	"gettid",
+	"getppid",
+	"getpgid",
+	"getsid",
+	"setsid",
+	"setpgid"
 };
 
 static char *args[] = {
@@ -116,7 +121,12 @@ static char *args[] = {
 	"entry %p stack %p", // newthread
 	"N/A", // threadexit
 	"futex %p op %d value %d timespec %p", // futex
-	"N/A" // gettid
+	"N/A", // gettid
+	"N/A", // getppid
+	"pid %d", // getpgid
+	"pid %d", // getsid
+	"N/A", // setsid
+	"pid %d pgid %d", // setpgid
 };
 
 #endif
@@ -129,7 +139,6 @@ __attribute__((no_caller_saved_registers)) void arch_syscall_log(int syscall, ui
 
 	thread_t *thread = _cpu()->thread;
 	proc_t *proc = thread->proc;
-
 	snprintf(argbuff, 768, syscall < SYSCALL_COUNT ? args[syscall] : "N/A", a1, a2, a3, a4, a5, a6);
 	snprintf(printbuff, 1024, "\e[92msyscall: pid %d tid %d: %s: %s (%lu free pages)\n\e[0m", proc->pid, thread->tid, syscall < SYSCALL_COUNT ? name[syscall] : "invalid syscall", argbuff, freepagecount);
 

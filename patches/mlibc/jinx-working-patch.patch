@@ -188,10 +188,10 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..00537fa
+index 0000000..d2ec1c5
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -0,0 +1,599 @@
+@@ -0,0 +1,618 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -276,13 +276,20 @@ index 0000000..00537fa
 +	}
 +	
 +	pid_t sys_getppid() {
-+		// TODO UNSTUB
-+		return 1;
++		long ret;
++		syscall(SYSCALL_GETPPID, &ret);
++		return ret;
++	}
++
++	int sys_getsid(pid_t pid, pid_t *pgid) {
++		long ret;
++		long error = syscall(SYSCALL_GETSID, &ret, pid);
++		return 0;
 +	}
 +
 +	int sys_getpgid(pid_t pid, pid_t *pgid) {
-+		// TODO UNSTUB
-+		*pgid = 1;
++		long ret;
++		long error = syscall(SYSCALL_GETPGID, &ret, pid);
 +		return 0;
 +	}
 +
@@ -325,6 +332,18 @@ index 0000000..00537fa
 +		struct sigaction *__restrict) {
 +		//mlibc::infoLogger() << "mlibc: sigaction is a stub" << frg::endlog;
 +		return 0;
++	}
++
++	int sys_setpgid(pid_t pid, pid_t pgid) {
++		long ret;
++		return syscall(SYSCALL_SETPGID, &ret, pid, pgid);
++	}
++
++	int sys_setsid(pid_t *out) {
++		long ret;
++		long error = syscall(SYSCALL_SETSID, &ret);
++		*out = ret;
++		return error;
 +	}
 +
 +	int sys_futex_tid() {
@@ -810,10 +829,10 @@ index 0000000..990eca0
 +#endif
 diff --git mlibc-workdir/sysdeps/astral/include/astral/syscall.h mlibc-workdir/sysdeps/astral/include/astral/syscall.h
 new file mode 100644
-index 0000000..c57a0fa
+index 0000000..859c459
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/include/astral/syscall.h
-@@ -0,0 +1,76 @@
+@@ -0,0 +1,81 @@
 +#ifndef _SYSCALL_H_INCLUDE
 +#define _SYSCALL_H_INCLUDE
 +
@@ -870,6 +889,11 @@ index 0000000..c57a0fa
 +#define SYSCALL_THREADEXIT 50
 +#define SYSCALL_FUTEX 51
 +#define SYSCALL_GETTID 52
++#define SYSCALL_GETPPID 53
++#define SYSCALL_GETPGID 54
++#define SYSCALL_GETSID 55
++#define SYSCALL_SETSID 56
++#define SYSCALL_SETPGID 57
 +
 +#include <stddef.h>
 +#include <stdint.h>

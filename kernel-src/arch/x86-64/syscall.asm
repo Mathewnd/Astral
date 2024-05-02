@@ -52,6 +52,11 @@ extern syscall_newthread
 extern syscall_threadexit
 extern syscall_futex
 extern syscall_gettid
+extern syscall_getppid
+extern syscall_getpgid
+extern syscall_getsid
+extern syscall_setsid
+extern syscall_setpgid
 syscalltab:
 dq syscall_print
 dq syscall_mmap
@@ -106,7 +111,12 @@ dq syscall_newthread
 dq syscall_threadexit
 dq syscall_futex
 dq syscall_gettid
-syscallcount equ 53
+dq syscall_getppid
+dq syscall_getpgid
+dq syscall_getsid
+dq syscall_setsid
+dq syscall_setpgid
+syscallcount equ 58
 section .text
 global arch_syscall_entry
 ; on entry:

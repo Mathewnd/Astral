@@ -55,6 +55,7 @@ typedef struct vfs_t {
 #define V_FFLAGS_NONBLOCKING 4
 #define V_FFLAGS_SHARED 8
 #define V_FFLAGS_EXEC 16
+#define V_FFLAGS_NOCTTY 32
 
 typedef struct vnode_t {
 	struct vops_t *ops;

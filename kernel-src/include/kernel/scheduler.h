@@ -74,6 +74,29 @@ typedef struct proc_t {
 	semaphore_t waitsem;
 	spinlock_t exiting;
 	bool nomorethreads;
+
+	spinlock_t jobctllock;
+	struct {
+		// NULL if this process is leader
+		struct proc_t *leader;
+
+		// these are only applicable if the process is leader
+		struct proc_t *foreground; // process group leader, NULL if self
+		void *controllingtty;
+		int processcount; // refcount
+	} session;
+
+	struct {
+		// NULL if this process is leader
+		struct proc_t *leader;
+		// linked list
+		struct proc_t *nextmember;
+		struct proc_t *previousmember;
+
+		// these are only applicable if the process is leader
+		spinlock_t lock; // protects the linked list
+		int processcount; // refcount
+	} pgrp;
 } proc_t;
 
 #include <arch/cpu.h>
