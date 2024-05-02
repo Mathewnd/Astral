@@ -38,7 +38,7 @@ static int devfs_root(vfs_t *vfs, vnode_t **node) {
 int devfs_open(vnode_t **node, int flags, cred_t *cred) {
 	devnode_t *devnode = (devnode_t *)(*node);
 
-	if (devnode->devops == NULL)
+	if ((*node)->type != V_TYPE_CHDEV && (*node)->type != V_TYPE_BLKDEV)
 		return 0;
 
 	if (devnode->master)
@@ -47,13 +47,13 @@ int devfs_open(vnode_t **node, int flags, cred_t *cred) {
 	if (devnode->devops->open == NULL)
 		return 0;
 
-	return devnode->devops->open(devnode->attr.rdevminor, flags);
+	return devnode->devops->open(devnode->attr.rdevminor, node, flags);
 }
 
 int devfs_close(vnode_t *node, int flags, cred_t *cred) {
 	devnode_t *devnode = (devnode_t *)node;
 
-	if (devnode->devops == NULL)
+	if (node->type != V_TYPE_CHDEV && node->type != V_TYPE_BLKDEV)
 		return 0;
 
 	if (devnode->master)
@@ -435,6 +435,7 @@ int devfs_register(devops_t *devops, char *name, int type, int major, int minor,
 
 	devnode_t *newdevnode = (devnode_t *)newvnode;
 	master->attr = newdevnode->attr;
+	master->vnode.type = type;
 	newdevnode->master = master;
 
 	return 0;
@@ -451,15 +452,18 @@ int devfs_getnode(vnode_t *physical, int major, int minor, vnode_t **node) {
 		return err == ENOENT ? ENXIO : err;
 
 	devnode_t *newnode = slab_allocate(nodecache);
-	if (newnode)
+	if (newnode == NULL)
 		return ENOMEM;
 
 	devnode_t *master = r;
 	newnode->master = master;
 	VOP_HOLD(&master->vnode);
-	newnode->physical = physical;
-	VOP_HOLD(physical);
+	if (physical) {
+		newnode->physical = physical;
+		VOP_HOLD(physical);
+	}
 	*node = &newnode->vnode;
+	newnode->vnode.type = master->vnode.type;
 	return 0;
 }
 

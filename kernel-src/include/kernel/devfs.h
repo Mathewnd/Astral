@@ -17,10 +17,9 @@
 #define DEV_MAJOR_URANDOM 9
 #define DEV_MAJOR_NET 10
 #define DEV_MAJOR_MOUSE 11
-#define DEV_MAJOR_CONSOLE 12
 
 typedef struct {
-	int (*open)(int minor, int flags);
+	int (*open)(int minor, vnode_t **vnode, int flags);
 	int (*close)(int minor, int flags);
 	int (*read)(int minor, void *buffer, size_t size, uintmax_t offset, int flags, size_t *readc);
 	int (*write)(int minor, void *buffer, size_t size, uintmax_t offset, int flags, size_t *writec);
