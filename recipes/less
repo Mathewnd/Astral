@@ -1,0 +1,15 @@
+name=less
+revision=1
+from_source=less
+imagedeps="base-devel"
+hostdeps="xgcc xbinutils"
+deps="mlibc ncurses"
+
+build() {
+	${source_dir}/configure --host=x86_64-astral --prefix=${prefix}
+	make -j ${parallelism} #LDFLAGS='-ltinfo'
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+}

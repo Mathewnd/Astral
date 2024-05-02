@@ -1,0 +1,10 @@
+name=less
+version=643
+source_method=tarball
+tarball_url="http://greenwoodsoftware.com/less/less-${version}.tar.gz"
+tarball_sha512=6a324ac54e22429ac652dc303bc1fe48933555d1cbf8ad7ecf345940910c014fef9551a3219743cfb7115e356b5841ae97d6ce62e7a1ba1e3300d243efca34d9
+hostdeps="autoconf automake libtool pkgconfig"
+
+regenerate() {
+        autoreconf -vfi
+}
