@@ -91,6 +91,7 @@ thread_t *sched_newthread(void *ip, size_t kstacksize, int priority, proc_t *pro
 	thread->vmmctx = proc ? NULL : &vmm_kernelctx;
 	thread->proc = proc;
 	thread->priority = priority;
+	thread->kernelstacksize = kstacksize;
 	if (proc) {
 		// each thread holds one reference to proc
 		PROC_HOLD(proc);
