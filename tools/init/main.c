@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <pwd.h>
+#include <fcntl.h>
 
 int main() {
 	printf("init: Welcome to Astral!\n");
@@ -49,6 +50,21 @@ int main() {
 		printf("/etc/rc returned failure status %d\n", WEXITSTATUS(status));
 		return EXIT_FAILURE;
 	}
+
+	// open /dev/console but as the controlling terminal
+	printf("init: reopening /dev/console as the controlling terminal\n");
+	int rfd = open("/dev/console", O_RDONLY);
+	int wfd = open("/dev/console", O_WRONLY);
+	close(0);
+	close(1);
+	close(2);
+
+	dup2(rfd, 0);
+	dup2(wfd, 1);
+	dup2(wfd, 2);
+
+	close(rfd);
+	close(wfd);
 
 	// start user shell
 	printf("init: running /usr/bin/bash\n");
