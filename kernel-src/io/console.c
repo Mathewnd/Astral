@@ -14,12 +14,17 @@ static mutex_t writemutex;
 static thread_t *thread;
 static tty_t *tty;
 
-void console_write(char *str, size_t count) {
+size_t console_write(char *str, size_t count) {
 	MUTEX_ACQUIRE(&writemutex, false);
 
 	term_write(str, count);
 
 	MUTEX_RELEASE(&writemutex);
+	return count;
+}
+
+size_t console_ttywrite(void *internal, char *str, size_t count) {
+	return console_write(str, count);
 }
 
 void console_putc(char c) {
@@ -109,7 +114,7 @@ void console_init() {
 	__assert(thread);
 	sched_queue(thread);
 
-	tty = tty_create("console", console_write);
+	tty = tty_create("console", console_ttywrite, NULL, NULL);
 	__assert(tty);
 
 	size_t x, y, fbx, fby;

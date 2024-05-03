@@ -31,7 +31,7 @@ void tty_process(tty_t *tty, char c) {
 			tty->devicebuffer[tty->devicepos] = '\0';
 
 			if (tty->termios.c_lflag & ECHO)
-				tty->writetodevice("\b \b", 3);
+				tty->writetodevice(tty->deviceinternal, "\b \b", 3);
 			return;
 		} else if (c == '\n') {
 			// newline
@@ -39,7 +39,7 @@ void tty_process(tty_t *tty, char c) {
 		}
 
 		if (tty->termios.c_lflag & ECHO)
-			tty->writetodevice(&c, 1);
+			tty->writetodevice(tty->deviceinternal, &c, 1);
 
 		// check if buffer is full
 		tty->devicebuffer[tty->devicepos++] = c;
@@ -59,7 +59,7 @@ void tty_process(tty_t *tty, char c) {
 		}
 	} else {
 		if (tty->termios.c_lflag & ECHO)
-			tty->writetodevice(&c, 1);
+			tty->writetodevice(tty->deviceinternal, &c, 1);
 
 		MUTEX_ACQUIRE(&tty->readmutex, false);
 
@@ -89,10 +89,10 @@ static int internalpoll(tty_t *tty, polldata_t *data, int events) {
 	if ((events & POLLIN) && RINGBUFFER_DATACOUNT(&tty->readbuffer))
 		revents |= POLLIN;
 
-	MUTEX_RELEASE(&tty->readmutex);
-
 	if (revents == 0 && data)
 		poll_add(&tty->pollheader, data, events);
+
+	MUTEX_RELEASE(&tty->readmutex);
 
 	return revents;
 }
@@ -199,7 +199,7 @@ static int write(int minor, void *buffer, size_t size, uintmax_t offset, int fla
 
 	// TODO background process stuff etc
 	*writec = size;
-	tty->writetodevice(buffer, size);
+	tty->writetodevice(tty->deviceinternal, buffer, size);
 	return 0;
 }
 
@@ -283,16 +283,35 @@ static void freeminor(int minor) {
 	MUTEX_RELEASE(&listmutex);
 }
 
+static void tty_destroy(tty_t *tty) {
+	freeminor(tty->minor);
+	ringbuffer_destroy(&tty->readbuffer);
+	free(tty->devicebuffer);
+	free(tty->name);
+	free(tty);
+}
+
+static void inactive(int minor) {
+	tty_t *tty = ttyget(minor);
+	__assert(tty);
+
+	if (tty->inactivedevice)
+		tty->inactivedevice(tty->deviceinternal);
+
+	tty_destroy(tty);
+}
+
 static devops_t devops = {
 	.write = write,
 	.poll = poll,
 	.read = read,
 	.ioctl = ioctl,
 	.isatty = isatty,
-	.open = open
+	.open = open,
+	.inactive = inactive
 };
 
-tty_t *tty_create(char *name, ttydevicewritefn_t fn) {
+tty_t *tty_create(char *name, ttydevicewritefn_t writefn, ttyinactivefn_t inactivefn, void *internal) {
 	tty_t *tty = alloc(sizeof(tty_t));
 	if (tty == NULL)
 		return NULL;
@@ -332,14 +351,15 @@ tty_t *tty_create(char *name, ttydevicewritefn_t fn) {
     	tty->termios.obaud = 38400;
 	tty->termios.c_cc[VMIN] = 1;
 
-	tty->writetodevice = fn;
+	tty->writetodevice = writefn;
+	tty->inactivedevice = inactivefn;
 	tty->minor = minor;
+	tty->deviceinternal = internal;
 
 	vnode_t *newnode;
 	__assert(devfs_getnode(NULL, DEV_MAJOR_TTY, minor, &newnode) == 0);
 
 	tty->mastervnode = (vnode_t *)((devnode_t *)newnode)->master;
-	VOP_HOLD(tty->mastervnode);
 
 	VOP_RELEASE(newnode);
 
@@ -355,13 +375,10 @@ tty_t *tty_create(char *name, ttydevicewritefn_t fn) {
 	return NULL;
 }
 
-void tty_unregister(char *name, tty_t *tty) {
-
+void tty_unregister(tty_t *tty) {
+	devfs_remove(tty->name, DEV_MAJOR_TTY, tty->minor);
 }
 
-void tty_destroy(char *name, tty_t *tty) {
-	
-}
 
 void tty_init() {
 	__assert(devfs_register(&devops, "tty", V_TYPE_CHDEV, DEV_MAJOR_TTY, CONTROLLING_TTY_MINOR, 0644) == 0);
