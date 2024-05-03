@@ -218,6 +218,7 @@ int devfs_inactive(vnode_t *node) {
 	if (devnode->master)
 		VOP_RELEASE(master);
 
+	// only called when the master is inactive
 	if (devnode->devops && devnode->devops->inactive)
 		devnode->devops->inactive(devnode->attr.rdevminor);
 
@@ -356,7 +357,7 @@ static vops_t vnops = {
 	.link = devfs_enodev,
 	.symlink = devfs_enodev,
 	.readlink = devfs_enodev,
-	.inactive = devfs_enodev,
+	.inactive = devfs_inactive,
 	.mmap = devfs_mmap,
 	.munmap = devfs_munmap,
 	.getdents = devfs_getdents,
@@ -496,4 +497,9 @@ void devfs_remove(char *name, int major, int minor) {
 	// release all the references to the removed node:
 	VOP_RELEASE(vnode);
 	VOP_RELEASE(vnode);
+}
+
+int devfs_createdir(char *name) {
+	vattr_t attr = {0};
+	return vfs_create((vnode_t *)devfsroot, name, &attr, V_TYPE_DIR, NULL);
 }
