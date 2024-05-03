@@ -1,0 +1,10 @@
+name=xfontmiscethipic
+version=1.0.5
+source_method=tarball
+tarball_url="https://www.x.org/pub/individual/font/font-misc-ethiopic-${version}.tar.xz"
+tarball_sha512="7732a828c005e3762b6383729134c5656fd575ac59288504d047fbe26e9965a80519a37b0cc4c6b89379a85a62160c5ea76017f790447a230c015aa7a9143ba0"
+hostdeps="automake autoconf libtool pkgconfig util-macros fontutil"
+
+regenerate() {
+        autoreconf -fvi
+}

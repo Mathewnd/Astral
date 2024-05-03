@@ -1,0 +1,15 @@
+name=xfontmiscmisc
+revision=1
+from_source=xfontmiscmisc
+imagedeps="gcc xorg-mkfontscale"
+hostdeps="xgcc xbinutils pkgconfig util-macros fontutil"
+deps="mlibc"
+
+build() {
+	${source_dir}/configure --prefix=${prefix} --host=x86_64-astral
+	make -j${parallelism}
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+}
