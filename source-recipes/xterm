@@ -1,0 +1,9 @@
+name=xterm
+version=390
+source_method=tarball
+tarball_url="https://invisible-mirror.net/archives/xterm/xterm-${version}.tgz"
+tarball_sha512=865ae292a56635ec2811a950763da22cbbb4de463bee75b4595b7387a09227f612c5620986e431631c3d73fe783d862fd9a6694c54c33898327339467b7085b7
+
+regenerate() {
+	true
+}

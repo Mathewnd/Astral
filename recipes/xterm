@@ -1,0 +1,15 @@
+name=xterm
+revision=1
+from_source=xterm
+imagedeps="base-devel"
+hostdeps="xgcc xbinutils pkgconfig libtool"
+deps="mlibc libx11 libxaw ncurses"
+
+build() {
+	${source_dir}/configure --host=x86_64-astral --prefix=${prefix} --disable-tcap-fkeys --disable-tcap-query
+	make -j ${parallelism} SHLIB_LIBS="-ltinfow"
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+}
