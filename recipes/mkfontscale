@@ -1,0 +1,15 @@
+name=mkfontscale
+revision=1
+from_source=mkfontscale
+imagedeps="gcc"
+hostdeps="xgcc xbinutils pkgconfig"
+deps="mlibc freetype libfontenc"
+
+build() {
+	${source_dir}/configure --prefix=${prefix} --host=x86_64-astral
+	make -j${parallelism}
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+}

@@ -1,0 +1,10 @@
+name=mkfontscale
+version=1.2.3
+source_method=tarball
+tarball_url="https://www.x.org/pub/individual/app/mkfontscale-${version}.tar.xz"
+tarball_sha512="816e7b2885bb7a4b2eb0e506b659600011bfa4ec1a3010243c2cc2241fa0b792f3c8de1dec1855a4d13de89405973967074e379b0d01dcf9de8a1277a2fc4296"
+hostdeps="automake autoconf libtool pkgconfig util-macros"
+
+regenerate() {
+        autoreconf -fvi
+}
