@@ -46,6 +46,7 @@ syscallret_t syscall_fstat(context_t *ctx, int fd, stat_t *ustat) {
 
 	// TODO safe memcpy
 	*ustat = buf;
+	ret.ret = 0;
 
 	cleanup:
 	fd_release(file);
