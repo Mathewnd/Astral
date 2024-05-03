@@ -188,10 +188,10 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..d2ec1c5
+index 0000000..afaee81
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -0,0 +1,618 @@
+@@ -0,0 +1,634 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -203,6 +203,7 @@ index 0000000..d2ec1c5
 +#include <asm/ioctls.h>
 +#include <poll.h>
 +#include <sys/select.h>
++#include <stdio.h>
 +
 +#ifndef MLIBC_BUILDING_RTLD
 +// (s)brk is emulated in the libc rather than being
@@ -333,6 +334,21 @@ index 0000000..d2ec1c5
 +		//mlibc::infoLogger() << "mlibc: sigaction is a stub" << frg::endlog;
 +		return 0;
 +	}
++
++	#ifndef MLIBC_BUILDING_RTLD
++	int sys_ptsname(int fd, char *buffer, size_t length) {
++		int index;
++		int tmp;
++		if (int e = sys_ioctl(fd, TIOCGPTN, &index, &tmp); e)
++			return e;
++
++		if ((size_t)snprintf(buffer, length, "/dev/pts/%d", index) >= length) {
++			return ERANGE;
++		}
++
++		return 0;
++	}
++	#endif
 +
 +	int sys_setpgid(pid_t pid, pid_t pgid) {
 +		long ret;

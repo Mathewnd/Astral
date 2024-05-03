@@ -1,8 +1,8 @@
 name=fontutil
-version=1.3.3
+version=1.4.1
 source_method=tarball
 tarball_url="https://www.x.org/archive//individual/font/font-util-${version}.tar.xz"
-tarball_sha512="5e1cb8af44fe0bea72b1a6a4e455f50ca49b7531c2f4b605800c0b2b7578b9826ccf17fa195c505ab1d6339fd4ad697c01ba3b9777616f354ab62b23434d47c9"
+tarball_sha512="cec7fc38ba64ca9c81c59a8395da94d71c75e14f19faf6457da0a1a8c3c1cf51bcaab227834f6f5a6d274ba2557555e542dbe2bd88e527c45ea196318bbc38d0"
 hostdeps="automake autoconf libtool pkgconfig util-macros"
 regenerate() {
         autoreconf -fvi

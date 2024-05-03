@@ -5,6 +5,6 @@
 
 void console_init();
 void console_putc(char c);
-void console_write(char *str, size_t size);
+size_t console_write(char *str, size_t size);
 
 #endif

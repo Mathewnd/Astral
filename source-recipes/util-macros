@@ -1,8 +1,8 @@
 name=util-macros
-version=1.19.3
+version=1.20.0
 source_method=tarball
-tarball_url="https://www.x.org/pub/individual/util/util-macros-${version}.tar.bz2"
-tarball_sha512="b9c7398a912c688a782eab5b1e0f6da2df11a430775c5c98fc3269f73a665de6eeb60d300a849e38d345714a6e51f74e9334cb6039767304cca4b93d823a53a2"
+tarball_url="https://www.x.org/pub/individual/util/util-macros-${version}.tar.xz"
+tarball_sha512="76caefb118bf1675d7b2b96e1bbb04eb9a320b02e120839e55a22ef98538ecf00d0e686a67186fc8fdc8492d277ffe3125ae8b7ac61ce4739edc0de3f468d2eb"
 regenerate() {
         true
 }

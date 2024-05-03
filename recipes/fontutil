@@ -2,7 +2,7 @@ name=fontutil
 revision=1
 from_source=fontutil
 imagedeps="gcc"
-hostdeps="xgcc xbinutils pkgconfig util-macros"
+hostdeps="xgcc xbinutils pkgconfig"
 deps="mlibc xorgproto"
 
 build() {
