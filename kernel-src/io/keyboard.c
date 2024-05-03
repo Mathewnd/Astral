@@ -190,18 +190,19 @@ static int poll(int minor, polldata_t *data, int events) {
 	if (kb == NULL)
 		return POLLERR;
 
+	long ipl = interrupt_raiseipl(IPL_KEYBOARD);
+	spinlock_acquire(&kb->lock);
 	if (events & POLLIN) {
-		long ipl = interrupt_raiseipl(IPL_KEYBOARD);
-		spinlock_acquire(&kb->lock);
 		size_t dataleft = RINGBUFFER_DATACOUNT(&kb->packetbuffer);
-		spinlock_release(&kb->lock);
-		interrupt_loweripl(ipl);
 		if (dataleft)
 			revents |= POLLIN;
 	}
 
 	if (revents == 0 && data)
 		poll_add(&kb->pollheader, data, events);
+
+	spinlock_release(&kb->lock);
+	interrupt_loweripl(ipl);
 
 	return revents;
 }
