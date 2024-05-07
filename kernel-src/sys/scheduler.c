@@ -54,7 +54,7 @@ proc_t *sched_newproc() {
 	proc->fdcount = 3;
 	proc->refcount = 1;
 	proc->fdfirst = 3;
-	SPINLOCK_INIT(proc->fdlock);
+	MUTEX_INIT(&proc->fdmutex);
 	SEMAPHORE_INIT(&proc->waitsem, 0);
 	SPINLOCK_INIT(proc->jobctllock);
 	SPINLOCK_INIT(proc->pgrp.lock);

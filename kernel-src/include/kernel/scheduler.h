@@ -6,6 +6,7 @@
 #include <kernel/abi.h>
 #include <kernel/vfs.h>
 #include <semaphore.h>
+#include <mutex.h>
 
 #define SCHED_THREAD_FLAGS_QUEUED 1
 #define SCHED_THREAD_FLAGS_RUNNING 2
@@ -64,7 +65,7 @@ typedef struct proc_t {
 	size_t runningthreadcount;
 	size_t fdcount;
 	uintmax_t fdfirst;
-	spinlock_t fdlock;
+	mutex_t fdmutex;
 	struct fd_t *fd;
 	mode_t umask;
 	int flags;

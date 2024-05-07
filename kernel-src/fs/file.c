@@ -73,13 +73,13 @@ static int growtable(int newcount) {
 
 file_t *fd_get(int fd) {
 	proc_t *proc = _cpu()->thread->proc;
-	spinlock_acquire(&proc->fdlock);
+	MUTEX_ACQUIRE(&proc->fdmutex, false);
 
 	file_t *file = fd < proc->fdcount ? proc->fd[fd].file : NULL;
 	if (file)
 		FILE_HOLD(file);
 
-	spinlock_release(&proc->fdlock);
+	MUTEX_RELEASE(&proc->fdmutex);
 
 	return file;
 }
@@ -94,7 +94,7 @@ int fd_new(int flags, file_t **rfile, int *rfd) {
 		return ENOMEM;
 
 	proc_t *proc = _cpu()->thread->proc;
-	spinlock_acquire(&proc->fdlock);
+	MUTEX_ACQUIRE(&proc->fdmutex, false);
 
 	// find first free fd
 	int fd = getfree(proc->fdfirst);
@@ -104,7 +104,7 @@ int fd_new(int flags, file_t **rfile, int *rfd) {
 		fd = proc->fdcount;
 		int error = growtable(fd + 1);
 		if (error) {
-			spinlock_release(&proc->fdlock);
+			MUTEX_RELEASE(&proc->fdmutex);
 			cleanfile(file);
 			return error;
 		}
@@ -114,7 +114,7 @@ int fd_new(int flags, file_t **rfile, int *rfd) {
 	proc->fd[fd].file = file;
 	proc->fd[fd].flags = flags;
 
-	spinlock_release(&proc->fdlock);
+	MUTEX_RELEASE(&proc->fdmutex);
 
 	*rfile = file;
 	*rfd = fd;
@@ -123,7 +123,7 @@ int fd_new(int flags, file_t **rfile, int *rfd) {
 
 int fd_close(int fd) {
 	proc_t *proc = _cpu()->thread->proc;
-	spinlock_acquire(&proc->fdlock);
+	MUTEX_ACQUIRE(&proc->fdmutex, false);
 
 	file_t *file = fd < proc->fdcount ? proc->fd[fd].file : NULL;
 	if (file) {
@@ -132,7 +132,7 @@ int fd_close(int fd) {
 			proc->fdfirst = fd;
 	}
 
-	spinlock_release(&proc->fdlock);
+	MUTEX_RELEASE(&proc->fdmutex);
 
 	if (file) {
 		FILE_RELEASE(file);
@@ -147,7 +147,7 @@ int fd_close(int fd) {
 int fd_clone(proc_t *targproc) {
 	proc_t *proc = _cpu()->thread->proc;
 	int error = 0;
-	spinlock_acquire(&proc->fdlock);
+	MUTEX_ACQUIRE(&proc->fdmutex, false);
 
 	targproc->fdcount = proc->fdcount;
 	targproc->fdfirst = proc->fdfirst;
@@ -166,14 +166,14 @@ int fd_clone(proc_t *targproc) {
 	}
 
 	cleanup:
-	spinlock_release(&proc->fdlock);
+	MUTEX_RELEASE(&proc->fdmutex);
 	return error;
 }
 
 int fd_dup(int oldfd, int newfd, bool exact, int fdflags, int *retfd) {
 	proc_t *proc = _cpu()->thread->proc;
 	int err = 0;
-	spinlock_acquire(&proc->fdlock);
+	MUTEX_ACQUIRE(&proc->fdmutex, false);
 
 	file_t *file = oldfd < proc->fdcount ? proc->fd[oldfd].file : NULL;
 	if (file == NULL) {
@@ -218,6 +218,6 @@ int fd_dup(int oldfd, int newfd, bool exact, int fdflags, int *retfd) {
 	FILE_HOLD(file);
 
 	cleanup:
-	spinlock_release(&proc->fdlock);
+	MUTEX_RELEASE(&proc->fdmutex);
 	return err;
 }
