@@ -360,10 +360,10 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..afaee81
+index 0000000..6ece9e1
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -0,0 +1,634 @@
+@@ -0,0 +1,652 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -670,8 +670,10 @@ index 0000000..afaee81
 +		if(fds == NULL)
 +			return ENOMEM;
 +
++		int actualcount = 0;
++
 +		for (int fd = 0; fd < num_fds; ++fd) {
-+			short events;
++			short events = 0;
 +			if (read_set && FD_ISSET(fd, read_set)) {
 +				events |= POLLIN;
 +			}
@@ -685,34 +687,50 @@ index 0000000..afaee81
 +			}
 +
 +			if (events) {
-+				fds[fd].fd = fd;
-+				fds[fd].events = events;
-+				fds[fd].revents = 0;
-+			} else {
-+				fds[fd].fd = -1;
++				fds[actualcount].fd = fd;
++				fds[actualcount].events = events;
++				fds[actualcount].revents = 0;
++				actualcount++;
 +			}
 +		}
 +
 +		int time = timeout == NULL ? -1 : timeout->tv_sec * 1000 + timeout->tv_nsec / 1000000;
 +
-+		int err = sys_poll(fds, num_fds, time, num_events);
++		int num;
++		int err = sys_poll(fds, actualcount, time, &num);
 +
 +		if (err) {
 +			free(fds);
 +			return err;
 +		}
 +
-+		for (int fd = 0; fd < num_fds; ++fd) {
-+			if (read_set && (fds[fd].revents & POLLIN) == 0)
-+				FD_CLR(fd, read_set);
++		#define READ_SET_POLLSTUFF (POLLIN | POLLHUP | POLLERR)
++		#define WRITE_SET_POLLSTUFF (POLLOUT | POLLERR)
++		#define EXCEPT_SET_POLLSTUFF (POLLPRI)
 +
-+			if (write_set && (fds[fd].revents & POLLOUT) == 0)
-+				FD_CLR(fd, write_set);
++		int returncount = 0;
++		for (int fd = 0; fd < actualcount; ++fd) {
++			int events = fds[fd].events;
++			if ((events & POLLIN) && (fds[fd].revents & READ_SET_POLLSTUFF) == 0) {
++				FD_CLR(fds[fd].fd, read_set);
++				events &= ~POLLIN;
++			}
 +
-+			if (except_set && (fds[fd].revents & POLLPRI) == 0)
-+				FD_CLR(fd, except_set);	
++			if ((events & POLLOUT) && (fds[fd].revents & WRITE_SET_POLLSTUFF) == 0) {
++				FD_CLR(fds[fd].fd, write_set);
++				events &= ~POLLOUT;
++			}
++
++			if ((events & POLLPRI) && (fds[fd].revents & EXCEPT_SET_POLLSTUFF) == 0) {
++				FD_CLR(fds[fd].fd, except_set);
++				events &= ~POLLPRI;
++			}
++
++			if (events)
++				returncount++;
 +		}
-+
++		*num_events = returncount;
++		free(fds);
 +		return 0;
 +	}
 +#endif
