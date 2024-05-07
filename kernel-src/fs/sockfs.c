@@ -143,7 +143,6 @@ int sockfs_ioctl(vnode_t *node, unsigned long request, void *arg, int *result) {
 				return ENOTTY;
 
 			*count = socket->ops->datacount(socket);
-			printf("count %d\n", *count);
 			return 0;
 		}
 			default:
