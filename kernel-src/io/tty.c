@@ -18,7 +18,17 @@ void tty_process(tty_t *tty, char c) {
 	else if (c == '\n' && (tty->termios.c_iflag & INLCR))
 		c = '\r';
 
-	// TODO signal stuff
+	if (tty->termios.c_lflag & ISIG) {
+		// TODO signal stuff
+	}
+
+	char echoc = (tty->termios.c_lflag & ECHO) ? c : '\0';
+
+	// echo control characters
+	if ((tty->termios.c_lflag & ECHOCTL) && c < 32 && c != '\n' && c != '\r' && c != '\b') {
+		char tmp[2] = {'^', c + 0x40};
+		tty->writetodevice(tty->deviceinternal, tmp, 2);
+	}
 
 	if (tty->termios.c_lflag & ICANON) {
 		bool flush = false;
@@ -38,8 +48,8 @@ void tty_process(tty_t *tty, char c) {
 			flush = true;
 		}
 
-		if (tty->termios.c_lflag & ECHO)
-			tty->writetodevice(tty->deviceinternal, &c, 1);
+		if (echoc)
+			tty->writetodevice(tty->deviceinternal, &echoc, 1);
 
 		// check if buffer is full
 		tty->devicebuffer[tty->devicepos++] = c;
@@ -58,7 +68,7 @@ void tty_process(tty_t *tty, char c) {
 			MUTEX_RELEASE(&tty->readmutex);
 		}
 	} else {
-		if (tty->termios.c_lflag & ECHO)
+		if (echoc)
 			tty->writetodevice(tty->deviceinternal, &c, 1);
 
 		MUTEX_ACQUIRE(&tty->readmutex, false);
@@ -192,14 +202,24 @@ static int read(int minor, void *buffer, size_t size, uintmax_t offset, int flag
 	return error;
 }
 
-static int write(int minor, void *buffer, size_t size, uintmax_t offset, int flags, size_t *writec) {
+static int write(int minor, void *_buffer, size_t size, uintmax_t offset, int flags, size_t *writec) {
 	tty_t *tty = ttyget(minor);
 	if (tty == NULL)
 		return ENODEV;
 
 	// TODO background process stuff etc
+
+	char *buffer = _buffer;
+
 	*writec = size;
-	tty->writetodevice(tty->deviceinternal, buffer, size);
+	for (int i = 0; i < size; ++i) {
+		if (buffer[i] == '\n' && (tty->termios.c_oflag & ONLCR)) {
+			char cr = '\r';
+			tty->writetodevice(tty->deviceinternal, &cr, 1);
+		}
+		tty->writetodevice(tty->deviceinternal, &buffer[i], 1);
+	}
+
 	return 0;
 }
 
@@ -345,10 +365,12 @@ tty_t *tty_create(char *name, ttydevicewritefn_t writefn, ttyinactivefn_t inacti
 	MUTEX_INIT(&tty->writemutex);
 
 	tty->termios.c_iflag = ICRNL;
-	tty->termios.c_lflag = ECHO | ICANON | ISIG;
+	tty->termios.c_oflag = ONLCR;
+	tty->termios.c_lflag = ECHO | ICANON | ISIG | ECHOCTL;
+	tty->termios.c_cflag = 0;
 	tty->termios.c_cc[VINTR] = 0x03;
-    	tty->termios.ibaud = 38400;
-    	tty->termios.obaud = 38400;
+	tty->termios.ibaud = 38400;
+	tty->termios.obaud = 38400;
 	tty->termios.c_cc[VMIN] = 1;
 
 	tty->writetodevice = writefn;

@@ -16,6 +16,8 @@ typedef unsigned int tcflag_t;
 #define IGNCR 0000200
 #define ICRNL 0000400
 #define OCRNL 0000010
+#define ECHOCTL 0001000
+#define ONLCR 0000004
 
 #define TCGETS 0x5401
 #define TCSETS 0x5402
