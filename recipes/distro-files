@@ -4,4 +4,6 @@ from_source=distro-files
 
 package() {
 	cp -r ${source_dir}/* ${dest_dir}
+	mkdir -p ${dest_dir}/root/.fvwm
+	ln -fvs /usr/share/fvwm3/default-config/images/background/bg3.png ${dest_dir}/root/.fvwm/.BGdefault
 }
