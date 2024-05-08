@@ -198,14 +198,13 @@ static int ioctl(int minor, unsigned long request, void *_arg, int *result) {
 		return ENODEV;
 
 	switch (request) {
-		case TIOCGPTN:
-		{
+		case TIOCGPTN: {
 			int *arg = _arg;
 			*arg = pty->minor;
 			break;
 		}
 		default:
-		return ENOTTY;
+		return tty_ioctl(pty->tty, request, _arg, result);
 	}
 
 	return 0;

@@ -25,7 +25,7 @@ void tty_process(tty_t *tty, char c) {
 	char echoc = (tty->termios.c_lflag & ECHO) ? c : '\0';
 
 	// echo control characters
-	if ((tty->termios.c_lflag & ECHOCTL) && c < 32 && c != '\n' && c != '\r' && c != '\b' && c != '\t') {
+	if ((tty->termios.c_lflag & ECHOCTL) && c < 32 && c != '\n' && c != '\r' && c != '\b' && c != '\t' && c != '\e') {
 		char tmp[2] = {'^', c + 0x40};
 		tty->writetodevice(tty->deviceinternal, tmp, 2);
 	}
@@ -231,27 +231,40 @@ static int poll(int minor, polldata_t *data, int events) {
 	return internalpoll(tty, data, events);
 }
 
-static int ioctl(int minor, unsigned long req, void *arg, int *result) {
-	tty_t *tty = ttyget(minor);
-	if (tty == NULL)
-		return ENODEV;
-
+int tty_ioctl(tty_t *tty, unsigned long req, void *arg, int *result) {
 	switch (req) {
-		case TIOCGWINSZ:
+		case TIOCGWINSZ: {
 			winsize_t *w = arg;
 			*w = tty->winsize;
 			break;
-		case TCGETS:
+		}
+		case TIOCSWINSZ: {
+			winsize_t *w = arg;
+			tty->winsize = *w;
+			// TODO send signal to foreground process group
+			break;
+		}
+		case TCGETS: {
 			*(termios_t *)arg = tty->termios;
 			break;
-		case TCSETS:
+		}
+		case TCSETS: {
 			tty->termios = *(termios_t *)arg;
 			break;
+		}
 		default:
 			return ENOTTY;
 	}
 
 	return 0;
+}
+
+static int ioctl(int minor, unsigned long req, void *arg, int *result) {
+	tty_t *tty = ttyget(minor);
+	if (tty == NULL)
+		return ENODEV;
+
+	return tty_ioctl(tty, req, arg, result);
 }
 
 static int isatty(int minor) {
