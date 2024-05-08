@@ -25,7 +25,7 @@ void tty_process(tty_t *tty, char c) {
 	char echoc = (tty->termios.c_lflag & ECHO) ? c : '\0';
 
 	// echo control characters
-	if ((tty->termios.c_lflag & ECHOCTL) && c < 32 && c != '\n' && c != '\r' && c != '\b') {
+	if ((tty->termios.c_lflag & ECHOCTL) && c < 32 && c != '\n' && c != '\r' && c != '\b' && c != '\t') {
 		char tmp[2] = {'^', c + 0x40};
 		tty->writetodevice(tty->deviceinternal, tmp, 2);
 	}
