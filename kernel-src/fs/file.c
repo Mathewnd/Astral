@@ -173,6 +173,10 @@ int fd_clone(proc_t *targproc) {
 int fd_dup(int oldfd, int newfd, bool exact, int fdflags, int *retfd) {
 	proc_t *proc = _cpu()->thread->proc;
 	int err = 0;
+
+	if (newfd < 0 || newfd >= FDTABLE_LIMIT)
+		return EBADF;
+
 	MUTEX_ACQUIRE(&proc->fdmutex, false);
 
 	file_t *file = oldfd < proc->fdcount ? proc->fd[oldfd].file : NULL;
@@ -182,11 +186,6 @@ int fd_dup(int oldfd, int newfd, bool exact, int fdflags, int *retfd) {
 	}
 
 	if (exact) {
-		if (newfd >= FDTABLE_LIMIT) {
-			err = EBADF;
-			goto cleanup;
-		}
-
 		if (newfd >= proc->fdcount) {
 			err = growtable(newfd + 1);
 			if (err)
