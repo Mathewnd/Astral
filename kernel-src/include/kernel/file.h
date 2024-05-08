@@ -64,6 +64,8 @@ static inline int fileflagstovnodeflags(int flags) {
 		vnflags |= V_FFLAGS_WRITE;
 	if (flags & O_NONBLOCK)
 		vnflags |= V_FFLAGS_NONBLOCKING;
+	if (flags & O_NOCTTY)
+		vnflags |= V_FFLAGS_NOCTTY;
 
 	return vnflags;
 }
