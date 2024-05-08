@@ -4,8 +4,9 @@
 #include <sys/wait.h>
 #include <pwd.h>
 #include <fcntl.h>
+#include <string.h>
 
-int main() {
+int main(int argc, char *argv[]) {
 	printf("init: Welcome to Astral!\n");
 
 	// set up initial environmental variables
@@ -65,6 +66,11 @@ int main() {
 
 	close(rfd);
 	close(wfd);
+
+	// run the startwm script
+	// if that exits, we will fall back to the console shell
+	if (argc > 1 && strcmp(argv[1], "withx") == 0)
+		system("/usr/bin/startwm");
 
 	// start user shell
 	printf("init: running /usr/bin/bash\n");

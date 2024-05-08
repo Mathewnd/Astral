@@ -11,6 +11,7 @@
 #include <semaphore.h>
 #include <kernel/devfs.h>
 #include <kernel/jobctl.h>
+#include <kernel/cmdline.h>
 
 #define QUANTUM_US 100000
 #define SCHEDULER_STACK_SIZE PAGE_SIZE
@@ -291,7 +292,7 @@ void sched_inactiveproc(proc_t *proc) {
 	// proc refcount 0, we can free the structure
 	// TODO remove from the pid list
 
-	printf("destroying proc!\n");
+	//printf("destroying proc!\n");
 	sched_destroyproc(proc);
 }
 
@@ -643,7 +644,7 @@ void sched_runinit() {
 	proc->root = vfsroot;
 	VOP_HOLD(vfsroot);
 
-	char *argv[] = {"/init", "-l", NULL};
+	char *argv[] = {"/init", cmdline_get("initarg"), NULL};
 	char *envp[] = {NULL};
 
 	void *stack = elf_preparestack(STACK_TOP, &auxv64, argv, envp);
