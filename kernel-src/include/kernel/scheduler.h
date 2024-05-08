@@ -121,7 +121,7 @@ void sched_queue(thread_t *thread);
 void sched_stopcurrentthread();
 int sched_yield();
 void sched_preparesleep(bool interruptible);
-void sched_wakeup(thread_t *thread, int reason);
+bool sched_wakeup(thread_t *thread, int reason);
 int sched_sleep();
 proc_t *sched_newproc();
 vnode_t *sched_getcwd();

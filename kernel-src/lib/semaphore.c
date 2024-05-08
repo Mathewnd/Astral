@@ -17,7 +17,8 @@ static void insert(semaphore_t *sem, thread_t *thread) {
 
 static thread_t *get(semaphore_t *sem) {
 	thread_t *thread = sem->tail;
-	__assert(thread);
+	if (thread == NULL)
+		return NULL;
 
 	sem->tail = thread->sleepprev;
 
@@ -44,6 +45,11 @@ int semaphore_wait(semaphore_t *sem, bool interruptible) {
 		sched_preparesleep(interruptible);
 		spinlock_release(&sem->lock);
 		ret = sched_yield();
+		if (ret) {
+			spinlock_acquire(&sem->lock);
+			++sem->i;
+			spinlock_release(&sem->lock);
+		}
 		goto leave;
 	}
 
@@ -57,9 +63,17 @@ void semaphore_signal(semaphore_t *sem) {
 	bool intstate = interrupt_set(false);
 	spinlock_acquire(&sem->lock);
 	if (++sem->i <= 0) {
-		thread_t *thread = get(sem);
-		// XXX the current method doesn't respect thread priorities
-		sched_wakeup(thread, 0);
+		thread_t *thread;
+		do {
+			// wake SOMEONE up. this will *try* to wake up a thread
+			// it could wake up none though, as a thread could have been interrupted by a signal
+			thread = get(sem);
+			// XXX the current method doesn't respect thread priorities
+			if (thread) {
+				sched_wakeup(thread, 0);
+				break;
+			}
+		} while (thread);
 	}
 	spinlock_release(&sem->lock);
 	interrupt_set(intstate);
