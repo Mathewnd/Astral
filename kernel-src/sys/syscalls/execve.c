@@ -21,6 +21,7 @@ syscallret_t syscall_execve(context_t *context, char *upath, char *uargv[], char
 		.ret = -1
 	};
 
+	// TODO shebang
 	// TODO user str ops
 	char *path = alloc(strlen(upath) + 1);
 	if (path == NULL) {
@@ -38,6 +39,7 @@ syscallret_t syscall_execve(context_t *context, char *upath, char *uargv[], char
 	vnode_t *node = NULL;
 	vnode_t *refnode = NULL;
 	char *interp = NULL;
+	void *stack = NULL;
 
 	while (uargv[argsize++]);
 	while (uenvp[envsize++]);
@@ -107,7 +109,7 @@ syscallret_t syscall_execve(context_t *context, char *upath, char *uargv[], char
 		VOP_RELEASE(interpnode);
 	}
 
-	void *stack = elf_preparestack(STACK_TOP, &auxv64, argv, envp);
+	stack = elf_preparestack(STACK_TOP, &auxv64, argv, envp);
 	if (stack == NULL) {
 		ret.errno = ENOMEM;
 		goto error;
@@ -115,9 +117,15 @@ syscallret_t syscall_execve(context_t *context, char *upath, char *uargv[], char
 
 	ret.ret = 0;
 
-	// TODO close CLOEXEC fds
-
 	sched_stopotherthreads();
+
+	// close O_CLOEXEC fds
+
+	proc_t *proc = _cpu()->thread->proc;
+	for (int fd = 0; fd < proc->fdcount; ++fd) {
+		if (proc->fd[fd].flags & O_CLOEXEC)
+                	fd_close(fd);
+	}
 
 	error:
 	free(path);

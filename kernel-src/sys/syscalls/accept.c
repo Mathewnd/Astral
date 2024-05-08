@@ -45,7 +45,7 @@ syscallret_t syscall_accept(context_t *, int oldfd, abisockaddr_t *abisockaddr, 
 	file_t *newfile;
 	int newfd;
 	
-	ret.errno = fd_new(0, &newfile, &newfd);
+	ret.errno = fd_new(acceptflags & O_CLOEXEC, &newfile, &newfd);
 	if (ret.errno) {
 		// socket gets deleted by node cleanup
 		VOP_RELEASE(vnode);
@@ -53,7 +53,7 @@ syscallret_t syscall_accept(context_t *, int oldfd, abisockaddr_t *abisockaddr, 
 	}
 
 	newfile->vnode = vnode;
-	newfile->flags = FILE_READ | FILE_WRITE | (acceptflags & (O_CLOEXEC | O_NONBLOCK));
+	newfile->flags = FILE_READ | FILE_WRITE | (acceptflags & (O_NONBLOCK));
 	newfile->offset = 0;
 	newfile->mode = 0777;
 

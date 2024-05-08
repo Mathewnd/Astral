@@ -28,10 +28,9 @@ syscallret_t syscall_openat(context_t *context, int dirfd, const char *path, int
 
 	ret.errno = dirfd_enter(pathbuf, dirfd, &dirfile, &dirnode);
 
-	// TODO pass CLOEXEC to fd
 	file_t *newfile = NULL;
 	int newfd;
-	ret.errno = fd_new(0, &newfile, &newfd);
+	ret.errno = fd_new(flags & O_CLOEXEC, &newfile, &newfd);
 	if (ret.errno)
 		goto cleanup;
 
