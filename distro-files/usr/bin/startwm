@@ -1,0 +1,19 @@
+X &
+while [ 1 ]
+do
+  if [ -S /tmp/.X11-unix/X0 ]
+  then
+    break
+  fi
+
+  if [ $SECONDS -gt 15 ]
+  then
+    echo timeout
+    exit 1
+  fi
+
+  sleep 0.5
+done
+stty -echo -echoctl
+xterm -e "bash -l" &
+exec fvwm3
