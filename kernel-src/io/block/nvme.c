@@ -600,6 +600,7 @@ static void initcontroller(pcienum_t *e) {
 	pci_setcommand(e, PCI_COMMAND_MMIO, 1);
 	pci_setcommand(e, PCI_COMMAND_IO, 0);
 	pci_setcommand(e, PCI_COMMAND_IRQDISABLE, 1);
+	pci_setcommand(e, PCI_COMMAND_BUSMASTER, 1);
 
 	int vmajor = VERSION_MAJOR(bar0->version);
 	int vminor = VERSION_MINOR(bar0->version);
