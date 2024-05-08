@@ -23,7 +23,7 @@ Astral is a 64 bit operating system with its own kernel written in C for the x86
 
 ## Building
 
-The build process only needs xorriso and curl on the host. All other needed packages will be installed/built on the container.
+The build process only needs xorriso, curl and bsdtar on the host. All other needed packages will be installed/built on the container.
 
 To build the project, run ``make``. This will create a file named ``astral.iso``
 
