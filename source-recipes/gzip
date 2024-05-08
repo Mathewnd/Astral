@@ -1,0 +1,10 @@
+name=gzip
+version=1.13
+source_method=tarball
+tarball_url="https://ftp.gnu.org/gnu/gzip/gzip-${version}.tar.gz"
+tarball_sha512=8d78cea6770bf53c744ee1f6435af96921883b5910d14a10ced695279ad057f316de7228ad45ad4294fdd4dd0dacf86576094d11731c4d64cbafef00bc49a5a1
+hostdeps="autoconf automake pkgconfig libtool"
+
+regenerate() {
+	autoreconf -fvi
+}

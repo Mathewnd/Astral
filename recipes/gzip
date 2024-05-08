@@ -1,12 +1,12 @@
-name=tar
+name=gzip
 revision=1
-from_source=tar
+from_source=gzip
 imagedeps="base-devel"
-hostdeps="xgcc xbinutils"
-deps="mlibc bzip2 zlib gzip"
+hostdeps="xgcc xbinutils automake autoconf"
+deps="mlibc"
 
 build() {
-	cp -rpf ${source_dir}/* .
+	cp -rf ${source_dir}/* .
 	./configure --host=x86_64-astral --prefix=${prefix}
 	make -j ${parallelism}
 }
