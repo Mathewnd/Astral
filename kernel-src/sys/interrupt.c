@@ -95,6 +95,7 @@ static void dopending(context_t *ctx) {
 	}
 }
 
+__attribute__((no_caller_saved_registers)) void sched_userspacecheck(context_t *context);
 
 void interrupt_isr(int vec, context_t *ctx) {
 	isr_t *isr = &_cpu()->isr[vec];
@@ -113,6 +114,9 @@ void interrupt_isr(int vec, context_t *ctx) {
 
 	if (isr->eoi)
 		isr->eoi(isr);
+
+	if (ARCH_CONTEXT_ISUSER(ctx))
+		sched_userspacecheck(ctx);
 
 	_cpu()->intstatus = ARCH_CONTEXT_INTSTATUS(ctx);
 }
