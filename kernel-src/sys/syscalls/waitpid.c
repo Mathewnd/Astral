@@ -75,6 +75,12 @@ syscallret_t syscall_waitpid(context_t *context, pid_t pid, int *status, int opt
 	for (int i = 0; i < iterator->threadtablesize; ++i) {
 		if (iterator->threads[i] == NULL)
 			continue;
+
+		volatile int *flags = (volatile int *)(&iterator->threads[i]->flags);
+		// wait until the thread can actually be unallocated
+		while ((*flags & SCHED_THREAD_FLAGS_DEAD) == 0)
+			sched_yield();
+
 		sched_destroythread(iterator->threads[i]);
 	}
 
