@@ -3,7 +3,7 @@
 #include <logging.h>
 #include <string.h>
 #include <arch/mmu.h>
-#include <spinlock.h>
+#include <mutex.h>
 #include <util.h>
 
 uintptr_t hhdmbase;
@@ -11,7 +11,7 @@ static size_t memorysize;
 static size_t pagecount;
 size_t freepagecount;
 
-static spinlock_t freelistlock;
+static mutex_t freelistmutex;
 static page_t *freelists[PMM_SECTION_COUNT];
 static page_t *standbylists[PMM_SECTION_COUNT];
 
@@ -112,11 +112,11 @@ void pmm_release(void *addr) {
 
 	uintmax_t newrefcount = __atomic_sub_fetch(&page->refcount, 1, __ATOMIC_SEQ_CST);
 	if (newrefcount == 0) {
-		spinlock_acquire(&freelistlock);
+		MUTEX_ACQUIRE(&freelistmutex, false);
 		insertinfreelist(page);
 		if (page->backing == NULL)
 			page->flags |= PAGE_FLAGS_FREE;
-		spinlock_release(&freelistlock);
+		MUTEX_RELEASE(&freelistmutex);
 	}
 }
 
@@ -128,7 +128,7 @@ static void doalloc(page_t *page) {
 }
 
 void *pmm_allocpage(int section) {
-	spinlock_acquire(&freelistlock);
+	MUTEX_ACQUIRE(&freelistmutex, false);
 	page_t *page = NULL;
 
 	for (int i = section; i >= 0; --i) {
@@ -141,7 +141,7 @@ void *pmm_allocpage(int section) {
 
 	// TODO get page from standby list and call to remove from cache
 
-	spinlock_release(&freelistlock);
+	MUTEX_RELEASE(&freelistmutex);
 	void *address = NULL;
 	if (page) {
 		address = (void *)(PAGE_GETID(page) * PAGE_SIZE);
@@ -204,7 +204,7 @@ void pmm_init() {
 		}
 	}
 
-	SPINLOCK_INIT(freelistlock);
+	MUTEX_INIT(&freelistmutex);
 }
 
 void *pmm_alloc(size_t size, int section) {
@@ -213,7 +213,7 @@ void *pmm_alloc(size_t size, int section) {
 	if (size == 1)
 		return pmm_allocpage(section);
 
-	spinlock_acquire(&freelistlock);
+	MUTEX_ACQUIRE(&freelistmutex, false);
 
 	uintmax_t page = 0;
 	size_t found = 0;
@@ -245,7 +245,7 @@ void *pmm_alloc(size_t size, int section) {
 		}
 	}
 
-	spinlock_release(&freelistlock);
+	MUTEX_RELEASE(&freelistmutex);
 	return addr;
 }
 

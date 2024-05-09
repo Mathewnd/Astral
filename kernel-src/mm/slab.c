@@ -15,6 +15,7 @@
 #define SLAB_DEBUG 0
 
 // the cache responsible for allocating all others
+static bool selfcacheinit = false;
 static scache_t selfcache = {
 	.size = sizeof(scache_t),
 	.alignment = 8,
@@ -142,7 +143,7 @@ static slab_t *returnobject(scache_t *cache, void *obj) {
 }
 
 void *slab_allocate(scache_t *cache) {
-	spinlock_acquire(&cache->lock);
+	MUTEX_ACQUIRE(&cache->mutex, false);
 	slab_t *slab = NULL;
 	if (cache->partial != NULL)
 		slab = cache->partial;
@@ -186,12 +187,12 @@ void *slab_allocate(scache_t *cache) {
 	}
 
 	cleanup:
-	spinlock_release(&cache->lock);
+	MUTEX_RELEASE(&cache->mutex);
 	return ret;
 }
 
 void slab_free(scache_t *cache, void *addr) {
-	spinlock_acquire(&cache->lock);
+	MUTEX_ACQUIRE(&cache->mutex, false);
 
 	slab_t *slab = returnobject(cache, addr);
 	__assert(slab);
@@ -227,12 +228,17 @@ void slab_free(scache_t *cache, void *addr) {
 			slab->next->prev = slab;
 		cache->partial = slab;
 	}
-	spinlock_release(&cache->lock);
+	MUTEX_RELEASE(&cache->mutex);
 }
 
 scache_t *slab_newcache(size_t size, size_t alignment, void (*ctor)(scache_t *, void *), void (*dtor)(scache_t *, void *)) {
 	if (alignment == 0)
 		alignment = 8;
+
+	if (selfcacheinit == false) {
+		selfcacheinit = true;
+		MUTEX_INIT(&selfcache.mutex);
+	}
 
 	scache_t *cache = slab_allocate(&selfcache);
 	if (cache == NULL)
@@ -248,7 +254,7 @@ scache_t *slab_newcache(size_t size, size_t alignment, void (*ctor)(scache_t *, 
 	cache->full = NULL;
 	cache->empty = NULL;
 	cache->partial = NULL;
-	SPINLOCK_INIT(cache->lock);
+	MUTEX_INIT(&cache->mutex);
 
 	printf("slab: new cache: size %lu align %lu truesize %lu objcount %lu\n", cache->size, cache->alignment, cache->truesize, cache->slabobjcount);
 
@@ -278,7 +284,7 @@ static size_t purge(scache_t *cache, size_t maxcount){
 }
 
 void slab_freecache(scache_t *cache) {
-	spinlock_acquire(&cache->lock);
+	MUTEX_ACQUIRE(&cache->mutex, false);
 	__assert(cache->partial == NULL);
 	__assert(cache->full == NULL);
 

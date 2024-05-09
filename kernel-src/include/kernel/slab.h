@@ -3,7 +3,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
-#include <spinlock.h>
+#include <mutex.h>
 
 typedef struct slab_t {
 	struct slab_t *next;
@@ -14,7 +14,7 @@ typedef struct slab_t {
 } slab_t;
 
 typedef struct scache_t {
-	spinlock_t lock;
+	mutex_t mutex;
 	void (*ctor)(struct scache_t *cache, void *obj);
 	void (*dtor)(struct scache_t *cache, void *obj);
 	slab_t *full;
