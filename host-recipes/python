@@ -1,0 +1,13 @@
+name=python
+from_source=python
+revision=1
+imagedeps="base-devel"
+
+build() {
+	"${source_dir}/configure" --prefix=${prefix}
+	make -j${parallelism}
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+}

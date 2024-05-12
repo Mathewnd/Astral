@@ -1,0 +1,68 @@
+diff --git python-clean/config.sub python-workdir/config.sub
+index d74fb6d..8e94c64 100755
+--- python-clean/config.sub
++++ python-workdir/config.sub
+@@ -1718,7 +1718,7 @@ case $os in
+ 	# Now accept the basic system types.
+ 	# The portable systems comes first.
+ 	# Each alternative MUST end in a * to match a version number.
+-	gnu* | android* | bsd* | mach* | minix* | genix* | ultrix* | irix* \
++	gnu* | astral* | android* | bsd* | mach* | minix* | genix* | ultrix* | irix* \
+ 	     | *vms* | esix* | aix* | cnk* | sunos | sunos[34]* \
+ 	     | hpux* | unos* | osf* | luna* | dgux* | auroraux* | solaris* \
+ 	     | sym* |  plan9* | psp* | sim* | xray* | os68k* | v88r* \
+diff --git python-clean/configure.ac python-workdir/configure.ac
+index ac3be38..2443402 100644
+--- python-clean/configure.ac
++++ python-workdir/configure.ac
+@@ -403,6 +403,9 @@ then
+ 	*-*-vxworks*)
+ 	    ac_sys_system=VxWorks
+ 	    ;;
++	*-*-astral*)
++	    ac_sys_system=Astral
++	    ;;
+ 	*)
+ 		# for now, limit cross builds to known configurations
+ 		MACHDEP="unknown"
+@@ -452,6 +455,9 @@ if test "$cross_compiling" = yes; then
+ 	*-*-vxworks*)
+ 		_host_cpu=$host_cpu
+ 		;;
++	*-*-astral*)
++		_host_cpu=$host_cpu
++		;;
+ 	*)
+ 		# for now, limit cross builds to known configurations
+ 		MACHDEP="unknown"
+@@ -2756,6 +2762,10 @@ then
+ 	CYGWIN*)
+ 		LDSHARED="gcc -shared -Wl,--enable-auto-image-base"
+ 		LDCXXSHARED="g++ -shared -Wl,--enable-auto-image-base";;
++	Astral*)
++		LDSHARED='$(CC) -shared'
++		LDCXXSHARED='$(CXX) -shared'
++		;;
+ 	*)	LDSHARED="ld";;
+ 	esac
+ fi
+@@ -2793,6 +2803,10 @@ then
+ 		fi;;
+ 	VxWorks*)
+ 		CCSHARED="-fpic -D__SO_PICABILINUX__  -ftls-model=global-dynamic"
++		;;
++	Astral*)
++		CCSHARED="-fPIC"
++		;;
+ 	esac
+ fi
+ AC_MSG_RESULT($CCSHARED)
+@@ -2862,6 +2876,8 @@ then
+ 		LINKFORSHARED='-Wl,-E -N 2048K';;
+ 	VxWorks*)
+ 		LINKFORSHARED='-Wl,-export-dynamic';;
++	Astral*)
++		LINKFORSHARED="-export-dynamic";;
+ 	esac
+ fi
+ AC_MSG_RESULT($LINKFORSHARED)

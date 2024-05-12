@@ -1,0 +1,9 @@
+name=python
+version=3.10.12
+source_method=tarball
+tarball_url="https://www.python.org/ftp/python/${version}/Python-${version}.tar.xz"
+tarball_sha512=5ea018e71bfe7872e02eaf8aef56d5583c0880e4ce5fbbdf8ea76da20c2e94ac6a3ba8badb4b7d1bc21853402a3b63541b04181737417b1626e786b696595cf5
+hostdeps="autoconf automake pkgconfig libtool autoconf-archive"
+regenerate() {
+        autoreconf -fvi
+}

@@ -1,0 +1,17 @@
+name=python
+revision=1
+from_source=python
+imagedeps="base-devel"
+hostdeps="xgcc xbinutils pkgconfig python"
+deps="mlibc mlibc-headers"
+
+build() {
+	echo "ac_cv_file__dev_ptmx=yes" > /tmp/configsite
+	echo "ac_cv_file__dev_ptc=no" >> /tmp/configsite
+	CONFIG_SITE=/tmp/configsite ${source_dir}/configure --prefix=${prefix} --host=x86_64-astral --build=x86_64 --with-build-python=python3 --disable-ipv6 --enable-shared
+	make -j${parallelism}
+}
+
+package() {
+	make DESTDIR=${dest_dir} install
+}
