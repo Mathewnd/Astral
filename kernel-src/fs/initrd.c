@@ -38,7 +38,7 @@ typedef struct {
 } tarheader_t;
 
 typedef struct {
-	char name[256];
+	char name[257];
 	mode_t mode;
 	gid_t gid;
 	uid_t uid;
@@ -68,14 +68,16 @@ static void buildentry(tarentry_t *entry, void *addr) {
 
 	char *namecpyptr = entry->name;
 	// name has a prefix
-	if (header->name[99]) {
+	if (header->prefix[0]) {
 		size_t len = header->prefix[154] ? 155 : strlen(header->prefix);
 		memcpy(namecpyptr, header->prefix, len);
 		namecpyptr += len;
+		*namecpyptr++ = '/';
 	}
 	size_t namelen = header->name[99] ? 99 : strlen(header->name);
 	memcpy(namecpyptr, header->name, namelen);
-	entry->name[namelen] = '\0';
+	namecpyptr += namelen;
+	*namecpyptr = '\0';
 
 	entry->mode = convert(header->mode, 7);
 	entry->uid = convert(header->uid, 7);
