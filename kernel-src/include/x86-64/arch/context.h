@@ -40,9 +40,9 @@ typedef struct {
 typedef struct {
 	uint64_t gsbase;
 	uint64_t fsbase;
-	uint8_t  fx[512];
+	__attribute__((aligned(16))) uint8_t fx[512];
 	uint32_t mxcsr;
-} extracontext_t __attribute__((aligned(16)));
+} extracontext_t;
 
 #define CTX_INIT(x,u,interrupts) \
 	if (u) { \
@@ -67,6 +67,9 @@ typedef struct {
 #define CTX_IP(x) (x)->rip
 #define CTX_RET(x) (x)->rax
 #define CTX_ERRNO(x) (x)->rdx
+#define CTX_ARG0(x) (x)->rdi
+#define CTX_ARG1(x) (x)->rsi
+#define CTX_ARG2(x) (x)->rdx
 
 #define PRINT_CTX(x) { \
 	printf("cr2: %016lx  gs: %04x\nrax: %016lx  fs: %04x\nrbx: %016lx  es: %04x\nrcx: %016lx  ds: %04x\nrdx: %016lx  cs: %04x\n r8: %016lx  ss: %04x\n r9: %016lx r10: %016lx\nr11: %016lx r12: %016lx\nr13: %016lx r14: %016lx\nr15: %016lx rdi: %016lx\nrsi: %016lx rbp: %016lx\nrip: %016lx rsp: %016lx\nerr: %016lx rfl: %016lx\n", \
@@ -102,6 +105,18 @@ void arch_context_saveandcall(void (*fn)(context_t *context), void *stack);
 	wrmsr(MSR_FSBASE, (t)->extracontext.fsbase); \
 	asm("fxrstor (%%rax)" : : "a"(&(t)->extracontext.fx[0])); \
 	asm("ldmxcsr (%%rax)" : : "a"(&(t)->extracontext.mxcsr));
+
+#define ARCH_EXTRACONTEXT_LOAD(c) \
+	wrmsr(MSR_KERNELGSBASE, (c)->gsbase); \
+	wrmsr(MSR_FSBASE, (c)->fsbase); \
+	asm("fxrstor (%%rax)" : : "a"(&(c)->fx[0])); \
+	asm("ldmxcsr (%%rax)" : : "a"(&(c)->mxcsr));
+
+#define ARCH_EXTRACONTEXT_SAVE(c) \
+	(c)->gsbase = rdmsr(MSR_KERNELGSBASE); \
+	(c)->fsbase = rdmsr(MSR_FSBASE); \
+	asm("fxsave (%%rax)" : : "a"(&(c)->fx[0])); \
+	asm("stmxcsr (%%rax)" : : "a"(&(c)->mxcsr));
 
 #define ARCH_CONTEXT_INTSTATUS(x) ((x)->rflags & 0x200 ? true : false)
 #define ARCH_CONTEXT_ISUSER(x) ((x)->cs == 0x23)

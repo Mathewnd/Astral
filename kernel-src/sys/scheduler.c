@@ -29,9 +29,20 @@ typedef struct {
 static rqueue_t runqueue[RUNQUEUE_COUNT];
 static uint64_t runqueuebitmap;
 static spinlock_t runqueuelock;
+static hashtable_t pidtable;
+// not defined as static because its acquired/released from a macro in kernel/scheduler.h
+mutex_t sched_pidtablemutex;
 
 proc_t *sched_initproc;
 static pid_t currpid = 1;
+
+proc_t *sched_getprocfrompid(int pid) {
+	MUTEX_ACQUIRE(&sched_pidtablemutex, false);
+	void *proc = NULL;
+	hashtable_get(&pidtable, &proc, &pid, sizeof(pid));
+	MUTEX_RELEASE(&sched_pidtablemutex);
+	return proc;
+}
 
 proc_t *sched_newproc() {
 	proc_t *proc = slab_allocate(processcache);
@@ -50,7 +61,7 @@ proc_t *sched_newproc() {
 	proc->state = SCHED_PROC_STATE_NORMAL;
 	proc->threadtablesize = 1;
 	proc->runningthreadcount = 1;
-	SPINLOCK_INIT(proc->lock);
+	MUTEX_INIT(&proc->mutex);
 	SPINLOCK_INIT(proc->nodeslock);
 	proc->fdcount = 3;
 	proc->refcount = 1;
@@ -59,6 +70,7 @@ proc_t *sched_newproc() {
 	SEMAPHORE_INIT(&proc->waitsem, 0);
 	SPINLOCK_INIT(proc->jobctllock);
 	SPINLOCK_INIT(proc->pgrp.lock);
+	SPINLOCK_INIT(proc->signals.lock);
 
 	proc->fd = alloc(sizeof(fd_t) * 3);
 	if (proc->fd == NULL) {
@@ -69,6 +81,17 @@ proc_t *sched_newproc() {
 
 	proc->pid = __atomic_fetch_add(&currpid, 1, __ATOMIC_SEQ_CST);
 	proc->umask = 022; // default umask
+
+	// add to pid table
+	MUTEX_ACQUIRE(&sched_pidtablemutex, false);
+	if (hashtable_set(&pidtable, proc, &proc->pid, sizeof(proc->pid), true)) {
+		MUTEX_RELEASE(&sched_pidtablemutex);
+		free(proc->fd);
+		free(proc->threads);
+		slab_free(processcache, proc);
+		return NULL;
+	}
+	MUTEX_RELEASE(&sched_pidtablemutex);
 
 	return proc;
 }
@@ -105,6 +128,7 @@ thread_t *sched_newthread(void *ip, size_t kstacksize, int priority, proc_t *pro
 	CTX_SP(&thread->context) = proc ? (ctxreg_t)ustack : (ctxreg_t)thread->kernelstacktop;
 	CTX_IP(&thread->context) = (ctxreg_t)ip;
 	SPINLOCK_INIT(thread->sleeplock);
+	SPINLOCK_INIT(thread->signals.lock);
 
 	return thread;
 }
@@ -241,6 +265,7 @@ __attribute__((noreturn)) void sched_stopcurrentthread() {
 // called when all threads in a process have exited
 void sched_procexit() {
 	proc_t *proc = _cpu()->thread->proc;
+	__assert(proc != sched_initproc);
 
 	// the process is going to be referenced by the child list, hold it
 	// it only holds it now because it has to have running threads to be in the list
@@ -254,7 +279,7 @@ void sched_procexit() {
 		fd_close(fd);
 
 	// zombify the proc
-	spinlock_acquire(&proc->lock);
+	MUTEX_ACQUIRE(&proc->mutex, false);
 
 	VOP_RELEASE(proc->root);
 	VOP_RELEASE(proc->cwd);
@@ -263,7 +288,7 @@ void sched_procexit() {
 	proc_t *lastchild = proc->child;
 
 
-	spinlock_acquire(&sched_initproc->lock);
+	MUTEX_ACQUIRE(&sched_initproc->mutex, false);
 
 	bool haszombie = false;
 
@@ -280,8 +305,8 @@ void sched_procexit() {
 		sched_initproc->child = proc->child;
 	}
 
-	spinlock_release(&sched_initproc->lock);
-	spinlock_release(&proc->lock);
+	MUTEX_RELEASE(&sched_initproc->mutex);
+	MUTEX_RELEASE(&proc->mutex);
 
 	semaphore_signal(&proc->parent->waitsem);
 	if (haszombie)
@@ -290,9 +315,10 @@ void sched_procexit() {
 
 void sched_inactiveproc(proc_t *proc) {
 	// proc refcount 0, we can free the structure
-	// TODO remove from the pid list
+	// the pid table lock is already acquired.
 
-	//printf("destroying proc!\n");
+	hashtable_remove(&pidtable, &proc->pid, sizeof(proc->pid));
+
 	sched_destroyproc(proc);
 }
 
@@ -346,12 +372,14 @@ __attribute__((no_caller_saved_registers)) void sched_userspacecheck(context_t *
 		interrupt_set(true);
 		sched_threadexit();
 	}
+
+	signal_check(thread, context);
 }
 
 void sched_stopotherthreads() {
 	thread_t *thread = _cpu()->thread;
 	proc_t *proc = thread->proc;
-	spinlock_acquire(&proc->lock);
+	MUTEX_ACQUIRE(&proc->mutex, false);
 	proc->nomorethreads = true;
 
 	for (int i = 0; i < proc->threadtablesize; ++i) {
@@ -363,7 +391,7 @@ void sched_stopotherthreads() {
 		proc->threads[i] = NULL;
 	}
 
-	spinlock_release(&proc->lock);
+	MUTEX_RELEASE(&proc->mutex);
 
 	while (__atomic_load_n(&proc->runningthreadcount, __ATOMIC_SEQ_CST) > 1) sched_yield();
 
@@ -563,6 +591,9 @@ void sched_init() {
 	processcache = slab_newcache(sizeof(proc_t), 0, NULL, NULL);
 	__assert(processcache);
 
+	__assert(hashtable_init(&pidtable, 100) == 0);
+	MUTEX_INIT(&sched_pidtablemutex);
+
 	_cpu()->schedulerstack = vmm_map(NULL, SCHEDULER_STACK_SIZE, VMM_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, NULL);
 	__assert(_cpu()->schedulerstack);
 	_cpu()->schedulerstack = (void *)((uintptr_t)_cpu()->schedulerstack + SCHEDULER_STACK_SIZE);
@@ -657,6 +688,8 @@ void sched_runinit() {
 
 	thread_t *uthread = sched_newthread(entry, PAGE_SIZE * 16, 1, proc, stack);
 	__assert(uthread);
+
+	proc->threads[0] = uthread;
 
 	uthread->vmmctx = vmmctx;
 	sched_queue(uthread);

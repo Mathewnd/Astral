@@ -13,10 +13,10 @@ index eb7be7b..eb83b56 100644
  #define IPPROTO_HOPOPTS  0
  #define IPPROTO_ICMP     1
 diff --git mlibc-clean/meson.build mlibc-workdir/meson.build
-index 471604e..3c5bea0 100644
+index 905fbb9..6360ca5 100644
 --- mlibc-clean/meson.build
 +++ mlibc-workdir/meson.build
-@@ -248,6 +248,12 @@ elif host_machine.system() == 'dripos'
+@@ -253,6 +253,12 @@ elif host_machine.system() == 'dripos'
  	rtld_include_dirs += include_directories('sysdeps/dripos/include')
  	libc_include_dirs += include_directories('sysdeps/dripos/include')
  	subdir('sysdeps/dripos')
@@ -175,10 +175,10 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..6ece9e1
+index 0000000..440f0dc
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -0,0 +1,652 @@
+@@ -0,0 +1,673 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -310,19 +310,40 @@ index 0000000..6ece9e1
 +		return ENOSYS;
 +	}
 +
-+	int sys_sigprocmask(int how, const sigset_t *__restrict set,
-+		sigset_t *__restrict retrieve) {
-+		//mlibc::infoLogger() << "mlibc: sigprocmask is a stub" << frg::endlog;
-+		return 0;
++	int sys_kill(int pid, int signal) {
++		long ret;
++		return syscall(SYSCALL_KILL, &ret, pid, signal);
 +	}
 +
-+	int sys_sigaction(int, const struct sigaction *__restrict,
-+		struct sigaction *__restrict) {
-+		//mlibc::infoLogger() << "mlibc: sigaction is a stub" << frg::endlog;
-+		return 0;
++	int sys_sigprocmask(int how, const sigset_t *__restrict set, sigset_t *__restrict retrieve) {
++		long ret;
++		return syscall(SYSCALL_SIGPROCMASK, &ret, how, (uint64_t)set, (uint64_t)retrieve);
++	}
++
++	int sys_sigaltstack(const stack_t *ss, stack_t *oss) {
++		long ret;
++		return syscall(SYSCALL_SIGALTSTACK, &ret, (uint64_t)ss, (uint64_t)oss);
 +	}
 +
 +	#ifndef MLIBC_BUILDING_RTLD
++	extern "C" void __mlibc_restorer();
++
++	int sys_sigaction(int sig, const struct sigaction *__restrict act,
++		struct sigaction *__restrict oldact) {
++		long ret;
++
++		struct sigaction newact;
++		if (act)
++			newact = *act;
++
++		if (act && (newact.sa_flags & SA_RESTORER) == 0) {
++			newact.sa_restorer = __mlibc_restorer;
++			newact.sa_flags |= SA_RESTORER;
++		}
++
++		return syscall(SYSCALL_SIGACTION, &ret, sig, act ? (uint64_t)&newact : 0, (uint64_t)oldact);
++	}
++
 +	int sys_ptsname(int fd, char *buffer, size_t length) {
 +		int index;
 +		int tmp;
@@ -850,10 +871,10 @@ index 0000000..990eca0
 +#endif
 diff --git mlibc-workdir/sysdeps/astral/include/astral/syscall.h mlibc-workdir/sysdeps/astral/include/astral/syscall.h
 new file mode 100644
-index 0000000..859c459
+index 0000000..14f3c2b
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/include/astral/syscall.h
-@@ -0,0 +1,81 @@
+@@ -0,0 +1,86 @@
 +#ifndef _SYSCALL_H_INCLUDE
 +#define _SYSCALL_H_INCLUDE
 +
@@ -915,6 +936,11 @@ index 0000000..859c459
 +#define SYSCALL_GETSID 55
 +#define SYSCALL_SETSID 56
 +#define SYSCALL_SETPGID 57
++#define SYSCALL_SIGACTION 58
++#define SYSCALL_SIGALTSTACK 59
++#define SYSCALL_SIGPROCMASK 60
++#define SYSCALL_KILL 61
++#define SYSCALL_SIGRETURN 62
 +
 +#include <stddef.h>
 +#include <stdint.h>
@@ -937,10 +963,10 @@ index 0000000..859c459
 +#endif
 diff --git mlibc-workdir/sysdeps/astral/meson.build mlibc-workdir/sysdeps/astral/meson.build
 new file mode 100644
-index 0000000..31d913e
+index 0000000..f7c5b72
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/meson.build
-@@ -0,0 +1,75 @@
+@@ -0,0 +1,76 @@
 +
 +rtld_sources += files(
 +	'generic/generic.cpp',
@@ -953,6 +979,7 @@ index 0000000..31d913e
 +	'generic/generic.cpp',
 +	'threading/x86_64-thread.cpp',
 +	'threading/x86_64-thread-entry.S',
++	'signal/x86_64-restorer.S',
 +)
 +
 +if not no_headers
@@ -1016,6 +1043,18 @@ index 0000000..31d913e
 +		install_dir: get_option('libdir')
 +	)
 +endif
+diff --git mlibc-workdir/sysdeps/astral/signal/x86_64-restorer.S mlibc-workdir/sysdeps/astral/signal/x86_64-restorer.S
+new file mode 100644
+index 0000000..dd33a36
+--- /dev/null
++++ mlibc-workdir/sysdeps/astral/signal/x86_64-restorer.S
+@@ -0,0 +1,6 @@
++.section .text
++.global __mlibc_restorer
++__mlibc_restorer:
++	sub $8, %rsp
++	mov $62, %rax
++	syscall
 diff --git mlibc-workdir/sysdeps/astral/threading/x86_64-thread-entry.S mlibc-workdir/sysdeps/astral/threading/x86_64-thread-entry.S
 new file mode 100644
 index 0000000..4cb3ae0

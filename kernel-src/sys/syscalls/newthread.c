@@ -16,11 +16,11 @@ syscallret_t syscall_newthread(context_t *, void *entry, void *stack) {
 
 	proc_t *proc = _cpu()->thread->proc;
 
-	spinlock_acquire(&proc->lock);
+	MUTEX_ACQUIRE(&proc->mutex, false);
 
 	// if we currently don't want any more threads to start
 	if (proc->nomorethreads == true) {
-		spinlock_release(&proc->lock);
+		MUTEX_RELEASE(&proc->mutex);
 		ret.errno = EAGAIN;
 		return ret;
 	}
@@ -63,6 +63,6 @@ syscallret_t syscall_newthread(context_t *, void *entry, void *stack) {
 	sched_queue(proc->threads[i]);
 
 	cleanup:
-	spinlock_release(&proc->lock);
+	MUTEX_RELEASE(&proc->mutex);
 	return ret;
 }

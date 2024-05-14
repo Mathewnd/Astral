@@ -19,7 +19,7 @@ syscallret_t syscall_waitpid(context_t *context, pid_t pid, int *status, int opt
 
 	thread_t *thread = _cpu()->thread;
 	proc_t *proc = thread->proc;
-	spinlock_acquire(&proc->lock);
+	MUTEX_ACQUIRE(&proc->mutex, false);
 
 	proc_t *prev = NULL;
 	proc_t *iterator = proc->child;
@@ -29,10 +29,10 @@ syscallret_t syscall_waitpid(context_t *context, pid_t pid, int *status, int opt
 		if (iterator == NULL) {
 			if (pid > 0 && desired == NULL) {
 				ret.errno = ECHILD;
-				spinlock_release(&proc->lock);
+				MUTEX_RELEASE(&proc->mutex);
 				return ret;
 			}
-			spinlock_release(&proc->lock);
+			MUTEX_RELEASE(&proc->mutex);
 			if ((options & WNOHANG) && semaphore_test(&proc->waitsem) == false) {
 				ret.errno = 0;
 				ret.ret = 0;
@@ -41,7 +41,7 @@ syscallret_t syscall_waitpid(context_t *context, pid_t pid, int *status, int opt
 				ret.errno = EINTR;
 				return ret;
 			}
-			spinlock_acquire(&proc->lock);
+			MUTEX_ACQUIRE(&proc->mutex, false);
 			prev = NULL;
 			iterator = proc->child;
 			desired = NULL; // set as null to be certain another thread didn't get it
@@ -65,12 +65,12 @@ syscallret_t syscall_waitpid(context_t *context, pid_t pid, int *status, int opt
 	else
 		proc->child = iterator->sibling;
 
-	spinlock_release(&proc->lock);
+	MUTEX_RELEASE(&proc->mutex);
 
 	// TODO memory safe operation
-	// TODO the signal number goes in the low byte of status
-	if (status)
-		*status = iterator->status << 8;
+	if (status) {
+		*status = iterator->status;
+	}
 
 	for (int i = 0; i < iterator->threadtablesize; ++i) {
 		if (iterator->threads[i] == NULL)

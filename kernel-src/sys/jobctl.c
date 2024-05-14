@@ -284,3 +284,9 @@ void jobctl_procremove(proc_t *proc) {
 	tty_t *tty = proc->session.controllingtty;
 	VOP_RELEASE(tty->mastervnode);
 }
+
+// proc can be null if the signal is being sent to the calling processes own process group
+// since that is only passed from a userland thread, we can assume _cpu()->thread->proc is not null
+int jobctl_signal(proc_t *proc, int signal) {
+
+}

@@ -346,10 +346,10 @@ int vfs_lookup(vnode_t **result, vnode_t *start, char *path, char *lastcomp, int
 			vnode_t *derefstart = current;
 
 			if (*linkderef == '/' && _cpu()->thread && _cpu()->thread->proc) {
-				spinlock_acquire(&_cpu()->thread->proc->lock);
+				MUTEX_ACQUIRE(&_cpu()->thread->proc->mutex, false);
 				derefstart = _cpu()->thread->proc->root;
 				VOP_HOLD(derefstart);
-				spinlock_release(&_cpu()->thread->proc->lock);
+				MUTEX_RELEASE(&_cpu()->thread->proc->mutex);
 			} else if (*linkderef == '/') {
 				derefstart = vfsroot;
 				VOP_HOLD(derefstart);

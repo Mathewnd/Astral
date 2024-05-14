@@ -57,6 +57,11 @@ extern syscall_getpgid
 extern syscall_getsid
 extern syscall_setsid
 extern syscall_setpgid
+extern syscall_sigaction
+extern syscall_sigaltstack
+extern syscall_sigprocmask
+extern syscall_kill
+extern syscall_sigreturn
 syscalltab:
 dq syscall_print
 dq syscall_mmap
@@ -116,7 +121,12 @@ dq syscall_getpgid
 dq syscall_getsid
 dq syscall_setsid
 dq syscall_setpgid
-syscallcount equ 58
+dq syscall_sigaction
+dq syscall_sigaltstack
+dq syscall_sigprocmask
+dq syscall_kill
+dq syscall_sigreturn
+syscallcount equ 63
 section .text
 global arch_syscall_entry
 ; on entry:

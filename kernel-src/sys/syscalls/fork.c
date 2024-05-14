@@ -35,15 +35,13 @@ syscallret_t syscall_fork(context_t *ctx) {
 	if (ret.errno)
 		goto cleanup;
 
-	bool intstate = interrupt_set(false);
-	spinlock_acquire(&proc->lock);
+	MUTEX_ACQUIRE(&proc->mutex, false);
 
 	nproc->parent = proc;
 	nproc->sibling = proc->child;
 	proc->child = nproc;
 
-	spinlock_release(&proc->lock);
-	interrupt_set(intstate);
+	MUTEX_RELEASE(&proc->mutex);
 
 	nproc->umask = _cpu()->thread->proc->umask;
 	nproc->root = sched_getroot();

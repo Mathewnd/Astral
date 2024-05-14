@@ -267,8 +267,12 @@ static void pfisr(isr_t *self, context_t *ctx) {
 	if (ctx->error & ERROR_FETCH)
 		vmmerror |= VMM_ACTION_EXEC;
 
-	if (vmm_pagefault((void *)ctx->cr2, ctx->cs != 8, vmmerror) == false)
-		_panic("Page fault", ctx);
+	if (vmm_pagefault((void *)ctx->cr2, ctx->cs != 8, vmmerror) == false) {
+		if (ARCH_CONTEXT_ISUSER(ctx))
+			signal_signalthread(_cpu()->thread, SIGSEGV, true);
+		else
+			_panic("Page fault", ctx);
+	}
 }
 
 void arch_mmu_init() {

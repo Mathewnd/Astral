@@ -7,6 +7,7 @@
 #include <kernel/vfs.h>
 #include <semaphore.h>
 #include <mutex.h>
+#include <kernel/signal.h>
 
 #define SCHED_THREAD_FLAGS_QUEUED 1
 #define SCHED_THREAD_FLAGS_RUNNING 2
@@ -48,10 +49,17 @@ typedef struct thread_t {
 	int wakeupreason;
 	bool shouldexit;
 	void *kernelarg;
+	struct {
+		spinlock_t lock;
+		stack_t stack;
+		sigset_t mask;
+		sigset_t pending;
+		sigset_t urgent;
+	} signals;
 } thread_t;
 
 typedef struct proc_t {
-	spinlock_t lock;
+	mutex_t mutex;
 	int refcount;
 	int status;
 	int state;
@@ -84,7 +92,6 @@ typedef struct proc_t {
 		// these are only applicable if the process is leader
 		struct proc_t *foreground; // process group leader, NULL if self
 		void *controllingtty;
-		int processcount; // refcount
 	} session;
 
 	struct {
@@ -96,23 +103,33 @@ typedef struct proc_t {
 
 		// these are only applicable if the process is leader
 		spinlock_t lock; // protects the linked list
-		int processcount; // refcount
 	} pgrp;
+	struct {
+		spinlock_t lock;
+		sigaction_t actions[NSIG];
+		sigset_t pending;
+	} signals;
 } proc_t;
 
 #include <arch/cpu.h>
 
 #define UMASK(mode) ((mode) & ~_cpu()->thread->proc->umask)
 #define PROC_HOLD(v) __atomic_add_fetch(&(v)->refcount, 1, __ATOMIC_SEQ_CST)
+// the acquire of the pid table mutex is done here to prevent a nasty race condition where sched_inactiveproc could be called multiple times
+// due to the pid table itself not holding any references to the process
 #define PROC_RELEASE(v) {\
+		MUTEX_ACQUIRE(&sched_pidtablemutex, false); \
 		if (__atomic_sub_fetch(&(v)->refcount, 1, __ATOMIC_SEQ_CST) == 0) {\
 			sched_inactiveproc(v); \
 			(v) = NULL; \
 		} \
+		MUTEX_RELEASE(&sched_pidtablemutex); \
 	}
 
 extern proc_t *sched_initproc;
+extern mutex_t sched_pidtablemutex;
 
+proc_t *sched_getprocfrompid(int pid);
 void sched_init();
 void sched_stopotherthreads();
 void sched_runinit();
