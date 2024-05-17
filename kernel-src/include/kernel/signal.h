@@ -152,6 +152,6 @@ void signal_changemask(struct thread_t *thread, int how, sigset_t *new, sigset_t
 void signal_signalproc(struct proc_t *proc, int signal);
 void signal_signalthread(struct thread_t *thread, int signal, bool urgent);
 void signal_pending(struct thread_t *, sigset_t *sigset);
-void signal_check(struct thread_t *thread, context_t *context);
+void signal_check(struct thread_t *thread, context_t *context, bool syscall, uint64_t syscallret, uint64_t syscallerrno);
 
 #endif

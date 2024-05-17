@@ -226,7 +226,11 @@ arch_syscall_entry:
 
 	mov rdi, rsp
 	add rdi, 8 ; context pointer is after r9 argument
-	extern sched_userspacecheck
+	xor rsi, rsi
+	inc rsi ; is syscall? (yes)
+	; errno already in rdx
+	mov rcx, rax ; return value
+	extern sched_userspacecheck ; context, return, errno
 	call sched_userspacecheck ; compiled with __attribute__((no_caller_saved_registers))
 
 	; restore context

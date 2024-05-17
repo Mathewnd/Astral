@@ -290,11 +290,11 @@ void sched_procexit() {
 
 	MUTEX_ACQUIRE(&sched_initproc->mutex, false);
 
-	bool haszombie = false;
+	int belowzombiecount = 0;
 
 	while (lastchild && lastchild->sibling) {
 		if (lastchild->state == SCHED_PROC_STATE_ZOMBIE)
-			haszombie = true;
+			++belowzombiecount;
 
 		lastchild->parent = sched_initproc;
 		lastchild = lastchild->sibling;
@@ -308,8 +308,10 @@ void sched_procexit() {
 	MUTEX_RELEASE(&sched_initproc->mutex);
 	MUTEX_RELEASE(&proc->mutex);
 
+	signal_signalproc(proc->parent, SIGCHLD);
 	semaphore_signal(&proc->parent->waitsem);
-	if (haszombie)
+	// TODO sigaction flag for this
+	for (int i = 0; i < belowzombiecount; ++i)
 		semaphore_signal(&sched_initproc->waitsem);
 }
 
@@ -363,7 +365,7 @@ __attribute__((noreturn)) void sched_threadexit() {
 }
 
 // called right before going back to userspace in places like the syscall handler or arch_context_switch
-__attribute__((no_caller_saved_registers)) void sched_userspacecheck(context_t *context) {
+__attribute__((no_caller_saved_registers)) void sched_userspacecheck(context_t *context, bool syscall, uint64_t syscallerrno, uint64_t syscallret) {
 	thread_t *thread = _cpu()->thread;
 	if (thread == NULL || ARCH_CONTEXT_ISUSER(context) == false)
 		return;
@@ -373,7 +375,7 @@ __attribute__((no_caller_saved_registers)) void sched_userspacecheck(context_t *
 		sched_threadexit();
 	}
 
-	signal_check(thread, context);
+	signal_check(thread, context, syscall, syscallret, syscallerrno);
 }
 
 void sched_stopotherthreads() {

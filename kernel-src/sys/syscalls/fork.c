@@ -54,6 +54,12 @@ syscallret_t syscall_fork(context_t *ctx) {
 	CTX_ERRNO(&nthread->context) = 0;
 	jobctl_addproc(proc, nproc);
 
+	memcpy(&nthread->signals.mask, &_cpu()->thread->signals.mask, sizeof(sigset_t));
+	memcpy(&nthread->signals.pending, &_cpu()->thread->signals.pending, sizeof(sigset_t));
+	memcpy(&nthread->signals.stack, &_cpu()->thread->signals.stack, sizeof(stack_t));
+	memcpy(&nproc->signals.pending, &proc->signals.pending, sizeof(sigset_t));
+	memcpy(&nproc->signals.actions, &proc->signals.actions[0], sizeof(sigaction_t) * NSIG);
+
 	ret.ret = nproc->pid;
 
 	sched_queue(nthread);

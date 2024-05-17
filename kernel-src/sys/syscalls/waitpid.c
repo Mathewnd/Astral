@@ -25,6 +25,12 @@ syscallret_t syscall_waitpid(context_t *context, pid_t pid, int *status, int opt
 	proc_t *iterator = proc->child;
 	proc_t *desired = NULL;
 
+	if (iterator == NULL) {
+		ret.errno = ECHILD;
+		MUTEX_RELEASE(&proc->mutex);
+		return ret;
+	}
+
 	for (;;) {
 		if (iterator == NULL) {
 			if (pid > 0 && desired == NULL) {

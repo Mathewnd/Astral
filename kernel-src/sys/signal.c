@@ -2,6 +2,46 @@
 #include <arch/signal.h>
 #include <logging.h>
 
+#define ACTION_TERM 0
+#define ACTION_IGN 1
+#define ACTION_CORE 2
+#define ACTION_STOP 3
+#define ACTION_CONT 4
+
+static int defaultactions[NSIG] = {
+	[SIGABRT] = ACTION_CORE,
+	[SIGALRM] = ACTION_TERM,
+	[SIGBUS] = ACTION_CORE,
+	[SIGCHLD] = ACTION_IGN,
+	[SIGCONT] = ACTION_CONT,
+	[SIGFPE] = ACTION_CORE,
+	[SIGHUP] = ACTION_TERM,
+	[SIGILL] = ACTION_CORE,
+	[SIGINT] = ACTION_TERM,
+	[SIGIO] = ACTION_TERM,
+	[SIGKILL] = ACTION_TERM,
+	[SIGPIPE] = ACTION_TERM,
+	[SIGPOLL] = ACTION_TERM,
+	[SIGPROF] = ACTION_TERM,
+	[SIGPWR] = ACTION_TERM,
+	[SIGQUIT] = ACTION_CORE,
+	[SIGSEGV] = ACTION_CORE,
+	[SIGSTOP] = ACTION_STOP,
+	[SIGTSTP] = ACTION_STOP,
+	[SIGSYS] = ACTION_CORE,
+	[SIGTERM] = ACTION_TERM,
+	[SIGTRAP] = ACTION_CORE,
+	[SIGTTIN] = ACTION_STOP,
+	[SIGTTOU] = ACTION_STOP,
+	[SIGURG] = ACTION_IGN,
+	[SIGUSR1] = ACTION_TERM,
+	[SIGUSR2] = ACTION_TERM,
+	[SIGVTALRM] = ACTION_TERM,
+	[SIGXCPU] = ACTION_CORE,
+	[SIGXFSZ] = ACTION_CORE,
+	[SIGWINCH] = ACTION_IGN
+};
+
 #define PROCESS_ENTER(proc) \
 	bool procintstatus = interrupt_set(false); \
 	spinlock_acquire(&proc->signals.lock);
@@ -99,20 +139,30 @@ void signal_pending(struct thread_t *thread, sigset_t *sigset) {
 }
 
 void signal_signalthread(struct thread_t *thread, int signal, bool urgent) {
+	PROCESS_ENTER(thread->proc);
 	THREAD_ENTER(thread);
 
 	sigset_t *sigset = urgent ? &thread->signals.urgent : &thread->signals.pending;
 	SIGNAL_SETON(sigset, signal);
-	if (signal == SIGKILL || signal == SIGSTOP || urgent || SIGNAL_GET(&thread->signals.mask, signal) == 0)
+
+	void *address = thread->proc->signals.actions[signal].address;
+	bool notignored = address != SIG_IGN && ((address == SIG_DFL && defaultactions[signal] != ACTION_IGN) || address != SIG_DFL);
+
+	if (signal == SIGKILL || signal == SIGSTOP || urgent || (SIGNAL_GET(&thread->signals.mask, signal) == 0 && notignored)) {
 		sched_wakeup(thread, SCHED_WAKEUP_REASON_INTERRUPTED);
+	}
 
 	THREAD_LEAVE(thread);
+	PROCESS_LEAVE(thread->proc);
 }
 
 void signal_signalproc(struct proc_t *proc, int signal) {
 	// first, check if any threads have the signal unmasked, and set as pending for the first one
 	MUTEX_ACQUIRE(&proc->mutex, false);
 	PROCESS_ENTER(proc);
+	void *address = proc->signals.actions[signal].address;
+	bool notignored = address != SIG_IGN && ((address == SIG_DFL && defaultactions[signal] != ACTION_IGN) || address != SIG_DFL);
+
 	for (int i = 0; i < proc->threadtablesize; ++i) {
 		if (proc->threads[i] == NULL || (proc->threads[i]->flags & SCHED_THREAD_FLAGS_DEAD))
 			continue;
@@ -124,8 +174,10 @@ void signal_signalproc(struct proc_t *proc, int signal) {
 			// TODO this
 		} else if (SIGNAL_GET(&proc->threads[i]->signals.mask, signal) == 0 || signal == SIGKILL || signal == SIGSTOP) {
 			SIGNAL_SETON(&proc->threads[i]->signals.pending, signal);
-			// TODO ipi if running isn't self
-			sched_wakeup(proc->threads[i], SCHED_WAKEUP_REASON_INTERRUPTED);
+			if (notignored) {
+				sched_wakeup(proc->threads[i], SCHED_WAKEUP_REASON_INTERRUPTED);
+				// TODO ipi if running isn't self
+			}
 			THREAD_LEAVE(proc->threads[i]);
 			PROCESS_LEAVE(proc);
 			MUTEX_RELEASE(&proc->mutex);
@@ -143,47 +195,8 @@ void signal_signalproc(struct proc_t *proc, int signal) {
 	PROCESS_LEAVE(proc);
 }
 
-#define ACTION_TERM 0
-#define ACTION_IGN 1
-#define ACTION_CORE 2
-#define ACTION_STOP 3
-#define ACTION_CONT 4
 
-static int defaultactions[NSIG] = {
-	[SIGABRT] = ACTION_CORE,
-	[SIGALRM] = ACTION_TERM,
-	[SIGBUS] = ACTION_CORE,
-	[SIGCHLD] = ACTION_IGN,
-	[SIGCONT] = ACTION_CONT,
-	[SIGFPE] = ACTION_CORE,
-	[SIGHUP] = ACTION_TERM,
-	[SIGILL] = ACTION_CORE,
-	[SIGINT] = ACTION_TERM,
-	[SIGIO] = ACTION_TERM,
-	[SIGKILL] = ACTION_TERM,
-	[SIGPIPE] = ACTION_TERM,
-	[SIGPOLL] = ACTION_TERM,
-	[SIGPROF] = ACTION_TERM,
-	[SIGPWR] = ACTION_TERM,
-	[SIGQUIT] = ACTION_CORE,
-	[SIGSEGV] = ACTION_CORE,
-	[SIGSTOP] = ACTION_STOP,
-	[SIGTSTP] = ACTION_STOP,
-	[SIGSYS] = ACTION_CORE,
-	[SIGTERM] = ACTION_TERM,
-	[SIGTRAP] = ACTION_CORE,
-	[SIGTTIN] = ACTION_STOP,
-	[SIGTTOU] = ACTION_STOP,
-	[SIGURG] = ACTION_IGN,
-	[SIGUSR1] = ACTION_TERM,
-	[SIGUSR2] = ACTION_TERM,
-	[SIGVTALRM] = ACTION_TERM,
-	[SIGXCPU] = ACTION_CORE,
-	[SIGXFSZ] = ACTION_CORE,
-	[SIGWINCH] = ACTION_IGN
-};
-
-void signal_check(struct thread_t *thread, context_t *context) {
+void signal_check(struct thread_t *thread, context_t *context, bool syscall, uint64_t syscallret, uint64_t syscallerrno) {
 	proc_t *proc = thread->proc;
 
 	PROCESS_ENTER(proc);
@@ -246,6 +259,8 @@ void signal_check(struct thread_t *thread, context_t *context) {
 			case ACTION_CORE:
 			case ACTION_TERM:
 				proc->status = signal;
+				THREAD_LEAVE(thread);
+				PROCESS_LEAVE(proc);
 				interrupt_set(true);
 				sched_threadexit();
 			default:
@@ -267,6 +282,13 @@ void signal_check(struct thread_t *thread, context_t *context) {
 		#else
 			#error unsupported
 		#endif
+
+		// configure context for sigreturn() when a system call
+		if (syscall) {
+			CTX_ERRNO(context) = syscallerrno;
+			CTX_RET(context) = syscallret;
+			// TODO restartable system call stuff goes here
+		}
 
 		// configure stack frame
 		sigframe_t *sigframe = stack;

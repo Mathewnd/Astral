@@ -127,6 +127,9 @@ syscallret_t syscall_execve(context_t *context, char *upath, char *uargv[], char
                 	fd_close(fd);
 	}
 
+	memset(&_cpu()->thread->signals.stack, 0, sizeof(stack_t));
+	memset(&proc->signals.actions[0], 0, sizeof(sigaction_t) * NSIG);
+
 	error:
 	free(path);
 	if (argv)

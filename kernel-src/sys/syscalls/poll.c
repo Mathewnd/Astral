@@ -37,7 +37,7 @@ syscallret_t syscall_poll(context_t *, pollfd_t *fds, size_t nfds, int timeoutms
 		goto cleanup;
 	}
 
-	polldesc_t desc;
+	polldesc_t desc = {0};
 	// when nfds is 0, poll is used as a sleep.
 	// therefore, initialize the desc size to one descriptor in that case.
 	ret.errno = poll_initdesc(&desc, nfds == 0 ? 1 : nfds);
@@ -72,6 +72,7 @@ syscallret_t syscall_poll(context_t *, pollfd_t *fds, size_t nfds, int timeoutms
 
 	if (eventcount == 0 && timeoutms != 0) {
 		ret.errno = poll_dowait(&desc, (timeoutms == -1 ? 0 : timeoutms) * 1000);
+
 		if (ret.errno == 0 && desc.event) {
 			int fd = ((uintptr_t)desc.event - (uintptr_t)desc.data) / sizeof(polldata_t);
 			fdsbuff[fd].revents = desc.data[fd].revents;

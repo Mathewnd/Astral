@@ -1,6 +1,7 @@
 #include <kernel/syscalls.h>
 #include <arch/cpu.h>
 #include <logging.h>
+#include <kernel/jobctl.h>
 
 syscallret_t syscall_kill(context_t *context, int pid, int signal) {
 	syscallret_t ret = {
@@ -23,7 +24,7 @@ syscallret_t syscall_kill(context_t *context, int pid, int signal) {
 		return ret;
 	}
 
-	proc_t *target = sched_getprocfrompid(pid);
+	proc_t *target = sched_getprocfrompid(effectivepid);
 	if (target == NULL && pid != 0) {
 		ret.errno = ESRCH;
 		return ret;

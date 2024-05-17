@@ -288,5 +288,39 @@ void jobctl_procremove(proc_t *proc) {
 // proc can be null if the signal is being sent to the calling processes own process group
 // since that is only passed from a userland thread, we can assume _cpu()->thread->proc is not null
 int jobctl_signal(proc_t *proc, int signal) {
+	int error = 0;
+	bool intstatus = interrupt_set(false);
+	proc_t *leader;
+	proc_t *tmpproc = _cpu()->thread->proc;
+	if (proc == NULL) {
+		spinlock_acquire(&tmpproc->jobctllock);
+		leader = tmpproc->pgrp.leader ? tmpproc->pgrp.leader : tmpproc;
+	} else {
+		spinlock_acquire(&proc->jobctllock);
+		if (proc->pgrp.leader) {
+			error = ESRCH;
+			spinlock_release(&proc->jobctllock);
+			goto leave;
+		}
 
+		leader = proc;
+		spinlock_release(&proc->jobctllock);
+	}
+
+	spinlock_acquire(&leader->pgrp.lock);
+
+	proc_t *iterator = leader;
+	while (iterator) {
+		signal_signalproc(iterator, signal);
+		iterator = iterator->pgrp.nextmember;
+	}
+
+	spinlock_release(&leader->pgrp.lock);
+
+	leave:
+	if (proc == NULL) {
+		spinlock_release(&tmpproc->jobctllock);
+	}
+	interrupt_set(intstatus);
+	return error;
 }
