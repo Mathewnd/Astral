@@ -17,6 +17,7 @@ __attribute__((noreturn)) void syscall_sigreturn(context_t *context) {
 	memcpy(&_cpu()->thread->extracontext, &sigframe.extracontext, sizeof(extracontext_t));
 	ARCH_CONTEXT_THREADLOAD(_cpu()->thread, context);
 
+	interrupt_set(true);
 	arch_context_switch(&sigframe.context);
 
 	// if we were to return normally, CTX_RET and CTX_ERRNO would be corrupted,

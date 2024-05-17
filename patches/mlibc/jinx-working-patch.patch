@@ -29,6 +29,23 @@ index 905fbb9..6360ca5 100644
  else
  	error('No sysdeps defined for OS: ' + host_machine.system())
  endif
+diff --git mlibc-clean/options/ansi/generic/environment.cpp mlibc-workdir/options/ansi/generic/environment.cpp
+index 5625592..36b42ee 100644
+--- mlibc-clean/options/ansi/generic/environment.cpp
++++ mlibc-workdir/options/ansi/generic/environment.cpp
+@@ -111,8 +111,10 @@ namespace mlibc {
+ int putenv(char *string) {
+ 	frg::string_view view{string};
+ 	size_t s = view.find_first('=');
+-	if(s == size_t(-1))
+-		__ensure(!"Environment strings need to contain an equals sign");
++	if(s == size_t(-1)) {
++		unsetenv(string);
++		return 0;
++	}
+ 
+ 	update_vector();
+ 	assign_variable(view.sub_string(0, s), string, true);
 diff --git mlibc-clean/options/ansi/generic/string-stubs.cpp mlibc-workdir/options/ansi/generic/string-stubs.cpp
 index 8defd0e..d6cb65b 100644
 --- mlibc-clean/options/ansi/generic/string-stubs.cpp
@@ -175,7 +192,7 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..440f0dc
+index 0000000..6562b81
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
 @@ -0,0 +1,673 @@
@@ -334,7 +351,7 @@ index 0000000..440f0dc
 +
 +		struct sigaction newact;
 +		if (act)
-+			newact = *act;
++			memcpy(&newact, act, sizeof(struct sigaction));
 +
 +		if (act && (newact.sa_flags & SA_RESTORER) == 0) {
 +			newact.sa_restorer = __mlibc_restorer;
