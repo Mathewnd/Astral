@@ -192,10 +192,10 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..6562b81
+index 0000000..8cd908a
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -0,0 +1,673 @@
+@@ -0,0 +1,692 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -326,6 +326,25 @@ index 0000000..6562b81
 +		// TODO unstub
 +		return ENOSYS;
 +	}
++
++	#ifndef MLIBC_BUILDING_RTLD
++	int sys_getentropy(void *buffer, size_t length) {
++		int fd;
++		int error = sys_open("/dev/urandom", O_RDONLY, 0, &fd);
++		if (error)
++			mlibc::panicLogger() << "/dev/urandom open error " << strerror(error) << frg::endlog;
++
++		ssize_t bytes;
++		error = sys_read(fd, buffer, length, &bytes);
++		if (error) {
++			mlibc::infoLogger() << "/dev/urandom read error " << strerror(error) << frg::endlog;
++			return error;
++		}
++
++		sys_close(fd);
++		return 0;
++	}
++	#endif
 +
 +	int sys_kill(int pid, int signal) {
 +		long ret;
