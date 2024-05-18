@@ -173,7 +173,9 @@ int pipefs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int
 	}
 
 	if (pipenode->readers == 0) {
-		// TODO throw SIGPIPE
+		if (_cpu()->thread->proc)
+			signal_signalproc(_cpu()->thread->proc, SIGPIPE);
+
 		error = EPIPE;
 		goto leave;
 	}
