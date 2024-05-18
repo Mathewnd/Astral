@@ -16,12 +16,19 @@ static void freevec(char **v) {
 	free(v);
 }
 
-syscallret_t syscall_execve(context_t *context, char *upath, char *uargv[], char *uenvp[]) {
+#define MAX_DEPTH 16
+#define SHEBANG_SIZE 128
+
+static syscallret_t execve(context_t *context, char *upath, char *uargv[], char *uenvp[], char *sbarg, char *sbold, int depth) {
 	syscallret_t ret = {
 		.ret = -1
 	};
 
-	// TODO shebang
+	if (depth >= MAX_DEPTH) {
+		ret.errno = ELOOP;
+		return ret;
+	}
+
 	// TODO user str ops
 	char *path = alloc(strlen(upath) + 1);
 	if (path == NULL) {
@@ -40,9 +47,13 @@ syscallret_t syscall_execve(context_t *context, char *upath, char *uargv[], char
 	vnode_t *refnode = NULL;
 	char *interp = NULL;
 	void *stack = NULL;
+	char shebang[SHEBANG_SIZE];
 
 	while (uargv[argsize++]);
 	while (uenvp[envsize++]);
+
+	size_t argoffset = (sbold ? 1 : 0) + (sbarg ? 1 : 0);
+	argsize += argoffset;
 
 	argv = alloc((argsize + 1) * sizeof(char *));
 	envp = alloc((envsize + 1) * sizeof(char *));
@@ -52,13 +63,34 @@ syscallret_t syscall_execve(context_t *context, char *upath, char *uargv[], char
 		goto error;
 	}
 
-	for (int i = 0; i < argsize - 1; ++i) {
-		argv[i] = alloc(strlen(uargv[i]) + 1);
+	if (sbarg) {
+		char *tmp = alloc(strlen(sbarg) + 1);
+		if (tmp == NULL) {
+			ret.errno = ENOMEM;
+			goto error;
+		}
+		strcpy(tmp, sbarg);
+		argv[0] = tmp;
+	}
+
+	if (sbold) {
+		char *tmp = alloc(strlen(sbold) + 1);
+		if (tmp == NULL) {
+			ret.errno = ENOMEM;
+			goto error;
+		}
+
+		strcpy(tmp, sbold);
+		argv[argoffset - 1] = tmp;
+	}
+
+	for (int i = argoffset; i < argsize - 1; ++i) {
+		argv[i] = alloc(strlen(uargv[i - argoffset]) + 1);
 		if (argv[i] == NULL) {
 			ret.errno = ENOMEM;
 			goto error;
 		}
-		strcpy(argv[i], uargv[i]);
+		strcpy(argv[i], uargv[i - argoffset]);
 	}
 
 	for (int i = 0; i < envsize - 1; ++i) {
@@ -70,17 +102,59 @@ syscallret_t syscall_execve(context_t *context, char *upath, char *uargv[], char
 		strcpy(envp[i], uenvp[i]);
 	}
 
-	vmmctx = vmm_newcontext();
-	if (vmmctx == NULL) {
-		ret.errno = ENOMEM;
-		goto error;
-	}
-
 	refnode = *path == '/' ? sched_getroot() : sched_getcwd();
 
 	ret.errno = vfs_lookup(&node, refnode, path, NULL, 0);
 	if (ret.errno)
 		goto error;
+
+	size_t readcount;
+	ret.errno = vfs_read(node, shebang, SHEBANG_SIZE - 1, 0, &readcount, 0);
+	if (ret.errno)
+		goto error;
+
+	if (readcount >= 2 && shebang[0] == '#' && shebang[1] == '!') {
+		shebang[readcount] = '\0';
+		// newline -> null
+		for (int i = 2; i < readcount; ++i)
+			if (shebang[i] == '\n')
+				shebang[i] = '\0';
+
+		// get start of command
+		char *command = &shebang[2];
+		while (*command == ' ')
+			++command;
+
+		// get end of command
+		char *argument = command;
+		while (*argument != ' ' && *argument != '\0')
+			++argument;
+
+		if (*argument == ' ')
+			*argument++ = '\0';
+
+		// get start of argument (passed as one big argument to the program)
+		while (*argument == ' ')
+			++argument;
+
+		size_t commandlen = strlen(command);
+		size_t argumentlen = strlen(argument);
+
+		if (commandlen) {
+			// valid, run with interpreter
+			char *argvold = argv[0];
+			argv[0] = path;
+			ret = execve(context, command, argv, envp, argumentlen ? argument : NULL, path, depth + 1);
+			argv[0] = argvold; // to clean up later
+			goto error; // jump to cleanup
+		}
+	}
+
+	vmmctx = vmm_newcontext();
+	if (vmmctx == NULL) {
+		ret.errno = ENOMEM;
+		goto error;
+	}
 
 	// TODO permission and type checks and all
 
@@ -130,6 +204,10 @@ syscallret_t syscall_execve(context_t *context, char *upath, char *uargv[], char
 	memset(&_cpu()->thread->signals.stack, 0, sizeof(stack_t));
 	memset(&proc->signals.actions[0], 0, sizeof(sigaction_t) * NSIG);
 
+	vmm_destroycontext(oldctx);
+	CTX_SP(context) = (uint64_t)stack;
+	CTX_IP(context) = (uint64_t)entry;
+
 	error:
 	free(path);
 	if (argv)
@@ -152,11 +230,9 @@ syscallret_t syscall_execve(context_t *context, char *upath, char *uargv[], char
 	if (interp)
 		free(interp);
 
-	if (ret.errno == 0) {
-		vmm_destroycontext(oldctx);
-		CTX_SP(context) = (uint64_t)stack;
-		CTX_IP(context) = (uint64_t)entry;
-	}
-
 	return ret;
+}
+
+syscallret_t syscall_execve(context_t *context, char *upath, char *uargv[], char *uenvp[]) {
+	return execve(context, upath, uargv, uenvp, NULL, NULL, 0);
 }
