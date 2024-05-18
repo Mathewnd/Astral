@@ -18,8 +18,6 @@ Astral is a 64 bit operating system with its own kernel written in C for the x86
 ## Current Goals
 
 - TCP
-- Signals
-- PTYs
 
 ## Building
 
