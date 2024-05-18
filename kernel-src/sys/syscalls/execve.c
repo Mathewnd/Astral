@@ -70,7 +70,7 @@ static syscallret_t execve(context_t *context, char *upath, char *uargv[], char 
 			goto error;
 		}
 		strcpy(tmp, sbarg);
-		argv[0] = tmp;
+		argv[1] = tmp;
 	}
 
 	if (sbold) {
@@ -81,7 +81,7 @@ static syscallret_t execve(context_t *context, char *upath, char *uargv[], char 
 		}
 
 		strcpy(tmp, sbold);
-		argv[argoffset - 1] = tmp;
+		argv[0] = tmp;
 	}
 
 	for (int i = argoffset; i < argsize - 1; ++i) {
