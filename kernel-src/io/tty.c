@@ -376,6 +376,7 @@ tty_t *tty_create(char *name, ttydevicewritefn_t writefn, ttyinactivefn_t inacti
 	strcpy(tty->name, name);
 	MUTEX_INIT(&tty->readmutex);
 	MUTEX_INIT(&tty->writemutex);
+	SPINLOCK_INIT(tty->sessionlock);
 
 	tty->termios.c_iflag = ICRNL;
 	tty->termios.c_oflag = ONLCR;
@@ -412,6 +413,22 @@ tty_t *tty_create(char *name, ttydevicewritefn_t writefn, ttyinactivefn_t inacti
 
 void tty_unregister(tty_t *tty) {
 	devfs_remove(tty->name, DEV_MAJOR_TTY, tty->minor);
+	bool intstatus = interrupt_set(false);
+	spinlock_acquire(&tty->sessionlock);
+	proc_t *session = tty->session;
+	if (session) {
+		PROC_HOLD(session);
+	}
+	spinlock_release(&tty->sessionlock);
+	interrupt_set(intstatus);
+
+	if (session) {
+		proc_t *foreground = jobctl_getforeground(session);
+		jobctl_signal(foreground, SIGHUP);
+
+		PROC_RELEASE(session);
+		PROC_RELEASE(foreground);
+	}
 }
 
 

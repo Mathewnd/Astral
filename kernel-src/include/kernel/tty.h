@@ -28,6 +28,8 @@ typedef struct {
 	int minor;
 	winsize_t winsize;
 	vnode_t *mastervnode;
+	spinlock_t sessionlock;
+	struct proc_t *session;
 } tty_t;
 
 void tty_init();

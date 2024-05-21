@@ -49,11 +49,19 @@ void jobctl_setctty(proc_t *proc, void *_ctty) {
 	if (tty == NULL && proc->session.controllingtty) {
 		unholdtty = proc->session.controllingtty;
 		proc->session.controllingtty = NULL;
+		spinlock_acquire(&unholdtty->sessionlock);
+		unholdtty->session = NULL;
+		spinlock_release(&unholdtty->sessionlock);
 	}
 
 	if (tty && proc->session.controllingtty == NULL) {
-		VOP_HOLD(tty->mastervnode);
-		proc->session.controllingtty = tty;
+		spinlock_acquire(&tty->sessionlock);
+		if (tty->session == NULL) {
+			VOP_HOLD(tty->mastervnode);
+			proc->session.controllingtty = tty;
+			tty->session = proc;
+		}
+		spinlock_release(&tty->sessionlock);
 	}
 
 	leave:
@@ -226,6 +234,8 @@ void jobctl_detach(proc_t *proc) {
 	// called on process exit (when the last userland thread is exiting)
 	proc_t *unholdpgrp = NULL;
 	proc_t *unholdsession = NULL;
+	proc_t *foreground = NULL;
+
 	bool intstatus = interrupt_set(false);
 	spinlock_acquire(&proc->jobctllock);
 
@@ -238,6 +248,10 @@ void jobctl_detach(proc_t *proc) {
 	if (proc->session.leader) {
 		unholdsession = proc->session.leader;
 		proc->session.leader = NULL;
+	} else {
+		// send sighup and sigcont to all processes in the foreground group
+		foreground = proc->session.foreground ? proc->session.foreground : proc;
+		PROC_HOLD(foreground);
 	}
 
 	spinlock_release(&proc->jobctllock);
@@ -249,6 +263,11 @@ void jobctl_detach(proc_t *proc) {
 
 	if (unholdsession) {
 		PROC_RELEASE(unholdsession);
+	} else {
+		jobctl_setctty(proc, NULL);
+		jobctl_signal(foreground, SIGHUP);
+		jobctl_signal(foreground, SIGCONT);
+		PROC_RELEASE(foreground);
 	}
 }
 
@@ -270,6 +289,63 @@ void jobctl_addproc(proc_t *parent, proc_t *proc) {
 	spinlock_release(&proc->jobctllock);
 	spinlock_release(&parent->jobctllock);
 	interrupt_set(intstatus);
+}
+
+proc_t *jobctl_getforeground(proc_t *proc) {
+	proc_t *foreground = NULL;
+
+	bool intstatus = interrupt_set(false);
+	spinlock_acquire(&proc->jobctllock);
+
+	if (proc->session.leader)
+		goto leave;
+
+	foreground = proc->session.foreground ? proc->session.foreground : proc;
+	PROC_HOLD(foreground);
+
+	leave:
+	spinlock_release(&proc->jobctllock);
+	interrupt_set(intstatus);
+
+	return foreground;
+}
+int jobctl_setforeground(proc_t *session, proc_t *pgrp) {
+	proc_t *unhold = NULL;
+	int error = 0;
+
+	bool intstatus = interrupt_set(false);
+	spinlock_acquire(&session->jobctllock);
+	if (session->session.leader) {
+		error = EINVAL;
+		goto leave;
+	}
+
+	if (session != pgrp) {
+		spinlock_acquire(&pgrp->jobctllock);
+		if (pgrp->pgrp.leader || pgrp->session.leader != session) {
+			error = EPERM;
+			goto leave;
+		}
+	}
+
+	if (session->session.foreground)
+		unhold = session->session.foreground;
+
+	session->session.foreground = pgrp;
+	PROC_HOLD(pgrp);
+
+	leave:
+	if (session != pgrp)
+		spinlock_release(&pgrp->jobctllock);
+
+	spinlock_release(&session->jobctllock);
+	interrupt_set(intstatus);
+
+	if (unhold) {
+		PROC_RELEASE(unhold);
+	}
+
+	return error;
 }
 
 void jobctl_procremove(proc_t *proc) {

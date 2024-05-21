@@ -96,7 +96,6 @@ static int close(int minor, int flags) {
 	if (pty == NULL)
 		return ENODEV;
 
-	// TODO do tty cleanup stuff like sending sighup
 	bool intstatus = interrupt_set(false);
 	spinlock_acquire(&pty->lock);
 	pty->hangup = true;
