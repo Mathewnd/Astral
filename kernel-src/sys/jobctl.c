@@ -24,6 +24,8 @@ static void removefromlist(proc_t *pgrp, proc_t *proc) {
 
 	if (proc->pgrp.previousmember)
 		proc->pgrp.previousmember->pgrp.nextmember = proc->pgrp.nextmember;
+	else
+		pgrp->pgrp.nextmember = NULL;
 
 	if (proc->pgrp.nextmember)
 		proc->pgrp.nextmember->pgrp.previousmember = proc->pgrp.previousmember;
