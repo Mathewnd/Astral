@@ -5,7 +5,9 @@
 #include <logging.h>
 
 #define WNOHANG 1
-#define KNOWN_FLAGS WNOHANG
+#define WSTOPPED 2
+#define WCONTINUED 8
+#define KNOWN_FLAGS (WNOHANG | WSTOPPED | WCONTINUED)
 
 syscallret_t syscall_waitpid(context_t *context, pid_t pid, int *status, int options) {
 	syscallret_t ret = {
