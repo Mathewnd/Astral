@@ -9,6 +9,38 @@
 static mutex_t listmutex;
 static tty_t *ttylist[TTY_MAX_COUNT];
 
+static proc_t *getsession(tty_t *tty) {
+	bool intstatus = interrupt_set(false);
+	spinlock_acquire(&tty->sessionlock);
+	proc_t *session = tty->session;
+	if (session) {
+		PROC_HOLD(session);
+	}
+	spinlock_release(&tty->sessionlock);
+	interrupt_set(intstatus);
+	return session;
+}
+
+static proc_t *getforeground(tty_t *tty) {
+	proc_t *session = getsession(tty);
+	proc_t *foreground = NULL;
+	if (session) {
+		foreground = jobctl_getforeground(session);
+		PROC_RELEASE(session);
+	}
+	return foreground;
+}
+
+static int setforeground(tty_t *tty, proc_t *proc) {
+	proc_t *session = getsession(tty);
+	if (session) {
+		int error = jobctl_setforeground(session, proc);
+		PROC_RELEASE(session);
+		return error;
+	}
+	return ENOTTY;
+}
+
 void tty_process(tty_t *tty, char c) {
 	if (c == '\r' && (tty->termios.c_iflag & IGNCR))
 		return;
@@ -18,8 +50,25 @@ void tty_process(tty_t *tty, char c) {
 	else if (c == '\n' && (tty->termios.c_iflag & INLCR))
 		c = '\r';
 
+	// TODO VSTART VSTOP
+
 	if (tty->termios.c_lflag & ISIG) {
-		// TODO signal stuff
+		int signal = -1;
+		if (tty->termios.c_cc[VINTR] == c)
+			signal = SIGINT;
+		else if (tty->termios.c_cc[VQUIT] == c)
+			signal = SIGQUIT;
+		else if (tty->termios.c_cc[VSUSP] == c)
+			signal = SIGTSTP;
+
+		if (signal >= 0) {
+			proc_t *pgrp = getforeground(tty);
+			if (pgrp) {
+				jobctl_signal(pgrp, signal);
+				PROC_RELEASE(pgrp);
+			}
+			return;
+		}
 	}
 
 	char echoc = (tty->termios.c_lflag & ECHO) ? c : '\0';
@@ -28,11 +77,12 @@ void tty_process(tty_t *tty, char c) {
 	if ((tty->termios.c_lflag & ECHOCTL) && c < 32 && c != '\n' && c != '\r' && c != '\b' && c != '\t' && c != '\e') {
 		char tmp[2] = {'^', c + 0x40};
 		tty->writetodevice(tty->deviceinternal, tmp, 2);
+		echoc = false;
 	}
 
 	if (tty->termios.c_lflag & ICANON) {
 		bool flush = false;
-		if (c == '\b') {
+		if (c == tty->termios.c_cc[VERASE]) {
 			// backspace
 			if (tty->devicepos == 0)
 				return;
@@ -43,7 +93,18 @@ void tty_process(tty_t *tty, char c) {
 			if (tty->termios.c_lflag & ECHO)
 				tty->writetodevice(tty->deviceinternal, "\b \b", 3);
 			return;
-		} else if (c == '\n') {
+		} else if (c == tty->termios.c_cc[VKILL]) {
+			// erase everything
+			for (int i = 0; i < tty->devicepos + ((tty->termios.c_lflag & ECHOCTL) ? 2 : 0); ++i)
+				tty->writetodevice(tty->deviceinternal, "\b \b", 3);
+
+			tty->devicepos = 0;
+			memset(tty->devicebuffer, 0, DEVICE_BUFFER_SIZE);
+			return;
+		} else if (c == tty->termios.c_cc[VEOF]) {
+			// end of file TODO make read return 0
+			flush = true;
+		} else if (c == '\n' || c == tty->termios.c_cc[VEOL] || c == tty->termios.c_cc[VEOL2]) {
 			// newline
 			flush = true;
 		}
@@ -126,7 +187,7 @@ static int read(int minor, void *buffer, size_t size, uintmax_t offset, int flag
 	int time = (tty->termios.c_lflag & ICANON) ? 0 : tty->termios.c_cc[VTIME];
 
 	// TODO
-	// bg and fg process group stuff
+	// SIGTTIN SIGTTOUT
 
 	// read data and if theres nothing just return
 	if (min == 0 && time == 0) {
@@ -184,7 +245,7 @@ static int read(int minor, void *buffer, size_t size, uintmax_t offset, int flag
 		}
 
 		error = poll_dowait(&desc, effectivetimeout);
-		if (desc.event->revents == 0) {
+		if (error == 0 && desc.event && desc.event->revents == 0) {
 			// timed out!
 			break;
 		}
@@ -231,6 +292,10 @@ static int poll(int minor, polldata_t *data, int events) {
 	return internalpoll(tty, data, events);
 }
 
+#define TIOCSCTTY 0x540E
+#define TIOCGPGRP 0x540F
+#define TIOCSPGRP 0x5410
+
 int tty_ioctl(tty_t *tty, unsigned long req, void *arg, int *result) {
 	switch (req) {
 		case TIOCGWINSZ: {
@@ -241,7 +306,11 @@ int tty_ioctl(tty_t *tty, unsigned long req, void *arg, int *result) {
 		case TIOCSWINSZ: {
 			winsize_t *w = arg;
 			tty->winsize = *w;
-			// TODO send signal to foreground process group
+			proc_t *foreground = getforeground(tty);
+			if (foreground) {
+				jobctl_signal(foreground, SIGWINCH);
+				PROC_RELEASE(foreground);
+			}
 			break;
 		}
 		case TCGETS: {
@@ -251,6 +320,35 @@ int tty_ioctl(tty_t *tty, unsigned long req, void *arg, int *result) {
 		case TCSETS: {
 			tty->termios = *(termios_t *)arg;
 			break;
+		}
+		case TIOCSCTTY: {
+			int *steal = arg;
+			if (steal && *steal == 1)
+				printf("tty: stealing not supported\n");
+			// set as controlling tty
+			jobctl_setctty(_cpu()->thread->proc, tty);
+			break;
+		}
+		case TIOCGPGRP: {
+			proc_t *foreground = getforeground(tty);
+			if (foreground == NULL)
+				return ENOTTY;
+
+			int *pgrp = arg;
+			*pgrp = foreground->pid;
+			PROC_RELEASE(foreground);
+			break;
+		}
+		case TIOCSPGRP: {
+			int *pgrpptr = arg;
+			int pgrp = *pgrpptr;
+			proc_t *proc = sched_getprocfrompid(pgrp);
+			if (proc == NULL)
+				return ESRCH;
+
+			int error = setforeground(tty, proc);
+			PROC_RELEASE(proc);
+			return error;
 		}
 		default:
 			return ENOTTY;
@@ -382,10 +480,17 @@ tty_t *tty_create(char *name, ttydevicewritefn_t writefn, ttyinactivefn_t inacti
 	tty->termios.c_oflag = ONLCR;
 	tty->termios.c_lflag = ECHO | ICANON | ISIG | ECHOCTL;
 	tty->termios.c_cflag = 0;
-	tty->termios.c_cc[VINTR] = 0x03;
 	tty->termios.ibaud = 38400;
 	tty->termios.obaud = 38400;
 	tty->termios.c_cc[VMIN] = 1;
+	tty->termios.c_cc[VINTR] = 0x03;
+	tty->termios.c_cc[VQUIT] = 0x1c;
+	tty->termios.c_cc[VERASE] = '\b';
+	tty->termios.c_cc[VKILL] = 0x15;
+	tty->termios.c_cc[VEOF] = 0x04;
+	tty->termios.c_cc[VSTART] = 0x11;
+	tty->termios.c_cc[VSTOP] = 0x13;
+	tty->termios.c_cc[VSUSP] = 0x1a;
 
 	tty->writetodevice = writefn;
 	tty->inactivedevice = inactivefn;
@@ -413,20 +518,10 @@ tty_t *tty_create(char *name, ttydevicewritefn_t writefn, ttyinactivefn_t inacti
 
 void tty_unregister(tty_t *tty) {
 	devfs_remove(tty->name, DEV_MAJOR_TTY, tty->minor);
-	bool intstatus = interrupt_set(false);
-	spinlock_acquire(&tty->sessionlock);
-	proc_t *session = tty->session;
-	if (session) {
-		PROC_HOLD(session);
-	}
-	spinlock_release(&tty->sessionlock);
-	interrupt_set(intstatus);
 
-	if (session) {
-		proc_t *foreground = jobctl_getforeground(session);
+	proc_t *foreground = getforeground(tty);
+	if (foreground) {
 		jobctl_signal(foreground, SIGHUP);
-
-		PROC_RELEASE(session);
 		PROC_RELEASE(foreground);
 	}
 }
