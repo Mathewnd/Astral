@@ -195,8 +195,9 @@ void signal_signalproc(struct proc_t *proc, int signal) {
 	PROCESS_LEAVE(proc);
 }
 
-
-void signal_check(struct thread_t *thread, context_t *context, bool syscall, uint64_t syscallret, uint64_t syscallerrno) {
+// returns true if should retry check
+bool signal_check(struct thread_t *thread, context_t *context, bool syscall, uint64_t syscallret, uint64_t syscallerrno) {
+	bool retry = false;
 	proc_t *proc = thread->proc;
 
 	PROCESS_ENTER(proc);
@@ -249,12 +250,15 @@ void signal_check(struct thread_t *thread, context_t *context, bool syscall, uin
 
 	// urgent signals cannot be ignored, if they are the default action will be run
 	if (action->address == SIG_IGN && sigset != &thread->signals.urgent) {
+		retry = true;
 		goto leave;
 	} else if ((action->address == SIG_DFL && (action->flags & SA_SIGINFO) == 0) || (action->address == SIG_IGN && sigset == &thread->signals.urgent)) {
 		// default action
 		int defaction = defaultactions[signal];
 		switch (defaction) {
 			case ACTION_IGN:
+			case ACTION_CONT:
+				retry = true;
 				goto leave;
 			case ACTION_CORE:
 			case ACTION_TERM:
@@ -263,6 +267,7 @@ void signal_check(struct thread_t *thread, context_t *context, bool syscall, uin
 				PROCESS_LEAVE(proc);
 				interrupt_set(true);
 				sched_threadexit();
+			case ACTION_STOP:
 			default:
 				__assert(!"unsupported signal action");
 		}
@@ -330,4 +335,5 @@ void signal_check(struct thread_t *thread, context_t *context, bool syscall, uin
 	leave:
 	THREAD_LEAVE(thread);
 	PROCESS_LEAVE(proc);
+	return retry;
 }

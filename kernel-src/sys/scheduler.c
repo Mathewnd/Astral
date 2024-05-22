@@ -382,7 +382,7 @@ __attribute__((no_caller_saved_registers)) void sched_userspacecheck(context_t *
 		sched_threadexit();
 	}
 
-	signal_check(thread, context, syscall, syscallret, syscallerrno);
+	while (signal_check(thread, context, syscall, syscallret, syscallerrno)) ;
 }
 
 void sched_stopotherthreads() {
