@@ -6,3 +6,4 @@ WHITE="\[\e[1;37m\]"
 PS1="$GREEN\u$NORMAL@$BLUE\h$NORMAL:$WHITE\w$NORMAL>"
 
 alias ls="ls --color=auto"
+alias grep="grep --color=auto"

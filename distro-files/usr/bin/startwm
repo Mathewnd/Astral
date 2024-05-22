@@ -14,6 +14,6 @@ do
 
   sleep 0.5
 done
-stty -echo -echoctl
+stty -echo -echoctl -isig
 xterm -e "bash -l" &
 exec fvwm3
