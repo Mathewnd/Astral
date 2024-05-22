@@ -1,7 +1,8 @@
-diff -ru bash-5.1/externs.h bash-5.1-patched/externs.h
---- bash-5.1/externs.h	2020-05-27 11:36:41.000000000 -0300
-+++ bash-5.1-patched/externs.h	2022-08-20 18:54:03.346557110 -0300
-@@ -290,7 +290,7 @@
+diff --git bash-clean/externs.h bash-workdir/externs.h
+index 3d7716c..8fb66a8 100644
+--- bash-clean/externs.h
++++ bash-workdir/externs.h
+@@ -290,7 +290,7 @@ extern int getdtablesize PARAMS((void));
  #endif /* !HAVE_GETDTABLESIZE */
  
  #if !defined (HAVE_GETHOSTNAME)
@@ -10,9 +11,10 @@ diff -ru bash-5.1/externs.h bash-5.1-patched/externs.h
  #endif /* !HAVE_GETHOSTNAME */
  
  extern int getmaxgroups PARAMS((void));
-diff -ru bash-5.1/subst.c bash-5.1-patched/subst.c
---- bash-5.1/subst.c	2020-11-16 12:33:15.000000000 -0300
-+++ bash-5.1-patched/subst.c	2022-08-20 19:06:46.039884500 -0300
+diff --git bash-clean/subst.c bash-workdir/subst.c
+index 9ccbf33..909bac9 100644
+--- bash-clean/subst.c
++++ bash-workdir/subst.c
 @@ -32,6 +32,7 @@
  #endif
  #include <signal.h>
@@ -21,10 +23,11 @@ diff -ru bash-5.1/subst.c bash-5.1-patched/subst.c
  
  #if defined (HAVE_UNISTD_H)
  #  include <unistd.h>
-diff -ru bash-5.1/support/config.sub bash-5.1-patched/support/config.sub
---- bash-5.1/support/config.sub	2020-11-18 16:40:12.000000000 -0300
-+++ bash-5.1-patched/support/config.sub	2022-08-20 18:20:06.006572931 -0300
-@@ -1720,7 +1720,7 @@
+diff --git bash-clean/support/config.sub bash-workdir/support/config.sub
+index c874b7a..8e4744e 100755
+--- bash-clean/support/config.sub
++++ bash-workdir/support/config.sub
+@@ -1720,7 +1720,7 @@ case $os in
  	     | skyos* | haiku* | rdos* | toppers* | drops* | es* \
  	     | onefs* | tirtos* | phoenix* | fuchsia* | redox* | bme* \
  	     | midnightbsd* | amdhsa* | unleashed* | emscripten* | wasi* \
@@ -33,10 +36,11 @@ diff -ru bash-5.1/support/config.sub bash-5.1-patched/support/config.sub
  		;;
  	# This one is extra strict with allowed versions
  	sco3.2v2 | sco3.2v[4-9]* | sco5v6*)
-diff -ru bash-5.1/support/shobj-conf bash-5.1-patched/support/shobj-conf
---- bash-5.1/support/shobj-conf	2019-12-13 11:51:17.000000000 -0300
-+++ bash-5.1-patched/support/shobj-conf	2022-09-14 21:09:42.592996760 -0300
-@@ -79,6 +79,9 @@
+diff --git bash-clean/support/shobj-conf bash-workdir/support/shobj-conf
+index 5a3f977..4d21483 100755
+--- bash-clean/support/shobj-conf
++++ bash-workdir/support/shobj-conf
+@@ -79,6 +79,9 @@ nsk-cc-tandem|nsk-c99-tandem)
  	SHOBJ_LDFLAGS='-shared -bglobalized -unres_symbols ignore'
  	;;
  

@@ -192,10 +192,10 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..8cd908a
+index 0000000..8ebf840
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -0,0 +1,692 @@
+@@ -0,0 +1,694 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -289,12 +289,14 @@ index 0000000..8cd908a
 +	int sys_getsid(pid_t pid, pid_t *pgid) {
 +		long ret;
 +		long error = syscall(SYSCALL_GETSID, &ret, pid);
++		*pgid = ret;
 +		return 0;
 +	}
 +
 +	int sys_getpgid(pid_t pid, pid_t *pgid) {
 +		long ret;
 +		long error = syscall(SYSCALL_GETPGID, &ret, pid);
++		*pgid = ret;
 +		return 0;
 +	}
 +
