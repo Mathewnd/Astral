@@ -38,9 +38,14 @@ static pid_t currpid = 1;
 
 proc_t *sched_getprocfrompid(int pid) {
 	MUTEX_ACQUIRE(&sched_pidtablemutex, false);
-	void *proc = NULL;
-	hashtable_get(&pidtable, &proc, &pid, sizeof(pid));
+	void *_proc = NULL;
+	hashtable_get(&pidtable, &_proc, &pid, sizeof(pid));
+	proc_t *proc = _proc;
+	if (proc) {
+		PROC_HOLD(proc);
+	}
 	MUTEX_RELEASE(&sched_pidtablemutex);
+
 	return proc;
 }
 
@@ -321,6 +326,8 @@ void sched_inactiveproc(proc_t *proc) {
 
 	hashtable_remove(&pidtable, &proc->pid, sizeof(proc->pid));
 
+	//arch_e9_puts("\n\ndestroy proc\n\n");
+	//printf("destroy proc\n");
 	sched_destroyproc(proc);
 }
 

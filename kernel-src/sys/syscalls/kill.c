@@ -35,6 +35,10 @@ syscallret_t syscall_kill(context_t *context, int pid, int signal) {
 	else
 		ret.errno = jobctl_signal(target, signal);
 
+	if (target) {
+		PROC_RELEASE(target);
+	}
+
 	ret.errno = 0;
 	ret.ret = 0;
 	return ret;
