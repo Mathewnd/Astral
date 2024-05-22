@@ -100,13 +100,17 @@ int vfs_mount(vnode_t *backing, vnode_t *pathref, char *path, char *name, void *
 }
 
 int vfs_open(vnode_t *ref, char *path, int flags, vnode_t **res) {
-	int err = vfs_lookup(res, ref, path, NULL, 0);
+	vnode_t *tmp = NULL;
+	int err = vfs_lookup(&tmp, ref, path, NULL, 0);
 	if (err)
 		return err;
 
-	err = VOP_OPEN(res, flags, getcred());
-	if (err)
-		VOP_RELEASE(*res);
+	err = VOP_OPEN(&tmp, flags, getcred());
+	if (err) {
+		VOP_RELEASE(tmp);
+	} else {
+		*res = tmp;
+	}
 
 	return err;
 }

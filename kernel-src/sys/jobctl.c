@@ -35,7 +35,6 @@ static void removefromlist(proc_t *pgrp, proc_t *proc) {
 
 void jobctl_setctty(proc_t *proc, void *_ctty) {
 	tty_t *tty = _ctty;
-	__assert(tty);
 
 	bool intstatus = interrupt_set(false);
 	spinlock_acquire(&proc->jobctllock);
