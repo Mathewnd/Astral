@@ -139,8 +139,11 @@ void signal_pending(struct thread_t *thread, sigset_t *sigset) {
 }
 
 void signal_signalthread(struct thread_t *thread, int signal, bool urgent) {
+	//bool notignorable = signal == SIGKILL || signal == SIGSTOP || signal == SIGCONT;
 	PROCESS_ENTER(thread->proc);
 	THREAD_ENTER(thread);
+
+	// TODO kill/stop/continue entire process if default actions call for it etc
 
 	sigset_t *sigset = urgent ? &thread->signals.urgent : &thread->signals.pending;
 	SIGNAL_SETON(sigset, signal);
@@ -162,6 +165,10 @@ void signal_signalproc(struct proc_t *proc, int signal) {
 	PROCESS_ENTER(proc);
 	void *address = proc->signals.actions[signal].address;
 	bool notignored = address != SIG_IGN && ((address == SIG_DFL && defaultactions[signal] != ACTION_IGN) || address != SIG_DFL);
+	bool notignorable = signal == SIGKILL || signal == SIGSTOP || signal == SIGCONT;
+	bool threadcontinued = false;
+	bool isdefaultaction = address == SIG_DFL;
+	bool shouldstop = (isdefaultaction && defaultactions[signal] == ACTION_STOP) || signal == SIGSTOP;
 
 	for (int i = 0; i < proc->threadtablesize; ++i) {
 		if (proc->threads[i] == NULL || (proc->threads[i]->flags & SCHED_THREAD_FLAGS_DEAD))
@@ -169,28 +176,69 @@ void signal_signalproc(struct proc_t *proc, int signal) {
 
 		THREAD_ENTER(proc->threads[i]);
 
-		// sigcont will wake up all the threads or unset sigstop as pending
-		if (signal == SIGCONT) {
-			// TODO this
-		} else if (SIGNAL_GET(&proc->threads[i]->signals.mask, signal) == 0 || signal == SIGKILL || signal == SIGSTOP) {
+		if (SIGNAL_GET(&proc->threads[i]->signals.mask, signal) == 0 || notignorable) {
 			SIGNAL_SETON(&proc->threads[i]->signals.pending, signal);
-			if (notignored) {
-				sched_wakeup(proc->threads[i], SCHED_WAKEUP_REASON_INTERRUPTED);
+			if (notignored || notignorable) {
+				int reason = SCHED_WAKEUP_REASON_INTERRUPTED;
+				if (proc->threads[i]->signals.stopped && (signal == SIGCONT || signal == SIGKILL)) {
+					// thread is stopped and we have to wake it up
+					proc->threads[i]->signals.stopped = false;
+					reason = 0; // wake it up from the non interruptible sleep
+					threadcontinued = true;
+				} else if (signal == SIGCONT) {
+					// thread is not stopped, ignore SIGCONT
+					SIGNAL_SETOFF(&proc->threads[i]->signals.pending, signal);
+					goto threadleave;
+				}
+
+				sched_wakeup(proc->threads[i], reason);
 				// TODO ipi if running isn't self
 			}
-			THREAD_LEAVE(proc->threads[i]);
-			PROCESS_LEAVE(proc);
-			MUTEX_RELEASE(&proc->mutex);
-			return;
+
+			// if we are stopping or continuing, this will be sent to all individual threads
+			// XXX possible race condition where a thread will change the process mask or the action of stopping signals
+			// after it was sent to everyone
+			if ((shouldstop || signal == SIGCONT) == false) {
+				THREAD_LEAVE(proc->threads[i]);
+				PROCESS_LEAVE(proc);
+				MUTEX_RELEASE(&proc->mutex);
+				return;
+			}
 		}
 
+		threadleave:
 		THREAD_LEAVE(proc->threads[i]);
 	}
+
+	// tell the parent that a child stopped
+	// TODO when stopping make sure that a thread was actually stopped
+	if ((notignorable || notignored) && defaultactions[signal] == ACTION_STOP) {
+		proc->status = 0x7f;
+		proc->status |= signal << 8;
+		proc->signals.stopunwaited = true;
+		if ((proc->parent->signals.actions[SIGCHLD].flags & SA_NOCLDSTOP) == 0) {
+			signal_signalproc(proc->parent, SIGCHLD);
+		}
+		semaphore_signal(&proc->parent->waitsem);
+	}
+
+	// tell the parent that a child continued
+	if (threadcontinued) {
+		proc->status = 0xffff;
+		proc->signals.continueunwaited = true;
+		if ((proc->parent->signals.actions[SIGCHLD].flags & SA_NOCLDSTOP) == 0) {
+			signal_signalproc(proc->parent, SIGCHLD);
+		}
+		semaphore_signal(&proc->parent->waitsem);
+	}
+
 	MUTEX_RELEASE(&proc->mutex);
 
-	// there wasn't any thread with it unmasked, so set it as pending for the whole process
-
-	SIGNAL_SETON(&proc->signals.pending, signal);
+	// if its ignorable and there wasn't any thread with it unmasked, set it as pending for the whole process
+	// not ignorable signals will be sent to all threads individually
+	if (notignorable == false && (threadcontinued || shouldstop) == false) {
+		SIGNAL_SETON(&proc->signals.pending, signal);
+	}
 
 	PROCESS_LEAVE(proc);
 }
@@ -200,10 +248,12 @@ bool signal_check(struct thread_t *thread, context_t *context, bool syscall, uin
 	bool retry = false;
 	proc_t *proc = thread->proc;
 
+	bool intstatus = interrupt_set(false);
 	PROCESS_ENTER(proc);
 	THREAD_ENTER(thread);
 
 	if (SIGNAL_GET(&proc->signals.pending, SIGKILL) || SIGNAL_GET(&thread->signals.pending, SIGKILL)) {
+		// TODO terminate entire program
 		THREAD_LEAVE(thread);
 		PROCESS_LEAVE(proc);
 		proc->status = SIGKILL;
@@ -262,12 +312,32 @@ bool signal_check(struct thread_t *thread, context_t *context, bool syscall, uin
 				goto leave;
 			case ACTION_CORE:
 			case ACTION_TERM:
+				// TODO terminate entire program
 				proc->status = signal;
 				THREAD_LEAVE(thread);
 				PROCESS_LEAVE(proc);
 				interrupt_set(true);
 				sched_threadexit();
 			case ACTION_STOP:
+				// TODO what if a thread unmasks a stop signal?
+				// check if sigcont is not pending for the thread (SIGCONT is always sent to the thread)
+				if (SIGNAL_GET(&thread->signals.pending, SIGCONT)) {
+					retry = true;
+					goto leave;
+				}
+				// if not, just sleep. the sigcont won't be sent until THREAD_LEAVE and preparesleep is protecting it from a lost wakeup
+				sched_preparesleep(false);
+				thread->signals.stopped = true;
+				THREAD_LEAVE(thread);
+				PROCESS_LEAVE(proc);
+				sched_yield();
+				interrupt_set(intstatus);
+				// make sure a SIGCONT happened
+				__assert(SIGNAL_GET(&thread->signals.pending, SIGCONT));
+				__assert(thread->signals.stopped == false);
+				// the stopped variable is already set by the signaling function
+				// see if theres any other signal to deal with (such as the SIGCONT handler)
+				return true;
 			default:
 				__assert(!"unsupported signal action");
 		}
@@ -335,5 +405,6 @@ bool signal_check(struct thread_t *thread, context_t *context, bool syscall, uin
 	leave:
 	THREAD_LEAVE(thread);
 	PROCESS_LEAVE(proc);
+	interrupt_set(intstatus);
 	return retry;
 }
