@@ -174,11 +174,9 @@ int jobctl_newgroup(proc_t *proc) {
 	bool intstatus = interrupt_set(false);
 	spinlock_acquire(&proc->jobctllock);
 
-	// check if session/group leader
-	if (proc->pgrp.leader == NULL) {
-		error = EPERM;
+	// check if already group leader
+	if (proc->pgrp.leader == NULL)
 		goto leave;
-	}
 
 	unholdpgrp = proc->pgrp.leader;
 
@@ -217,6 +215,7 @@ int jobctl_changegroup(proc_t *proc, proc_t *group) {
 	removefromlist(proc->pgrp.leader, proc);
 	unholdpgrp = proc->pgrp.leader;
 	proc->pgrp.leader = group;
+	PROC_HOLD(group);
 	addtolist(group, proc);
 
 	leave:
