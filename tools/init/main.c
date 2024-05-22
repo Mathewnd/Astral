@@ -81,6 +81,17 @@ int main(int argc, char *argv[]) {
 	}
 
 	if (pid == 0) {
+		// create its own process group and set is as the foreground group
+		if (setpgid(0, 0) == -1) {
+			perror("init: setpgrp failed");
+			return EXIT_FAILURE;
+		}
+
+		if (tcsetpgrp(0, getpid()) == -1) {
+			perror("init: tcsetpgrp failed");
+			return EXIT_FAILURE;
+		}
+
 		execl("/usr/bin/bash", "/usr/bin/bash", "-l", NULL);
 		perror("init: execl /usr/bin/bash failed");
 		return EXIT_FAILURE;
