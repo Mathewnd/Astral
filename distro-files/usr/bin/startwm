@@ -1,3 +1,4 @@
+export DISPLAY=":0"
 X &
 while [ 1 ]
 do
