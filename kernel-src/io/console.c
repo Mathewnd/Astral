@@ -55,10 +55,10 @@ static void consolethread() {
 		if (packet.ascii) {
 			// control characters
 			if (packet.flags & (KBPACKET_FLAGS_LEFTCTRL | KBPACKET_FLAGS_RIGHTCTRL)) {
-				if (!((packet.ascii > 'a' && packet.ascii < 'z') || (packet.ascii > 'A' && packet.ascii < 'Z')))
+				if (!((packet.ascii >= 'a' && packet.ascii <= 'z') || (packet.ascii >= 'A' && packet.ascii <= '\\')))
 					continue;
 
-				packet.ascii = packet.ascii > 'a' ? packet.ascii - 0x60 : packet.ascii - 0x40;
+				packet.ascii = packet.ascii >= 'a' ? packet.ascii - 0x60 : packet.ascii - 0x40;
 			}
 
 			tty_process(tty, packet.ascii);
