@@ -2,7 +2,7 @@ ISODIR=$(shell pwd)/iso
 ISO=astral.iso
 LIMINEDIR=$(shell pwd)/host-pkgs/limine/usr/local/share/limine/
 KERNEL=$(shell pwd)/pkgs/astral/boot/astral
-QEMUFLAGS=-cdrom $(ISO) -m 2G -smp cpus=1 -no-shutdown -no-reboot -monitor stdio -debugcon file:/dev/stdout -serial file:/dev/stdout # hacky but works :')
+QEMUFLAGS=-M q35 -cdrom $(ISO) -m 2G -smp cpus=1 -no-shutdown -no-reboot -monitor stdio -debugcon file:/dev/stdout -serial file:/dev/stdout # hacky but works :')
 INITRD=$(shell pwd)/iso/initrd
 DISTROTYPE=full
 
