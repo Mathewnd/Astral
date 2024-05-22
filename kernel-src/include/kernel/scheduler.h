@@ -155,5 +155,6 @@ void sched_targetcpu(struct cpu_t *cpu);
 void sched_sleepus(size_t us);
 void sched_apentry();
 void sched_inactiveproc(proc_t *proc);
+void sched_terminateprogram(int status);
 
 #endif

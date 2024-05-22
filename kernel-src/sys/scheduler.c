@@ -407,6 +407,19 @@ void sched_stopotherthreads() {
 	proc->nomorethreads = false;
 }
 
+void sched_terminateprogram(int status) {
+	thread_t *thread = _cpu()->thread;
+	proc_t *proc = thread->proc;
+	if (spinlock_try(&proc->exiting) == false)
+		sched_threadexit();
+
+	sched_stopotherthreads();
+
+	proc->status = status;
+
+	sched_threadexit();
+}
+
 static void yield(context_t *context) {
 	thread_t *thread = _cpu()->thread;
 

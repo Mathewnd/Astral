@@ -253,12 +253,10 @@ bool signal_check(struct thread_t *thread, context_t *context, bool syscall, uin
 	THREAD_ENTER(thread);
 
 	if (SIGNAL_GET(&proc->signals.pending, SIGKILL) || SIGNAL_GET(&thread->signals.pending, SIGKILL)) {
-		// TODO terminate entire program
 		THREAD_LEAVE(thread);
 		PROCESS_LEAVE(proc);
-		proc->status = SIGKILL;
 		interrupt_set(true);
-		sched_threadexit();
+		sched_terminateprogram(SIGKILL);
 	}
 
 	// find the first pending signal which is unmasked
@@ -312,12 +310,10 @@ bool signal_check(struct thread_t *thread, context_t *context, bool syscall, uin
 				goto leave;
 			case ACTION_CORE:
 			case ACTION_TERM:
-				// TODO terminate entire program
-				proc->status = signal;
 				THREAD_LEAVE(thread);
 				PROCESS_LEAVE(proc);
 				interrupt_set(true);
-				sched_threadexit();
+				sched_terminateprogram(signal);
 			case ACTION_STOP:
 				// TODO what if a thread unmasks a stop signal?
 				// check if sigcont is not pending for the thread (SIGCONT is always sent to the thread)
