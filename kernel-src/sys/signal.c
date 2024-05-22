@@ -8,7 +8,7 @@
 #define ACTION_STOP 3
 #define ACTION_CONT 4
 
-static int defaultactions[NSIG] = {
+int signal_defaultactions[NSIG] = {
 	[SIGABRT] = ACTION_CORE,
 	[SIGALRM] = ACTION_TERM,
 	[SIGBUS] = ACTION_CORE,
@@ -149,7 +149,7 @@ void signal_signalthread(struct thread_t *thread, int signal, bool urgent) {
 	SIGNAL_SETON(sigset, signal);
 
 	void *address = thread->proc->signals.actions[signal].address;
-	bool notignored = address != SIG_IGN && ((address == SIG_DFL && defaultactions[signal] != ACTION_IGN) || address != SIG_DFL);
+	bool notignored = address != SIG_IGN && ((address == SIG_DFL && signal_defaultactions[signal] != ACTION_IGN) || address != SIG_DFL);
 
 	if (signal == SIGKILL || signal == SIGSTOP || urgent || (SIGNAL_GET(&thread->signals.mask, signal) == 0 && notignored)) {
 		sched_wakeup(thread, SCHED_WAKEUP_REASON_INTERRUPTED);
@@ -164,11 +164,13 @@ void signal_signalproc(struct proc_t *proc, int signal) {
 	MUTEX_ACQUIRE(&proc->mutex, false);
 	PROCESS_ENTER(proc);
 	void *address = proc->signals.actions[signal].address;
-	bool notignored = address != SIG_IGN && ((address == SIG_DFL && defaultactions[signal] != ACTION_IGN) || address != SIG_DFL);
+	bool notignored = address != SIG_IGN && ((address == SIG_DFL && signal_defaultactions[signal] != ACTION_IGN) || address != SIG_DFL);
 	bool notignorable = signal == SIGKILL || signal == SIGSTOP || signal == SIGCONT;
 	bool threadcontinued = false;
 	bool isdefaultaction = address == SIG_DFL;
-	bool shouldstop = (isdefaultaction && defaultactions[signal] == ACTION_STOP) || signal == SIGSTOP;
+	bool shouldstop = (isdefaultaction && signal_defaultactions[signal] == ACTION_STOP) || signal == SIGSTOP;
+
+	// TODO is one thread has a stop signal masked, the masked wait breaks completely
 
 	for (int i = 0; i < proc->threadtablesize; ++i) {
 		if (proc->threads[i] == NULL || (proc->threads[i]->flags & SCHED_THREAD_FLAGS_DEAD))
@@ -212,7 +214,7 @@ void signal_signalproc(struct proc_t *proc, int signal) {
 
 	// tell the parent that a child stopped
 	// TODO when stopping make sure that a thread was actually stopped
-	if ((notignorable || notignored) && defaultactions[signal] == ACTION_STOP) {
+	if ((notignorable || notignored) && signal_defaultactions[signal] == ACTION_STOP) {
 		proc->status = 0x7f;
 		proc->status |= signal << 8;
 		proc->signals.stopunwaited = true;
@@ -302,7 +304,7 @@ bool signal_check(struct thread_t *thread, context_t *context, bool syscall, uin
 		goto leave;
 	} else if ((action->address == SIG_DFL && (action->flags & SA_SIGINFO) == 0) || (action->address == SIG_IGN && sigset == &thread->signals.urgent)) {
 		// default action
-		int defaction = defaultactions[signal];
+		int defaction = signal_defaultactions[signal];
 		switch (defaction) {
 			case ACTION_IGN:
 			case ACTION_CONT:

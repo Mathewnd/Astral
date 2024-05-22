@@ -144,6 +144,12 @@ typedef struct {
 #define SIG_UNBLOCK 1
 #define SIG_SETMASK 2
 
+#define SIG_ACTION_TERM 0
+#define SIG_ACTION_IGN 1
+#define SIG_ACTION_CORE 2
+#define SIG_ACTION_STOP 3
+#define SIG_ACTION_CONT 4
+
 struct proc_t;
 struct thread_t;
 void signal_action(struct proc_t *proc, int signal, sigaction_t *new, sigaction_t *old);
@@ -153,5 +159,6 @@ void signal_signalproc(struct proc_t *proc, int signal);
 void signal_signalthread(struct thread_t *thread, int signal, bool urgent);
 void signal_pending(struct thread_t *, sigset_t *sigset);
 bool signal_check(struct thread_t *thread, context_t *context, bool syscall, uint64_t syscallret, uint64_t syscallerrno);
+extern int signal_defaultactions[NSIG];
 
 #endif

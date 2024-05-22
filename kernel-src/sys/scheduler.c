@@ -429,7 +429,23 @@ static void yield(context_t *context) {
 
 	thread_t *next = runqueuenext(sleeping ? 0x0fffffff : thread->priority);
 
-	if (sleeping && thread->shouldexit && (thread->flags & SCHED_THREAD_FLAGS_INTERRUPTIBLE)) {
+	bool gotsignal = false;
+	for (int i = 0; i < NSIG && thread->proc; ++i) {
+		void *action = thread->proc->signals.actions[i].address;
+		if (SIGNAL_GET(&thread->signals.urgent, i)) {
+			gotsignal = true;
+			break;
+		}
+		if (action == SIG_IGN || (action == SIG_DFL && signal_defaultactions[i] == SIG_ACTION_IGN) || SIGNAL_GET(&thread->signals.mask, i))
+			continue;
+
+		if (SIGNAL_GET(&thread->signals.pending, i) || SIGNAL_GET(&thread->proc->signals.pending, i)) {
+			gotsignal = true;
+			break;
+		}
+	}
+
+	if (sleeping && (thread->shouldexit || gotsignal) && (thread->flags & SCHED_THREAD_FLAGS_INTERRUPTIBLE)) {
 		sleeping = false;
 		next = NULL;
 		thread->flags &= ~(SCHED_THREAD_FLAGS_SLEEP | SCHED_THREAD_FLAGS_INTERRUPTIBLE);
