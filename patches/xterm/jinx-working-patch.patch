@@ -25,7 +25,7 @@ index e4c4e09..272cd1c 100755
  	     | hpux* | unos* | osf* | luna* | dgux* | auroraux* | solaris* \
  	     | sym* |  plan9* | psp* | sim* | xray* | os68k* | v88r* \
 diff --git xterm-clean/main.c xterm-workdir/main.c
-index 3d2ad4c..a998b97 100644
+index 3d2ad4c..3f235d0 100644
 --- xterm-clean/main.c
 +++ xterm-workdir/main.c
 @@ -92,6 +92,7 @@
@@ -90,6 +90,15 @@ index 3d2ad4c..a998b97 100644
  static Boolean
  validShell(const char *pathname)
  {
+@@ -4356,7 +4358,7 @@ spawnXTerm(XtermWidget xw, unsigned line_speed)
+ 	    /*
+ 	     * now in child process
+ 	     */
+-#if defined(_POSIX_SOURCE) || defined(SVR4) || defined(__convex__) || defined(__SCO__) || defined(__QNX__)
++#if defined(_POSIX_SOURCE) || defined(SVR4) || defined(__convex__) || defined(__SCO__) || defined(__QNX__) || defined(__astral__)
+ 	    int pgrp = setsid();	/* variable may not be used... */
+ #else
+ 	    int pgrp = getpid();
 @@ -4496,7 +4498,7 @@ spawnXTerm(XtermWidget xw, unsigned line_speed)
  			/* make /dev/tty work */
  			ioctl(ttyfd, TCSETCTTY, 0);
