@@ -15,8 +15,8 @@ syscallret_t syscall_waitpid(context_t *context, pid_t pid, int *status, int opt
 	};
 
 	// TODO address check
-	// TODO implement these
 	__assert((options & ~KNOWN_FLAGS) == 0);
+	// TODO implement these
 	__assert(pid == -1 || pid > 0);
 
 	thread_t *thread = _cpu()->thread;
@@ -32,6 +32,10 @@ syscallret_t syscall_waitpid(context_t *context, pid_t pid, int *status, int opt
 		MUTEX_RELEASE(&proc->mutex);
 		return ret;
 	}
+
+	bool continued = false;
+	bool stopped = false;
+	bool zombie = false;
 
 	for (;;) {
 		if (iterator == NULL) {
@@ -59,28 +63,46 @@ syscallret_t syscall_waitpid(context_t *context, pid_t pid, int *status, int opt
 		if (pid > 0 && iterator->pid == pid)
 			desired = iterator;
 
-		if (iterator->state == SCHED_PROC_STATE_ZOMBIE)
+		bool intstatus = interrupt_set(false);
+		spinlock_acquire(&iterator->signals.lock);
+		if (iterator->signals.continueunwaited && (options & WCONTINUED)) {
+			iterator->signals.continueunwaited = false;
+			continued = true;
+		}
+		if (iterator->signals.stopunwaited && (options & WSTOPPED)) {
+			iterator->signals.stopunwaited = false;
+			stopped = true;
+		}
+		spinlock_release(&iterator->signals.lock);
+		interrupt_set(intstatus);
+
+		zombie = iterator->state == SCHED_PROC_STATE_ZOMBIE;
+
+		if (zombie || continued || stopped)
 			break;
 
 		prev = iterator;
 		iterator = iterator->sibling;
 	}
 
-	// iterator has the zombie child
-
-	if (prev)
-		prev->sibling = iterator->sibling;
-	else
-		proc->child = iterator->sibling;
-
-	MUTEX_RELEASE(&proc->mutex);
+	// iterator has the waited child
+	if (zombie) {
+		// remove process from child list if zombie
+		if (prev)
+			prev->sibling = iterator->sibling;
+		else
+			proc->child = iterator->sibling;
+	}
 
 	// TODO memory safe operation
 	if (status) {
-		*status = iterator->status;
+		int statustmp = iterator->status;
+		*status = statustmp;
 	}
 
-	for (int i = 0; i < iterator->threadtablesize; ++i) {
+	MUTEX_RELEASE(&proc->mutex);
+
+	for (int i = 0; i < iterator->threadtablesize && zombie; ++i) {
 		if (iterator->threads[i] == NULL)
 			continue;
 
@@ -97,6 +119,9 @@ syscallret_t syscall_waitpid(context_t *context, pid_t pid, int *status, int opt
 
 	__assert(iterator);
 	// process will no longer be referenced by the child list
-	PROC_RELEASE(iterator);
+	if (zombie) {
+		PROC_RELEASE(iterator);
+	}
+
 	return ret;
 }

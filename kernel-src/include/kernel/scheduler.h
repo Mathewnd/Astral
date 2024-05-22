@@ -55,6 +55,7 @@ typedef struct thread_t {
 		sigset_t mask;
 		sigset_t pending;
 		sigset_t urgent;
+		bool stopped;
 	} signals;
 } thread_t;
 
@@ -108,6 +109,8 @@ typedef struct proc_t {
 		spinlock_t lock;
 		sigaction_t actions[NSIG];
 		sigset_t pending;
+		bool stopunwaited;
+		bool continueunwaited;
 	} signals;
 } proc_t;
 
