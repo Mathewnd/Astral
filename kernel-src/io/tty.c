@@ -52,6 +52,15 @@ void tty_process(tty_t *tty, char c) {
 
 	// TODO VSTART VSTOP
 
+	char echoc = (tty->termios.c_lflag & ECHO) ? c : '\0';
+
+	// echo control characters
+	if ((tty->termios.c_lflag & ECHOCTL) && (tty->termios.c_lflag & ECHO) && c < 32 && c != '\n' && c != '\r' && c != '\b' && c != '\t' && c != '\e') {
+		char tmp[2] = {'^', c + 0x40};
+		tty->writetodevice(tty->deviceinternal, tmp, 2);
+		echoc = false;
+	}
+
 	if (tty->termios.c_lflag & ISIG) {
 		int signal = -1;
 		if (tty->termios.c_cc[VINTR] == c)
@@ -69,15 +78,6 @@ void tty_process(tty_t *tty, char c) {
 			}
 			return;
 		}
-	}
-
-	char echoc = (tty->termios.c_lflag & ECHO) ? c : '\0';
-
-	// echo control characters
-	if ((tty->termios.c_lflag & ECHOCTL) && c < 32 && c != '\n' && c != '\r' && c != '\b' && c != '\t' && c != '\e') {
-		char tmp[2] = {'^', c + 0x40};
-		tty->writetodevice(tty->deviceinternal, tmp, 2);
-		echoc = false;
 	}
 
 	if (tty->termios.c_lflag & ICANON) {
