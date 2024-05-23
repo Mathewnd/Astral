@@ -28,8 +28,11 @@ The build process only needs xorriso, curl and bsdtar on the host. All other nee
 To build the project, run ``make``. This will create a file named ``astral.iso``
 
 ## Running
+You can download the latest release from github and run it in the virtual machine of your liking.
+For QEMU the following command is recommended:
+``qemu-system-x86_64 -enable-kvm -M q35 -m 2g -cdrom astral.iso``
 
-There are a few targets in the makefile to run Astral with qemu:
+There are a few targets in the makefile to run Astral with qemu when built from source:
 
 ``make run``
 

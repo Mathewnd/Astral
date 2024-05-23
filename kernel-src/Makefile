@@ -14,6 +14,16 @@ KERNELCONFIG=#-DX86_64_ENABLE_E9 -DSYSCALL_LOGGING
 CFLAGS=-g -ffreestanding -mcmodel=kernel -O2 -mno-red-zone -mgeneral-regs-only -mno-mmx -mno-sse -mno-sse2 -nostdlib -Wall -I "${INCDIR}" -I "$(ARCHINCDIR)" -I "$(FLANTERMINCDIR)" $(PRINTFOPTS) $(KERNELCONFIG)
 ASFLAGS=-felf64
 
+.PHONY: all
+all:
+	# build build.h file
+	echo "#ifndef _BUILD_H" > include/build.h 
+	echo "#define _BUILD_H" >> include/build.h 
+	echo "	#define BUILD_DATE \"$(shell date -u)\"" >> include/build.h
+	echo "	#define BUILD_TARGET \"$(TARGET)\"" >> include/build.h
+	echo "#endif" >> include/build.h 
+	make astral
+
 astral:	$(OBJS)
 	@echo [LD] $@
 	@$(LD) $(LDFLAGS) -o $@ $^
