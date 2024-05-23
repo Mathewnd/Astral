@@ -4,7 +4,7 @@
 
 #ifdef SYSCALL_LOGGING
 
-#define SYSCALL_COUNT 63
+#define SYSCALL_COUNT 65
 #define LOGSTR(x) arch_e9_puts(x)
 
 static char *name[] = {
@@ -70,7 +70,9 @@ static char *name[] = {
 	"sigaltstack",
 	"sigprocmask",
 	"kill",
-	"sigreturn"
+	"sigreturn",
+	"uname",
+	"hostname"
 };
 
 static char *args[] = {
@@ -136,7 +138,9 @@ static char *args[] = {
 	"new %p old %p", // sigaltstack
 	"how %d set %p oldset %p", // sigprocmask
 	"pid %d signal %d", // kill
-	"N/A" // sigreturn
+	"N/A", // sigreturn
+	"utsname %p", // uname
+	"new %p newsize %lu old %p oldsize %lu" // hostname
 };
 
 #endif

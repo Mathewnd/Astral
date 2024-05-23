@@ -5,6 +5,7 @@
 #include <pwd.h>
 #include <fcntl.h>
 #include <string.h>
+#include <sys/param.h>
 
 int main(int argc, char *argv[]) {
 	printf("init: Welcome to Astral!\n");
@@ -26,6 +27,31 @@ int main(int argc, char *argv[]) {
 	setenv("PATH", "/bin:/usr/bin:/usr/local/bin:/sbin:/usr/sbin:/usr/local/sbin", 1);
 	setenv("TERM", "linux", 1);
 	//setenv("DISPLAY", ":0", 1);
+
+	// set hostname
+	char hostname[HOST_NAME_MAX + 1];
+	int hostnamefd = open("/etc/hostname", O_RDONLY);
+	if (hostnamefd == -1) {
+		// non fatal error
+		perror("init: failed to open /etc/hostname");
+	} else {
+		int readcount = read(hostnamefd, hostname, HOST_NAME_MAX);
+
+		if (readcount == -1) {
+			perror("init: failed to read /etc/hostname");
+		} else {
+			hostname[readcount] = '\0';
+			for (int i = 0; i < readcount; ++i) {
+				if (hostname[i] == '\n')
+					hostname[i] = '\0';
+			}
+
+			sethostname(hostname, strlen(hostname));
+		}
+
+
+		close(hostnamefd);
+	}
 
 	// run rc to initialize environment (mount filesystems, etc)
 	printf("init: running /etc/rc\n");

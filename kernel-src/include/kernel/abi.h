@@ -164,4 +164,6 @@ typedef struct {
 	unsigned short int rt_irtt;
 } abirtentry_t;
 
+#define HOST_NAME_MAX 64
+
 #endif
