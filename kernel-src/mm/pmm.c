@@ -5,6 +5,7 @@
 #include <arch/mmu.h>
 #include <mutex.h>
 #include <util.h>
+#include <kernel/vmmcache.h>
 
 uintptr_t hhdmbase;
 static size_t memorysize;
@@ -101,9 +102,29 @@ static void removefromfreelist(page_t *page) {
 	--freepagecount;
 }
 
+static void internalhold(page_t *page) {
+	__atomic_add_fetch(&page->refcount, 1, __ATOMIC_SEQ_CST);
+	if (page->refcount == 1) {
+		// this is only valid on standby pages, in case of free pages its an use after free
+		__assert((page->flags & PAGE_FLAGS_FREE) == 0);
+		removefromfreelist(page);
+	}
+}
+
+page_t *pmm_getpage(void *address) {
+	return &pages[((uintptr_t)address / PAGE_SIZE)];
+}
+
+void *pmm_getpageaddress(page_t *page) {
+	return (void *)(PAGE_GETID(page) * PAGE_SIZE);
+}
+
 void pmm_hold(void *addr) {
 	page_t *page = &pages[((uintptr_t)addr / PAGE_SIZE)];
-	__atomic_add_fetch(&page->refcount, 1, __ATOMIC_SEQ_CST);
+
+	MUTEX_ACQUIRE(&freelistmutex, false);
+	internalhold(page);
+	MUTEX_RELEASE(&freelistmutex);
 }
 
 void pmm_release(void *addr) {
@@ -124,13 +145,14 @@ static void doalloc(page_t *page) {
 	__assert(page->refcount == 0);
 	memset(page, 0, sizeof(page_t));
 	page->refcount = 1;
-	page->flags &= ~PAGE_FLAGS_FREE;
 }
 
 void *pmm_allocpage(int section) {
+	retry:
 	MUTEX_ACQUIRE(&freelistmutex, false);
 	page_t *page = NULL;
 
+	// try to take a free anonymous page
 	for (int i = section; i >= 0; --i) {
 		page = freelists[i];
 		if (page) {
@@ -139,9 +161,34 @@ void *pmm_allocpage(int section) {
 		}
 	}
 
-	// TODO get page from standby list and call to remove from cache
+	bool cachepage = false;
+
+	// if that wasn't possible, try to take from the cache standby list
+	// TODO do this FIFO rather than LIFO
+	if (page == NULL) {
+		for (int i = section; i >= 0; --i) {
+			page = standbylists[i];
+			if (page) {
+				cachepage = true;
+				internalhold(page);
+				break;
+			}
+		}
+	}
 
 	MUTEX_RELEASE(&freelistmutex);
+
+	if (cachepage && vmmcache_takepage(page) == EAGAIN) {
+		// someone already got the page from the cache between us holding it and taking it
+		page = NULL;
+		// retry it from the start, as an anonymous page could have been released while the lock was not held
+		goto retry;
+	} else if (cachepage) {
+		// we got the page from the cache, all is good and we hold the only reference to it.
+		// set the refcount to 0, as expected by the doalloc call
+		page->refcount = 0;
+	}
+
 	void *address = NULL;
 	if (page) {
 		address = (void *)(PAGE_GETID(page) * PAGE_SIZE);
@@ -206,6 +253,8 @@ void pmm_init() {
 
 	MUTEX_INIT(&freelistmutex);
 }
+
+// XXX pmm_alloc won't be able to take pages from the page cache when the allocation size is over 1 page
 
 void *pmm_alloc(size_t size, int section) {
 	__assert(size);

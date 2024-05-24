@@ -16,10 +16,6 @@ typedef struct tmpfsnode_t {
 	vattr_t attr;
 	union {
 		hashtable_t children;
-		struct {
-			void *data;
-			size_t pagecount;
-		};
 		char *link;
 	};
 } tmpfsnode_t;

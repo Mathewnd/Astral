@@ -1,3 +1,0 @@
-void pgcache_init() {
-	
-}

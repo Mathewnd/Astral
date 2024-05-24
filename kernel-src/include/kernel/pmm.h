@@ -10,6 +10,11 @@
 #define PMM_SECTION_DEFAULT 2
 
 #define PAGE_FLAGS_FREE 1
+#define PAGE_FLAGS_TRUNCATED 2
+#define PAGE_FLAGS_PINNED 4
+#define PAGE_FLAGS_DIRTY 8
+#define PAGE_FLAGS_READY 16
+#define PAGE_FLAGS_ERROR 32
 
 typedef struct page_t {
 	struct vnode_t *backing;
@@ -34,6 +39,7 @@ typedef struct page_t {
 
 void *pmm_allocpage(int section);
 page_t *pmm_getpage(void *addr);
+void *pmm_getpageaddress(page_t *);
 void pmm_hold(void *addr);
 void pmm_release(void *addr);
 void pmm_makefree(void *address, size_t count);

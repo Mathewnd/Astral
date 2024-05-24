@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <kernel/alloc.h>
 #include <kernel/timekeeper.h>
+#include <kernel/pmm.h>
 
 static devnode_t *devfsroot;
 
@@ -332,6 +333,26 @@ static int devfs_getdents(vnode_t *node, dent_t *buffer, size_t count, uintmax_t
 	return 0;
 }
 
+static int devfs_getpage(vnode_t *node, uintmax_t offset, struct page_t *page) {
+	// only block devices will have this called
+	__assert(node->type == V_TYPE_BLKDEV);
+	size_t readc;
+	int error = VOP_READ(node, MAKE_HHDM(pmm_getpageaddress(page)), PAGE_SIZE, offset, 0, &readc, NULL);
+	if (readc == 0)
+		return ENXIO;
+
+	return error;
+}
+
+static int devfs_putpage(vnode_t *node, uintmax_t offset, struct page_t *page) {
+	// only block devices will have this called
+	__assert(node->type == V_TYPE_BLKDEV);
+	size_t writec;
+	int error = VOP_WRITE(node, MAKE_HHDM(pmm_getpageaddress(page)), PAGE_SIZE, offset, 0, &writec, NULL);
+	__assert(writec != 0);
+
+	return error;
+}
 
 static int devfs_enodev() {
 	return ENODEV;
@@ -365,7 +386,9 @@ static vops_t vnops = {
 	.ioctl = devfs_ioctl,
 	.maxseek = devfs_maxseek,
 	.resize = devfs_enodev,
-	.rename = devfs_enodev
+	.rename = devfs_enodev,
+	.putpage = devfs_putpage,
+	.getpage = devfs_getpage
 };
 
 static void ctor(scache_t *cache, void *obj) {

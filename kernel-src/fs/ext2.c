@@ -9,6 +9,7 @@
 #include <mutex.h>
 #include <logging.h>
 #include <util.h>
+#include <kernel/vmmcache.h>
 
 #define INODE_ROOT 2
 
@@ -1262,9 +1263,12 @@ int ext2_write(vnode_t *vnode, void *buffer, size_t size, uintmax_t offset, int 
 		endoffset = -1ll;
 
 	if (endoffset > inodesize) {
-		err = resizeinode(fs, node, endoffset);
-		if (err)
+		if (offset > inodesize) {
+			*writec = 0;
 			goto cleanup;
+		}
+
+		size = min(endoffset, inodesize) - offset;
 	}
 
 	err = rwbytes(fs, node, buffer, size, offset, true);
@@ -1281,10 +1285,17 @@ int ext2_write(vnode_t *vnode, void *buffer, size_t size, uintmax_t offset, int 
 }
 
 int ext2_resize(vnode_t *vnode, size_t newsize, cred_t *cred) {
+	__assert(vnode->type == V_TYPE_REGULAR);
 	ext2node_t *node = (ext2node_t *)vnode;
 	ext2fs_t *fs = (ext2fs_t *)vnode->vfs;
 	VOP_LOCK(vnode);
-	int e = resizeinode(fs, node, newsize);
+	size_t size = INODE_SIZE(&node->inode);
+	int e = 0;
+	if (size != newsize) {
+		e = resizeinode(fs, node, newsize);
+		if (size > newsize)
+			vmmcache_truncate(vnode, newsize);
+	}
 	VOP_UNLOCK(vnode);
 	return e;
 }
@@ -1546,6 +1557,27 @@ static int ext2_unlink(vnode_t *vnode, char *name, cred_t *cred) {
 	return err;
 }
 
+static int ext2_getpage(vnode_t *node, uintmax_t offset, struct page_t *page) {
+	// only regular files get cached
+	__assert(node->type == V_TYPE_REGULAR);
+	size_t readc;
+	int error = VOP_READ(node, MAKE_HHDM(pmm_getpageaddress(page)), PAGE_SIZE, offset, 0, &readc, NULL);
+	if (readc == 0)
+		return ENXIO;
+
+	return error;
+}
+
+static int ext2_putpage(vnode_t *node, uintmax_t offset, struct page_t *page) {
+	// only regular files get cached
+	__assert(node->type == V_TYPE_REGULAR);
+	size_t writec;
+	int error = VOP_WRITE(node, MAKE_HHDM(pmm_getpageaddress(page)), PAGE_SIZE, offset, 0, &writec, NULL);
+	__assert(writec != 0);
+
+	return error;
+}
+
 static int ext2_inactive(vnode_t *vnode) {
 	ext2node_t *node = (ext2node_t *)vnode;
 	ext2fs_t *fs = (ext2fs_t *)vnode->vfs;
@@ -1564,6 +1596,7 @@ static int ext2_inactive(vnode_t *vnode) {
 		__assert(hashtable_remove(&fs->inodetable, &node->id, sizeof(node->id)) == 0);
 		MUTEX_RELEASE(&fs->inodetablelock);
 
+		vmmcache_truncate(vnode, 0);
 		freeinode(fs, &node->inode, node->id);
 
 		slab_free(nodecache, node);
@@ -1722,7 +1755,9 @@ static vops_t vnops = {
 	.munmap = ext2_munmap,
 	.unlink = ext2_unlink,
 	.inactive = ext2_inactive,
-	.rename = ext2_rename
+	.rename = ext2_rename,
+	.getpage = ext2_getpage,
+	.putpage = ext2_putpage
 };
 
 void ext2_init() {

@@ -57,11 +57,18 @@ syscallret_t syscall_mmap(context_t *context, void *hint, size_t len, int prot, 
 	vmmfiledesc_t vfd;
 	file_t *file = NULL;
 	if (isfile) {
+		// make sure offset is page aligned
+		if (offset % PAGE_SIZE) {
+			ret.errno = EINVAL;
+			return ret;
+		}
+
 		file = fd_get(fd);
 		if (file == NULL) {
 			ret.errno = EBADF;
 			return ret;
 		}
+
 		vfd.node = file->vnode;
 		vfd.offset = offset;
 	}

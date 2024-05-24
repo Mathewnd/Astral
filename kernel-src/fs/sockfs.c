@@ -184,7 +184,9 @@ static vops_t vnops = {
 	.getdents = sockfs_enodev,
 	.resize = sockfs_enodev,
 	.rename = sockfs_enodev,
-	.ioctl = sockfs_ioctl
+	.ioctl = sockfs_ioctl,
+	.putpage = sockfs_enodev,
+	.getpage = sockfs_enodev
 };
 
 static void ctor(scache_t *cache, void *obj) {

@@ -258,7 +258,9 @@ static vops_t vnops = {
 	.munmap = pipefs_enodev,
 	.getdents = pipefs_enodev,
 	.resize = pipefs_enodev,
-	.rename = pipefs_enodev
+	.rename = pipefs_enodev,
+	.putpage = pipefs_enodev,
+	.getpage = pipefs_enodev
 };
 
 static void ctor(scache_t *cache, void *obj) {

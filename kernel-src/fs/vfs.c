@@ -7,6 +7,8 @@
 #include <arch/cpu.h>
 #include <kernel/poll.h>
 #include <kernel/sock.h>
+#include <kernel/vmmcache.h>
+#include <kernel/block.h>
 
 #define PATHNAME_MAX 512
 #define MAXLINKDEPTH 64
@@ -144,13 +146,179 @@ int vfs_create(vnode_t *ref, char *path, vattr_t *attr, int type, vnode_t **node
 	return err;
 }
 
+static void bytestopages(uintmax_t offset, size_t size, uintmax_t *pageoffset, size_t *pagecount, uintmax_t *startoffset) {
+	*pageoffset = offset / PAGE_SIZE;
+	*startoffset = offset % PAGE_SIZE;
+	size_t end = offset + size;
+	size_t toppage = ROUND_UP(end, PAGE_SIZE) / PAGE_SIZE;
+	*pagecount = toppage - *pageoffset;
+}
+
 int vfs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t *written, int flags) {
-	int err = VOP_WRITE(node, buffer, size, offset, flags, written, getcred());
+	int err;
+	// TODO skip caching flag, cred check
+	if (node->type == V_TYPE_REGULAR || node->type == V_TYPE_BLKDEV) {
+		*written = 0;
+		// can't write a size 0 buffer
+		if (size == 0)
+			return 0;
+
+		// overflow
+		if (size + offset < offset) {
+			err = EINVAL;
+			goto leave;
+		}
+
+		MUTEX_ACQUIRE(&node->sizelock, false);
+		vattr_t attr;
+		err = VOP_GETATTR(node, &attr, getcred());
+		if (err)
+			goto leave;
+
+		size_t newsize = size + offset > attr.size ? size + offset : 0;
+
+		if (node->type == V_TYPE_REGULAR && newsize) {
+			// do resize stuff if regular and applicable
+			err = VOP_RESIZE(node, newsize, &_cpu()->thread->proc->cred);
+			if (err)
+				goto leave;
+		} else if (node->type == V_TYPE_BLKDEV) {
+			// else just get the disk size and limit the read size
+			blockdesc_t blockdesc;
+			int r;
+			err = VOP_IOCTL(node, BLOCK_IOCTL_GETDESC, &blockdesc, &r);
+			__assert(err == 0);
+
+			size_t bytesize = blockdesc.blockcapacity * blockdesc.blocksize;
+
+			if (offset >= bytesize)
+				goto leave;
+
+			size = min(size + offset, bytesize) - offset;
+		}
+
+		uintmax_t pageoffset, pagecount, startoffset;
+		bytestopages(offset, size, &pageoffset, &pagecount, &startoffset);
+		page_t *page = NULL;
+
+		if (startoffset) {
+			// unaligned first page
+			err = vmmcache_getpage(node, pageoffset * PAGE_SIZE, &page);
+			if (err)
+				goto leave;
+
+			size_t writesize = min(PAGE_SIZE - startoffset, size);
+			void *address = MAKE_HHDM(pmm_getpageaddress(page));
+			memcpy((void *)((uintptr_t)address + startoffset), buffer, writesize);
+			vmmcache_makedirty(page);
+			pmm_release(FROM_HHDM(address));
+			*written += writesize;
+			pageoffset += 1;
+			pagecount -= 1;
+		}
+
+		for (uintmax_t offset = 0; offset < pagecount * PAGE_SIZE; offset += PAGE_SIZE) {
+			// the other pages
+			err = vmmcache_getpage(node, pageoffset * PAGE_SIZE + offset, &page);
+			if (err)
+				goto leave;
+
+			size_t writesize = min(PAGE_SIZE, size - *written);
+			void *address = MAKE_HHDM(pmm_getpageaddress(page));
+			memcpy(address, (void *)((uintptr_t)buffer + *written), writesize);
+			vmmcache_makedirty(page);
+			pmm_release(FROM_HHDM(address));
+			*written += writesize;
+		}
+
+		leave:
+		MUTEX_RELEASE(&node->sizelock);
+	} else {
+		// special file, just write as its not being cached
+		err = VOP_WRITE(node, buffer, size, offset, flags, written, getcred());
+	}
+
 	return err;
 }
 
 int vfs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t *bytesread, int flags) {
-	int err = VOP_READ(node, buffer, size, offset, flags, bytesread, getcred());
+	// TODO skip caching flag, cred check
+	int err;
+	if (node->type == V_TYPE_REGULAR || node->type == V_TYPE_BLKDEV) {
+		*bytesread = 0;
+		// can't read 0 bytes from the cache
+		if (size == 0)
+			return 0;
+
+		// overflow
+		if (size + offset < offset) {
+			err = EINVAL;
+			goto leave;
+		}
+
+		MUTEX_ACQUIRE(&node->sizelock, false);
+		size_t nodesize = 0;
+
+		if (node->type == V_TYPE_REGULAR) {
+			vattr_t attr;
+			err = VOP_GETATTR(node, &attr, getcred());
+			if (err)
+				goto leave;
+
+			nodesize = attr.size;
+		} else {
+			blockdesc_t blockdesc;
+			int r;
+			err = VOP_IOCTL(node, BLOCK_IOCTL_GETDESC, &blockdesc, &r);
+			__assert(err == 0);
+
+			nodesize = blockdesc.blockcapacity * blockdesc.blocksize;
+		}
+
+		// read past end of file?
+		if (offset >= nodesize)
+			goto leave;
+
+		size = min(size + offset, nodesize) - offset;
+
+		uintmax_t pageoffset, pagecount, startoffset;
+		bytestopages(offset, size, &pageoffset, &pagecount, &startoffset);
+		page_t *page = NULL;
+
+		if (startoffset) {
+			// unaligned first page
+			err = vmmcache_getpage(node, pageoffset * PAGE_SIZE, &page);
+			if (err)
+				goto leave;
+
+			size_t readsize = min(PAGE_SIZE - startoffset, size);
+			void *address = MAKE_HHDM(pmm_getpageaddress(page));
+			memcpy(buffer, (void *)((uintptr_t)address + startoffset), readsize);
+			pmm_release(FROM_HHDM(address));
+			*bytesread += readsize;
+			pageoffset += 1;
+			pagecount -= 1;
+		}
+
+		for (uintmax_t offset = 0; offset < pagecount * PAGE_SIZE; offset += PAGE_SIZE) {
+			// the other pages
+			err = vmmcache_getpage(node, pageoffset * PAGE_SIZE + offset, &page);
+			if (err)
+				goto leave;
+
+			size_t readsize = min(PAGE_SIZE, size - *bytesread);
+			void *address = MAKE_HHDM(pmm_getpageaddress(page));
+			memcpy((void *)((uintptr_t)buffer + *bytesread), address, readsize);
+			pmm_release(FROM_HHDM(address));
+			*bytesread += readsize;
+		}
+
+		leave:
+		MUTEX_RELEASE(&node->sizelock);
+	} else {
+		// special file, just read as size doesn't matter
+		err = VOP_READ(node, buffer, size, offset, flags, bytesread, getcred());
+	}
 	return err;
 }
 

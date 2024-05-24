@@ -37,6 +37,7 @@
 #include <kernel/mouse.h>
 #include <kernel/tty.h>
 #include <kernel/pty.h>
+#include <kernel/vmmcache.h>
 
 static cpu_t bsp_cpu;
 
@@ -64,6 +65,9 @@ void kernel_entry() {
 	arch_apic_timerinit();
 	sched_init();
 	arch_smp_wakeup();
+
+	vmmcache_init();
+
 	vfs_init();
 	tmpfs_init();
 	devfs_init();

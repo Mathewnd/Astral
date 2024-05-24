@@ -12,6 +12,7 @@
 #include <kernel/vmm.h>
 #include <arch/cpu.h>
 #include <string.h>
+#include <kernel/vmmcache.h>
 
 static scache_t *nodecache;
 static tmpfsnode_t *newnode(vfs_t *vfs, int type);
@@ -31,60 +32,11 @@ static int tmpfs_mount(vfs_t **vfs, vnode_t *mountpoint, vnode_t *backing, void 
 
 #define DATAMMUFLAGS (ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_NOEXEC)
 
-// expects to be called with node locked
-static int resize(tmpfsnode_t *node, size_t size) {
-	if (size == node->attr.size || node->vnode.type != V_TYPE_REGULAR)
-		return 0;
-
-	// if smaller, don't deallocate any pages
-	if (size < node->attr.size) {
-		node->attr.size = size;
-		return 0;
-	}
-
-	// no mapping yet
-	if (node->pagecount == 0) {
-		size_t mapsize = ROUND_UP(size, PAGE_SIZE);
-		node->data = vmm_map(NULL, mapsize, VMM_FLAGS_ALLOCATE, DATAMMUFLAGS, NULL);
-		if (node->data == NULL)
-			return ENOMEM;
-		memset(node->data, 0, size);
-		node->pagecount = mapsize / PAGE_SIZE;
-		node->attr.size = size;
-		return 0;
-	}
-	
-	size_t diff = size - node->attr.size;
-	// no need for new pages
-	if (size < node->pagecount * PAGE_SIZE) {
-		memset((void *)((uintptr_t)node->data + node->attr.size), 0, diff);
-		node->attr.size = size;
-		return 0;
-	}
-
-	// double the capacity or, if new size larger than double, resize to fit
-	size_t newcount = size > node->pagecount * 2 * PAGE_SIZE ? ROUND_UP(size, PAGE_SIZE) / PAGE_SIZE : node->pagecount * 2;
-
-	void *newdata = vmm_map(NULL, newcount, VMM_FLAGS_PAGESIZE | VMM_FLAGS_ALLOCATE, DATAMMUFLAGS, NULL);
-	if (newdata == NULL)
-		return ENOMEM;
-
-	memcpy(newdata, node->data, node->attr.size);
-	memset(((void *)(uintptr_t)newdata + node->attr.size), 0, diff);
-	vmm_unmap(node->data, node->pagecount, VMM_FLAGS_PAGESIZE);
-
-	node->pagecount = newcount;
-	node->data = newdata;
-	node->attr.size = size;
-
-	return 0;
-}
-
 static int tmpfs_getattr(vnode_t *node, vattr_t *attr, cred_t *cred) {
 	VOP_LOCK(node);
 	tmpfsnode_t *tmpnode = (tmpfsnode_t *)node;
 	*attr = tmpnode->attr;
-	attr->blocksused = node->type == V_TYPE_DIR ? 1 : tmpnode->pagecount;
+	attr->blocksused = ROUND_UP(attr->size, PAGE_SIZE) / PAGE_SIZE;
 	VOP_UNLOCK(node);
 	return 0;
 }
@@ -233,50 +185,11 @@ static int tmpfs_root(vfs_t *vfs, vnode_t **vnode) {
 }
 
 static int tmpfs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int flags, size_t *readc, cred_t *cred) {
-	tmpfsnode_t *tmpnode = (tmpfsnode_t *)node;
-	if (node->type != V_TYPE_REGULAR)
-		return EINVAL;
-
-	VOP_LOCK(node);
-	// offset past end of file
-	if (offset >= tmpnode->attr.size) {
-		*readc = 0;
-		VOP_UNLOCK(node);
-		return 0;
-	}
-
-	// top of read goes past end of file
-	if (offset + size > tmpnode->attr.size)
-		size = tmpnode->attr.size - offset;
-
-	*readc = size;
-	memcpy(buffer, (void *)((uintptr_t)tmpnode->data + offset), size);
-
-	VOP_UNLOCK(node);
-	return 0;
+	__assert(!"tmpfs_read is handled by the page cache");
 }
 
 static int tmpfs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int flags, size_t *writec, cred_t *cred) {
-	tmpfsnode_t *tmpnode = (tmpfsnode_t *)node;
-	if (node->type != V_TYPE_REGULAR)
-		return EINVAL;
-
-	size_t top = offset + size;
-
-	VOP_LOCK(node);
-	if (top > tmpnode->attr.size) {
-		int err = resize(tmpnode, top);
-		if (err) {
-			VOP_UNLOCK(node);
-			return err;
-		}
-	}
-
-	*writec = size;
-	memcpy((void *)((uintptr_t)tmpnode->data + offset), buffer, size);
-
-	VOP_UNLOCK(node);
-	return 0;
+	__assert(!"tmpfs_read is handled by the page cache");
 }
 
 static int tmpfs_access(vnode_t *node, mode_t mode, cred_t *cred) {
@@ -530,6 +443,9 @@ static int tmpfs_getdents(vnode_t *node, dent_t *buffer, size_t count, uintmax_t
 }
 
 static int tmpfs_inactive(vnode_t *node) {
+	if (node->type == V_TYPE_REGULAR) {
+		vmmcache_truncate(node, 0);
+	}
 	freenode((tmpfsnode_t *)node);
 	return 0;
 }
@@ -537,10 +453,44 @@ static int tmpfs_inactive(vnode_t *node) {
 static int tmpfs_resize(vnode_t *node, size_t size, cred_t *) {
 	VOP_LOCK(node);
 
-	int err = resize((tmpfsnode_t *)node, size);
+	tmpfsnode_t *tmpfsnode = (tmpfsnode_t *)node;
+	if (size != tmpfsnode->attr.size && tmpfsnode->vnode.type == V_TYPE_REGULAR) {
+		if (tmpfsnode->attr.size > size)
+			vmmcache_truncate(node, size);
+
+		tmpfsnode->attr.size = size;
+	}
 
 	VOP_UNLOCK(node);
-	return err;
+	return 0;
+}
+
+static int tmpfs_getpage(vnode_t *node, uintmax_t offset, struct page_t *page) {
+	int error = 0;
+
+	VOP_LOCK(node);
+	tmpfsnode_t *tmpfsnode = (tmpfsnode_t *)node;
+	if (offset >= tmpfsnode->attr.size)
+		error = ENXIO;
+
+	VOP_UNLOCK(node);
+	if (error)
+		return error;
+
+	// since tmpfs files now store their data on the vmmcache,
+	// all getpage will do will be set the page to 0 and pin it in memory
+	void *phy = pmm_getpageaddress(page);
+	void *phyhhdm = MAKE_HHDM(phy);
+
+	pmm_hold(phy);
+	page->flags |= PAGE_FLAGS_PINNED;
+	memset(phyhhdm, 0, PAGE_SIZE);
+	return 0;
+}
+
+static int tmpfs_putpage(vnode_t *node, uintmax_t offset, struct page_t *page) {
+	// putpage is a no-op on tmpfs
+	return 0;
 }
 
 static vfsops_t vfsops = {
@@ -568,7 +518,9 @@ static vops_t vnops = {
 	.munmap = tmpfs_munmap,
 	.getdents = tmpfs_getdents,
 	.resize = tmpfs_resize,
-	.rename = tmpfs_rename
+	.rename = tmpfs_rename,
+	.getpage = tmpfs_getpage,
+	.putpage = tmpfs_putpage
 };
 
 static tmpfsnode_t *newnode(vfs_t *vfs, int type) {
@@ -613,8 +565,6 @@ static void freenode(tmpfsnode_t *node) {
 			VOP_RELEASE(pnode);
 			__assert(hashtable_destroy(&node->children) == 0);
 			break;
-		case V_TYPE_REGULAR:
-			vmm_unmap(node->data, node->pagecount, VMM_FLAGS_PAGESIZE);
 		default:
 			break;
 	}

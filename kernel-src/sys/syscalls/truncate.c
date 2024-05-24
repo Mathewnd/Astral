@@ -1,4 +1,5 @@
 #include <kernel/syscalls.h>
+#include <mutex.h>
 
 syscallret_t syscall_ftruncate(int fd, size_t size) {
 	syscallret_t ret = {
@@ -16,7 +17,9 @@ syscallret_t syscall_ftruncate(int fd, size_t size) {
 		goto cleanup;
 	}
 
+	MUTEX_ACQUIRE(&file->vnode->sizelock, false);
 	ret.errno = VOP_RESIZE(file->vnode, size, &_cpu()->thread->proc->cred);
+	MUTEX_RELEASE(&file->vnode->sizelock);
 	ret.ret = ret.errno ? -1 : 0;
 
 	cleanup:

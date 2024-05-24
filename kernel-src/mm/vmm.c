@@ -6,6 +6,7 @@
 #include <limine.h>
 #include <string.h>
 #include <kernel/slab.h>
+#include <kernel/vmmcache.h>
 
 #define RANGE_TOP(x) (void *)((uintptr_t)x->start + x->size)
 
@@ -217,9 +218,18 @@ static void destroyrange(vmmrange_t *range, uintmax_t _offset, size_t size, int 
 		proc_t *proc = thread ? thread->proc : NULL;
 		cred_t *cred = proc ? &proc->cred : NULL;
 
-		if ((range->flags & VMM_FLAGS_FILE) && (range->flags & VMM_FLAGS_SHARED)) {
-			__assert(VOP_MUNMAP(range->vnode, vaddr, range->offset + offset, mmuflagstovnodeflags(range->mmuflags) | (range->flags & VMM_FLAGS_SHARED ? V_FFLAGS_SHARED : 0), cred) == 0);
+		if ((range->flags & VMM_FLAGS_FILE) && ((range->flags & VMM_FLAGS_SHARED) || range->vnode->type == V_TYPE_CHDEV)) {
+			// shared file mapping or character device mapping
+			if (range->vnode->type == V_TYPE_CHDEV) {
+				// character device mapping
+				__assert(VOP_MUNMAP(range->vnode, vaddr, range->offset + offset, mmuflagstovnodeflags(range->mmuflags) | (range->flags & VMM_FLAGS_SHARED ? V_FFLAGS_SHARED : 0), cred) == 0);
+			} else if (arch_mmu_iswritable(_cpu()->vmmctx->pagetable, vaddr) == false || arch_mmu_isdirty(_cpu()->vmmctx->pagetable, vaddr) == false) {
+				// dirty page cache mapping
+				vmmcache_makedirty(pmm_getpage(physical));
+				pmm_release(physical);
+			}
 		} else {
+			// anonymous or private non character device mapping
 			pmm_release(physical);
 			arch_mmu_unmap(_cpu()->vmmctx->pagetable, vaddr);
 		}
@@ -289,6 +299,15 @@ static void unmap(vmmspace_t *space, void *address, size_t size) {
 
 }
 
+static void printspace(vmmspace_t *space) {
+	printf("vmm: ranges:\n");
+	vmmrange_t *range = space->ranges;
+	while (range) {
+		printf("vmm: address %p size %lx flags %x\n", range->start, range->size, range->flags);
+		range = range->next;
+	}
+}
+
 static void *zeropage;
 
 bool vmm_pagefault(void *addr, bool user, int actions) {
@@ -335,8 +354,28 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 		// page not present in the page tables
 		if (range->flags & VMM_FLAGS_FILE) {
 			uintmax_t mapoffset = (uintptr_t)addr - (uintptr_t)range->start;
-			__assert(VOP_MMAP(range->vnode, addr, range->offset + mapoffset, mmuflagstovnodeflags(range->mmuflags) | (range->flags & VMM_FLAGS_SHARED ? V_FFLAGS_SHARED : 0), cred) == 0);
-			status = true;
+			if (range->vnode->type != V_TYPE_BLKDEV && range->vnode->type != V_TYPE_REGULAR) {
+				// map non cacheable vnodes
+				__assert(VOP_MMAP(range->vnode, addr, range->offset + mapoffset, mmuflagstovnodeflags(range->mmuflags) | (range->flags & VMM_FLAGS_SHARED ? V_FFLAGS_SHARED : 0), cred) == 0);
+				status = true;
+			} else {
+				// cacheable vnode
+				page_t *res = NULL;
+				int error = vmmcache_getpage(range->vnode, range->offset + mapoffset, &res);
+				if (error == ENXIO) {
+					// TODO if error returned == ENXIO, raise an urgent SIGBUS on the calling thread
+					__assert(!"TODO: sigbus");
+				} else if (error) {
+					printf("vmm: error on vmmcache_getpage(): %d\n", error);
+					status = false;
+				} else {
+					status = arch_mmu_map(_cpu()->vmmctx->pagetable, pmm_getpageaddress(res), addr, range->mmuflags & ~ARCH_MMU_FLAGS_WRITE);
+					if (!status) {
+						printf("vmm: out of memory to map file into address space\n");
+						pmm_release(pmm_getpageaddress(res));
+					}
+				}
+			}
 		} else {
 			// anonymous memory. map the zero'd page
 			status = arch_mmu_map(_cpu()->vmmctx->pagetable, zeropage, addr, range->mmuflags & ~ARCH_MMU_FLAGS_WRITE);
@@ -346,12 +385,16 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 				pmm_hold(zeropage);
 			}
 		}
-	} else if (arch_mmu_iswritable(_cpu()->vmmctx->pagetable, addr) == false){
+	} else if (arch_mmu_iswritable(_cpu()->vmmctx->pagetable, addr) == false) {
 		// page present but not writeable in the page tables
+		void *oldphys = arch_mmu_getphysical(_cpu()->vmmctx->pagetable, addr);
 		if ((range->flags & VMM_FLAGS_FILE) && (range->flags & VMM_FLAGS_SHARED)) {
-			// TODO shared file mappings (set as dirty and set as writable on PTE)
+			arch_mmu_remap(_cpu()->vmmctx->pagetable, oldphys, addr, range->mmuflags);
+			if (range->vnode->type != V_TYPE_CHDEV)
+				vmmcache_makedirty(pmm_getpage(oldphys));
+
+			status = true;
 		} else {
-			void *oldphys = arch_mmu_getphysical(_cpu()->vmmctx->pagetable, addr);
 			// do copy on write
 			void *newphys = pmm_allocpage(PMM_SECTION_DEFAULT);
 			if (newphys == NULL) {
@@ -360,7 +403,9 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 			} else {
 				memcpy(MAKE_HHDM(newphys), MAKE_HHDM(oldphys), PAGE_SIZE);
 				arch_mmu_remap(_cpu()->vmmctx->pagetable, newphys, addr, range->mmuflags);
-				pmm_release(oldphys);
+				if ((range->flags & VMM_FLAGS_FILE) == 0 || range->vnode->type != V_TYPE_CHDEV)
+					pmm_release(oldphys);
+
 				status = true;
 			}
 		}
@@ -429,6 +474,7 @@ void *vmm_map(void *addr, volatile size_t size, int flags, mmuflags_t mmuflags, 
 	if (flags & VMM_FLAGS_FILE) {
 		// XXX make sure that writes can't happen to executable memory mapped files and check file permissions
 		vmmfiledesc_t *desc = private;
+		__assert((desc->offset % PAGE_SIZE) == 0);
 		range->vnode = desc->node;
 		range->offset = desc->offset;
 		VOP_HOLD(desc->node);
@@ -600,15 +646,6 @@ void vmm_switchcontext(vmmcontext_t *ctx) {
 		_cpu()->thread->vmmctx = ctx;
 	_cpu()->vmmctx = ctx;
 	arch_mmu_switch(ctx->pagetable);
-}
-
-static void printspace(vmmspace_t *space) {
-	printf("vmm: ranges:\n");
-	vmmrange_t *range = space->ranges;
-	while (range) {
-		printf("vmm: address %p size %lx flags %x\n", range->start, range->size, range->flags);
-		range = range->next;
-	}
 }
 
 extern void *_text_start;

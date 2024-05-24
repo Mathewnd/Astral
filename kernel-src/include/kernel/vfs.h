@@ -60,12 +60,14 @@ typedef struct vfs_t {
 typedef struct vnode_t {
 	struct vops_t *ops;
 	mutex_t lock;
+	mutex_t sizelock;
 	int refcount;
 	int flags;
 	int type;
 	vfs_t *vfs;
 	vfs_t *vfsmounted;
 	void *socketbinding;
+	struct page_t *pages;
 } vnode_t;
 
 typedef struct vfsops_t {
@@ -101,6 +103,8 @@ typedef struct vops_t {
 	int (*maxseek)(vnode_t *node, size_t *max);
 	int (*resize)(vnode_t *node, size_t newsize, cred_t *cred);
 	int (*rename)(vnode_t *source, char *oldname, vnode_t *target, char *newname, int flags);
+	int (*getpage)(vnode_t *node, uintmax_t offset, struct page_t *page);
+	int (*putpage)(vnode_t *node, uintmax_t offset, struct page_t *page);
 } vops_t;
 
 #define VFS_INIT(v, o, f) \
@@ -118,6 +122,7 @@ typedef struct vops_t {
 #define VOP_INIT(vn, o, f, t, v) \
 	(vn)->ops = o; \
 	MUTEX_INIT(&(vn)->lock); \
+	MUTEX_INIT(&(vn)->sizelock); \
 	(vn)->refcount = 1; \
 	(vn)->flags = f; \
 	(vn)->type = t; \
@@ -149,6 +154,8 @@ typedef struct vops_t {
 #define VOP_MAXSEEK(v, rp) ((v)->ops->maxseek ? (v)->ops->maxseek(v, rp) : ENOTTY)
 #define VOP_RESIZE(v, s, c) (v)->ops->resize(v, s, c)
 #define VOP_RENAME(s, o, t, n, f) (s)->ops->rename(s, o, t, n, f)
+#define VOP_GETPAGE(v, o, p) (v)->ops->getpage(v, o, p)
+#define VOP_PUTPAGE(v, o, p) (v)->ops->putpage(v, o, p)
 #define VOP_HOLD(v) __atomic_add_fetch(&(v)->refcount, 1, __ATOMIC_SEQ_CST)
 #define VOP_RELEASE(v) {\
 		if (__atomic_sub_fetch(&(v)->refcount, 1, __ATOMIC_SEQ_CST) == 0) {\

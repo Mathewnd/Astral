@@ -175,6 +175,13 @@ bool arch_mmu_iswritable(pagetableptr_t table, void *vaddr) {
 	return entry == NULL ? false : *entry & ARCH_MMU_FLAGS_WRITE;
 }
 
+#define ARCH_MMU_FLAGS_DIRTY (1 << 6)
+
+bool arch_mmu_isdirty(pagetableptr_t table, void *vaddr) {
+	uint64_t *entry = get_page(table, vaddr);
+	return entry == NULL ? false : *entry & ARCH_MMU_FLAGS_DIRTY;
+}
+
 void arch_mmu_switch(pagetableptr_t table) {
 	asm volatile("mov %%rax, %%cr3" : : "a"(table));
 }
