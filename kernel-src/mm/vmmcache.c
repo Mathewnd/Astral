@@ -5,7 +5,7 @@
 #include <kernel/poll.h>
 
 #define TABLE_SIZE 4096
-#define WRITER_TICK_SECONDS 1
+#define WRITER_TICK_SECONDS 15
 
 static mutex_t mutex;
 static page_t **table;

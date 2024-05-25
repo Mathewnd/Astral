@@ -19,7 +19,6 @@ Astral is a 64 bit operating system with its own kernel written in C for the x86
 
 - TCP
 - Fat32
-- Disk Caching
 
 ## Building
 
