@@ -891,7 +891,7 @@ static int insertdent(ext2fs_t *fs, ext2node_t *node, char *name, int inode, int
 			goto cleanup;
 
 		dentbuffer->size = fs->blocksize;
-		err = rwbytes(fs, node, dentbuffer, dentbuffer->size, inodesize, true);
+		err = rwbytes(fs, node, dentbuffer, entlen, inodesize, true);
 		ASSERT_UNCLEAN(fs, err == 0);
 	} else {
 		size_t writesize = splitdent->size;
@@ -1615,17 +1615,20 @@ static int ext2_rename(vnode_t *sourcedir, char *oldname, vnode_t *targetdir, ch
 
 	ext2fs_t *fs = (ext2fs_t *)targetdir->vfs;
 	ext2node_t *ext2targetnode = (ext2node_t *)targetdir;
+	ext2node_t *ext2sourcenode = (ext2node_t *)source;
 
 	// switch out or create the target dirent
 	VOP_LOCK(targetdir);
 	int oldinode;
-	err = findindir(fs, ext2targetnode, newname, &oldinode, (ext2node_t *)source);
+	err = findindir(fs, ext2targetnode, newname, &oldinode, ext2sourcenode);
 	if (err == ENOENT) {
 		// the dirent needs to be created
-		err = linkinternal(fs, ext2targetnode, (ext2node_t *)source, newname);
+		err = linkinternal(fs, ext2targetnode, ext2sourcenode, newname);
 	} else if (err == 0){
 		// the dirent was switched, clean up the inode
 		err = handleinodeunlink(fs, ext2targetnode, oldinode);
+		ext2sourcenode->inode.links += 1;
+		ASSERT_UNCLEAN(fs, writeinode(fs, &ext2sourcenode->inode, ext2sourcenode->id) == 0);
 	}
 
 	if (err) {
@@ -1642,7 +1645,6 @@ static int ext2_rename(vnode_t *sourcedir, char *oldname, vnode_t *targetdir, ch
 	if (err)
 		goto cleanup;
 
-	ext2node_t *ext2sourcenode = (ext2node_t *)source;
 	if (ext2sourcenode->id == oldinode) {
 		// link still points to the same inode, unlink it
 		err = internalunlink(fs, ext2sourcedirnode, oldname);
