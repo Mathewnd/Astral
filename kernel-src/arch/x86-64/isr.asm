@@ -48,6 +48,7 @@ isr_%+ i:
 	cld
 	extern interrupt_isr
 	call interrupt_isr
+	cli
 
 	; pop context
 	add rsp, 24 ; cr2 gs and fs are not popped.

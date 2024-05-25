@@ -192,10 +192,10 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..c409d89
+index 0000000..12da52c
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -0,0 +1,690 @@
+@@ -0,0 +1,695 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -313,6 +313,11 @@ index 0000000..c409d89
 +	int sys_uname(struct utsname *buf) {
 +		long ret;
 +		return syscall(SYSCALL_UNAME, &ret, (uint64_t)buf);
++	}
++
++	void sys_sync() {
++		long ret;
++		syscall(SYSCALL_SYNC, &ret);
 +	}
 +
 +	int sys_fsync(int fd) {
@@ -905,10 +910,10 @@ index 0000000..990eca0
 +#endif
 diff --git mlibc-workdir/sysdeps/astral/include/astral/syscall.h mlibc-workdir/sysdeps/astral/include/astral/syscall.h
 new file mode 100644
-index 0000000..3a130be
+index 0000000..7daaf11
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/include/astral/syscall.h
-@@ -0,0 +1,88 @@
+@@ -0,0 +1,89 @@
 +#ifndef _SYSCALL_H_INCLUDE
 +#define _SYSCALL_H_INCLUDE
 +
@@ -977,6 +982,7 @@ index 0000000..3a130be
 +#define SYSCALL_SIGRETURN 62
 +#define SYSCALL_UNAME 63
 +#define SYSCALL_HOSTNAME 64
++#define SYSCALL_SYNC 65
 +
 +#include <stddef.h>
 +#include <stdint.h>
