@@ -240,6 +240,7 @@ arch_syscall_entry:
 	mov rcx, rax ; return value
 	extern sched_userspacecheck ; context, return, errno
 	call sched_userspacecheck ; compiled with __attribute__((no_caller_saved_registers))
+	cli
 
 	; restore context
 	add rsp, 32 ; r9 argument, cr2, gs, and fs are not popped.

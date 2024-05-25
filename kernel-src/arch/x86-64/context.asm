@@ -4,7 +4,7 @@ arch_context_switch:
 	xor rsi, rsi ; is syscall? (no)
 	extern sched_userspacecheck
 	call sched_userspacecheck ; compiled with no_caller_saved_registers
-
+	cli
 	; rdi is the pointer to the context struct
 	mov rsp, rdi
 
