@@ -65,6 +65,7 @@ extern syscall_sigreturn
 extern syscall_uname
 extern syscall_hostname
 extern syscall_sync
+extern syscall_fsync
 syscalltab:
 dq syscall_print
 dq syscall_mmap
@@ -132,7 +133,8 @@ dq syscall_sigreturn
 dq syscall_uname
 dq syscall_hostname
 dq syscall_sync
-syscallcount equ 66
+dq syscall_fsync
+syscallcount equ 67
 section .text
 global arch_syscall_entry
 ; on entry:

@@ -6,3 +6,20 @@ syscallret_t syscall_sync(context_t *) {
 	vmmcache_sync();
 	return ret;
 }
+
+syscallret_t syscall_fsync(context_t *context, int fd) {
+	syscallret_t ret = {
+		.ret = -1
+	};
+
+	file_t *file = fd_get(fd);
+	if (file == NULL) {
+		ret.errno = EBADF;
+		return ret;
+	}
+
+	ret.errno = VOP_SYNC(file->vnode);
+
+	fd_release(file);
+	return ret;
+}

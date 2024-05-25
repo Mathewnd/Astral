@@ -260,7 +260,8 @@ static vops_t vnops = {
 	.resize = pipefs_enodev,
 	.rename = pipefs_enodev,
 	.putpage = pipefs_enodev,
-	.getpage = pipefs_enodev
+	.getpage = pipefs_enodev,
+	.sync = pipefs_enodev
 };
 
 static void ctor(scache_t *cache, void *obj) {

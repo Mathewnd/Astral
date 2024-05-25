@@ -105,6 +105,7 @@ typedef struct vops_t {
 	int (*rename)(vnode_t *source, char *oldname, vnode_t *target, char *newname, int flags);
 	int (*getpage)(vnode_t *node, uintmax_t offset, struct page_t *page);
 	int (*putpage)(vnode_t *node, uintmax_t offset, struct page_t *page);
+	int (*sync)(vnode_t *node);
 } vops_t;
 
 #define VFS_INIT(v, o, f) \
@@ -156,6 +157,7 @@ typedef struct vops_t {
 #define VOP_RENAME(s, o, t, n, f) (s)->ops->rename(s, o, t, n, f)
 #define VOP_GETPAGE(v, o, p) (v)->ops->getpage(v, o, p)
 #define VOP_PUTPAGE(v, o, p) (v)->ops->putpage(v, o, p)
+#define VOP_SYNC(v) (v)->ops->sync(v)
 #define VOP_HOLD(v) __atomic_add_fetch(&(v)->refcount, 1, __ATOMIC_SEQ_CST)
 #define VOP_RELEASE(v) {\
 		if (__atomic_sub_fetch(&(v)->refcount, 1, __ATOMIC_SEQ_CST) == 0) {\

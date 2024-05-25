@@ -192,10 +192,10 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..12da52c
+index 0000000..e94f84f
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -0,0 +1,695 @@
+@@ -0,0 +1,694 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -248,8 +248,7 @@ index 0000000..12da52c
 +}
 +#endif
 +
-+namespace mlibc {
-+	
++namespace mlibc {	
 +	int sys_setuid(uid_t id) {
 +		// TODO UNSTUB
 +		return 0;
@@ -278,6 +277,16 @@ index 0000000..12da52c
 +	gid_t sys_getegid() {
 +		// TODO UNSTUB
 +		return 0;
++	}
++
++	int sys_setitimer(int which, const struct itimerval *new_value, struct itimerval *old_value) {
++		// TODO unstub
++		return ENOSYS;
++	}
++
++	int sys_fsync(int fd) {
++		long ret;
++		return syscall(SYSCALL_FSYNC, &ret, fd);
 +	}
 +	
 +	pid_t sys_getppid() {
@@ -318,16 +327,6 @@ index 0000000..12da52c
 +	void sys_sync() {
 +		long ret;
 +		syscall(SYSCALL_SYNC, &ret);
-+	}
-+
-+	int sys_fsync(int fd) {
-+		// TODO as the VFS does not do caching as of yet, this system call is stubbed and should be implemented once caching is done
-+		return 0;
-+	}
-+
-+	int sys_setitimer(int which, const struct itimerval *new_value, struct itimerval *old_value) {
-+		// TODO unstub
-+		return ENOSYS;
 +	}
 +
 +	#ifndef MLIBC_BUILDING_RTLD
@@ -910,10 +909,10 @@ index 0000000..990eca0
 +#endif
 diff --git mlibc-workdir/sysdeps/astral/include/astral/syscall.h mlibc-workdir/sysdeps/astral/include/astral/syscall.h
 new file mode 100644
-index 0000000..7daaf11
+index 0000000..5148ce4
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/include/astral/syscall.h
-@@ -0,0 +1,89 @@
+@@ -0,0 +1,90 @@
 +#ifndef _SYSCALL_H_INCLUDE
 +#define _SYSCALL_H_INCLUDE
 +
@@ -983,6 +982,7 @@ index 0000000..7daaf11
 +#define SYSCALL_UNAME 63
 +#define SYSCALL_HOSTNAME 64
 +#define SYSCALL_SYNC 65
++#define SYSCALL_FSYNC 66
 +
 +#include <stddef.h>
 +#include <stdint.h>

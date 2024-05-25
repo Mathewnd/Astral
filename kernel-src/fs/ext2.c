@@ -1654,6 +1654,15 @@ static int ext2_rename(vnode_t *sourcedir, char *oldname, vnode_t *targetdir, ch
 	return err;
 }
 
+static int ext2_sync(vnode_t *vnode) {
+	int e = vmmcache_sync(vnode);
+	ext2fs_t *fs = (ext2fs_t *)vnode->vfs;
+	// TODO don't sync the entire disk but rather only the inodes and blocks
+	int e2 = vmmcache_sync(fs->backing);
+	// only the first errors are reported
+	return e ? e : e2;
+}
+
 static int ext2_inactive(vnode_t *vnode) {
 	ext2node_t *node = (ext2node_t *)vnode;
 	ext2fs_t *fs = (ext2fs_t *)vnode->vfs;
@@ -1829,7 +1838,8 @@ static vops_t vnops = {
 	.inactive = ext2_inactive,
 	.rename = ext2_rename,
 	.getpage = ext2_getpage,
-	.putpage = ext2_putpage
+	.putpage = ext2_putpage,
+	.sync = ext2_sync
 };
 
 void ext2_init() {

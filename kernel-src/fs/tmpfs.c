@@ -493,6 +493,11 @@ static int tmpfs_putpage(vnode_t *node, uintmax_t offset, struct page_t *page) {
 	return 0;
 }
 
+static int tmpfs_sync(vnode_t *node) {
+	// sync is a no-op on tmpfs
+	return 0;
+}
+
 static vfsops_t vfsops = {
 	.mount = tmpfs_mount,
 	.root = tmpfs_root
@@ -520,7 +525,8 @@ static vops_t vnops = {
 	.resize = tmpfs_resize,
 	.rename = tmpfs_rename,
 	.getpage = tmpfs_getpage,
-	.putpage = tmpfs_putpage
+	.putpage = tmpfs_putpage,
+	.sync = tmpfs_sync
 };
 
 static tmpfsnode_t *newnode(vfs_t *vfs, int type) {

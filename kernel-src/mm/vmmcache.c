@@ -232,11 +232,72 @@ int vmmcache_truncate(vnode_t *vnode, uintmax_t offset) {
 	return 0;
 }
 
-int vmmcache_syncvnode(vnode_t *vnode) {
-	__assert(!"unimplemented");
+// called with lock held
+// returns with lock released
+static int syncpage(page_t *page) {
+	__assert(page->flags & PAGE_FLAGS_DIRTY);
+	page->flags &= ~PAGE_FLAGS_DIRTY;
+	RELEASE_LOCK();
+	int e = 0;
+	if ((page->flags & PAGE_FLAGS_TRUNCATED) == 0) {
+		e = VOP_PUTPAGE(page->backing, page->offset, (page_t *)page);
+		VOP_RELEASE(page->backing);
+	}
+
+	pmm_release(pmm_getpageaddress((page_t *)page));
+	return e;
 }
 
 static page_t *dirtylist;
+
+int vmmcache_syncvnode(vnode_t *vnode, uintmax_t offset, size_t size) {
+	offset = ROUND_DOWN(offset, PAGE_SIZE);
+	uintmax_t top = offset + size;
+	// overflow check
+	__assert(top > offset);
+	HOLD_LOCK();
+
+	// loop through all vnode pages in memory and check which ones are in the range and are dirty
+	// TODO create a proper vnode dirty list as to not have to loop through the ENTIRE thing in memory
+	page_t *page = vnode->pages;
+	page_t *vnodedirtylist = NULL;
+	for (; page; page = page->vnodenext) {
+		if (page->offset < offset || page->offset >= top)
+			continue;
+
+		// remove from write list and add to an internal list using the write pointers
+		// in a singly linked list way
+		if (page->writenext)
+			page->writenext->writeprev = page->writeprev;
+
+		if (page->writeprev)
+			page->writeprev->writenext = page->writenext;
+		else
+			dirtylist = page->writenext;
+
+		page->writenext = vnodedirtylist;
+		page->writeprev = NULL;
+		vnodedirtylist = page;
+	}
+
+	RELEASE_LOCK();
+
+	int e = 0;
+	while (vnodedirtylist) {
+		// in the case of failure, only the first error to occur will be reported and we will not
+		// retry the write and keep on syncing the pages to disk
+		HOLD_LOCK();
+		page_t *page = vnodedirtylist;
+		vnodedirtylist = vnodedirtylist->writenext;
+		page->writenext = NULL;
+		int error = syncpage(page);
+		if (e == 0)
+			e = error;
+		// syncpage returns with lock released
+	}
+
+	return e;
+}
 
 int vmmcache_sync() {
 	polldesc_t polldesc = {0};
@@ -313,22 +374,13 @@ static void writer() {
 			continue;
 		}
 
-		__assert(page->flags & PAGE_FLAGS_DIRTY);
-		page->flags &= ~PAGE_FLAGS_DIRTY;
-
 		dirtylist = page->writenext;
 		if (dirtylist)
 			dirtylist->writeprev = NULL;
 
 		page->writenext = NULL;
-
-		RELEASE_LOCK();
-		if ((page->flags & PAGE_FLAGS_TRUNCATED) == 0) {
-			VOP_PUTPAGE(page->backing, page->offset, (page_t *)page);
-			VOP_RELEASE(page->backing);
-		}
-
-		pmm_release(pmm_getpageaddress((page_t *)page));
+		// TODO notify error on vmmcache_syncvnode
+		syncpage((page_t *)page);
 	}
 }
 

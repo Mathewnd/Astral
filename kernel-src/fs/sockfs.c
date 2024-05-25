@@ -186,7 +186,8 @@ static vops_t vnops = {
 	.rename = sockfs_enodev,
 	.ioctl = sockfs_ioctl,
 	.putpage = sockfs_enodev,
-	.getpage = sockfs_enodev
+	.getpage = sockfs_enodev,
+	.sync = sockfs_enodev
 };
 
 static void ctor(scache_t *cache, void *obj) {
