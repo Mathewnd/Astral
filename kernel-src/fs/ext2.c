@@ -211,7 +211,7 @@ static scache_t *nodecache;
 
 static int syncsuperblock(ext2fs_t *fs) {
 	size_t tmp;
-	return vfs_write(fs->backing, &fs->superblock, sizeof(ext2superblock_t), SUPERBLOCK_OFFSET, &tmp, 0);
+	return vfs_write(fs->backing, &fs->superblock, sizeof(ext2superblock_t), SUPERBLOCK_OFFSET, &tmp, V_FFLAGS_NOCACHE);
 }
 
 static int changedircount(ext2fs_t *fs, int bg, int change) {
@@ -723,7 +723,7 @@ static int resizeinode(ext2fs_t *fs, ext2node_t *node, size_t newsize) {
 	return 0;
 }
 
-static int rwblocks(ext2fs_t *fs, ext2node_t *node, void *buffer, size_t count, uintmax_t index, bool write) {
+static int rwblocks(ext2fs_t *fs, ext2node_t *node, void *buffer, size_t count, uintmax_t index, bool write, bool cache) {
 	for (uintmax_t i = 0; i < count; ++i) {
 		void *bufferp = (void *)((uintptr_t)buffer + i * fs->blocksize);
 		blockptr_t block;
@@ -735,8 +735,8 @@ static int rwblocks(ext2fs_t *fs, ext2node_t *node, void *buffer, size_t count, 
 
 		size_t donecount;
 		e = write ?
-			vfs_write(fs->backing, bufferp, fs->blocksize, BLOCK_GETDISKOFFSET(fs, block), &donecount, 0) :
-			vfs_read(fs->backing, bufferp, fs->blocksize, BLOCK_GETDISKOFFSET(fs, block), &donecount, 0);
+			vfs_write(fs->backing, bufferp, fs->blocksize, BLOCK_GETDISKOFFSET(fs, block), &donecount, cache ? 0 : V_FFLAGS_NOCACHE) :
+			vfs_read(fs->backing, bufferp, fs->blocksize, BLOCK_GETDISKOFFSET(fs, block), &donecount, cache ? 0 : V_FFLAGS_NOCACHE);
 
 		if (e)
 			return e;
@@ -746,7 +746,7 @@ static int rwblocks(ext2fs_t *fs, ext2node_t *node, void *buffer, size_t count, 
 	return 0;
 }
 
-static int rwblock(ext2fs_t *fs, ext2node_t *node, void *buffer, size_t count, uintmax_t offset, uintmax_t index, bool write) {
+static int rwblock(ext2fs_t *fs, ext2node_t *node, void *buffer, size_t count, uintmax_t offset, uintmax_t index, bool write, bool cache) {
 	__assert(offset + count <= fs->blocksize);
 	blockptr_t block;
 	int e = getinodeblock(fs, node, index, &block);
@@ -757,8 +757,8 @@ static int rwblock(ext2fs_t *fs, ext2node_t *node, void *buffer, size_t count, u
 
 	size_t donecount;
 	e = write ?
-		vfs_write(fs->backing, buffer, count, BLOCK_GETDISKOFFSET(fs, block) + offset, &donecount, 0) :
-		vfs_read(fs->backing, buffer, count, BLOCK_GETDISKOFFSET(fs, block) + offset, &donecount, 0);
+		vfs_write(fs->backing, buffer, count, BLOCK_GETDISKOFFSET(fs, block) + offset, &donecount, cache ? 0 : V_FFLAGS_NOCACHE) :
+		vfs_read(fs->backing, buffer, count, BLOCK_GETDISKOFFSET(fs, block) + offset, &donecount, cache ? 0 : V_FFLAGS_NOCACHE);
 
 	if (e)
 		return e;
@@ -767,7 +767,7 @@ static int rwblock(ext2fs_t *fs, ext2node_t *node, void *buffer, size_t count, u
 	return e;
 }
 
-static int rwbytes(ext2fs_t *fs, ext2node_t *node, void *buffer, size_t count, uintmax_t offset, bool write) {
+static int rwbytes(ext2fs_t *fs, ext2node_t *node, void *buffer, size_t count, uintmax_t offset, bool write, bool cache) {
 	uintmax_t index = offset / fs->blocksize;
 	uintmax_t startoffset = offset % fs->blocksize;
 
@@ -775,7 +775,7 @@ static int rwbytes(ext2fs_t *fs, ext2node_t *node, void *buffer, size_t count, u
 	if (startoffset) {
 		size_t blockremaining = fs->blocksize - startoffset;
 		size_t docount = min(blockremaining, count);
-		int e = rwblock(fs, node, buffer, docount, startoffset, index, write);
+		int e = rwblock(fs, node, buffer, docount, startoffset, index, write, cache);
 		if (e)
 			return e;
 
@@ -787,7 +787,7 @@ static int rwbytes(ext2fs_t *fs, ext2node_t *node, void *buffer, size_t count, u
 	// r/w all middle blocks
 	size_t blocks = count / fs->blocksize;
 	if (blocks) {
-		int e = rwblocks(fs, node, buffer, blocks, index, write);
+		int e = rwblocks(fs, node, buffer, blocks, index, write, cache);
 		if (e)
 			return e;
 
@@ -797,7 +797,7 @@ static int rwbytes(ext2fs_t *fs, ext2node_t *node, void *buffer, size_t count, u
 	}
 
 	// r/w remaining block if there's any data left and return
-	return count ? rwblock(fs, node, buffer, count, 0, index, write) : 0;
+	return count ? rwblock(fs, node, buffer, count, 0, index, write, cache) : 0;
 }
 
 #define BUFFER_MAP_FLAGS (ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC)
@@ -808,7 +808,7 @@ static int findindir(ext2fs_t *fs, ext2node_t *node, char *name, int *inode, ext
 	if (dirbuffer == NULL)
 		return ENOMEM;
 
-	int err = rwbytes(fs, node, dirbuffer, INODE_SIZE(&node->inode), 0, false);
+	int err = rwbytes(fs, node, dirbuffer, INODE_SIZE(&node->inode), 0, false, true);
 	if (err)
 		goto cleanup;
 
@@ -825,7 +825,7 @@ static int findindir(ext2fs_t *fs, ext2node_t *node, char *name, int *inode, ext
 			if (switchnode) {
 				dent->inode = switchnode->id;
 				dent->type = vfstoext2denttypetable[switchnode->vnode.type];
-				err = rwbytes(fs, node, dent, dent->size, offset, true);
+				err = rwbytes(fs, node, dent, dent->size, offset, true, true);
 			}
 			break;
 		}
@@ -865,7 +865,7 @@ static int insertdent(ext2fs_t *fs, ext2node_t *node, char *name, int inode, int
 	if (err)
 		goto cleanup;
 
-	err = rwbytes(fs, node, dirbuffer, inodesize, 0, false);
+	err = rwbytes(fs, node, dirbuffer, inodesize, 0, false, true);
 	if (err)
 		goto cleanup;
 
@@ -891,14 +891,14 @@ static int insertdent(ext2fs_t *fs, ext2node_t *node, char *name, int inode, int
 			goto cleanup;
 
 		dentbuffer->size = fs->blocksize;
-		err = rwbytes(fs, node, dentbuffer, entlen, inodesize, true);
+		err = rwbytes(fs, node, dentbuffer, entlen, inodesize, true, true);
 		ASSERT_UNCLEAN(fs, err == 0);
 	} else {
 		size_t writesize = splitdent->size;
 		splitdent->size = truesize;
 		dentbuffer->size = freesize;
 		memcpy((void *)((uintptr_t)splitdent + truesize), dentbuffer, entlen);
-		err = rwbytes(fs, node, splitdent, writesize, offset, true);
+		err = rwbytes(fs, node, splitdent, writesize, offset, true, true);
 	}
 
 	cleanup:
@@ -914,7 +914,7 @@ static int removedent(ext2fs_t *fs, ext2node_t *node, char *name, int *inode) {
 	if (dirbuffer == NULL)
 		return ENOMEM;
 
-	int err = rwbytes(fs, node, dirbuffer, INODE_SIZE(&node->inode), 0, false);
+	int err = rwbytes(fs, node, dirbuffer, INODE_SIZE(&node->inode), 0, false, true);
 	if (err)
 		goto cleanup;
 
@@ -948,11 +948,11 @@ static int removedent(ext2fs_t *fs, ext2node_t *node, char *name, int *inode) {
 
 	if (offset % fs->blocksize) { // can expand last dent size?
 		lastdent->size += dent->size;
-		err = rwbytes(fs, node, lastdent, lastdent->size, offset - lastsize, true);
+		err = rwbytes(fs, node, lastdent, lastdent->size, offset - lastsize, true, true);
 	} else { // nope, set current as unused
 		dent->inode = 0;
 		dent->name[0] = '\0';
-		err = rwbytes(fs, node, dent, dent->size, offset, true);
+		err = rwbytes(fs, node, dent, dent->size, offset, true, true);
 	}
 
 	cleanup:
@@ -1152,7 +1152,7 @@ static int ext2_getdents(vnode_t *vnode, dent_t *buffer, size_t count, uintmax_t
 		goto cleanup;
 	}
 
-	err = rwbytes(fs, node, dirbuffer, INODE_SIZE(&node->inode), 0, false);
+	err = rwbytes(fs, node, dirbuffer, INODE_SIZE(&node->inode), 0, false, true);
 	if (err)
 		goto cleanup;
 
@@ -1207,7 +1207,7 @@ static int ext2_readlink(vnode_t *vnode, char **link, cred_t *cred) {
 	// if the length of a symlink is larger than 60 bytes, its stored normally
 	// otherwise, its stored in the inode strucutre itself
 	if (linksize > 60)
-		err = rwbytes(fs, node, buf, linksize, 0, false);
+		err = rwbytes(fs, node, buf, linksize, 0, false, true);
 	else
 		memcpy(buf, node->inode.directpointer, linksize);
 
@@ -1248,7 +1248,7 @@ static int ext2_read(vnode_t *vnode, void *buffer, size_t size, uintmax_t offset
 	if (size == 0)
 		goto cleanup;
 
-	err = rwbytes(fs, node, buffer, size, offset, false);
+	err = rwbytes(fs, node, buffer, size, offset, false, false);
 
 	*readc = err ? -1 : size;
 
@@ -1278,7 +1278,7 @@ int ext2_write(vnode_t *vnode, void *buffer, size_t size, uintmax_t offset, int 
 		size = min(endoffset, inodesize) - offset;
 	}
 
-	err = rwbytes(fs, node, buffer, size, offset, true);
+	err = rwbytes(fs, node, buffer, size, offset, true, false);
 	*writec = err ? -1 : size;
 	if (err)
 		goto cleanup;
@@ -1441,7 +1441,7 @@ static int ext2_symlink(vnode_t *vnode, char *name, vattr_t *attr, char *path, c
 		if (err)
 			goto cleanup;
 
-		err = rwbytes(fs, newnode, path, linklen, 0, true);
+		err = rwbytes(fs, newnode, path, linklen, 0, true, true);
 		if (err)
 			goto cleanup;
 	}

@@ -154,9 +154,24 @@ static void bytestopages(uintmax_t offset, size_t size, uintmax_t *pageoffset, s
 	*pagecount = toppage - *pageoffset;
 }
 
+static int writenocache(vnode_t *node, page_t *page, uintmax_t pageoffset) {
+	// don't keep the pages in the cache!
+	// if its a file, do the proper filesystem sync.
+	// if its a block device, sync only the page we just dirtied
+	int e;
+	if (node->type == V_TYPE_REGULAR)
+		e = VOP_SYNC(node);
+	else
+		e = vmmcache_syncvnode(node, pageoffset, PAGE_SIZE);
+
+	// try to turn it into anonymous memory
+	vmmcache_evict(page);
+
+	return e;
+}
+
 int vfs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t *written, int flags) {
 	int err;
-	// TODO skip caching flag, cred check
 	if (node->type == V_TYPE_REGULAR || node->type == V_TYPE_BLKDEV) {
 		*written = 0;
 		// can't write a size 0 buffer
@@ -211,10 +226,16 @@ int vfs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t
 			void *address = MAKE_HHDM(pmm_getpageaddress(page));
 			memcpy((void *)((uintptr_t)address + startoffset), buffer, writesize);
 			vmmcache_makedirty(page);
-			pmm_release(FROM_HHDM(address));
 			*written += writesize;
 			pageoffset += 1;
 			pagecount -= 1;
+
+			if (flags & V_FFLAGS_NOCACHE) {
+				err = writenocache(node, page, pageoffset * PAGE_SIZE);
+				if (err)
+					goto leave;
+			}
+			pmm_release(FROM_HHDM(address));
 		}
 
 		for (uintmax_t offset = 0; offset < pagecount * PAGE_SIZE; offset += PAGE_SIZE) {
@@ -227,8 +248,14 @@ int vfs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t
 			void *address = MAKE_HHDM(pmm_getpageaddress(page));
 			memcpy(address, (void *)((uintptr_t)buffer + *written), writesize);
 			vmmcache_makedirty(page);
-			pmm_release(FROM_HHDM(address));
 			*written += writesize;
+
+			if (flags & V_FFLAGS_NOCACHE) {
+				err = writenocache(node, page, pageoffset * PAGE_SIZE + offset);
+				if (err)
+					goto leave;
+			}
+			pmm_release(FROM_HHDM(address));
 		}
 
 		leave:
@@ -242,7 +269,6 @@ int vfs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t
 }
 
 int vfs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t *bytesread, int flags) {
-	// TODO skip caching flag, cred check
 	int err;
 	if (node->type == V_TYPE_REGULAR || node->type == V_TYPE_BLKDEV) {
 		*bytesread = 0;
@@ -294,10 +320,15 @@ int vfs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t 
 			size_t readsize = min(PAGE_SIZE - startoffset, size);
 			void *address = MAKE_HHDM(pmm_getpageaddress(page));
 			memcpy(buffer, (void *)((uintptr_t)address + startoffset), readsize);
-			pmm_release(FROM_HHDM(address));
 			*bytesread += readsize;
 			pageoffset += 1;
 			pagecount -= 1;
+
+			if (flags & V_FFLAGS_NOCACHE) {
+				// try to turn it into anonymous memory
+				vmmcache_evict(page);
+			}
+			pmm_release(FROM_HHDM(address));
 		}
 
 		for (uintmax_t offset = 0; offset < pagecount * PAGE_SIZE; offset += PAGE_SIZE) {
@@ -309,8 +340,12 @@ int vfs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t 
 			size_t readsize = min(PAGE_SIZE, size - *bytesread);
 			void *address = MAKE_HHDM(pmm_getpageaddress(page));
 			memcpy((void *)((uintptr_t)buffer + *bytesread), address, readsize);
-			pmm_release(FROM_HHDM(address));
 			*bytesread += readsize;
+			if (flags & V_FFLAGS_NOCACHE) {
+				// try to turn it into anonymous memory
+				vmmcache_evict(page);
+			}
+			pmm_release(FROM_HHDM(address));
 		}
 
 		leave:

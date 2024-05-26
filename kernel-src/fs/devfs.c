@@ -7,6 +7,7 @@
 #include <kernel/alloc.h>
 #include <kernel/timekeeper.h>
 #include <kernel/pmm.h>
+#include <kernel/vmmcache.h>
 
 static devnode_t *devfsroot;
 
@@ -354,6 +355,10 @@ static int devfs_putpage(vnode_t *node, uintmax_t offset, struct page_t *page) {
 	return error;
 }
 
+static int devfs_sync(vnode_t *vnode) {
+	return vmmcache_sync(vnode);
+}
+
 static int devfs_enodev() {
 	return ENODEV;
 }
@@ -388,7 +393,8 @@ static vops_t vnops = {
 	.resize = devfs_enodev,
 	.rename = devfs_enodev,
 	.putpage = devfs_putpage,
-	.getpage = devfs_getpage
+	.getpage = devfs_getpage,
+	.sync = devfs_sync
 };
 
 static void ctor(scache_t *cache, void *obj) {

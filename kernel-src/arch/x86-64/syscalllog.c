@@ -1,6 +1,7 @@
 #include <logging.h>
 #include <arch/e9.h>
 #include <arch/cpu.h>
+#include <kernel/vmmcache.h>
 
 #ifdef SYSCALL_LOGGING
 
@@ -158,7 +159,7 @@ __attribute__((no_caller_saved_registers)) void arch_syscall_log(int syscall, ui
 	thread_t *thread = _cpu()->thread;
 	proc_t *proc = thread->proc;
 	snprintf(argbuff, 768, syscall < SYSCALL_COUNT ? args[syscall] : "N/A", a1, a2, a3, a4, a5, a6);
-	snprintf(printbuff, 1024, "\e[92msyscall: pid %d tid %d: %s: %s (%lu free pages)\n\e[0m", proc->pid, thread->tid, syscall < SYSCALL_COUNT ? name[syscall] : "invalid syscall", argbuff, freepagecount);
+	snprintf(printbuff, 1024, "\e[92msyscall: pid %d tid %d: %s: %s (%lu cached pages, %lu free pages)\n\e[0m", proc->pid, thread->tid, syscall < SYSCALL_COUNT ? name[syscall] : "invalid syscall", argbuff, vmmcache_cachedpages, freepagecount);
 
 	LOGSTR(printbuff);
 #endif
@@ -171,7 +172,7 @@ __attribute__((no_caller_saved_registers)) void arch_syscall_log_return(uint64_t
 	thread_t *thread = _cpu()->thread;
 	proc_t *proc = thread->proc;
 
-	snprintf(printbuff, 1024, "\e[94msyscall return: pid %d tid %d: %lu %lu (%lu free pages)\n\e[0m", proc->pid, thread->tid, ret, errno, freepagecount);
+	snprintf(printbuff, 1024, "\e[94msyscall return: pid %d tid %d: %lu %lu (%lu cached pages, %lu free pages)\n\e[0m", proc->pid, thread->tid, ret, errno, vmmcache_cachedpages, freepagecount);
 	LOGSTR(printbuff);
 #endif
 }

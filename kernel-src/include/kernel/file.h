@@ -47,6 +47,7 @@ int fd_clone(proc_t *proc);
 #define O_NONBLOCK 04000
 #define O_DSYNC 010000
 #define O_ASYNC 020000
+#define O_DIRECT 040000
 #define O_LARGEFILE 0100000
 #define O_DIRECTORY 0200000
 #define O_NOFOLLOW 0400000
@@ -66,6 +67,8 @@ static inline int fileflagstovnodeflags(int flags) {
 		vnflags |= V_FFLAGS_NONBLOCKING;
 	if (flags & O_NOCTTY)
 		vnflags |= V_FFLAGS_NOCTTY;
+	if (flags & (O_DIRECT | O_SYNC | O_DSYNC))
+		vnflags |= V_FFLAGS_NOCACHE;
 
 	return vnflags;
 }
