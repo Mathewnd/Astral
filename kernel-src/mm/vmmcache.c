@@ -13,6 +13,7 @@ static page_t **table;
 static thread_t *writerthread;
 static semaphore_t sync;
 static pollheader_t syncpollheader;
+size_t vmmcache_cachedpages;
 
 #define HOLD_LOCK() \
 	MUTEX_ACQUIRE(&mutex, false);
@@ -66,6 +67,7 @@ static void putpage(page_t *page) {
 		page->backing->pages->vnodeprev = page;
 
 	page->backing->pages = page;
+	++vmmcache_cachedpages;
 }
 
 // assumes lock is held
@@ -95,6 +97,7 @@ static void removepage(page_t *page) {
 
 	page->vnodenext = NULL;
 	page->vnodeprev = NULL;
+	--vmmcache_cachedpages;
 }
 
 int vmmcache_getpage(vnode_t *vnode, uintmax_t offset, page_t **res) {
@@ -178,6 +181,30 @@ int vmmcache_getpage(vnode_t *vnode, uintmax_t offset, page_t **res) {
 	return 0;
 }
 
+// removes a page from the cache AND turns it into anonymous memory
+int vmmcache_evict(page_t *page) {
+	HOLD_LOCK();
+	if (page->refcount > 1) {
+		RELEASE_LOCK();
+		return EAGAIN;
+	}
+	__assert(page->refcount == 1);
+	__assert((page->flags & PAGE_FLAGS_DIRTY) == 0);
+
+	if ((page->flags & PAGE_FLAGS_TRUNCATED) == 0) {
+		// the page needs to be removed from the cache to continue
+		removepage(page);
+	}
+
+	page->flags = 0;
+	page->backing = NULL;
+	page->offset = 0;
+
+	RELEASE_LOCK();
+	return 0;
+}
+
+// removes a page from the cache *but doesn't do anything to it*
 int vmmcache_takepage(page_t *page) {
 	HOLD_LOCK();
 	// someone called vmmcache_getpage() and got this page while the lock wasn't held
