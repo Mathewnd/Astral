@@ -113,7 +113,7 @@ int vmmcache_getpage(vnode_t *vnode, uintmax_t offset, page_t **res) {
 
 		// in the case of a retry, release the allocated page here
 		if (newpage)
-			pmm_release(newpage);
+			pmm_release(pmm_getpageaddress(newpage));
 
 		// wait for page to be ready
 		while ((page->flags & (PAGE_FLAGS_READY | PAGE_FLAGS_ERROR)) == 0)
