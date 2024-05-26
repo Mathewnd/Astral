@@ -27,7 +27,35 @@ static thread_t *get(semaphore_t *sem) {
 	else
 		sem->tail->sleepnext = NULL;
 
+	thread->sleepprev = NULL;
+	thread->sleepnext = NULL;
+
 	return thread;
+}
+
+static void removeself(semaphore_t *sem) {
+	thread_t *thread = _cpu()->thread;
+
+	// first see if we have been removed already
+	if ((sem->head == NULL && sem->tail == NULL) || // no threads in sleep list
+	   !((thread->sleepnext != NULL || thread->sleepprev != NULL) || // 2 or more threads in sleep list and we are one of them
+	    (sem->head == thread && sem->tail == thread))) // 1 thread in the sleep list and it is us
+		return;
+
+	if (sem->head == thread) {
+		sem->head = thread->sleepnext;
+	} else {
+		thread->sleepprev->sleepnext = thread->sleepnext;
+	}
+
+	if (sem->tail == thread) {
+		sem->tail = thread->sleepprev;
+	} else {
+		thread->sleepnext->sleepprev = thread->sleepprev;
+	}
+
+	thread->sleepprev = NULL;
+	thread->sleepnext = NULL;
 }
 
 int semaphore_wait(semaphore_t *sem, bool interruptible) {
@@ -48,6 +76,7 @@ int semaphore_wait(semaphore_t *sem, bool interruptible) {
 		if (ret) {
 			spinlock_acquire(&sem->lock);
 			++sem->i;
+			removeself(sem);
 			spinlock_release(&sem->lock);
 		}
 		goto leave;
