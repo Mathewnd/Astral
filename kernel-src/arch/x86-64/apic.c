@@ -284,7 +284,7 @@ void arch_apic_sendipi(uint8_t cpu, uint8_t vec, uint8_t dest, uint8_t mode, uin
 	while (readlapic(APIC_REG_ICR_LO) & APIC_REG_ICR_LO_STATUS) CPU_PAUSE();
 
 	writelapic(APIC_REG_ICR_HI, (uint32_t)cpu << 24);
-	writelapic(APIC_REG_ICR_LO, vec | (level << 14) | (mode << 15) | (dest << 18));
+	writelapic(APIC_REG_ICR_LO, vec | (level << 8) | (mode << 11) | (dest << 18) | (1 << 14));
 }
 
 void arch_apic_init() {

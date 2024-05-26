@@ -1,6 +1,8 @@
 #ifndef _APIC_H
 #define _APIC_H
 
+#define APIC_MODE_NMI 4
+
 void arch_apic_timerinit();
 void arch_apic_init();
 void arch_apic_initap();

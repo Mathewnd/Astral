@@ -5,6 +5,7 @@
 #include <arch/gdt.h>
 #include <arch/idt.h>
 #include <kernel/cmdline.h>
+#include <arch/smp.h>
 
 static volatile struct limine_smp_request smprequest = {
 	.id = LIMINE_SMP_REQUEST
@@ -13,11 +14,19 @@ static volatile struct limine_smp_request smprequest = {
 // set to 1 because of the bsp
 size_t arch_smp_cpusawake = 1;
 
+// for panic. if the nosmp argument is given to the kernel, this is what the APs will jump to
+static void cpuwakeuphalt(struct limine_smp_info *info) {
+	asm("cli");
+	for (;;) CPU_HALT();
+}
+
+
 static void cpuwakeup(struct limine_smp_info *info) {
 	cpu_set((cpu_t *)info->extra_argument);
 
 	arch_gdt_reload();
 	arch_idt_reload();
+	interrupt_register(0xfd, (void *)cpuwakeuphalt, NULL, IPL_IGNORE);
 	dpc_init();
 	arch_mmu_apswitch();
 	vmm_apinit();
@@ -30,16 +39,16 @@ static void cpuwakeup(struct limine_smp_info *info) {
 	sched_apentry();
 }
 
-// if the nosmp argument is given to the kernel, this is what the APs will jump to
-static void cpuwakeuphalt(struct limine_smp_info *info) {
-	for (;;) CPU_HALT();
+void arch_smp_sendipi(cpu_t *targcpu, isr_t *isr, int target, bool nmi) {
+	arch_apic_sendipi(targcpu ? targcpu->id : 0, INTERRUPT_IDTOVECTOR(isr->id), target, nmi ? APIC_MODE_NMI : 0, 0);
 }
 
-void arch_smp_sendipi(cpu_t *targcpu, isr_t *isr, int target) {
-	arch_apic_sendipi(targcpu ? targcpu->id : 0, INTERRUPT_IDTOVECTOR(isr->id), target, 0, 1);
+void arch_smp_haltallothers() {
+	arch_smp_sendipi(NULL, &_cpu()->isr[0xfd], ARCH_SMP_IPI_OTHERCPUS, true);
 }
 
 void arch_smp_wakeup() {
+	interrupt_register(0xfd, (void *)cpuwakeuphalt, NULL, IPL_IGNORE);
 	struct limine_smp_response *response = smprequest.response;
 	if (response == NULL) {
 		// TODO try to detect the other processors manually

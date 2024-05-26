@@ -9,6 +9,7 @@
 extern size_t arch_smp_cpusawake;
 
 void arch_smp_wakeup();
-void arch_smp_sendipi(cpu_t *targcpu, isr_t *isr, int target);
+void arch_smp_sendipi(cpu_t *targcpu, isr_t *isr, int target, bool nmi);
+void arch_smp_haltallothers();
 
 #endif
