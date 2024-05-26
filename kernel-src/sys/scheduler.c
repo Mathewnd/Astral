@@ -208,6 +208,8 @@ static __attribute__((noreturn)) void switchthread(thread_t *thread) {
 
 	_cpu()->intstatus = ARCH_CONTEXT_INTSTATUS(&thread->context);
 	thread->cpu = _cpu();
+	// XXX make the locking of the flags field better, candidate for a r/w lock
+	spinlock_acquire(&runqueuelock);
 	if (current)
 		current->flags &= ~SCHED_THREAD_FLAGS_RUNNING;
 
@@ -217,12 +219,15 @@ static __attribute__((noreturn)) void switchthread(thread_t *thread) {
 		spinlock_release(&current->sleeplock);
 
 	thread->flags |= SCHED_THREAD_FLAGS_RUNNING;
+	__assert((thread->flags & SCHED_THREAD_FLAGS_QUEUED) == 0);
+	spinlock_release(&runqueuelock);
 
 	ARCH_CONTEXT_SWITCHTHREAD(thread);
 	__builtin_unreachable();
 }
 
 static void runqueueinsert(thread_t *thread) {
+	__assert((thread->flags & SCHED_THREAD_FLAGS_RUNNING) == 0);
 	thread->flags |= SCHED_THREAD_FLAGS_QUEUED;
 
 	runqueuebitmap |= ((uint64_t)1 << thread->priority);
@@ -253,10 +258,10 @@ void sched_queue(thread_t *thread) {
 
 __attribute__((noreturn)) void sched_stopcurrentthread() {
 	interrupt_set(false);
-	if (_cpu()->thread)
-		_cpu()->thread->flags &= ~SCHED_THREAD_FLAGS_RUNNING;
 
 	spinlock_acquire(&runqueuelock);
+	if (_cpu()->thread)
+		_cpu()->thread->flags &= ~SCHED_THREAD_FLAGS_RUNNING;
 
 	thread_t *next = runqueuenext(0x0fffffff);
 	if (next == NULL)
@@ -337,7 +342,10 @@ static void threadexit_internal(context_t *) {
 	// as well as not being preempted at all
 	_cpu()->thread = NULL;
 
+	interrupt_set(false);
+	spinlock_acquire(&runqueuelock);
 	thread->flags |= SCHED_THREAD_FLAGS_DEAD;
+	spinlock_release(&runqueuelock);
 
 	// because a thread deallocating its own data is a nightmare, thread deallocation and such will be left to whoever frees the proc it's tied to
 	// (likely an exit(2) call)
@@ -428,7 +436,6 @@ static void yield(context_t *context) {
 	bool sleeping = thread->flags & SCHED_THREAD_FLAGS_SLEEP;
 
 	thread_t *next = runqueuenext(sleeping ? 0x0fffffff : thread->priority);
-
 	bool gotsignal = false;
 	for (int i = 0; i < NSIG && thread->proc; ++i) {
 		void *action = thread->proc->signals.actions[i].address;
@@ -456,6 +463,7 @@ static void yield(context_t *context) {
 	if (next || sleeping) {
 		ARCH_CONTEXT_THREADSAVE(thread, context);
 
+		thread->flags &= ~SCHED_THREAD_FLAGS_RUNNING;
 		if (sleeping == false)
 			runqueueinsert(thread);
 
@@ -480,6 +488,7 @@ int sched_yield() {
 void sched_preparesleep(bool interruptible) {
 	_cpu()->thread->sleepintstatus = interrupt_set(false);
 	spinlock_acquire(&_cpu()->thread->sleeplock);
+	// no locking needed as only we will be accessing it
 	_cpu()->thread->flags |= SCHED_THREAD_FLAGS_SLEEP | (interruptible ? SCHED_THREAD_FLAGS_INTERRUPTIBLE : 0);
 }
 
@@ -496,8 +505,8 @@ bool sched_wakeup(thread_t *thread, int reason) {
 	thread->flags &= ~(SCHED_THREAD_FLAGS_SLEEP | SCHED_THREAD_FLAGS_INTERRUPTIBLE);
 	thread->wakeupreason = reason;
 
-	spinlock_release(&thread->sleeplock);
 	sched_queue(thread);
+	spinlock_release(&thread->sleeplock);
 	interrupt_set(intstate);
 
 	return true;
