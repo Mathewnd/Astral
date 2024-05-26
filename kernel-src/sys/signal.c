@@ -218,7 +218,8 @@ void signal_signalproc(struct proc_t *proc, int signal) {
 		proc->status = 0x7f;
 		proc->status |= signal << 8;
 		proc->signals.stopunwaited = true;
-		if ((proc->parent->signals.actions[SIGCHLD].flags & SA_NOCLDSTOP) == 0) {
+
+		if (proc->parent && (proc->parent->signals.actions[SIGCHLD].flags & SA_NOCLDSTOP) == 0) {
 			signal_signalproc(proc->parent, SIGCHLD);
 		}
 		semaphore_signal(&proc->parent->waitsem);
@@ -228,7 +229,7 @@ void signal_signalproc(struct proc_t *proc, int signal) {
 	if (threadcontinued) {
 		proc->status = 0xffff;
 		proc->signals.continueunwaited = true;
-		if ((proc->parent->signals.actions[SIGCHLD].flags & SA_NOCLDSTOP) == 0) {
+		if (proc->parent && (proc->parent->signals.actions[SIGCHLD].flags & SA_NOCLDSTOP) == 0) {
 			signal_signalproc(proc->parent, SIGCHLD);
 		}
 		semaphore_signal(&proc->parent->waitsem);
