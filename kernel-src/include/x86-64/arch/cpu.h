@@ -32,6 +32,7 @@ typedef struct cpu_t {
 	isr_t *isrqueue;
 	dpc_t *dpcqueue;
 	struct cpu_t *self;
+	isr_t *dpcisr;
 } cpu_t;
 
 #define CPU_HALT() asm volatile("hlt")

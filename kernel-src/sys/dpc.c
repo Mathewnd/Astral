@@ -3,7 +3,6 @@
 #include <kernel/interrupt.h>
 #include <logging.h>
 
-static isr_t *dpcisr;
 
 static void remove(dpc_t *dpc) {
 	if (dpc->prev)
@@ -49,7 +48,7 @@ void dpc_enqueue(dpc_t *dpc, dpcfn_t fn, dpcarg_t arg) {
 	dpc->arg = arg;
 	dpc->enqueued = true;
 	insert(dpc);
-	interrupt_raise(dpcisr);
+	interrupt_raise(_cpu()->dpcisr);
 
 	cleanup:
 	interrupt_set(entrystate);
@@ -69,6 +68,6 @@ void dpc_dequeue(dpc_t *dpc) {
 }
 
 void dpc_init() {
-	dpcisr = interrupt_allocate(isrfn, NULL, IPL_DPC);
-	__assert(dpcisr);
+	_cpu()->dpcisr = interrupt_allocate(isrfn, NULL, IPL_DPC);
+	__assert(_cpu()->dpcisr);
 }
