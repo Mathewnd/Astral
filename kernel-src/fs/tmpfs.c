@@ -367,42 +367,11 @@ static int tmpfs_readlink(vnode_t *node, char **link, cred_t *cred) {
 #define MMAPTMPFLAGS (ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_NOEXEC | ARCH_MMU_FLAGS_WRITE)
 
 static int tmpfs_mmap(vnode_t *node, void *addr, uintmax_t offset, int flags, cred_t *cred) {
-	void *paddr = pmm_allocpage(PMM_SECTION_DEFAULT);
-	if (paddr == NULL)
-		return ENOMEM;
-
-	if (arch_mmu_map(_cpu()->vmmctx->pagetable, paddr, addr, MMAPTMPFLAGS) == false) {
-		pmm_release(paddr);
-		return ENOMEM;
-	}
-
-	size_t readc;
-	int e = tmpfs_read(node, addr, PAGE_SIZE, offset, flags, &readc, cred);
-	if (e) {
-		arch_mmu_unmap(_cpu()->vmmctx->pagetable, addr);
-		pmm_release(paddr);
-		return e;
-	}
-
-	memset((void *)((uintptr_t)addr + readc), 0, PAGE_SIZE - readc);
-
-	arch_mmu_remap(_cpu()->vmmctx->pagetable, paddr, addr, vnodeflagstommuflags(flags));
-
-	return 0;
+	__assert(!"unreachable");
 }
 
 static int tmpfs_munmap(vnode_t *node, void *addr, uintmax_t offset, int flags, cred_t *cred) {
-	if (flags & V_FFLAGS_SHARED) {
-		size_t wc;
-		// TODO no growing flag
-		__assert(tmpfs_write(node, addr, PAGE_SIZE, offset, flags, &wc, cred) == 0);
-	}
-
-	void *paddr = arch_mmu_getphysical(_cpu()->vmmctx->pagetable, addr);
-	__assert(paddr);
-	arch_mmu_unmap(_cpu()->vmmctx->pagetable, addr);
-	pmm_release(paddr);
-	return 0;
+	__assert(!"unreachable");
 }
 
 
