@@ -119,12 +119,14 @@ int vmmcache_getpage(vnode_t *vnode, uintmax_t offset, page_t **res) {
 			pmm_release(pmm_getpageaddress(newpage));
 
 		// wait for page to be ready
-		while ((page->flags & (PAGE_FLAGS_READY | PAGE_FLAGS_ERROR)) == 0)
+		while ((page->flags & (PAGE_FLAGS_READY | PAGE_FLAGS_ERROR)) == 0) {
+			arch_e9_puts("waiting for ready page\n");
 			sched_yield(); // TODO proper sleeping mechanism here
+		}
 
 		if (page->flags & PAGE_FLAGS_ERROR) {
 			// the thread handling the page in failed to read it, we should retry it and see whats up
-			pmm_release((page_t *)page);
+			pmm_release(pmm_getpageaddress((page_t *)page));
 			goto retry_err;
 		}
 
@@ -169,7 +171,7 @@ int vmmcache_getpage(vnode_t *vnode, uintmax_t offset, page_t **res) {
 			newpage->offset = 0;
 
 			RELEASE_LOCK();
-			pmm_release(newpage);
+			pmm_release(pmm_getpageaddress(newpage));
 			return error;
 		}
 
