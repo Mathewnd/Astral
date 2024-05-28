@@ -14,7 +14,7 @@
 #include <kernel/cmdline.h>
 
 #define QUANTUM_US 100000
-#define SCHEDULER_STACK_SIZE PAGE_SIZE
+#define SCHEDULER_STACK_SIZE PAGE_SIZE * 16
 
 static scache_t *threadcache;
 static scache_t *processcache;
@@ -404,18 +404,20 @@ static void userspacecheck(void *_args) {
 }
 
 static void checktrampoline(context_t *context, void *_args) {
+	__assert(ARCH_CONTEXT_INTSTATUS(context) == false);
 	checkargs_t *args = _args;
 	userspacecheck(args);
 	_cpu()->intstatus = ARCH_CONTEXT_INTSTATUS(args->context);
 	arch_context_switch(args->context);
 }
 
-// called right before going back to userspace in places like the syscall handler or arch_context_switch
+// called right before going back to userspace in the syscall handler, interrupt handler and arch_context_switch
 __attribute__((no_caller_saved_registers)) void sched_userspacecheck(context_t *context, bool syscall, uint64_t syscallerrno, uint64_t syscallret) {
 	__assert(_cpu());
 	if (_cpu()->thread == NULL || ARCH_CONTEXT_ISUSER(context) == false)
 		return;
 
+	bool intstatus = interrupt_set(false);
 
 	checkargs_t args = {
 		.context = context,
@@ -432,6 +434,8 @@ __attribute__((no_caller_saved_registers)) void sched_userspacecheck(context_t *
 	} else {
 		userspacecheck(&args);
 	}
+
+	_cpu()->intstatus = intstatus;
 }
 
 void sched_stopotherthreads() {
