@@ -222,6 +222,9 @@ static __attribute__((noreturn)) void switchthread(thread_t *thread) {
 	__assert((thread->flags & SCHED_THREAD_FLAGS_QUEUED) == 0);
 	spinlock_release(&runqueuelock);
 
+	void *schedulerstack = _cpu()->schedulerstack;
+	__assert(!((void *)thread->context.rsp < schedulerstack && (void *)thread->context.rsp >= (schedulerstack - SCHEDULER_STACK_SIZE)));
+
 	ARCH_CONTEXT_SWITCHTHREAD(thread);
 	__builtin_unreachable();
 }
@@ -336,7 +339,7 @@ void sched_inactiveproc(proc_t *proc) {
 	sched_destroyproc(proc);
 }
 
-static void threadexit_internal(context_t *) {
+static void threadexit_internal(context_t *, void *) {
 	thread_t *thread = _cpu()->thread;
 	// we don't need to access the current thread anymore, as any state will be ignored and we are running on the scheduler stack
 	// as well as not being preempted at all
@@ -375,22 +378,60 @@ __attribute__((noreturn)) void sched_threadexit() {
 	}
 
 	interrupt_set(false);
-	arch_context_saveandcall(threadexit_internal, _cpu()->schedulerstack);
+	arch_context_saveandcall(threadexit_internal, _cpu()->schedulerstack, NULL);
 	__builtin_unreachable();
 }
 
-// called right before going back to userspace in places like the syscall handler or arch_context_switch
-__attribute__((no_caller_saved_registers)) void sched_userspacecheck(context_t *context, bool syscall, uint64_t syscallerrno, uint64_t syscallret) {
+typedef struct {
+	context_t *context;
+	bool syscall;
+	uint64_t syscallerrno;
+	uint64_t syscallret;
+} checkargs_t;
+
+// SHOULD NOT BE CALLED WITH THE SCHEDULER STACK
+static void userspacecheck(void *_args) {
+	checkargs_t *args = _args;
+	__assert(_cpu() >= (cpu_t *)0xffffffff80000000);
 	thread_t *thread = _cpu()->thread;
-	if (thread == NULL || ARCH_CONTEXT_ISUSER(context) == false)
-		return;
 
 	if (thread->shouldexit) {
 		interrupt_set(true);
 		sched_threadexit();
 	}
 
-	while (signal_check(thread, context, syscall, syscallret, syscallerrno)) ;
+	while (signal_check(thread, args->context, args->syscall, args->syscallret, args->syscallerrno)) ;
+}
+
+static void checktrampoline(context_t *context, void *_args) {
+	checkargs_t *args = _args;
+	userspacecheck(args);
+	_cpu()->intstatus = ARCH_CONTEXT_INTSTATUS(args->context);
+	arch_context_switch(args->context);
+}
+
+// called right before going back to userspace in places like the syscall handler or arch_context_switch
+__attribute__((no_caller_saved_registers)) void sched_userspacecheck(context_t *context, bool syscall, uint64_t syscallerrno, uint64_t syscallret) {
+	__assert(_cpu());
+	if (_cpu()->thread == NULL || ARCH_CONTEXT_ISUSER(context) == false)
+		return;
+
+
+	checkargs_t args = {
+		.context = context,
+		.syscall = syscall,
+		.syscallerrno = syscallerrno,
+		.syscallret = syscallret
+	};
+
+	// return context is user mode, so its kernel stack is free
+	// if we are running on the scheduler stack, run on the kernel stack
+	// so we don't risk stack corruption (as we have to turn on interrupts should the thread need to exit)
+	if (&args < (checkargs_t *)_cpu()->schedulerstack && &args >= (checkargs_t *)((uintptr_t)_cpu()->schedulerstack - SCHEDULER_STACK_SIZE)) {
+		arch_context_saveandcall(checktrampoline, _cpu()->thread->kernelstacktop, &args);
+	} else {
+		userspacecheck(&args);
+	}
 }
 
 void sched_stopotherthreads() {
@@ -428,7 +469,7 @@ void sched_terminateprogram(int status) {
 	sched_threadexit();
 }
 
-static void yield(context_t *context) {
+static void yield(context_t *context, void *) {
 	thread_t *thread = _cpu()->thread;
 
 	spinlock_acquire(&runqueuelock);
@@ -480,7 +521,7 @@ static void yield(context_t *context) {
 int sched_yield() {
 	bool sleeping = _cpu()->thread->flags & SCHED_THREAD_FLAGS_SLEEP;
 	bool old = sleeping ? _cpu()->thread->sleepintstatus : interrupt_set(false);
-	arch_context_saveandcall(yield, _cpu()->schedulerstack);
+	arch_context_saveandcall(yield, _cpu()->schedulerstack, NULL);
 	interrupt_set(old);
 	return sleeping ? _cpu()->thread->wakeupreason : 0;
 }

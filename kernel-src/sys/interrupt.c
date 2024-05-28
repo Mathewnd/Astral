@@ -7,7 +7,7 @@
 void arch_interrupt_disable();
 void arch_interrupt_enable();
 
-#define DOPENDING_SAVE() arch_context_saveandcall(dopending, NULL)
+#define DOPENDING_SAVE() arch_context_saveandcall(dopending, NULL, NULL)
 
 static void removefromqueue(isr_t *isr) {
 	if (isr->prev)
@@ -41,7 +41,7 @@ static void runisr(isr_t *isr, context_t *ctx) {
 			interrupt_loweripl(oldipl);
 }
 
-static void dopending(context_t *ctx) {
+static void dopending(context_t *ctx, void *) {
 	bool entrystatus = _cpu()->intstatus;
 	if (entrystatus) {
 		arch_interrupt_disable();
@@ -85,7 +85,7 @@ static void dopending(context_t *ctx) {
 
 		// if any new interrupts are pending, they will be taken care of here
 		// XXX this is kinda hacky could be very very bad if there are a lot of interrupts
-		dopending(ctx);
+		dopending(ctx, NULL);
 	}
 
 	cleanup:
@@ -106,7 +106,7 @@ void interrupt_isr(int vec, context_t *ctx) {
 
 	if (_cpu()->ipl > isr->priority) {
 		runisr(isr, ctx);
-		dopending(ctx);
+		dopending(ctx, NULL);
 	} else {
 		insertinqueue(isr);
 		isr->pending = true;

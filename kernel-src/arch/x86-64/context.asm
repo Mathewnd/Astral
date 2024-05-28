@@ -41,6 +41,7 @@ arch_context_switch:
 ; since this uses the C system V abi, some registers can be clobbered (in this case, r10 and r11)
 ; rdi has the pointer to the function to call
 ; rsi has the pointer to the stack the function should have on call. if NULL the stack is not changed
+; rdx has the pointer to the arguments to pass to the function
 ; if the main function returns, do a context switch as the registers could have been changed
 global arch_context_saveandcall
 arch_context_saveandcall:
@@ -79,9 +80,9 @@ arch_context_saveandcall:
 	push qword 0	; GS
 	sub rsp, 8 	; cr2
 
-
 	mov r11, rdi 	; save function to call
 	mov rdi, rsp 	; first argument is the context struct
+	mov rsi, rdx	; pass argument
 	call r11 	; jump to the desired function
 
 	; do context switch to return
