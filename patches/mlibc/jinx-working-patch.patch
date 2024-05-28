@@ -192,10 +192,10 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..e94f84f
+index 0000000..0755fba
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -0,0 +1,694 @@
+@@ -0,0 +1,714 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -283,6 +283,26 @@ index 0000000..e94f84f
 +		// TODO unstub
 +		return ENOSYS;
 +	}
++
++	#ifndef MLIBC_BUILDING_RTLD
++	#define TTY_IOCTL_NAME 0x771101141113l
++	#define TTY_NAME_MAX 32
++	#define TTY_PREFIX "/dev/"
++
++	
++	int sys_ttyname(int fd, char * buffer, size_t size) {
++		size_t prefixlen = strlen(TTY_PREFIX);
++		if (size < TTY_NAME_MAX + prefixlen) {
++			mlibc::panicLogger() << "ttyname size too small" << frg::endlog;
++			__builtin_unreachable();
++		}
++
++		strcpy(buffer, TTY_PREFIX);
++
++		int res;
++		return sys_ioctl(fd, TTY_IOCTL_NAME, (void *)(buffer + prefixlen), &res);
++	}
++	#endif
 +
 +	int sys_fsync(int fd) {
 +		long ret;

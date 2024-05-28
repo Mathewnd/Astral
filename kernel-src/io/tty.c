@@ -295,6 +295,8 @@ static int poll(int minor, polldata_t *data, int events) {
 #define TIOCSCTTY 0x540E
 #define TIOCGPGRP 0x540F
 #define TIOCSPGRP 0x5410
+#define TTY_IOCTL_NAME 0x771101141113l
+#define TTY_NAME_MAX 32
 
 int tty_ioctl(tty_t *tty, unsigned long req, void *arg, int *result) {
 	switch (req) {
@@ -349,6 +351,11 @@ int tty_ioctl(tty_t *tty, unsigned long req, void *arg, int *result) {
 			int error = setforeground(tty, proc);
 			PROC_RELEASE(proc);
 			return error;
+		}
+		case TTY_IOCTL_NAME: {
+			size_t len = min(strlen(tty->name) + 1, TTY_NAME_MAX);
+			memcpy(arg, tty->name, len);
+			break;
 		}
 		default:
 			return ENOTTY;
