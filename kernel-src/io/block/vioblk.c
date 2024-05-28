@@ -23,7 +23,7 @@ typedef struct {
 	dpc_t queuedpc;
 	spinlock_t queuelock;
 	semaphore_t queuesem;
-	event_t *queuewaiting[QUEUE_MAX_SIZE / 2];
+	thread_t *queuewaiting[QUEUE_MAX_SIZE / 2];
 } vioblkdev_t;
 
 typedef struct {
@@ -46,7 +46,7 @@ static void vioblk_dpc(context_t *context, dpcarg_t arg) {
 		int idx = blkdev->queue.lastusedindex++ % blkdev->queue.size;
 		int buffidx = VIO_QUEUE_DEV_RING(&blkdev->queue)[idx].index;
 		__assert(blkdev->queuewaiting[buffidx / 2]);
-		event_signal(blkdev->queuewaiting[buffidx / 2]);
+		sched_wakeup(blkdev->queuewaiting[buffidx / 2], SCHED_WAKEUP_REASON_NORMAL);
 		blkdev->queuewaiting[buffidx / 2] = NULL;
 		buffers[buffidx].address = 0;
 		buffers[buffidx + 1].address = 0;
@@ -90,12 +90,13 @@ static void vioblk_enqueue(vioblkdev_t *blkdev, void *driver, size_t driverlen, 
 	size_t driveridx = VIO_QUEUE_DRV_IDX(&blkdev->queue)++;
 	VIO_QUEUE_DRV_RING(&blkdev->queue)[driveridx % blkdev->queue.size] = idx;
 
-	blkdev->queuewaiting[idx / 2] = &event;
+	sched_preparesleep(false);
+	blkdev->queuewaiting[idx / 2] = _cpu()->thread;
 
 	*blkdev->queue.notify = 0;
 	spinlock_release(&blkdev->queuelock);
 
-	event_wait(&event, false);
+	sched_yield();
 
 	interrupt_set(intstatus);
 }
