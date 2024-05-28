@@ -15,7 +15,7 @@ static void insert(timer_t *timer, timerentry_t *entry, time_t us) {
 	} else {
 		timerentry_t *search = timer->queue;
 
-		while(search) {
+		while (search) {
 			if (search->next == NULL) { // if last entry in the queue
 				entry->next = NULL;
 				search->next = entry;
@@ -38,6 +38,8 @@ static void timercheck(timer_t *timer) {
 
 		if (entry->repeatus)
 			insert(timer, entry, entry->repeatus);
+		else
+			entry->fired = true;
 
 		dpc_enqueue(&entry->dpc, entry->fn, entry->arg);
 	}
