@@ -28,6 +28,7 @@ syscallret_t syscall_openat(context_t *context, int dirfd, const char *path, int
 
 	ret.errno = dirfd_enter(pathbuf, dirfd, &dirfile, &dirnode);
 
+	retry_open:
 	file_t *newfile = NULL;
 	int newfd;
 	ret.errno = fd_new(flags & O_CLOEXEC, &newfile, &newfd);
@@ -36,6 +37,10 @@ syscallret_t syscall_openat(context_t *context, int dirfd, const char *path, int
 
 	vnode_t *vnode = NULL;
 	ret.errno = vfs_open(dirnode, pathbuf, fileflagstovnodeflags(flags), &vnode);
+	if (ret.errno == 0 && (flags & O_CREAT) && (flags & O_EXCL)) {
+		ret.errno = EEXIST;
+		return ret;
+	}
 
 	if (ret.errno == ENOENT && (flags & O_CREAT)) {
 		vattr_t attr = {
@@ -45,6 +50,8 @@ syscallret_t syscall_openat(context_t *context, int dirfd, const char *path, int
 		};
 
 		ret.errno = vfs_create(dirnode, pathbuf, &attr, V_TYPE_REGULAR, &vnode);
+		if (ret.errno == EEXIST && (flags & O_EXCL) == 0)
+			goto retry_open;
 	}
 
 	if (ret.errno)
