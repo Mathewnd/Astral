@@ -13,7 +13,7 @@ static int dochmod(vnode_t *node, mode_t mode) {
 
 	attr.mode = UMASK(mode);
 
-	return VOP_SETATTR(node, &attr, cred);
+	return VOP_SETATTR(node, &attr, V_ATTR_MODE, cred);
 }
 
 syscallret_t syscall_fchmodat(context_t *, int dirfd, const char *upath, mode_t mode, int flags) {

@@ -14,6 +14,15 @@ typedef struct {
 	gid_t gid;
 } cred_t;
 
+#define V_ATTR_MODE	1
+#define V_ATTR_UID	2
+#define V_ATTR_GID	4
+#define V_ATTR_ATIME	8
+#define V_ATTR_MTIME	16
+#define V_ATTR_CTIME	32
+
+#define V_ATTR_ALL (V_ATTR_MODE | V_ATTR_UID | V_ATTR_GID | V_ATTR_ATIME | V_ATTR_MTIME | V_ATTR_CTIME)
+
 typedef struct {
 	int type;
 	mode_t mode;
@@ -88,7 +97,7 @@ typedef struct vops_t {
 	int (*lookup)(vnode_t *node, char *name, vnode_t **result, cred_t *cred);
 	int (*create)(vnode_t *parent, char *name, vattr_t *attr, int type, vnode_t **result, cred_t *cred);
 	int (*getattr)(vnode_t *node, vattr_t *attr, cred_t *cred);
-	int (*setattr)(vnode_t *node, vattr_t *attr, cred_t *cred);
+	int (*setattr)(vnode_t *node, vattr_t *attr, int attrs, cred_t *cred);
 	int (*poll)(vnode_t *node, struct polldata *, int events);
 	int (*access)(vnode_t *node, mode_t mode, cred_t *cred);
 	int (*unlink)(vnode_t *node, char *name, cred_t *cred);
@@ -141,7 +150,7 @@ typedef struct vops_t {
 #define VOP_LOOKUP(v, n, r, c) (v)->ops->lookup(v, n, r, c)
 #define VOP_CREATE(v, n, a, t, r, c) (v)->ops->create(v, n, a, t, r, c)
 #define VOP_GETATTR(v, a, c) (v)->ops->getattr(v, a, c)
-#define VOP_SETATTR(v, a, c) (v)->ops->setattr(v, a, c)
+#define VOP_SETATTR(v, a, w, c) (v)->ops->setattr(v, a, w, c)
 #define VOP_ACCESS(v, m, c) (v)->ops->access(v, m, c)
 #define VOP_UNLINK(v, n, c) (v)->ops->unlink(v, n, c)
 #define VOP_LINK(v, d, n, c) (v)->ops->link(v, d, n, c)

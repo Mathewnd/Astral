@@ -3,6 +3,7 @@
 #include <util.h>
 #include <logging.h>
 #include <kernel/poll.h>
+#include <kernel/timekeeper.h>
 
 #define TABLE_SIZE 4096
 #define WRITER_TICK_SECONDS 15
@@ -361,9 +362,11 @@ int vmmcache_sync() {
 }
 
 int vmmcache_makedirty(page_t *page) {
+	bool madedirty = false;
 	HOLD_LOCK();
 
 	if ((page->flags & (PAGE_FLAGS_DIRTY | PAGE_FLAGS_TRUNCATED)) == 0) {
+		madedirty = true;
 		// page is neither dirty nor truncated, add to dirty list and hold the page and vnode
 		page->flags |= PAGE_FLAGS_DIRTY;
 
@@ -379,6 +382,11 @@ int vmmcache_makedirty(page_t *page) {
 	}
 
 	RELEASE_LOCK();
+	if (madedirty) {
+		vattr_t attr;
+		attr.mtime = timekeeper_time();
+		VOP_SETATTR(page->backing, &attr, V_ATTR_MTIME, NULL);
+	}
 	return 0;
 }
 

@@ -130,21 +130,27 @@ int devfs_getattr(vnode_t *node, vattr_t *attr, cred_t *cred) {
 	return 0;
 }
 
-int devfs_setattr(vnode_t *node, vattr_t *attr, cred_t *cred) {
+int devfs_setattr(vnode_t *node, vattr_t *attr, int which, cred_t *cred) {
 	devnode_t *devnode = (devnode_t *)node;
 
 	if (devnode->physical && devnode->physical != node) {
-		int err = VOP_SETATTR(devnode->physical, attr, cred);
+		int err = VOP_SETATTR(devnode->physical, attr, which, cred);
 		return err;
 	}
 
 	VOP_LOCK(node);
-	devnode->attr.gid = attr->gid;
-	devnode->attr.uid = attr->uid;
-	devnode->attr.mode = attr->mode;
-	devnode->attr.atime = attr->atime;
-	devnode->attr.mtime = attr->mtime;
-	devnode->attr.ctime = attr->ctime;
+	if (which & V_ATTR_GID)
+		devnode->attr.gid = attr->gid;
+	if (which & V_ATTR_UID)
+		devnode->attr.uid = attr->uid;
+	if (which & V_ATTR_MODE)
+		devnode->attr.mode = attr->mode;
+	if (which & V_ATTR_ATIME)
+		devnode->attr.atime = attr->atime;
+	if (which & V_ATTR_MTIME)
+		devnode->attr.mtime = attr->mtime;
+	if (which & V_ATTR_CTIME)
+		devnode->attr.ctime = attr->ctime;
 	VOP_UNLOCK(node);
 	return 0;
 }
@@ -254,7 +260,7 @@ int devfs_create(vnode_t *parent, char *name, vattr_t *attr, int type, vnode_t *
 	tmpattr.ctime = time;
 	tmpattr.mtime = time;
 	tmpattr.size = 0;
-	__assert(devfs_setattr(&node->vnode, &tmpattr, cred) == 0);
+	__assert(devfs_setattr(&node->vnode, &tmpattr, V_ATTR_ALL, cred) == 0);
 	node->attr.nlinks = 1;
 	node->attr.rdevmajor = tmpattr.rdevmajor;
 	node->attr.rdevminor = tmpattr.rdevminor;

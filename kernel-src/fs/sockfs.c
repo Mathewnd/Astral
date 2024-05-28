@@ -46,16 +46,22 @@ int sockfs_getattr(vnode_t *node, vattr_t *attr, cred_t *cred) {
 	return 0;
 }
 
-int sockfs_setattr(vnode_t *node, vattr_t *attr, cred_t *cred) {
+int sockfs_setattr(vnode_t *node, vattr_t *attr, int which, cred_t *cred) {
 	socketnode_t *socketnode = (socketnode_t *)node;
 	VOP_LOCK(node);
 
-	socketnode->attr.gid = attr->gid;
-	socketnode->attr.uid = attr->uid;
-	socketnode->attr.mode = attr->mode;
-	socketnode->attr.atime = attr->atime;
-	socketnode->attr.mtime = attr->mtime;
-	socketnode->attr.ctime = attr->ctime;
+	if (which & V_ATTR_GID)
+		socketnode->attr.gid = attr->gid;
+	if (which & V_ATTR_UID)
+		socketnode->attr.uid = attr->uid;
+	if (which & V_ATTR_MODE)
+		socketnode->attr.mode = attr->mode;
+	if (which & V_ATTR_ATIME)
+		socketnode->attr.atime = attr->atime;
+	if (which & V_ATTR_MTIME)
+		socketnode->attr.mtime = attr->mtime;
+	if (which & V_ATTR_CTIME)
+		socketnode->attr.ctime = attr->ctime;
 
 	VOP_UNLOCK(node);
 	return 0;

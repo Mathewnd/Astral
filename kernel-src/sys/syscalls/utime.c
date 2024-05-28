@@ -3,17 +3,9 @@
 #include <kernel/timekeeper.h>
 
 syscallret_t syscall_utimensat(context_t *, int fd, char *upath, timespec_t uts[2], int flags) {
-	// TODO
-	// uts -> NULL -> current time
-	// upath -> NULL -> dirfd points to vnode 
 	syscallret_t ret = {
 		.ret = -1
 	};
-
-	if (flags != 0) {
-		ret.errno = EINVAL;
-		return ret;
-	}
 
 	timespec_t ts[2];
 	if (uts == NULL)
@@ -55,7 +47,6 @@ syscallret_t syscall_utimensat(context_t *, int fd, char *upath, timespec_t uts[
 			goto cleanup;
 	}
 
-	// XXX race condition with other system calls
 	vattr_t attr;
 	ret.errno = VOP_GETATTR(node, &attr, &_cpu()->thread->proc->cred);
 	if (ret.errno)
@@ -64,7 +55,7 @@ syscallret_t syscall_utimensat(context_t *, int fd, char *upath, timespec_t uts[
 	attr.atime = ts[0];
 	attr.mtime = ts[1];
 
-	ret.errno = VOP_SETATTR(node, &attr, &_cpu()->thread->proc->cred);
+	ret.errno = VOP_SETATTR(node, &attr, V_ATTR_ATIME | V_ATTR_MTIME, &_cpu()->thread->proc->cred);
 	ret.ret = ret.errno ? -1 : 0;
 
 	cleanup:

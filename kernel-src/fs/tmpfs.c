@@ -41,16 +41,23 @@ static int tmpfs_getattr(vnode_t *node, vattr_t *attr, cred_t *cred) {
 	return 0;
 }
 
-static int tmpfs_setattr(vnode_t *node, vattr_t *attr, cred_t *cred) {
+static int tmpfs_setattr(vnode_t *node, vattr_t *attr, int which, cred_t *cred) {
 	VOP_LOCK(node);
 	tmpfsnode_t *tmpnode = (tmpfsnode_t *)node;
 
-	tmpnode->attr.gid = attr->gid;
-	tmpnode->attr.uid = attr->uid;
-	tmpnode->attr.mode = attr->mode;
-	tmpnode->attr.atime = attr->atime;
-	tmpnode->attr.mtime = attr->mtime;
-	tmpnode->attr.ctime = attr->ctime;
+	if (which & V_ATTR_GID)
+		tmpnode->attr.gid = attr->gid;
+	if (which & V_ATTR_UID)
+		tmpnode->attr.uid = attr->uid;
+	if (which & V_ATTR_MODE)
+		tmpnode->attr.mode = attr->mode;
+	if (which & V_ATTR_ATIME)
+		tmpnode->attr.atime = attr->atime;
+	if (which & V_ATTR_MTIME)
+		tmpnode->attr.mtime = attr->mtime;
+	if (which & V_ATTR_CTIME)
+		tmpnode->attr.ctime = attr->ctime;
+
 	VOP_UNLOCK(node);
 	return 0;
 }
@@ -105,7 +112,7 @@ static int tmpfs_create(vnode_t *parent, char *name, vattr_t *attr, int type, vn
 	tmpattr.mtime = time;
 	tmpattr.size = 0;
 	tmpattr.type = type;
-	int error = tmpfs_setattr(node, &tmpattr, cred);
+	int error = tmpfs_setattr(node, &tmpattr, V_ATTR_ALL, cred);
 	tmpnode->attr.nlinks = 1;
 
 	if (error) {

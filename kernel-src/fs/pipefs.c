@@ -211,16 +211,22 @@ int pipefs_getattr(vnode_t *node, vattr_t *attr, cred_t *cred) {
 	return 0;
 }
 
-int pipefs_setattr(vnode_t *node, vattr_t *attr, cred_t *cred) {
+int pipefs_setattr(vnode_t *node, vattr_t *attr, int which, cred_t *cred) {
 	pipenode_t *pipenode = (pipenode_t *)node;
 
 	VOP_LOCK(node);
-	pipenode->attr.gid = attr->gid;
-	pipenode->attr.uid = attr->uid;
-	pipenode->attr.mode = attr->mode;
-	pipenode->attr.atime = attr->atime;
-	pipenode->attr.mtime = attr->mtime;
-	pipenode->attr.ctime = attr->ctime;
+	if (which & V_ATTR_GID)
+		pipenode->attr.gid = attr->gid;
+	if (which & V_ATTR_UID)
+		pipenode->attr.uid = attr->uid;
+	if (which & V_ATTR_MODE)
+		pipenode->attr.mode = attr->mode;
+	if (which & V_ATTR_ATIME)
+		pipenode->attr.atime = attr->atime;
+	if (which & V_ATTR_MTIME)
+		pipenode->attr.mtime = attr->mtime;
+	if (which & V_ATTR_CTIME)
+		pipenode->attr.ctime = attr->ctime;
 	VOP_UNLOCK(node);
 	return 0;
 }

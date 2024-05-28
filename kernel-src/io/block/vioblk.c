@@ -64,9 +64,6 @@ static void vioblk_irq(isr_t *isr, context_t *context) {
 
 // driver and device are physical addresses
 static void vioblk_enqueue(vioblkdev_t *blkdev, void *driver, size_t driverlen, void *device, size_t devicelen) {
-	event_t event;
-	EVENT_INIT(&event);
-
 	bool intstatus = interrupt_set(false);
 	semaphore_wait(&blkdev->queuesem, false);
 

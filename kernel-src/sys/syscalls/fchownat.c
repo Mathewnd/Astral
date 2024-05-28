@@ -42,7 +42,6 @@ syscallret_t syscall_fchownat(context_t *, int fd, const char *upath, uid_t owne
 			goto cleanup;
 	}
 
-	// XXX race condition with chmod
 	vattr_t attr;
 	ret.errno = VOP_GETATTR(node, &attr, &_cpu()->thread->proc->cred);
 	if (ret.errno)
@@ -51,7 +50,7 @@ syscallret_t syscall_fchownat(context_t *, int fd, const char *upath, uid_t owne
 	attr.uid = owner;
 	attr.gid = group;
 
-	ret.errno = VOP_SETATTR(node, &attr, &_cpu()->thread->proc->cred);
+	ret.errno = VOP_SETATTR(node, &attr, V_ATTR_UID | V_ATTR_GID, &_cpu()->thread->proc->cred);
 	ret.ret = ret.errno ? -1 : 0;
 
 	cleanup:

@@ -1063,14 +1063,22 @@ static int ext2_getattr(vnode_t *vnode, vattr_t *attr, cred_t *cred) {
 	return 0;
 }
 
-static int ext2_setattr(vnode_t *vnode, vattr_t *attr, cred_t *cred) {
+static int ext2_setattr(vnode_t *vnode, vattr_t *attr, int which, cred_t *cred) {
 	ext2node_t *node = (ext2node_t *)vnode;
 	VOP_LOCK(vnode);
 
-	INODE_TYPEPERM_SETPERM(node->inode.typeperm, attr->mode);
-	node->inode.gid = attr->gid;
-	node->inode.uid = attr->uid;
-
+	if (which & V_ATTR_MODE)
+		INODE_TYPEPERM_SETPERM(node->inode.typeperm, attr->mode);
+	if (which & V_ATTR_GID)
+		node->inode.gid = attr->gid;
+	if (which & V_ATTR_UID)
+		node->inode.uid = attr->uid;
+	if (which & V_ATTR_MTIME)
+		node->inode.mtime = attr->mtime.s;
+	if (which & V_ATTR_CTIME)
+		node->inode.ctime = attr->ctime.s;
+	if (which & V_ATTR_ATIME)
+		node->inode.atime = attr->atime.s;
 	int e = writeinode((ext2fs_t *)vnode->vfs, &node->inode, node->id);
 	VOP_UNLOCK(vnode);
 
@@ -1283,8 +1291,8 @@ int ext2_write(vnode_t *vnode, void *buffer, size_t size, uintmax_t offset, int 
 	if (err)
 		goto cleanup;
 
-	node->inode.mtime = timekeeper_time().s;
-	ASSERT_UNCLEAN(fs, writeinode(fs, &node->inode, node->id) == 0);
+	//node->inode.mtime = timekeeper_time().s;
+	//ASSERT_UNCLEAN(fs, writeinode(fs, &node->inode, node->id) == 0);
 
 	cleanup:
 	VOP_UNLOCK(vnode);
