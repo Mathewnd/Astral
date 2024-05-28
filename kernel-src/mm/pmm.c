@@ -180,6 +180,7 @@ void *pmm_allocpage(int section) {
 
 	if (cachepage && vmmcache_takepage(page) == EAGAIN) {
 		// someone already got the page from the cache between us holding it and taking it
+		pmm_release(pmm_getpageaddress(page));
 		page = NULL;
 		// retry it from the start, as an anonymous page could have been released while the lock was not held
 		goto retry;
