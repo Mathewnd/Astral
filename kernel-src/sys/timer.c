@@ -10,12 +10,14 @@ static void insert(timer_t *timer, timerentry_t *entry, time_t us) {
 		entry->next = NULL;
 		timer->queue = entry;
 	} else if (timer->queue->absolutetick > entry->absolutetick) { // if the current entry should be put before all the others in the queue
+		__assert(entry->next == NULL);
 		entry->next = timer->queue;
 		timer->queue = entry;
 	} else {
 		timerentry_t *search = timer->queue;
 
 		while (search) {
+			__assert(search != entry);
 			if (search->next == NULL) { // if last entry in the queue
 				entry->next = NULL;
 				search->next = entry;
@@ -35,6 +37,7 @@ static void timercheck(timer_t *timer) {
 	while (timer->queue && timer->queue->absolutetick == timer->tickcurrent) {
 		timerentry_t *entry = timer->queue;
 		timer->queue = timer->queue->next;
+		entry->next = NULL;
 
 		if (entry->repeatus)
 			insert(timer, entry, entry->repeatus);
@@ -45,6 +48,8 @@ static void timercheck(timer_t *timer) {
 	}
 }
 
+// TODO if an entry is removed and the timer still fires,
+// it will skip forwards in time which is bad BAD
 void timer_isr(timer_t *timer, context_t *context) {
 	spinlock_acquire(&timer->lock);
 
@@ -53,6 +58,7 @@ void timer_isr(timer_t *timer, context_t *context) {
 	timer->tickcurrent = timer->queue->absolutetick;
 	timerentry_t *oldentry = timer->queue;
 	timer->queue = timer->queue->next;
+	oldentry->next = NULL;
 
 	if (oldentry->repeatus)
 		insert(timer, oldentry, oldentry->repeatus);
@@ -109,7 +115,6 @@ void timer_insert(timer_t *timer, timerentry_t *entry, dpcfn_t fn, dpcarg_t arg,
 	entry->fn = fn;
 	entry->arg = arg;
 	entry->fired = false;
-
 	insert(timer, entry, us);
 
 	if (timer->running) {
@@ -121,11 +126,13 @@ void timer_insert(timer_t *timer, timerentry_t *entry, dpcfn_t fn, dpcarg_t arg,
 	interrupt_loweripl(oldipl);
 }
 
-void timer_remove(timer_t *timer, timerentry_t *entry) {
+uintmax_t timer_remove(timer_t *timer, timerentry_t *entry) {
 	timer_stop(timer);
 
 	long oldipl = interrupt_raiseipl(IPL_TIMER);
 	spinlock_acquire(&timer->lock);
+
+	uintmax_t timeremaining = 0;
 
 	// if it had already fired by the time the lock was reached
 	if (entry->fired == true)
@@ -146,11 +153,16 @@ void timer_remove(timer_t *timer, timerentry_t *entry) {
 	else
 		prev->next = iterator->next;
 
+	iterator->next = NULL;
+	// ALWAYS round up the time remaining
+	timeremaining = ROUND_UP(iterator->absolutetick - timer->tickcurrent, timer->ticksperus) / timer->ticksperus;
+
 	cleanup:
 	spinlock_release(&timer->lock);
 	interrupt_loweripl(oldipl);
 
 	timer_resume(timer);
+	return timeremaining;
 }
 
 timer_t *timer_new(time_t ticksperus, void (*arm)(time_t), time_t (*stop)()) {
