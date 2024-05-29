@@ -209,6 +209,9 @@ static int tmpfs_unlink(vnode_t *node, char *name, cred_t *cred) {
 	if (node->type != V_TYPE_DIR)
 		return ENOTDIR;
 
+	if (node->vfsmounted)
+		return EBUSY;
+
 	size_t namelen = strlen(name);
 	void *r;
 	VOP_LOCK(node);
@@ -241,6 +244,9 @@ static int tmpfs_link(vnode_t *node, vnode_t *dir, char *name, cred_t *cred) {
 
 	if (dir->type != V_TYPE_DIR)
 		return ENOTDIR;
+
+	if (node->tyé == V_TYPE_DIR)
+		return EISDIR;
 
 	tmpfsnode_t *tmpdir = (tmpfsnode_t *)dir;
 	size_t namelen = strlen(name);
@@ -299,7 +305,12 @@ static int tmpfs_rename(vnode_t *source, char *oldname, vnode_t *target, char *n
 	else if (error == 0) // found
 		oldnode = v;
 
-	// same link, rename is a no-op
+	if (node->vfsmounted || oldnode->vfsmounted) {
+		error = EBUSY;
+		goto cleanup;
+	}
+
+	// same link, rename is a no-op TODO still gotta unlink it though
 	if (sourcedir == targetdir && strcmp(oldname, newname) == 0)
 		goto cleanup;
 
