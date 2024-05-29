@@ -50,23 +50,14 @@ proc_t *sched_getprocfrompid(int pid) {
 }
 
 static void rtdpc(context_t *, dpcarg_t arg) {
-	proc_t *proc = arg;
-	// XXX this can sleep and if it does the entire system burns down sooooooo yeah fix this for the love of god
-	__assert(proc->threadtablesize == 1);
 	signal_signalproc(arg, SIGALRM);
 }
 
 static void vtdpc(context_t *, dpcarg_t arg) {
-	proc_t *proc = arg;
-	// XXX this can sleep and if it does the entire system burns down sooooooo yeah fix this for the love of god
-	__assert(proc->threadtablesize == 1);
 	signal_signalproc(arg, SIGVTALRM);
 }
 
 static void profdpc(context_t *, dpcarg_t arg) {
-	proc_t *proc = arg;
-	// XXX this can sleep and if it does the entire system burns down sooooooo yeah fix this for the love of god
-	__assert(proc->threadtablesize == 1);
 	signal_signalproc(arg, SIGPROF);
 }
 
@@ -77,15 +68,8 @@ proc_t *sched_newproc() {
 
 	memset(proc, 0, sizeof(proc_t));
 
-	proc->threads = alloc(sizeof(thread_t *));
-	if (proc->threads == NULL) {
-		slab_free(processcache, proc);
-		return NULL;
-	}
-
 	// TODO move this to slab
 	proc->state = SCHED_PROC_STATE_NORMAL;
-	proc->threadtablesize = 1;
 	proc->runningthreadcount = 1;
 	MUTEX_INIT(&proc->mutex);
 	SPINLOCK_INIT(proc->nodeslock);
@@ -101,10 +85,10 @@ proc_t *sched_newproc() {
 	itimer_init(&proc->timer.realtime, rtdpc, proc);
 	itimer_init(&proc->timer.virtualtime, vtdpc, proc);
 	itimer_init(&proc->timer.profiling, profdpc, proc);
+	SPINLOCK_INIT(proc->threadlistlock);
 
 	proc->fd = alloc(sizeof(fd_t) * 3);
 	if (proc->fd == NULL) {
-		free(proc->threads);
 		slab_free(processcache, proc);
 		return NULL;
 	}
@@ -117,7 +101,6 @@ proc_t *sched_newproc() {
 	if (hashtable_set(&pidtable, proc, &proc->pid, sizeof(proc->pid), true)) {
 		MUTEX_RELEASE(&sched_pidtablemutex);
 		free(proc->fd);
-		free(proc->threads);
 		slab_free(processcache, proc);
 		return NULL;
 	}
@@ -168,7 +151,6 @@ void sched_destroythread(thread_t *thread) {
 }
 
 void sched_destroyproc(proc_t *proc) {
-	free(proc->threads);
 	free(proc->fd);
 	slab_free(processcache, proc);
 }
@@ -353,8 +335,9 @@ void sched_procexit() {
 	signal_signalproc(proc->parent, SIGCHLD);
 	semaphore_signal(&proc->parent->waitsem);
 	// TODO sigaction flag for this
-	for (int i = 0; i < belowzombiecount; ++i)
+	for (int i = 0; i < belowzombiecount; ++i) {
 		semaphore_signal(&sched_initproc->waitsem);
+	}
 }
 
 void sched_inactiveproc(proc_t *proc) {
@@ -469,21 +452,31 @@ __attribute__((no_caller_saved_registers)) void sched_userspacecheck(context_t *
 void sched_stopotherthreads() {
 	thread_t *thread = _cpu()->thread;
 	proc_t *proc = thread->proc;
-	MUTEX_ACQUIRE(&proc->mutex, false);
+
+	bool intstatus = interrupt_set(false);
+	spinlock_acquire(&proc->threadlistlock);
+
 	proc->nomorethreads = true;
+	thread_t *threadlist = proc->threadlist;
 
-	for (int i = 0; i < proc->threadtablesize; ++i) {
-		if (proc->threads[i] == NULL || proc->threads[i] == thread)
+	spinlock_release(&proc->threadlistlock);
+	interrupt_set(intstatus);
+
+	while (threadlist) {
+		if (threadlist == thread) {
+			threadlist = threadlist->procnext;
 			continue;
+		}
 
-		proc->threads[i]->shouldexit = true;
-		sched_wakeup(proc->threads[i], SCHED_WAKEUP_REASON_INTERRUPTED);
-		proc->threads[i] = NULL;
+		threadlist->shouldexit = true;
+		sched_wakeup(threadlist, SCHED_WAKEUP_REASON_INTERRUPTED);
+		threadlist = threadlist->procnext;
 	}
 
-	MUTEX_RELEASE(&proc->mutex);
-
-	while (__atomic_load_n(&proc->runningthreadcount, __ATOMIC_SEQ_CST) > 1) sched_yield();
+	while (__atomic_load_n(&proc->runningthreadcount, __ATOMIC_SEQ_CST) > 1) {
+		arch_e9_puts("sched_stopotherthreads\n");
+		sched_yield();
+	}
 
 	proc->nomorethreads = false;
 }
@@ -809,7 +802,8 @@ void sched_runinit() {
 	thread_t *uthread = sched_newthread(entry, PAGE_SIZE * 16, 1, proc, stack);
 	__assert(uthread);
 
-	proc->threads[0] = uthread;
+	proc->threadlist = uthread;
+	uthread->procnext = NULL;
 
 	uthread->vmmctx = vmmctx;
 	sched_queue(uthread);

@@ -34,6 +34,7 @@ typedef struct thread_t {
 	struct thread_t *prev;
 	struct thread_t *sleepnext;
 	struct thread_t *sleepprev;
+	struct thread_t *procnext;
 	struct proc_t *proc;
 	struct cpu_t *cpu;
 	struct cpu_t *cputarget;
@@ -70,8 +71,9 @@ typedef struct proc_t {
 	struct proc_t *child;
 	pid_t pid;
 	cred_t cred;
-	thread_t **threads;
-	size_t threadtablesize;
+	spinlock_t threadlistlock;
+	thread_t *threadlist;
+	bool nomorethreads;
 	size_t runningthreadcount;
 	size_t fdcount;
 	uintmax_t fdfirst;
@@ -84,7 +86,6 @@ typedef struct proc_t {
 	spinlock_t nodeslock;
 	semaphore_t waitsem;
 	spinlock_t exiting;
-	bool nomorethreads;
 
 	spinlock_t jobctllock;
 	struct {

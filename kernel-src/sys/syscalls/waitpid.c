@@ -102,16 +102,26 @@ syscallret_t syscall_waitpid(context_t *context, pid_t pid, int *status, int opt
 
 	MUTEX_RELEASE(&proc->mutex);
 
-	for (int i = 0; i < iterator->threadtablesize && zombie; ++i) {
-		if (iterator->threads[i] == NULL)
-			continue;
+	if (zombie) {
+		bool intstatus = interrupt_set(false);
+		spinlock_acquire(&iterator->threadlistlock);
 
-		volatile int *flags = (volatile int *)(&iterator->threads[i]->flags);
-		// wait until the thread can actually be unallocated
-		while ((*flags & SCHED_THREAD_FLAGS_DEAD) == 0)
-			sched_yield();
+		thread_t *threadlist = iterator->threadlist;
+		iterator->threadlist = NULL;
 
-		sched_destroythread(iterator->threads[i]);
+		spinlock_release(&iterator->threadlistlock);
+		interrupt_set(intstatus);
+
+		while (threadlist) {
+			thread_t *freethread = threadlist;
+			threadlist = threadlist->procnext;
+			volatile int *flags = (volatile int *)(&freethread->flags);
+			// wait until the thread can actually be unallocated
+			while ((*flags & SCHED_THREAD_FLAGS_DEAD) == 0)
+				sched_yield();
+
+			sched_destroythread(freethread);
+		}
 	}
 
 	ret.ret = iterator->pid;

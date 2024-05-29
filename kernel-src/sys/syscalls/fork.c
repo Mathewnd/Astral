@@ -46,7 +46,8 @@ syscallret_t syscall_fork(context_t *ctx) {
 	nproc->umask = _cpu()->thread->proc->umask;
 	nproc->root = sched_getroot();
 	nproc->cwd = sched_getcwd();
-	nproc->threads[0] = nthread;
+	nproc->threadlist = nthread;
+	nthread->procnext = NULL;
 
 	ARCH_CONTEXT_THREADSAVE(nthread, ctx);
 

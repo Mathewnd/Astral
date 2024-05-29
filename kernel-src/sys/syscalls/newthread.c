@@ -8,6 +8,7 @@ syscallret_t syscall_newthread(context_t *, void *entry, void *stack) {
 		.ret = -1
 	};
 
+	// TODO perhaps clean up threads here as well
 	// if the kernel was specified to have no user threading in the cmdline
 	if (cmdline_get("nomultithread")) {
 		ret.errno = ENOSYS;
@@ -16,53 +17,37 @@ syscallret_t syscall_newthread(context_t *, void *entry, void *stack) {
 
 	proc_t *proc = _cpu()->thread->proc;
 
-	MUTEX_ACQUIRE(&proc->mutex, false);
+	thread_t *thread = sched_newthread(entry, 16 * PAGE_SIZE, 1, _cpu()->thread->proc, stack);
+	if (thread == NULL) {
+		ret.errno = ENOMEM;
+		return ret;
+	}
 
-	// if we currently don't want any more threads to start
-	if (proc->nomorethreads == true) {
-		MUTEX_RELEASE(&proc->mutex);
+	thread->vmmctx = _cpu()->thread->vmmctx;
+
+	bool intstatus = interrupt_set(false);
+	spinlock_acquire(&proc->threadlistlock);
+
+	bool shouldntstart = proc->nomorethreads;
+	if (shouldntstart == false) {
+		thread->procnext = proc->threadlist;
+		proc->threadlist = thread;
+		__atomic_fetch_add(&proc->runningthreadcount, 1, __ATOMIC_SEQ_CST);
+	}
+
+	spinlock_release(&proc->threadlistlock);
+	interrupt_set(intstatus);
+
+	if (shouldntstart) {
+		sched_destroythread(thread);
 		ret.errno = EAGAIN;
 		return ret;
 	}
 
-	int i;
-	for (i = 0; i < proc->threadtablesize; ++i) {
-		thread_t *thread = proc->threads[i];
-		if (thread == NULL || (thread->flags & SCHED_THREAD_FLAGS_DEAD) == 0)
-			continue;
-
-		// reuse the slot in the threads table
-		sched_destroythread(thread);
-		break;
-	}
-
-	if (i == proc->threadtablesize) {
-		// resize it
-		void *tmp = realloc(proc->threads, (proc->threadtablesize + 1) * sizeof(thread_t *));
-		if (tmp == NULL) {
-			ret.errno = ENOMEM;
-			goto cleanup;
-		}
-
-		proc->threads = tmp;
-	}
-
-	proc->threads[i] = sched_newthread(entry, 16 * PAGE_SIZE, 1, _cpu()->thread->proc, stack);
-	if (proc->threads[i] == NULL) {
-		ret.errno = ENOMEM;
-		goto cleanup;
-	}
-
-	proc->threads[i]->vmmctx = _cpu()->thread->vmmctx;
-
 	ret.errno = 0;
-	ret.ret = proc->threads[i]->tid;
+	ret.ret = thread->tid;
 
-	__atomic_fetch_add(&proc->runningthreadcount, 1, __ATOMIC_SEQ_CST);
-
-	sched_queue(proc->threads[i]);
-
-	cleanup:
-	MUTEX_RELEASE(&proc->mutex);
+	if (shouldntstart == false)
+		sched_queue(thread);
 	return ret;
 }

@@ -161,7 +161,6 @@ void signal_signalthread(struct thread_t *thread, int signal, bool urgent) {
 
 void signal_signalproc(struct proc_t *proc, int signal) {
 	// first, check if any threads have the signal unmasked, and set as pending for the first one
-	MUTEX_ACQUIRE(&proc->mutex, false);
 	PROCESS_ENTER(proc);
 	void *address = proc->signals.actions[signal].address;
 	bool notignored = address != SIG_IGN && ((address == SIG_DFL && signal_defaultactions[signal] != ACTION_IGN) || address != SIG_DFL);
@@ -172,28 +171,31 @@ void signal_signalproc(struct proc_t *proc, int signal) {
 
 	// TODO is one thread has a stop signal masked, the masked wait breaks completely
 
-	for (int i = 0; i < proc->threadtablesize; ++i) {
-		if (proc->threads[i] == NULL || (proc->threads[i]->flags & SCHED_THREAD_FLAGS_DEAD))
+	thread_t *thread = proc->threadlist;
+	while (thread) {
+		if (thread->flags & SCHED_THREAD_FLAGS_DEAD) {
+			thread = thread->procnext;
 			continue;
+		}
 
-		THREAD_ENTER(proc->threads[i]);
+		THREAD_ENTER(thread);
 
-		if (SIGNAL_GET(&proc->threads[i]->signals.mask, signal) == 0 || notignorable) {
-			SIGNAL_SETON(&proc->threads[i]->signals.pending, signal);
+		if (SIGNAL_GET(&thread->signals.mask, signal) == 0 || notignorable) {
+			SIGNAL_SETON(&thread->signals.pending, signal);
 			if (notignored || notignorable) {
 				int reason = SCHED_WAKEUP_REASON_INTERRUPTED;
-				if (proc->threads[i]->signals.stopped && (signal == SIGCONT || signal == SIGKILL)) {
+				if (thread->signals.stopped && (signal == SIGCONT || signal == SIGKILL)) {
 					// thread is stopped and we have to wake it up
-					proc->threads[i]->signals.stopped = false;
+					thread->signals.stopped = false;
 					reason = 0; // wake it up from the non interruptible sleep
 					threadcontinued = true;
 				} else if (signal == SIGCONT) {
 					// thread is not stopped, ignore SIGCONT
-					SIGNAL_SETOFF(&proc->threads[i]->signals.pending, signal);
+					SIGNAL_SETOFF(&thread->signals.pending, signal);
 					goto threadleave;
 				}
 
-				sched_wakeup(proc->threads[i], reason);
+				sched_wakeup(thread, reason);
 				// TODO ipi if running isn't self
 			}
 
@@ -201,19 +203,23 @@ void signal_signalproc(struct proc_t *proc, int signal) {
 			// XXX possible race condition where a thread will change the process mask or the action of stopping signals
 			// after it was sent to everyone
 			if ((shouldstop || signal == SIGCONT) == false) {
-				THREAD_LEAVE(proc->threads[i]);
+				THREAD_LEAVE(thread);
 				PROCESS_LEAVE(proc);
-				MUTEX_RELEASE(&proc->mutex);
+				spinlock_release(&proc->threadlistlock);
 				return;
 			}
 		}
 
 		threadleave:
-		THREAD_LEAVE(proc->threads[i]);
+		THREAD_LEAVE(thread);
+		thread = thread->procnext;
 	}
+
+	spinlock_release(&proc->threadlistlock);
 
 	// tell the parent that a child stopped
 	// TODO when stopping make sure that a thread was actually stopped
+	// TODO protect parent with a spinlock
 	if ((notignorable || notignored) && signal_defaultactions[signal] == ACTION_STOP) {
 		proc->status = 0x7f;
 		proc->status |= signal << 8;
@@ -229,13 +235,13 @@ void signal_signalproc(struct proc_t *proc, int signal) {
 	if (threadcontinued) {
 		proc->status = 0xffff;
 		proc->signals.continueunwaited = true;
+
 		if (proc->parent && (proc->parent->signals.actions[SIGCHLD].flags & SA_NOCLDSTOP) == 0) {
 			signal_signalproc(proc->parent, SIGCHLD);
 		}
+
 		semaphore_signal(&proc->parent->waitsem);
 	}
-
-	MUTEX_RELEASE(&proc->mutex);
 
 	// if its ignorable and there wasn't any thread with it unmasked, set it as pending for the whole process
 	// not ignorable signals will be sent to all threads individually
