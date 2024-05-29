@@ -3,7 +3,6 @@
 #include <kernel/scheduler.h>
 #include <kernel/timekeeper.h>
 #include <logging.h>
-#include <event.h>
 #include <kernel/slab.h>
 #include <kernel/eth.h>
 #include <ringbuffer.h>
@@ -26,7 +25,6 @@ typedef struct {
 static scache_t *entryallocator;
 
 static thread_t *handlerthread;
-static event_t handlerthreadwakeup;
 
 static thread_t *cleanupthread;
 
@@ -276,8 +274,6 @@ void arp_init() {
 	__assert(handlerthread);
 	cleanupthread = sched_newthread(cleanupthreadfn, PAGE_SIZE * 4, 0, NULL, NULL);
 	__assert(cleanupthread);
-
-	EVENT_INIT(&handlerthreadwakeup);
 
 	MUTEX_INIT(&cachelock);
 

@@ -3,7 +3,6 @@
 #include <kernel/pmm.h>
 #include <kernel/eth.h>
 #include <kernel/net.h>
-#include <event.h>
 #include <hashtable.h>
 #include <arch/cpu.h>
 

@@ -50,7 +50,6 @@
 	(sub)->namespace = nsid;
 
 #define PAIR_INIT(pair, opcode, fused, memaccess, nsid) \
-	EVENT_INIT(&(pair)->event); \
 	SUB_INIT(&(pair)->sub, opcode, fused, memaccess, nsid);
 
 #define SUB_DW0_OPCODE_WRITE 0x1
@@ -222,7 +221,7 @@ typedef struct {
 typedef struct {
 	compentry_t comp;
 	subentry_t sub;
-	event_t event;
+	thread_t *thread;
 } entrypair_t;
 
 typedef struct {
@@ -277,7 +276,7 @@ static void nvme_dpc(context_t *, dpcarg_t arg) {
 		int subid = COMP_CMDINFO_CMDID(queue[pair->completion.index].cmdinfo);
 		pair->entries[subid]->comp = queue[pair->completion.index];
 
-		event_signal(&pair->entries[subid]->event);
+		sched_wakeup(pair->entries[subid]->thread, SCHED_WAKEUP_REASON_NORMAL);
 
 		pair->entries[subid] = NULL;
 		semaphore_signal(&pair->entrysem);
@@ -311,7 +310,7 @@ static isr_t *msixnewisrforqueue(queuepair_t *queuepair) {
 	return isr;
 }
 
-static void enqueue(queuepair_t *queuepair, entrypair_t *entries) {
+static void enqueueandwait(queuepair_t *queuepair, entrypair_t *entries) {
 	bool intstatus = interrupt_set(false);
 	semaphore_wait(&queuepair->entrysem, false);
 
@@ -328,16 +327,10 @@ static void enqueue(queuepair_t *queuepair, entrypair_t *entries) {
 	queuepair->submission.index %= queuepair->submission.entrycount;
 
 	*queuepair->submission.doorbell = queuepair->submission.index;
+	sched_preparesleep(false);
+	entries->thread = _cpu()->thread;
 	spinlock_release(&queuepair->lock);
-	interrupt_set(intstatus);
-}
-
-static void enqueueandwait(queuepair_t *queuepair, entrypair_t *entries) {
-	bool intstatus = interrupt_set(false);
-
-	enqueue(queuepair, entries);
-	event_wait(&entries->event, false);
-
+	sched_yield();
 	interrupt_set(intstatus);
 }
 

@@ -6,7 +6,6 @@
 
 #include <hashtable.h>
 #include <mutex.h>
-#include <event.h>
 #include <string.h>
 #include <arch/cpu.h>
 #include <kernel/abi.h>

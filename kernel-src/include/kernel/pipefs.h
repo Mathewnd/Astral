@@ -4,7 +4,6 @@
 #include <kernel/vfs.h>
 #include <ringbuffer.h>
 #include <semaphore.h>
-#include <event.h>
 #include <kernel/poll.h>
 
 typedef struct pipenode_t {

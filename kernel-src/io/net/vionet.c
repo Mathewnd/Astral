@@ -3,7 +3,6 @@
 #include <kernel/pmm.h>
 #include <kernel/eth.h>
 #include <kernel/net.h>
-#include <event.h>
 #include <hashtable.h>
 #include <arch/cpu.h>
 
@@ -18,7 +17,7 @@ typedef struct {
 	viodevice_t *viodevice;
 	vioqueue_t rxqueue;
 	vioqueue_t txqueue;
-	event_t *txwait[QUEUE_MAX_SIZE];
+	thread_t *txwait[QUEUE_MAX_SIZE];
 	semaphore_t txsem;
 	spinlock_t txlock;
 	dpc_t txdpc;
@@ -69,7 +68,7 @@ static void tx_dpc(context_t *context, dpcarg_t arg) {
 		int idx = netdev->txqueue.lastusedindex++ % netdev->txqueue.size;
 		int buffidx = VIO_QUEUE_DEV_RING(&netdev->txqueue)[idx].index;
 		__assert(netdev->txwait[buffidx / 2]);
-		event_signal(netdev->txwait[buffidx / 2]);
+		sched_wakeup(netdev->txwait[buffidx / 2], SCHED_WAKEUP_REASON_NORMAL);
 		netdev->txwait[buffidx / 2] = NULL;
 		buffers[buffidx].address = 0;
 		semaphore_signal(&netdev->txsem);
@@ -121,9 +120,6 @@ static int vionet_sendpacket(netdev_t *internal, netdesc_t desc, mac_t targetmac
 	memcpy(desc.address, &vioframe, sizeof(vioframe_t));
 	memcpy((void *)((uintptr_t)desc.address + sizeof(vioframe_t)), &ethframe, sizeof(ethframe_t));
 
-	event_t event;
-	EVENT_INIT(&event);
-
 	bool intstatus = interrupt_set(false);
 	semaphore_wait(&netdev->txsem, false);
 
@@ -142,13 +138,13 @@ static int vionet_sendpacket(netdev_t *internal, netdesc_t desc, mac_t targetmac
 	size_t driveridx = VIO_QUEUE_DRV_IDX(&netdev->txqueue)++;
 	VIO_QUEUE_DRV_RING(&netdev->txqueue)[driveridx % netdev->txqueue.size] = idx;
 
-	netdev->txwait[idx] = &event;
-
+	sched_preparesleep(false);
+	netdev->txwait[idx] = _cpu()->thread;
 	*netdev->txqueue.notify = 0;
 
 	spinlock_release(&netdev->txlock);
 
-	event_wait(&event, false);
+	sched_yield();
 
 	interrupt_set(intstatus);
 	return 0;

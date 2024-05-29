@@ -6,7 +6,6 @@
 #include <semaphore.h>
 #include <kernel/block.h>
 #include <kernel/pmm.h>
-#include <event.h>
 #include <string.h>
 
 #define QUEUE_MAX_SIZE 128
