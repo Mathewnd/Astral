@@ -1,6 +1,9 @@
 #!/usr/bin/bash
 mkdir -p /dev
 mount /dev devfs
+mkdir -p /dev/shm
+mount /dev/shm tmpfs
 
 mkdir -p /tmp
 mount /tmp tmpfs
+
