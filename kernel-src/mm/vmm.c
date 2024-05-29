@@ -363,8 +363,9 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 				page_t *res = NULL;
 				int error = vmmcache_getpage(range->vnode, range->offset + mapoffset, &res);
 				if (error == ENXIO) {
-					// TODO if error returned == ENXIO, raise an urgent SIGBUS on the calling thread
-					__assert(!"TODO: sigbus");
+					// address is past the last page of the file
+					signal_signalthread(_cpu()->thread, SIGBUS, true);
+					status = true;
 				} else if (error) {
 					printf("vmm: error on vmmcache_getpage(): %d\n", error);
 					status = false;

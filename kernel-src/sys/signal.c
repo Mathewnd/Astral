@@ -325,6 +325,7 @@ bool signal_check(struct thread_t *thread, context_t *context, bool syscall, uin
 					goto leave;
 				}
 				// if not, just sleep. the sigcont won't be sent until THREAD_LEAVE and preparesleep is protecting it from a lost wakeup
+				context_t savecontext = *context; // save context as it could be overwritten if, for example, its the thread->context one
 				sched_preparesleep(false);
 				thread->signals.stopped = true;
 				THREAD_LEAVE(thread);
@@ -334,6 +335,7 @@ bool signal_check(struct thread_t *thread, context_t *context, bool syscall, uin
 				// make sure a SIGCONT happened
 				__assert(SIGNAL_GET(&thread->signals.pending, SIGCONT));
 				__assert(thread->signals.stopped == false);
+				*context = savecontext; // restore saved context
 				// the stopped variable is already set by the signaling function
 				// see if theres any other signal to deal with (such as the SIGCONT handler)
 				return true;
@@ -352,7 +354,7 @@ bool signal_check(struct thread_t *thread, context_t *context, bool syscall, uin
 		// get where in memory to put the frame
 		void *stack = altstack ? altstack : (void *)CTX_SP(context);
 		#if ARCH_SIGNAL_STACK_GROWS_DOWNWARDS == 1
-		stack = (void *)(((uintptr_t)stack - ARCH_SIGNAL_REDZONE_SIZE - sizeof(sigframe_t)) & ~0xf);
+		stack = (void *)(((uintptr_t)stack - ARCH_SIGNAL_REDZONE_SIZE - sizeof(sigframe_t)) & ~0xfl);
 		#else
 			#error unsupported
 		#endif

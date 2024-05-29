@@ -278,8 +278,15 @@ static void pfisr(isr_t *self, context_t *ctx) {
 		if (ARCH_CONTEXT_ISUSER(ctx))
 			signal_signalthread(_cpu()->thread, SIGSEGV, true);
 		else
-			_panic("Page fault", ctx);
+			_panic("Page Fault", ctx);
 	}
+}
+
+static void gpfisr(isr_t *self, context_t *ctx) {
+	if (ARCH_CONTEXT_ISUSER(ctx))
+		signal_signalthread(_cpu()->thread, SIGSEGV, true);
+	else
+		_panic("General Protection Fault", ctx);
 }
 
 void arch_mmu_init() {
@@ -326,6 +333,7 @@ void arch_mmu_init() {
 
 void arch_mmu_apswitch() {
 	arch_mmu_switch(FROM_HHDM(template));
+	interrupt_register(13, gpfisr, NULL, IPL_IGNORE);
 	interrupt_register(14, pfisr, NULL, IPL_IGNORE);
 	interrupt_register(0xfe, arch_mmu_tlbipi, ARCH_EOI, IPL_IGNORE);
 }
