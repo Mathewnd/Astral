@@ -1,0 +1,9 @@
+name=file
+version=45
+source_method=tarball
+tarball_url="https://github.com/file/file/archive/refs/tags/FILE5_${version}.tar.gz"
+tarball_sha512="fdd4c5d13d5ea1d25686c76d8ebc3252c54040c4871e3f0f623c4548b3841795d4e36050292a9453eedf0fbf932573890e9d6ac9fa63ccf577215598ae84b9ea"
+hostdeps="autoconf automake pkgconfig libtool"
+regenerate() {
+        autoreconf -fvi
+}
