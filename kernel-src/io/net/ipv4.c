@@ -87,7 +87,7 @@ static int checksum(void *buffer, size_t size) {
 	uint16_t *p = buffer;
 	int sum = 0;
 	int i;
-	for (int i = 0; i < (size & ~(1lu)); i += 2) {
+	for (i = 0; i < (size & ~(1lu)); i += 2) {
 		sum += be_to_cpu_w(p[i >> 1]);
 	}
 
