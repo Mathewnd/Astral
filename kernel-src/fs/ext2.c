@@ -1557,10 +1557,13 @@ static int ext2_unlink(vnode_t *vnode, char *name, cred_t *cred) {
 static int ext2_getpage(vnode_t *node, uintmax_t offset, struct page_t *page) {
 	// only regular files get cached
 	__assert(node->type == V_TYPE_REGULAR);
-	size_t readc;
-	int error = VOP_READ(node, MAKE_HHDM(pmm_getpageaddress(page)), PAGE_SIZE, offset, 0, &readc, NULL);
+	size_t readc = PAGE_SIZE;
+	void *addr = MAKE_HHDM(pmm_getpageaddress(page));
+	int error = VOP_READ(node, addr, PAGE_SIZE, offset, 0, &readc, NULL);
 	if (readc == 0)
 		return ENXIO;
+	else if (readc != PAGE_SIZE)
+		memset((void *)((uintptr_t)addr + readc), 0, PAGE_SIZE - readc);
 
 	return error;
 }
