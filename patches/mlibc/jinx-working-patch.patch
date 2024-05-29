@@ -192,10 +192,10 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..0755fba
+index 0000000..b150712
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -0,0 +1,714 @@
+@@ -0,0 +1,724 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -279,9 +279,14 @@ index 0000000..0755fba
 +		return 0;
 +	}
 +
++	int sys_getitimer(int which, struct itimerval *curr_value) {
++		long ret;
++		return syscall(SYSCALL_SETITIMER, &ret, which, (uint64_t)curr_value);
++	}
++
 +	int sys_setitimer(int which, const struct itimerval *new_value, struct itimerval *old_value) {
-+		// TODO unstub
-+		return ENOSYS;
++		long ret;
++		return syscall(SYSCALL_SETITIMER, &ret, which, (uint64_t)new_value, (uint64_t)old_value);
 +	}
 +
 +	#ifndef MLIBC_BUILDING_RTLD
@@ -728,6 +733,11 @@ index 0000000..0755fba
 +		return syscall(SYSCALL_CHDIR, &ret, (uint64_t)path);
 +	}
 +
++	int sys_fchdir(int fd) {
++		long ret;
++		return syscall(SYSCALL_FCHDIR, &ret, fd);
++	}
++
 +	int sys_fcntl(int fd, int request, va_list args, int *result) {
 +		long arg = va_arg(args, uint64_t);
 +		long ret;
@@ -929,10 +939,10 @@ index 0000000..990eca0
 +#endif
 diff --git mlibc-workdir/sysdeps/astral/include/astral/syscall.h mlibc-workdir/sysdeps/astral/include/astral/syscall.h
 new file mode 100644
-index 0000000..5148ce4
+index 0000000..956a10b
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/include/astral/syscall.h
-@@ -0,0 +1,90 @@
+@@ -0,0 +1,93 @@
 +#ifndef _SYSCALL_H_INCLUDE
 +#define _SYSCALL_H_INCLUDE
 +
@@ -1003,6 +1013,9 @@ index 0000000..5148ce4
 +#define SYSCALL_HOSTNAME 64
 +#define SYSCALL_SYNC 65
 +#define SYSCALL_FSYNC 66
++#define SYSCALL_FCHDIR 67
++#define SYSCALL_SETITIMER 68
++#define SYSCALL_GETITIMER 69
 +
 +#include <stddef.h>
 +#include <stdint.h>

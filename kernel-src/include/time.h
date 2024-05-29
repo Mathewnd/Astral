@@ -4,11 +4,17 @@
 #include <util.h>
 
 typedef long time_t;
+typedef long suseconds_t;
 
 typedef struct {
 	time_t s;
 	time_t ns;
 } timespec_t;
+
+typedef struct {
+	time_t s;
+	suseconds_t us;
+} timeval_t;
 
 static inline timespec_t timespec_add(timespec_t a, timespec_t b) {
 	timespec_t ts;

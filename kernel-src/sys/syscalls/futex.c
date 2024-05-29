@@ -124,7 +124,9 @@ syscallret_t syscall_futex(context_t *, uint32_t *futexp, int op, uint32_t value
 				MUTEX_RELEASE(&futexmutex);
 
 				ret.errno = poll_dowait(&desc, us);
-				int revents = desc.event->revents;
+				int revents = 0;
+				if (desc.event)
+					revents = desc.event->revents;
 
 				MUTEX_ACQUIRE(&futexmutex, false);
 

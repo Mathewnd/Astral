@@ -49,6 +49,27 @@ proc_t *sched_getprocfrompid(int pid) {
 	return proc;
 }
 
+static void rtdpc(context_t *, dpcarg_t arg) {
+	proc_t *proc = arg;
+	// XXX this can sleep and if it does the entire system burns down sooooooo yeah fix this for the love of god
+	__assert(proc->threadtablesize == 1);
+	signal_signalproc(arg, SIGALRM);
+}
+
+static void vtdpc(context_t *, dpcarg_t arg) {
+	proc_t *proc = arg;
+	// XXX this can sleep and if it does the entire system burns down sooooooo yeah fix this for the love of god
+	__assert(proc->threadtablesize == 1);
+	signal_signalproc(arg, SIGVTALRM);
+}
+
+static void profdpc(context_t *, dpcarg_t arg) {
+	proc_t *proc = arg;
+	// XXX this can sleep and if it does the entire system burns down sooooooo yeah fix this for the love of god
+	__assert(proc->threadtablesize == 1);
+	signal_signalproc(arg, SIGPROF);
+}
+
 proc_t *sched_newproc() {
 	proc_t *proc = slab_allocate(processcache);
 	if (proc == NULL)
@@ -76,6 +97,10 @@ proc_t *sched_newproc() {
 	SPINLOCK_INIT(proc->jobctllock);
 	SPINLOCK_INIT(proc->pgrp.lock);
 	SPINLOCK_INIT(proc->signals.lock);
+	MUTEX_INIT(&proc->timer.mutex);
+	itimer_init(&proc->timer.realtime, rtdpc, proc);
+	itimer_init(&proc->timer.virtualtime, vtdpc, proc);
+	itimer_init(&proc->timer.profiling, profdpc, proc);
 
 	proc->fd = alloc(sizeof(fd_t) * 3);
 	if (proc->fd == NULL) {
@@ -126,7 +151,6 @@ thread_t *sched_newthread(void *ip, size_t kstacksize, int priority, proc_t *pro
 		PROC_HOLD(proc);
 		thread->tid = __atomic_fetch_add(&currpid, 1, __ATOMIC_SEQ_CST);
 	}
-
 
 	CTX_INIT(&thread->context, proc != NULL, true);
 	CTX_XINIT(&thread->extracontext, proc != NULL);
@@ -291,6 +315,11 @@ void sched_procexit() {
 	for (int fd = 0; fd < proc->fdcount; ++fd)
 		fd_close(fd);
 
+	// turn off interval timers
+	itimer_pause(&proc->timer.realtime, NULL, NULL);
+	itimer_pause(&proc->timer.virtualtime, NULL, NULL);
+	itimer_pause(&proc->timer.profiling, NULL, NULL);
+
 	// zombify the proc
 	MUTEX_ACQUIRE(&proc->mutex, false);
 
@@ -392,7 +421,6 @@ typedef struct {
 // SHOULD NOT BE CALLED WITH THE SCHEDULER STACK
 static void userspacecheck(void *_args) {
 	checkargs_t *args = _args;
-	__assert(_cpu() >= (cpu_t *)0xffffffff80000000);
 	thread_t *thread = _cpu()->thread;
 
 	if (thread->shouldexit) {

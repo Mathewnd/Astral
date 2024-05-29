@@ -42,3 +42,27 @@ syscallret_t syscall_chdir(context_t *, const char *upath) {
 
 	return ret;
 }
+
+syscallret_t syscall_fchdir(context_t *, int fd) {
+	syscallret_t ret = {
+		.ret = -1
+	};
+
+	file_t *file = fd_get(fd);
+	if (file == NULL) {
+		ret.errno = EBADF;
+		return ret;
+	}
+
+	if (file->vnode->type != V_TYPE_DIR) {
+		ret.errno = ENOTDIR;
+		goto cleanup;
+	}
+
+	sched_setcwd(file->vnode);
+	ret.errno = 0;
+
+	cleanup:
+	fd_release(file);
+	return ret;
+}

@@ -8,6 +8,7 @@
 #include <semaphore.h>
 #include <mutex.h>
 #include <kernel/signal.h>
+#include <kernel/itimer.h>
 
 #define SCHED_THREAD_FLAGS_QUEUED 1
 #define SCHED_THREAD_FLAGS_RUNNING 2
@@ -112,6 +113,13 @@ typedef struct proc_t {
 		bool stopunwaited;
 		bool continueunwaited;
 	} signals;
+
+	struct {
+		mutex_t mutex;
+		itimer_t realtime;
+		itimer_t virtualtime;
+		itimer_t profiling;
+	} timer;
 } proc_t;
 
 #include <arch/cpu.h>
