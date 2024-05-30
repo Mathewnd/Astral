@@ -245,7 +245,7 @@ static int tmpfs_link(vnode_t *node, vnode_t *dir, char *name, cred_t *cred) {
 	if (dir->type != V_TYPE_DIR)
 		return ENOTDIR;
 
-	if (node->tyé == V_TYPE_DIR)
+	if (node->vfs == V_TYPE_DIR)
 		return EISDIR;
 
 	tmpfsnode_t *tmpdir = (tmpfsnode_t *)dir;

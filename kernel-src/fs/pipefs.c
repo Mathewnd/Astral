@@ -55,6 +55,7 @@ int pipefs_close(vnode_t *node, int flags, cred_t *cred) {
 	return 0;
 }
 
+// TODO for pipefs_read and pipefs_write, the return actually depends on how much data is in the pipe
 static int internalpoll(vnode_t *node, polldata_t *data, int events) {
 	pipenode_t *pipenode = (pipenode_t *)node;
 	int revents = 0;

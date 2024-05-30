@@ -1150,6 +1150,9 @@ static int ext2_getdents(vnode_t *vnode, dent_t *buffer, size_t count, uintmax_t
 	ext2node_t *node = (ext2node_t *)vnode;
 	ext2fs_t *fs = (ext2fs_t *)node->vnode.vfs;
 
+	if (vnode->type != V_TYPE_DIR)
+		return ENOTDIR;
+
 	VOP_LOCK(vnode);
 
 	int err = 0;
@@ -1231,6 +1234,12 @@ static int ext2_readlink(vnode_t *vnode, char **link, cred_t *cred) {
 }
 
 static int ext2_read(vnode_t *vnode, void *buffer, size_t size, uintmax_t offset, int flags, size_t *readc, cred_t *cred) {
+	if (vnode->type == V_TYPE_DIR)
+		return EISDIR;
+
+	if (vnode->type != V_TYPE_REGULAR)
+		return EINVAL;
+
 	ext2node_t *node = (ext2node_t *)vnode;
 	ext2fs_t *fs = (ext2fs_t *)vnode->vfs;
 	uintmax_t endoffset = offset + size;
@@ -1266,6 +1275,12 @@ static int ext2_read(vnode_t *vnode, void *buffer, size_t size, uintmax_t offset
 }
 
 int ext2_write(vnode_t *vnode, void *buffer, size_t size, uintmax_t offset, int flags, size_t *writec, cred_t *cred) {
+	if (vnode->type == V_TYPE_DIR)
+		return EISDIR;
+
+	if (vnode->type != V_TYPE_REGULAR)
+		return EINVAL;
+
 	ext2node_t *node = (ext2node_t *)vnode;
 	ext2fs_t *fs = (ext2fs_t *)vnode->vfs;
 	uintmax_t endoffset = offset + size;
@@ -1300,6 +1315,12 @@ int ext2_write(vnode_t *vnode, void *buffer, size_t size, uintmax_t offset, int 
 }
 
 int ext2_resize(vnode_t *vnode, size_t newsize, cred_t *cred) {
+	if (vnode->type == V_TYPE_DIR)
+		return EISDIR;
+
+	if (vnode->type != V_TYPE_REGULAR)
+		return EINVAL;
+
 	__assert(vnode->type == V_TYPE_REGULAR);
 	ext2node_t *node = (ext2node_t *)vnode;
 	ext2fs_t *fs = (ext2fs_t *)vnode->vfs;
