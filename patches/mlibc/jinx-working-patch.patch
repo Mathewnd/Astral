@@ -75,6 +75,20 @@ index 3474615..e034881 100644
  }
  
  char **backtrace_symbols(void *const *, int) {
+diff --git mlibc-clean/options/internal/generic/threads.cpp mlibc-workdir/options/internal/generic/threads.cpp
+index 3c1e70e..1ef07a4 100644
+--- mlibc-clean/options/internal/generic/threads.cpp
++++ mlibc-workdir/options/internal/generic/threads.cpp
+@@ -157,7 +157,8 @@ int thread_mutex_lock(struct __mlibc_mutex *mutex) {
+ 
+ 				// If the wait returns EAGAIN, that means that the mutex_waiters_bit was just unset by
+ 				// some other thread. In this case, we should loop back around.
+-				if (e && e != EAGAIN)
++				// Also do so in case of a signal being caught.
++				if (e && e != EAGAIN && e != EINTR)
+ 					mlibc::panicLogger() << "sys_futex_wait() failed with error code " << e << frg::endlog;
+ 
+ 				// Opportunistically try to take the lock after we wake up.
 diff --git mlibc-clean/options/internal/include/mlibc/lock.hpp mlibc-workdir/options/internal/include/mlibc/lock.hpp
 index aa05079..8bff987 100644
 --- mlibc-clean/options/internal/include/mlibc/lock.hpp
