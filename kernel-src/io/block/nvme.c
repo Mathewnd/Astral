@@ -7,7 +7,6 @@
 #include <kernel/interrupt.h>
 #include <kernel/dpc.h>
 #include <hashtable.h>
-#include <event.h>
 #include <arch/cpu.h>
 #include <errno.h>
 #include <kernel/block.h>
