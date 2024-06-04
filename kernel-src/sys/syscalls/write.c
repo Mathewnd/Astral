@@ -21,6 +21,12 @@ syscallret_t syscall_write(context_t *context, int fd, void *buffer, size_t size
 		goto cleanup;
 	}
 
+	if (size == 0) {
+		ret.ret = 0;
+		ret.errno = 0;
+		goto cleanup;
+	}
+
 	// TODO safe memcpy
 	memcpy(kernelbuff, buffer, size);
 

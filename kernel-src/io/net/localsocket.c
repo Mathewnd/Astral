@@ -211,6 +211,9 @@ static int localsock_send(socket_t *socket, sockaddr_t *addr, void *buffer, size
 
 	localsocket_t *peer = pair->client == localsocket ? pair->server : pair->client;
 	if (peer == NULL) {
+		if (_cpu()->thread->proc)
+			signal_signalproc(_cpu()->thread->proc, SIGPIPE);
+
 		error = EPIPE;
 		goto leave;
 	}
@@ -277,12 +280,15 @@ static int localsock_recv(socket_t *socket, sockaddr_t *addr, void *buffer, size
 			goto leave;
 	}
 
-	*recvcount = ringbuffer_read(&localsocket->ringbuffer, buffer, count);
-	localsocket_t *peer = pair->client == localsocket ? pair->server : pair->client;
-
-	// signal that there is space to write for any threads blocked on this socket
-	if (peer && *recvcount)
-		poll_event(&peer->socket.pollheader, POLLOUT);
+	if (flags & SOCKET_RECV_FLAGS_PEEK) {
+		*recvcount = ringbuffer_peek(&localsocket->ringbuffer, buffer, 0, count);
+	} else {
+		*recvcount = ringbuffer_read(&localsocket->ringbuffer, buffer, count);
+		localsocket_t *peer = pair->client == localsocket ? pair->server : pair->client;
+		// signal that there is space to write for any threads blocked on this socket
+		if (peer && *recvcount)
+			poll_event(&peer->socket.pollheader, POLLOUT);
+	}
 
 	leave:
 	if (pair)

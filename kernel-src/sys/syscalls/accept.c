@@ -3,7 +3,7 @@
 #include <kernel/sock.h>
 #include <errno.h>
 
-syscallret_t syscall_accept(context_t *, int oldfd, abisockaddr_t *abisockaddr, size_t *addrlen, int acceptflags) {
+syscallret_t syscall_accept(context_t *, int oldfd, abisockaddr_t *abisockaddr, int *addrlen, int acceptflags) {
 	syscallret_t ret = {
 		.ret = -1
 	};

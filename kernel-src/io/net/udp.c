@@ -120,7 +120,7 @@ void udp_process(netdev_t *netdev, void *buffer, uint32_t peer) {
 	if (freespace >= needed) {
 		__assert(ringbuffer_write(&socket->ringbuffer, &header, sizeof(header)) == sizeof(header));
 		__assert(ringbuffer_write(&socket->ringbuffer, writebuffer, header.length) == header.length);
-		poll_event(&socket->socket.pollheader, POLLOUT);
+		poll_event(&socket->socket.pollheader, POLLIN);
 	}
 	spinlock_release(&socket->ringbufferlock);
 	__atomic_sub_fetch(&socket->packetsprocessing, 1, __ATOMIC_SEQ_CST);
@@ -250,16 +250,23 @@ static int udp_recv(socket_t *socket, sockaddr_t *addr, void *buffer, size_t cou
 	bool intstate = interrupt_set(false);
 	spinlock_acquire(&udpsocket->ringbufferlock);
 
+	size_t copycount;
 	dataheader_t header;
-	__assert(ringbuffer_read(&udpsocket->ringbuffer, &header, sizeof(header)) == sizeof(header));
+	if (flags & SOCKET_RECV_FLAGS_PEEK) {
+		__assert(ringbuffer_peek(&udpsocket->ringbuffer, &header, 0, sizeof(header)) == sizeof(header));
+		copycount = min(header.length, count);
 
-	size_t copycount = min(header.length, count);
-	__assert(ringbuffer_read(&udpsocket->ringbuffer, buffer, copycount) == copycount);
+		__assert(ringbuffer_peek(&udpsocket->ringbuffer, &buffer, sizeof(header), copycount) == copycount);
+	} else {
+		__assert(ringbuffer_read(&udpsocket->ringbuffer, &header, sizeof(header)) == sizeof(header));
 
-	// truncate the rest if the buffer wasn't big enough to handle everything
-	if (header.length > count)
-		ringbuffer_truncate(&udpsocket->ringbuffer, header.length - copycount);
+		copycount = min(header.length, count);
+		__assert(ringbuffer_read(&udpsocket->ringbuffer, buffer, copycount) == copycount);
 
+		// truncate the rest if the buffer wasn't big enough to handle everything
+		if (header.length > count)
+			ringbuffer_truncate(&udpsocket->ringbuffer, header.length - copycount);
+	}
 	spinlock_release(&udpsocket->ringbufferlock);
 	interrupt_set(intstate);
 

@@ -28,6 +28,7 @@ typedef struct {
 	};
 } sockaddr_t;
 
+#define SOCKET_RECV_FLAGS_PEEK 0x8000000000000000l
 typedef struct socketops_t {
 	int (*bind)(socket_t *socket, sockaddr_t *addr);
 	int (*send)(socket_t *socket, sockaddr_t *addr, void *buffer, size_t count, uintmax_t flags, size_t *sendcount);

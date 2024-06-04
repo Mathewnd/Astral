@@ -88,6 +88,8 @@ typedef struct {
 #define SOCK_DGRAM 2
 #define SOCK_RAW 3
 
+#define MSG_PEEK 2
+
 #define SO_BROADCAST 6
 #define SO_BINDTODEVICE 25
 

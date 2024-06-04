@@ -12,10 +12,10 @@ syscallret_t syscall_socket(context_t *, int domain, int type, int protocol) {
 
 	switch (domain) {
 		case AF_INET:
-			if (type != SOCK_DGRAM)
-				break;
-
-			socktype = SOCKET_TYPE_UDP;
+			if (type == SOCK_STREAM)
+				socktype = SOCKET_TYPE_TCP;
+			if (type == SOCK_DGRAM)
+				socktype = SOCKET_TYPE_UDP;
 			break;
 		case AF_LOCAL:
 			socktype = SOCKET_TYPE_LOCAL;
