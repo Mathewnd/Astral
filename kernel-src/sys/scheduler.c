@@ -544,6 +544,7 @@ static void yield(context_t *context, void *) {
 }
 
 int sched_yield() {
+	__assert(_cpu()->ipl == IPL_NORMAL);
 	bool sleeping = _cpu()->thread->flags & SCHED_THREAD_FLAGS_SLEEP;
 	bool old = sleeping ? _cpu()->thread->sleepintstatus : interrupt_set(false);
 	arch_context_saveandcall(yield, _cpu()->schedulerstack, NULL);

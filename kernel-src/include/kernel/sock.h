@@ -49,6 +49,7 @@ typedef struct {
 
 #define SOCKET_TYPE_UDP 0
 #define SOCKET_TYPE_LOCAL 1
+#define SOCKET_TYPE_TCP 2
 #define SOCKFS_SOCKET_FROM_NODE(nodep) (((socketnode_t *)(nodep))->socket)
 
 static inline int sock_convertaddress(sockaddr_t *sockaddr, abisockaddr_t *abisockaddr) {
@@ -72,6 +73,7 @@ static inline int sock_convertaddress(sockaddr_t *sockaddr, abisockaddr_t *abiso
 static inline int sock_addrtoabiaddr(int socktype, sockaddr_t *sockaddr, abisockaddr_t *abisockaddr) {
 	switch (socktype) {
 		case SOCKET_TYPE_UDP:
+		case SOCKET_TYPE_TCP:
 			inaddr_t *inaddr = (inaddr_t *)abisockaddr;
 			inaddr->sin_addr = cpu_to_be_d(sockaddr->ipv4addr.addr);
 			inaddr->sin_port = cpu_to_be_w(sockaddr->ipv4addr.port);
@@ -117,6 +119,7 @@ static inline void sock_freemsghdr(msghdr_t *hdr) {
 void localsock_leavebinding(vnode_t *vnode);
 socket_t *localsock_createsocket();
 socket_t *udp_createsocket();
+socket_t *tcp_createsocket();
 socket_t *socket_create(int type);
 int sockfs_newsocket(vnode_t **vnodep, socket_t *socket);
 void sockfs_init();

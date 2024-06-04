@@ -127,6 +127,7 @@ void ipv4_process(netdev_t *netdev, void *buff) {
 	ipv4frame_t *frame = buff;
 
 	if (checksum(frame, sizeof(ipv4frame_t)) != 0) {
+		printf("ipv4: bad checksum\n");
 		return;
 	}
 
@@ -135,7 +136,7 @@ void ipv4_process(netdev_t *netdev, void *buff) {
 
 	uint16_t flagsfrag = be_to_cpu_w(frame->flags_fragoffset);
 	if ((GET_FLAGS(flagsfrag) & FLAG_MF) || (GET_FRAGOFFSET(flagsfrag) > 0)) {
-		printf("ipv4: reassembly not yet supported\n");
+		printf("ipv4: reassembly not yet supported!\n");
 		return;
 	}
 
@@ -151,9 +152,26 @@ void ipv4_process(netdev_t *netdev, void *buff) {
 		case IPV4_PROTO_UDP:
 			udp_process(netdev, nextbuff, srcip);
 			break;
+		case IPV4_PROTO_TCP:
+			tcp_process(netdev, nextbuff, frame);
+			break;
 	}
+}
 
-	return;
+size_t ipv4_getmtu(uint32_t ip) {
+	routingentry_t entry = getroute(ip);
+	if (entry.netdev == NULL)
+		return 0;
+
+	return entry.netdev->mtu;
+}
+
+uint32_t ipv4_getnetdevip(uint32_t ip) {
+	routingentry_t entry = getroute(ip);
+	if (entry.netdev == NULL)
+		return 0;
+
+	return entry.netdev->ip;
 }
 
 int ipv4_sendpacket(void *buffer, size_t packetsize, uint32_t ip, int proto, netdev_t *broadcastdev) {

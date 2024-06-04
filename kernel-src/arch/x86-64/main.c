@@ -83,6 +83,7 @@ void kernel_entry() {
 	arp_init();
 	ipv4_init();
 	udp_init();
+	tcp_init();
 
 	block_init();
 	pseudodevices_init();
