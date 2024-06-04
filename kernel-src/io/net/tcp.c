@@ -1236,7 +1236,7 @@ static int internalpoll(tcb_t *tcb, polldata_t* data, int events) {
 			break;
 	}
 
-	if (revents == 0)
+	if (data && revents == 0)
 		poll_add(&tcb->pollheader, data, events);
 
 	return revents;
