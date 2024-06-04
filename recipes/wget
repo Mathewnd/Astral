@@ -1,0 +1,16 @@
+name=wget
+revision=1
+from_source=wget
+imagedeps="base-devel"
+hostdeps="xgcc xbinutils pkgconfig"
+deps="mlibc zlib pcre2 openssl"
+
+build() {
+	cp -rpv ${source_dir}/* .
+	./configure --host=x86_64-astral --prefix=${prefix} --without-libpsl --with-ssl=openssl
+	make -j ${parallelism}
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+}

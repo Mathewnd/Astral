@@ -1,0 +1,16 @@
+name=openssl
+revision=1
+from_source=openssl
+imagedeps="gcc"
+hostdeps="xgcc xbinutils"
+deps="mlibc zlib"
+
+build() {
+	cp -rpv ${source_dir}/* .
+	CC=x86_64-astral-gcc CXX=x86_64-astral-gcc ./Configure --prefix=/usr --openssldir=/etc/ssl --libdir=lib "x86_64-astral" shared zlib-dynamic no-afalgeng
+	make -j ${parallelism}
+}
+
+package() {
+	make install MANSUFFIX=ssl DESTDIR=${dest_dir}
+}

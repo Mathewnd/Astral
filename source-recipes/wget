@@ -1,0 +1,9 @@
+name=wget
+version=1.24.5
+source_method=tarball
+tarball_url="https://ftp.gnu.org/gnu/wget/wget-${version}.tar.gz"
+tarball_sha512="572aa54717e51a9eb9959e127c7afb696645088f32ff7df2cfe9d243957e34ee235e98988fa94649df023d2e3d62b6973e8c9f2eb92beba820dd96d5de2a950d"
+hostdeps="autoconf automake pkgconfig libtool autoconf-archive"
+regenerate() {
+        autoreconf -fvi
+}

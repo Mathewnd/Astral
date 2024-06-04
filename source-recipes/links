@@ -1,0 +1,11 @@
+name=links
+version=2.29
+source_method=tarball
+tarball_url="http://links.twibright.com/download/links-${version}.tar.gz"
+tarball_sha512=8ebcc63b5f2c70039079f7aa7d35382a3ae692453561af534d8d44db51d73a9f9cb1e55fc71db26a8aa7da4bb0cea9cae3620fc18210c6b5e7410f7a532f27a1
+#hostdeps="autoconf automake pkgconfig libtool"
+
+regenerate() {
+        #autoreconf -fvi
+	true
+}
