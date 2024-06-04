@@ -13,13 +13,19 @@ static void rx_dpc(context_t *context, dpcarg_t arg) {
 }
 
 // requested size doesn't account for ethernet header or the virtio header
-static int loopback_allocdesc(size_t requestedsize, netdesc_t *desc) {
+static int loopback_allocdesc(netdev_t *netdev, size_t requestedsize, netdesc_t *desc) {
+	__assert(requestedsize <= netdev->mtu);
 	desc->address = alloc(requestedsize + sizeof(ethframe_t));
 	if (desc->address == NULL)
 		return ENOMEM;
 
 	desc->size = requestedsize + sizeof(ethframe_t);
 	desc->curroffset = sizeof(ethframe_t);
+	return 0;
+}
+
+static int loopback_freedesc(netdev_t *netdev, netdesc_t *desc) {
+	free(desc->address);
 	return 0;
 }
 
@@ -49,6 +55,7 @@ void loopback_init() {
 	loopbacknetdev.mtu = 30000;
 	loopbacknetdev.sendpacket = loopback_sendpacket;
 	loopbacknetdev.allocdesc = loopback_allocdesc;
+	loopbacknetdev.freedesc = loopback_freedesc;
 	loopbacknetdev.ip = 0x7f000001;
 	__assert(hashtable_init(&loopbacknetdev.arpcache, 30) == 0);
 

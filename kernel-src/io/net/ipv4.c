@@ -166,7 +166,7 @@ int ipv4_sendpacket(void *buffer, size_t packetsize, uint32_t ip, int proto, net
 	if (ip != IPV4_BROADCAST_ADDRESS) {
 		routingentry_t entry = getroute(ip);
 		if (entry.netdev == NULL)
-			return 0; // if a packet can't be routed to anywhere just pretend it was sent somewhere
+			return ENETUNREACH;
 
 		int error = arp_lookup(entry.netdev, entry.gateway ? entry.gateway : ip, &mac);
 		if (error)
@@ -187,14 +187,14 @@ int ipv4_sendpacket(void *buffer, size_t packetsize, uint32_t ip, int proto, net
 	for (int i = 0; i < fragmentcount; ++i) {
 		size_t fragmentlen = (i == fragmentcount - 1) ? packetsize - devfragmentsize * (fragmentcount - 1) : devfragmentsize;
 		netdesc_t fragdesc;
-		int e = netdev->allocdesc(fragmentlen + sizeof(ipv4frame_t), &fragdesc);
+		int e = netdev->allocdesc(netdev, fragmentlen + sizeof(ipv4frame_t), &fragdesc);
 		if (e)
 			return e;
 
 		memcpy((void *)((uintptr_t)fragdesc.address + fragdesc.curroffset + sizeof(ipv4frame_t)), (void *)((uintptr_t)buffer + i * devfragmentsize), fragmentlen);
 
 		e = dispatch_fragment(netdev, fragdesc, i * devfragmentsize, fragmentlen, 0x1234, ip, mac, proto, i == fragmentcount - 1);
-		// TODO unallocate desc
+		netdev->freedesc(netdev, &fragdesc);
 		if (e)
 			return e;
 	}

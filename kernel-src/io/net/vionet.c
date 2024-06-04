@@ -67,9 +67,9 @@ static void tx_dpc(context_t *context, dpcarg_t arg) {
 	while (netdev->txqueue.lastusedindex != VIO_QUEUE_DEV_IDX(&netdev->txqueue)) {
 		int idx = netdev->txqueue.lastusedindex++ % netdev->txqueue.size;
 		int buffidx = VIO_QUEUE_DEV_RING(&netdev->txqueue)[idx].index;
-		__assert(netdev->txwait[buffidx / 2]);
-		sched_wakeup(netdev->txwait[buffidx / 2], SCHED_WAKEUP_REASON_NORMAL);
-		netdev->txwait[buffidx / 2] = NULL;
+		__assert(netdev->txwait[buffidx]);
+		sched_wakeup(netdev->txwait[buffidx], SCHED_WAKEUP_REASON_NORMAL);
+		netdev->txwait[buffidx] = NULL;
 		buffers[buffidx].address = 0;
 		semaphore_signal(&netdev->txsem);
 	}
@@ -86,7 +86,8 @@ static void tx_irq(isr_t *isr, context_t *context) {
 #define PREFIX_SIZE (sizeof(ethframe_t) + sizeof(vioframe_t))
 
 // requested size doesn't account for ethernet header or the virtio header
-static int vionet_allocdesc(size_t requestedsize, netdesc_t *desc) {
+static int vionet_allocdesc(netdev_t *netdev, size_t requestedsize, netdesc_t *desc) {
+	__assert(requestedsize <= netdev->mtu);
 	size_t truesize = PREFIX_SIZE + requestedsize;
 	void *phys = pmm_allocpage(PMM_SECTION_DEFAULT);
 	if (phys == NULL)
@@ -95,6 +96,11 @@ static int vionet_allocdesc(size_t requestedsize, netdesc_t *desc) {
 	desc->address = MAKE_HHDM(phys);
 	desc->size = truesize;
 	desc->curroffset = PREFIX_SIZE;
+	return 0;
+}
+
+static int vionet_freedesc(netdev_t *netdev, netdesc_t *desc) {
+	pmm_release(FROM_HHDM(desc->address));
 	return 0;
 }
 
@@ -175,6 +181,7 @@ int vionet_newdevice(viodevice_t *viodevice) {
 	netdev->netdev.mtu = 1500;
 	netdev->netdev.sendpacket = vionet_sendpacket;
 	netdev->netdev.allocdesc = vionet_allocdesc;
+	netdev->netdev.freedesc = vionet_freedesc;
 	__assert(hashtable_init(&netdev->netdev.arpcache, 30) == 0);
 
 	// initialize queues

@@ -135,14 +135,14 @@ static void send_reply(netdev_t *netdev, uint32_t ip, mac_t mac) {
 	memcpy(&frame.srchw, &netdev->mac, sizeof(mac_t));
 	memcpy(&frame.dsthw, &mac, sizeof(mac_t));
 	netdesc_t desc;
-	int e = netdev->allocdesc(sizeof(arpframe_t), &desc);
+	int e = netdev->allocdesc(netdev, sizeof(arpframe_t), &desc);
 	if (e)
 		return;
 
 	memcpy((void *)((uintptr_t)desc.address + desc.curroffset), &frame, sizeof(frame));
 
 	e = netdev->sendpacket(netdev, desc, mac, ETH_PROTO_ARP);
-	// TODO free netdesc
+	netdev->freedesc(netdev, &desc);
 }
 
 static void handlerthreadfn() {
@@ -172,15 +172,26 @@ static void handlerthreadfn() {
 	}
 }
 
-
 // executed in dpc context
 void arp_process(netdev_t *netdev, void *buffer) {
 	arpframe_t *frame = buffer;
-	__assert(frame->hwtype == cpu_to_be_w(1)); // ethernet
-	__assert(frame->protocoltype == cpu_to_be_w(0x800)); // ip
-	__assert(frame->hwlen == 6);
-	__assert(frame->ptlen == 4);
-	__assert(MAC_EQUAL(&frame->dsthw, &netdev->mac));
+	if (frame->hwtype != cpu_to_be_w(1)) // ethernet
+		return;
+
+	if (frame->protocoltype != cpu_to_be_w(0x800)) // ip
+		return;
+
+	if (frame->hwlen != 6)
+		return;
+
+	if (frame->ptlen != 4)
+		return;
+
+	if (be_to_cpu_w(frame->opcode) == OPCODE_REPLY && MAC_EQUAL(&frame->dsthw, &netdev->mac) == false)
+		return;
+
+	if (be_to_cpu_w(frame->opcode) == OPCODE_REQUEST && be_to_cpu_d(frame->dstpt) != netdev->ip)
+		return;
 
 	bufferentry_t entry = {
 		.opcode = cpu_to_be_w(frame->opcode),
@@ -209,14 +220,14 @@ static int sendrequest(netdev_t *netdev, uint32_t ip) {
 
 	memcpy(&frame.srchw, &netdev->mac, sizeof(mac_t));
 	netdesc_t desc;
-	int e = netdev->allocdesc(sizeof(arpframe_t), &desc);
+	int e = netdev->allocdesc(netdev, sizeof(arpframe_t), &desc);
 	if (e)
 		return e;
 
 	memcpy((void *)((uintptr_t)desc.address + desc.curroffset), &frame, sizeof(frame));
 
 	e = netdev->sendpacket(netdev, desc, NET_BROADCAST_MAC, ETH_PROTO_ARP);
-	// TODO free netdesc
+	netdev->freedesc(netdev, &desc);
 	return e;
 }
 
@@ -230,7 +241,6 @@ int arp_lookup(netdev_t *netdev, uint32_t ip, mac_t *mac) {
 	e = sendrequest(netdev, ip);
 	if (e)
 		goto cleanup;
-
 
 	// wait
 	// TODO wait on an event instead of looping on a yield (ok for now, but might cause slowdows in the future)

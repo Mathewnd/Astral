@@ -28,7 +28,8 @@ typedef struct netdev_t {
 	size_t mtu;
 	uint32_t ip;
 	hashtable_t arpcache;
-	int (*allocdesc)(size_t requestedsize, netdesc_t *desc);
+	int (*allocdesc)(struct netdev_t *netdev, size_t requestedsize, netdesc_t *desc);
+	int (*freedesc)(struct netdev_t *netdev, netdesc_t *desc);
 	int (*sendpacket)(struct netdev_t *_internal, netdesc_t desc, mac_t targetmac, int proto);
 } netdev_t;
 
@@ -61,20 +62,25 @@ typedef struct {
 
 #define MAC_EQUAL(m1,m2) (memcmp(m1, m2, sizeof(mac_t)) == 0)
 
+#define IPV4_PROTO_TCP 0x06
 #define IPV4_PROTO_UDP 0x11
 #define IPV4_BROADCAST_ADDRESS 0xffffffff
 
 void arp_init();
 void ipv4_init();
 void udp_init();
+void tcp_init();
 void netdev_init();
 void loopback_init();
 netdev_t *loopback_device();
 void udp_process(netdev_t *netdev, void *buffer, uint32_t ip);
 void arp_process(netdev_t *netdev, void *buffer);
+void tcp_process(netdev_t *netdev, void *buffer, ipv4frame_t *ipv4frame);
 int arp_lookup(netdev_t *netdev, uint32_t ip, mac_t *mac);
 int udp_sendpacket(void *buffer, size_t packetsize, uint32_t ip, uint16_t srcport, uint16_t dstport, netdev_t *broadcastdev);
 int ipv4_sendpacket(void *buffer, size_t packetsize, uint32_t ip, int proto, netdev_t *broadcastdev);
+size_t ipv4_getmtu(uint32_t ip);
+uint32_t ipv4_getnetdevip(uint32_t ip);
 void ipv4_process(netdev_t *netdev, void *nextbuff);
 int ipv4_addroute(netdev_t *netdev, uint32_t addr, uint32_t gateway, uint32_t mask, int weight);
 int netdev_register(netdev_t *netdev, char *name);
