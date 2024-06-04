@@ -138,7 +138,7 @@ void poll_event(pollheader_t *header, int events) {
 		polldesc_t *desc = iterator->desc;
 		polldata_t *next = iterator->next;
 		spinlock_acquire(&desc->eventlock);
-		int revents = iterator->events & events;
+		int revents = (iterator->events | POLLHUP | POLLERR) & events;
 
 		if (revents == 0 || spinlock_try(&desc->lock) == false || spinlock_try(&desc->wakeuplock) == false) {
 			removefromlist(&pending, iterator);
