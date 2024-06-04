@@ -38,6 +38,33 @@ size_t ringbuffer_read(ringbuffer_t *ringbuffer, void *buffer, size_t count) {
 	return readc;
 }
 
+size_t ringbuffer_peek(ringbuffer_t *ringbuffer, void *buffer, uintmax_t offset, size_t count) {
+	uint8_t *ptr = buffer;
+
+	uintmax_t read = ringbuffer->read;
+	uintmax_t write = ringbuffer->write;
+
+	uintmax_t curroff = 0;
+	for (; curroff < offset; ++curroff) {
+		if (read == write)
+			return 0;
+
+		++read;
+	}
+
+	size_t readc = 0;
+	for (; readc < count; ++readc) {
+		if (read == write)
+			break;
+
+		uintmax_t readoffset = read % ringbuffer->size;
+		*ptr++ = *((uint8_t *)ringbuffer->data + readoffset);
+		++read;
+	}
+
+	return readc;
+}
+
 size_t ringbuffer_write(ringbuffer_t *ringbuffer, void *buffer, size_t count) {
 	uint8_t *ptr = buffer;
 	size_t writec = 0;
