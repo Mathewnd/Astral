@@ -236,10 +236,10 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..b150712
+index 0000000..31b763b
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -0,0 +1,724 @@
+@@ -0,0 +1,730 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -320,6 +320,12 @@ index 0000000..b150712
 +
 +	gid_t sys_getegid() {
 +		// TODO UNSTUB
++		return 0;
++	}
++
++	int sys_getsockopt(int fd, int layer, int number,
++		void *__restrict buffer, socklen_t *__restrict size) {
++		mlibc::infoLogger() << "getsockopt: " << fd << " " << layer << " " << number << frg::endlog;
 +		return 0;
 +	}
 +
