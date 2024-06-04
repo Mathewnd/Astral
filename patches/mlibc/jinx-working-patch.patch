@@ -13,10 +13,10 @@ index eb7be7b..eb83b56 100644
  #define IPPROTO_HOPOPTS  0
  #define IPPROTO_ICMP     1
 diff --git mlibc-clean/meson.build mlibc-workdir/meson.build
-index 905fbb9..6360ca5 100644
+index 6db3421..aa22660 100644
 --- mlibc-clean/meson.build
 +++ mlibc-workdir/meson.build
-@@ -253,6 +253,12 @@ elif host_machine.system() == 'dripos'
+@@ -256,6 +256,12 @@ elif host_machine.system() == 'dripos'
  	rtld_include_dirs += include_directories('sysdeps/dripos/include')
  	libc_include_dirs += include_directories('sysdeps/dripos/include')
  	subdir('sysdeps/dripos')
@@ -75,34 +75,6 @@ index 3474615..e034881 100644
  }
  
  char **backtrace_symbols(void *const *, int) {
-diff --git mlibc-clean/options/internal/generic/threads.cpp mlibc-workdir/options/internal/generic/threads.cpp
-index 3c1e70e..1ef07a4 100644
---- mlibc-clean/options/internal/generic/threads.cpp
-+++ mlibc-workdir/options/internal/generic/threads.cpp
-@@ -157,7 +157,8 @@ int thread_mutex_lock(struct __mlibc_mutex *mutex) {
- 
- 				// If the wait returns EAGAIN, that means that the mutex_waiters_bit was just unset by
- 				// some other thread. In this case, we should loop back around.
--				if (e && e != EAGAIN)
-+				// Also do so in case of a signal being caught.
-+				if (e && e != EAGAIN && e != EINTR)
- 					mlibc::panicLogger() << "sys_futex_wait() failed with error code " << e << frg::endlog;
- 
- 				// Opportunistically try to take the lock after we wake up.
-diff --git mlibc-clean/options/internal/include/mlibc/lock.hpp mlibc-workdir/options/internal/include/mlibc/lock.hpp
-index aa05079..8bff987 100644
---- mlibc-clean/options/internal/include/mlibc/lock.hpp
-+++ mlibc-workdir/options/internal/include/mlibc/lock.hpp
-@@ -50,7 +50,8 @@ struct FutexLockImpl {
- 
- 					// If the wait returns EAGAIN, that means that the waitersBit was just unset by
- 					// some other thread. In this case, we should loop back around.
--					if (e && e != EAGAIN)
-+					// Also loop around in case of a signal interrupting the wait
-+					if (e && e != EAGAIN && e != EINTR)
- 						mlibc::panicLogger() << "sys_futex_wait() failed with error code " << e << frg::endlog;
- 
- 					// Opportunistically try to take the lock after we wake up.
 diff --git mlibc-clean/options/posix/generic/dlfcn-stubs.cpp mlibc-workdir/options/posix/generic/dlfcn-stubs.cpp
 index fc34a3b..b1a95a9 100644
 --- mlibc-clean/options/posix/generic/dlfcn-stubs.cpp
@@ -113,27 +85,11 @@ index fc34a3b..b1a95a9 100644
  #include <bits/ensure.h>
  #include <dlfcn.h>
  
-diff --git mlibc-clean/options/posix/generic/pthread-stubs.cpp mlibc-workdir/options/posix/generic/pthread-stubs.cpp
-index 775989b..d28f950 100644
---- mlibc-clean/options/posix/generic/pthread-stubs.cpp
-+++ mlibc-workdir/options/posix/generic/pthread-stubs.cpp
-@@ -844,7 +844,10 @@ int pthread_once(pthread_once_t *once, void (*function) (void)) {
- 		}else{
- 			// a different thread is currently running the initializer.
- 			__ensure(expected == onceLocked);
--			if(int e = mlibc::sys_futex_wait((int *)&once->__mlibc_done, onceLocked, nullptr); e)
-+			// if it gets interrupted by a signal, check again.
-+			// EAGAIN will also be a retry, as it means the other thread completed
-+			// and changed the __mlibc_done variable to signal it
-+			if(int e = mlibc::sys_futex_wait((int *)&once->__mlibc_done, onceLocked, nullptr); e && e != EINTR && e != EAGAIN)
- 				__ensure(!"sys_futex_wait() failed");
- 			expected =  __atomic_load_n(&once->__mlibc_done, __ATOMIC_ACQUIRE);
- 		}
 diff --git mlibc-clean/options/posix/generic/unistd-stubs.cpp mlibc-workdir/options/posix/generic/unistd-stubs.cpp
-index 3279cc6..71837aa 100644
+index 3beb692..a7bbfaa 100644
 --- mlibc-clean/options/posix/generic/unistd-stubs.cpp
 +++ mlibc-workdir/options/posix/generic/unistd-stubs.cpp
-@@ -1222,6 +1222,7 @@ void encrypt(char[64], int) {
+@@ -1251,6 +1251,7 @@ void encrypt(char[64], int) {
  }
  #endif
  
@@ -141,7 +97,7 @@ index 3279cc6..71837aa 100644
  #if __MLIBC_BSD_OPTION
  void *sbrk(intptr_t increment) {
  	if(increment) {
-@@ -1238,3 +1239,4 @@ void *sbrk(intptr_t increment) {
+@@ -1267,3 +1268,4 @@ void *sbrk(intptr_t increment) {
  	return out;
  }
  #endif
