@@ -92,6 +92,7 @@ typedef struct {
 
 #define SO_BROADCAST 6
 #define SO_BINDTODEVICE 25
+#define SO_KEEPALIVE 9
 
 #define SOL_SOCKET 1
 

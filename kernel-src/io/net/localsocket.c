@@ -11,7 +11,6 @@ struct localpair_t;
 struct binding_t;
 typedef struct {
 	socket_t socket;
-	char *bindpath;
 	ringbuffer_t ringbuffer; // shared with pair
 	// client/connected server
 	struct localpair_t *pair;
@@ -21,6 +20,7 @@ typedef struct {
 	int backlogsize; // shared with binding
 	uintmax_t backlogcurrentwrite; // shared with binding
 	uintmax_t backlogcurrentread; // shared with binding
+	char *bindpath;
 } localsocket_t;
 
 // created by the client socket
@@ -689,6 +689,7 @@ static int localsock_bind(socket_t *socket, sockaddr_t *addr) {
 	vnode->socketbinding = binding;
 	VOP_UNLOCK(vnode);
 	localsocket->binding = binding;
+	localsocket->bindpath = path;
 
 	cleanup:
 	if (error) {
@@ -738,6 +739,52 @@ void localsock_leavebinding(vnode_t *vnode) {
 	vnode->socketbinding = NULL;
 }
 
+int localsock_pair(socket_t **ret1, socket_t **ret2) {
+	socket_t *socket1 = socket_create(SOCKET_TYPE_LOCAL);
+	if (socket1 == NULL)
+		return ENOMEM;
+
+	socket_t *socket2 = socket_create(SOCKET_TYPE_LOCAL);
+	if (socket2 == NULL) {
+		localsock_destroy(socket1);
+		return ENOMEM;
+	}
+
+	localpair_t *pair = alloc(sizeof(localpair_t));
+	if (pair == NULL) {
+		localsock_destroy(socket1);
+		localsock_destroy(socket2);
+		return ENOMEM;
+	}
+
+	MUTEX_INIT(&pair->mutex);
+	pair->server = (localsocket_t *)socket1;
+	pair->client = (localsocket_t *)socket2;
+	((localsocket_t *)socket1)->pair = pair;
+	((localsocket_t *)socket2)->pair = pair;
+
+	*ret1 = socket1;
+	*ret2 = socket2;
+	return 0;
+}
+
+static int localsock_getname(socket_t *socket, sockaddr_t *addr) {
+	localsocket_t *localsocket = (localsocket_t *)socket;
+	MUTEX_ACQUIRE(&socket->mutex, false);
+	if (localsocket->bindpath)
+		strcpy(addr->path, localsocket->bindpath);
+	else
+		addr->path[0] = '\0';
+
+	MUTEX_RELEASE(&socket->mutex);
+	return 0;
+}
+
+static int localsock_getpeername(socket_t *socket, sockaddr_t *addr) {
+	addr->path[0] = '\0';
+	return 0;
+}
+
 static socketops_t socketops = {
 	.bind = localsock_bind,
 	.listen = localsock_listen,
@@ -747,7 +794,9 @@ static socketops_t socketops = {
 	.recv = localsock_recv,
 	.destroy = localsock_destroy,
 	.poll = localsock_poll,
-	.datacount = localsocket_datacount
+	.datacount = localsocket_datacount,
+	.getname = localsock_getname,
+	.getpeername = localsock_getpeername
 };
 
 socket_t *localsock_createsocket() {

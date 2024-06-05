@@ -293,6 +293,24 @@ static void udp_destroy(socket_t *socket) {
 	free(socket);
 }
 
+static int udp_getname(socket_t *socket, sockaddr_t *addr) {
+	udpsocket_t *udpsocket = (udpsocket_t *)socket;
+	MUTEX_ACQUIRE(&socket->mutex, false);
+	addr->ipv4addr.addr = udpsocket->address;
+	addr->ipv4addr.port = udpsocket->port;
+	MUTEX_RELEASE(&socket->mutex);
+	return 0;
+}
+
+static int udp_getpeername(socket_t *socket, sockaddr_t *addr) {
+	udpsocket_t *udpsocket = (udpsocket_t *)socket;
+	MUTEX_ACQUIRE(&socket->mutex, false);
+	addr->ipv4addr.addr = udpsocket->peeraddress;
+	addr->ipv4addr.port = udpsocket->peerport;
+	MUTEX_RELEASE(&socket->mutex);
+	return 0;
+}
+
 static int udp_poll(socket_t *socket, polldata_t *data, int events) {
 	int revents = 0;
 	MUTEX_ACQUIRE(&socket->mutex, false);
@@ -308,7 +326,9 @@ static socketops_t socketops = {
 	.send = udp_send,
 	.recv = udp_recv,
 	.destroy = udp_destroy,
-	.poll = udp_poll
+	.poll = udp_poll,
+	.getname = udp_getname,
+	.getpeername = udp_getpeername
 };
 
 socket_t *udp_createsocket() {
@@ -321,6 +341,7 @@ socket_t *udp_createsocket() {
 		free(socket);
 		return NULL;
 	}
+
 	SPINLOCK_INIT(socket->ringbufferlock);
 	socket->socket.ops = &socketops;
 

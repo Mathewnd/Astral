@@ -5,7 +5,7 @@
 #include <kernel/timekeeper.h>
 #include <kernel/interrupt.h>
 
-#define WORKER_COUNT 8
+#define WORKER_COUNT 12
 #define WORKER_BUFFER_SIZE (64 * 1024)
 #define WORKER_INTERNAL_BUFFER_SIZE 2048
 // MSS will be min(_MSS_LIMIT, mtu - sizeof(ipv4header_t) - sizeof(tcpheader_t))
@@ -414,19 +414,16 @@ void tcp_process(netdev_t *netdev, void *buffer, ipv4frame_t *ipv4frame) {
 	};
 
 	if (checksum(&ipv4pseudoheader, buffer) != 0) {
-		printf("tcp: bad checksum\n");
 		return;
 	}
 
 	if (be_to_cpu_w(ipv4pseudoheader.length) > WORKER_INTERNAL_BUFFER_SIZE) {
-		printf("tcp: packet too big for internal buffer size\n");
 		return;
 	}
 
 	int tasktype = TASK_TYPE_PACKET;
 	tcpworker_t *worker = getworker(ipv4pseudoheader.length, tasktype);
 	if (worker == NULL) {
-		printf("tcp: no free workers to handle packet\n");
 		return;
 	}
 
@@ -1413,7 +1410,9 @@ static int tcp_poll(socket_t *socket, polldata_t *data, int events) {
 
 static int tcp_bind(socket_t *socket, sockaddr_t *addr) {
 	tcpsocket_t *tcpsocket = (tcpsocket_t *)socket;
-	__assert(addr->ipv4addr.addr == 0);
+	if (addr->ipv4addr.addr != 0) {
+		printf("tcp: bind tried to bind to non zero address %x\n", addr->ipv4addr.addr);
+	}
 	MUTEX_ACQUIRE(&socket->mutex, false);
 	tcb_t *tcb = tcpsocket->tcb;
 	if (tcb == NULL) {
@@ -1741,6 +1740,67 @@ static void tcp_destroy(socket_t *socket) {
 	free(socket);
 }
 
+static int tcp_getname(socket_t *socket, sockaddr_t *addr) {
+	tcpsocket_t *tcpsocket = (tcpsocket_t *)socket;
+	MUTEX_ACQUIRE(&socket->mutex, false);
+	tcb_t *tcb = tcpsocket->tcb;
+
+	if (tcb) {
+		MUTEX_ACQUIRE(&tcb->mutex, false);
+
+		addr->ipv4addr.addr = 0;
+		addr->ipv4addr.port = tcb->port;
+
+		MUTEX_RELEASE(&tcb->mutex);
+	} else {
+		addr->ipv4addr.addr = 0;
+		addr->ipv4addr.port = 0;
+	}
+
+	MUTEX_RELEASE(&socket->mutex);
+	return 0;
+}
+
+static int tcp_getpeername(socket_t *socket, sockaddr_t *addr) {
+	tcpsocket_t *tcpsocket = (tcpsocket_t *)socket;
+	MUTEX_ACQUIRE(&socket->mutex, false);
+	tcb_t *tcb = tcpsocket->tcb;
+
+	if (tcb) {
+		MUTEX_ACQUIRE(&tcb->mutex, false);
+
+		addr->ipv4addr.addr = tcb->key.peer;
+		addr->ipv4addr.port = tcb->key.peerport;
+
+		MUTEX_RELEASE(&tcb->mutex);
+	} else {
+		addr->ipv4addr.addr = 0;
+		addr->ipv4addr.port = 0;
+	}
+
+	MUTEX_RELEASE(&socket->mutex);
+	return 0;
+}
+
+// called with socket locked
+static int tcp_setopt(socket_t *socket, int optname, void *buffer, size_t len) {
+	tcpsocket_t *tcpsocket = (tcpsocket_t *)socket;
+	tcb_t *tcb = tcpsocket->tcb;
+
+	if (tcb) {
+		MUTEX_ACQUIRE(&tcb->mutex, false);
+
+		switch (optname) {
+			case SO_KEEPALIVE:
+				// TODO this one
+				break;
+		}
+
+		MUTEX_RELEASE(&tcb->mutex);
+	}
+	return 0;
+}
+
 static socketops_t socketops = {
 	.bind = tcp_bind,
 	.send = tcp_send,
@@ -1750,7 +1810,10 @@ static socketops_t socketops = {
 	.listen = tcp_listen,
 	.accept = tcp_accept,
 	.datacount = tcp_datacount,
-	.destroy = tcp_destroy
+	.destroy = tcp_destroy,
+	.getname = tcp_getname,
+	.getpeername = tcp_getpeername,
+	.setopt = tcp_setopt
 };
 
 socket_t *tcp_createsocket() {

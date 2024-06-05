@@ -41,7 +41,7 @@ syscallret_t syscall_setsockopt(context_t *, int fd, int level, int optname, voi
 
 	MUTEX_ACQUIRE(&socket->mutex, false);
 	switch (optname) {
-		case SO_BINDTODEVICE:
+		case SO_BINDTODEVICE: {
 			if (val) {
 				socket->netdev = netdev_getdev(val);
 				ret.errno = socket->netdev ? 0 : ENODEV;
@@ -49,7 +49,8 @@ syscallret_t syscall_setsockopt(context_t *, int fd, int level, int optname, voi
 				socket->netdev = NULL;
 			}
 			break;
-		case SO_BROADCAST:
+		}
+		case SO_BROADCAST: {
 			if (val == NULL) {
 				ret.errno = EFAULT;
 			} else {
@@ -57,6 +58,14 @@ syscallret_t syscall_setsockopt(context_t *, int fd, int level, int optname, voi
 				ret.errno = 0;
 			}
 			break;
+		}
+		case SO_KEEPALIVE: {
+			if (val == NULL)
+				ret.errno = EFAULT;
+			else
+				ret.errno = socket->ops->setopt ? socket->ops->setopt(socket, optname, buffer, len) : ENOPROTOOPT;
+			break;
+		}
 		default:
 		ret.errno = ENOPROTOOPT;
 	}

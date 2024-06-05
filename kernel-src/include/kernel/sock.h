@@ -37,8 +37,11 @@ typedef struct socketops_t {
 	int (*connect)(socket_t *socket, sockaddr_t *addr, uintmax_t data);
 	int (*listen)(socket_t *socket, int backlog);
 	int (*accept)(socket_t *server, socket_t *client, sockaddr_t *addr, uintmax_t flags);
+	int (*getname)(socket_t *socket, sockaddr_t *addr);
+	int (*getpeername)(socket_t *socket, sockaddr_t *addr);
 	size_t (*datacount)(socket_t *socket);
 	void (*destroy)(socket_t *socket);
+	int (*setopt)(socket_t *socket, int optname, void *buffer, size_t len);
 } socketops_t;
 
 typedef struct {
@@ -117,6 +120,7 @@ static inline void sock_freemsghdr(msghdr_t *hdr) {
 }
 
 void localsock_leavebinding(vnode_t *vnode);
+int localsock_pair(socket_t **ret1, socket_t **ret2);
 socket_t *localsock_createsocket();
 socket_t *udp_createsocket();
 socket_t *tcp_createsocket();
