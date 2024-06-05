@@ -13,14 +13,15 @@ index eb7be7b..eb83b56 100644
  #define IPPROTO_HOPOPTS  0
  #define IPPROTO_ICMP     1
 diff --git mlibc-clean/meson.build mlibc-workdir/meson.build
-index 6db3421..aa22660 100644
+index 6db3421..40887ba 100644
 --- mlibc-clean/meson.build
 +++ mlibc-workdir/meson.build
-@@ -256,6 +256,12 @@ elif host_machine.system() == 'dripos'
+@@ -256,6 +256,13 @@ elif host_machine.system() == 'dripos'
  	rtld_include_dirs += include_directories('sysdeps/dripos/include')
  	libc_include_dirs += include_directories('sysdeps/dripos/include')
  	subdir('sysdeps/dripos')
 +elif host_machine.system() == 'astral'
++        disable_crypt_option = true
 +        rtld_include_dirs += include_directories('sysdeps/astral/include')
 +        libc_include_dirs += include_directories('sysdeps/astral/include')
 +	internal_conf.set10('MLIBC_MAP_DSO_SEGMENTS', true)
@@ -58,6 +59,20 @@ index 8defd0e..d6cb65b 100644
  	case ENOTTY: s = "Inappropriate ioctl for device (ENOTTY)"; break;
  	case EOVERFLOW: s = "Value too large for defined datatype (EOVERFLOW)"; break;
  #if EOPNOTSUPP != ENOTSUP
+diff --git mlibc-clean/options/crypt/generic/crypt-stubs.cpp mlibc-workdir/options/crypt/generic/crypt-stubs.cpp
+index 65e0d23..95b060c 100644
+--- mlibc-clean/options/crypt/generic/crypt-stubs.cpp
++++ mlibc-workdir/options/crypt/generic/crypt-stubs.cpp
+@@ -1,7 +1,8 @@
+ #include <crypt.h>
+ #include <bits/ensure.h>
++#include <string.h>
+ 
+-char *crypt(const char *, const char *) {
++char *crypt(const char *passwd, const char *) {
+ 	__ensure(!"Not implemented");
+ 	__builtin_unreachable();
+ }
 diff --git mlibc-clean/options/glibc/generic/execinfo.cpp mlibc-workdir/options/glibc/generic/execinfo.cpp
 index 3474615..e034881 100644
 --- mlibc-clean/options/glibc/generic/execinfo.cpp
@@ -192,10 +207,10 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..31b763b
+index 0000000..c025a3b
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -0,0 +1,730 @@
+@@ -0,0 +1,789 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -208,6 +223,11 @@ index 0000000..31b763b
 +#include <poll.h>
 +#include <sys/select.h>
 +#include <stdio.h>
++
++static int gid;
++static int egid;
++static int uid;
++static int euid;
 +
 +#ifndef MLIBC_BUILDING_RTLD
 +// (s)brk is emulated in the libc rather than being
@@ -251,38 +271,92 @@ index 0000000..31b763b
 +namespace mlibc {	
 +	int sys_setuid(uid_t id) {
 +		// TODO UNSTUB
++		uid = id;
 +		return 0;
 +	}
 +
 +	int sys_setgid(gid_t id) {
 +		// TODO UNSTUB
++		gid = id;
 +		return 0;
 +	}
 +
 +	uid_t sys_getuid() {
 +		// TODO UNSTUB
-+		return 0;
++		return uid;
 +	}
 +
 +	gid_t sys_getgid() {
 +		// TODO UNSTUB
-+		return 0;
++		return gid;
 +	}
 +
 +	uid_t sys_geteuid() {
 +		// TODO UNSTUB
-+		return 0;
++		return euid;
 +	}
 +
 +	gid_t sys_getegid() {
 +		// TODO UNSTUB
++		return egid;
++	}
++
++	int sys_setgroups(size_t size, const gid_t *list) {
++		// TODO unstub
++		return 0;
++	}
++
++	int sys_setresuid(uid_t _ruid, uid_t _euid, uid_t _suid) {
++		// TODO unstub
++		uid = _ruid;
++		euid = _euid;
++		return 0;
++	}
++
++	int sys_setresgid(gid_t _rgid, gid_t _egid, gid_t _sgid) {
++		// TODO unstub
++		gid = _rgid;
++		egid = _egid;
 +		return 0;
 +	}
 +
 +	int sys_getsockopt(int fd, int layer, int number,
 +		void *__restrict buffer, socklen_t *__restrict size) {
++		// TODO unstub
 +		mlibc::infoLogger() << "getsockopt: " << fd << " " << layer << " " << number << frg::endlog;
 +		return 0;
++	}
++	
++	int sys_chroot(const char *path) {
++		long ret;
++		return syscall(SYSCALL_CHROOT, &ret, (uint64_t)path);
++	}
++
++	int sys_peername(int fd, struct sockaddr *addr_ptr, socklen_t max_addr_length, socklen_t *actual_length) {
++		long ret;
++		int len = max_addr_length;
++		long error = syscall(SYSCALL_GETPEERNAME, &ret, fd, (uint64_t)addr_ptr, (uint64_t)&len);
++		*actual_length = len;
++		return error;
++	}
++
++	int sys_sockname(int fd, struct sockaddr *addr_ptr, socklen_t max_addr_length, socklen_t *actual_length) {
++		long ret;
++		int len = max_addr_length;
++		long error = syscall(SYSCALL_GETSOCKNAME, &ret, fd, (uint64_t)addr_ptr, (uint64_t)&len);
++		*actual_length = len;
++		return error;
++	}
++
++	int sys_socketpair(int domain, int type_and_flags, int proto, int *fds) {
++		long ret = 0;
++		long err = syscall(SYSCALL_SOCKETPAIR, &ret, domain, type_and_flags, proto);
++		if (err)
++			return err;
++
++		fds[0] = ret & 0xffffffff;
++		fds[1] = (ret >> 32) & 0xffffffff;
++		return err;
 +	}
 +
 +	int sys_getitimer(int which, struct itimerval *curr_value) {
@@ -945,10 +1019,10 @@ index 0000000..990eca0
 +#endif
 diff --git mlibc-workdir/sysdeps/astral/include/astral/syscall.h mlibc-workdir/sysdeps/astral/include/astral/syscall.h
 new file mode 100644
-index 0000000..956a10b
+index 0000000..d1d26ed
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/include/astral/syscall.h
-@@ -0,0 +1,93 @@
+@@ -0,0 +1,97 @@
 +#ifndef _SYSCALL_H_INCLUDE
 +#define _SYSCALL_H_INCLUDE
 +
@@ -1022,6 +1096,10 @@ index 0000000..956a10b
 +#define SYSCALL_FCHDIR 67
 +#define SYSCALL_SETITIMER 68
 +#define SYSCALL_GETITIMER 69
++#define SYSCALL_SOCKETPAIR 70
++#define SYSCALL_GETSOCKNAME 71
++#define SYSCALL_GETPEERNAME 72
++#define SYSCALL_CHROOT 73
 +
 +#include <stddef.h>
 +#include <stdint.h>

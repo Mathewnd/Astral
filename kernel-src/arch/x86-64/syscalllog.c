@@ -5,7 +5,7 @@
 
 #ifdef SYSCALL_LOGGING
 
-#define SYSCALL_COUNT 68
+#define SYSCALL_COUNT 74
 #define LOGSTR(x) arch_e9_puts(x)
 
 static char *name[] = {
@@ -78,7 +78,11 @@ static char *name[] = {
 	"fsync",
 	"fchdir",
 	"getitimer",
-	"setitimer"
+	"setitimer",
+	"socketpair",
+	"getsockname",
+	"getpeername",
+	"chroot"
 };
 
 static char *args[] = {
@@ -152,6 +156,10 @@ static char *args[] = {
 	"fd %d",  // fchdir
 	"which %d new %p old %p\n", // setitimer
 	"which %d value %p\n", // getitimer
+	"domain %d type %d protocol %d", // socketpair
+	"fd %d addr %p addrlen %p", // getsockname
+	"fd %d addr %p addrlen %p",  // getpeername
+	"path %s" // chroot
 };
 
 #endif

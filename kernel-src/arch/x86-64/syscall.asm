@@ -69,6 +69,10 @@ extern syscall_fsync
 extern syscall_fchdir
 extern syscall_getitimer
 extern syscall_setitimer
+extern syscall_socketpair
+extern syscall_getsockname
+extern syscall_getpeername
+extern syscall_chroot
 syscalltab:
 dq syscall_print
 dq syscall_mmap
@@ -140,7 +144,11 @@ dq syscall_fsync
 dq syscall_fchdir
 dq syscall_setitimer
 dq syscall_getitimer
-syscallcount equ 70
+dq syscall_socketpair
+dq syscall_getsockname
+dq syscall_getpeername
+dq syscall_chroot
+syscallcount equ 74
 section .text
 global arch_syscall_entry
 ; on entry:
