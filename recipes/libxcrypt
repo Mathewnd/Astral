@@ -1,0 +1,15 @@
+name=libxcrypt
+revision=1
+from_source=libxcrypt
+imagedeps="python-passlib gcc"
+hostdeps="xgcc xbinutils pkgconfig libtool"
+deps="mlibc libgpg-error"
+
+build() {
+	${source_dir}/configure --prefix=${prefix} --host=x86_64-astral --enable-obsolete-api=yes --disable-xcrypt-compat-files
+	make -j${parallelism}
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+}

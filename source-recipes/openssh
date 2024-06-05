@@ -1,0 +1,10 @@
+name=openssh
+version=9.7p1
+source_method=tarball
+tarball_url="https://cdn.openbsd.org/pub/OpenBSD/OpenSSH/portable/openssh-${version}.tar.gz"
+tarball_sha512="0cafc17d22851605a4a5495a1d82c2b3fbbe6643760aad226dbf2a25b5f49d4375c3172833706ea3cb6c05d5d02a40feb9a7e790eae5c4570dd344a43e94ca55"
+hostdeps="autoconf automake pkgconfig libtool"
+regenerate() {
+	autoreconf -fvi
+	cp -v $(find /usr/local/share/automake* -name config.sub) .
+}
