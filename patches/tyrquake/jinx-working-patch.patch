@@ -53,6 +53,63 @@ index 5709a79..9e492f9 100644
  ifneq ($(X11BASE),)
  CL_CPPFLAGS += -idirafter $(X11BASE)/include
  CL_LFLAGS += $(call libdir-check,$(X11BASE)/lib)
+diff --git tyrquake-clean/NQ/net_udp.c tyrquake-workdir/NQ/net_udp.c
+index 2f3bf49..19c3b4d 100644
+--- tyrquake-clean/NQ/net_udp.c
++++ tyrquake-workdir/NQ/net_udp.c
+@@ -29,6 +29,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ #include <unistd.h>
+ #include <net/if.h>
+ #include <ifaddrs.h>
++#include <fcntl.h>
+ 
+ #include "common.h"
+ #include "console.h"
+@@ -258,12 +259,16 @@ UDP_OpenSocket(int port)
+ {
+     int newsocket;
+     struct sockaddr_in address;
+-    int _true = 1;
++    //int _true = 1;
+ 
+     if ((newsocket = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)
+ 	return -1;
+-    if (ioctl(newsocket, FIONBIO, &_true) == -1)
+-	goto ErrorReturn;
++
++    //if (ioctl(newsocket, FIONBIO, &_true) == -1)
++    //	goto ErrorReturn;
++
++    if (fcntl(newsocket, F_SETFL, O_NONBLOCK) == -1)
++	    goto ErrorReturn;
+ 
+     address.sin_family = AF_INET;
+     address.sin_addr.s_addr = bind_address.ip.l;
+diff --git tyrquake-clean/NQ/net_wins.c tyrquake-workdir/NQ/net_wins.c
+index 4ece6e9..4f50aca 100644
+--- tyrquake-clean/NQ/net_wins.c
++++ tyrquake-workdir/NQ/net_wins.c
+@@ -27,6 +27,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ #include "quakedef.h"
+ #include "sys.h"
+ #include "winquake.h"
++#include <fcntl.h>
+ 
+ /* socket for fielding new connections */
+ static int net_acceptsocket = -1;
+@@ -273,8 +274,10 @@ WINS_OpenSocket(int port)
+ 
+     if ((newsocket = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)
+ 	return -1;
+-    if (ioctlsocket(newsocket, FIONBIO, &_true) == -1)
+-	goto ErrorReturn;
++    //if (ioctlsocket(newsocket, FIONBIO, &_true) == -1)
++    //	goto ErrorReturn;
++    if (fcntl(newsocket, F_SETFL, O_NONBLOCK) == -1)
++	    goto ErrorReturn;
+ 
+     address.sin_family = AF_INET;
+     if (bind_address.ip.l != INADDR_NONE)
 diff --git tyrquake-clean/common/snd_dma.c tyrquake-workdir/common/snd_dma.c
 index 8e4852b..06656c0 100644
 --- tyrquake-clean/common/snd_dma.c
