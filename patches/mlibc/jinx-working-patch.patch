@@ -100,6 +100,23 @@ index fc34a3b..b1a95a9 100644
  #include <bits/ensure.h>
  #include <dlfcn.h>
  
+diff --git mlibc-clean/options/posix/generic/pwd-stubs.cpp mlibc-workdir/options/posix/generic/pwd-stubs.cpp
+index 5d8f618..26eb4bb 100644
+--- mlibc-clean/options/posix/generic/pwd-stubs.cpp
++++ mlibc-workdir/options/posix/generic/pwd-stubs.cpp
+@@ -273,9 +273,9 @@ void endpwent(void) {
+ 	close_global_file();
+ }
+ 
+-int putpwent(const struct passwd *, FILE *) {
+-	__ensure(!"Not implemented");
+-	__builtin_unreachable();
++int putpwent(const struct passwd *p, FILE *f) {
++	// Taken from musl.
++	return fprintf(f, "%s:%s:%u:%u:%s:%s:%s\n", p->pw_name, p->pw_passwd, p->pw_uid, p->pw_gid, p->pw_gecos, p->pw_dir, p->pw_shell) < 0 ? -1 : 0;
+ }
+ 
+ struct passwd *fgetpwent(FILE *) {
 diff --git mlibc-clean/options/posix/generic/unistd-stubs.cpp mlibc-workdir/options/posix/generic/unistd-stubs.cpp
 index 3beb692..a7bbfaa 100644
 --- mlibc-clean/options/posix/generic/unistd-stubs.cpp
@@ -207,10 +224,10 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..c025a3b
+index 0000000..f0facf5
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -0,0 +1,789 @@
+@@ -0,0 +1,795 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -388,11 +405,17 @@ index 0000000..c025a3b
 +		return sys_ioctl(fd, TTY_IOCTL_NAME, (void *)(buffer + prefixlen), &res);
 +	}
 +	#endif
-+
++	
 +	int sys_fsync(int fd) {
 +		long ret;
 +		return syscall(SYSCALL_FSYNC, &ret, fd);
 +	}
++	
++	int sys_fdatasync(int fd) {
++		// TODO proper datasync syscall
++		return sys_fsync(fd);
++	}
++
 +	
 +	pid_t sys_getppid() {
 +		long ret;
