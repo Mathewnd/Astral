@@ -1,0 +1,69 @@
+diff --git shadow-clean/lib/freezero.c shadow-workdir/lib/freezero.c
+index c565f43..a6adf98 100644
+--- shadow-clean/lib/freezero.c
++++ shadow-workdir/lib/freezero.c
+@@ -17,6 +17,7 @@
+ 
+ #include <stdlib.h>
+ #include <string.h>
++#include <memzero.h>
+ 
+ void
+ freezero(void *ptr, size_t sz)
+@@ -25,6 +26,6 @@ freezero(void *ptr, size_t sz)
+ 	if (ptr == NULL)
+ 		return;
+ 
+-	explicit_bzero(ptr, sz);
++	memzero(ptr, sz);
+ 	free(ptr);
+ }
+diff --git shadow-clean/lib/memzero.h shadow-workdir/lib/memzero.h
+index 1137e83..bbdcb95 100644
+--- shadow-clean/lib/memzero.h
++++ shadow-workdir/lib/memzero.h
+@@ -28,14 +28,14 @@ inline void strzero(char *s);
+ inline void
+ memzero(void *ptr, size_t size)
+ {
+-#if defined(HAVE_MEMSET_EXPLICIT)
+-	memset_explicit(ptr, 0, size);
+-#elif defined(HAVE_EXPLICIT_BZERO)
+-	explicit_bzero(ptr, size);
+-#else
++//#if defined(HAVE_MEMSET_EXPLICIT)
++//	memset_explicit(ptr, 0, size);
++//#elif defined(HAVE_EXPLICIT_BZERO)
++//	explicit_bzero(ptr, size);
++//#else
+ 	bzero(ptr, size);
+ 	__asm__ __volatile__ ("" : : "r"(ptr) : "memory");
+-#endif
++//#endif
+ }
+ 
+ 
+diff --git shadow-clean/lib/user_busy.c shadow-workdir/lib/user_busy.c
+index a622376..f0ef2a4 100644
+--- shadow-clean/lib/user_busy.c
++++ shadow-workdir/lib/user_busy.c
+@@ -24,6 +24,7 @@
+ #endif				/* ENABLE_SUBIDS */
+ #include "shadowlog.h"
+ #include "string/sprintf.h"
++#include <utmpx.h>
+ 
+ 
+ #ifdef __linux__
+diff --git shadow-clean/lib/utmp.c shadow-workdir/lib/utmp.c
+index 08e9b62..55167c1 100644
+--- shadow-clean/lib/utmp.c
++++ shadow-workdir/lib/utmp.c
+@@ -21,6 +21,7 @@
+ #include <netdb.h>
+ #include <stdio.h>
+ #include <fcntl.h>
++#include <netinet/in.h>
+ 
+ #include "alloc.h"
+ #include "sizeof.h"
