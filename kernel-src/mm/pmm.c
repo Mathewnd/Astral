@@ -133,6 +133,7 @@ void pmm_release(void *addr) {
 
 	uintmax_t newrefcount = __atomic_sub_fetch(&page->refcount, 1, __ATOMIC_SEQ_CST);
 	if (newrefcount == 0) {
+		__assert((page->flags & PAGE_FLAGS_DIRTY) == 0);
 		MUTEX_ACQUIRE(&freelistmutex, false);
 		insertinfreelist(page);
 		if (page->backing == NULL)

@@ -223,15 +223,20 @@ static void destroyrange(vmmrange_t *range, uintmax_t _offset, size_t size, int 
 			if (range->vnode->type == V_TYPE_CHDEV) {
 				// character device mapping
 				__assert(VOP_MUNMAP(range->vnode, vaddr, range->offset + offset, mmuflagstovnodeflags(range->mmuflags) | (range->flags & VMM_FLAGS_SHARED ? V_FFLAGS_SHARED : 0), cred) == 0);
-			} else if (arch_mmu_iswritable(_cpu()->vmmctx->pagetable, vaddr) == false || arch_mmu_isdirty(_cpu()->vmmctx->pagetable, vaddr) == false) {
+			} else if (arch_mmu_iswritable(_cpu()->vmmctx->pagetable, vaddr) && arch_mmu_isdirty(_cpu()->vmmctx->pagetable, vaddr)) {
 				// dirty page cache mapping
+				arch_mmu_unmap(_cpu()->vmmctx->pagetable, vaddr);
 				vmmcache_makedirty(pmm_getpage(physical));
+				pmm_release(physical);
+			} else {
+				// non dirty page mapping
+				arch_mmu_unmap(_cpu()->vmmctx->pagetable, vaddr);
 				pmm_release(physical);
 			}
 		} else {
 			// anonymous or private non character device mapping
-			pmm_release(physical);
 			arch_mmu_unmap(_cpu()->vmmctx->pagetable, vaddr);
+			pmm_release(physical);
 		}
 	}
 
