@@ -217,6 +217,14 @@ void signal_signalproc(struct proc_t *proc, int signal) {
 
 	spinlock_release(&proc->threadlistlock);
 
+	// if its ignorable and there wasn't any thread with it unmasked, set it as pending for the whole process
+	// not ignorable signals will be sent to all threads individually
+	if (notignorable == false && (threadcontinued || shouldstop) == false) {
+		SIGNAL_SETON(&proc->signals.pending, signal);
+	}
+
+	PROCESS_LEAVE(proc);
+
 	// tell the parent that a child stopped
 	// TODO when stopping make sure that a thread was actually stopped
 	// TODO protect parent with a spinlock
@@ -242,14 +250,6 @@ void signal_signalproc(struct proc_t *proc, int signal) {
 
 		semaphore_signal(&proc->parent->waitsem);
 	}
-
-	// if its ignorable and there wasn't any thread with it unmasked, set it as pending for the whole process
-	// not ignorable signals will be sent to all threads individually
-	if (notignorable == false && (threadcontinued || shouldstop) == false) {
-		SIGNAL_SETON(&proc->signals.pending, signal);
-	}
-
-	PROCESS_LEAVE(proc);
 }
 
 // returns true if should retry check
