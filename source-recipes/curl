@@ -1,0 +1,9 @@
+name=curl
+version=8.8.0
+source_method=tarball
+tarball_url="https://github.com/curl/curl/releases/download/curl-8_8_0/curl-${version}.tar.xz"
+tarball_sha512="9d2c0d3a0d8f6c31ba4fabe48f801910f886fde43dc198dc4213708d6967ed5e040a1bb7348aa1cb126577ee508a3ec36fe65256d027d861d6ffb70f6383967a"
+hostdeps="autoconf automake pkgconfig libtool autoconf-archive"
+regenerate() {
+        autoreconf -fvi
+}
