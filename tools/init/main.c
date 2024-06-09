@@ -74,7 +74,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	if (WEXITSTATUS(status)) {
-		printf("/etc/rc returned failure status %d\n", WEXITSTATUS(status));
+		printf("init: /etc/rc returned failure status %d\n", WEXITSTATUS(status));
 		return EXIT_FAILURE;
 	}
 
