@@ -3,6 +3,7 @@
 #include <logging.h>
 #include <kernel/alloc.h>
 #include <kernel/jobctl.h>
+#include <kernel/usercopy.h>
 
 #define TTY_MAX_COUNT 4096
 #define CONTROLLING_TTY_MINOR TTY_MAX_COUNT
@@ -300,14 +301,13 @@ static int poll(int minor, polldata_t *data, int events) {
 
 int tty_ioctl(tty_t *tty, unsigned long req, void *arg, int *result) {
 	switch (req) {
-		case TIOCGWINSZ: {
-			winsize_t *w = arg;
-			*w = tty->winsize;
-			break;
-		}
+		case TIOCGWINSZ:
+			return USERCOPY_POSSIBLY_TO_USER(arg, &tty->winsize, sizeof(winsize_t));
 		case TIOCSWINSZ: {
-			winsize_t *w = arg;
-			tty->winsize = *w;
+			int e = USERCOPY_POSSIBLY_FROM_USER(&tty->winsize, arg, sizeof(winsize_t));
+			if (e)
+				return e;
+
 			proc_t *foreground = getforeground(tty);
 			if (foreground) {
 				jobctl_signal(foreground, SIGWINCH);
@@ -315,18 +315,22 @@ int tty_ioctl(tty_t *tty, unsigned long req, void *arg, int *result) {
 			}
 			break;
 		}
-		case TCGETS: {
-			*(termios_t *)arg = tty->termios;
-			break;
-		}
-		case TCSETS: {
-			tty->termios = *(termios_t *)arg;
-			break;
-		}
+		case TCGETS:
+			return USERCOPY_POSSIBLY_TO_USER(arg, &tty->termios, sizeof(termios_t));
+		case TCSETS:
+			return USERCOPY_POSSIBLY_FROM_USER(&tty->termios, arg, sizeof(termios_t));
 		case TIOCSCTTY: {
-			int *steal = arg;
-			if (steal && *steal == 1)
-				printf("tty: stealing not supported\n");
+			if (arg) {
+				int steal;
+				int e = USERCOPY_POSSIBLY_FROM_USER(&steal, arg, sizeof(int));
+				if (e)
+					return e;
+
+				if (steal == 1) {
+					printf("tty: stealing not supported\n");
+					return EINVAL;
+				}
+			}
 			// set as controlling tty
 			jobctl_setctty(_cpu()->thread->proc, tty);
 			break;
@@ -336,14 +340,17 @@ int tty_ioctl(tty_t *tty, unsigned long req, void *arg, int *result) {
 			if (foreground == NULL)
 				return ENOTTY;
 
-			int *pgrp = arg;
-			*pgrp = foreground->pid;
+			int pgrp = foreground->pid;
 			PROC_RELEASE(foreground);
-			break;
+
+			return USERCOPY_POSSIBLY_TO_USER(arg, &pgrp, sizeof(int));
 		}
 		case TIOCSPGRP: {
-			int *pgrpptr = arg;
-			int pgrp = *pgrpptr;
+			int pgrp;
+			int e = USERCOPY_POSSIBLY_FROM_USER(&pgrp, arg, sizeof(int));
+			if (e)
+				return e;
+
 			proc_t *proc = sched_getprocfrompid(pgrp);
 			if (proc == NULL)
 				return ESRCH;
@@ -354,8 +361,7 @@ int tty_ioctl(tty_t *tty, unsigned long req, void *arg, int *result) {
 		}
 		case TTY_IOCTL_NAME: {
 			size_t len = min(strlen(tty->name) + 1, TTY_NAME_MAX);
-			memcpy(arg, tty->name, len);
-			break;
+			return USERCOPY_POSSIBLY_TO_USER(arg, tty->name, len);
 		}
 		default:
 			return ENOTTY;

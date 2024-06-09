@@ -7,6 +7,11 @@ syscallret_t syscall_ioctl(context_t *, int fd, unsigned long request, void *arg
 		.ret = -1
 	};
 
+	if (IS_USER_ADDRESS(arg) == false) {
+		ret.errno = EFAULT;
+		return ret;
+	}
+
 	file_t *file = fd_get(fd);
 	if (file == NULL) {
 		ret.errno = EBADF;

@@ -9,11 +9,6 @@ syscallret_t syscall_getdents(context_t *, int dirfd, void *ubuffer, size_t read
 		.ret = -1
 	};
 
-	if (ubuffer > USERSPACE_END) {
-		ret.errno = EFAULT;
-		return ret;
-	}
-
 	size_t count = readmax / sizeof(dent_t);
 
 	if (count == 0) {
@@ -46,11 +41,13 @@ syscallret_t syscall_getdents(context_t *, int dirfd, void *ubuffer, size_t read
 		goto cleanup;
 
 	fd->offset = offset + ret.ret;
-
 	ret.ret *= sizeof(dent_t);
 
-	// TODO safe memcpy
-	memcpy(ubuffer, buffer, ret.ret);
+	ret.errno = usercopy_touser(ubuffer, buffer, ret.ret);
+	if (ret.errno) {
+		ret.ret = -1;
+		goto cleanup;
+	}
 
 	cleanup:
 	free(buffer);

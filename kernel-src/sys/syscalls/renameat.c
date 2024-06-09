@@ -3,31 +3,40 @@
 #include <string.h>
 #include <logging.h>
 
-syscallret_t syscall_renameat(context_t *context, int olddirfd, const char *uoldpath, int newdirfd, const char *unewpath, unsigned int flags) {
+syscallret_t syscall_renameat(context_t *context, int olddirfd, char *uoldpath, int newdirfd, char *unewpath, unsigned int flags) {
 	syscallret_t ret = {
 		.ret = -1
 	};
 
 	__assert(flags == 0);
 
+	size_t oldpathlen;
+	size_t newpathlen;
+
+	if (usercopy_strlen(uoldpath, &oldpathlen) || usercopy_strlen(unewpath, &newpathlen)) {
+		ret.errno = EFAULT;
+		return ret;
+	}
+
 	char *oldcomponent = NULL;
 	char *newcomponent = NULL;
-	char *oldpath = alloc(strlen(uoldpath) + 1);
+	char *oldpath = alloc(oldpathlen + 1);
 	if (oldpath == NULL) {
 		ret.errno = ENOMEM;
 		return ret;
 	}
 
-	char *newpath = alloc(strlen(unewpath) + 1);
+	char *newpath = alloc(newpathlen + 1);
 	if (newpath == NULL) {
 		free(oldpath);
 		ret.errno = ENOMEM;
 		return ret;
 	}
 
-	// TODO safe strcopy
-	strcpy(oldpath, uoldpath);
-	strcpy(newpath, unewpath);
+	if (usercopy_fromuser(oldpath, uoldpath, oldpathlen) || usercopy_fromuser(newpath, unewpath, newpathlen)) {
+		ret.errno = EFAULT;
+		return ret;
+	}
 
 	vnode_t *olddirnode = NULL;
 	file_t *oldfile = NULL;
@@ -45,8 +54,8 @@ syscallret_t syscall_renameat(context_t *context, int olddirfd, const char *uold
 	if (ret.errno)
 		goto cleanup;
 
-	oldcomponent = alloc(strlen(oldpath));
-	newcomponent = alloc(strlen(newpath));
+	oldcomponent = alloc(strlen(oldpath) + 1);
+	newcomponent = alloc(strlen(newpath) + 1);
 
 	if (oldcomponent == NULL && newcomponent == NULL)
 		goto cleanup;

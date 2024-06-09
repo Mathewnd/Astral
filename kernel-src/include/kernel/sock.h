@@ -5,6 +5,7 @@
 #include <kernel/vfs.h>
 #include <mutex.h>
 #include <kernel/poll.h>
+#include <kernel/usercopy.h>
 
 #define SOCKET_STATE_UNBOUND 0
 #define SOCKET_STATE_BOUND 1
@@ -93,11 +94,16 @@ static inline int sock_addrtoabiaddr(int socktype, sockaddr_t *sockaddr, abisock
 }
 
 static inline int sock_copymsghdr(msghdr_t *khdr, msghdr_t *uhdr) {
-	memcpy(khdr, uhdr, sizeof(msghdr_t));
+	if (usercopy_fromuser(khdr, uhdr, sizeof(msghdr_t)))
+		return EFAULT;
+
 	iovec_t *iovectmp = alloc(sizeof(iovec_t) * khdr->iovcount);
 	if (iovectmp == NULL)
 		return ENOMEM;
-	memcpy(iovectmp, khdr->iov, sizeof(iovec_t) * khdr->iovcount);
+
+	if (usercopy_fromuser(iovectmp, khdr->iov, sizeof(iovec_t) * khdr->iovcount))
+		return EFAULT;
+
 	khdr->iov = iovectmp;
 
 	if (khdr->addr) {
@@ -106,7 +112,12 @@ static inline int sock_copymsghdr(msghdr_t *khdr, msghdr_t *uhdr) {
 			free(iovectmp);
 			return ENOMEM;
 		}
-		memcpy(addrtmp, khdr->addr, khdr->addrlen);
+
+		if (usercopy_fromuser(addrtmp, khdr->addr, khdr->addrlen)) {
+			free(iovectmp);
+			return EFAULT;
+		}
+
 		khdr->addr = addrtmp;
 	}
 

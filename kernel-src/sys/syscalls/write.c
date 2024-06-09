@@ -27,8 +27,9 @@ syscallret_t syscall_write(context_t *context, int fd, void *buffer, size_t size
 		goto cleanup;
 	}
 
-	// TODO safe memcpy
-	memcpy(kernelbuff, buffer, size);
+	ret.errno = usercopy_fromuser(kernelbuff, buffer, size);
+	if (ret.errno)
+		goto cleanup;
 
 	size_t byteswritten;
 	uintmax_t offset = file->offset;

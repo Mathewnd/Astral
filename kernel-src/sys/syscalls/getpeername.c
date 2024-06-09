@@ -6,6 +6,9 @@ syscallret_t syscall_getpeername(context_t *, int fd, void *uaddr, int *addrlen)
 		.ret = -1
 	};
 
+	ret.errno = ENOSYS;
+	return ret;
+
 	file_t *file = fd_get(fd);
 	if (file == NULL) {
 		ret.errno = EBADF;
@@ -30,7 +33,10 @@ syscallret_t syscall_getpeername(context_t *, int fd, void *uaddr, int *addrlen)
 	if (ret.errno)
 		goto cleanup;
 	
-	memcpy(uaddr, &abisockaddr, min(*addrlen, sizeof(abisockaddr_t)));
+	ret.errno = usercopy_touser(uaddr, &abisockaddr, min(*addrlen, sizeof(abisockaddr_t)));
+	if (ret.errno)
+		goto cleanup;
+
 	*addrlen = sizeof(abisockaddr_t);
 	ret.ret = 0;
 

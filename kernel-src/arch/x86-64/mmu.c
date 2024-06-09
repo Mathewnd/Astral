@@ -263,6 +263,7 @@ static volatile struct limine_kernel_address_request kaddrreq = {
 #define ERROR_FETCH   16
 
 static void pfisr(isr_t *self, context_t *ctx) {
+	thread_t *thread = _cpu()->thread;
 	interrupt_set(true);
 	int vmmerror = 0;
 	if (ctx->error & ERROR_PRESENT)
@@ -275,18 +276,29 @@ static void pfisr(isr_t *self, context_t *ctx) {
 		vmmerror |= VMM_ACTION_EXEC;
 
 	if (vmm_pagefault((void *)ctx->cr2, ctx->cs != 8, vmmerror) == false) {
-		if (ARCH_CONTEXT_ISUSER(ctx))
-			signal_signalthread(_cpu()->thread, SIGSEGV, true);
-		else
+		if (thread->usercopyctx) {
+			memcpy(ctx, thread->usercopyctx, sizeof(context_t));
+			thread->usercopyctx = NULL;
+			CTX_RET(ctx) = EFAULT;
+		} else if (ARCH_CONTEXT_ISUSER(ctx)) {
+			signal_signalthread(thread, SIGSEGV, true);
+		} else {
 			_panic("Page Fault", ctx);
+		}
 	}
 }
 
 static void gpfisr(isr_t *self, context_t *ctx) {
-	if (ARCH_CONTEXT_ISUSER(ctx))
-		signal_signalthread(_cpu()->thread, SIGSEGV, true);
-	else
+	thread_t *thread = _cpu()->thread;
+	if (thread->usercopyctx) {
+		memcpy(ctx, thread->usercopyctx, sizeof(context_t));
+		thread->usercopyctx = NULL;
+		CTX_RET(ctx) = EFAULT;
+	} else if (ARCH_CONTEXT_ISUSER(ctx)) {
+		signal_signalthread(thread, SIGSEGV, true);
+	} else {
 		_panic("General Protection Fault", ctx);
+	}
 }
 
 void arch_mmu_init() {

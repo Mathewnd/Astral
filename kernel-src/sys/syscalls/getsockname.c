@@ -30,7 +30,10 @@ syscallret_t syscall_getsockname(context_t *, int fd, void *uaddr, int *addrlen)
 	if (ret.errno)
 		goto cleanup;
 	
-	memcpy(uaddr, &abisockaddr, min(*addrlen, sizeof(abisockaddr_t)));
+	ret.errno = usercopy_touser(uaddr, &abisockaddr, min(*addrlen, sizeof(abisockaddr_t)));
+	if (ret.errno)
+		goto cleanup;
+
 	*addrlen = sizeof(abisockaddr_t);
 	ret.ret = 0;
 

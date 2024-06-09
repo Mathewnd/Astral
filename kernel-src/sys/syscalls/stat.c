@@ -44,9 +44,8 @@ syscallret_t syscall_fstat(context_t *ctx, int fd, stat_t *ustat) {
 	if (ret.errno)
 		goto cleanup;
 
-	// TODO safe memcpy
-	*ustat = buf;
-	ret.ret = 0;
+	ret.errno = usercopy_touser(ustat, &buf, sizeof(stat_t));
+	ret.ret = ret.errno ? -1 : 0;
 
 	cleanup:
 	fd_release(file);
@@ -58,12 +57,22 @@ syscallret_t syscall_fstatat(context_t *ctx, int dirfd, char *upath, stat_t *ust
 		.ret = -1
 	};
 
-	char *path = alloc(strlen(upath) + 1);
+	size_t pathlen;
+	ret.errno = usercopy_strlen(upath, &pathlen);
+	if (ret.errno)
+		return ret;
+
+	char *path = alloc(pathlen + 1);
 	if (path == NULL) {
 		ret.errno = ENOMEM;
 		return ret;
 	}
-	strcpy(path, upath);
+
+	ret.errno = usercopy_fromuser(path, upath, pathlen);
+	if (ret.errno) {
+		free(path);
+		return ret;
+	}
 
 	vnode_t *dirnode = NULL;
 	file_t *file = NULL;
@@ -81,9 +90,8 @@ syscallret_t syscall_fstatat(context_t *ctx, int dirfd, char *upath, stat_t *ust
 	if (ret.errno)
 		goto cleanup;
 
-	// TODO safe memcpy
-	*ustat = buf;
-	ret.ret = 0;
+	ret.errno = usercopy_touser(ustat, &buf, sizeof(stat_t));
+	ret.ret = ret.errno ? -1 : 0;
 
 	cleanup:
 	if (node)

@@ -48,14 +48,19 @@ syscallret_t syscall_recvmsg(context_t *, int fd, msghdr_t *umsghdr, int flags) 
 
 	uintmax_t iovoffset = 0;
 	for (int i = 0; i < msghdr.iovcount; ++i) {
-		memcpy(msghdr.iov[i].addr, (void *)((uintptr_t)buffer + iovoffset), msghdr.iov[i].len);
+		ret.errno = usercopy_touser(msghdr.iov[i].addr, (void *)((uintptr_t)buffer + iovoffset), msghdr.iov[i].len);
+		if (ret.errno)
+			goto cleanup;
 		iovoffset += msghdr.iov[i].len;
 	}
 
-	if (umsghdr->addr) {
-		ret.errno = sock_addrtoabiaddr(socket->type, &sockaddr, umsghdr->addr);
+	if (msghdr.addr) {
+		abisockaddr_t abisockaddr;
+		ret.errno = sock_addrtoabiaddr(socket->type, &sockaddr, &abisockaddr);
 		if (ret.errno)
 			goto cleanup;
+
+		ret.errno = usercopy_touser(msghdr.addr, &abisockaddr, min(sizeof(abisockaddr), msghdr.addrlen));
 	}
 
 	cleanup:

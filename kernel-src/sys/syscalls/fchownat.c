@@ -2,7 +2,7 @@
 #include <kernel/alloc.h>
 #include <kernel/vfs.h>
 
-syscallret_t syscall_fchownat(context_t *, int fd, const char *upath, uid_t owner, gid_t group, int flags) {
+syscallret_t syscall_fchownat(context_t *, int fd, char *upath, uid_t owner, gid_t group, int flags) {
 	syscallret_t ret = {
 		.ret = -1
 	};
@@ -11,7 +11,10 @@ syscallret_t syscall_fchownat(context_t *, int fd, const char *upath, uid_t owne
 	vnode_t *dirnode = NULL;
 	file_t *file = NULL;
 	char *path = NULL;
-	size_t pathlen = strlen(upath);
+	size_t pathlen;
+	ret.errno = usercopy_strlen(upath, &pathlen);
+	if (ret.errno)
+		return ret;
 
 	if (pathlen == 0 && (flags & AT_EMPTY_PATH)) {
 		// chown is done on the file pointed to by fd
@@ -32,7 +35,10 @@ syscallret_t syscall_fchownat(context_t *, int fd, const char *upath, uid_t owne
 			goto cleanup;
 		}
 
-		strcpy(path, upath);
+		ret.errno = usercopy_fromuser(path, upath, pathlen);
+		if (ret.errno)
+			goto cleanup;
+
 		ret.errno = dirfd_enter(path, fd, &file, &dirnode);
 		if (ret.errno)
 			goto cleanup;

@@ -10,6 +10,8 @@
 #define USERSPACE_START   (void *)0x0000000000001000
 #define USERSPACE_END     (void *)0x0000800000000000
 
+#define IS_USER_ADDRESS(a) ((void *)a < USERSPACE_END)
+
 #define PAGE_SIZE 4096
 #define ARCH_MMU_FLAGS_READ (uint64_t)1
 #define ARCH_MMU_FLAGS_WRITE (uint64_t)2

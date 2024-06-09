@@ -77,7 +77,7 @@ typedef struct {
 }
 
 void arch_context_switch(context_t *context);
-void arch_context_saveandcall(void (*fn)(context_t *context, void *argument), void *stack, void *argument);
+int arch_context_saveandcall(void (*fn)(context_t *context, void *argument), void *stack, void *argument);
 
 #include <string.h>
 

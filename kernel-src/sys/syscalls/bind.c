@@ -35,7 +35,9 @@ syscallret_t syscall_bind(context_t *, int fd, void *uaddr, size_t addrlen) {
 		goto cleanup;
 	}
 
-	memcpy(addr, uaddr, addrlen);
+	ret.errno = usercopy_fromuser(addr, uaddr, addrlen);
+	if (ret.errno)
+		goto cleanup;
 
 	sockaddr_t sockaddr;
 	ret.errno = sock_convertaddress(&sockaddr, addr);

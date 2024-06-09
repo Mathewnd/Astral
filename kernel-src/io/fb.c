@@ -6,6 +6,7 @@
 #include <kernel/devfs.h>
 #include <arch/cpu.h>
 #include <kernel/pmm.h>
+#include <kernel/usercopy.h>
 
 typedef struct bitfield_t {
 	uint32_t offset;
@@ -177,11 +178,9 @@ static int ioctl(int minor, unsigned long request, void *arg, int *result){
 		case FBIOPUT_VSCREENINFO:
 			break;
 		case FBIOGET_FSCREENINFO:
-			*(fixinfo_t *)arg = fixinfos[minor];
-			break;
+			return USERCOPY_POSSIBLY_TO_USER(arg, &fixinfos[minor], sizeof(fixinfo_t));
 		case FBIOGET_VSCREENINFO:
-			*(varinfo_t *)arg = varinfos[minor];
-			break;
+			return USERCOPY_POSSIBLY_TO_USER(arg, &varinfos[minor], sizeof(varinfo_t));
 		default:
 			return ENOTTY;
         }

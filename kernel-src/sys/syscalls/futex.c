@@ -74,12 +74,14 @@ syscallret_t syscall_futex(context_t *, uint32_t *futexp, int op, uint32_t value
 
 	MUTEX_ACQUIRE(&futexmutex, false);
 
+	bool doleave = true;
 	uint32_t word;
-	__atomic_load(futexp, &word, __ATOMIC_RELAXED);
+	ret.errno = usercopy_fromuseratomic32(futexp, &word);
+	if (ret.errno)
+		goto cleanup;
 
 	uint32_t *physical = vmm_getphysical(futexp);
 	futex_t *futex = getfutex(physical);
-	bool doleave = true;
 
 	switch (op) {
 		case FUTEX_WAKE:
@@ -161,6 +163,7 @@ syscallret_t syscall_futex(context_t *, uint32_t *futexp, int op, uint32_t value
 			ret.errno = ENOSYS;
 	}
 
+	cleanup:
 	if (doleave)
 		poll_leave(&desc);
 

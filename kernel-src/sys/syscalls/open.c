@@ -5,7 +5,7 @@
 #include <errno.h>
 #include <logging.h>
 
-syscallret_t syscall_openat(context_t *context, int dirfd, const char *path, int flags, mode_t mode) {
+syscallret_t syscall_openat(context_t *context, int dirfd, char *path, int flags, mode_t mode) {
 	syscallret_t ret = {
 		.ret = -1,
 		.errno = -1
@@ -17,16 +17,25 @@ syscallret_t syscall_openat(context_t *context, int dirfd, const char *path, int
 	vnode_t *dirnode = NULL;
 	file_t *dirfile = NULL;
 
-	size_t pathsize = strlen(path); // TODO u_strlen
+	size_t pathsize;
+	ret.errno = usercopy_strlen(path, &pathsize);
 	char *pathbuf = alloc(pathsize + 1);
 	if (pathbuf == NULL) {
 		ret.errno = ENOMEM;
 		return ret;
 	}
 
-	strcpy(pathbuf, path); // TODO u_strcpy
+	ret.errno = usercopy_fromuser(pathbuf, path, pathsize);
+	if (ret.errno) {
+		free(pathbuf);
+		return ret;
+	}
 
 	ret.errno = dirfd_enter(pathbuf, dirfd, &dirfile, &dirnode);
+	if (ret.errno) {
+		free(pathbuf);
+		return ret;
+	}
 
 	retry_open:
 	file_t *newfile = NULL;

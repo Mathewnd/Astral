@@ -4,19 +4,27 @@
 #include <kernel/alloc.h>
 #include <errno.h>
 
-syscallret_t syscall_chroot(context_t *, const char *upath) {
+syscallret_t syscall_chroot(context_t *, char *upath) {
 	syscallret_t ret = {
 		.ret = -1
 	};
 
-	if (upath > (char *)USERSPACE_END) {
-		ret.errno = EFAULT;
+	size_t pathlen;
+	ret.errno = usercopy_strlen(upath, &pathlen);
+	if (ret.errno)
+		return ret;
+
+	char *path = alloc(pathlen + 1);
+	if (path == NULL) {
+		ret.errno = ENOMEM;
 		return ret;
 	}
 
-	// TODO safe string ops
-	char *path = alloc(strlen(upath) + 1);
-	strcpy(path, upath);
+	ret.errno = usercopy_fromuser(path, upath, pathlen);
+	if (ret.errno) {
+		free(path);
+		return ret;
+	}
 
 	vnode_t *ref = path[0] == '/' ? sched_getroot() : sched_getcwd();
 	vnode_t *new = NULL;

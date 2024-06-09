@@ -14,12 +14,10 @@ syscallret_t syscall_nanosleep(context_t *, timespec_t *utime, timespec_t *remai
 		.ret = -1
 	};
 
-	if ((void *)utime > USERSPACE_END || (void *)remaining > USERSPACE_END) {
-		ret.errno = EFAULT;
+	timespec_t time;
+	ret.errno = usercopy_fromuser(&time, utime, sizeof(timespec_t));
+	if (ret.errno)
 		return ret;
-	}
-
-	timespec_t time = *utime;
 
 	if (time.ns > 999999999 || time.ns < 0) {
 		ret.errno = EINVAL;
@@ -34,8 +32,12 @@ syscallret_t syscall_nanosleep(context_t *, timespec_t *utime, timespec_t *remai
 
 	ret.errno = sched_yield();
 
-	if (ret.errno)
-		timer_remove(_cpu()->timer, &sleepentry);
+	if (ret.errno) {
+		uintmax_t remainingus = timer_remove(_cpu()->timer, &sleepentry);
+		time.ns = (remainingus % 1000000) * 1000;
+		time.s  = (remainingus / 1000000);
+		ret.errno = usercopy_touser(remaining, &time, sizeof(timespec_t)) ? EFAULT : EINTR;
+	}
 
 	sched_targetcpu(NULL);
 

@@ -70,13 +70,16 @@ int sockfs_setattr(vnode_t *node, vattr_t *attr, int which, cred_t *cred) {
 // arg can be in userspace
 int sockfs_ioctl(vnode_t *node, unsigned long request, void *arg, int *result) {
 	switch (request) {
-		case SIOCSIFADDR:
-		{
-			ifreq_t *ifreq = arg;
-			netdev_t *netdev = netdev_getdev(ifreq->name);
+		case SIOCSIFADDR: {
+			ifreq_t ifreq;
+			int e = USERCOPY_POSSIBLY_FROM_USER(&ifreq, arg, sizeof(ifreq_t));
+			if (e)
+				return e;
+
+			netdev_t *netdev = netdev_getdev(ifreq.name);
 			if(netdev) {
 				sockaddr_t sockaddr;
-				int e = sock_convertaddress(&sockaddr, &ifreq->addr);
+				e = sock_convertaddress(&sockaddr, &ifreq.addr);
 				if (e)
 					return e;
 				netdev->ip = sockaddr.ipv4addr.addr;
@@ -85,50 +88,57 @@ int sockfs_ioctl(vnode_t *node, unsigned long request, void *arg, int *result) {
 			}
 			break;
 		}
-		case SIOCGIFHWADDR:
-		{
+		case SIOCGIFHWADDR: {
 			ifreq_t *ifreq = arg;
-			netdev_t *netdev = netdev_getdev(ifreq->name);
+			ifreq_t kifreq;
+			int e = USERCOPY_POSSIBLY_FROM_USER(&kifreq, arg, sizeof(ifreq_t));
+			if (e)
+				return e;
+
+			netdev_t *netdev = netdev_getdev(kifreq.name);
 			if (netdev) {
-				memcpy(ifreq->addr.addr, netdev->mac.address, sizeof(mac_t));
-				return 0;
+				return USERCOPY_POSSIBLY_TO_USER(ifreq->addr.addr, netdev->mac.address, sizeof(mac_t));
 			} else {
 				return ENODEV;
 			}
 			break;
 		}
-		case SIOCADDRT:
-		{
+		case SIOCADDRT: {
 			abirtentry_t abirtentry;
-			memcpy(&abirtentry, arg, sizeof(abirtentry_t));
-
-			abisockaddr_t abiaddr;
-			abisockaddr_t abigateway;
-			abisockaddr_t abimask;
-			memcpy(&abiaddr, (void *)&abirtentry.rt_dst, sizeof(abisockaddr_t));
-			memcpy(&abigateway, (void *)&abirtentry.rt_gateway, sizeof(abisockaddr_t));
-			memcpy(&abimask, (void *)&abirtentry.rt_genmask, sizeof(abisockaddr_t));
+			int e = USERCOPY_POSSIBLY_FROM_USER(&abirtentry, arg, sizeof(abirtentry_t));
+			if (e)
+				return e;
 
 			sockaddr_t addr;
 			sockaddr_t gateway;
 			sockaddr_t mask;
 
-			int e = sock_convertaddress(&addr, &abiaddr);
+			e = sock_convertaddress(&addr, &abirtentry.rt_dst);
 			if (e)
 				return e;
 
-			e = sock_convertaddress(&gateway, &abigateway);
+			e = sock_convertaddress(&gateway, &abirtentry.rt_gateway);
 			if (e)
 				return e;
 
-			e = sock_convertaddress(&mask, &abimask);
+			e = sock_convertaddress(&mask, &abirtentry.rt_genmask);
 			if (e)
 				return e;
 
-			char *dev = alloc(strlen(abirtentry.rt_dev) + 1);
+			size_t devlen;
+			e = USERCOPY_POSSIBLY_STRLEN_FROM_USER(abirtentry.rt_dev, &devlen);
+			if (e)
+				return e;
+
+			char *dev = alloc(devlen + 1);
 			if (dev == NULL)
 				return ENOMEM;
-			strcpy(dev, abirtentry.rt_dev);
+
+			e = USERCOPY_POSSIBLY_FROM_USER(dev, abirtentry.rt_dev, devlen);
+			if (e) {
+				free(dev);
+				return e;
+			}
 
 			netdev_t *netdev = netdev_getdev(dev);
 			if (netdev == NULL) {
@@ -141,15 +151,13 @@ int sockfs_ioctl(vnode_t *node, unsigned long request, void *arg, int *result) {
 			free(dev);
 			return e;
 		}
-			case FIONREAD:
-		{
+			case FIONREAD: {
 			socket_t *socket = SOCKFS_SOCKET_FROM_NODE(node);
-			int *count = arg;
 			if (socket->ops->datacount == NULL)
 				return ENOTTY;
 
-			*count = socket->ops->datacount(socket);
-			return 0;
+			int count = socket->ops->datacount(socket);
+			return USERCOPY_POSSIBLY_TO_USER(arg, &count, sizeof(int));
 		}
 			default:
 				return ENOTTY;

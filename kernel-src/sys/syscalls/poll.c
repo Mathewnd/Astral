@@ -16,11 +16,6 @@ syscallret_t syscall_poll(context_t *, pollfd_t *fds, size_t nfds, int timeoutms
 		.ret = -1
 	};
 
-	if ((void *)fds > USERSPACE_END) {
-		ret.errno = EFAULT;
-		return ret;
-	}
-
 	size_t fdsbuffsize = nfds * sizeof(pollfd_t);
 	pollfd_t *fdsbuff = alloc(fdsbuffsize);
 	if (fdsbuff == NULL) {
@@ -28,7 +23,11 @@ syscallret_t syscall_poll(context_t *, pollfd_t *fds, size_t nfds, int timeoutms
 		return ret;
 	}
 
-	memcpy(fdsbuff, fds, fdsbuffsize);
+	ret.errno = usercopy_fromuser(fdsbuff, fds, fdsbuffsize);
+	if (ret.errno) {
+		free(fdsbuff);
+		return ret;
+	}
 
 	// we need to keep holding the files so another thread doesn't close them and break everything
 	file_t **filebuff = alloc(sizeof(file_t *) * nfds);
@@ -80,7 +79,7 @@ syscallret_t syscall_poll(context_t *, pollfd_t *fds, size_t nfds, int timeoutms
 		}
 	}
 
-	memcpy(fds, fdsbuff, fdsbuffsize);
+	ret.errno = usercopy_touser(fds, fdsbuff, fdsbuffsize);
 
 	poll_leave(&desc);
 	poll_destroydesc(&desc);
@@ -91,7 +90,7 @@ syscallret_t syscall_poll(context_t *, pollfd_t *fds, size_t nfds, int timeoutms
 			fd_release(filebuff[i]);
 	}
 
-	ret.ret = eventcount;
+	ret.ret = ret.errno ? -1 : eventcount;
 
 	cleanup:
 	if (filebuff)

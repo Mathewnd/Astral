@@ -6,6 +6,7 @@
 #include <kernel/vfs.h>
 #include <kernel/file.h>
 #include <kernel/scheduler.h>
+#include <kernel/usercopy.h>
 
 typedef struct {
 	uint64_t ret;

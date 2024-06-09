@@ -14,7 +14,6 @@ syscallret_t syscall_waitpid(context_t *context, pid_t pid, int *status, int opt
 		.ret = -1
 	};
 
-	// TODO address check
 	__assert((options & ~KNOWN_FLAGS) == 0);
 	// TODO implement these
 	__assert(pid == -1 || pid > 0);
@@ -94,10 +93,11 @@ syscallret_t syscall_waitpid(context_t *context, pid_t pid, int *status, int opt
 			proc->child = iterator->sibling;
 	}
 
-	// TODO memory safe operation
 	if (status) {
 		int statustmp = iterator->status;
-		*status = statustmp;
+		ret.errno = usercopy_touser(status, &statustmp, sizeof(statustmp));
+	} else {
+		ret.errno = 0;
 	}
 
 	MUTEX_RELEASE(&proc->mutex);
@@ -125,7 +125,6 @@ syscallret_t syscall_waitpid(context_t *context, pid_t pid, int *status, int opt
 	}
 
 	ret.ret = iterator->pid;
-	ret.errno = 0;
 
 	__assert(iterator);
 	// process will no longer be referenced by the child list

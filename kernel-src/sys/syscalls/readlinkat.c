@@ -4,18 +4,27 @@
 #include <kernel/alloc.h>
 #include <arch/cpu.h>
 
-syscallret_t syscall_readlinkat(context_t *, int dirfd, const char *upath, char *ubuffer, size_t ubuffersize) {
+syscallret_t syscall_readlinkat(context_t *, int dirfd, char *upath, char *ubuffer, size_t ubuffersize) {
 	syscallret_t ret = {
 		.ret = -1
 	};
 
-	char *path = alloc(strlen(upath) + 1);
+	size_t pathlen;
+	ret.errno = usercopy_strlen(upath, &pathlen);
+	if (ret.errno)
+		return ret;
+
+	char *path = alloc(pathlen + 1);
 	if (path == NULL) {
 		ret.errno = ENOMEM;
 		return ret;
 	}
 
-	strcpy(path, upath);
+	ret.errno = usercopy_fromuser(path, upath, pathlen);
+	if (ret.errno) {
+		free(path);
+		return ret;
+	}
 
 	file_t *file = NULL;
 	vnode_t *dirnode = NULL;
@@ -36,9 +45,8 @@ syscallret_t syscall_readlinkat(context_t *, int dirfd, const char *upath, char 
 	size_t bufferlen = strlen(buffer);
 	size_t copylen = bufferlen > ubuffersize ? ubuffersize : bufferlen;
 
-	memcpy(ubuffer, buffer, copylen);
-
-	ret.ret = copylen;
+	ret.errno = usercopy_touser(ubuffer, buffer, copylen);
+	ret.ret = ret.errno ? -1 : copylen;
 
 	cleanup:
 

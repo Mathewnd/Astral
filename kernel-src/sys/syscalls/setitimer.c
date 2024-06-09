@@ -45,11 +45,14 @@ syscallret_t syscall_getitimer(context_t *context, int which, itimerval_t *value
 
 	MUTEX_RELEASE(&_cpu()->thread->proc->timer.mutex);
 
-	value->interval.s = oldrepeat / 1000000;
-	value->interval.us = oldrepeat % 1000000;
-	value->value.s = oldremaining / 1000000;
-	value->value.us = oldremaining % 1000000;
-	ret.errno = 0;
+	itimerval_t tmp;
+
+	tmp.interval.s = oldrepeat / 1000000;
+	tmp.interval.us = oldrepeat % 1000000;
+	tmp.value.s = oldremaining / 1000000;
+	tmp.value.us = oldremaining % 1000000;
+	ret.errno = usercopy_touser(value, &tmp, sizeof(tmp));
+	ret.ret = ret.errno ? -1 : 0;
 	return ret;
 }
 
@@ -67,8 +70,11 @@ syscallret_t syscall_setitimer(context_t *context, int which, itimerval_t *unew,
 	}
 
 	itimerval_t val = {0};
-	if (unew)
-		val = *unew;
+	if (unew) {
+		ret.errno = usercopy_fromuser(&val, unew, sizeof(val));
+		if (ret.errno)
+			return ret;
+	}
 
 	MUTEX_ACQUIRE(&_cpu()->thread->proc->timer.mutex, false);
 	uintmax_t oldremaining, oldrepeat;
@@ -84,13 +90,17 @@ syscallret_t syscall_setitimer(context_t *context, int which, itimerval_t *unew,
 
 	MUTEX_RELEASE(&_cpu()->thread->proc->timer.mutex);
 
+	ret.errno = 0;
 	if (uold) {
+		itimerval_t tmp;
 		uold->interval.s = oldrepeat / 1000000;
 		uold->interval.us = oldrepeat % 1000000;
 		uold->value.s = oldremaining / 1000000;
 		uold->value.us = oldremaining % 1000000;
+		ret.errno = usercopy_touser(uold, &tmp, sizeof(tmp));
 	}
 
-	ret.errno = 0;
+	ret.ret = ret.errno ? -1 : 0;
+
 	return ret;
 }

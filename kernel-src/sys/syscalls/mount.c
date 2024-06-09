@@ -4,24 +4,36 @@
 #include <kernel/vfs.h>
 #include <logging.h>
 
-syscallret_t syscall_mount(context_t *context, const char *ubacking, const char *umountpoint, const char *ufs, unsigned long flags, void *data) {
+static void freeptrs(void *a, void *b, void *c) {
+	if (a)
+		free(a);
+
+	if (b)
+		free (b);
+
+	if (c)
+		free (c);
+}
+
+syscallret_t syscall_mount(context_t *context, char *ubacking, char *umountpoint, char *ufs, unsigned long flags, void *data) {
 	syscallret_t ret = {
 		.ret = -1
 	};
 	__assert(flags == 0);
 
-	if ((void *)ubacking > USERSPACE_END || (void *)umountpoint > USERSPACE_END || (void *)ufs > USERSPACE_END) {
+	size_t mountpointlen, fslen;
+
+	if (usercopy_strlen(umountpoint, &mountpointlen) || usercopy_strlen(ufs, &fslen)) {
 		ret.errno = EFAULT;
 		return ret;
 	}
 
 	ret.errno = ENOMEM;
-	char *mountpoint = alloc(strlen(umountpoint) + 1);
-	if (mountpoint == NULL) {
+	char *mountpoint = alloc(mountpointlen + 1);
+	if (mountpoint == NULL)
 		return ret;
-	}
 
-	char *fs = alloc(strlen(ufs) + 1);
+	char *fs = alloc(fslen + 1);
 	if (fs == NULL) {
 		free(mountpoint);
 		return ret;
@@ -29,16 +41,32 @@ syscallret_t syscall_mount(context_t *context, const char *ubacking, const char 
 
 	char *backing = NULL;
 	if (ubacking) {
-		backing = alloc(strlen(ubacking) + 1);
-		if (backing == NULL) {
-			free(mountpoint);
-			free(fs);
+		size_t backinglen;
+
+		ret.errno = usercopy_strlen(ubacking, &backinglen);
+		if (ret.errno) {
+			freeptrs(mountpoint, fs, NULL);
 			return ret;
 		}
-		strcpy(backing, ubacking);
+
+		backing = alloc(backinglen + 1);
+		if (backing == NULL) {
+			freeptrs(mountpoint, fs, NULL);
+			return ret;
+		}
+
+		ret.errno = usercopy_fromuser(backing, ubacking, backinglen);
+		if (ret.errno) {
+			freeptrs(backing, mountpoint, fs);
+			return ret;
+		}
 	}
-	strcpy(fs, ufs);
-	strcpy(mountpoint, umountpoint);
+
+	if (usercopy_fromuser(fs, ufs, fslen) || usercopy_fromuser(mountpoint, umountpoint, mountpointlen)) {
+		ret.errno = EFAULT;
+		freeptrs(fs, mountpoint, backing);
+		return ret;
+	}
 
 	vnode_t *backingrefnode = NULL;
 	if (ubacking)

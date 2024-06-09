@@ -16,18 +16,27 @@ static int dochmod(vnode_t *node, mode_t mode) {
 	return VOP_SETATTR(node, &attr, V_ATTR_MODE, cred);
 }
 
-syscallret_t syscall_fchmodat(context_t *, int dirfd, const char *upath, mode_t mode, int flags) {
+syscallret_t syscall_fchmodat(context_t *, int dirfd, char *upath, mode_t mode, int flags) {
 	syscallret_t ret = {
 		.ret = -1
 	};
 
-	char *path = alloc(strlen(upath) + 1);
+	size_t pathlen;
+	ret.errno = usercopy_strlen(upath, &pathlen);
+	if (ret.errno)
+		return ret;
+
+	char *path = alloc(pathlen + 1);
 	if (path == NULL) {
 		ret.errno = ENOMEM;
 		return ret;
 	}
 
-	strcpy(path, upath);
+	ret.errno = usercopy_fromuser(path, upath, pathlen);
+	if (ret.errno) {
+		free(path);
+		return ret;
+	}
 
 	file_t *file = NULL;
 	vnode_t *dirnode = NULL;

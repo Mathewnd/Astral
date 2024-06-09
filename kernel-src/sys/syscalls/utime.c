@@ -4,14 +4,18 @@
 
 syscallret_t syscall_utimensat(context_t *, int fd, char *upath, timespec_t uts[2], int flags) {
 	syscallret_t ret = {
-		.ret = -1
+		.ret = -1,
+		.errno = 0
 	};
 
 	timespec_t ts[2];
 	if (uts == NULL)
 		ts[0] = ts[1] = timekeeper_time();
 	else
-		memcpy(ts, uts, sizeof(timespec_t) * 2);
+		ret.errno = usercopy_fromuser(ts, uts, sizeof(timespec_t) * 2);
+
+	if (ret.errno)
+		return ret;
 
 	vnode_t *node = NULL;
 	vnode_t *dirnode = NULL;
@@ -31,13 +35,21 @@ syscallret_t syscall_utimensat(context_t *, int fd, char *upath, timespec_t uts[
 		fd_release(file);
 	} else {
 		// operation is done on the file pointed to by the path relative to fd
-		path = alloc(strlen(upath) + 1);
+		size_t pathlen;
+		ret.errno = usercopy_strlen(upath, &pathlen);
+		if (ret.errno)
+			goto cleanup;
+
+		path = alloc(pathlen + 1);
 		if (path == NULL) {
 			ret.errno = ENOMEM;
 			goto cleanup;
 		}
 
-		strcpy(path, upath);
+		ret.errno = usercopy_fromuser(path, upath, pathlen);
+		if (ret.errno)
+			goto cleanup;
+
 		ret.errno = dirfd_enter(path, fd, &file, &dirnode);
 		if (ret.errno)
 			goto cleanup;

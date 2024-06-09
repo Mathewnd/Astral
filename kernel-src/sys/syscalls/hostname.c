@@ -31,29 +31,31 @@ syscallret_t syscall_hostname(context_t *, char *unew, size_t newsize, char *uol
 	char new[HOST_NAME_MAX];
 	char old[HOST_NAME_MAX + 1];
 
-	if (unew)
-		memcpy(new, unew, newsize);
+	if (unew) {
+		ret.errno = usercopy_fromuser(new, unew, newsize);
+		if (ret.errno)
+			return ret;
+	}
 
 	interrupt_set(false);
 	spinlock_acquire(&lock);
 
+	size_t copysize = min(oldsize - 1, bufferlen);
 	if (uold) {
-		size_t copysize = min(oldsize - 1, bufferlen);
-
 		memcpy(old, buffer, copysize);
 		old[copysize] = '\0';
 	}
 
 	if (unew) {
 		bufferlen = newsize;
-		strcpy(buffer, new);
+		memcpy(buffer, new, newsize);
 	}
 
 	spinlock_release(&lock);
 	interrupt_set(true);
 
 	if (uold)
-		strcpy(uold, old);
+		ret.errno = usercopy_touser(uold, old, copysize + 1);
 
 	ret.errno = 0;
 	ret.ret = 0;

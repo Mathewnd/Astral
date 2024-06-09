@@ -18,13 +18,17 @@ syscallret_t syscall_sigprocmask(context_t *, int how, sigset_t *set, sigset_t *
 			return ret;
 		}
 
-		new = *set;
+		ret.errno = usercopy_fromuser(&new, set, sizeof(sigset_t));
+		if (ret.errno)
+			return ret;
 	}
 	
 	signal_changemask(_cpu()->thread, how, set ? &new : NULL, oldset ? &old : NULL);
 
-	if (oldset)
-		*oldset = old;
+	if (oldset && usercopy_touser(oldset, &old, sizeof(sigset_t))) {
+		ret.errno = EFAULT;
+		return ret;
+	}
 
 	ret.ret = 0;
 	ret.errno = 0;

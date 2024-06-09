@@ -36,12 +36,8 @@ syscallret_t syscall_read(context_t *context, int fd, void *buffer, size_t size)
 		goto cleanup;
 
 	file->offset = offset + bytesread;
-	ret.ret = bytesread;
-	ret.errno = 0;
-
-	// TODO safe memcpy
-	memcpy(buffer, kernelbuff, bytesread);
-
+	ret.errno = usercopy_touser(buffer, kernelbuff, bytesread);
+	ret.ret = ret.errno ? -1 : bytesread;
 cleanup:
 	if (file)
 		fd_release(file);

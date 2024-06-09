@@ -6,5 +6,6 @@ syscallret_t syscall_gettid(context_t *) {
 		.errno = 0,
 		.ret = _cpu()->thread->tid
 	};
+
 	return ret;
 }

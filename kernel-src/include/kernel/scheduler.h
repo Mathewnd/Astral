@@ -51,6 +51,7 @@ typedef struct thread_t {
 	int wakeupreason;
 	bool shouldexit;
 	void *kernelarg;
+	context_t *usercopyctx;
 	struct {
 		spinlock_t lock;
 		stack_t stack;

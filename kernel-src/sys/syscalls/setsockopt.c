@@ -21,7 +21,11 @@ syscallret_t syscall_setsockopt(context_t *, int fd, int level, int optname, voi
 			ret.errno = ENOMEM;
 			return ret;
 		}
-		memcpy(buffer, val, len);
+		ret.errno = usercopy_fromuser(buffer, val, len);
+		if (ret.errno) {
+			free(buffer);
+			return ret;
+		}
 	}
 
 	file_t *file = fd_get(fd);
@@ -43,7 +47,7 @@ syscallret_t syscall_setsockopt(context_t *, int fd, int level, int optname, voi
 	switch (optname) {
 		case SO_BINDTODEVICE: {
 			if (val) {
-				socket->netdev = netdev_getdev(val);
+				socket->netdev = netdev_getdev(buffer);
 				ret.errno = socket->netdev ? 0 : ENODEV;
 			} else {
 				socket->netdev = NULL;

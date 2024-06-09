@@ -5,19 +5,27 @@
 #include <arch/cpu.h>
 #include <string.h>
 
-syscallret_t syscall_faccessat(context_t *, int dirfd, const char *upath, int mode, int flags) {
+syscallret_t syscall_faccessat(context_t *, int dirfd, char *upath, int mode, int flags) {
 	syscallret_t ret = {
 		.ret = -1
 	};
 
-	char *path = alloc(strlen(upath) + 1);
+	size_t pathlen;
+	ret.errno = usercopy_strlen(upath, &pathlen);
+	if (ret.errno)
+		return ret;
+
+	char *path = alloc(pathlen + 1);
 	if (path == NULL) {
 		ret.errno = ENOMEM;
 		return ret;
 	}
 
-	// TODO safe strcopy
-	strcpy(path, upath);
+	ret.errno = usercopy_fromuser(path, upath, pathlen);
+       	if (ret.errno) {
+		free(path);
+		return ret;
+	}
 
 	vnode_t *dirnode = NULL;
 	file_t *file = NULL;

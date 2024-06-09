@@ -29,13 +29,27 @@ static syscallret_t execve(context_t *context, char *upath, char *uargv[], char 
 		return ret;
 	}
 
-	// TODO user str ops
-	char *path = alloc(strlen(upath) + 1);
+	if (depth == 0 && (IS_USER_ADDRESS(upath) == false || IS_USER_ADDRESS(uargv) == false || IS_USER_ADDRESS(uenvp) == false)) {
+		ret.errno = EFAULT;
+		return ret;
+	}
+
+	size_t pathlen;
+	ret.errno = USERCOPY_POSSIBLY_STRLEN_FROM_USER(upath, &pathlen);
+	if (ret.errno)
+		return ret;
+
+	char *path = alloc(pathlen + 1);
 	if (path == NULL) {
 		ret.errno = ENOMEM;
 		return ret;
 	}
-	strcpy(path, upath);
+
+	ret.errno = USERCOPY_POSSIBLY_FROM_USER(path, upath, pathlen);
+	if (ret.errno) {
+		free(path);
+		return ret;
+	}
 
 	size_t argsize = 0;
 	size_t envsize = 0;
@@ -49,8 +63,25 @@ static syscallret_t execve(context_t *context, char *upath, char *uargv[], char 
 	void *stack = NULL;
 	char shebang[SHEBANG_SIZE];
 
-	while (uargv[argsize++]);
-	while (uenvp[envsize++]);
+	for (;;) {
+		char *arg;
+		ret.errno = USERCOPY_POSSIBLY_FROM_USER(&arg, &uargv[argsize], sizeof(arg));
+		++argsize;
+		if (ret.errno)
+			goto error;
+		if (arg == NULL)
+			break;
+	}
+
+	for (;;) {
+		char *env;
+		ret.errno = USERCOPY_POSSIBLY_FROM_USER(&env, &uenvp[envsize], sizeof(env));
+		++envsize;
+		if (ret.errno)
+			goto error;
+		if (env == NULL)
+			break;
+	}
 
 	size_t argoffset = (sbold ? 1 : 0) + (sbarg ? 1 : 0);
 	argsize += argoffset;
@@ -84,22 +115,60 @@ static syscallret_t execve(context_t *context, char *upath, char *uargv[], char 
 		argv[0] = tmp;
 	}
 
+	// copy arguments
 	for (int i = argoffset; i < argsize - 1; ++i) {
-		argv[i] = alloc(strlen(uargv[i - argoffset]) + 1);
+		void *uarg;
+		ret.errno = USERCOPY_POSSIBLY_FROM_USER(&uarg, &uargv[i - argoffset], sizeof(uarg));
+		if (ret.errno)
+			goto error;
+
+		if (IS_USER_ADDRESS(uarg) == false && depth == 0) {
+			ret.errno = EFAULT;
+			goto error;
+		}
+
+		size_t len;
+		ret.errno = USERCOPY_POSSIBLY_STRLEN_FROM_USER(uarg, &len);
+		if (ret.errno)
+			goto error;
+
+		argv[i] = alloc(len + 1);
 		if (argv[i] == NULL) {
 			ret.errno = ENOMEM;
 			goto error;
 		}
-		strcpy(argv[i], uargv[i - argoffset]);
+
+		ret.errno = USERCOPY_POSSIBLY_FROM_USER(argv[i], uarg, len);
+		if (ret.errno)
+			goto error;
 	}
 
+	// copy env
 	for (int i = 0; i < envsize - 1; ++i) {
-		envp[i] = alloc(strlen(uenvp[i]) + 1);
+		void *uenv;
+		ret.errno = USERCOPY_POSSIBLY_FROM_USER(&uenv, &uenvp[i], sizeof(uenv));
+		if (ret.errno)
+			goto error;
+
+		if (IS_USER_ADDRESS(uenv) == false && depth == 0) {
+			ret.errno = EFAULT;
+			goto error;
+		}
+
+		size_t len;
+		ret.errno = USERCOPY_POSSIBLY_STRLEN_FROM_USER(uenv, &len);
+		if (ret.errno)
+			goto error;
+
+		envp[i] = alloc(len + 1);
 		if (envp[i] == NULL) {
 			ret.errno = ENOMEM;
 			goto error;
 		}
-		strcpy(envp[i], uenvp[i]);
+
+		ret.errno = USERCOPY_POSSIBLY_FROM_USER(envp[i], uenv, len);
+		if (ret.errno)
+			goto error;
 	}
 
 	refnode = *path == '/' ? sched_getroot() : sched_getcwd();

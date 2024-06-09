@@ -6,6 +6,7 @@
 #include <kernel/devfs.h>
 #include <string.h>
 #include <kernel/vmm.h>
+#include <kernel/usercopy.h>
 
 #define DISK_READ(desc, buf, lba, size) (desc)->read(desc->private, buf, lba, size)
 #define DISK_WRITE(desc, buf, lba, size) (desc)->write(desc->private, buf, lba, size)
@@ -140,10 +141,11 @@ static int ioctl(int minor, unsigned long request, void *arg, int *result) {
 
 	switch (request) {
 		case BLOCK_IOCTL_GETDESC:
-			*(blockdesc_t *)arg = *desc;
-			((blockdesc_t *)arg)->write = NULL;
-			((blockdesc_t *)arg)->read = NULL;
-			((blockdesc_t *)arg)->private = NULL;
+			blockdesc_t copy = *desc;
+			copy.write = NULL;
+			copy.read = NULL;
+			copy.private = NULL;
+			ret = USERCOPY_POSSIBLY_TO_USER(arg, &copy, sizeof(blockdesc_t));
 			break;
 		default:
 			ret = ENOTTY;

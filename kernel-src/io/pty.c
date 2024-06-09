@@ -3,6 +3,7 @@
 #include <spinlock.h>
 #include <logging.h>
 #include <kernel/alloc.h>
+#include <kernel/usercopy.h>
 
 #define PTY_BUFFER 4096
 #define PTY_MAX 1024
@@ -198,12 +199,10 @@ static int ioctl(int minor, unsigned long request, void *_arg, int *result) {
 
 	switch (request) {
 		case TIOCGPTN: {
-			int *arg = _arg;
-			*arg = pty->minor;
-			break;
+			return USERCOPY_POSSIBLY_TO_USER(_arg, &pty->minor, sizeof(int));
 		}
 		default:
-		return tty_ioctl(pty->tty, request, _arg, result);
+			return tty_ioctl(pty->tty, request, _arg, result);
 	}
 
 	return 0;
