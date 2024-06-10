@@ -79,7 +79,8 @@ syscallret_t syscall_poll(context_t *, pollfd_t *fds, size_t nfds, int timeoutms
 		}
 	}
 
-	ret.errno = usercopy_touser(fds, fdsbuff, fdsbuffsize);
+	if (ret.errno == 0)
+		ret.errno = usercopy_touser(fds, fdsbuff, fdsbuffsize);
 
 	poll_leave(&desc);
 	poll_destroydesc(&desc);
