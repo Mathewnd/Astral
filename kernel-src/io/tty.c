@@ -246,7 +246,7 @@ static int read(int minor, void *buffer, size_t size, uintmax_t offset, int flag
 		}
 
 		error = poll_dowait(&desc, effectivetimeout);
-		if (error == 0 && desc.event && desc.event->revents == 0) {
+		if (error == 0 && (desc.event == NULL || (desc.event && desc.event->revents == 0))) {
 			// timed out!
 			break;
 		}
