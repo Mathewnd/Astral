@@ -100,23 +100,6 @@ index fc34a3b..b1a95a9 100644
  #include <bits/ensure.h>
  #include <dlfcn.h>
  
-diff --git mlibc-clean/options/posix/generic/pwd-stubs.cpp mlibc-workdir/options/posix/generic/pwd-stubs.cpp
-index 5d8f618..26eb4bb 100644
---- mlibc-clean/options/posix/generic/pwd-stubs.cpp
-+++ mlibc-workdir/options/posix/generic/pwd-stubs.cpp
-@@ -273,9 +273,9 @@ void endpwent(void) {
- 	close_global_file();
- }
- 
--int putpwent(const struct passwd *, FILE *) {
--	__ensure(!"Not implemented");
--	__builtin_unreachable();
-+int putpwent(const struct passwd *p, FILE *f) {
-+	// Taken from musl.
-+	return fprintf(f, "%s:%s:%u:%u:%s:%s:%s\n", p->pw_name, p->pw_passwd, p->pw_uid, p->pw_gid, p->pw_gecos, p->pw_dir, p->pw_shell) < 0 ? -1 : 0;
- }
- 
- struct passwd *fgetpwent(FILE *) {
 diff --git mlibc-clean/options/posix/generic/unistd-stubs.cpp mlibc-workdir/options/posix/generic/unistd-stubs.cpp
 index 3beb692..a7bbfaa 100644
 --- mlibc-clean/options/posix/generic/unistd-stubs.cpp

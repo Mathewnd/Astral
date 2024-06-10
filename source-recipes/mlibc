@@ -1,8 +1,8 @@
 name=mlibc
-version=1580691285ee17401319d6aca1c9683eee8119db
+version=8beb05f23fa6b61cb38852e7633fda2b1eb27226
 source_method=tarball
 tarball_url="https://github.com/managarm/mlibc/archive/${version}.tar.gz"
-tarball_sha512="dabe4e2f0e2a5435ccfbbfd20a3e3fe649bc9dae179f4d44f26debec3ef4adea1f8a5ff0edef679ae6323f58dcbdbaa837c8ffd9befd14a1770ba42d4fe3e740"
+tarball_sha512="3370f4c867e7fd5757ba2773615842115e97cdca92aefe6b49a259b300be4636203bb51a06f4d1cf6c38c834ad6074b1c734e79390153154b527ba12a0c97eab"
 
 regenerate() {
 	mkdir -p ${source_dir}/sysdeps/astral/include/
