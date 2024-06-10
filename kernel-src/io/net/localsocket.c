@@ -211,7 +211,7 @@ static int localsock_send(socket_t *socket, sockaddr_t *addr, void *buffer, size
 
 	localsocket_t *peer = pair->client == localsocket ? pair->server : pair->client;
 	if (peer == NULL) {
-		if (_cpu()->thread->proc)
+		if (_cpu()->thread->proc && (flags & SOCKET_SEND_FLAGS_NOSIGNAL) == 0)
 			signal_signalproc(_cpu()->thread->proc, SIGPIPE);
 
 		error = EPIPE;

@@ -1273,7 +1273,7 @@ static int tcp_send(socket_t *socket, sockaddr_t *addr, void *buffer, size_t cou
 			poll_leave(&polldesc);
 			poll_destroydesc(&polldesc);
 
-			if (_cpu()->thread->proc)
+			if (_cpu()->thread->proc && (flags & SOCKET_SEND_FLAGS_NOSIGNAL) == 0)
 				signal_signalproc(_cpu()->thread->proc, SIGPIPE);
 
 			error = EPIPE;

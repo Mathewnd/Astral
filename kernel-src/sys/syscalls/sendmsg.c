@@ -5,9 +5,8 @@
 #include <kernel/net.h>
 #include <kernel/alloc.h>
 
-// TODO nosignal
 syscallret_t syscall_sendmsg(context_t *, int fd, msghdr_t *umsghdr, int flags)  {
-	//__assert(flags == 0);
+	__assert((flags & ~MSG_NOSIGNAL) == 0);
 	syscallret_t ret;
 
 	msghdr_t msghdr;
@@ -53,7 +52,7 @@ syscallret_t syscall_sendmsg(context_t *, int fd, msghdr_t *umsghdr, int flags) 
 
 	socket_t *socket = SOCKFS_SOCKET_FROM_NODE(file->vnode);
 	size_t sendcount;
-	ret.errno = socket->ops->send(socket, msghdr.addr ? &sockaddr : NULL, buffer, buffersize, fileflagstovnodeflags(file->flags), &sendcount);
+	ret.errno = socket->ops->send(socket, msghdr.addr ? &sockaddr : NULL, buffer, buffersize, fileflagstovnodeflags(file->flags) | ((flags & MSG_NOSIGNAL) ? SOCKET_SEND_FLAGS_NOSIGNAL : 0), &sendcount);
 	ret.ret = ret.errno ? -1 : sendcount;
 
 	cleanup:

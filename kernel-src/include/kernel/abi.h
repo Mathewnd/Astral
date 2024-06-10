@@ -89,6 +89,7 @@ typedef struct {
 #define SOCK_RAW 3
 
 #define MSG_PEEK 2
+#define MSG_NOSIGNAL 0x4000
 
 #define SO_BROADCAST 6
 #define SO_BINDTODEVICE 25
