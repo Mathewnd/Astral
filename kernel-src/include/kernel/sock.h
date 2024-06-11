@@ -79,11 +79,13 @@ static inline int sock_addrtoabiaddr(int socktype, sockaddr_t *sockaddr, abisock
 	switch (socktype) {
 		case SOCKET_TYPE_UDP:
 		case SOCKET_TYPE_TCP:
+			abisockaddr->type = AF_INET;
 			inaddr_t *inaddr = (inaddr_t *)abisockaddr;
 			inaddr->sin_addr = cpu_to_be_d(sockaddr->ipv4addr.addr);
 			inaddr->sin_port = cpu_to_be_w(sockaddr->ipv4addr.port);
 			break;
 		case SOCKET_TYPE_LOCAL:
+			abisockaddr->type = AF_LOCAL;
 			unaddr_t *unaddr = (unaddr_t *)abisockaddr;
 			strcpy(unaddr->sun_path, sockaddr->path);
 			break;

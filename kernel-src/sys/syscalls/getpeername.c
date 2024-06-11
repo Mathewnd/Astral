@@ -6,9 +6,6 @@ syscallret_t syscall_getpeername(context_t *, int fd, void *uaddr, int *addrlen)
 		.ret = -1
 	};
 
-	ret.errno = ENOSYS;
-	return ret;
-
 	file_t *file = fd_get(fd);
 	if (file == NULL) {
 		ret.errno = EBADF;
