@@ -84,6 +84,34 @@ file_t *fd_get(int fd) {
 	return file;
 }
 
+int fd_setflags(int fd, int flags) {
+	int error = 0;
+	proc_t *proc = _cpu()->thread->proc;
+	MUTEX_ACQUIRE(&proc->fdmutex, false);
+
+	if (proc->fd[fd].file)
+		proc->fd[fd].flags = flags;
+	else
+		error = EBADF;
+
+	MUTEX_RELEASE(&proc->fdmutex);
+	return error;
+}
+
+int fd_getflags(int fd, int *flags) {
+	int error = 0;
+	proc_t *proc = _cpu()->thread->proc;
+	MUTEX_ACQUIRE(&proc->fdmutex, false);
+
+	if (proc->fd[fd].file)
+		*flags = proc->fd[fd].flags;
+	else
+		error = EBADF;
+
+	MUTEX_RELEASE(&proc->fdmutex);
+	return error;
+}
+
 void fd_release(file_t *file) {
 	FILE_RELEASE(file);
 }

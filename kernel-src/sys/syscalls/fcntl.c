@@ -42,8 +42,13 @@ syscallret_t syscall_fcntl(context_t *, int fd, int cmd, uint64_t arg) {
 			FILE_UNLOCK(file);
 			break;
 		case F_SETFD:
-		case F_GETFD: // TODO implement this
+			ret.errno = fd_setflags(fd, arg);
 			ret.ret = 0;
+			break;
+		case F_GETFD:
+			int flg;
+			ret.errno = fd_getflags(fd, &flg);
+			ret.ret = flg;
 			break;
 		default:
 			ret.errno = EINVAL;
@@ -52,6 +57,8 @@ syscallret_t syscall_fcntl(context_t *, int fd, int cmd, uint64_t arg) {
 	ret.errno = 0;
 
 	cleanup:
+	ret.ret = ret.errno ? -1 : ret.ret;
+
 	fd_release(file);
 	return ret;
 }
