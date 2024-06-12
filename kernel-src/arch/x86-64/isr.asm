@@ -1,21 +1,26 @@
 section .text
 %assign i 0
 %rep 256
+
 isr_%+ i:
 	; push an error code if the cpu did not
 	%if i <> 8 && i <> 10 && i <> 11 && i <> 12 && i <> 13 && i <> 14
 		push qword 0
 	%endif
 
-	; check if swapgs is needed
+	push rbp ; this push is here to free a register
+	mov rbp, i
+	jmp isr_common
+%assign i i + 1
+%endrep
 
-	cmp qword [rsp+16], 0x23
+isr_common:
+	; check if swapgs is needed
+	cmp qword [rsp+24], 0x23
 	jne .notneeded1
 	swapgs
 	.notneeded1:
-
 	; push context
-	push rbp
 	push rsi
 	push rdi
 	push r15
@@ -47,8 +52,8 @@ isr_%+ i:
 	mov es, rdi
 
 	; save ctx pointer and interrupt vector number
-	mov rdi, i
-	mov rsi, rsp
+	mov rdi, rbp ; vec
+	mov rsi, rsp ; ctx
 
 	cld
 	extern interrupt_isr
@@ -84,8 +89,6 @@ isr_%+ i:
 	swapgs
 	.notneeded2:
 	o64 iret
-%assign i i + 1
-%endrep
 
 section .rodata
 global isr_table
