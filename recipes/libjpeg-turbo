@@ -1,0 +1,25 @@
+name=libjpeg-turbo
+revision=1
+from_source=libjpeg-turbo
+imagedeps="base-devel"
+hostdeps="xgcc xbinutils cmake"
+deps="mlibc"
+
+build() {
+	cmake \
+	-DCMAKE_TOOLCHAIN_FILE=${base_dir}/util/cmake \
+	-DCMAKE_INSTALL_PREFIX=${prefix} \
+	-DCMAKE_BUILD_TYPE=Release \
+	-DENABLE_STATIC=FALSE \
+	-DCMAKE_INSTALL_DOCIDR=/usr/share/doc/libjpeg-turbo-3.0.3 \
+	-DCMAKE_INSTALL_DEFAULT_LIBDIR=lib \
+	-DWITH_JPEG8=ON \
+	-DCMAKE_SYSTEM_PROCESSOR=x86_64 \
+	${source_dir}
+
+	make -j${parallelism}
+}
+
+package() {
+	make install DESTDIR="${dest_dir}"
+}
