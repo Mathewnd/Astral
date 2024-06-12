@@ -41,6 +41,11 @@ isr_%+ i:
 	mov rdi,cr2
 	push rdi
 
+	; set up kernel segments
+	mov rdi, 0x10
+	mov ds, rdi
+	mov es, rdi
+
 	; save ctx pointer and interrupt vector number
 	mov rdi, i
 	mov rsi, rsp

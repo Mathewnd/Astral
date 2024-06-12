@@ -211,6 +211,10 @@ arch_syscall_entry:
 	mov rbx, cr2
 	push rbx
 
+	mov rbx, 0x10
+	mov es, rbx
+	mov ds, rbx
+
 	; prepare arguments for the functions
 	push r9
 	mov r9, r8
