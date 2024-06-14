@@ -1,0 +1,15 @@
+name=xneko
+revision=1
+from_source=xneko
+imagedeps="meson ninja base-devel"
+hostdeps="xgcc xbinutils pkgconfig"
+deps="mlibc libx11"
+
+build() {
+	x86_64-astral-gcc -o xneko ${source_dir}/xneko.c -lX11 -lm
+}
+
+package() {
+	mkdir -vp "${dest_dir}/${prefix}/bin"
+	cp -v xneko "${dest_dir}/${prefix}/bin"
+}

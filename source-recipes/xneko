@@ -1,0 +1,8 @@
+name=xneko
+version=1.4
+source_method=tarball
+tarball_url="https://astral-os.org/mirror/xneko.tar.gz"
+tarball_sha512=7e2429f8a66ecfe342e3df907ccd6b4f5378a3441ec05aaf4cbb3cae67e95ea1ac4427abad400704f489619d0dd107ae5b58dc8bdba09a4a05d8332c33a06a6f
+regenerate() {
+	true
+}
