@@ -13,7 +13,7 @@ index eb7be7b..eb83b56 100644
  #define IPPROTO_HOPOPTS  0
  #define IPPROTO_ICMP     1
 diff --git mlibc-clean/meson.build mlibc-workdir/meson.build
-index 6db3421..40887ba 100644
+index bb8928f..7fd3280 100644
 --- mlibc-clean/meson.build
 +++ mlibc-workdir/meson.build
 @@ -256,6 +256,13 @@ elif host_machine.system() == 'dripos'
@@ -101,10 +101,10 @@ index fc34a3b..b1a95a9 100644
  #include <dlfcn.h>
  
 diff --git mlibc-clean/options/posix/generic/unistd-stubs.cpp mlibc-workdir/options/posix/generic/unistd-stubs.cpp
-index 3beb692..a7bbfaa 100644
+index a40c6dc..acbe0ba 100644
 --- mlibc-clean/options/posix/generic/unistd-stubs.cpp
 +++ mlibc-workdir/options/posix/generic/unistd-stubs.cpp
-@@ -1251,6 +1251,7 @@ void encrypt(char[64], int) {
+@@ -1254,6 +1254,7 @@ void encrypt(char[64], int) {
  }
  #endif
  
@@ -112,7 +112,7 @@ index 3beb692..a7bbfaa 100644
  #if __MLIBC_BSD_OPTION
  void *sbrk(intptr_t increment) {
  	if(increment) {
-@@ -1267,3 +1268,4 @@ void *sbrk(intptr_t increment) {
+@@ -1270,3 +1271,4 @@ void *sbrk(intptr_t increment) {
  	return out;
  }
  #endif
@@ -207,10 +207,10 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..f0facf5
+index 0000000..476ae95
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -0,0 +1,795 @@
+@@ -0,0 +1,800 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -325,6 +325,11 @@ index 0000000..f0facf5
 +		// TODO unstub
 +		mlibc::infoLogger() << "getsockopt: " << fd << " " << layer << " " << number << frg::endlog;
 +		return 0;
++	}
++
++	int sys_pause() {
++		long ret;
++		return syscall(SYSCALL_PAUSE, &ret);
 +	}
 +	
 +	int sys_chroot(const char *path) {
@@ -1025,10 +1030,10 @@ index 0000000..990eca0
 +#endif
 diff --git mlibc-workdir/sysdeps/astral/include/astral/syscall.h mlibc-workdir/sysdeps/astral/include/astral/syscall.h
 new file mode 100644
-index 0000000..d1d26ed
+index 0000000..7e6a56a
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/include/astral/syscall.h
-@@ -0,0 +1,97 @@
+@@ -0,0 +1,98 @@
 +#ifndef _SYSCALL_H_INCLUDE
 +#define _SYSCALL_H_INCLUDE
 +
@@ -1106,6 +1111,7 @@ index 0000000..d1d26ed
 +#define SYSCALL_GETSOCKNAME 71
 +#define SYSCALL_GETPEERNAME 72
 +#define SYSCALL_CHROOT 73
++#define SYSCALL_PAUSE 74
 +
 +#include <stddef.h>
 +#include <stdint.h>
