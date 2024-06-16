@@ -14,7 +14,9 @@ size_t freepagecount;
 
 static mutex_t freelistmutex;
 static page_t *freelists[PMM_SECTION_COUNT];
+static page_t *freetails[PMM_SECTION_COUNT];
 static page_t *standbylists[PMM_SECTION_COUNT];
+static page_t *standbytails[PMM_SECTION_COUNT];
 
 typedef struct {
 	uintmax_t baseid;
@@ -51,6 +53,7 @@ static void insertinfreelist(page_t *page) {
 	uintmax_t pageid = PAGE_GETID(page);
 	PAGE_BOUNDARYCHECK(pageid);
 	struct page_t **list;
+	struct page_t **tail;
 
 	int section;
 
@@ -62,6 +65,7 @@ static void insertinfreelist(page_t *page) {
 		section = PMM_SECTION_DEFAULT;
 
 	list = page->backing ? &standbylists[section] : &freelists[section];
+	tail = page->backing ? &standbytails[section] : &freetails[section];
 
 	if (sections[section].searchstart > pageid)
 		sections[section].searchstart = pageid;
@@ -71,6 +75,8 @@ static void insertinfreelist(page_t *page) {
 	*list = page;
 	if (page->freenext)
 		page->freenext->freeprev = page;
+	else
+		*tail = page;
 
 	++freepagecount;
 }
@@ -79,6 +85,7 @@ static void removefromfreelist(page_t *page) {
 	uintmax_t pageid = PAGE_GETID(page);
 	PAGE_BOUNDARYCHECK(pageid);
 	struct page_t **list;
+	struct page_t **tail;
 
 	int section;
 
@@ -90,6 +97,7 @@ static void removefromfreelist(page_t *page) {
 		section = PMM_SECTION_DEFAULT;
 
 	list = page->backing ? &standbylists[section] : &freelists[section];
+	tail = page->backing ? &standbytails[section] : &freetails[section];
 
 	if (page->freeprev)
 		page->freeprev->freenext = page->freenext;
@@ -98,6 +106,8 @@ static void removefromfreelist(page_t *page) {
 
 	if (page->freenext)
 		page->freenext->freeprev = page->freeprev;
+	else
+		*tail = page->freeprev;
 
 	--freepagecount;
 }
@@ -165,10 +175,9 @@ void *pmm_allocpage(int section) {
 	bool cachepage = false;
 
 	// if that wasn't possible, try to take from the cache standby list
-	// TODO do this FIFO rather than LIFO
 	if (page == NULL) {
 		for (int i = section; i >= 0; --i) {
-			page = standbylists[i];
+			page = standbytails[i];
 			if (page) {
 				cachepage = true;
 				internalhold(page);
