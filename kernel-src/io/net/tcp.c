@@ -906,8 +906,7 @@ __attribute__((noreturn)) static void tcp_worker() {
 			continue;
 		}
 
-		// TODO validade reset if in sequence window (rfc 793 page 37)
-		if (tcpheader->seq == tcb->rcvnext && (tcpheader->control & CONTROL_RST) && tcb->state != TCB_STATE_LISTEN) {
+		if (seqinrange(tcpheader->seq, tcpheader->seq + 1, tcb->rcvnext, tcb->rcvnext + tcb->rcvwindow) && (tcpheader->control & CONTROL_RST) && tcb->state != TCB_STATE_LISTEN) {
 			tcp_reset(tcb);
 			MUTEX_RELEASE(&tcb->mutex);
 			TCB_RELEASE(tcb);
