@@ -168,6 +168,7 @@ void *pmm_allocpage(int section) {
 		page = freelists[i];
 		if (page) {
 			removefromfreelist(page);
+			__assert(page->refcount == 0);
 			break;
 		}
 	}
