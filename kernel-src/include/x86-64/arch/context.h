@@ -82,7 +82,6 @@ int arch_context_saveandcall(void (*fn)(context_t *context, void *argument), voi
 #include <string.h>
 
 // kernelgsbase is set as user because they'll be swapped in the context switch
-// TODO FPU stuff on all context macros
 #define ARCH_CONTEXT_SWITCHTHREAD(x) \
 	_cpu()->ist.rsp0 = (uint64_t)(x)->kernelstacktop; \
 	wrmsr(MSR_KERNELGSBASE, (x)->extracontext.gsbase); \

@@ -5,8 +5,6 @@
 #include <errno.h>
 #include <kernel/alloc.h>
 
-// TODO have a limit for the fd table
-
 static scache_t *filecache;
 #define FILE_HOLD(f) __atomic_add_fetch(&(f)->refcount, 1, __ATOMIC_SEQ_CST)
 

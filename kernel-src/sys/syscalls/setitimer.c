@@ -80,7 +80,6 @@ syscallret_t syscall_setitimer(context_t *context, int which, itimerval_t *unew,
 	uintmax_t oldremaining, oldrepeat;
 	itimer_pause(itimer, &oldremaining, &oldrepeat);
 
-	// TODO overflow check
 	uintmax_t repeatus = val.interval.s * 1000000 + val.interval.us;
 	uintmax_t newus = val.value.s * 1000000 + val.value.us;
 	itimer_set(itimer, newus, repeatus);

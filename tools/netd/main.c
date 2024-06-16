@@ -511,7 +511,6 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-	// TODO routing table information
 	printoffer(&offer);
 
 	addroute(argv[1], 0, offer.router, 0, 1);
