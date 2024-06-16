@@ -142,6 +142,8 @@ typedef struct {
 	vfs_t vfs;
 	ext2superblock_t superblock;
 	vnode_t *backing;
+	int backingmajor;
+	int backingminor;
 	size_t blocksize;
 	size_t bgcount;
 	ext2node_t *root;
@@ -1043,6 +1045,8 @@ static int ext2_getattr(vnode_t *vnode, vattr_t *attr, cred_t *cred) {
 
 	attr->rdevmajor = 0;
 	attr->rdevminor = 0;
+	attr->devmajor = ((ext2fs_t *)vnode->vfs)->backingmajor;
+	attr->devminor = ((ext2fs_t *)vnode->vfs)->backingminor;
 	attr->uid = node->inode.uid;
 	attr->gid = node->inode.gid;
 	attr->inode = node->id;
@@ -1748,10 +1752,18 @@ static int ext2_mount(vfs_t **vfs, vnode_t *mountpoint, vnode_t *backing, void *
 	MUTEX_INIT(&fs->inodewritelock);
 	MUTEX_INIT(&fs->descriptorlock);
 
+	vattr_t vattr;
+	int err = VOP_GETATTR(backing, &vattr, NULL);
+	if (err)
+		goto cleanup;
+
+	fs->backingmajor = vattr.rdevmajor;
+	fs->backingminor = vattr.rdevminor;
+
 	// read superblock
 
 	size_t readcount;
-	int err = vfs_read(backing, &fs->superblock, sizeof(ext2superblock_t), SUPERBLOCK_OFFSET, &readcount, 0);
+	err = vfs_read(backing, &fs->superblock, sizeof(ext2superblock_t), SUPERBLOCK_OFFSET, &readcount, 0);
 	if (err)
 		goto cleanup;
 

@@ -38,6 +38,8 @@ typedef struct {
 	timespec_t ctime;
 	int rdevmajor;
 	int rdevminor;
+	int devmajor;
+	int devminor;
 	size_t blocksused;
 } vattr_t;
 

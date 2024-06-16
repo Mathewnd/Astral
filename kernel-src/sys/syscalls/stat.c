@@ -12,7 +12,7 @@ static int dostat(vnode_t *vnode, stat_t *stat) {
 	if (e)
 		return e;
 
-	stat->dev = 0; // TODO properly return this
+	stat->dev = TODEV(attr.devmajor, attr.devminor);
 	stat->rdev = TODEV(attr.rdevmajor, attr.rdevminor);
 	stat->ino = attr.inode;
 	stat->nlink = attr.nlinks;

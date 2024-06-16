@@ -9,6 +9,7 @@
 typedef struct tmpfs_t {
 	vfs_t vfs;
 	uintmax_t inodenumber;
+	uintmax_t id;
 } tmpfs_t;
 
 typedef struct tmpfsnode_t {

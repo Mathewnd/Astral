@@ -17,7 +17,8 @@
 static scache_t *nodecache;
 static tmpfsnode_t *newnode(vfs_t *vfs, int type);
 static void freenode(tmpfsnode_t *node);
-static vfsops_t vfsops; 
+static vfsops_t vfsops;
+static uintmax_t currid = 1;
 
 static int tmpfs_mount(vfs_t **vfs, vnode_t *mountpoint, vnode_t *backing, void *data) {
 	tmpfs_t *tmpfs = alloc(sizeof(tmpfs_t));
@@ -26,6 +27,7 @@ static int tmpfs_mount(vfs_t **vfs, vnode_t *mountpoint, vnode_t *backing, void 
 
 	*vfs = (vfs_t *)tmpfs;
 	tmpfs->vfs.ops = &vfsops;
+	tmpfs->id = __atomic_fetch_add(&currid, 1, __ATOMIC_SEQ_CST);
 
 	return 0;
 }
@@ -37,6 +39,8 @@ static int tmpfs_getattr(vnode_t *node, vattr_t *attr, cred_t *cred) {
 	tmpfsnode_t *tmpnode = (tmpfsnode_t *)node;
 	*attr = tmpnode->attr;
 	attr->blocksused = ROUND_UP(attr->size, PAGE_SIZE) / PAGE_SIZE;
+	attr->devmajor = 0;
+	attr->devminor = ((tmpfs_t *)node->vfs)->id;
 	VOP_UNLOCK(node);
 	return 0;
 }
@@ -310,7 +314,7 @@ static int tmpfs_rename(vnode_t *source, char *oldname, vnode_t *target, char *n
 		goto cleanup;
 	}
 
-	// same link, rename is a no-op TODO still gotta unlink it though
+	// same link, rename is a no-op
 	if (sourcedir == targetdir && strcmp(oldname, newname) == 0)
 		goto cleanup;
 
