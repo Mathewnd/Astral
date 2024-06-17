@@ -1,10 +1,17 @@
 #include <kernel/syscalls.h>
 #include <kernel/sock.h>
 
-syscallret_t syscall_getsockname(context_t *, int fd, void *uaddr, int *addrlen) {
+syscallret_t syscall_getsockname(context_t *, int fd, void *uaddr, int *uaddrlen) {
 	syscallret_t ret = {
 		.ret = -1
 	};
+
+	int addrlen;
+	ret.errno = usercopy_fromuser(&addrlen, uaddrlen, sizeof(addrlen));
+	if (ret.errno)
+		return ret;
+
+	addrlen = min(addrlen, sizeof(abisockaddr_t));
 
 	file_t *file = fd_get(fd);
 	if (file == NULL) {
@@ -30,11 +37,14 @@ syscallret_t syscall_getsockname(context_t *, int fd, void *uaddr, int *addrlen)
 	if (ret.errno)
 		goto cleanup;
 	
-	ret.errno = usercopy_touser(uaddr, &abisockaddr, min(*addrlen, sizeof(abisockaddr_t)));
+	ret.errno = usercopy_touser(uaddr, &abisockaddr, addrlen);
 	if (ret.errno)
 		goto cleanup;
 
-	*addrlen = sizeof(abisockaddr_t);
+	ret.errno = usercopy_touser(uaddrlen, &addrlen, sizeof(addrlen));
+	if (ret.errno)
+		goto cleanup;
+
 	ret.ret = 0;
 
 	cleanup:
