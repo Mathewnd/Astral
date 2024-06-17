@@ -1,6 +1,7 @@
 #include <kernel/scheduler.h>
 #include <arch/signal.h>
 #include <logging.h>
+#include <kernel/usercopy.h>
 
 #define ACTION_TERM 0
 #define ACTION_IGN 1
@@ -373,16 +374,24 @@ bool signal_check(struct thread_t *thread, context_t *context, bool syscall, uin
 		}
 
 		// configure stack frame
-		sigframe_t *sigframe = stack;
-		sigframe->restorer = action->restorer;
+		sigframe_t sigframe;
+		sigframe.restorer = action->restorer;
 		if (altstack) {
-			memcpy(&sigframe->oldstack, &thread->signals.stack, sizeof(stack_t));
+			memcpy(&sigframe.oldstack, &thread->signals.stack, sizeof(stack_t));
 			memset(&thread->signals.stack, 0, sizeof(stack_t));
 		}
-		memcpy(&sigframe->oldmask, &thread->signals.mask, sizeof(sigset_t));
-		memcpy(&sigframe->context, context, sizeof(context_t));
-		memcpy(&sigframe->extracontext, &thread->extracontext, sizeof(extracontext_t));
+		memcpy(&sigframe.oldmask, &thread->signals.mask, sizeof(sigset_t));
+		memcpy(&sigframe.context, context, sizeof(context_t));
+		memcpy(&sigframe.extracontext, &thread->extracontext, sizeof(extracontext_t));
 		// TODO siginfo
+
+		if (usercopy_touser(stack, &sigframe, sizeof(sigframe_t))) {
+			printf("signal: bad user stack\n");
+			THREAD_LEAVE(thread);
+			PROCESS_LEAVE(proc);
+			interrupt_set(true);
+			sched_terminateprogram(SIGSEGV);
+		}
 
 		// configure new thread signal mask
 		if ((action->flags & SA_NODEFER) == 0)
