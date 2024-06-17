@@ -27,6 +27,7 @@ typedef struct netdev_t {
 	mac_t mac;
 	size_t mtu;
 	uint32_t ip;
+	int ipcurrid; // XXX This is defined as something per peer. However, having only one of these *should* work for most cases
 	hashtable_t arpcache;
 	int (*allocdesc)(struct netdev_t *netdev, size_t requestedsize, netdesc_t *desc);
 	int (*freedesc)(struct netdev_t *netdev, netdesc_t *desc);

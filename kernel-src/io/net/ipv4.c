@@ -108,7 +108,7 @@ static int dispatch_fragment(netdev_t *netdev, netdesc_t fragdesc,
 		.version_length = VERSION_LENGTH(4, 5),
 		.servicetype_ecn = 0,
 		.packetlen = cpu_to_be_w(fragmentlen + sizeof(ipv4frame_t)),
-		.id = cpu_to_be_w(0x1234), // TODO proper id allocation per netdev
+		.id = cpu_to_be_w(id),
 		.flags_fragoffset = cpu_to_be_w(FLAGS_FRAGOFFSET(!last ? FLAG_MF : 0, fragmentoffset)),
 		.timetolive = 0xff,
 		.protocol = proto,
@@ -202,6 +202,8 @@ int ipv4_sendpacket(void *buffer, size_t packetsize, uint32_t ip, int proto, net
 	size_t devfragmentsize = mtuheader - (mtuheader % 8);
 	size_t fragmentcount = packetsize / devfragmentsize + 1;
 
+	int id = __atomic_fetch_add(&netdev->ipcurrid, 1, __ATOMIC_SEQ_CST);
+
 	for (int i = 0; i < fragmentcount; ++i) {
 		size_t fragmentlen = (i == fragmentcount - 1) ? packetsize - devfragmentsize * (fragmentcount - 1) : devfragmentsize;
 		netdesc_t fragdesc;
@@ -211,7 +213,7 @@ int ipv4_sendpacket(void *buffer, size_t packetsize, uint32_t ip, int proto, net
 
 		memcpy((void *)((uintptr_t)fragdesc.address + fragdesc.curroffset + sizeof(ipv4frame_t)), (void *)((uintptr_t)buffer + i * devfragmentsize), fragmentlen);
 
-		e = dispatch_fragment(netdev, fragdesc, i * devfragmentsize, fragmentlen, 0x1234, ip, mac, proto, i == fragmentcount - 1);
+		e = dispatch_fragment(netdev, fragdesc, i * devfragmentsize, fragmentlen, id, ip, mac, proto, i == fragmentcount - 1);
 		netdev->freedesc(netdev, &fragdesc);
 		if (e)
 			return e;
