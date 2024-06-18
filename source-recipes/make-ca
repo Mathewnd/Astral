@@ -1,0 +1,8 @@
+name=make-ca
+version=1.13
+source_method=tarball
+tarball_url="https://github.com/lfs-book/make-ca/releases/download/v${version}/make-ca-${version}.tar.xz"
+tarball_sha512=c961aec436ad2e88d462e77498640e1b55e9ed90fbe5964bbf44ab55bab511da4f3147bcd40fdac5a362db68414ba5a2f3709d1bdfdf2eb185aa0673986973ab
+regenerate() {
+        true
+}

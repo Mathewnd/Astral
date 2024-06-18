@@ -1,0 +1,13 @@
+diff --git make-ca-clean/make-ca make-ca-workdir/make-ca
+index a7663be..f00ad05 100644
+--- make-ca-clean/make-ca
++++ make-ca-workdir/make-ca
+@@ -15,7 +15,7 @@ VERSION="1.13"
+ MAKE_CA_CONF="/etc/make-ca.conf"
+ 
+ # CA root for hg.mozilla.org
+-MOZILLA_CA_ROOT="/etc/make-ca/mozilla-ca-root.pem"
++MOZILLA_CA_ROOT="${MOZILLA_CERT_SYSROOT}/etc/make-ca/mozilla-ca-root.pem"
+ 
+ # Get/set defaults
+ if test -f "${MAKE_CA_CONF}"; then

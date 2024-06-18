@@ -1,0 +1,16 @@
+name=make-ca
+revision=1
+from_source=make-ca
+imagedeps="openssl"
+rundeps="bash"
+allow_network="yes"
+
+package() {
+	# install it
+	cp -rpv ${source_dir}/* .
+	make install DESTDIR=${dest_dir}
+	install -vdm 755 ${dest_dir}/etc/ssl/local
+
+	# install certificate data
+	MOZILLA_CERT_SYSROOT=${dest_dir} ${dest_dir}/usr/sbin/make-ca -g -D ${dest_dir}
+}
