@@ -10,6 +10,7 @@
 #include <kernel/poll.h>
 
 #define BUFFER_SIZE 16 * PAGE_SIZE
+#define PIPE_ATOMIC_SIZE 4096
 
 static scache_t *nodecache;
 static uintmax_t currentinode;
@@ -133,6 +134,21 @@ int pipefs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int 
 	return error;
 }
 
+static int writetopipe(pipenode_t *pipenode, void *buffer, size_t size, size_t *writec) {
+	if (pipenode->readers == 0) {
+		if (_cpu()->thread->proc)
+			signal_signalproc(_cpu()->thread->proc, SIGPIPE);
+
+		return EPIPE;
+	}
+
+	*writec = ringbuffer_write(&pipenode->data, buffer, size);
+
+	__assert(*writec);
+	poll_event(&pipenode->pollheader, POLLIN);
+	return 0;
+}
+
 int pipefs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int flags, size_t *writec, cred_t *cred) {
 	pipenode_t *pipenode = (pipenode_t *)node;
 	VOP_LOCK(node);
@@ -140,14 +156,63 @@ int pipefs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int
 	int error = 0;
 	*writec = 0;
 
-	// wait until there is space to write data or return if nonblock
+	// there are 4 cases:
+	// 1. blocking and n <= PIPE_ATOMIC_SIZE
+	// 	atomic write, will only return once ALL the bytes can be written.
+	// 2. nonblocking and n <= PIPE_ATOMIC_SIZE
+	//	if there is no room to write everything, fail with EAGAIN
+	// 3. blocking and > PIPE_ATOMIC_SIZE
+	// 	will only return when everything is written or a signal is caught, but is not guaranteed to be atomic.
+	// 4. nonblocking and > PIPE_ATOMIC_SIZE
+	// 	if pipe is full, fail with EAGAIN. otherwise, do a partial write.
+
+	bool atomic = size <= PIPE_ATOMIC_SIZE;
+	bool nonblock = flags & V_FFLAGS_NONBLOCKING;
+	size_t case3written = 0;
+
 	while (1) {
 		// check for space or if the read end has been closed
 		int revents = internalpoll(node, NULL, POLLOUT);
-		if (revents)
+		if (revents & POLLHUP)
 			break;
 
-		if (flags & V_FFLAGS_NONBLOCKING) {
+		size_t freebytes = RINGBUFFER_SIZE(&pipenode->data) - RINGBUFFER_DATACOUNT(&pipenode->data);
+		// case 1
+		if (nonblock == false && atomic && freebytes >= size)
+			break;
+
+		// case 2
+		if (nonblock && atomic && freebytes < size) {
+			// if not enough space
+			error = EAGAIN;
+			goto leave;
+		} else {
+			// write
+			break;
+		}
+
+		// case 3
+		if (nonblock == false && atomic == false && freebytes) {
+			size_t tmp;
+			size_t writecount = min(freebytes, size - case3written);
+			error = writetopipe(pipenode, (void *)((uintptr_t)buffer + case3written), writecount, &tmp);
+			if (error)
+				goto leave;
+
+			case3written += writecount;
+			__assert(tmp == writecount);
+
+			if (case3written == size) {
+				*writec = size;
+				goto leave;
+			}
+		}
+
+		if (nonblock && atomic == false && freebytes != 0) {
+			// case 4 non not full pipe
+			break;
+		} else if (nonblock && atomic == false) {
+			// case 4 full pipe
 			error = EAGAIN;
 			goto leave;
 		}
@@ -173,18 +238,7 @@ int pipefs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int
 		VOP_LOCK(node);
 	}
 
-	if (pipenode->readers == 0) {
-		if (_cpu()->thread->proc)
-			signal_signalproc(_cpu()->thread->proc, SIGPIPE);
-
-		error = EPIPE;
-		goto leave;
-	}
-
-	*writec = ringbuffer_write(&pipenode->data, buffer, size);
-
-	__assert(*writec);
-	poll_event(&pipenode->pollheader, POLLIN);
+	error = writetopipe(pipenode, buffer, size, writec);
 
 	leave:
 	VOP_UNLOCK(node);
