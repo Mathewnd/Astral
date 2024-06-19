@@ -9,6 +9,7 @@
 #include <string.h>
 
 #define QUEUE_MAX_SIZE 128
+#define OTHER_BUFFER 64
 
 typedef struct {
 	uint64_t capacity;
@@ -44,11 +45,12 @@ static void vioblk_dpc(context_t *context, dpcarg_t arg) {
 	while (blkdev->queue.lastusedindex != VIO_QUEUE_DEV_IDX(&blkdev->queue)) {
 		int idx = blkdev->queue.lastusedindex++ % blkdev->queue.size;
 		int buffidx = VIO_QUEUE_DEV_RING(&blkdev->queue)[idx].index;
-		__assert(blkdev->queuewaiting[buffidx / 2]);
-		sched_wakeup(blkdev->queuewaiting[buffidx / 2], SCHED_WAKEUP_REASON_NORMAL);
-		blkdev->queuewaiting[buffidx / 2] = NULL;
+		__assert(buffidx < OTHER_BUFFER);
+		__assert(blkdev->queuewaiting[buffidx]);
+		sched_wakeup(blkdev->queuewaiting[buffidx], SCHED_WAKEUP_REASON_NORMAL);
+		blkdev->queuewaiting[buffidx] = NULL;
 		buffers[buffidx].address = 0;
-		buffers[buffidx + 1].address = 0;
+		buffers[buffidx + OTHER_BUFFER].address = 0;
 		semaphore_signal(&blkdev->queuesem);
 	}
 	spinlock_release(&blkdev->queuelock);
@@ -69,7 +71,7 @@ static void vioblk_enqueue(vioblkdev_t *blkdev, void *driver, size_t driverlen, 
 	spinlock_acquire(&blkdev->queuelock);
 	int idx = 0;
 	volatile viobuffer_t *buffers = VIO_QUEUE_BUFFERS(&blkdev->queue);
-	while (buffers[idx].address && idx < QUEUE_MAX_SIZE)
+	while (buffers[idx].address && idx < QUEUE_MAX_SIZE / 2)
 		++idx;
 
 	__assert(idx < QUEUE_MAX_SIZE);
@@ -77,17 +79,17 @@ static void vioblk_enqueue(vioblkdev_t *blkdev, void *driver, size_t driverlen, 
 	buffers[idx].address = (uint64_t)driver;
 	buffers[idx].length = driverlen;
 	buffers[idx].flags = VIO_QUEUE_BUFFER_NEXT;
-	buffers[idx].next = idx + 1;
+	buffers[idx].next = idx + OTHER_BUFFER;
 
-	buffers[idx + 1].address = (uint64_t)device;
-	buffers[idx + 1].length = devicelen;
-	buffers[idx + 1].flags = VIO_QUEUE_BUFFER_DEVICE;
+	buffers[idx + OTHER_BUFFER].address = (uint64_t)device;
+	buffers[idx + OTHER_BUFFER].length = devicelen;
+	buffers[idx + OTHER_BUFFER].flags = VIO_QUEUE_BUFFER_DEVICE;
 
 	size_t driveridx = VIO_QUEUE_DRV_IDX(&blkdev->queue)++;
 	VIO_QUEUE_DRV_RING(&blkdev->queue)[driveridx % blkdev->queue.size] = idx;
 
 	sched_preparesleep(false);
-	blkdev->queuewaiting[idx / 2] = _cpu()->thread;
+	blkdev->queuewaiting[idx] = _cpu()->thread;
 
 	*blkdev->queue.notify = 0;
 	spinlock_release(&blkdev->queuelock);
