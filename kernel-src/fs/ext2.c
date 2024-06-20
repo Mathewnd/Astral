@@ -1379,10 +1379,9 @@ static int ext2_link(vnode_t *vnode, vnode_t *dirvnode, char *name, cred_t *cred
 	return err;
 }
 
-static int ext2_create(vnode_t *parent, char *name, vattr_t *attr, int type, vnode_t **result, cred_t *cred) {
+static int internalcreate(vnode_t *parent, char *name, vattr_t *attr, int type, vnode_t **result, cred_t *cred) {
 	ext2node_t *node = (ext2node_t *)parent;
 	ext2fs_t *fs = (ext2fs_t *)parent->vfs;
-	VOP_LOCK(parent);
 	ext2node_t *newnode = slab_allocate(nodecache);
 	EXT2NODE_INIT(newnode, &vnops, 0, type, parent->vfs, 0);
 
@@ -1447,21 +1446,28 @@ static int ext2_create(vnode_t *parent, char *name, vattr_t *attr, int type, vno
 	if (err)
 		slab_free(nodecache, newnode);
 
+	return err;
+}
+
+static int ext2_create(vnode_t *parent, char *name, vattr_t *attr, int type, vnode_t **result, cred_t *cred) {
+	VOP_LOCK(parent);
+	int err = internalcreate(parent, name, attr, type, result, cred);
 	VOP_UNLOCK(parent);
 	return err;
 }
 
-// XXX this implementation isn't atomic in the create -> write target step
 static int ext2_symlink(vnode_t *vnode, char *name, vattr_t *attr, char *path, cred_t *cred) {
 	ext2fs_t *fs = (ext2fs_t *)vnode->vfs;
 	size_t linklen = strlen(path);
 
-	vnode_t *newvnode;
-	int err = ext2_create(vnode, name, attr, V_TYPE_LINK, &newvnode, cred);
-	if (err)
-		return err;
-
 	VOP_LOCK(vnode);
+	vnode_t *newvnode;
+	int err = internalcreate(vnode, name, attr, V_TYPE_LINK, &newvnode, cred);
+	if (err) {
+		VOP_UNLOCK(vnode);
+		return err;
+	}
+
 	VOP_LOCK(newvnode);
 	ext2node_t *newnode = (ext2node_t *)newvnode;
 
