@@ -100,3 +100,34 @@ syscallret_t syscall_poll(context_t *, pollfd_t *fds, size_t nfds, int timeoutms
 	free(fdsbuff);
 	return ret;
 }
+
+syscallret_t syscall_ppoll(context_t *context, pollfd_t *fds, size_t nfds, timespec_t *utimeout, sigset_t *usigset) {
+	timespec_t timeout;
+	sigset_t sigset;
+	sigset_t savedset;
+
+	if (utimeout) {
+		syscallret_t ret;
+		ret.ret = -1;
+		ret.errno = usercopy_fromuser(&timeout, utimeout, sizeof(timespec_t));
+		if (ret.errno)
+			return ret;
+	}
+
+	if (usigset) {
+		syscallret_t ret;
+		ret.ret = -1;
+		ret.errno = usercopy_fromuser(&sigset, usigset, sizeof(sigset_t));
+		if (ret.errno)
+			return ret;
+
+		signal_changemask(_cpu()->thread, SIG_SETMASK, &sigset, &savedset);
+	}
+
+	syscallret_t ret = syscall_poll(context, fds, nfds, utimeout ? (timeout.s * 1000 + timeout.ns / 1000000) : -1);
+
+	if (usigset)
+		signal_changemask(_cpu()->thread, SIG_SETMASK, &savedset, NULL);
+
+	return ret;
+}

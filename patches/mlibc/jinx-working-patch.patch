@@ -207,10 +207,10 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..476ae95
+index 0000000..e11d5a4
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -0,0 +1,800 @@
+@@ -0,0 +1,804 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -652,7 +652,13 @@ index 0000000..476ae95
 +		return error;
 +	}
 +
-+// XXX emulate with ppoll
++	int sys_ppoll(struct pollfd *fds, nfds_t nfds, const struct timespec *timeout, const sigset_t *sigmask, int *num_events) {
++		long ret;
++		long error = syscall(SYSCALL_PPOLL, &ret, (uint64_t)fds, nfds, (uint64_t)timeout, (uint64_t)sigmask);
++		*num_events = ret;
++		return error;
++	}
++
 +#ifndef MLIBC_BUILDING_RTLD
 +	int sys_pselect(int num_fds, fd_set *read_set, fd_set *write_set, fd_set *except_set, const struct timespec *timeout, const sigset_t *sigmask, int *num_events) {
 +		pollfd *fds = (pollfd *)malloc(num_fds * sizeof(pollfd));
@@ -684,10 +690,8 @@ index 0000000..476ae95
 +			}
 +		}
 +
-+		int time = timeout == NULL ? -1 : timeout->tv_sec * 1000 + timeout->tv_nsec / 1000000;
-+
 +		int num;
-+		int err = sys_poll(fds, actualcount, time, &num);
++		int err = sys_ppoll(fds, actualcount, timeout, sigmask, &num);
 +
 +		if (err) {
 +			free(fds);
@@ -1030,10 +1034,10 @@ index 0000000..990eca0
 +#endif
 diff --git mlibc-workdir/sysdeps/astral/include/astral/syscall.h mlibc-workdir/sysdeps/astral/include/astral/syscall.h
 new file mode 100644
-index 0000000..7e6a56a
+index 0000000..6b2e7da
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/include/astral/syscall.h
-@@ -0,0 +1,98 @@
+@@ -0,0 +1,99 @@
 +#ifndef _SYSCALL_H_INCLUDE
 +#define _SYSCALL_H_INCLUDE
 +
@@ -1112,6 +1116,7 @@ index 0000000..7e6a56a
 +#define SYSCALL_GETPEERNAME 72
 +#define SYSCALL_CHROOT 73
 +#define SYSCALL_PAUSE 74
++#define SYSCALL_PPOLL 75
 +
 +#include <stddef.h>
 +#include <stdint.h>

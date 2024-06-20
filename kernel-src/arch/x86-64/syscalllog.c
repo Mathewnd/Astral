@@ -5,7 +5,7 @@
 
 #ifdef SYSCALL_LOGGING
 
-#define SYSCALL_COUNT 75
+#define SYSCALL_COUNT 76
 #define LOGSTR(x) arch_e9_puts(x)
 
 static char *name[] = {
@@ -83,7 +83,8 @@ static char *name[] = {
 	"getsockname",
 	"getpeername",
 	"chroot",
-	"pause"
+	"pause",
+	"ppoll"
 };
 
 static char *args[] = {
@@ -161,7 +162,8 @@ static char *args[] = {
 	"fd %d addr %p addrlen %p", // getsockname
 	"fd %d addr %p addrlen %p",  // getpeername
 	"path %s", // chroot
-	"N/A"
+	"N/A", // pause
+	"fds %p nfds %d timeout %p sigmask %p" // ppoll
 };
 
 #endif
