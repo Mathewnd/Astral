@@ -186,7 +186,7 @@ int pipefs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int
 			// if not enough space
 			error = EAGAIN;
 			goto leave;
-		} else {
+		} else if (nonblock && atomic) {
 			// write
 			break;
 		}
