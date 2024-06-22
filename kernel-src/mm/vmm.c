@@ -183,6 +183,9 @@ static void insertrange(vmmspace_t *space, vmmrange_t *newrange) {
 
 	fragcheck:
 	// TODO range type specific stuff
+	if (newrange->flags & VMM_FLAGS_FILE)
+		return;
+
 	if (newrange->next && newrange->next->start == newrangetop && newrange->flags == newrange->next->flags && newrange->mmuflags == newrange->next->mmuflags) {
 		vmmrange_t *oldrange = newrange->next;
 		newrange->size += oldrange->size;
