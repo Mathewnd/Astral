@@ -207,10 +207,10 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..e11d5a4
+index 0000000..29795a8
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -0,0 +1,804 @@
+@@ -0,0 +1,934 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -223,6 +223,9 @@ index 0000000..e11d5a4
 +#include <poll.h>
 +#include <sys/select.h>
 +#include <stdio.h>
++#include <sys/stat.h>
++#include <unistd.h>
++#include <dirent.h>
 +
 +static int gid;
 +static int egid;
@@ -326,6 +329,134 @@ index 0000000..e11d5a4
 +		mlibc::infoLogger() << "getsockopt: " << fd << " " << layer << " " << number << frg::endlog;
 +		return 0;
 +	}
++
++	#ifndef MLIBC_BUILDING_RTLD
++
++	typedef struct {
++		ino_t d_ino;
++		off_t d_off;
++		unsigned short d_reclen;
++		unsigned char d_type;
++		char d_name[1024];
++	} dent_t;
++
++	// TODO at least cache the results and invalidade on a chdir
++	int sys_getcwd(char *buffer, size_t size) {
++		// cwd implemented in userspace
++		//
++		// note: not thread safe if the other threads chroot
++
++		char path[PATH_MAX];
++		int curroffset = PATH_MAX - 1;
++		path[curroffset] = '\0';
++
++
++		struct stat rootdir; // we will use dev and inode to find files and determine when the root dir has been hit
++		if (fstatat(-1, "/", &rootdir, 0))
++			return errno;
++
++		int dirfd = open(".", O_RDONLY);
++		if (dirfd < 0)
++			return errno;
++
++		struct stat dirstat;
++
++		if (fstat(dirfd, &dirstat)) {
++			close(dirfd);
++			return errno;
++		}
++
++		if (dirstat.st_dev == rootdir.st_dev && dirstat.st_ino == rootdir.st_ino) {
++			// cwd is root dir
++			close(dirfd);
++			if (size < 2)
++				return ERANGE;
++
++			buffer[0] = '/';
++			buffer[1] = '\0';
++			return 0;
++		}
++
++		struct stat upstat;
++		do {
++			if (fstat(dirfd, &dirstat)) {
++				close(dirfd);
++				return errno;
++			}
++
++			int upfd = openat(dirfd, "..", O_RDONLY);
++
++			if (fstat(upfd, &upstat)) {
++				close(upfd);
++				close(dirfd);
++				return errno;
++			}
++
++			close(dirfd);
++
++			dent_t dent;
++			size_t readcount;
++			while (sys_read_entries(upfd, &dent, sizeof(dent), &readcount) == 0) {
++				if (readcount == 0)
++					break;
++
++				if (strcmp(".", dent.d_name) == 0 || strcmp("..", dent.d_name) == 0)
++					continue;
++
++				int tmp = openat(upfd, dent.d_name, O_RDONLY);
++				// could have been deleted, continue
++				if (tmp < 0)
++					continue;
++
++				struct stat dentstat;
++				if (fstat(tmp, &dentstat)) {
++					close(tmp);
++					return errno;
++				}
++
++				close(tmp);
++
++				mlibc::infoLogger() << dent.d_name << frg::endlog;
++
++				if (dentstat.st_dev == dirstat.st_dev && dentstat.st_ino == dirstat.st_ino)
++					break;
++			}
++
++			// didn't find the directory
++			if (readcount == 0) {
++				close(upfd);
++				return ENOENT;
++			}
++
++			mlibc::infoLogger() << "got component: " << dent.d_name << frg::endlog;
++
++			dirfd = upfd;
++
++			// add it to the path to be returned
++			size_t namelen = strlen(dent.d_name);
++			curroffset -= namelen + 1; // + 1 as we add the leading '/' as well
++			// passed the start of the buffer
++			if (curroffset <= 1) {
++				close (dirfd);
++				return ENAMETOOLONG;
++			}
++
++			memcpy(&path[curroffset + 1], dent.d_name, namelen);
++			path[curroffset] = '/';
++		} while (upstat.st_dev != rootdir.st_dev || upstat.st_ino != rootdir.st_ino);
++
++		close(dirfd);
++
++		if (size < PATH_MAX - curroffset)
++			return ERANGE;
++
++		strcpy(buffer, &path[curroffset]);
++
++		mlibc::infoLogger() << "mlibc: sys_getcwd returning value " << buffer << frg::endlog;
++		return 0;
++	}
++
++	#endif
 +
 +	int sys_pause() {
 +		long ret;
@@ -1014,7 +1145,6 @@ index 0000000..e11d5a4
 +	}
 +
 +} // namespace mlibc
-+
 diff --git mlibc-workdir/sysdeps/astral/include/astral/archctl.h mlibc-workdir/sysdeps/astral/include/astral/archctl.h
 new file mode 100644
 index 0000000..990eca0
