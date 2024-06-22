@@ -7,7 +7,7 @@ deps="mlibc openssl zlib"
 
 build() {
 	cp -rpv ${source_dir}/* .
-	./configure --host=x86_64-astral --prefix=${prefix} --with-openssl --with-zlib --disable-ipv6
+	./configure --host=x86_64-astral --prefix=${prefix} --with-openssl --with-zlib --disable-ipv6 --with-ca-path=/etc/ssl/certs --disable-static
 	make -j ${parallelism}
 }
 
