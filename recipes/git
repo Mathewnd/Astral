@@ -1,0 +1,16 @@
+name=git
+revision=1
+from_source=git
+imagedeps="base-devel"
+hostdeps="xgcc xbinutils"
+deps="mlibc python zlib curl openssl openssh"
+
+build() {
+	cp -rp ${source_dir}/* .
+	ac_cv_iconv_omits_bom=yes ac_cv_fread_reads_directories=no ac_cv_snprintf_returns_bogus=no ./configure --host=x86_64-astral --prefix=${prefix} --with-gitconfig=/etc/gitconfig --with-python=python3
+	make -j ${parallelism}
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+}
