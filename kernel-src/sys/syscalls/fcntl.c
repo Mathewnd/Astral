@@ -10,6 +10,8 @@
 #define F_GETFL  3
 #define F_SETFL  4
 
+#define FD_CLOEXEC 1
+
 syscallret_t syscall_fcntl(context_t *, int fd, int cmd, uint64_t arg) {
 	syscallret_t ret = {
 		.ret = -1
@@ -42,13 +44,13 @@ syscallret_t syscall_fcntl(context_t *, int fd, int cmd, uint64_t arg) {
 			FILE_UNLOCK(file);
 			break;
 		case F_SETFD:
-			ret.errno = fd_setflags(fd, arg);
+			ret.errno = fd_setflags(fd, (arg & FD_CLOEXEC) ? O_CLOEXEC : 0);
 			ret.ret = 0;
 			break;
 		case F_GETFD:
 			int flg;
 			ret.errno = fd_getflags(fd, &flg);
-			ret.ret = flg;
+			ret.ret = flg ? FD_CLOEXEC : 0;
 			break;
 		default:
 			ret.errno = EINVAL;
