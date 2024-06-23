@@ -73,7 +73,9 @@ static int internalpoll(vnode_t *node, polldata_t *data, int events) {
 		events |= POLLERR;
 		if (pipenode->readers == 0)
 			revents |= POLLERR;
-		else if (RINGBUFFER_DATACOUNT(&pipenode->data) < BUFFER_SIZE)
+		// poll will only return POLLOUT if an atomic write can be done without blocking
+		// this is undocumented in POSIX but many unices implement it like this
+		else if (RINGBUFFER_DATACOUNT(&pipenode->data) < BUFFER_SIZE - PIPE_ATOMIC_SIZE)
 			revents |= POLLOUT;
 	}
 
