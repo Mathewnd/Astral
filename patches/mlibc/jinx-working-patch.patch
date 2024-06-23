@@ -207,10 +207,10 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..29795a8
+index 0000000..a20c9cd
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -0,0 +1,934 @@
+@@ -0,0 +1,952 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -330,6 +330,24 @@ index 0000000..29795a8
 +		return 0;
 +	}
 +
++	int sys_rmdir(const char *path) {
++		return sys_unlinkat(AT_FDCWD, path, AT_REMOVEDIR);
++	}
++
++	int sys_pread(int fd, void *buf, size_t n, off_t off, ssize_t *bytes_read) {
++		long readc;
++		long error = syscall(SYSCALL_PREAD, &readc, fd, (uint64_t)buf, n, off);
++		*bytes_read = readc;
++		return error;
++	}
++
++	int sys_pwrite(int fd, const void *buf, size_t n, off_t off, ssize_t *bytes_written) {
++		long writec;
++		long error = syscall(SYSCALL_PWRITE, &writec, fd, (uint64_t)buf, n, off);
++		*bytes_written = writec;
++		return error;
++	}
++	
 +	#ifndef MLIBC_BUILDING_RTLD
 +
 +	typedef struct {
@@ -1164,10 +1182,10 @@ index 0000000..990eca0
 +#endif
 diff --git mlibc-workdir/sysdeps/astral/include/astral/syscall.h mlibc-workdir/sysdeps/astral/include/astral/syscall.h
 new file mode 100644
-index 0000000..6b2e7da
+index 0000000..144207f
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/include/astral/syscall.h
-@@ -0,0 +1,99 @@
+@@ -0,0 +1,101 @@
 +#ifndef _SYSCALL_H_INCLUDE
 +#define _SYSCALL_H_INCLUDE
 +
@@ -1247,6 +1265,8 @@ index 0000000..6b2e7da
 +#define SYSCALL_CHROOT 73
 +#define SYSCALL_PAUSE 74
 +#define SYSCALL_PPOLL 75
++#define SYSCALL_PREAD 76
++#define SYSCALL_PWRITE 77
 +
 +#include <stddef.h>
 +#include <stdint.h>

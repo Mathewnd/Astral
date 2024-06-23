@@ -75,6 +75,8 @@ extern syscall_getpeername
 extern syscall_chroot
 extern syscall_pause
 extern syscall_ppoll
+extern syscall_pread
+extern syscall_pwrite
 syscalltab:
 dq syscall_print
 dq syscall_mmap
@@ -152,7 +154,9 @@ dq syscall_getpeername
 dq syscall_chroot
 dq syscall_pause
 dq syscall_ppoll
-syscallcount equ 76
+dq syscall_pread
+dq syscall_pwrite
+syscallcount equ 78
 section .text
 global arch_syscall_entry
 ; on entry:
