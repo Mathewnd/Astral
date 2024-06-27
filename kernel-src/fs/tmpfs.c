@@ -196,10 +196,22 @@ static int tmpfs_root(vfs_t *vfs, vnode_t **vnode) {
 }
 
 static int tmpfs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int flags, size_t *readc, cred_t *cred) {
+	if (node->type == V_TYPE_DIR)
+		return EISDIR;
+
+	if (node->type != V_TYPE_REGULAR)
+		return EINVAL;
+
 	__assert(!"tmpfs_read is handled by the page cache");
 }
 
 static int tmpfs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int flags, size_t *writec, cred_t *cred) {
+	if (node->type == V_TYPE_DIR)
+		return EISDIR;
+
+	if (node->type != V_TYPE_REGULAR)
+		return EINVAL;
+
 	__assert(!"tmpfs_read is handled by the page cache");
 }
 
@@ -309,7 +321,7 @@ static int tmpfs_rename(vnode_t *source, char *oldname, vnode_t *target, char *n
 	else if (error == 0) // found
 		oldnode = v;
 
-	if (node->vfsmounted || oldnode->vfsmounted) {
+	if (node->vfsmounted || (oldnode && oldnode->vfsmounted)) {
 		error = EBUSY;
 		goto cleanup;
 	}
