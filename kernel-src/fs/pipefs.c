@@ -128,7 +128,7 @@ int pipefs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int 
 	*readc = ringbuffer_read(&pipenode->data, buffer, size);
 
 	// signal that there is space to write for any threads blocked on this pipe
-	if (*readc)
+	if (RINGBUFFER_DATACOUNT(&pipenode->data) < BUFFER_SIZE - PIPE_ATOMIC_SIZE)
 		poll_event(&pipenode->pollheader, POLLOUT);
 
 	leave:
