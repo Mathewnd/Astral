@@ -1,13 +1,13 @@
 #ifndef _POLL_H
 #define _POLL_H
 
-#include <kernel/scheduler.h>
 #include <spinlock.h>
+#include <stddef.h>
 
 struct polldata;
 
 typedef struct {
-	thread_t *thread;
+	struct thread_t *thread;
 	spinlock_t lock;
 	spinlock_t eventlock;
 	spinlock_t wakeuplock;
