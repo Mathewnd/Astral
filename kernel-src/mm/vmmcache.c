@@ -14,6 +14,7 @@ static page_t **table;
 static thread_t *writerthread;
 static semaphore_t sync;
 static eventheader_t syncevent;
+static eventheader_t pagereadyevent;
 size_t vmmcache_cachedpages;
 
 #define HOLD_LOCK() \
@@ -119,11 +120,15 @@ int vmmcache_getpage(vnode_t *vnode, uintmax_t offset, page_t **res) {
 		if (newpage)
 			pmm_release(pmm_getpageaddress(newpage));
 
+		eventlistener_t listener;
+		EVENT_INITLISTENER(&listener);
+		EVENT_ATTACH(&listener, &pagereadyevent);
+
 		// wait for page to be ready
-		while ((page->flags & (PAGE_FLAGS_READY | PAGE_FLAGS_ERROR)) == 0) {
-			arch_e9_puts("waiting for ready page\n");
-			sched_yield(); // TODO proper sleeping mechanism here
-		}
+		while ((page->flags & (PAGE_FLAGS_READY | PAGE_FLAGS_ERROR)) == 0)
+			EVENT_WAIT(&listener, 0);
+
+		EVENT_DETACHALL(&listener);
 
 		if (page->flags & PAGE_FLAGS_ERROR) {
 			// the thread handling the page in failed to read it, we should retry it and see whats up
@@ -159,7 +164,7 @@ int vmmcache_getpage(vnode_t *vnode, uintmax_t offset, page_t **res) {
 		RELEASE_LOCK();
 
 		int error = VOP_GETPAGE(vnode, offset, newpage);
-		// TODO wake up the sleeping threads when implemented
+
 		if (error) {
 			// an error happened with GETPAGE, remove the page from the cache,
 			// tell the sleeping threads that something happened and free the page
@@ -173,10 +178,12 @@ int vmmcache_getpage(vnode_t *vnode, uintmax_t offset, page_t **res) {
 
 			RELEASE_LOCK();
 			pmm_release(pmm_getpageaddress(newpage));
+			EVENT_SIGNAL(&pagereadyevent);
 			return error;
 		}
 
 		newpage->flags |= PAGE_FLAGS_READY;
+		EVENT_SIGNAL(&pagereadyevent);
 		*res = newpage;
 	}
 
@@ -421,4 +428,5 @@ void vmmcache_init() {
 	sched_queue(writerthread);
 	vmmcache_sync();
 	EVENT_INITHEADER(&syncevent);
+	EVENT_INITHEADER(&pagereadyevent);
 }
