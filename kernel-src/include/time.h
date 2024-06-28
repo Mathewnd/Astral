@@ -29,4 +29,10 @@ static inline time_t timespec_diffms(timespec_t a, timespec_t b) {
 	return nsecdiff / 1000000 + secdiff * 1000;
 }
 
+static inline time_t timespec_diffus(timespec_t a, timespec_t b) {
+	time_t nsecdiff = abs(a.ns - b.ns);
+	time_t secdiff = abs(a.s - b.s);
+	return nsecdiff / 1000 + secdiff * 1000000;
+}
+
 #endif
