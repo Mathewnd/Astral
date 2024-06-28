@@ -415,7 +415,7 @@ bool signal_check(struct thread_t *thread, context_t *context, bool syscall, uin
 
 		// reset handler if asked for
 		if (action->flags & SA_RESETHAND)
-			memset(&action, 0, sizeof(sigaction_t));
+			memset(action, 0, sizeof(sigaction_t));
 	}
 
 	leave:
