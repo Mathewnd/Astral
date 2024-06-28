@@ -28,13 +28,13 @@ static void removefromlist(polldata_t **list, polldata_t *data) {
 }
 
 int poll_initdesc(polldesc_t *desc, size_t size) {
-	__assert(size);
-
 	memset(desc, 0, sizeof(polldesc_t));
 
-	desc->data = alloc(sizeof(polldata_t) * size);
-	if (desc->data == NULL)
-		return ENOMEM;
+	if (size != 0) {
+		desc->data = alloc(sizeof(polldata_t) * size);
+		if (desc->data == NULL)
+			return ENOMEM;
+	}
 
 	desc->thread = _cpu()->thread;
 	desc->size = size;
@@ -59,7 +59,7 @@ void poll_add(pollheader_t *header, polldata_t *data, int events) {
 }
 
 void poll_leave(polldesc_t *desc) {
-	for (uintmax_t i = 0; i < desc->size; ++i) {
+	for (uintmax_t i = 0; i < (desc->size == 0 ? 1 : desc->size); ++i) {
 		pollheader_t *header = desc->data[i].header;
 		if (header == NULL)
 			continue;
@@ -169,5 +169,6 @@ void poll_event(pollheader_t *header, int events) {
 }
 
 void poll_destroydesc(polldesc_t *desc) {
-	free(desc->data);
+	if (desc->size != 0)
+		free(desc->data);
 }
