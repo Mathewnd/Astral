@@ -2,8 +2,8 @@
 #include <kernel/vmm.h>
 #include <util.h>
 #include <logging.h>
-#include <kernel/poll.h>
 #include <kernel/timekeeper.h>
+#include <kernel/event.h>
 
 #define TABLE_SIZE 4096
 #define WRITER_TICK_SECONDS 15
@@ -13,7 +13,7 @@ static page_t **table;
 
 static thread_t *writerthread;
 static semaphore_t sync;
-static pollheader_t syncpollheader;
+static eventheader_t syncevent;
 size_t vmmcache_cachedpages;
 
 #define HOLD_LOCK() \
@@ -330,35 +330,23 @@ int vmmcache_syncvnode(vnode_t *vnode, uintmax_t offset, size_t size) {
 }
 
 int vmmcache_sync() {
-	polldesc_t polldesc = {0};
-	int e = poll_initdesc(&polldesc, 1);
+	eventlistener_t eventlistener;
+	EVENT_INITLISTENER(&eventlistener);
 	HOLD_LOCK();
 	if (dirtylist == NULL) {
 		// no dirty pages
 		RELEASE_LOCK();
-		if (e == 0)
-			goto leave;
-
 		return 0;
-	} else if (e) {
-		// there are dirty pages but poll alloc failed,
-		// tell the thread to do its thing but don't wait
-		RELEASE_LOCK();
-		printf("vmmcache: sync not waiting because of a poll allocation failure\n");
-		semaphore_signal(&sync);
-		return e;
 	}
 
-	poll_add(&syncpollheader, &polldesc.data[0], POLLPRI);
+	EVENT_ATTACH(&eventlistener, &syncevent);
 	semaphore_signal(&sync);
 	RELEASE_LOCK();
 
-	e = poll_dowait(&polldesc, 0);
+	EVENT_WAIT(&eventlistener, 0);
 
-	leave:
-	poll_leave(&polldesc);
-	poll_destroydesc(&polldesc);
-	return e;
+	EVENT_DETACHALL(&eventlistener);
+	return 0;
 }
 
 int vmmcache_makedirty(page_t *page) {
@@ -405,7 +393,7 @@ static void writer() {
 		// TODO make FIFO rather than LIFO
 		volatile page_t *page = dirtylist;
 		if (page == NULL) {
-			poll_event(&syncpollheader, POLLPRI);
+			EVENT_SIGNAL(&syncevent);
 			RELEASE_LOCK();
 			semaphore_wait(&sync, false);
 			continue;
@@ -432,5 +420,5 @@ void vmmcache_init() {
 	__assert(writerthread);
 	sched_queue(writerthread);
 	vmmcache_sync();
-	POLL_INITHEADER(&syncpollheader);
+	EVENT_INITHEADER(&syncevent);
 }
