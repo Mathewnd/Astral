@@ -6,6 +6,7 @@
 #include <kernel/slab.h>
 #include <kernel/eth.h>
 #include <ringbuffer.h>
+#include <kernel/event.h>
 
 #define CACHE_TIMEOUT_SEC 300
 #define CACHE_TIMEOUT_MS  (CACHE_TIMEOUT_SEC * 1000)
@@ -17,6 +18,9 @@ typedef struct {
 	mac_t mac;
 	timespec_t time;
 } entry_t;
+
+static eventheader_t addedevent;
+
 typedef struct {
 	netdev_t *netdev;
 	uint32_t ip;
@@ -163,6 +167,7 @@ static void handlerthreadfn() {
 				MUTEX_ACQUIRE(&cachelock, false);
 				timespec_t time = timekeeper_time();
 				set(entry.netdev, entry.ip, entry.mac, time);
+				EVENT_SIGNAL(&addedevent);
 				MUTEX_RELEASE(&cachelock);
 				break;
 			case OPCODE_REQUEST:
@@ -243,31 +248,39 @@ int arp_lookup(netdev_t *netdev, uint32_t ip, mac_t *mac) {
 		goto cleanup;
 
 	// wait
-	// TODO wait on an event instead of looping on a yield (ok for now, but might cause slowdows in the future)
 
 	timespec_t end = timekeeper_time();
-	//end.s += LOOKUP_TIMEOUT_SEC;
-	timespec_t other;
-	other.s = 0;
-	other.ns = 100000000;
-	end = timespec_add(end, other);
+	end.s += LOOKUP_TIMEOUT_SEC;
+
+	eventlistener_t eventlistener;
+	EVENT_INITLISTENER(&eventlistener);
+	EVENT_ATTACH(&eventlistener, &addedevent);
 
 	for (;;) {
-		MUTEX_RELEASE(&cachelock);
-		sched_yield();
-		MUTEX_ACQUIRE(&cachelock, true);
-
 		timespec_t time = timekeeper_time();
+		time_t to = timespec_diffus(time, end);
+		if (to == 0) {
+			e = ENETUNREACH;
+			break;
+		}
+
+		MUTEX_RELEASE(&cachelock);
+		int timedout = EVENT_WAIT(&eventlistener, to);
+		MUTEX_ACQUIRE(&cachelock, true);
+		time = timekeeper_time();
+
 		if (get(netdev, ip, mac) == 0) {
 			e = 0;
 			break;
 		}
 
-		if (time.s > end.s || (end.s == time.s && time.ns >= end.ns)) {
+		if (timedout || time.s > end.s || (end.s == time.s && time.ns >= end.ns)) {
 			e = ENETUNREACH;
 			break;
 		}
 	}
+
+	EVENT_DETACHALL(&eventlistener);
 	cleanup:
 	MUTEX_RELEASE(&cachelock);
 
@@ -290,6 +303,8 @@ void arp_init() {
 	SEMAPHORE_INIT(&psem, 0);
 
 	SPINLOCK_INIT(ringlock);
+
+	EVENT_INITHEADER(&addedevent);
 
 	__assert(hashtable_init(&caches, 10) == 0);
 
