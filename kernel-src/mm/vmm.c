@@ -182,11 +182,9 @@ static void insertrange(vmmspace_t *space, vmmrange_t *newrange) {
 	newrange->next = NULL;
 
 	fragcheck:
-	// TODO range type specific stuff
-	if (newrange->flags & VMM_FLAGS_FILE)
-		return;
-
-	if (newrange->next && newrange->next->start == newrangetop && newrange->flags == newrange->next->flags && newrange->mmuflags == newrange->next->mmuflags) {
+	// join new range and the next
+	if (newrange->next && newrange->next->start == newrangetop && newrange->flags == newrange->next->flags && newrange->mmuflags == newrange->next->mmuflags
+		&& ((newrange->flags & VMM_FLAGS_FILE) == 0 || (newrange->vnode == newrange->next->vnode && newrange->offset + newrange->size == newrange->next->offset))) {
 		vmmrange_t *oldrange = newrange->next;
 		newrange->size += oldrange->size;
 		newrange->next = oldrange->next;
@@ -194,9 +192,14 @@ static void insertrange(vmmspace_t *space, vmmrange_t *newrange) {
 			oldrange->next->prev = newrange;
 
 		freerange(oldrange);
+		if (newrange->flags & VMM_FLAGS_FILE) {
+			VOP_RELEASE(newrange->vnode);
+		}
 	}
 
-	if (newrange->prev && RANGE_TOP(newrange->prev) == newrange->start && newrange->flags == newrange->prev->flags && newrange->mmuflags == newrange->prev->mmuflags) {
+	// join new range and the previous
+	if (newrange->prev && RANGE_TOP(newrange->prev) == newrange->start && newrange->flags == newrange->prev->flags && newrange->mmuflags == newrange->prev->mmuflags
+		&& ((newrange->flags & VMM_FLAGS_FILE) == 0 || (newrange->vnode == newrange->prev->vnode && newrange->prev->offset + newrange->prev->size == newrange->offset))) {
 		vmmrange_t *oldrange = newrange->prev;
 		oldrange->size += newrange->size;
 		oldrange->next = newrange->next;
@@ -205,6 +208,9 @@ static void insertrange(vmmspace_t *space, vmmrange_t *newrange) {
 			newrange->next->prev = oldrange;
 
 		freerange(newrange);
+		if (oldrange->flags & VMM_FLAGS_FILE) {
+			VOP_RELEASE(oldrange->vnode);
+		}
 	}
 }
 
