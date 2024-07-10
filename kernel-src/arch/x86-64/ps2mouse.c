@@ -100,7 +100,11 @@ void ps2mouse_init() {
 	}
 
 	mouse_setrate(2, 60);
-	__assert(device_write_response(2, MOUSE_CMD_REPORTDATA) == ACK);
+	int response = device_write_response(2, MOUSE_CMD_REPORTDATA);
+	if (response != ACK) {
+		printf("ps2mouse: expected ACK, got %x\n", response);
+		return;
+	}
 
 	isr_t *isr = interrupt_allocate(mouseisr, arch_apic_eoi, IPL_MOUSE);
 	__assert(isr);
