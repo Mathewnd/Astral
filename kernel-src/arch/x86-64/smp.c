@@ -59,9 +59,11 @@ void arch_smp_wakeup() {
 	printf("smp: %d processor%s\n", response->cpu_count, response->cpu_count > 1 ? "s" : "");
 
 	// use physical pages so the other cpus have it on the hhdm
-	cpu_t *apcpu = pmm_alloc(ROUND_UP(sizeof(cpu_t) * response->cpu_count, PAGE_SIZE) / PAGE_SIZE, PMM_SECTION_DEFAULT);
+	size_t apcpusize = ROUND_UP(sizeof(cpu_t) * response->cpu_count, PAGE_SIZE);
+	cpu_t *apcpu = pmm_alloc(apcpusize / PAGE_SIZE, PMM_SECTION_DEFAULT);
 	__assert(apcpu);
 	apcpu = MAKE_HHDM(apcpu);
+	memset(apcpu, 0, apcpusize);
 
 	void (*wakeupfn)(struct limine_smp_info *) = cmdline_get("nosmp") ? cpuwakeuphalt : cpuwakeup;
 
