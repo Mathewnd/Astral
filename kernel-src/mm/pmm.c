@@ -234,7 +234,7 @@ void pmm_init() {
 	for (size_t i = 0; i < pmm_liminemap.response->entry_count; ++i) {
 		struct limine_memmap_entry *e = pmm_liminemap.response->entries[i];
 		printf("pmm: %016p -> %016p: %d\n", e->base, e->base + e->length, e->type);
-		if (e->type == LIMINE_MEMMAP_USABLE || e->type == LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE) {
+		if (e->type == LIMINE_MEMMAP_USABLE || e->type == LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE || e->type == LIMINE_MEMMAP_KERNEL_AND_MODULES) {
 			size_t sectiontop = e->base + e->length;
 			if (sectiontop > top)
 				top = sectiontop;
