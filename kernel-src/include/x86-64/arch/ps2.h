@@ -89,9 +89,10 @@ static inline uint8_t device_write_response(int port, uint8_t command) {
 	uint8_t r = RESEND;
 	int tries = 0;
 
-	while (r == RESEND && tries-- < 5) {
+	while (r == RESEND && tries < 5) {
 		device_command(port, command);
 		r = read_data();
+		++tries;
 	}
 
 	return r;

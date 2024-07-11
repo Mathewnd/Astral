@@ -18,13 +18,19 @@ static void mouse_setrate(int port, uint8_t rate) {
 }
 
 static uint8_t identify(int port) {
-	__assert(device_write_response(port, DEVICE_CMD_IDENTIFY) == ACK);
-
 	bool timeout;
-	uint8_t b = read_data_timeout(5, &timeout);
-	__assert(!timeout);
 
-	return b;
+	device_command(port, DEVICE_CMD_IDENTIFY);
+	uint8_t b = read_data_timeout(5, &timeout);
+
+	if (b != ACK) {
+		printf("ps2mouse: identify failed: %x\n", b);
+		return RESEND;
+	}
+
+	b = read_data_timeout(5, &timeout);
+
+	return timeout ? RESEND : b;
 }
 
 static int datac; 
@@ -77,6 +83,8 @@ static void mouseisr() {
 
 
 void ps2mouse_init() {
+	inb(PS2_PORT_DATA);
+
 	if (identify(2) != MOUSE) {
 		printf("Not a mouse!\n");
 		return;
