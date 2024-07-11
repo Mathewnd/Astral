@@ -79,5 +79,7 @@ syscallret_t syscall_fchmod(context_t *, int fd, mode_t mode) {
 	ret.errno = dochmod(file->vnode, mode);
 	ret.ret = ret.errno ? -1 : 0;
 
+	fd_release(file);
+
 	return ret;
 }
