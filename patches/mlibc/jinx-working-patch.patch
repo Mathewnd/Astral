@@ -207,10 +207,10 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..a20c9cd
+index 0000000..d6fe6cc
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -0,0 +1,952 @@
+@@ -0,0 +1,948 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -434,8 +434,6 @@ index 0000000..a20c9cd
 +
 +				close(tmp);
 +
-+				mlibc::infoLogger() << dent.d_name << frg::endlog;
-+
 +				if (dentstat.st_dev == dirstat.st_dev && dentstat.st_ino == dirstat.st_ino)
 +					break;
 +			}
@@ -445,8 +443,6 @@ index 0000000..a20c9cd
 +				close(upfd);
 +				return ENOENT;
 +			}
-+
-+			mlibc::infoLogger() << "got component: " << dent.d_name << frg::endlog;
 +
 +			dirfd = upfd;
 +
