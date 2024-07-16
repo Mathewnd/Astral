@@ -279,6 +279,10 @@ static int syncpage(page_t *page) {
 	if ((page->flags & PAGE_FLAGS_TRUNCATED) == 0) {
 		e = VOP_PUTPAGE(page->backing, page->offset, (page_t *)page);
 		VOP_RELEASE(page->backing);
+	} else {
+		// page got truncated from the file while waiting to be written to disk
+		// its still holding a reference to the vnode, so release that
+		VOP_RELEASE(page->backing);
 	}
 
 	pmm_release(pmm_getpageaddress((page_t *)page));
