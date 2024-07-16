@@ -191,6 +191,27 @@ int vmmcache_getpage(vnode_t *vnode, uintmax_t offset, page_t **res) {
 	return 0;
 }
 
+// adds a page to the cache in a specific offset if its not already there
+int vmmcache_pushpage(vnode_t *vnode, uintmax_t offset, page_t *page) {
+	__assert((offset % PAGE_SIZE) == 0);
+	HOLD_LOCK();
+
+	page_t *pagetest = findpage(vnode, offset);
+	if (pagetest) {
+		RELEASE_LOCK();
+		return EAGAIN;
+	}
+
+	page->backing = vnode;
+	page->offset = offset;
+	page->flags |= PAGE_FLAGS_READY;
+
+	putpage(page);
+
+	RELEASE_LOCK();
+	return 0;
+}
+
 // removes a page from the cache AND turns it into anonymous memory
 int vmmcache_evict(page_t *page) {
 	HOLD_LOCK();
