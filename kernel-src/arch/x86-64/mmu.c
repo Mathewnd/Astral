@@ -276,7 +276,7 @@ static void pfisr(isr_t *self, context_t *ctx) {
 		vmmerror |= VMM_ACTION_EXEC;
 
 	if (vmm_pagefault((void *)ctx->cr2, ctx->cs != 8, vmmerror) == false) {
-		if (thread->usercopyctx) {
+		if (thread && thread->usercopyctx) {
 			memcpy(ctx, thread->usercopyctx, sizeof(context_t));
 			thread->usercopyctx = NULL;
 			CTX_RET(ctx) = EFAULT;
@@ -319,6 +319,9 @@ void arch_mmu_init() {
 
 	for (size_t i = 0; i < pmm_liminemap.response->entry_count; ++i) {
 		struct limine_memmap_entry *e = pmm_liminemap.response->entries[i];
+		if (e->type != LIMINE_MEMMAP_USABLE && e->type != LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE && e->type != LIMINE_MEMMAP_KERNEL_AND_MODULES && e->type != LIMINE_MEMMAP_FRAMEBUFFER)
+			continue;
+
 		for (uint64_t i = 0; i < e->length; i += PAGE_SIZE) {
 			uint64_t entry = ((e->base + i) & ADDRMASK) | ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC;
 			__assert(add_page(FROM_HHDM(template), MAKE_HHDM((void *)(e->base + i)), entry, 0));

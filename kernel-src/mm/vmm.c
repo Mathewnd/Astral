@@ -690,6 +690,10 @@ void vmm_init() {
 	// map HHDM
 	for (uint64_t i = 0; i < pmm_liminemap.response->entry_count; ++i) {
 		struct limine_memmap_entry *e = pmm_liminemap.response->entries[i];
+
+		if (e->type != LIMINE_MEMMAP_USABLE && e->type != LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE && e->type != LIMINE_MEMMAP_KERNEL_AND_MODULES && e->type != LIMINE_MEMMAP_FRAMEBUFFER)
+			continue;
+
 		mmuflags_t mmuflags = ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC;
 		__assert(vmm_map(MAKE_HHDM(e->base), e->length, VMM_FLAGS_EXACT, mmuflags, NULL));
 	}
