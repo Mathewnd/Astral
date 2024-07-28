@@ -68,7 +68,7 @@ static void mcfg_write32(int bus, int device, int function, uint32_t offset, uin
 }
 
 static uint64_t msiformatmessage(uint32_t *data, int vector, int edgetrigger, int deassert) {
-	*data = (edgetrigger << 15) | (deassert << 14) | vector;
+	*data = (edgetrigger ? 0 : (1 << 15)) | (deassert ? 0 : (1 << 14)) | vector;
 	return 0xfee00000 | (_cpu()->id << 12);
 }
 
