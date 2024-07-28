@@ -195,12 +195,12 @@ int vionet_newdevice(viodevice_t *viodevice) {
 
 	isr_t *rxisr = interrupt_allocate(rx_irq, ARCH_EOI, IPL_NET);
 	__assert(rxisr);
-	pci_msixadd(viodevice->e, 0, INTERRUPT_IDTOVECTOR(rxisr->id), 0, 0);
+	pci_msixadd(viodevice->e, 0, INTERRUPT_IDTOVECTOR(rxisr->id), 1, 0);
 	__assert(hashtable_set(&irqtable, netdev, &rxisr->id, sizeof(rxisr->id), true) == 0);
 
 	isr_t *txisr = interrupt_allocate(tx_irq, ARCH_EOI, IPL_NET);
 	__assert(txisr);
-	pci_msixadd(viodevice->e, 1, INTERRUPT_IDTOVECTOR(txisr->id), 0, 0);
+	pci_msixadd(viodevice->e, 1, INTERRUPT_IDTOVECTOR(txisr->id), 1, 0);
 	__assert(hashtable_set(&irqtable, netdev, &txisr->id, sizeof(txisr->id), true) == 0);
 	pci_msixsetmask(viodevice->e, 0);
 
