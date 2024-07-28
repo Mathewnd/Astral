@@ -177,7 +177,7 @@ void arch_ioapic_setirq(uint8_t irq, uint8_t vector, uint8_t proc, bool masked) 
 
 		polarity = override->flags & 2 ? 1 : 0; // active low
 		trigger  = override->flags & 8 ? 1 : 0; // level triggered
-		irq = override->irq;
+		irq = override->gsi;
 		break;
 	}
 
