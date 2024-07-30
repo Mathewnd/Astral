@@ -105,6 +105,7 @@ int hashtable_destroy(hashtable_t *table) {
 		slab_free(hashentrycache, entry);
 		entry = &entrysave;
 	}
+	free(table->entries);
 	return 0;
 }
 
