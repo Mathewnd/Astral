@@ -236,6 +236,7 @@ static int changedircount(ext2fs_t *fs, int bg, int change) {
 // allocates either a block or an inode
 static int allocatestructure(ext2fs_t *fs, uintmax_t *retid, bool inode) {
 	MUTEX_ACQUIRE(&fs->descriptorlock, false);
+	uint8_t *bm = NULL;
 	uintmax_t bg = inode ? fs->lowestfreeinodebg : fs->lowestfreeblockbg;
 
 	int e = 0;
@@ -270,7 +271,7 @@ static int allocatestructure(ext2fs_t *fs, uintmax_t *retid, bool inode) {
 	}
 
 	size_t bmsize = (inode ? fs->superblock.inodespergroup : fs->superblock.blockspergroup) / 8;
-	uint8_t *bm = alloc(bmsize);
+	bm = alloc(bmsize);
 	if (bm == NULL) {
 		e = ENOMEM;
 		goto cleanup;
@@ -338,6 +339,9 @@ static int allocatestructure(ext2fs_t *fs, uintmax_t *retid, bool inode) {
 	ASSERT_UNCLEAN(fs, e == 0);
 
 	cleanup:
+	if (bm)
+		free(bm);
+
 	MUTEX_RELEASE(&fs->descriptorlock);
 	return e;
 }
@@ -345,6 +349,7 @@ static int allocatestructure(ext2fs_t *fs, uintmax_t *retid, bool inode) {
 // frees a block or an inode
 static int freestructure(ext2fs_t *fs, uintmax_t id, bool inode) {
 	int e = 0;
+	uint8_t *bm = NULL;
 	int bg = inode ? INODE_GETGROUP(fs, id) : BLOCK_GETGROUP(fs, id);
 	MUTEX_ACQUIRE(&fs->descriptorlock, false);
 
@@ -355,7 +360,7 @@ static int freestructure(ext2fs_t *fs, uintmax_t id, bool inode) {
 		goto cleanup;
 
 	size_t bmsize = (inode ? fs->superblock.inodespergroup : fs->superblock.blockspergroup) / 8;
-	uint8_t *bm = alloc(bmsize);
+	bm = alloc(bmsize);
 	if (bm == NULL) {
 		e = ENOMEM;
 		goto cleanup;
@@ -409,6 +414,8 @@ static int freestructure(ext2fs_t *fs, uintmax_t id, bool inode) {
 	MUTEX_RELEASE(&fs->superblocklock);
 
 	cleanup:
+	if (bm)
+		free(bm);
 	MUTEX_RELEASE(&fs->descriptorlock);
 	return e;
 }
