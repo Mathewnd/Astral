@@ -61,8 +61,6 @@ syscallret_t syscall_waitpid(context_t *context, pid_t pid, int *status, int opt
 
 		if ((pid > 0 && iterator->pid == pid) || pid == -1) {
 			desired = iterator;
-			bool intstatus = interrupt_set(false);
-			spinlock_acquire(&iterator->signals.lock);
 			if (iterator->signals.continueunwaited && (options & WCONTINUED)) {
 				iterator->signals.continueunwaited = false;
 				continued = true;
@@ -71,8 +69,6 @@ syscallret_t syscall_waitpid(context_t *context, pid_t pid, int *status, int opt
 				iterator->signals.stopunwaited = false;
 				stopped = true;
 			}
-			spinlock_release(&iterator->signals.lock);
-			interrupt_set(intstatus);
 
 			zombie = iterator->state == SCHED_PROC_STATE_ZOMBIE;
 		}
