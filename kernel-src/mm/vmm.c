@@ -243,9 +243,10 @@ static void destroyrange(vmmrange_t *range, uintmax_t _offset, size_t size, int 
 				pmm_release(physical);
 			}
 		} else {
-			// anonymous or private non character device mapping
+			// anonymous, physical or private non character device mapping
 			arch_mmu_unmap(_cpu()->vmmctx->pagetable, vaddr);
-			pmm_release(physical);
+			if ((range->flags & VMM_FLAGS_PHYSICAL) == 0)
+				pmm_release(physical);
 		}
 	}
 
