@@ -8,7 +8,7 @@ syscallret_t syscall_write(context_t *context, int fd, void *buffer, size_t size
 		.ret = -1
 	};
 
-	void *kernelbuff = vmm_map(NULL, size, VMM_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, NULL);
+	void *kernelbuff = vmm_map(NULL, size == 0 ? 1 : size, VMM_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, NULL);
 	if (kernelbuff == NULL) {
 		ret.errno = ENOMEM;
 		return ret;
@@ -21,15 +21,15 @@ syscallret_t syscall_write(context_t *context, int fd, void *buffer, size_t size
 		goto cleanup;
 	}
 
+	ret.errno = usercopy_fromuser(kernelbuff, buffer, size);
+	if (ret.errno)
+		goto cleanup;
+
 	if (size == 0) {
 		ret.ret = 0;
 		ret.errno = 0;
 		goto cleanup;
 	}
-
-	ret.errno = usercopy_fromuser(kernelbuff, buffer, size);
-	if (ret.errno)
-		goto cleanup;
 
 	size_t byteswritten;
 	uintmax_t offset = file->offset;
@@ -55,6 +55,6 @@ cleanup:
 	if (file)
 		fd_release(file);
 
-	vmm_unmap(kernelbuff, size, 0);
+	vmm_unmap(kernelbuff, size == 0 ? 1 : size, 0);
 	return ret;
 }
