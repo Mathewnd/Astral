@@ -36,7 +36,6 @@ typedef struct {
 #define HEADER_TYPE_WRITE 1
 
 static hashtable_t inttable; // int id -> vioblkdev
-static scache_t *headercache;
 
 static void vioblk_dpc(context_t *context, dpcarg_t arg) {
 	vioblkdev_t *blkdev = arg;
@@ -85,12 +84,13 @@ static void vioblk_enqueue(vioblkdev_t *blkdev, void *driver, size_t driverlen, 
 	buffers[idx + OTHER_BUFFER].length = devicelen;
 	buffers[idx + OTHER_BUFFER].flags = VIO_QUEUE_BUFFER_DEVICE;
 
-	size_t driveridx = VIO_QUEUE_DRV_IDX(&blkdev->queue)++;
+	size_t driveridx = VIO_QUEUE_DRV_IDX(&blkdev->queue);
 	VIO_QUEUE_DRV_RING(&blkdev->queue)[driveridx % blkdev->queue.size] = idx;
 
 	sched_preparesleep(false);
 	blkdev->queuewaiting[idx] = _cpu()->thread;
 
+	++VIO_QUEUE_DRV_IDX(&blkdev->queue);
 	*blkdev->queue.notify = 0;
 	spinlock_release(&blkdev->queuelock);
 
@@ -198,6 +198,4 @@ int vioblk_newdevice(viodevice_t *viodevice) {
 
 void vioblk_init() {
 	__assert(hashtable_init(&inttable, 10) == 0);
-	headercache = slab_newcache(sizeof(requestheader_t), 0, NULL, NULL);
-	__assert(headercache);
 }
