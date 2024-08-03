@@ -619,6 +619,7 @@ static int setinodeblock(ext2fs_t *fs, ext2node_t *node, uintmax_t index, blockp
 		size_t count;
 		blockptr_t doublyptr = 0;
 		blockptr_t singlyptr = 0;
+		size_t writec;
 
 		int e = 0;
 
@@ -632,6 +633,10 @@ static int setinodeblock(ext2fs_t *fs, ext2node_t *node, uintmax_t index, blockp
 			e = allocandset(fs, node, BLOCK_GETDISKOFFSET(fs, node->inode.triplypointer) + triplyoffset, &doublyptr);
 			if (e)
 				return e;
+
+			e = vfs_write(fs->backing, util_zerobuffer, fs->blocksize, BLOCK_GETDISKOFFSET(fs, doublyptr), &writec, 0);
+			if (e)
+				return e;
 		} else if (usetriply) {
 			// use already allocated triply
 			uintmax_t offset = BLOCK_GETDISKOFFSET(fs, node->inode.triplypointer) + triplyoffset;
@@ -640,10 +645,15 @@ static int setinodeblock(ext2fs_t *fs, ext2node_t *node, uintmax_t index, blockp
 				return e;
 
 			// allocate doubly if needed
-			if (doublyptr == 0)
+			if (doublyptr == 0) {
 				e = allocandset(fs, node, offset, &doublyptr);
-			if (e)
-				return e;
+				if (e)
+					return e;
+
+				e = vfs_write(fs->backing, util_zerobuffer, fs->blocksize, BLOCK_GETDISKOFFSET(fs, doublyptr), &writec, 0);
+				if (e)
+					return e;
+			}
 		} else {
 			// no triply used, allocate doubly if needed
 			if (node->inode.doublypointer == 0)
@@ -663,10 +673,15 @@ static int setinodeblock(ext2fs_t *fs, ext2node_t *node, uintmax_t index, blockp
 				return e;
 
 			// allocate singly if needed
-			if (singlyptr == 0)
+			if (singlyptr == 0) {
 				e = allocandset(fs, node, offset, &singlyptr);
-			if (e)
-				return e;
+				if (e)
+					return e;
+
+				e = vfs_write(fs->backing, util_zerobuffer, fs->blocksize, BLOCK_GETDISKOFFSET(fs, singlyptr), &writec, 0);
+				if (e)
+					return e;
+			}
 		} else {
 			// no doubly used, allocate singly if needed
 			if (node->inode.singlypointer == 0)
