@@ -1,0 +1,13 @@
+diff --git grep-clean/src/grep.c grep-workdir/src/grep.c
+index 491dd02..5a0250a 100644
+--- grep-clean/src/grep.c
++++ grep-workdir/src/grep.c
+@@ -1774,7 +1774,7 @@ drain_input (int fd, struct stat const *st)
+   ssize_t nbytes;
+   if (S_ISFIFO (st->st_mode) && dev_null_output)
+     {
+-#ifdef SPLICE_F_MOVE
++#if 0
+       /* Should be faster, since it need not copy data to user space.  */
+       nbytes = splice (fd, NULL, STDOUT_FILENO, NULL,
+                        INITIAL_BUFSIZE, SPLICE_F_MOVE);
