@@ -13,6 +13,7 @@
 #include <arch/cpu.h>
 #include <string.h>
 #include <kernel/vmmcache.h>
+#include <kernel/pipefs.h>
 
 static scache_t *nodecache;
 static tmpfsnode_t *newnode(vfs_t *vfs, int type);
@@ -158,18 +159,28 @@ static int tmpfs_open(vnode_t **nodep, int flag, cred_t *cred) {
 	vnode_t *node = *nodep;
 	tmpfsnode_t *tmpnode = (tmpfsnode_t *)node;
 
+	int error = 0;
 	if (node->type == V_TYPE_CHDEV || node->type == V_TYPE_BLKDEV) {
 		vnode_t *devnode;
-		int err = devfs_getnode(node, tmpnode->attr.rdevmajor, tmpnode->attr.rdevminor, &devnode);
-		if (err)
-			return err;
+		error = devfs_getnode(node, tmpnode->attr.rdevmajor, tmpnode->attr.rdevminor, &devnode);
+		if (error)
+			return error;
 
 		VOP_RELEASE(node);
 		VOP_HOLD(devnode);
 		*nodep = devnode; 
 	}
 
-	return 0;
+	if (node->type == V_TYPE_FIFO) {
+		VOP_LOCK(*nodep);
+		vnode_t *fifo;
+		error = pipefs_getbinding(*nodep, &fifo);
+		VOP_UNLOCK(*nodep);
+		if (error == 0)
+			*nodep = fifo;
+	}
+
+	return error;
 }
 
 static int tmpfs_close(vnode_t *node, int flag, cred_t *cred) {

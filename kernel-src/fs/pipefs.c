@@ -399,3 +399,20 @@ int pipefs_newpipe(vnode_t **nodep) {
 
 	return 0;
 }
+
+// assumes node is locked upon calling
+int pipefs_getbinding(vnode_t *node, vnode_t **pipep) {
+	__assert(node->type == V_TYPE_FIFO);
+
+	if (node->fifobinding) {
+		*pipep = node->fifobinding;
+		return 0;
+	}
+
+	int error = pipefs_newpipe(pipep);
+	if (error)
+		return error;
+
+	node->fifobinding = *pipep;
+	return error;
+}

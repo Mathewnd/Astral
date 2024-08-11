@@ -10,6 +10,7 @@
 #include <logging.h>
 #include <util.h>
 #include <kernel/vmmcache.h>
+#include <kernel/pipefs.h>
 
 #define INODE_ROOT 2
 
@@ -1052,9 +1053,20 @@ static void freeinode(ext2fs_t *fs, inode_t *inode, int id) {
 static int ext2_open(vnode_t **vnodep, int flags, cred_t *cred) {
 	vnode_t *vnode = *vnodep;
 	int type = vnode->type;
-	// TODO these types of files
-	__assert(type == V_TYPE_REGULAR || type == V_TYPE_DIR || type == V_TYPE_LINK);
-	return 0;
+	// TODO device files
+	__assert(type == V_TYPE_REGULAR || type == V_TYPE_DIR || type == V_TYPE_LINK || type == V_TYPE_FIFO);
+
+	int error = 0;
+	if (type == V_TYPE_FIFO) {
+		VOP_LOCK(*vnodep);
+		vnode_t *fifo;
+		error = pipefs_getbinding(*vnodep, &fifo);
+		VOP_UNLOCK(*vnodep);
+		if (error == 0)
+			*vnodep = fifo;
+	}
+
+	return error;
 }
 
 static int ext2_close(vnode_t *vnode, int flags, cred_t *cred) {

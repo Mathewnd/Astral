@@ -18,5 +18,6 @@ typedef struct pipenode_t {
 
 void pipefs_init();
 int pipefs_newpipe(vnode_t **nodep);
+int pipefs_getbinding(vnode_t *node, vnode_t **pipep);
 
 #endif

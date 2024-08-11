@@ -78,7 +78,11 @@ typedef struct vnode_t {
 	int type;
 	vfs_t *vfs;
 	vfs_t *vfsmounted;
-	void *socketbinding;
+	union {
+		void *socketbinding;
+		void *fifobinding;
+	};
+
 	struct page_t *pages;
 } vnode_t;
 
