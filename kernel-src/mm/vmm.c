@@ -448,7 +448,7 @@ void *vmm_getphysical(void *addr) {
 	void *physical = arch_mmu_getphysical(_cpu()->vmmctx->pagetable, addr);
 
 	MUTEX_RELEASE(&space->lock);
-	return physical;
+	return physical + ((uintptr_t)addr - ROUND_DOWN((uintptr_t)addr, PAGE_SIZE));
 }
 
 
