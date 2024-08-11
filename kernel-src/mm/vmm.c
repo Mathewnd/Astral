@@ -482,10 +482,22 @@ void *vmm_map(void *addr, volatile size_t size, int flags, mmuflags_t mmuflags, 
 	if (range == NULL)
 		goto cleanup;
 
-	range->start = start;
-	range->size = size;
-	range->flags = VMM_PERMANENT_FLAGS_MASK & flags;
-	range->mmuflags = mmuflags;
+	if (flags & VMM_FLAGS_REPLACE) {
+		__assert(addr);
+		retaddr = addr;
+		range->start = addr;
+		range->size = size;
+		range->flags = VMM_PERMANENT_FLAGS_MASK & flags;
+		range->mmuflags = mmuflags;
+		__assert((flags & (VMM_FLAGS_ALLOCATE | VMM_FLAGS_PHYSICAL)) == 0);
+		unmap(space, addr, size);
+	} else {
+		retaddr = start;
+		range->start = start;
+		range->size = size;
+		range->flags = VMM_PERMANENT_FLAGS_MASK & flags;
+		range->mmuflags = mmuflags;
+	}
 
 	if (flags & VMM_FLAGS_FILE) {
 		// XXX make sure that writes can't happen to executable memory mapped files and check file permissions
@@ -503,6 +515,7 @@ void *vmm_map(void *addr, volatile size_t size, int flags, mmuflags_t mmuflags, 
 				for (uintmax_t j = 0; j < size; j += PAGE_SIZE)
 					arch_mmu_unmap(_cpu()->vmmctx->pagetable, (void *)((uintptr_t)start + j));
 
+				retaddr = NULL;
 				goto cleanup;
 			}
 		}
@@ -526,6 +539,7 @@ void *vmm_map(void *addr, volatile size_t size, int flags, mmuflags_t mmuflags, 
 						}
 				}
 
+				retaddr = NULL;
 				goto cleanup;
 			}
 			memset(MAKE_HHDM(allocated), 0, PAGE_SIZE);
@@ -533,9 +547,6 @@ void *vmm_map(void *addr, volatile size_t size, int flags, mmuflags_t mmuflags, 
 	}
 
 	insertrange(space, range);
-
-	retaddr = start;
-
 	cleanup:
 	if (start == NULL && range)
 		freerange(range);

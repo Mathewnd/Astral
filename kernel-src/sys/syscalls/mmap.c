@@ -44,9 +44,8 @@ syscallret_t syscall_mmap(context_t *context, void *hint, size_t len, int prot, 
 	bool isfile = (flags & MAP_ANONYMOUS) == 0;
 	int vmmflags = 0;
 
-	// XXX this isn't the correct behaviour for MAP_FIXED
 	if (flags & MAP_FIXED)
-		vmmflags |= VMM_FLAGS_EXACT;
+		vmmflags |= VMM_FLAGS_REPLACE;
 
 	if ((flags & MAP_ANONYMOUS) == 0)
 		vmmflags |= VMM_FLAGS_FILE;
