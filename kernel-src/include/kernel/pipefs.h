@@ -13,11 +13,13 @@ typedef struct pipenode_t {
 	ringbuffer_t data;
 	size_t readers, writers;
 	pollheader_t pollheader;
-	eventheader_t openevent;
+	eventheader_t readopenevent;
+	eventheader_t writeopenevent;
 } pipenode_t;
 
 void pipefs_init();
 int pipefs_newpipe(vnode_t **nodep);
 int pipefs_getbinding(vnode_t *node, vnode_t **pipep);
+void pipefs_leavebinding(vnode_t *pipenode);
 
 #endif

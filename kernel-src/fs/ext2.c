@@ -1062,6 +1062,10 @@ static int ext2_open(vnode_t **vnodep, int flags, cred_t *cred) {
 		vnode_t *fifo;
 		error = pipefs_getbinding(*vnodep, &fifo);
 		VOP_UNLOCK(*vnodep);
+		if (error)
+			return error;
+
+		error = VOP_OPEN(&fifo, flags, cred);
 		if (error == 0)
 			*vnodep = fifo;
 	}

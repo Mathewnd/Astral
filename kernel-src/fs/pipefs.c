@@ -72,16 +72,14 @@ int pipefs_open(vnode_t **node, int flags, cred_t *cred) {
 	// and there are either no writers or no readers.
 	eventlistener_t listener;
 	EVENT_INITLISTENER(&listener);
-	EVENT_ATTACH(&listener, &pipenode->openevent);
+	if (flags & V_FFLAGS_READ)
+		EVENT_ATTACH(&listener, &pipenode->writeopenevent);
+	else
+		EVENT_ATTACH(&listener, &pipenode->readopenevent);
 
-	while (1) {
-		VOP_UNLOCK(*node);
-		error = EVENT_WAIT(&listener, 0);
-		VOP_LOCK(*node);
-
-		if (error || (pipenode->writers > 0 && pipenode->readers > 0))
-			break;
-	}
+	VOP_UNLOCK(*node);
+	error = EVENT_WAIT(&listener, 0);
+	VOP_LOCK(*node);
 
 	EVENT_DETACHALL(&listener);
 
@@ -90,7 +88,10 @@ int pipefs_open(vnode_t **node, int flags, cred_t *cred) {
 		VOP_UNLOCK(*node);
 		pipefs_close(*node, flags, cred);
 	} else {
-		EVENT_SIGNAL(&pipenode->openevent);
+		if (flags & V_FFLAGS_READ)
+			EVENT_SIGNAL(&pipenode->readopenevent);
+		else
+			EVENT_SIGNAL(&pipenode->writeopenevent);
 		VOP_UNLOCK(*node);
 	}
 
@@ -374,7 +375,8 @@ static void ctor(scache_t *cache, void *obj) {
 	VOP_INIT(&node->vnode, &vnops, 0, V_TYPE_FIFO, NULL);
 	node->attr.inode = ++currentinode;
 	POLL_INITHEADER(&node->pollheader);
-	EVENT_INITHEADER(&node->openevent);
+	EVENT_INITHEADER(&node->writeopenevent);
+	EVENT_INITHEADER(&node->readopenevent);
 }
 
 void pipefs_init() {
@@ -406,6 +408,7 @@ int pipefs_getbinding(vnode_t *node, vnode_t **pipep) {
 
 	if (node->fifobinding) {
 		*pipep = node->fifobinding;
+		VOP_HOLD(*pipep);
 		return 0;
 	}
 
@@ -413,6 +416,11 @@ int pipefs_getbinding(vnode_t *node, vnode_t **pipep) {
 	if (error)
 		return error;
 
+	VOP_HOLD(*pipep);
 	node->fifobinding = *pipep;
 	return error;
+}
+
+void pipefs_leavebinding(vnode_t *pipenode) {
+	VOP_RELEASE(pipenode);
 }

@@ -155,7 +155,7 @@ static int tmpfs_create(vnode_t *parent, char *name, vattr_t *attr, int type, vn
 	return error;
 }
 
-static int tmpfs_open(vnode_t **nodep, int flag, cred_t *cred) {
+static int tmpfs_open(vnode_t **nodep, int flags, cred_t *cred) {
 	vnode_t *node = *nodep;
 	tmpfsnode_t *tmpnode = (tmpfsnode_t *)node;
 
@@ -176,6 +176,10 @@ static int tmpfs_open(vnode_t **nodep, int flag, cred_t *cred) {
 		vnode_t *fifo;
 		error = pipefs_getbinding(*nodep, &fifo);
 		VOP_UNLOCK(*nodep);
+		if (error)
+			return error;
+
+		error = VOP_OPEN(&fifo, flags, cred);
 		if (error == 0)
 			*nodep = fifo;
 	}

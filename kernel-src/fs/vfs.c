@@ -9,6 +9,7 @@
 #include <kernel/sock.h>
 #include <kernel/vmmcache.h>
 #include <kernel/block.h>
+#include <kernel/pipefs.h>
 
 #define PATHNAME_MAX 512
 #define MAXLINKDEPTH 64
@@ -57,8 +58,11 @@ int vfs_register(vfsops_t *ops, char *name) {
 }
 
 void vfs_inactive(vnode_t *vnode) {
-	if (vnode->socketbinding)
+	if (vnode->type == V_TYPE_SOCKET && vnode->socketbinding) {
 		localsock_leavebinding(vnode);
+	} else if (vnode->type == V_TYPE_FIFO) {
+		pipefs_leavebinding(vnode);
+	}
 	vnode->ops->inactive(vnode);
 }
 
