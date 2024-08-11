@@ -17,23 +17,6 @@ static uintmax_t currentinode;
 
 static vops_t vnops;
 
-int pipefs_open(vnode_t **node, int flags, cred_t *cred) {
-	VOP_LOCK(*node);
-
-	pipenode_t *pipenode = (pipenode_t *)(*node);
-
-	if (flags & V_FFLAGS_READ) {
-		++pipenode->readers;
-	}
-
-	if (flags & V_FFLAGS_WRITE) {
-		++pipenode->writers;
-	}
-
-	VOP_UNLOCK(*node);
-	return 0;
-}
-
 int pipefs_close(vnode_t *node, int flags, cred_t *cred) {
 	VOP_LOCK(node);
 	pipenode_t *pipenode = (pipenode_t *)node;
@@ -54,6 +37,64 @@ int pipefs_close(vnode_t *node, int flags, cred_t *cred) {
 
 	VOP_UNLOCK(node);
 	return 0;
+}
+
+int pipefs_open(vnode_t **node, int flags, cred_t *cred) {
+	if ((flags & (V_FFLAGS_WRITE | V_FFLAGS_READ)) == 0)
+		return EINVAL;
+
+	VOP_LOCK(*node);
+	pipenode_t *pipenode = (pipenode_t *)(*node);
+
+	if (flags & V_FFLAGS_READ) {
+		++pipenode->readers;
+	}
+
+	if (flags & V_FFLAGS_WRITE) {
+		++pipenode->writers;
+	}
+
+	int error = 0;
+
+	if (pipenode->writers > 0 && pipenode->readers > 0)
+		goto leave;
+
+	if (flags & V_FFLAGS_NONBLOCKING) {
+		if (flags & V_FFLAGS_READ) {
+			goto leave;
+		} else if (flags & V_FFLAGS_WRITE) {
+			error = ENXIO;
+			goto leave;
+		}
+	}
+
+	// from this point on, flags has only one of V_FFLAGS_READ or V_FFLAGS_WRITE
+	// and there are either no writers or no readers.
+	eventlistener_t listener;
+	EVENT_INITLISTENER(&listener);
+	EVENT_ATTACH(&listener, &pipenode->openevent);
+
+	while (1) {
+		VOP_UNLOCK(*node);
+		error = EVENT_WAIT(&listener, 0);
+		VOP_LOCK(*node);
+
+		if (error || (pipenode->writers > 0 && pipenode->readers > 0))
+			break;
+	}
+
+	EVENT_DETACHALL(&listener);
+
+	leave:
+	if (error) {
+		VOP_UNLOCK(*node);
+		pipefs_close(*node, flags, cred);
+	} else {
+		EVENT_SIGNAL(&pipenode->openevent);
+		VOP_UNLOCK(*node);
+	}
+
+	return error;
 }
 
 // TODO for pipefs_read and pipefs_write, the return actually depends on how much data is in the pipe
@@ -333,6 +374,7 @@ static void ctor(scache_t *cache, void *obj) {
 	VOP_INIT(&node->vnode, &vnops, 0, V_TYPE_FIFO, NULL);
 	node->attr.inode = ++currentinode;
 	POLL_INITHEADER(&node->pollheader);
+	EVENT_INITHEADER(&node->openevent);
 }
 
 void pipefs_init() {

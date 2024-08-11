@@ -11,7 +11,7 @@ static void open(file_t *file, vnode_t *node, int flags) {
 	file->flags = flags;
 	file->offset = 0;
 	file->mode = 0777;
-	VOP_OPEN(&node, fileflagstovnodeflags(flags), &_cpu()->thread->proc->cred);
+	VOP_OPEN(&node, fileflagstovnodeflags(flags) | V_FFLAGS_NONBLOCKING, &_cpu()->thread->proc->cred);
 }
 
 syscallret_t syscall_pipe2(context_t *, int flags) {
