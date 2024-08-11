@@ -1,0 +1,9 @@
+name=diffutils
+version=3.9
+source_method=tarball
+tarball_url="https://ftp.gnu.org/gnu/diffutils/diffutils-${version}.tar.xz"
+tarball_sha512="d43280cb1cb2615a8867d971467eb9a3fa037fe9a411028068036f733dab42b10d42767093cea4de71e62b2659a3ec73bd7d1a8f251befd49587e32802682d0f"
+hostdeps="autoconf automake pkgconfig libtool"
+regenerate() {
+        autoreconf -fvi
+}

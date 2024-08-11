@@ -1,0 +1,13 @@
+diff --git diffutils-clean/Makefile.am diffutils-workdir/Makefile.am
+index c47bc83..ca1ec3c 100644
+--- diffutils-clean/Makefile.am
++++ diffutils-workdir/Makefile.am
+@@ -19,7 +19,7 @@
+ ALL_RECURSIVE_TARGETS =
+ 
+ EXTRA_DIST = bootstrap exgettext ChangeLog-2008 cfg.mk dist-check.mk
+-SUBDIRS = lib src tests doc man po gnulib-tests
++SUBDIRS = lib src tests doc po gnulib-tests
+ 
+ ACLOCAL_AMFLAGS = -I m4
+ AM_CFLAGS = $(WARN_CFLAGS) $(WERROR_CFLAGS)
