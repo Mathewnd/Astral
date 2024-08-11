@@ -8,8 +8,7 @@
 #include <kernel/pmm.h>
 #include <string.h>
 
-#define QUEUE_MAX_SIZE 128
-#define OTHER_BUFFER 64
+#define QUEUE_MAX_SIZE 144
 
 typedef struct {
 	uint64_t capacity;
@@ -23,14 +22,14 @@ typedef struct {
 	dpc_t queuedpc;
 	spinlock_t queuelock;
 	semaphore_t queuesem;
-	thread_t *queuewaiting[QUEUE_MAX_SIZE / 2];
+	thread_t *queuewaiting[QUEUE_MAX_SIZE / 3];
 } vioblkdev_t;
 
 typedef struct {
 	uint32_t type;
 	uint32_t reserved;
 	uint64_t sector;
-} requestheader_t;
+} __attribute__((packed)) requestheader_t;
 
 #define HEADER_TYPE_READ 0
 #define HEADER_TYPE_WRITE 1
@@ -44,12 +43,12 @@ static void vioblk_dpc(context_t *context, dpcarg_t arg) {
 	while (blkdev->queue.lastusedindex != VIO_QUEUE_DEV_IDX(&blkdev->queue)) {
 		int idx = blkdev->queue.lastusedindex++ % blkdev->queue.size;
 		int buffidx = VIO_QUEUE_DEV_RING(&blkdev->queue)[idx].index;
-		__assert(buffidx < OTHER_BUFFER);
-		__assert(blkdev->queuewaiting[buffidx]);
-		sched_wakeup(blkdev->queuewaiting[buffidx], SCHED_WAKEUP_REASON_NORMAL);
-		blkdev->queuewaiting[buffidx] = NULL;
+		__assert(blkdev->queuewaiting[buffidx / 3]);
+		sched_wakeup(blkdev->queuewaiting[buffidx / 3], SCHED_WAKEUP_REASON_NORMAL);
+		blkdev->queuewaiting[buffidx / 3] = NULL;
 		buffers[buffidx].address = 0;
-		buffers[buffidx + OTHER_BUFFER].address = 0;
+		buffers[buffidx + 1].address = 0;
+		buffers[buffidx + 2].address = 0;
 		semaphore_signal(&blkdev->queuesem);
 	}
 	spinlock_release(&blkdev->queuelock);
@@ -63,32 +62,37 @@ static void vioblk_irq(isr_t *isr, context_t *context) {
 }
 
 // driver and device are physical addresses
-static void vioblk_enqueue(vioblkdev_t *blkdev, void *driver, size_t driverlen, void *device, size_t devicelen) {
+static void vioblk_enqueue(vioblkdev_t *blkdev, requestheader_t *headerphys, void *bufferphys, size_t bufferlen, uint8_t *statusphys, bool write) {
 	bool intstatus = interrupt_set(false);
 	semaphore_wait(&blkdev->queuesem, false);
 
 	spinlock_acquire(&blkdev->queuelock);
 	int idx = 0;
 	volatile viobuffer_t *buffers = VIO_QUEUE_BUFFERS(&blkdev->queue);
-	while (buffers[idx].address && idx < QUEUE_MAX_SIZE / 2)
-		++idx;
+	while (buffers[idx].address && idx < blkdev->queue.size)
+		idx += 3;
 
-	__assert(idx < QUEUE_MAX_SIZE);
+	__assert(idx < blkdev->queue.size);
 
-	buffers[idx].address = (uint64_t)driver;
-	buffers[idx].length = driverlen;
+	buffers[idx].address = (uint64_t)headerphys;
+	buffers[idx].length = sizeof(requestheader_t);
 	buffers[idx].flags = VIO_QUEUE_BUFFER_NEXT;
-	buffers[idx].next = idx + OTHER_BUFFER;
+	buffers[idx].next = idx + 1;
 
-	buffers[idx + OTHER_BUFFER].address = (uint64_t)device;
-	buffers[idx + OTHER_BUFFER].length = devicelen;
-	buffers[idx + OTHER_BUFFER].flags = VIO_QUEUE_BUFFER_DEVICE;
+	buffers[idx + 1].address = (uint64_t)bufferphys;
+	buffers[idx + 1].length = bufferlen;
+	buffers[idx + 1].flags = (write ? 0 : VIO_QUEUE_BUFFER_DEVICE) | VIO_QUEUE_BUFFER_NEXT;
+	buffers[idx + 1].next = idx + 2;
+
+	buffers[idx + 2].address = (uint64_t)statusphys;
+	buffers[idx + 2].length = 1;
+	buffers[idx + 2].flags = VIO_QUEUE_BUFFER_DEVICE;
 
 	size_t driveridx = VIO_QUEUE_DRV_IDX(&blkdev->queue);
 	VIO_QUEUE_DRV_RING(&blkdev->queue)[driveridx % blkdev->queue.size] = idx;
 
 	sched_preparesleep(false);
-	blkdev->queuewaiting[idx] = _cpu()->thread;
+	blkdev->queuewaiting[idx / 3] = _cpu()->thread;
 
 	++VIO_QUEUE_DRV_IDX(&blkdev->queue);
 	*blkdev->queue.notify = 0;
@@ -105,28 +109,33 @@ static int vioblk_rw(vioblkdev_t *blkdev, void *buffer, uintmax_t lba, size_t co
 		return ENOMEM;
 
 	int err = 0;
-	size_t drvlen = sizeof(requestheader_t) + (write ? 512 : 0);
-	size_t devlen = write ? 1 : 513;
-	requestheader_t header = {
-		.type = write ? HEADER_TYPE_WRITE : HEADER_TYPE_READ
-	};
+	requestheader_t *header = physpage;
+	requestheader_t *headerhhdm = MAKE_HHDM(physpage);
+	uint8_t *status = (uint8_t *)(header + 1);
+	uint8_t *statushhdm = MAKE_HHDM(status);
 
-	for (int off = 0; off < count; ++off) {
-		header.sector = lba + off;
-		memcpy(MAKE_HHDM(physpage), &header, sizeof(requestheader_t));
+	headerhhdm->type = write ? HEADER_TYPE_WRITE : HEADER_TYPE_READ;
 
-		if (write)
-			memcpy(MAKE_HHDM((uintptr_t)physpage + sizeof(requestheader_t)), (void *)((uintptr_t)buffer + off * 512), 512);
+	__assert(((uintptr_t)buffer % 512) == 0);
+	uintmax_t pageoffset = (uintptr_t)buffer - ROUND_DOWN((uintptr_t)buffer, PAGE_SIZE);
 
-		vioblk_enqueue(blkdev, physpage, drvlen, (void *)((uintptr_t)physpage + drvlen), devlen);
+	int done = 0;
+	while (done < count) {
+		headerhhdm->sector = lba + done;
+		size_t docount = (done == 0) ? (PAGE_SIZE - pageoffset) / 512 : PAGE_SIZE / 512;
+		docount = min(docount, count - done);
 
-		if (*(uint8_t *)((uintptr_t)MAKE_HHDM(physpage) + drvlen + devlen - 1)) {
+		void *bufferphys = vmm_getphysical((void *)((uintptr_t)buffer + done * 512));
+		__assert(bufferphys);
+
+		vioblk_enqueue(blkdev, header, bufferphys, docount * 512, status, write);
+
+		if (*statushhdm) {
 			err = EIO;
 			break;
 		}
 
-		if (write == false)
-			memcpy((void *)((uintptr_t)buffer + off * 512), MAKE_HHDM((uintptr_t)physpage + drvlen), 512);
+		done += docount;
 	}
 
 	pmm_release(physpage);
@@ -173,8 +182,9 @@ int vioblk_newdevice(viodevice_t *viodevice) {
 
 	// initialize queue
 	size_t size = min(QUEUE_MAX_SIZE, virtio_queuesize(viodevice, 0));
+	size = size - (size % 3);
 	virtio_createqueue(viodevice, &blkdev->queue, 0, size, 0);
-	SEMAPHORE_INIT(&blkdev->queuesem, blkdev->queue.size / 2);
+	SEMAPHORE_INIT(&blkdev->queuesem, blkdev->queue.size / 3);
 	SPINLOCK_INIT(blkdev->queuelock);
 
 	virtio_enablequeue(viodevice, 0);

@@ -506,44 +506,40 @@ static int iowrite(nvmenamespace_t *namespace, uint64_t prp[2], uint64_t lba, ui
 
 #define PAGES_FLAGS (ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC)
 
-static int rwblocks(nvmenamespace_t *namespace, void *buffer, uintmax_t lba, size_t count, bool write, bool pagealignedbuffer) {
-	// TODO this is pretty inefficient and will be replaced later
+static int rwblocks(nvmenamespace_t *namespace, void *buffer, uintmax_t lba, size_t count, bool write) {
 	__assert(namespace->blocksize <= PAGE_SIZE);
 
-	uint64_t prp[2] = {(uint64_t)pmm_allocpage(PMM_SECTION_DEFAULT), 0};
 	int err = 0;
-	if (prp[0] == 0)
-		goto cleanup;
 
-	for (int i = 0; i < count; ++i) {
-		void *bufferp = (void *)((uintptr_t)buffer + i * namespace->blocksize);
+	uint64_t prp[2] = {0, 0};
+	__assert(((uintptr_t)buffer % namespace->blocksize) == 0);
+	uintmax_t pageoffset = (uintptr_t)buffer - ROUND_DOWN((uintptr_t)buffer, PAGE_SIZE);
 
-		if (write) {
-			memcpy(MAKE_HHDM(prp[0]), bufferp, namespace->blocksize);
-		}
+	int done = 0;
+	while (done < count) {
+		size_t docount = (done == 0) ? (PAGE_SIZE - pageoffset) / namespace->blocksize : PAGE_SIZE / namespace->blocksize;
+		docount = min(docount, count - done);
 
-		err = write ? iowrite(namespace, prp, lba + i, 1) : ioread(namespace, prp, lba + i, 1);
+		prp[0] = (uint64_t)vmm_getphysical((void *)((uintptr_t)buffer + done * namespace->blocksize));
+		__assert(prp[0]);
+
+		err = write ? iowrite(namespace, prp, lba + done, docount) : ioread(namespace, prp, lba + done, docount);
+
 		if (err)
-			goto cleanup;
+			break;
 
-		if (!write) {
-			memcpy(bufferp, MAKE_HHDM(prp[0]), namespace->blocksize);
-		}
+		done += docount;
 	}
-
-	cleanup:
-	if (prp[0])
-		pmm_release((void *)prp[0]);
 
 	return err;
 }
 
 static int read(void *private, void *buffer, uintmax_t lba, size_t count) {
-	return rwblocks(private, buffer, lba, count, false, false);
+	return rwblocks(private, buffer, lba, count, false);
 }
 
 static int write(void *private, void *buffer, uintmax_t lba, size_t count) {
-	return rwblocks(private, buffer, lba, count, true, false);
+	return rwblocks(private, buffer, lba, count, true);
 }
 
 static void initnamespace(nvmecontroller_t *controller, int id) {

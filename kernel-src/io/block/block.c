@@ -179,7 +179,7 @@ static int registerdesc(blockdesc_t *desc, char *name) {
 
 static int detectpart(blockdesc_t *desc) {
 	// read first two sectors
-	void *sects = alloc(desc->blocksize * 2);
+	void *sects = vmm_map(NULL, desc->blocksize * 2, VMM_FLAGS_ALLOCATE, MAP_FLAGS, NULL);
 	__assert(sects);
 	__assert(DISK_READ(desc, sects, 0, 2) == 0);
 
@@ -195,13 +195,13 @@ static int detectpart(blockdesc_t *desc) {
 	else if (bootmagic == MBR_BOOT_MAGIC)
 		ret = PART_MBR;
 
-	free(sects);
+	vmm_unmap(sects, desc->blocksize * 2, 0);
 	return ret;
 }
 
 static void dogpt(blockdesc_t *desc, char *name) {
 	// get header
-	void *lba1 = alloc(desc->blocksize);
+	void *lba1 = vmm_map(NULL, desc->blocksize, VMM_FLAGS_ALLOCATE, MAP_FLAGS, NULL);
 	__assert(lba1);
 	__assert(DISK_READ(desc, lba1, 1, 1) == 0);
 	gptheader_t *header = lba1;
@@ -209,7 +209,7 @@ static void dogpt(blockdesc_t *desc, char *name) {
 	// get partition table
 	size_t tablebytesize = header->entrybytesize * header->entrycount;
 	size_t tablelbasize = ROUND_UP(tablebytesize, desc->blocksize) / desc->blocksize;
-	void *tablebuffer = alloc(tablelbasize * desc->blocksize);
+	void *tablebuffer = vmm_map(NULL, tablelbasize * desc->blocksize, VMM_FLAGS_ALLOCATE, MAP_FLAGS, NULL);
 	__assert(tablebuffer);
 	__assert(DISK_READ(desc, tablebuffer, header->entryarraylbastart, tablelbasize) == 0);
 
@@ -237,13 +237,13 @@ static void dogpt(blockdesc_t *desc, char *name) {
 		__assert(registerdesc(partdesc, partname) == 0);
 	}
 
-	free(tablebuffer);
-	free(lba1);
+	vmm_unmap(tablebuffer, tablelbasize * desc->blocksize, 0);
+	vmm_unmap(lba1, desc->blocksize, 0);
 }
 
 static void dombr(blockdesc_t *desc, char *name) {
 	// get entries
-	void *lba0 = alloc(desc->blocksize);
+	void *lba0 = vmm_map(NULL, desc->blocksize, VMM_FLAGS_ALLOCATE, MAP_FLAGS, NULL);
 	__assert(lba0);
 	__assert(DISK_READ(desc, lba0, 0, 1) == 0);
 	mbrentry_t *mbrents = (mbrentry_t *)((uintptr_t)lba0 + MBR_ENTRIES_OFFSET);
@@ -270,7 +270,7 @@ static void dombr(blockdesc_t *desc, char *name) {
 		__assert(registerdesc(partdesc, partname) == 0);
 	}
 
-	free(lba0);
+	vmm_unmap(lba0, desc->blocksize, 0);
 }
 
 void block_register(blockdesc_t *desc, char *name) {

@@ -11,6 +11,7 @@
 #define VMM_FLAGS_FILE     8
 #define VMM_FLAGS_EXACT   16
 #define VMM_FLAGS_SHARED  32
+#define VMM_FLAGS_REPLACE 64
 
 #define VMM_PERMANENT_FLAGS_MASK (VMM_FLAGS_FILE | VMM_FLAGS_SHARED | VMM_FLAGS_PHYSICAL)
 
@@ -55,7 +56,6 @@ typedef struct vmmcache_t {
 
 typedef struct {
 	mutex_t lock;
-	mutex_t pflock;
 	vmmrange_t *ranges;
 	void *start;
 	void *end;
