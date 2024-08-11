@@ -224,4 +224,25 @@ static inline mode_t vfs_getposixtype(int type) {
 	}
 }
 
+static inline mode_t vfs_getsystemtype(int type) {
+	switch (type) {
+		case TYPE_REGULAR:
+			return V_TYPE_REGULAR;
+		case TYPE_DIR:
+			return V_TYPE_DIR;
+		case TYPE_CHARDEV:
+			return V_TYPE_CHDEV;
+		case TYPE_BLOCKDEV:
+			return V_TYPE_BLKDEV;
+		case TYPE_FIFO:
+			return V_TYPE_FIFO;
+		case TYPE_LINK:
+			return V_TYPE_LINK;
+		case TYPE_SOCKET:
+			return V_TYPE_SOCKET;
+		default:
+			return -1;
+	}
+}
+
 #endif

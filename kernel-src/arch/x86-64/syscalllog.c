@@ -5,7 +5,7 @@
 
 #ifdef SYSCALL_LOGGING
 
-#define SYSCALL_COUNT 78
+#define SYSCALL_COUNT 79
 #define LOGSTR(x) arch_e9_puts(x)
 
 static char *name[] = {
@@ -86,7 +86,8 @@ static char *name[] = {
 	"pause",
 	"ppoll",
 	"pread",
-	"pwrite"
+	"pwrite",
+	"mknodat"
 };
 
 static char *args[] = {
@@ -165,9 +166,10 @@ static char *args[] = {
 	"fd %d addr %p addrlen %p",  // getpeername
 	"path %s", // chroot
 	"N/A", // pause
-	"fds %p nfds %d timeout %p sigmask %p" // ppoll
+	"fds %p nfds %d timeout %p sigmask %p", // ppoll
 	"fd %d buffer %p count %lu offset %lu\n", // pread
 	"fd %d buffer %p count %lu offset %lu\n", // pwrite
+	"dirfd %d path %s mode %o dev %x\n" // mknodat
 };
 
 #endif

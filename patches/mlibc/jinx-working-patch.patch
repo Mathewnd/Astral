@@ -207,10 +207,10 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..d6fe6cc
+index 0000000..6eb771e
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -0,0 +1,948 @@
+@@ -0,0 +1,957 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -328,6 +328,15 @@ index 0000000..d6fe6cc
 +		// TODO unstub
 +		mlibc::infoLogger() << "getsockopt: " << fd << " " << layer << " " << number << frg::endlog;
 +		return 0;
++	}
++
++	int sys_mknodat(int dirfd, const char *path, int mode, int dev) {
++		long ret;
++		return syscall(SYSCALL_MKNODAT, &ret, dirfd, (uint64_t)path, mode, dev);
++	}
++
++	int sys_mkfifoat(int dirfd, const char *path, mode_t mode) {
++		return sys_mknodat(dirfd, path, S_IFIFO | mode, 0);
 +	}
 +
 +	int sys_rmdir(const char *path) {
@@ -1178,10 +1187,10 @@ index 0000000..990eca0
 +#endif
 diff --git mlibc-workdir/sysdeps/astral/include/astral/syscall.h mlibc-workdir/sysdeps/astral/include/astral/syscall.h
 new file mode 100644
-index 0000000..144207f
+index 0000000..4a93549
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/include/astral/syscall.h
-@@ -0,0 +1,101 @@
+@@ -0,0 +1,102 @@
 +#ifndef _SYSCALL_H_INCLUDE
 +#define _SYSCALL_H_INCLUDE
 +
@@ -1263,6 +1272,7 @@ index 0000000..144207f
 +#define SYSCALL_PPOLL 75
 +#define SYSCALL_PREAD 76
 +#define SYSCALL_PWRITE 77
++#define SYSCALL_MKNODAT 78
 +
 +#include <stddef.h>
 +#include <stdint.h>

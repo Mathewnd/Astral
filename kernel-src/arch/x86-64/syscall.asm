@@ -77,6 +77,7 @@ extern syscall_pause
 extern syscall_ppoll
 extern syscall_pread
 extern syscall_pwrite
+extern syscall_mknodat
 syscalltab:
 dq syscall_print
 dq syscall_mmap
@@ -156,7 +157,8 @@ dq syscall_pause
 dq syscall_ppoll
 dq syscall_pread
 dq syscall_pwrite
-syscallcount equ 78
+dq syscall_mknodat
+syscallcount equ 79
 section .text
 global arch_syscall_entry
 ; on entry:
