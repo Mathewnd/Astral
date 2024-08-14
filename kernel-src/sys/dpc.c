@@ -28,12 +28,13 @@ static void isrfn(isr_t *self, context_t *context) {
 	while (_cpu()->dpcqueue) {
 		dpc_t *dpc = _cpu()->dpcqueue;
 		remove(dpc);
+		dpcarg_t arg = dpc->arg;
 
 		__assert(dpc->enqueued);
 		dpc->enqueued = false;
 
 		interrupt_set(true);
-		dpc->fn(context, dpc->arg);
+		dpc->fn(context, arg);
 		interrupt_set(false);
 	}
 }
