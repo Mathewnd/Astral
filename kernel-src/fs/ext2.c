@@ -1642,7 +1642,18 @@ static int ext2_putpage(vnode_t *node, uintmax_t offset, struct page_t *page) {
 	__assert(node->type == V_TYPE_REGULAR);
 	size_t writec;
 	int error = VOP_WRITE(node, MAKE_HHDM(pmm_getpageaddress(page)), PAGE_SIZE, offset, 0, &writec, NULL);
-	__assert(writec != 0);
+
+	// its possible that writec is zero here. the condition where this is possible is when
+	// the file is truncated after the check in the page sync function but before it actually is
+	// written back to disk. therefore, we check that the page IS infact truncated if this happens.
+	// if it isn't, something else happened and its not safe to continue.
+	//
+	// TODO: since this check will likely be copied between different filesystem drivers, it could be interesting to have
+	// ext2_putpage take in a (size_t *) pointer and have this check be in whatever function calls VOP_PUTPAGE.
+
+	if (writec == 0) {
+		__assert(page->flags & PAGE_FLAGS_TRUNCATED);
+	}
 
 	return error;
 }
