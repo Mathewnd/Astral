@@ -1,0 +1,15 @@
+name=xscreensaver
+revision=1
+from_source=xscreensaver
+imagedeps="meson ninja base-devel intltool"
+hostdeps="xgcc xbinutils pkgconfig"
+deps="mlibc libxcrypt libx11 libxt libjpeg-turbo libpng libxft libxext libxi"
+
+build() {
+	${source_dir}/configure --prefix=${prefix} --host=x86_64-astral
+	make -j${parallelism}
+}
+
+package() {
+	make install_prefix=${dest_dir} install
+}

@@ -1,0 +1,10 @@
+name=xscreensaver
+version=6.09
+source_method=tarball
+tarball_url="https://www.jwz.org/xscreensaver/xscreensaver-${version}.tar.gz"
+tarball_sha512="6002c1879e3f9c509b4f6b645146978da82def0ed7b9e9c421b11dadf0116380c63403c30167fa70a289321928abe39795a96f1a796afb920bd0e3ac416d3653"
+hostdeps="autoconf automake util-macros pkgconfig libtool"
+regenerate() {
+        autoreconf -fvi
+	cp -v $(find /usr/local/share/automake* -name config.sub) .
+}

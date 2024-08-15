@@ -1,0 +1,447 @@
+diff --git xscreensaver-clean/configure.ac xscreensaver-workdir/configure.ac
+index dc2ad2f..ec5bba3 100644
+--- xscreensaver-clean/configure.ac
++++ xscreensaver-workdir/configure.ac
+@@ -895,7 +895,7 @@ AC_DEFUN([AC_TYPE_SOCKLEN_T],
+ AC_DEFUN([AC_CHECK_X_HEADER], [
+   ac_save_CPPFLAGS="$CPPFLAGS"
+   if test \! -z "$includedir" ; then 
+-    CPPFLAGS="$CPPFLAGS -I$includedir"
++    CPPFLAGS="$CPPFLAGS"
+   fi
+   CPPFLAGS="$CPPFLAGS $X_CFLAGS"
+   CPPFLAGS=`eval eval eval eval eval eval eval eval eval echo $CPPFLAGS`
+@@ -907,7 +907,7 @@ AC_DEFUN([AC_CHECK_X_HEADER], [
+ AC_DEFUN([AC_EGREP_X_HEADER], [
+   ac_save_CPPFLAGS="$CPPFLAGS"
+   if test \! -z "$includedir" ; then 
+-    CPPFLAGS="$CPPFLAGS -I$includedir"
++    CPPFLAGS="$CPPFLAGS"
+   fi
+   CPPFLAGS="$CPPFLAGS $X_CFLAGS"
+   CPPFLAGS=`eval eval eval eval eval eval eval eval eval echo $CPPFLAGS`
+@@ -919,7 +919,7 @@ AC_DEFUN([AC_EGREP_X_HEADER], [
+ AC_DEFUN([AC_TRY_X_COMPILE], [
+   ac_save_CPPFLAGS="$CPPFLAGS"
+   if test \! -z "$includedir" ; then 
+-    CPPFLAGS="$CPPFLAGS -I$includedir"
++    CPPFLAGS="$CPPFLAGS"
+   fi
+   CPPFLAGS="$CPPFLAGS $X_CFLAGS"
+   CPPFLAGS=`eval eval eval eval eval eval eval eval eval echo $CPPFLAGS`
+@@ -936,13 +936,13 @@ AC_DEFUN([AC_CHECK_X_LIB], [
+ #  ac_save_LIBS="$LIBS"
+ 
+   if test \! -z "$includedir" ; then 
+-    CPPFLAGS="$CPPFLAGS -I$includedir"
++    CPPFLAGS="$CPPFLAGS"
+   fi
+   # note: $X_CFLAGS includes $x_includes
+   CPPFLAGS="$CPPFLAGS $X_CFLAGS"
+ 
+   if test \! -z "$libdir" ; then
+-    LDFLAGS="$LDFLAGS -L$libdir"
++    LDFLAGS="$LDFLAGS"
+   fi
+   # note: $X_LIBS includes $x_libraries
+   LDFLAGS="$LDFLAGS $X_LIBS $X_EXTRA_LIBS"
+@@ -961,7 +961,7 @@ AC_DEFUN([AC_CHECK_X_LIB], [
+ AC_DEFUN([AC_TRY_X_RUN], [
+   ac_save_CPPFLAGS="$CPPFLAGS"
+   if test \! -z "$includedir" ; then 
+-    CPPFLAGS="$CPPFLAGS -I$includedir"
++    CPPFLAGS="$CPPFLAGS"
+   fi
+   CPPFLAGS="$CPPFLAGS $X_CFLAGS"
+   CPPFLAGS=`eval eval eval eval eval eval eval eval eval echo $CPPFLAGS`
+@@ -4268,11 +4268,11 @@ DEPEND_DEFINES=
+ 
+ 
+ if test \! -z "$includedir" ; then 
+-  INCLUDES="$INCLUDES -I$includedir"
++  INCLUDES="$INCLUDES"
+ fi
+ 
+ if test \! -z "$libdir" ; then
+-  LDFLAGS="$LDFLAGS -L$libdir"
++  LDFLAGS="$LDFLAGS"
+ fi
+ 
+ 
+@@ -4589,81 +4589,81 @@ if test "$ac_prog_cc_no_pthread" ; then
+   warn2 "support POSIX threads."
+   echo ""
+   warn2 "If you have multiple CPU cores, try CC=$PTHREAD_CC."
+-  CONF_STATUS=1
++  CONF_STATUS=0
+ elif test "$with_pthread_req" = yes -a "$have_pthread" = no ; then
+   warn 'POSIX threads were requested, but were not found.'
+-  CONF_STATUS=1
++  CONF_STATUS=0
+ fi
+ 
+ if test "$with_sgi_req" = yes -a "$have_sgi" = no ; then
+   warn 'The SGI saver extension was requested, but was not found.'
+-  CONF_STATUS=1
++  CONF_STATUS=0
+ fi
+ 
+ if test "$with_xidle_req" = yes -a "$have_xidle" = no ; then
+   warn 'The XIdle extension was requested, but was not found.'
+-  CONF_STATUS=1
++  CONF_STATUS=0
+ fi
+ 
+ if test "$with_mit_req" = yes -a "$have_mit" = no ; then
+   warn 'The MIT-SCREEN-SAVER extension was requested, but was not found.'
+-  CONF_STATUS=1
++  CONF_STATUS=0
+ fi
+ 
+ if test "$with_xshm_req" = yes -a "$have_xshm" = no ; then
+   warn 'The XSHM extension was requested, but was not found.'
+-  CONF_STATUS=1
++  CONF_STATUS=0
+ fi
+ 
+ if test "$with_xdbe_req" = yes -a "$have_xdbe" = no ; then
+   warn 'The DOUBLE-BUFFER extension was requested, but was not found.'
+-  CONF_STATUS=1
++  CONF_STATUS=0
+ fi
+ 
+ #if test "$with_xcomposite_req" = yes -a "$have_xcomposite" = no ; then
+ #  warn 'The XCOMPOSITE extension was requested, but was not found.'
+-#  CONF_STATUS=1
++#  CONF_STATUS=0
+ #fi
+ 
+ if test "$with_xkb_req" = yes -a "$have_xkb" = no ; then
+   warn 'The X Keyboard extension was requested, but was not found.'
+-  CONF_STATUS=1
++  CONF_STATUS=0
+ fi
+ 
+ if test "$with_sgivc_req" = yes -a "$have_sgivc" = no ; then
+   warn 'The SGI-VIDEO-CONTROL extension was requested, but was not found.'
+-  CONF_STATUS=1
++  CONF_STATUS=0
+ fi
+ 
+ if test "$with_dpms_req" = yes -a "$have_dpms" = no ; then
+   warn 'The DPMS extension was requested, but was not found.'
+-  CONF_STATUS=1
++  CONF_STATUS=0
+ fi
+ 
+ if test "$with_xinerama_req" = yes -a "$have_xinerama" = no ; then
+   warn 'The Xinerama extension was requested, but was not found.'
+-  CONF_STATUS=1
++  CONF_STATUS=0
+ fi
+ 
+ if test "$with_xf86vmode_req" = yes -a "$have_xf86vmode" = no ; then
+   warn 'The XF86VMODE extension was requested, but was not found.'
+-  CONF_STATUS=1
++  CONF_STATUS=0
+ fi
+ 
+ if test "$with_randr_req" = yes -a "$have_randr" = no ; then
+   warn 'The RANDR extension was requested, but was not found.'
+-  CONF_STATUS=1
++  CONF_STATUS=0
+ fi
+ 
+ if test "$with_proc_interrupts_req" = yes -a "$have_proc_interrupts" = no; then
+   warn "Checking of /proc/interrupts was requested, but it's bogus."
+-  CONF_STATUS=1
++  CONF_STATUS=0
+ fi
+ 
+ if test "$pkg_config" = false ; then
+   warnL 'The "pkg-config" program was not found.  Without that,'
+   warn2 "detection of the various GTK libraries won't work."
+-  CONF_STATUS=1
++  CONF_STATUS=0
+ else
+   pkgerr=`$pkg_config --list-all 2>&1 >/dev/null`
+   if test "x$pkgerr" != "x" ; then
+@@ -4672,14 +4672,14 @@ else
+     warn2 "The errors are:"
+     echo ''
+     echo "$pkgerr" | sed 's/^/             > /g'
+-    CONF_STATUS=1
++    CONF_STATUS=0
+   fi
+ fi
+ 
+ if test "$gtk_halfassed" != no ; then
+   warnL "GTK was found, but $gtk_halfassed_lib was not, so GTK"
+   warn2 "can't be used."
+-  CONF_STATUS=1
++  CONF_STATUS=0
+ fi
+ 
+ motif_warn2() {
+@@ -4695,11 +4695,11 @@ if test "$have_motif" = no -a "$have_gtk" = no; then
+     warn2 "\`xscreensaver-settings' program requires one of these."
+     echo ''
+     motif_warn2
+-    CONF_STATUS=1
++    CONF_STATUS=0
+   else
+     warnL "The GTK libraries do not seem to be available; the"
+     warn2 "\`xscreensaver-settings' program requires them."
+-    CONF_STATUS=1
++    CONF_STATUS=0
+ #   echo ''
+ #   warn2 'You can use Motif or Lesstif instead of GTK (use the'
+ #   warn2 "\`--with-motif' option) but that is NOT recommended."
+@@ -4709,24 +4709,24 @@ if test "$have_motif" = no -a "$have_gtk" = no; then
+ elif test "$with_motif_req" = yes -a "$have_motif" = no ; then
+   warnL "Use of Motif was requested, but it wasn't found;"
+   warn2 "Gtk will be used instead."
+-  CONF_STATUS=1
++  CONF_STATUS=0
+ 
+ elif test "$with_gtk_req" = yes -a "$have_gtk" = no ; then
+   warnL "Use of Gtk was requested, but it wasn't found."
+-  CONF_STATUS=1
++  CONF_STATUS=0
+ fi
+ 
+ 
+ if test "$ac_cv_libxt" != yes ; then
+   warnL 'The Xt library was not found.  It is required.'
+-  CONF_STATUS=1
++  CONF_STATUS=0
+ fi
+ 
+ if test "$have_gtk" = yes -a "$have_gdk_pixbuf" = no ; then
+   warn  "GTK is being used, but the GDK-Pixbuf library and/or"
+   warn2 "headers were not found.  That can't be good.  Please"
+   warn2 "install the GDK-Pixbuf development kit and re-configure."
+-  CONF_STATUS=1
++  CONF_STATUS=0
+ fi
+ 
+ if test "$have_motif" = yes -a "$have_lesstif" = yes ; then
+@@ -4744,7 +4744,7 @@ if test "$have_motif" = yes -a "$have_lesstif" = yes ; then
+     warn2 "use with XScreenSaver; it is strongly recommended"
+     warn2 "that you upgrade to at least version $preferred_lesstif!"
+     warn2 "See <http://www.lesstif.org/>."
+-    CONF_STATUS=1
++    CONF_STATUS=0
+   fi
+ fi
+ 
+@@ -4763,7 +4763,7 @@ halfassery() {
+ 
+ if test "$with_gdk_pixbuf_req" = yes  -a "$have_gdk_pixbuf" = no; then
+   warnL 'Use of GDK-Pixbuf was requested, but it was not found.'
+-  CONF_STATUS=1
++  CONF_STATUS=0
+ fi
+ 
+ if test "$have_gdk_pixbuf" = no -o "$gdk_pixbuf_halfassed" = yes ; then
+@@ -4812,7 +4812,7 @@ fi
+ if test "$have_jpeg" = no ; then
+   if test "$with_jpeg_req" = yes ; then
+     warnL 'Use of libjpeg was requested, but it was not found.'
+-    CONF_STATUS=1
++    CONF_STATUS=0
+   elif test "$with_jpeg_req" = no ; then
+     warnL 'The JPEG library is not being used.'
+   else
+@@ -4825,7 +4825,7 @@ if test "$have_jpeg" = no ; then
+     warn2 "This means that it won't be possible for the image-manipulating"
+     warn2 "display modes to load files from disk; and it also means that"
+     warn2 "the \`webcollage' program will be much slower."
+-    CONF_STATUS=1
++    CONF_STATUS=0
+   else
+     warn2 "This means the \`webcollage' program will be much slower."
+   fi
+@@ -4835,7 +4835,7 @@ fi
+ if test "$have_png" = no ; then
+   if test "$with_png_req" = yes ; then
+     warnL 'Use of libpng was requested, but it was not found.'
+-    CONF_STATUS=1
++    CONF_STATUS=0
+   elif test "$with_png_req" = no ; then
+     warnL 'The PNG library is not being used.'
+   else
+@@ -4844,21 +4844,21 @@ if test "$have_png" = no ; then
+ 
+   if test "$png_halfassed" = yes ; then halfassery ; fi
+   warn2 "Many things aren't going to work right."
+-  CONF_STATUS=1
++  CONF_STATUS=0
+ fi
+ 
+ 
+ if test "$have_xinput" = no ; then
+   warnL 'The XInput2 library was not found.  It is required.'
+   if test "$xinput_halfassed" = yes ; then halfassery ; else echo '' ; fi
+-  CONF_STATUS=1
++  CONF_STATUS=0
+ fi
+ 
+ 
+ if test "$have_xft" = no ; then
+   warnL 'The XFreeType library was not found.  It is required.'
+   if test "$xft_halfassed" = yes ; then halfassery ; else echo '' ; fi
+-  CONF_STATUS=1
++  CONF_STATUS=0
+ fi
+ 
+ 
+@@ -4867,11 +4867,11 @@ if test "$have_systemd" = no ; then
+   if test "$systemd_too_old" = yes ; then
+     warnL "The systemd library is too old."
+     systemd_warned=yes
+-    CONF_STATUS=1
++    CONF_STATUS=0
+   elif test "$with_systemd_req" = yes ; then
+     warnL "Use of systemd was requested, but it was not found."
+     systemd_warned=yes
+-    CONF_STATUS=1
++    CONF_STATUS=0
+   elif test "$ac_macosx" = yes; then
+     true
+   elif test "$with_systemd_req" = no ; then
+@@ -4885,7 +4885,7 @@ if test "$have_systemd" = no ; then
+   if test "$systemd_halfassed" = yes ; then
+     halfassery
+     systemd_warned=yes
+-    CONF_STATUS=1
++    CONF_STATUS=0
+   fi
+ 
+   if test "$systemd_warned" = yes; then
+@@ -4901,13 +4901,13 @@ fi
+ if test "$have_gl" = no ; then
+   if test "$with_gl_req" = yes ; then
+     warnL 'The OpenGL 3D library is required, but it was not found.'
+-    CONF_STATUS=1
++    CONF_STATUS=0
+   elif test "$with_gl_req" = no ; then
+     noteL 'The OpenGL 3D library is not being used.'
+-    CONF_STATUS=1
++    CONF_STATUS=0
+   else
+     noteL 'The OpenGL 3D library was not found.'
+-    CONF_STATUS=1
++    CONF_STATUS=0
+   fi
+ 
+   if test "$gl_halfassed" = yes ; then
+@@ -4933,7 +4933,7 @@ if test "$have_gl" = yes -a "$have_gle" = no ; then
+     noteL 'Use of the GLE (GL Extrusion) library was requested, but'
+     warn2 'it was not found (though the OpenGL library was found, and'
+     warn2 'is being used.)'
+-    CONF_STATUS=1
++    CONF_STATUS=0
+   elif test "$with_gle_req" = no ; then
+     noteL 'The OpenGL Library is being used, but the GLE (GL Extrusion)'
+     warn2 'library is not.'
+@@ -4956,33 +4956,33 @@ fi
+ 
+ if test "$with_readdisplay_req" = yes -a "$have_readdisplay" = no ; then
+   warn 'Use of XReadDisplay was requested, but it was not found.'
+-  CONF_STATUS=1
++  CONF_STATUS=0
+ fi
+ 
+ if test "$with_kerberos_req" = yes -a "$have_kerberos" = no ; then
+   warn 'Use of Kerberos was requested, but it was not found.'
+-  CONF_STATUS=1
++  CONF_STATUS=0
+ fi
+ 
+ if test "$with_pam_req" = yes -a "$have_pam" = no ; then
+   warn 'Use of PAM was requested, but it was not found.'
+-  CONF_STATUS=1
++  CONF_STATUS=0
+ elif test "$have_pam" = no -a "$enable_locking" = yes ; then
+   if test -d /etc/pam.d -o -f /etc/pam.conf ; then
+     warn  "Your system seems to have PAM, but PAM is not being used."
+     warn2 "That is probably not going to work out well."
+-    CONF_STATUS=1
++    CONF_STATUS=0
+   fi
+ fi
+ 
+ if test "$with_shadow_req" = yes -a "$have_shadow" = no ; then
+   warn 'Use of shadow passwords was requested, but they were not found.'
+-  CONF_STATUS=1
++  CONF_STATUS=0
+ fi
+ 
+ if test "$setcap_hacks_req" = yes -a "$have_libcap" = no ; then
+   warn 'Use of libcap was requested, but it was not found.'
+-  CONF_STATUS=1
++  CONF_STATUS=0
+ fi
+ 
+ if test "$ac_macosx" = yes -a "$enable_locking" = yes ; then
+diff --git xscreensaver-clean/driver/Makefile.in xscreensaver-workdir/driver/Makefile.in
+index 4b3c1cb..4a10541 100644
+--- xscreensaver-clean/driver/Makefile.in
++++ xscreensaver-workdir/driver/Makefile.in
+@@ -212,7 +212,7 @@ TEST_EXES	= test-passwd   test-uid        test-xdpms      test-grab     \
+ 		  xdpyinfo      test-screens    test-yarandom   test-xinput   \
+ 	          test-xkb
+ 
+-EXES		= xscreensaver xscreensaver-command xscreensaver-settings
++EXES		= xscreensaver xscreensaver-command
+ UTIL_EXES	= xscreensaver-gfx @EXES_SYSTEMD@
+ SETUID_EXES	= xscreensaver-auth
+ DEMO_EXES	= @ALL_DEMO_PROGRAMS@
+diff --git xscreensaver-clean/hacks/glx/Makefile.in xscreensaver-workdir/hacks/glx/Makefile.in
+index 99cc75b..e8d8dde 100644
+--- xscreensaver-clean/hacks/glx/Makefile.in
++++ xscreensaver-workdir/hacks/glx/Makefile.in
+@@ -322,7 +322,7 @@ MAKE2 = $(MAKE)
+ MAKE2CC = $(MAKE2) CC="$(CC)" CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)"
+ 
+ default: all
+-all: validate_xml $(EXES) $(RETIRED_EXES)
++all: $(EXES) $(RETIRED_EXES)
+ 
+ install:   install-program    install-scripts install-xml   install-man
+ uninstall: uninstall-program  uninstall-xml uninstall-man
+@@ -558,10 +558,8 @@ check_men:
+ 	   done ;							\
+ 	 fi
+ 
+-validate_xml:
+-	@cd $(HACK_SRC) && ./check-configs.pl $(EXES) $(RETIRED_EXES)
+ 
+-distdepend:: check_men validate_xml
++distdepend:: check_men
+ 
+ 
+ 
+diff --git xscreensaver-clean/utils/font-retry.c xscreensaver-workdir/utils/font-retry.c
+index acdb230..29130ca 100644
+--- xscreensaver-clean/utils/font-retry.c
++++ xscreensaver-workdir/utils/font-retry.c
+@@ -90,7 +90,7 @@ font_name_to_xlfd (const char *font_name)
+   char *name = strdup (font_name);
+   char *xlfd = 0;
+   char *s, *s2, *b, *i, *o, c;
+-  float size;
++  int size;
+ 
+   if (name[0] == '-' || name[0] == '*')
+     return name;  /* Already an XLFD */
+@@ -107,7 +107,7 @@ font_name_to_xlfd (const char *font_name)
+   s2 = strrchr (name, '-');
+   if (s && s2 && s2 > s) s = s2;
+   if (!s) goto FAIL;
+-  if (1 != sscanf (s+1, " %f %c", &size, &c)) goto FAIL;
++  if (1 != sscanf (s+1, " %d %c", &size, &c)) goto FAIL;
+   if (size <= 0) goto FAIL;
+   *s = 0;
+ 
