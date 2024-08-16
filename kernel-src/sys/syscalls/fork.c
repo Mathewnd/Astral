@@ -44,6 +44,7 @@ syscallret_t syscall_fork(context_t *ctx) {
 	MUTEX_RELEASE(&proc->mutex);
 
 	nproc->umask = _cpu()->thread->proc->umask;
+	nproc->cred = _cpu()->thread->proc->cred;
 	nproc->root = sched_getroot();
 	nproc->cwd = sched_getcwd();
 	nproc->threadlist = nthread;

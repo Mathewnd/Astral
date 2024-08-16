@@ -78,6 +78,10 @@ extern syscall_ppoll
 extern syscall_pread
 extern syscall_pwrite
 extern syscall_mknodat
+extern syscall_getresuid
+extern syscall_getresgid
+extern syscall_setresuid
+extern syscall_setresgid
 syscalltab:
 dq syscall_print
 dq syscall_mmap
@@ -158,7 +162,11 @@ dq syscall_ppoll
 dq syscall_pread
 dq syscall_pwrite
 dq syscall_mknodat
-syscallcount equ 79
+dq syscall_getresuid
+dq syscall_getresgid
+dq syscall_setresuid
+dq syscall_setresgid
+syscallcount equ 83
 section .text
 global arch_syscall_entry
 ; on entry:

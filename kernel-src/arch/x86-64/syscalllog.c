@@ -5,7 +5,7 @@
 
 #ifdef SYSCALL_LOGGING
 
-#define SYSCALL_COUNT 79
+#define SYSCALL_COUNT 83
 #define LOGSTR(x) arch_e9_puts(x)
 
 static char *name[] = {
@@ -87,7 +87,11 @@ static char *name[] = {
 	"ppoll",
 	"pread",
 	"pwrite",
-	"mknodat"
+	"mknodat",
+	"getresuid",
+	"getresgid",
+	"setresuid",
+	"setresgid"
 };
 
 static char *args[] = {
@@ -169,7 +173,11 @@ static char *args[] = {
 	"fds %p nfds %d timeout %p sigmask %p", // ppoll
 	"fd %d buffer %p count %lu offset %lu\n", // pread
 	"fd %d buffer %p count %lu offset %lu\n", // pwrite
-	"dirfd %d path %s mode %o dev %x\n" // mknodat
+	"dirfd %d path %s mode %o dev %x\n", // mknodat
+	"uidp %p euidp %p suidp %p", // getresuid
+	"gidp %p egidp %p sgidp %p", // getresgid
+	"uid %d euid %d suid %d", // setresuid
+	"gid %d egid %d sgid %d" // setresgid
 };
 
 #endif

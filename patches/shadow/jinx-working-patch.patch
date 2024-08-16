@@ -1,3 +1,16 @@
+diff --git shadow-clean/etc/login.defs shadow-workdir/etc/login.defs
+index 33622c2..adc6025 100644
+--- shadow-clean/etc/login.defs
++++ shadow-workdir/etc/login.defs
+@@ -93,7 +93,7 @@ MOTD_FILE	/etc/motd
+ #
+ # If defined, this file will be output before each login(1) prompt.
+ #
+-#ISSUE_FILE	/etc/issue
++ISSUE_FILE	/etc/issue
+ 
+ #
+ # If defined, file which maps tty line to TERM environment parameter.
 diff --git shadow-clean/lib/freezero.c shadow-workdir/lib/freezero.c
 index c565f43..a6adf98 100644
 --- shadow-clean/lib/freezero.c

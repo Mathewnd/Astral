@@ -1,5 +1,5 @@
 diff --git mlibc-clean/abis/linux/in.h mlibc-workdir/abis/linux/in.h
-index eb7be7b..eb83b56 100644
+index 87bc25f..d7370d0 100644
 --- mlibc-clean/abis/linux/in.h
 +++ mlibc-workdir/abis/linux/in.h
 @@ -109,6 +109,9 @@ struct group_source_req {
@@ -101,10 +101,10 @@ index fc34a3b..b1a95a9 100644
  #include <dlfcn.h>
  
 diff --git mlibc-clean/options/posix/generic/unistd-stubs.cpp mlibc-workdir/options/posix/generic/unistd-stubs.cpp
-index a40c6dc..acbe0ba 100644
+index 16ab8b7..688908c 100644
 --- mlibc-clean/options/posix/generic/unistd-stubs.cpp
 +++ mlibc-workdir/options/posix/generic/unistd-stubs.cpp
-@@ -1254,6 +1254,7 @@ void encrypt(char[64], int) {
+@@ -1257,6 +1257,7 @@ void encrypt(char[64], int) {
  }
  #endif
  
@@ -112,7 +112,7 @@ index a40c6dc..acbe0ba 100644
  #if __MLIBC_BSD_OPTION
  void *sbrk(intptr_t increment) {
  	if(increment) {
-@@ -1270,3 +1271,4 @@ void *sbrk(intptr_t increment) {
+@@ -1273,3 +1274,4 @@ void *sbrk(intptr_t increment) {
  	return out;
  }
  #endif
@@ -207,10 +207,10 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..6eb771e
+index 0000000..cfb7dfd
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -0,0 +1,957 @@
+@@ -0,0 +1,970 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -226,11 +226,6 @@ index 0000000..6eb771e
 +#include <sys/stat.h>
 +#include <unistd.h>
 +#include <dirent.h>
-+
-+static int gid;
-+static int egid;
-+static int uid;
-+static int euid;
 +
 +#ifndef MLIBC_BUILDING_RTLD
 +// (s)brk is emulated in the libc rather than being
@@ -271,37 +266,12 @@ index 0000000..6eb771e
 +}
 +#endif
 +
-+namespace mlibc {	
-+	int sys_setuid(uid_t id) {
-+		// TODO UNSTUB
-+		uid = id;
++namespace mlibc {
++	int sys_getsockopt(int fd, int layer, int number,
++		void *__restrict buffer, socklen_t *__restrict size) {
++		// TODO unstub
++		mlibc::infoLogger() << "getsockopt: " << fd << " " << layer << " " << number << frg::endlog;
 +		return 0;
-+	}
-+
-+	int sys_setgid(gid_t id) {
-+		// TODO UNSTUB
-+		gid = id;
-+		return 0;
-+	}
-+
-+	uid_t sys_getuid() {
-+		// TODO UNSTUB
-+		return uid;
-+	}
-+
-+	gid_t sys_getgid() {
-+		// TODO UNSTUB
-+		return gid;
-+	}
-+
-+	uid_t sys_geteuid() {
-+		// TODO UNSTUB
-+		return euid;
-+	}
-+
-+	gid_t sys_getegid() {
-+		// TODO UNSTUB
-+		return egid;
 +	}
 +
 +	int sys_setgroups(size_t size, const gid_t *list) {
@@ -309,25 +279,68 @@ index 0000000..6eb771e
 +		return 0;
 +	}
 +
++	int sys_setuid(uid_t id) {
++		return sys_setresuid(id, -1, -1);
++	}
++
++	int sys_setgid(gid_t id) {
++		return sys_setresgid(id, -1, -1);
++	}
++
++	int sys_seteuid(uid_t id) {
++		return sys_setresuid(-1, id, -1);
++	}
++
++	int sys_setegid(gid_t id) {
++		return sys_setresgid(-1, id, -1);
++	}
++
++	uid_t sys_getuid() {
++		uid_t r, e, s;
++		sys_getresuid(&r, &e, &s);
++
++		return r;
++	}
++
++	uid_t sys_geteuid() {
++		uid_t r, e, s;
++		sys_getresuid(&r, &e, &s);
++
++		return e;
++	}
++
++	gid_t sys_getgid() {
++		gid_t r, e, s;
++		sys_getresgid(&r, &e, &s);
++
++		return r;
++	}
++
++	gid_t sys_getegid() {
++		gid_t r, e, s;
++		sys_getresgid(&r, &e, &s);
++
++		return e;
++	}
++
 +	int sys_setresuid(uid_t _ruid, uid_t _euid, uid_t _suid) {
-+		// TODO unstub
-+		uid = _ruid;
-+		euid = _euid;
-+		return 0;
++		long ret;
++		return syscall(SYSCALL_SETRESUID, &ret, _ruid, _euid, _suid);
 +	}
 +
 +	int sys_setresgid(gid_t _rgid, gid_t _egid, gid_t _sgid) {
-+		// TODO unstub
-+		gid = _rgid;
-+		egid = _egid;
-+		return 0;
++		long ret;
++		return syscall(SYSCALL_SETRESGID, &ret, _rgid, _egid, _sgid);
 +	}
 +
-+	int sys_getsockopt(int fd, int layer, int number,
-+		void *__restrict buffer, socklen_t *__restrict size) {
-+		// TODO unstub
-+		mlibc::infoLogger() << "getsockopt: " << fd << " " << layer << " " << number << frg::endlog;
-+		return 0;
++	int sys_getresuid(uid_t *ruid, uid_t *euid, uid_t *suid) {
++		long ret;
++		return syscall(SYSCALL_GETRESUID, &ret, (uint64_t)ruid, (uint64_t)euid, (uint64_t)suid);
++	}
++
++	int sys_getresgid(gid_t *rgid, gid_t *egid, gid_t *sgid) {
++		long ret;
++		return syscall(SYSCALL_GETRESGID, &ret, (uint64_t)rgid, (uint64_t)egid, (uint64_t)sgid);
 +	}
 +
 +	int sys_mknodat(int dirfd, const char *path, int mode, int dev) {
@@ -569,14 +582,14 @@ index 0000000..6eb771e
 +		long ret;
 +		long error = syscall(SYSCALL_GETSID, &ret, pid);
 +		*pgid = ret;
-+		return 0;
++		return error;
 +	}
 +
 +	int sys_getpgid(pid_t pid, pid_t *pgid) {
 +		long ret;
 +		long error = syscall(SYSCALL_GETPGID, &ret, pid);
 +		*pgid = ret;
-+		return 0;
++		return error;
 +	}
 +
 +	int sys_gethostname(char *buffer, size_t bufsize) {
@@ -1187,10 +1200,10 @@ index 0000000..990eca0
 +#endif
 diff --git mlibc-workdir/sysdeps/astral/include/astral/syscall.h mlibc-workdir/sysdeps/astral/include/astral/syscall.h
 new file mode 100644
-index 0000000..4a93549
+index 0000000..6db5755
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/include/astral/syscall.h
-@@ -0,0 +1,102 @@
+@@ -0,0 +1,106 @@
 +#ifndef _SYSCALL_H_INCLUDE
 +#define _SYSCALL_H_INCLUDE
 +
@@ -1273,6 +1286,10 @@ index 0000000..4a93549
 +#define SYSCALL_PREAD 76
 +#define SYSCALL_PWRITE 77
 +#define SYSCALL_MKNODAT 78
++#define SYSCALL_GETRESUID 79
++#define SYSCALL_GETRESGID 80
++#define SYSCALL_SETRESUID 81
++#define SYSCALL_SETRESGID 82
 +
 +#include <stddef.h>
 +#include <stdint.h>
