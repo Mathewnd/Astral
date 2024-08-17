@@ -8,11 +8,7 @@
 #include <kernel/abi.h>
 #include <time.h>
 #include <errno.h>
-
-typedef struct {
-	uid_t uid;
-	gid_t gid;
-} cred_t;
+#include <kernel/cred.h>
 
 #define V_ATTR_MODE	1
 #define V_ATTR_UID	2
