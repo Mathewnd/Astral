@@ -1,0 +1,16 @@
+name=glu
+revision=1
+from_source=glu
+imagedeps="gcc meson ninja"
+hostdeps="xgcc xbinutils pkgconfig libtool libstdc++-v3"
+deps="mlibc mesa"
+
+build() {
+	meson setup --cross-file ${base_dir}/util/crossfile --prefix=${prefix} --buildtype=release ${source_dir} -Dgl_provider=gl
+
+	ninja -j${parallelism}
+}
+
+package() {
+	DESTDIR=${dest_dir} ninja install
+}
