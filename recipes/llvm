@@ -1,0 +1,31 @@
+name=llvm
+revision=1
+from_source=llvm
+imagedeps="meson ninja base-devel"
+hostdeps="xgcc xbinutils pkgconfig cmake libstdc++-v3"
+deps="mlibc ncurses zlib"
+
+build() {
+	cmake \
+	-GNinja \
+	-DCMAKE_TOOLCHAIN_FILE=${base_dir}/util/cmake \
+	-DCMAKE_INSTALL_PREFIX=${prefix} \
+	-DCMAKE_BUILD_TYPE=Release \
+	-DLLVM_LINK_LLVM_DYLIB=ON \
+	-DLLVM_ENABLE_FFI=ON \
+	-DLLVM_ENABLE_EH=ON \
+	-DLLVM_ENABLE_RTTI=ON \
+	-DLLVM_DEFAULT_TARGET_TRIPLE=x86_64-astral \
+	-DLLVM_HOST_TRIPLE=x86_64-astral \
+	-DLLVM_TARGETS_TO_BUILD="X86" \
+	-Wno-dev \
+	${source_dir}/llvm
+
+	ninja -j${parallelism}
+}
+
+package() {
+	DESTDIR="${dest_dir}" ninja install
+
+	find ${dest_dir} -name '*.a' -delete
+}

@@ -1,0 +1,8 @@
+name=llvm
+version=18.1.7
+source_method=tarball
+tarball_url="https://github.com/llvm/llvm-project/releases/download/llvmorg-${version}/llvm-project-${version}.src.tar.xz"
+tarball_sha512="0f67818267803aca9d2bc9eb89335ee6dc56269e8066a0f8a48c4a959e8805dbf6bc839b9f96a92f86ee50d72e7cc326ffe18febb5eb06751ab54a217c0221c8"
+regenerate() {
+	true
+}
