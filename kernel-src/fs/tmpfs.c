@@ -160,6 +160,10 @@ static int tmpfs_open(vnode_t **nodep, int flags, cred_t *cred) {
 	tmpfsnode_t *tmpnode = (tmpfsnode_t *)node;
 
 	int error = 0;
+
+	if (node->type == V_TYPE_SOCKET)
+		return ENXIO;
+
 	if (node->type == V_TYPE_CHDEV || node->type == V_TYPE_BLKDEV) {
 		vnode_t *devnode;
 		error = devfs_getnode(node, tmpnode->attr.rdevmajor, tmpnode->attr.rdevminor, &devnode);
