@@ -1,0 +1,8 @@
+name=mesa-demos
+version=9.0.0
+source_method=tarball
+tarball_url="https://archive.mesa3d.org/demos/mesa-demos-${version}.tar.xz"
+tarball_sha512="af33ef72a521416e39d93370b2b4ccb768f08084c9e4c0aa62868210d9465c858e5cb8e5d23952295a3073946f609eb8723ee60b39dd9fb6696c4e45aafbb2c1"
+regenerate() {
+	true
+}
