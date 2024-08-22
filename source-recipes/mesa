@@ -1,0 +1,8 @@
+name=mesa
+version=24.2.0
+source_method=tarball
+tarball_url="https://archive.mesa3d.org/mesa-${version}.tar.xz"
+tarball_sha512="a585c788801b5a341d356e44d958b148e6e14f6b3d7224e99a92faa2f004bf0cfc90103c5fdc651afb22f805c6f9dc594f9f3f5ecebcea36f6305b3a6ccb9294"
+regenerate() {
+	true
+}

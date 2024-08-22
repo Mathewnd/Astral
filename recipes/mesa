@@ -1,0 +1,20 @@
+name=mesa
+revision=1
+from_source=mesa
+imagedeps="gcc meson ninja python-mako python-setuptools python-yaml"
+hostdeps="xgcc xbinutils pkgconfig automake autoconf util-macros libtool libstdc++-v3"
+deps="mlibc llvm libexpat libxcb libx11 libxext zlib"
+
+build() {
+	cp -rp ${source_dir}/* .
+	mkdir -p build
+	cd build
+
+	meson --cross-file ${base_dir}/util/crossfile --prefix=${prefix} --buildtype=release -Dplatforms=x11 -Dglx=xlib -Dgallium-drivers=swrast -Dvulkan-drivers= -Dllvm=enabled -Dvalgrind=disabled -Dlibunwind=disabled ..
+	ninja -j${parallelism}
+}
+
+package() {
+	cd build
+	DESTDIR=${dest_dir} ninja install
+}
