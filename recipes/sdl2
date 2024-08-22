@@ -3,7 +3,7 @@ revision=1
 from_source=sdl2
 imagedeps="meson ninja base-devel"
 hostdeps="xgcc xbinutils pkgconfig cmake libstdc++-v3"
-deps="mlibc libx11 libxext libxcursor libxinerama libxi libxfixes libxrandr libxrender libxxf86vm"
+deps="mlibc libx11 libxext libxcursor libxinerama libxi libxfixes libxrandr libxrender libxxf86vm mesa"
 
 build() {
 	cmake \
@@ -14,8 +14,8 @@ build() {
 	-DSDL_ALTIVEC=OFF \
 	-DSDL_DISKAUDIO=OFF \
 	-DSDL_DIRECTFB=ON \
-	-DSDL_OPENGL=OFF \
-	-DSDL_OPENGLES=OFF \
+	-DSDL_OPENGL=ON \
+	-DSDL_OPENGLES=ON \
 	-DSDL_PTHREADS=ON \
 	-DSDL_PTHREADS_SEM=OFF \
 	-DSDL_OSS=OFF \
