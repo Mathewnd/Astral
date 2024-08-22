@@ -6,7 +6,7 @@ hostdeps="automake autoconf xbinutils pkgconfig"
 deps="mlibc-headers"
 
 build() {
-	${source_dir}/configure --target=x86_64-astral --prefix=${prefix} --with-sysroot=${sysroot_dir} --enable-languages=c,c++ -enable-threads=posix --disable-multilib
+	${source_dir}/configure --target=x86_64-astral --prefix=${prefix} --with-sysroot=${sysroot_dir} --enable-languages=c,c++ -enable-threads=posix --disable-multilib --enable-shared --enable-host-shared --with-pic
 	make all-gcc all-target-libgcc -j ${parallelism}
 }
 
