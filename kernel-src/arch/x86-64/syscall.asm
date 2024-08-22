@@ -82,6 +82,7 @@ extern syscall_getresuid
 extern syscall_getresgid
 extern syscall_setresuid
 extern syscall_setresgid
+extern syscall_mprotect
 syscalltab:
 dq syscall_print
 dq syscall_mmap
@@ -166,7 +167,8 @@ dq syscall_getresuid
 dq syscall_getresgid
 dq syscall_setresuid
 dq syscall_setresgid
-syscallcount equ 83
+dq syscall_mprotect
+syscallcount equ 84
 section .text
 global arch_syscall_entry
 ; on entry:

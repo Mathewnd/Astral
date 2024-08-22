@@ -207,10 +207,10 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..cfb7dfd
+index 0000000..e58c9ac
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -0,0 +1,970 @@
+@@ -0,0 +1,975 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -277,6 +277,11 @@ index 0000000..cfb7dfd
 +	int sys_setgroups(size_t size, const gid_t *list) {
 +		// TODO unstub
 +		return 0;
++	}
++
++	int sys_vm_protect(void *pointer, size_t size, int prot) {
++		long ret;
++		return syscall(SYSCALL_MPROTECT, &ret, (uint64_t)pointer, size, prot);
 +	}
 +
 +	int sys_setuid(uid_t id) {
@@ -1200,10 +1205,10 @@ index 0000000..990eca0
 +#endif
 diff --git mlibc-workdir/sysdeps/astral/include/astral/syscall.h mlibc-workdir/sysdeps/astral/include/astral/syscall.h
 new file mode 100644
-index 0000000..6db5755
+index 0000000..4d30885
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/include/astral/syscall.h
-@@ -0,0 +1,106 @@
+@@ -0,0 +1,107 @@
 +#ifndef _SYSCALL_H_INCLUDE
 +#define _SYSCALL_H_INCLUDE
 +
@@ -1290,6 +1295,7 @@ index 0000000..6db5755
 +#define SYSCALL_GETRESGID 80
 +#define SYSCALL_SETRESUID 81
 +#define SYSCALL_SETRESGID 82
++#define SYSCALL_MPROTECT 83
 +
 +#include <stddef.h>
 +#include <stdint.h>
