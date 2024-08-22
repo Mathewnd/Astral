@@ -2,6 +2,7 @@
 #include <kernel/vmm.h>
 #include <util.h>
 #include <errno.h>
+#include <string.h>
 
 int ringbuffer_init(ringbuffer_t *ringbuffer, size_t size) {
 	ringbuffer->data = vmm_map(NULL, ROUND_UP(size, PAGE_SIZE), VMM_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_NOEXEC, NULL);
@@ -25,56 +26,63 @@ size_t ringbuffer_truncate(ringbuffer_t *ringbuffer, size_t count) {
 }
 
 size_t ringbuffer_read(ringbuffer_t *ringbuffer, void *buffer, size_t count) {
-	uint8_t *ptr = buffer;
-	size_t readc = 0;
-	for (; readc < count; ++readc) {
-		if (ringbuffer->read == ringbuffer->write)
-			break;
+	size_t datacount = RINGBUFFER_DATACOUNT(ringbuffer);
+	count = min(count, datacount);
+	size_t firstpassoffset = ringbuffer->read % ringbuffer->size;
+	size_t firstpassremaining = ringbuffer->size - firstpassoffset;
+	size_t firstpasscount = min(count, firstpassremaining);
 
-		uintmax_t readoffset = ringbuffer->read % ringbuffer->size;
-		*ptr++ = *((uint8_t *)ringbuffer->data + readoffset);
-		++ringbuffer->read;
-	}
-	return readc;
+	memcpy(buffer, (void *)((uintptr_t)ringbuffer->data + firstpassoffset), firstpasscount);
+
+	if (firstpasscount == count)
+		goto leave;
+
+	memcpy((void *)((uintptr_t)buffer + firstpasscount), ringbuffer->data, count - firstpasscount);
+
+	leave:
+	ringbuffer->read += count;
+	return count;
 }
 
 size_t ringbuffer_peek(ringbuffer_t *ringbuffer, void *buffer, uintmax_t offset, size_t count) {
-	uint8_t *ptr = buffer;
+	size_t datacount = RINGBUFFER_DATACOUNT(ringbuffer);
+	size_t freespace = RINGBUFFER_SIZE(ringbuffer) - datacount;
+	if (offset >= datacount)
+		return 0;
 
-	uintmax_t read = ringbuffer->read;
-	uintmax_t write = ringbuffer->write;
+	uintmax_t read = ringbuffer->read + min(offset, freespace);
 
-	uintmax_t curroff = 0;
-	for (; curroff < offset; ++curroff) {
-		if (read == write)
-			return 0;
+	size_t offsetdatacount = datacount - offset;
+	count = min(count, offsetdatacount);
+	size_t firstpassoffset = read % ringbuffer->size;
+	size_t firstpassremaining = ringbuffer->size - firstpassoffset;
+	size_t firstpasscount = min(count, firstpassremaining);
 
-		++read;
-	}
+	memcpy(buffer, (void *)((uintptr_t)ringbuffer->data + firstpassoffset), firstpasscount);
 
-	size_t readc = 0;
-	for (; readc < count; ++readc) {
-		if (read == write)
-			break;
+	if (firstpasscount == count)
+		return count;
 
-		uintmax_t readoffset = read % ringbuffer->size;
-		*ptr++ = *((uint8_t *)ringbuffer->data + readoffset);
-		++read;
-	}
+	memcpy((void *)((uintptr_t)buffer + firstpasscount), ringbuffer->data, count - firstpasscount);
 
-	return readc;
+	return count;
 }
 
 size_t ringbuffer_write(ringbuffer_t *ringbuffer, void *buffer, size_t count) {
-	uint8_t *ptr = buffer;
-	size_t writec = 0;
-	for (;writec < count; ++writec) {
-		if (ringbuffer->write == ringbuffer->read + ringbuffer->size)
-			break;
+	size_t freespace = RINGBUFFER_SIZE(ringbuffer) - RINGBUFFER_DATACOUNT(ringbuffer);
+	count = min(count, freespace);
+	size_t firstpassoffset = ringbuffer->write % ringbuffer->size;
+	size_t firstpassremaining = ringbuffer->size - firstpassoffset;
+	size_t firstpasscount = min(count, firstpassremaining);
 
-		uintmax_t writeoffset = ringbuffer->write % ringbuffer->size;
-		*((uint8_t *)ringbuffer->data + writeoffset) = *ptr++;
-		++ringbuffer->write;
-	}
-	return writec;
+	memcpy((void *)((uintptr_t)ringbuffer->data + firstpassoffset), buffer, firstpasscount);
+
+	if (firstpasscount == count) 
+		goto leave;
+
+	memcpy(ringbuffer->data, (void *)((uintptr_t)buffer + firstpasscount), count - firstpasscount);
+
+	leave:
+	ringbuffer->write += count;
+	return count;
 }
