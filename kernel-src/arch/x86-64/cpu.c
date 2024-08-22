@@ -23,6 +23,22 @@ static void div0isr(isr_t *self, context_t *ctx) {
 	}
 }
 
+static void simdisr(isr_t *self, context_t *ctx) {
+	if (ARCH_CONTEXT_ISUSER(ctx)) {
+		signal_signalthread(_cpu()->thread, SIGFPE, true);
+	} else {
+		_panic("SIMD Exception", ctx);
+	}
+}
+
+static void x87isr(isr_t *self, context_t *ctx) {
+	if (ARCH_CONTEXT_ISUSER(ctx)) {
+		signal_signalthread(_cpu()->thread, SIGFPE, true);
+	} else {
+		_panic("x87 Floating-Point Exception", ctx);
+	}
+}
+
 void cpu_initstate() {
 	arch_apic_initap();
 
@@ -67,4 +83,6 @@ void cpu_initstate() {
 
 	interrupt_register(0, div0isr, NULL, IPL_IGNORE);
 	interrupt_register(6, illisr, NULL, IPL_IGNORE);
+	interrupt_register(16, x87isr, NULL, IPL_IGNORE);
+	interrupt_register(19, simdisr, NULL, IPL_IGNORE);
 }
