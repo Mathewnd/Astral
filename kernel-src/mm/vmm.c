@@ -505,7 +505,9 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 				// cacheable vnode
 				page_t *res = NULL;
 				int error = vmmcache_getpage(range->vnode, range->offset + mapoffset, &res);
-				if (error == ENXIO) {
+				if (error == ENXIO || error == ENOMEM)  {
+					if (error == ENOMEM)
+						printf("vmm: out of memory to handle getpage (sending SIGBUS)\n");
 					// address is past the last page of the file
 					signal_signalthread(_cpu()->thread, SIGBUS, true);
 					status = true;
@@ -515,8 +517,10 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 				} else {
 					status = arch_mmu_map(_cpu()->vmmctx->pagetable, pmm_getpageaddress(res), addr, range->mmuflags & ~ARCH_MMU_FLAGS_WRITE);
 					if (!status) {
-						printf("vmm: out of memory to map file into address space\n");
+						printf("vmm: out of memory to map file into address space (sending SIGBUS)\n");
 						pmm_release(pmm_getpageaddress(res));
+						signal_signalthread(_cpu()->thread, SIGBUS, true);
+						status = true;
 					}
 				}
 			}
@@ -524,7 +528,9 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 			// anonymous memory. map the zero'd page
 			status = arch_mmu_map(_cpu()->vmmctx->pagetable, zeropage, addr, range->mmuflags & ~ARCH_MMU_FLAGS_WRITE);
 			if (!status) {
-				printf("vmm: out of memory to map zero page into address space\n");
+				printf("vmm: out of memory to map zero page into address space (sending SIGBUS)\n");
+				signal_signalthread(_cpu()->thread, SIGBUS, true);
+				status = true;
 			} else {
 				pmm_hold(zeropage);
 			}
@@ -542,8 +548,9 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 			// do copy on write
 			void *newphys = pmm_allocpage(PMM_SECTION_DEFAULT);
 			if (newphys == NULL) {
-				printf("vmm: out of memory to do copy on write on address space\n");
-				status = false;
+				printf("vmm: out of memory to do copy on write on address space (sending SIGBUS)\n");
+				signal_signalthread(_cpu()->thread, SIGBUS, true);
+				status = true;
 			} else {
 				memcpy(MAKE_HHDM(newphys), MAKE_HHDM(oldphys), PAGE_SIZE);
 				arch_mmu_remap(_cpu()->vmmctx->pagetable, newphys, addr, range->mmuflags);
