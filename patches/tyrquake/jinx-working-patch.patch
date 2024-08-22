@@ -1,5 +1,5 @@
 diff --git tyrquake-clean/Makefile tyrquake-workdir/Makefile
-index 5709a79..9e492f9 100644
+index 5709a79..25ddf7c 100644
 --- tyrquake-clean/Makefile
 +++ tyrquake-workdir/Makefile
 @@ -14,12 +14,12 @@ DOC_DIR          ?= doc
@@ -31,14 +31,12 @@ index 5709a79..9e492f9 100644
  endif
  
  ifneq (,$(findstring $(TARGET_OS),WIN32 WIN64))
-@@ -349,9 +353,9 @@ QWSWDIR	= $(BUILD_DIR)/qwsw
- QWGLDIR	= $(BUILD_DIR)/qwgl
+@@ -350,8 +354,8 @@ QWGLDIR	= $(BUILD_DIR)/qwgl
  QWSVDIR	= $(BUILD_DIR)/qwsv
  
--APPS =	tyr-quake$(EXT) tyr-glquake$(EXT) \
+ APPS =	tyr-quake$(EXT) tyr-glquake$(EXT) \
 -	tyr-qwcl$(EXT) tyr-glqwcl$(EXT) \
 -	tyr-qwsv$(EXT)
-+APPS =	tyr-quake$(EXT) #tyr-glquake$(EXT) \
 +	#tyr-qwcl$(EXT) tyr-glqwcl$(EXT) \
 +	#tyr-qwsv$(EXT)
  
