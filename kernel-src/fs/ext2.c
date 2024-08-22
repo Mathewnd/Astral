@@ -1053,8 +1053,13 @@ static void freeinode(ext2fs_t *fs, inode_t *inode, int id) {
 static int ext2_open(vnode_t **vnodep, int flags, cred_t *cred) {
 	vnode_t *vnode = *vnodep;
 	int type = vnode->type;
-	// TODO device files
-	__assert(type == V_TYPE_REGULAR || type == V_TYPE_DIR || type == V_TYPE_LINK || type == V_TYPE_FIFO);
+	if (type == V_TYPE_SOCKET)
+	       return ENXIO;
+
+	if (type == V_TYPE_CHDEV || type == V_TYPE_BLKDEV) {
+		printf("ext2: device files currently unimplemented\n");
+		return ENODEV;
+	}
 
 	int error = 0;
 	if (type == V_TYPE_FIFO) {
