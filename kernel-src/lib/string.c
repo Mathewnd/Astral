@@ -3,20 +3,26 @@
 #include <stdint.h>
 
 void *memcpy(void *d, void *s, size_t c) {
+#ifdef __x86_64__
+	asm volatile ("rep movsb" : : "S"(s), "D"(d), "c"(c) : "memory");
+#else
         uint8_t *sc = (uint8_t *)s;
         uint8_t *dc = (uint8_t *)d;
 
         while (c--)
                 *dc++ = *sc++;
-
+#endif
         return d;
 }
 
 void *memset(void *ptr, unsigned long value, size_t num) {
+#ifdef __x86_64__
+	asm volatile ("rep stosb" : : "D"(ptr), "a"(value), "c"(num) : "memory");
+#else
         char *p = (char *)ptr;
         while (num--)
                 *p++ = value;
-
+#endif
         return ptr;
 }
 
