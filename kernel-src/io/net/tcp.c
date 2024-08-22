@@ -913,7 +913,6 @@ __attribute__((noreturn)) static void tcp_worker() {
 			continue;
 		}
 
-		__assert(tcb->state != TCB_STATE_CLOSED);
 		switch (tcb->state) {
 			case TCB_STATE_LISTEN: {
 				// (listening socket only)
