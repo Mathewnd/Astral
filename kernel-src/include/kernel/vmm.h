@@ -92,6 +92,7 @@ static inline int mmuflagstovnodeflags(mmuflags_t mmuflags) {
 	return flags;
 }
 
+bool vmm_changemmuflags(void *base, size_t size, mmuflags_t mmuflags, int flags);
 void vmm_destroycontext(vmmcontext_t *context);
 vmmcontext_t *vmm_fork(vmmcontext_t *oldcontext);
 void *vmm_map(void *addr, size_t size, int flags, mmuflags_t mmuflags, void *private);

@@ -254,30 +254,68 @@ static void destroyrange(vmmrange_t *range, uintmax_t _offset, size_t size, int 
 		VOP_RELEASE(range->vnode);
 }
 
-static void unmap(vmmspace_t *space, void *address, size_t size) {
+static void changemmurange(void *base, size_t size, mmuflags_t newflags) {
+	for (uintmax_t offset = 0; offset < size; offset += PAGE_SIZE) {
+		void *address = (void *)((uintptr_t)base + offset);
+
+		mmuflags_t currentflags;
+		// if page is not mapped, do nothing
+		if (arch_mmu_getflags(_cpu()->vmmctx->pagetable, address, &currentflags) == false)
+			continue;
+
+		void *physical = arch_mmu_getphysical(_cpu()->vmmctx->pagetable, address);
+
+		// we will only change the mapping if the permissions decreased
+		if (	((newflags & ARCH_MMU_FLAGS_READ) == 0 && (currentflags & ARCH_MMU_FLAGS_READ)) ||
+			((newflags & ARCH_MMU_FLAGS_WRITE) == 0 && (currentflags & ARCH_MMU_FLAGS_WRITE)) ||
+			((newflags & ARCH_MMU_FLAGS_USER) == 0 && (currentflags & ARCH_MMU_FLAGS_USER)) ||
+			((newflags & ARCH_MMU_FLAGS_NOEXEC) && (currentflags & ARCH_MMU_FLAGS_NOEXEC))) {
+			arch_mmu_remap(_cpu()->vmmctx->pagetable, physical, address, newflags);
+			arch_mmu_invalidate(address);
+		}
+	}
+}
+
+static void changemap(vmmspace_t *space, void *address, size_t size, bool free, mmuflags_t newmmuflags) {
 	void *top = (void *)((uintptr_t)address + size);
 	vmmrange_t *range = space->ranges;
+	vmmrange_t *newrange = NULL;
+	// allocated here and as soon as its used to make sure that 
+	// even in an allocation failure (TODO) there will always be a valid mapping
+	if (free == false) {
+		newrange = allocrange();
+		__assert(newrange);
+	}
+
 	while (range) {
 		__assert(range != space->ranges || range->prev == NULL);
 		void *rangetop = RANGE_TOP(range);
-		// completely unmapped
 		if (range->start >= address && rangetop <= top) {
-			if (range->prev)
-				range->prev->next = range->next;
-			else
-				space->ranges = range->next;
+			// completely changed
+			if (free) {
+				if (range->prev)
+					range->prev->next = range->next;
+				else
+					space->ranges = range->next;
 
-			if (range->next)
-				range->next->prev = range->prev;
+				if (range->next)
+					range->next->prev = range->prev;
 
-			destroyrange(range, 0, range->size, 0);
-			freerange(range);
-		} else if (address > range->start && top < rangetop) { // split
+				destroyrange(range, 0, range->size, 0);
+				freerange(range);
+			} else {
+				changemmurange(range->start, range->size, newmmuflags);
+				range->mmuflags = newmmuflags;
+			}
+		} else if (address > range->start && top < rangetop) {
+			// split (entire change was within a single range)
 			vmmrange_t *new = allocrange();
 			__assert(new); // XXX deal with this better
 			*new = *range;
 
-			destroyrange(range, (uintptr_t)address - (uintptr_t)range->start, size, 0);
+			if (free) {
+				destroyrange(range, (uintptr_t)address - (uintptr_t)range->start, size, 0);
+			}
 
 			new->start = top;
 			new->size = (uintptr_t)rangetop - (uintptr_t)new->start;
@@ -293,25 +331,108 @@ static void unmap(vmmspace_t *space, void *address, size_t size) {
 			if (range->flags & VMM_FLAGS_FILE) {
 				VOP_HOLD(range->vnode);
 				new->offset += range->size + size;
-
 			}
-		} else if (top > range->start && range->start >= address) { // partially unmap from start
+
+			if (free == false) {
+				newrange->start = address;
+				newrange->size = size;
+				newrange->flags = range->flags;
+				newrange->mmuflags = newmmuflags;
+
+				changemmurange(newrange->start, newrange->size, newrange->mmuflags);
+
+				if (range->flags & VMM_FLAGS_FILE) {
+					newrange->vnode = range->vnode;
+					newrange->offset = range->offset;
+					VOP_HOLD(range->vnode);
+				}
+
+				insertrange(space, newrange);
+				newrange = allocrange();
+				__assert(newrange);
+			}
+		} else if (top > range->start && range->start >= address) {
+			// partially change from start (end of change was within this range)
 			size_t difference = (uintptr_t)top - (uintptr_t)range->start;
-			destroyrange(range, 0, difference, 0);
+			if (free) {
+				destroyrange(range, 0, difference, 0);
+			}
 			range->start = (void *)((uintptr_t)range->start + difference);
 			range->size -= difference;
 
 			if (range->flags & VMM_FLAGS_FILE)
 				range->offset += difference;
-		} else if (address < rangetop && rangetop <= top){ // partially unmap from end
+
+			if (free == false) {
+				newrange->start = (void *)((uintptr_t)range->start - difference);
+				newrange->size = difference;
+				newrange->flags = range->flags;
+				newrange->mmuflags = newmmuflags;
+
+				changemmurange(newrange->start, newrange->size, newrange->mmuflags);
+
+				if (range->flags & VMM_FLAGS_FILE) {
+					newrange->vnode = range->vnode;
+					newrange->offset = range->offset - difference;
+					VOP_HOLD(range->vnode);
+				}
+
+				insertrange(space, newrange);
+				newrange = allocrange();
+				__assert(newrange);
+			}
+		} else if (address < rangetop && rangetop <= top) {
+			// partially change from end (start of change was within this range)
 			size_t difference = (uintptr_t)rangetop - (uintptr_t)address;
 			range->size -= difference;
-			destroyrange(range, range->size, difference, 0);
+			if (free) {
+				destroyrange(range, range->size, difference, 0);
+			} else {
+				newrange->start = (void *)((uintptr_t)range->start + difference);
+				newrange->size = difference;
+				newrange->flags = range->flags;
+				newrange->mmuflags = newmmuflags;
+
+				changemmurange(newrange->start, newrange->size, newrange->mmuflags);
+
+				if (range->flags & VMM_FLAGS_FILE) {
+					newrange->vnode = range->vnode;
+					newrange->offset = range->offset + difference;
+					VOP_HOLD(range->vnode);
+				}
+
+				insertrange(space, newrange);
+				newrange = allocrange();
+				__assert(newrange);
+			}
 		}
 
 		range = range->next;
 	}
 
+	if (free == false)
+		freerange(newrange);
+}
+
+bool vmm_changemmuflags(void *base, size_t size, mmuflags_t mmuflags, int flags) {
+	base = (void *)ROUND_DOWN((uintptr_t)base, PAGE_SIZE);
+
+	if (flags & VMM_FLAGS_PAGESIZE)
+		size *= PAGE_SIZE;
+	else
+		size = ROUND_UP(size, PAGE_SIZE);
+
+	if (size == 0)
+		return true;
+
+	vmmspace_t *space = getspace(base);
+	if (space == NULL)
+		return false;
+
+	MUTEX_ACQUIRE(&space->lock, false);
+	changemap(space, base, size, false, mmuflags);
+	MUTEX_RELEASE(&space->lock);
+	return true;
 }
 
 static void printspace(vmmspace_t *space) {
@@ -326,24 +447,29 @@ static void printspace(vmmspace_t *space) {
 static void *zeropage;
 
 bool vmm_pagefault(void *addr, bool user, int actions) {
-	if (user == false && addr > USERSPACE_END)
+	if (user == false && addr > USERSPACE_END) {
+		printf("vmm: kernel access\n");
 		return false;
+	}
 
 	addr = (void *)ROUND_DOWN((uintptr_t)addr, PAGE_SIZE);
 
 	vmmspace_t *space = getspace(addr);
 
-	if (space == NULL || (space == &kernelspace && user))
+	if (space == NULL || (space == &kernelspace && user)) {
+		printf("vmm: no such space or space accessed is kerneç\n");
 		return false;
+	}
 
-	MUTEX_ACQUIRE(&space->pflock, false);
 	MUTEX_ACQUIRE(&space->lock, false);
 	vmmrange_t *range = getrange(space, addr);
 
 	bool status = false;
 
-	if (range == NULL)
+	if (range == NULL) {
+		printf("vmm: no range\n");
 		goto cleanup;
+	}
 
 	// check if valid
 
@@ -358,8 +484,10 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 	if ((range->mmuflags & ARCH_MMU_FLAGS_NOEXEC))
 		invalidactions |= VMM_ACTION_EXEC;
 
-	if (invalidactions & actions)
+	if (invalidactions & actions) {
+		printf("vmm: bad action\n");
 		goto cleanup;
+	}
 
 	thread_t *thread = _cpu()->thread;
 	proc_t *proc = thread ? thread->proc : NULL;
@@ -432,7 +560,6 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 
 	cleanup:
 	MUTEX_RELEASE(&space->lock);
-	MUTEX_RELEASE(&space->pflock);
 	return status;
 }
 
@@ -490,7 +617,7 @@ void *vmm_map(void *addr, volatile size_t size, int flags, mmuflags_t mmuflags, 
 		range->flags = VMM_PERMANENT_FLAGS_MASK & flags;
 		range->mmuflags = mmuflags;
 		__assert((flags & (VMM_FLAGS_ALLOCATE | VMM_FLAGS_PHYSICAL)) == 0);
-		unmap(space, addr, size);
+		changemap(space, addr, size, true, 0);
 	} else {
 		retaddr = start;
 		range->start = start;
@@ -556,7 +683,6 @@ void *vmm_map(void *addr, volatile size_t size, int flags, mmuflags_t mmuflags, 
 }
 
 void vmm_unmap(void *addr, size_t size, int flags) {
-	// XXX maps where addr is not page aligned can break
 	addr = (void *)ROUND_DOWN((uintptr_t)addr, PAGE_SIZE);
 
 	if (flags & VMM_FLAGS_PAGESIZE)
@@ -571,16 +697,9 @@ void vmm_unmap(void *addr, size_t size, int flags) {
 	if (space == NULL)
 		return;
 
-	// the pagefault handler lock is acquired
-	// in order to prevent some consistency issues
-	// when other threads are running on the same address space.
-	// the lock ordering is still pflock -> lock on both
-	// vmm_pagefault and vmm_unmap.
-	MUTEX_ACQUIRE(&space->pflock, false);
 	MUTEX_ACQUIRE(&space->lock, false);
-	unmap(space, addr, size);
+	changemap(space, addr, size, true, 0);
 	MUTEX_RELEASE(&space->lock);
-	MUTEX_RELEASE(&space->pflock);
 }
 
 static scache_t *ctxcache;
@@ -590,7 +709,6 @@ static void ctxctor(scache_t *cache, void *obj) {
 	ctx->space.start = USERSPACE_START;
 	ctx->space.end = USERSPACE_END;
 	MUTEX_INIT(&ctx->space.lock);
-	MUTEX_INIT(&ctx->space.pflock);
 	ctx->space.ranges = NULL;
 }
 
@@ -688,7 +806,6 @@ void vmm_init() {
 	// set up initial state
 	__assert(sizeof(vmmcache_t) <= PAGE_SIZE);
 	MUTEX_INIT(&kernelspace.lock);
-	MUTEX_INIT(&kernelspace.pflock);
 
 	cachelist = newcache();
 	vmm_kernelctx.pagetable = arch_mmu_newtable();

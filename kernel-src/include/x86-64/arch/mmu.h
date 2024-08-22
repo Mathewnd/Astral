@@ -39,5 +39,6 @@ pagetableptr_t arch_mmu_newtable();
 void arch_mmu_init();
 void arch_mmu_apswitch();
 void arch_mmu_tlbshootdown(void *page);
+bool arch_mmu_getflags(pagetableptr_t table, void *vaddr, mmuflags_t *mmuflagsp);
 
 #endif

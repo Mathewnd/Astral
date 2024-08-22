@@ -167,7 +167,7 @@ void *arch_mmu_getphysical(pagetableptr_t table, void *vaddr) {
 
 bool arch_mmu_ispresent(pagetableptr_t table, void *vaddr) {
 	uint64_t *entry = get_page(table, vaddr);
-	return entry == NULL ? false : *entry & ARCH_MMU_FLAGS_READ;
+	return entry == NULL ? false : *entry;
 }
 
 bool arch_mmu_iswritable(pagetableptr_t table, void *vaddr) {
@@ -180,6 +180,18 @@ bool arch_mmu_iswritable(pagetableptr_t table, void *vaddr) {
 bool arch_mmu_isdirty(pagetableptr_t table, void *vaddr) {
 	uint64_t *entry = get_page(table, vaddr);
 	return entry == NULL ? false : *entry & ARCH_MMU_FLAGS_DIRTY;
+}
+
+#define FLAGS_MASK (ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_NOEXEC | ARCH_MMU_FLAGS_USER)
+
+bool arch_mmu_getflags(pagetableptr_t table, void *vaddr, mmuflags_t *mmuflagsp) {
+	uint64_t *entry = get_page(table, vaddr);
+	if (entry == NULL)
+	       return false;
+
+	*mmuflagsp = *entry & FLAGS_MASK;
+
+	return true;
 }
 
 void arch_mmu_switch(pagetableptr_t table) {
