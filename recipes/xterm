@@ -6,7 +6,7 @@ hostdeps="xgcc xbinutils pkgconfig libtool"
 deps="mlibc libx11 libxaw ncurses"
 
 build() {
-	${source_dir}/configure --host=x86_64-astral --prefix=${prefix} --disable-tcap-fkeys --disable-tcap-query
+	${source_dir}/configure --host=x86_64-astral --prefix=${prefix} --disable-tcap-fkeys --disable-tcap-query --enable-256-color
 	make -j ${parallelism} SHLIB_LIBS="-ltinfow"
 }
 
