@@ -38,6 +38,7 @@
 #include <kernel/tty.h>
 #include <kernel/pty.h>
 #include <kernel/vmmcache.h>
+#include <kernel/defaultauth.h>
 
 static cpu_t bsp_cpu;
 
@@ -119,6 +120,7 @@ void kernel_entry() {
 	if (cmdline_get("initrd"))
 		initrd_unpack();
 
+	defaultauth_init();
 	sched_runinit();
 	sched_threadexit();
 }

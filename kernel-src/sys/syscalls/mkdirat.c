@@ -35,8 +35,8 @@ syscallret_t syscall_mkdirat(context_t *, int dirfd, char *upath, mode_t mode) {
 
 	vattr_t attr = {
 		.mode = UMASK(mode),
-		.gid = _cpu()->thread->proc->cred.gid,
-		.uid = _cpu()->thread->proc->cred.uid
+		.gid = _cpu()->thread->proc->cred.egid,
+		.uid = _cpu()->thread->proc->cred.euid
 	};
 
 	ret.errno = vfs_create(dirnode, path, &attr, V_TYPE_DIR, NULL);

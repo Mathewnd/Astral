@@ -3,15 +3,21 @@
 #include <kernel/file.h>
 #include <kernel/vfs.h>
 #include <arch/cpu.h>
+#include <kernel/auth.h>
 
 static int dochmod(vnode_t *node, mode_t mode) {
 	vattr_t attr;
 	cred_t *cred = &_cpu()->thread->proc->cred;
-	int e = VOP_GETATTR(node, &attr, cred);
+
+	int e = auth_filesystem_check(cred, AUTH_ACTIONS_FILESYSTEM_SETATTR, node);
 	if (e)
 		return e;
 
-	attr.mode = UMASK(mode);
+	e = VOP_GETATTR(node, &attr, cred);
+	if (e)
+		return e;
+
+	attr.mode = mode;
 
 	return VOP_SETATTR(node, &attr, V_ATTR_MODE, cred);
 }

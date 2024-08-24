@@ -10,6 +10,7 @@
 #include <kernel/vmmcache.h>
 #include <kernel/block.h>
 #include <kernel/pipefs.h>
+#include <kernel/auth.h>
 
 #define PATHNAME_MAX 512
 #define MAXLINKDEPTH 64
@@ -20,14 +21,9 @@ vnode_t *vfsroot;
 static spinlock_t listlock;
 static vfs_t *vfslist;
 
-static cred_t kernelcred = {
-	.gid = 0,
-	.uid = 0
-};
-
 static cred_t *getcred() {
 	if (_cpu()->thread == NULL || _cpu()->thread->proc == NULL)
-		return &kernelcred;
+		return NULL;
 	else
 		return &_cpu()->thread->proc->cred;
 }
@@ -111,6 +107,10 @@ int vfs_open(vnode_t *ref, char *path, int flags, vnode_t **res) {
 	if (err)
 		return err;
 
+	err = VOP_ACCESS(tmp, ((flags & V_FFLAGS_READ) ? V_ACCESS_READ : 0) | ((flags & V_FFLAGS_WRITE) ? V_ACCESS_WRITE : 0), getcred());
+	if (err)
+		return err;
+
 	err = VOP_OPEN(&tmp, flags, getcred());
 	if (err) {
 		VOP_RELEASE(tmp);
@@ -189,6 +189,7 @@ int vfs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t
 		}
 
 		MUTEX_ACQUIRE(&node->sizelock, false);
+
 		vattr_t attr;
 		err = VOP_GETATTR(node, &attr, getcred());
 		if (err)

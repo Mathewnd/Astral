@@ -11,6 +11,7 @@
 #include <util.h>
 #include <kernel/vmmcache.h>
 #include <kernel/pipefs.h>
+#include <kernel/auth.h>
 
 #define INODE_ROOT 2
 
@@ -1246,8 +1247,7 @@ static int ext2_getdents(vnode_t *vnode, dent_t *buffer, size_t count, uintmax_t
 }
 
 static int ext2_access(vnode_t *vnode, mode_t mode, cred_t *cred) {
-	// TODO permission checks
-	return 0;
+	return auth_filesystem_check(cred, auth_filesystem_convertaccess(mode), vnode) ? EACCES : 0;
 }
 
 static int ext2_readlink(vnode_t *vnode, char **link, cred_t *cred) {

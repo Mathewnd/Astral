@@ -1,17 +1,17 @@
 #ifndef _CRED_H
 #define _CRED_H
 
-#define CRED_PERM_SUPERUSER (1l << 63)
-
 #include <stdint.h>
 
 typedef struct {
 	int uid, euid, suid;
 	int gid, egid, sgid;
-
-	uintmax_t allow;
-	uintmax_t deny;
 } cred_t;
+
+#define CRED_SUPERUSER 0
+#define CRED_IS_SU(cred) ((cred)->uid == CRED_SUPERUSER)
+#define CRED_IS_ESU(cred) ((cred)->euid == CRED_SUPERUSER)
+#define CRED_IS_SSU(cred) ((cred)->suid == CRED_SUPERUSER)
 
 int cred_setuids(cred_t *cred, int uid, int euid, int suid);
 int cred_setgids(cred_t *cred, int uid, int euid, int suid);

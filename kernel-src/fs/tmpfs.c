@@ -14,6 +14,7 @@
 #include <string.h>
 #include <kernel/vmmcache.h>
 #include <kernel/pipefs.h>
+#include <kernel/auth.h>
 
 static scache_t *nodecache;
 static tmpfsnode_t *newnode(vfs_t *vfs, int type);
@@ -234,9 +235,8 @@ static int tmpfs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offse
 	__assert(!"tmpfs_read is handled by the page cache");
 }
 
-static int tmpfs_access(vnode_t *node, mode_t mode, cred_t *cred) {
-	// TODO permission checks
-	return 0;
+static int tmpfs_access(vnode_t *vnode, mode_t mode, cred_t *cred) {
+	return auth_filesystem_check(cred, auth_filesystem_convertaccess(mode), vnode) ? EACCES : 0;
 }
 
 static int tmpfs_unlink(vnode_t *node, char *name, cred_t *cred) {

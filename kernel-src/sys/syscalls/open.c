@@ -4,6 +4,7 @@
 #include <kernel/alloc.h>
 #include <errno.h>
 #include <logging.h>
+#include <kernel/auth.h>
 
 syscallret_t syscall_openat(context_t *context, int dirfd, char *path, int flags, mode_t mode) {
 	syscallret_t ret = {
@@ -54,8 +55,8 @@ syscallret_t syscall_openat(context_t *context, int dirfd, char *path, int flags
 	if (ret.errno == ENOENT && (flags & O_CREAT)) {
 		vattr_t attr = {
 			.mode = UMASK(mode),
-			.gid = _cpu()->thread->proc->cred.gid,
-			.uid = _cpu()->thread->proc->cred.uid
+			.gid = _cpu()->thread->proc->cred.egid,
+			.uid = _cpu()->thread->proc->cred.euid
 		};
 
 		ret.errno = vfs_create(dirnode, pathbuf, &attr, V_TYPE_REGULAR, &vnode);

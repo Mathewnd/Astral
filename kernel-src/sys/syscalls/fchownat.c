@@ -1,6 +1,7 @@
 #include <kernel/syscalls.h>
 #include <kernel/alloc.h>
 #include <kernel/vfs.h>
+#include <kernel/auth.h>
 
 syscallret_t syscall_fchownat(context_t *, int fd, char *upath, uid_t owner, gid_t group, int flags) {
 	syscallret_t ret = {
@@ -48,15 +49,21 @@ syscallret_t syscall_fchownat(context_t *, int fd, char *upath, uid_t owner, gid
 			goto cleanup;
 	}
 
+	ret.errno = auth_filesystem_check(&_cpu()->thread->proc->cred, AUTH_ACTIONS_FILESYSTEM_SETATTR, node);
+	if (ret.errno)
+		goto cleanup;
+
 	vattr_t attr;
 	ret.errno = VOP_GETATTR(node, &attr, &_cpu()->thread->proc->cred);
 	if (ret.errno)
 		goto cleanup;
 
+	// TODO retain set uid and set gid bits if an auth access was ok
 	attr.uid = owner;
 	attr.gid = group;
+	attr.mode = (attr.mode) & ~(V_ATTR_MODE_SGID | V_ATTR_MODE_SUID);
 
-	ret.errno = VOP_SETATTR(node, &attr, V_ATTR_UID | V_ATTR_GID, &_cpu()->thread->proc->cred);
+	ret.errno = VOP_SETATTR(node, &attr, ((owner == -1) ? 0 : V_ATTR_UID) | ((group == -1) ? 0 : V_ATTR_GID), &_cpu()->thread->proc->cred);
 	ret.ret = ret.errno ? -1 : 0;
 
 	cleanup:

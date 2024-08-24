@@ -8,6 +8,7 @@
 #include <kernel/timekeeper.h>
 #include <kernel/pmm.h>
 #include <kernel/vmmcache.h>
+#include <kernel/auth.h>
 
 static devnode_t *devfsroot;
 
@@ -188,9 +189,8 @@ int devfs_munmap(vnode_t *node, void *addr, uintmax_t offset, int flags, cred_t 
 	return devnode->devops->munmap(devnode->attr.rdevminor, addr, offset, flags);
 }
 
-int devfs_access(vnode_t *node, mode_t mode, cred_t *cred) {
-	// TODO permission checks
-	return 0;
+int devfs_access(vnode_t *vnode, mode_t mode, cred_t *cred) {
+	return auth_filesystem_check(cred, auth_filesystem_convertaccess(mode), vnode) ? EACCES : 0;
 }
 
 int devfs_isatty(vnode_t *node) {

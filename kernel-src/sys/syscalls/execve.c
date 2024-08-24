@@ -177,6 +177,10 @@ static syscallret_t execve(context_t *context, char *upath, char *uargv[], char 
 	if (ret.errno)
 		goto error;
 
+	ret.errno = VOP_ACCESS(node, V_ACCESS_EXECUTE, &_cpu()->thread->proc->cred);
+	if (ret.errno)
+		goto error;
+
 	size_t readcount;
 	ret.errno = vfs_read(node, shebang, SHEBANG_SIZE - 1, 0, &readcount, 0);
 	if (ret.errno)

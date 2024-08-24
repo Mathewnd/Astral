@@ -21,5 +21,6 @@ syscallret_t syscall_fsync(context_t *context, int fd) {
 	ret.errno = VOP_SYNC(file->vnode);
 
 	fd_release(file);
+	ret.ret = ret.errno ? -1 : 0;
 	return ret;
 }
