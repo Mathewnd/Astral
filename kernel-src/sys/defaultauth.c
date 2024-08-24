@@ -46,7 +46,9 @@ static int filesystem(cred_t *cred, int actions, void *arg0, void *arg1, void *a
 	}
 
 	if (actions & AUTH_ACTIONS_FILESYSTEM_EXECUTE) {
-		if ((attr.mode & (V_ATTR_MODE_USER_EXECUTE | V_ATTR_MODE_GROUP_EXECUTE | V_ATTR_MODE_OTHERS_EXECUTE)) && CRED_IS_ESU(cred))
+		if (vnode->type == V_TYPE_DIR && CRED_IS_ESU(cred))
+			weight += 1;
+		else if ((attr.mode & (V_ATTR_MODE_USER_EXECUTE | V_ATTR_MODE_GROUP_EXECUTE | V_ATTR_MODE_OTHERS_EXECUTE)) && CRED_IS_ESU(cred))
 			weight += 1;
 		else if (attr.uid == cred->euid && (attr.mode & V_ATTR_MODE_USER_EXECUTE))
 			weight += 1;

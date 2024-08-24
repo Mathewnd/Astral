@@ -38,6 +38,7 @@
 #define V_ATTR_MODE_SGID 		02000
 #define V_ATTR_MODE_SUID 		04000
 
+#define V_ACCESS_SEARCH 1
 #define V_ACCESS_EXECUTE 1
 #define V_ACCESS_WRITE 2
 #define V_ACCESS_READ 4

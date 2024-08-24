@@ -523,6 +523,10 @@ int vfs_lookup(vnode_t **result, vnode_t *start, char *path, char *lastcomp, int
 			}
 		}
 
+		error = VOP_ACCESS(current, V_ACCESS_SEARCH, getcred());
+		if (error)
+			break;
+
 		error = VOP_LOOKUP(current, component, &next, getcred());
 		if (error)
 			break;
