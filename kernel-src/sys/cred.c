@@ -1,5 +1,6 @@
 #include <kernel/cred.h>
 #include <errno.h>
+#include <logging.h>
 
 int cred_setuids(cred_t *cred, int uid, int euid, int suid) {
 	if (uid < -1 || euid < -1 || suid < -1 || (uid == -1 && euid == -1 && suid == -1))
@@ -25,6 +26,17 @@ int cred_setgids(cred_t *cred, int gid, int egid, int sgid) {
 	cred->sgid = (sgid == -1) ? cred->sgid : sgid;
 
 	return 0;
+}
+
+void cred_doexec(cred_t *cred, int suid, int sgid) {
+	if (suid > -1)
+		cred->euid = suid;
+
+	if (sgid > -1)
+		cred->egid = sgid;
+
+	cred->suid = cred->euid;
+	cred->sgid = cred->egid;
 }
 
 void cred_getuids(cred_t *cred, int *uidp, int *euidp, int *suidp) {

@@ -17,5 +17,6 @@ int cred_setuids(cred_t *cred, int uid, int euid, int suid);
 int cred_setgids(cred_t *cred, int uid, int euid, int suid);
 void cred_getuids(cred_t *cred, int *uidp, int *euidp, int *suidp);
 void cred_getgids(cred_t *cred, int *gidp, int *egidp, int *sgidp);
+void cred_doexec(cred_t *cred, int suid, int sgid);
 
 #endif

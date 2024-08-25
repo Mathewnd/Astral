@@ -262,6 +262,11 @@ static syscallret_t execve(context_t *context, char *upath, char *uargv[], char 
 		goto error;
 	}
 
+	vattr_t vattr;
+	ret.errno = VOP_GETATTR(node, &vattr, NULL);
+	if (ret.errno)
+		goto error;
+
 	ret.ret = 0;
 
 	sched_stopotherthreads();
@@ -280,6 +285,17 @@ static syscallret_t execve(context_t *context, char *upath, char *uargv[], char 
 	vmm_destroycontext(oldctx);
 	CTX_SP(context) = (uint64_t)stack;
 	CTX_IP(context) = (uint64_t)entry;
+
+	int suid = -1;
+	int sgid = -1;
+
+	if (vattr.mode & V_ATTR_MODE_SUID)
+		suid = vattr.uid;
+
+	if (vattr.mode & V_ATTR_MODE_SGID)
+		sgid = vattr.gid;
+
+	cred_doexec(&_cpu()->thread->proc->cred, suid, sgid);
 
 	error:
 	free(path);
