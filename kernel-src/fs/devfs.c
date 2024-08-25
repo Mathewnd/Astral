@@ -460,10 +460,21 @@ int devfs_register(devops_t *devops, char *name, int type, int major, int minor,
 	attr.uid = cred == NULL ? 0 : cred->euid;
 	attr.gid = cred == NULL ? 0 : cred->egid;
 
-	vnode_t *newvnode = NULL;
 
+	vnode_t *dir = NULL;
+	char lastcomp[strlen(name) + 1];
+	error = vfs_lookup(&dir, (vnode_t *)devfsroot, name, lastcomp, VFS_LOOKUP_PARENT);
+	if (error) {
+		slab_free(nodecache, master);
+		return error;
+	}
+
+	vnode_t *newvnode = NULL;
 	// the devfs node will have a reference from both the devtable and from the fs link
-	error = vfs_create((vnode_t *)devfsroot, name, &attr, type, &newvnode);
+	error = VOP_CREATE(dir, lastcomp, &attr, type, &newvnode, NULL);
+
+	VOP_RELEASE(dir);
+
 	if (error) {
 		MUTEX_ACQUIRE(&tablelock, false);
 		__assert(hashtable_remove(&devtable, key, sizeof(key) == 0));
