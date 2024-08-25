@@ -375,6 +375,10 @@ int vfs_link(vnode_t *destref, char *destpath, vnode_t *linkref, char *linkpath,
 	if (err)
 		goto cleanup;
 
+	err = VOP_ACCESS(parent, V_ACCESS_WRITE, getcred());
+	if (err)
+		goto cleanup;
+
 	if (type == V_TYPE_REGULAR) {
 		vnode_t *targetnode = NULL;
 		err = vfs_lookup(&targetnode, destref, destpath, NULL, 0);
@@ -388,9 +392,8 @@ int vfs_link(vnode_t *destref, char *destpath, vnode_t *linkref, char *linkpath,
 		err = VOP_SYMLINK(parent, component, attr, destpath, getcred());
 	}
 
-	VOP_RELEASE(parent);
-
 	cleanup:
+	VOP_RELEASE(parent);
 	free(component);
 	return err;
 }
