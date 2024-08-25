@@ -171,7 +171,7 @@ mouse_t *mouse_new() {
 	char name[12];
 
 	snprintf(name, 12, "mouse%d", currentnum);
-	__assert(devfs_register(&devops, name, V_TYPE_CHDEV, DEV_MAJOR_MOUSE, currentnum, 0600, NULL) == 0);
+	__assert(devfs_register(&devops, name, V_TYPE_CHDEV, DEV_MAJOR_MOUSE, currentnum, 0666, NULL) == 0);
 
 	++currentnum;
 	return mouse;
