@@ -13,9 +13,16 @@ syscallret_t syscall_setsid(context_t *) {
 syscallret_t syscall_setpgid(context_t *, pid_t pid, pid_t pgid) {
 	syscallret_t ret;
 
+	proc_t *currentproc = _cpu()->thread->proc;
+
+	if (pgid < 0) {
+		ret.errno = EINVAL;
+		return ret;
+	}
+
 	proc_t *proc = NULL;
 	if (pid == 0) {
-		proc = _cpu()->thread->proc;
+		proc = currentproc;
 		PROC_HOLD(proc);
 	} else {
 		proc = sched_getprocfrompid(pid);
@@ -26,9 +33,15 @@ syscallret_t syscall_setpgid(context_t *, pid_t pid, pid_t pgid) {
 		return ret;
 	}
 
+	if (proc != currentproc && proc->parent != currentproc) {
+		ret.errno = ESRCH;
+		PROC_RELEASE(proc);
+		return ret;
+	}
+
 	proc_t *pgrp = NULL;
 	if (pgid == 0) {
-		pgrp = _cpu()->thread->proc;
+		pgrp = currentproc;
 		PROC_HOLD(pgrp);
 	} else {
 		pgrp = sched_getprocfrompid(pgid);
