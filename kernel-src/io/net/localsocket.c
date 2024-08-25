@@ -384,7 +384,7 @@ static int localsock_accept(socket_t *_server, socket_t *_clientconnection, sock
 	return error;
 }
 
-static int localsock_connect(socket_t *socket, sockaddr_t *addr, uintmax_t flags) {
+static int localsock_connect(socket_t *socket, sockaddr_t *addr, uintmax_t flags, cred_t *cred) {
 	localsocket_t *localsocket = (localsocket_t *)socket;
 	int error;
 	vnode_t *refnode = NULL;
@@ -415,6 +415,11 @@ static int localsock_connect(socket_t *socket, sockaddr_t *addr, uintmax_t flags
 		error = ENOTSOCK;
 		goto leave;
 	}
+
+	// and we have write access
+	error = VOP_ACCESS(result, V_ACCESS_WRITE, cred);
+	if (error)
+		goto leave;
 
 	// and if it has a valid binding
 	binding = result->socketbinding;
