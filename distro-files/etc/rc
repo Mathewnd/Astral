@@ -10,3 +10,5 @@ chmod 1777 /dev/shm
 mkdir -p /tmp
 mount /tmp tmpfs
 chmod 1777 /tmp
+
+chmod 0755 /dev/pts
