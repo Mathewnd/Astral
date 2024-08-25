@@ -1,6 +1,7 @@
 #include <kernel/syscalls.h>
 #include <kernel/alloc.h>
 #include <kernel/timekeeper.h>
+#include <kernel/auth.h>
 
 syscallret_t syscall_utimensat(context_t *, int fd, char *upath, timespec_t uts[2], int flags) {
 	syscallret_t ret = {
@@ -66,6 +67,15 @@ syscallret_t syscall_utimensat(context_t *, int fd, char *upath, timespec_t uts[
 
 	attr.atime = ts[0];
 	attr.mtime = ts[1];
+
+	ret.errno = auth_filesystem_check(&_cpu()->thread->proc->cred, AUTH_ACTIONS_FILESYSTEM_SETATTR, node);
+	if (ret.errno) {
+		if (uts == NULL)
+			ret.errno = VOP_ACCESS(node, V_ACCESS_WRITE, &_cpu()->thread->proc->cred);
+
+		if (ret.errno)
+			goto cleanup;
+	}
 
 	ret.errno = VOP_SETATTR(node, &attr, V_ATTR_ATIME | V_ATTR_MTIME, &_cpu()->thread->proc->cred);
 	ret.ret = ret.errno ? -1 : 0;
