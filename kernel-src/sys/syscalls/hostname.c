@@ -2,6 +2,7 @@
 #include <kernel/abi.h>
 #include <spinlock.h>
 #include <util.h>
+#include <kernel/auth.h>
 
 static spinlock_t lock;
 static char buffer[HOST_NAME_MAX];
@@ -32,6 +33,10 @@ syscallret_t syscall_hostname(context_t *, char *unew, size_t newsize, char *uol
 	char old[HOST_NAME_MAX + 1];
 
 	if (unew) {
+		ret.errno = auth_system_check(&_cpu()->thread->proc->cred, AUTH_ACTIONS_SYSTEM_SETHOSTNAME);
+		if (ret.errno)
+			return ret;
+
 		ret.errno = usercopy_fromuser(new, unew, newsize);
 		if (ret.errno)
 			return ret;

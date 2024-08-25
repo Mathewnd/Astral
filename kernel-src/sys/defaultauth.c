@@ -87,6 +87,15 @@ static int system(cred_t *cred, int actions, void *arg0, void *arg1, void *arg2)
 		DONE_CHECK(actions);
 	}
 
+	if (actions & AUTH_ACTIONS_SYSTEM_SETHOSTNAME) {
+		if (CRED_IS_ESU(cred))
+			weight += 1;
+		else
+			return AUTH_DECISION_DENY;
+
+		DONE_CHECK(actions);
+	}
+
 
 	done:
 	return weight ? AUTH_DECISION_ALLOW : AUTH_DECISION_DEFER;
