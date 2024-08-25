@@ -61,8 +61,8 @@ static devops_t urandomops = {
 };
 
 void pseudodevices_init() {
-	__assert(devfs_register(&nullops, "null", V_TYPE_CHDEV, DEV_MAJOR_NULL, 0, 0644) == 0);
-	__assert(devfs_register(&fullops, "full", V_TYPE_CHDEV, DEV_MAJOR_FULL, 0, 0644) == 0);
-	__assert(devfs_register(&zeroops, "zero", V_TYPE_CHDEV, DEV_MAJOR_ZERO, 0, 0644) == 0);
-	__assert(devfs_register(&urandomops, "urandom", V_TYPE_CHDEV, DEV_MAJOR_URANDOM, 0, 0644) == 0);
+	__assert(devfs_register(&nullops, "null", V_TYPE_CHDEV, DEV_MAJOR_NULL, 0, 0666, NULL) == 0);
+	__assert(devfs_register(&fullops, "full", V_TYPE_CHDEV, DEV_MAJOR_FULL, 0, 0666, NULL) == 0);
+	__assert(devfs_register(&zeroops, "zero", V_TYPE_CHDEV, DEV_MAJOR_ZERO, 0, 0666, NULL) == 0);
+	__assert(devfs_register(&urandomops, "urandom", V_TYPE_CHDEV, DEV_MAJOR_URANDOM, 0, 0666, NULL) == 0);
 }

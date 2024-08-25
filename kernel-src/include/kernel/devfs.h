@@ -44,7 +44,7 @@ typedef struct devnode_t {
 
 void devfs_init();
 int devfs_getnode(vnode_t *physical, int major, int minor, vnode_t **node);
-int devfs_register(devops_t *devops, char *name, int type, int major, int minor, mode_t mode);
+int devfs_register(devops_t *devops, char *name, int type, int major, int minor, mode_t mode, cred_t *cred);
 int devfs_getbyname(char *name, vnode_t **ret);
 int devfs_createdir(char *name);
 void devfs_remove(char *name, int major, int minor);

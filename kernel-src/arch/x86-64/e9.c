@@ -32,6 +32,6 @@ static devops_t devops = {
 
 void arch_e9_initdev() {
 #ifdef X86_64_ENABLE_E9
-	__assert(devfs_register(&devops, "e9", V_TYPE_CHDEV, DEV_MAJOR_E9, 0, 0644) == 0);
+	__assert(devfs_register(&devops, "e9", V_TYPE_CHDEV, DEV_MAJOR_E9, 0, 0666, NULL) == 0);
 #endif
 }

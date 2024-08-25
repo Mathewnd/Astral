@@ -244,7 +244,7 @@ void fb_init() {
 		char name[6];
 		snprintf(name, 6, "fb%d", i);
 
-		__assert(devfs_register(&ops, name, V_TYPE_CHDEV, DEV_MAJOR_FB, i, 0644) == 0);
+		__assert(devfs_register(&ops, name, V_TYPE_CHDEV, DEV_MAJOR_FB, i, 0666, NULL) == 0);
 
 		printf("%s: %dx%d %d bpp\n", name, fb->width, fb->height, fb->bpp);
 	}

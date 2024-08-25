@@ -17,7 +17,7 @@ int netdev_register(netdev_t *netdev, char *name) {
 		goto leave;
 
 
-	e = devfs_register(&devops, name, V_TYPE_CHDEV, DEV_MAJOR_NET, 0, 0644);
+	e = devfs_register(&devops, name, V_TYPE_CHDEV, DEV_MAJOR_NET, 0, 0600, NULL);
 	if (e)
 		hashtable_remove(&nametable, name, strlen(name));
 

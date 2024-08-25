@@ -253,7 +253,7 @@ static int open(int oldminor, vnode_t **vnode, int flags) {
 
 	// register a master device and immediatelly remove it from the filesystem and tables
 	// while holding the refcount
-	int error = devfs_register(&devops, tmpname, V_TYPE_CHDEV, DEV_MAJOR_PTY, newminor, 0644);
+	int error = devfs_register(&devops, tmpname, V_TYPE_CHDEV, DEV_MAJOR_PTY, newminor, 0, NULL);
 	if (error) {
 		freeptyminor(newminor);
 		freepty(pty);
@@ -284,7 +284,7 @@ static int open(int oldminor, vnode_t **vnode, int flags) {
 }
 
 void pty_init() {
-	__assert(devfs_register(&devops, "ptmx", V_TYPE_CHDEV, DEV_MAJOR_PTY, PTMX_MINOR, 0644) == 0);
+	__assert(devfs_register(&devops, "ptmx", V_TYPE_CHDEV, DEV_MAJOR_PTY, PTMX_MINOR, 0666, NULL) == 0);
 	__assert(devfs_createdir("pts") == 0);
 	SPINLOCK_INIT(listlock);
 }

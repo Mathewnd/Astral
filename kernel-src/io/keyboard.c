@@ -230,7 +230,7 @@ keyboard_t *keyboard_new() {
 	char name[12];
 	snprintf(name, 12, "keyboard%d", currentkbnum);
 
-	__assert(devfs_register(&devops, name, V_TYPE_CHDEV, DEV_MAJOR_KEYBOARD, currentkbnum, 0644) == 0);
+	__assert(devfs_register(&devops, name, V_TYPE_CHDEV, DEV_MAJOR_KEYBOARD, currentkbnum, 0666, NULL) == 0);
 
 	POLL_INITHEADER(&kb->pollheader);
 	++currentkbnum;

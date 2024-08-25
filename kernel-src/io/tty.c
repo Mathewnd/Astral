@@ -477,7 +477,7 @@ tty_t *tty_create(char *name, ttydevicewritefn_t writefn, ttyinactivefn_t inacti
 		goto error;
 	}
 
-	if (devfs_register(&devops, name, V_TYPE_CHDEV, DEV_MAJOR_TTY, minor, 0644)) {
+	if (devfs_register(&devops, name, V_TYPE_CHDEV, DEV_MAJOR_TTY, minor, 0600, _cpu()->thread->proc ? &_cpu()->thread->proc->cred : NULL)) {
 		freeminor(minor);
 		ringbuffer_destroy(&tty->readbuffer);
 		goto error;
@@ -541,6 +541,6 @@ void tty_unregister(tty_t *tty) {
 
 
 void tty_init() {
-	__assert(devfs_register(&devops, "tty", V_TYPE_CHDEV, DEV_MAJOR_TTY, CONTROLLING_TTY_MINOR, 0644) == 0);
+	__assert(devfs_register(&devops, "tty", V_TYPE_CHDEV, DEV_MAJOR_TTY, CONTROLLING_TTY_MINOR, 0666, NULL) == 0);
 	MUTEX_INIT(&listmutex);
 }

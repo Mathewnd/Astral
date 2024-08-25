@@ -420,6 +420,7 @@ void devfs_init() {
 	__assert(devfsroot);
 	devfsroot->vnode.type = V_TYPE_DIR;
 	devfsroot->vnode.flags = V_FLAGS_ROOT;
+	devfsroot->attr.mode = 0755;
 	__assert(hashtable_init(&devfsroot->children, 100) == 0);
 	__assert(vfs_register(&vfsops, "devfs") == 0);
 	__assert(hashtable_set(&devfsroot->children, devfsroot, ".", 1, true) == 0);
@@ -434,7 +435,7 @@ int devfs_getbyname(char *name, vnode_t **ret) {
 	return error;
 }
 // register new device 
-int devfs_register(devops_t *devops, char *name, int type, int major, int minor, mode_t mode) {
+int devfs_register(devops_t *devops, char *name, int type, int major, int minor, mode_t mode, cred_t *cred) {
 	__assert(type == V_TYPE_CHDEV || type == V_TYPE_BLKDEV);
 	devnode_t *master = slab_allocate(nodecache);
 	if (master == NULL)
@@ -456,6 +457,8 @@ int devfs_register(devops_t *devops, char *name, int type, int major, int minor,
 	attr.mode = mode;
 	attr.rdevmajor = major;
 	attr.rdevminor = minor;
+	attr.uid = cred == NULL ? 0 : cred->euid;
+	attr.gid = cred == NULL ? 0 : cred->egid;
 
 	vnode_t *newvnode = NULL;
 

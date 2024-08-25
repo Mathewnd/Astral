@@ -170,7 +170,7 @@ static int registerdesc(blockdesc_t *desc, char *name) {
 	if (ret)
 		return ret;
 
-	return devfs_register(&devops, name, V_TYPE_BLKDEV, DEV_MAJOR_BLOCK, id, 0644);
+	return devfs_register(&devops, name, V_TYPE_BLKDEV, DEV_MAJOR_BLOCK, id, 0600, NULL);
 }
 
 #define PART_NONE 0
