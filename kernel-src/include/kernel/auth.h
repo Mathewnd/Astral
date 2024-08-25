@@ -4,9 +4,10 @@
 #include <kernel/cred.h>
 #include <kernel/vfs.h>
 
-#define AUTH_SCOPE_COUNT 2
+#define AUTH_SCOPE_COUNT 3
 #define AUTH_SCOPE_SYSTEM 0
 #define AUTH_SCOPE_FILESYSTEM 1
+#define AUTH_SCOPE_CRED 2
 
 #define AUTH_LISTENER_LIMIT 8
 
@@ -23,6 +24,13 @@
 #define AUTH_ACTIONS_FILESYSTEM_SETATTR 8
 #define AUTH_ACTIONS_FILESYSTEM_MOUNT 	16
 
+#define AUTH_ACTIONS_CRED_SETRESUID	1
+#define AUTH_ACTIONS_CRED_SETRESGID	2
+#define AUTH_ACTIONS_CRED_SETUID	4
+#define AUTH_ACTIONS_CRED_SETGID	8
+#define AUTH_ACTIONS_CRED_SETEUID	16
+#define AUTH_ACTIONS_CRED_SETEGID	32
+
 typedef int (*authlistener_t)(cred_t *cred, int actions, void *arg0, void *arg1, void *arg2);
 
 typedef struct {
@@ -38,6 +46,10 @@ static inline int auth_filesystem_check(cred_t *cred, int actions, vnode_t *vnod
 
 static inline int auth_system_check(cred_t *cred, int actions) {
 	return auth_check(AUTH_SCOPE_SYSTEM, cred, actions, NULL, NULL, NULL);
+}
+
+static inline int auth_cred_check(cred_t *cred, int actions, int id, int eid, int sid) {
+	return auth_check(AUTH_SCOPE_CRED, cred, actions, &id, &eid, &sid);
 }
 
 static inline int auth_filesystem_convertaccess(int access) {

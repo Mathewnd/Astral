@@ -109,7 +109,96 @@ static int system(cred_t *cred, int actions, void *arg0, void *arg1, void *arg2)
 	return weight ? AUTH_DECISION_ALLOW : AUTH_DECISION_DEFER;
 }
 
+static int credlistener(cred_t *cred, int actions, void *arg0, void *arg1, void *arg2) {
+	int *id = arg0;
+	int *eid = arg1;
+	int *sid = arg2;
+
+	int weight = 0;
+	if (actions & AUTH_ACTIONS_CRED_SETRESUID) {
+		if (CRED_IS_ESU(cred)) {
+			weight += 1;
+		} else {
+			if (*id != -1 && *id != cred->uid && *id != cred->euid && *id != cred->suid)
+				return AUTH_DECISION_DENY;
+			if (*eid != -1 && *id != cred->uid && *id != cred->euid && *id != cred->suid)
+				return AUTH_DECISION_DENY;
+			if (*sid != -1 && *sid != cred->uid && *sid != cred->euid && *sid != cred->suid)
+				return AUTH_DECISION_DENY;
+
+			weight += 1;
+		}
+
+		DONE_CHECK(actions);
+	}
+
+	if (actions & AUTH_ACTIONS_CRED_SETRESGID) {
+		if (CRED_IS_ESU(cred)) {
+			weight += 1;
+		} else {
+			if (*id != -1 && *id != cred->gid && *id != cred->egid && *id != cred->sgid)
+				return AUTH_DECISION_DENY;
+			if (*eid != -1 && *id != cred->gid && *id != cred->egid && *id != cred->sgid)
+				return AUTH_DECISION_DENY;
+			if (*sid != -1 && *sid != cred->gid && *sid != cred->egid && *sid != cred->sgid)
+				return AUTH_DECISION_DENY;
+
+			weight += 1;
+		}
+
+		DONE_CHECK(actions);
+	}
+
+	if (actions & AUTH_ACTIONS_CRED_SETUID) {
+		if (CRED_IS_ESU(cred)) {
+			weight += 1;
+		} else if (*id != cred->uid && *id != cred->suid) {
+				return AUTH_DECISION_DENY;
+		}
+
+		weight += 1;
+		DONE_CHECK(actions)
+	}
+
+	if (actions & AUTH_ACTIONS_CRED_SETGID) {
+		if (CRED_IS_ESU(cred)) {
+			weight += 1;
+		} else if (*id != cred->gid && *id != cred->sgid) {
+				return AUTH_DECISION_DENY;
+		}
+
+		weight += 1;
+		DONE_CHECK(actions)
+	}
+
+	if (actions & AUTH_ACTIONS_CRED_SETEUID) {
+		if (CRED_IS_ESU(cred)) {
+			weight += 1;
+		} else if (*eid != cred->uid && *eid != cred->suid) {
+				return AUTH_DECISION_DENY;
+		}
+
+		weight += 1;
+		DONE_CHECK(actions)
+	}
+
+	if (actions & AUTH_ACTIONS_CRED_SETEGID) {
+		if (CRED_IS_ESU(cred)) {
+			weight += 1;
+		} else if (*eid != cred->gid && *eid != cred->sgid) {
+				return AUTH_DECISION_DENY;
+		}
+
+		weight += 1;
+		DONE_CHECK(actions)
+	}
+
+	done:
+	return weight ? AUTH_DECISION_ALLOW : AUTH_DECISION_DEFER;
+}
+
 void defaultauth_init() {
 	auth_registerlistener(AUTH_SCOPE_FILESYSTEM, filesystem);
 	auth_registerlistener(AUTH_SCOPE_SYSTEM, system);
+	auth_registerlistener(AUTH_SCOPE_CRED, credlistener);
 }

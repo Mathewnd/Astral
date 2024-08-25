@@ -207,10 +207,10 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..e58c9ac
+index 0000000..5047fee
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -0,0 +1,975 @@
+@@ -0,0 +1,979 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -285,19 +285,23 @@ index 0000000..e58c9ac
 +	}
 +
 +	int sys_setuid(uid_t id) {
-+		return sys_setresuid(id, -1, -1);
++		long ret;
++		return syscall(SYSCALL_SETUID, &ret, id);
 +	}
 +
 +	int sys_setgid(gid_t id) {
-+		return sys_setresgid(id, -1, -1);
++		long ret;
++		return syscall(SYSCALL_SETGID, &ret, id);
 +	}
 +
 +	int sys_seteuid(uid_t id) {
-+		return sys_setresuid(-1, id, -1);
++		long ret;
++		return syscall(SYSCALL_SETEUID, &ret, id);
 +	}
 +
 +	int sys_setegid(gid_t id) {
-+		return sys_setresgid(-1, id, -1);
++		long ret;
++		return syscall(SYSCALL_SETEGID, &ret, id);
 +	}
 +
 +	uid_t sys_getuid() {
@@ -1205,10 +1209,10 @@ index 0000000..990eca0
 +#endif
 diff --git mlibc-workdir/sysdeps/astral/include/astral/syscall.h mlibc-workdir/sysdeps/astral/include/astral/syscall.h
 new file mode 100644
-index 0000000..4d30885
+index 0000000..90516f7
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/include/astral/syscall.h
-@@ -0,0 +1,107 @@
+@@ -0,0 +1,111 @@
 +#ifndef _SYSCALL_H_INCLUDE
 +#define _SYSCALL_H_INCLUDE
 +
@@ -1296,6 +1300,10 @@ index 0000000..4d30885
 +#define SYSCALL_SETRESUID 81
 +#define SYSCALL_SETRESGID 82
 +#define SYSCALL_MPROTECT 83
++#define SYSCALL_SETUID 84
++#define SYSCALL_SETEUID 85
++#define SYSCALL_SETGID 86
++#define SYSCALL_SETEGID 87
 +
 +#include <stddef.h>
 +#include <stdint.h>

@@ -5,7 +5,7 @@
 
 #ifdef SYSCALL_LOGGING
 
-#define SYSCALL_COUNT 84
+#define SYSCALL_COUNT 88
 #define LOGSTR(x) arch_e9_puts(x)
 
 static char *name[] = {
@@ -92,7 +92,11 @@ static char *name[] = {
 	"getresgid",
 	"setresuid",
 	"setresgid",
-	"mprotect"
+	"mprotect",
+	"setuid",
+	"seteuid",
+	"setgid",
+	"setegid"
 };
 
 static char *args[] = {
@@ -179,7 +183,11 @@ static char *args[] = {
 	"gidp %p egidp %p sgidp %p", // getresgid
 	"uid %d euid %d suid %d", // setresuid
 	"gid %d egid %d sgid %d", // setresgid
-	"addr %p len %lu prot %d" // mprotect
+	"addr %p len %lu prot %d", // mprotect
+	"uid %d", // setuid
+	"euid %d", // seteuid
+	"gid %d", // setgid
+	"egid %d" // setegid
 };
 
 #endif
