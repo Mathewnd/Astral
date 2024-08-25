@@ -68,6 +68,14 @@ syscallret_t syscall_mmap(context_t *context, void *hint, size_t len, int prot, 
 			return ret;
 		}
 
+		int type = file->vnode->type;
+		if ((type != V_TYPE_REGULAR && type != V_TYPE_BLKDEV && type != V_TYPE_CHDEV)
+			|| ((prot & PROT_READ) && (file->flags & FILE_READ) == 0)
+			|| ((flags & MAP_SHARED) && (prot & PROT_WRITE) && (file->flags & FILE_WRITE) == 0)) {
+			ret.errno = EACCES;
+			goto cleanup;
+		}
+
 		vfd.node = file->vnode;
 		vfd.offset = offset;
 	}
@@ -79,6 +87,7 @@ syscallret_t syscall_mmap(context_t *context, void *hint, size_t len, int prot, 
 	if (ret.ret == 0)
 		ret.errno = ENOMEM;
 
+	cleanup:
 	if (isfile)
 		fd_release(file);
 
