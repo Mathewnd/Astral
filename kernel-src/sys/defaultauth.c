@@ -75,6 +75,24 @@ static int filesystem(cred_t *cred, int actions, void *arg0, void *arg1, void *a
 	return weight ? AUTH_DECISION_ALLOW : AUTH_DECISION_DEFER;
 }
 
+static int system(cred_t *cred, int actions, void *arg0, void *arg1, void *arg2) {
+	int weight = 0;
+
+	if (actions & AUTH_ACTIONS_SYSTEM_CHROOT) {
+		if (CRED_IS_ESU(cred))
+			weight += 1;
+		else
+			return AUTH_DECISION_DENY;
+
+		DONE_CHECK(actions);
+	}
+
+
+	done:
+	return weight ? AUTH_DECISION_ALLOW : AUTH_DECISION_DEFER;
+}
+
 void defaultauth_init() {
 	auth_registerlistener(AUTH_SCOPE_FILESYSTEM, filesystem);
+	auth_registerlistener(AUTH_SCOPE_SYSTEM, system);
 }

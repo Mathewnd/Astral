@@ -3,11 +3,16 @@
 #include <kernel/vfs.h>
 #include <kernel/alloc.h>
 #include <errno.h>
+#include <kernel/auth.h>
 
 syscallret_t syscall_chroot(context_t *, char *upath) {
 	syscallret_t ret = {
 		.ret = -1
 	};
+
+	ret.errno = auth_system_check(&_cpu()->thread->proc->cred, AUTH_ACTIONS_SYSTEM_CHROOT);
+	if (ret.errno)
+		return ret;
 
 	size_t pathlen;
 	ret.errno = usercopy_strlen(upath, &pathlen);
