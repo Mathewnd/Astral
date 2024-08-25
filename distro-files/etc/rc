@@ -1,9 +1,12 @@
 #!/usr/bin/bash
 mkdir -p /dev
 mount /dev devfs
+chmod 0755 /dev
+
 mkdir -p /dev/shm
 mount /dev/shm tmpfs
+chmod 1777 /dev/shm
 
 mkdir -p /tmp
 mount /tmp tmpfs
-
+chmod 1777 /tmp
