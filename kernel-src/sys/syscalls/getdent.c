@@ -23,7 +23,7 @@ syscallret_t syscall_getdents(context_t *, int dirfd, void *ubuffer, size_t read
 	}
 
 	file_t *fd = fd_get(dirfd);
-	if (fd == NULL) {
+	if (fd == NULL || (fd->flags & FILE_READ) == 0) {
 		free(buffer);
 		ret.errno = EBADF;
 		return ret;
