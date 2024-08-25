@@ -141,6 +141,12 @@ int vfs_create(vnode_t *ref, char *path, vattr_t *attr, int type, vnode_t **node
 	if (err)
 		goto cleanup;
 
+	err = VOP_ACCESS(parent, V_ACCESS_WRITE, getcred());
+	if (err) {
+		VOP_RELEASE(parent);
+		goto cleanup;
+	}
+
 	vnode_t *ret;
 	err = VOP_CREATE(parent, component, attr, type, &ret, getcred());
 	VOP_RELEASE(parent);
