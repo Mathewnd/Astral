@@ -21,6 +21,7 @@
 #define AUTH_ACTIONS_FILESYSTEM_WRITE 	2
 #define AUTH_ACTIONS_FILESYSTEM_READ 	4
 #define AUTH_ACTIONS_FILESYSTEM_SETATTR 8
+#define AUTH_ACTIONS_FILESYSTEM_MOUNT 	16
 
 typedef int (*authlistener_t)(cred_t *cred, int actions, void *arg0, void *arg1, void *arg2);
 

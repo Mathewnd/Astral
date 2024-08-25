@@ -74,6 +74,13 @@ int vfs_mount(vnode_t *backing, vnode_t *pathref, char *path, char *name, void *
 	if (err)
 		return err;
 
+	err = auth_filesystem_check(getcred(), AUTH_ACTIONS_FILESYSTEM_MOUNT, mounton);
+
+	if (err) {
+		VOP_RELEASE(mounton);
+		return err;
+	}
+
 	if (mounton->type != V_TYPE_DIR) {
 		VOP_RELEASE(mounton);
 		return ENOTDIR;

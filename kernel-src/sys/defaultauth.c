@@ -71,6 +71,15 @@ static int filesystem(cred_t *cred, int actions, void *arg0, void *arg1, void *a
 		DONE_CHECK(actions);
 	}
 
+	if (actions & AUTH_ACTIONS_FILESYSTEM_MOUNT) {
+		// vnode is where it will be mounted on
+		if (CRED_IS_ESU(cred))
+			weight += 1;
+		else
+			return AUTH_DECISION_DENY;
+	}
+
+
 	done:
 	return weight ? AUTH_DECISION_ALLOW : AUTH_DECISION_DEFER;
 }
@@ -95,7 +104,6 @@ static int system(cred_t *cred, int actions, void *arg0, void *arg1, void *arg2)
 
 		DONE_CHECK(actions);
 	}
-
 
 	done:
 	return weight ? AUTH_DECISION_ALLOW : AUTH_DECISION_DEFER;
