@@ -1511,6 +1511,7 @@ static int ext2_symlink(vnode_t *vnode, char *name, vattr_t *attr, char *path, c
 		return err;
 	}
 
+	// TODO no lock needed; (probably) not gonna be accessed by anyone else as the direcotry lock is held
 	VOP_LOCK(newvnode);
 	ext2node_t *newnode = (ext2node_t *)newvnode;
 
@@ -1731,6 +1732,16 @@ static int ext2_sync(vnode_t *vnode) {
 	return e ? e : e2;
 }
 
+static int ext2_lock(vnode_t *vnode) {
+	MUTEX_ACQUIRE(&vnode->lock, false);
+	return 0;
+}
+
+static int ext2_unlock(vnode_t *vnode) {
+	MUTEX_RELEASE(&vnode->lock);
+	return 0;
+}
+
 static int ext2_inactive(vnode_t *vnode) {
 	ext2node_t *node = (ext2node_t *)vnode;
 	ext2fs_t *fs = (ext2fs_t *)vnode->vfs;
@@ -1915,7 +1926,9 @@ static vops_t vnops = {
 	.rename = ext2_rename,
 	.getpage = ext2_getpage,
 	.putpage = ext2_putpage,
-	.sync = ext2_sync
+	.sync = ext2_sync,
+	.lock = ext2_lock,
+	.unlock = ext2_unlock
 };
 
 void ext2_init() {

@@ -17,8 +17,11 @@ static uintmax_t currentinode;
 
 static vops_t vnops;
 
+#define INTERNAL_LOCK(v) MUTEX_ACQUIRE(&(v)->lock, false)
+#define INTERNAL_UNLOCK(v) MUTEX_RELEASE(&(v)->lock)
+
 int pipefs_close(vnode_t *node, int flags, cred_t *cred) {
-	VOP_LOCK(node);
+	INTERNAL_LOCK(node);
 	pipenode_t *pipenode = (pipenode_t *)node;
 
 	if (flags & V_FFLAGS_READ) {
@@ -35,7 +38,7 @@ int pipefs_close(vnode_t *node, int flags, cred_t *cred) {
 	if (pipenode->writers == 0)
 		poll_event(&pipenode->pollheader, POLLHUP);
 
-	VOP_UNLOCK(node);
+	INTERNAL_UNLOCK(node);
 	return 0;
 }
 
@@ -43,7 +46,7 @@ int pipefs_open(vnode_t **node, int flags, cred_t *cred) {
 	if ((flags & (V_FFLAGS_WRITE | V_FFLAGS_READ)) == 0)
 		return EINVAL;
 
-	VOP_LOCK(*node);
+	INTERNAL_LOCK(*node);
 	pipenode_t *pipenode = (pipenode_t *)(*node);
 
 	if (flags & V_FFLAGS_READ) {
@@ -77,22 +80,22 @@ int pipefs_open(vnode_t **node, int flags, cred_t *cred) {
 	else
 		EVENT_ATTACH(&listener, &pipenode->readopenevent);
 
-	VOP_UNLOCK(*node);
+	INTERNAL_UNLOCK(*node);
 	error = EVENT_WAIT(&listener, 0);
-	VOP_LOCK(*node);
+	INTERNAL_LOCK(*node);
 
 	EVENT_DETACHALL(&listener);
 
 	leave:
 	if (error) {
-		VOP_UNLOCK(*node);
+		INTERNAL_UNLOCK(*node);
 		pipefs_close(*node, flags, cred);
 	} else {
 		if (flags & V_FFLAGS_READ)
 			EVENT_SIGNAL(&pipenode->readopenevent);
 		else
 			EVENT_SIGNAL(&pipenode->writeopenevent);
-		VOP_UNLOCK(*node);
+		INTERNAL_UNLOCK(*node);
 	}
 
 	return error;
@@ -129,7 +132,7 @@ static int internalpoll(vnode_t *node, polldata_t *data, int events) {
 
 int pipefs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int flags, size_t *readc, cred_t *cred) {
 	pipenode_t *pipenode = (pipenode_t *)node;
-	VOP_LOCK(node);
+	INTERNAL_LOCK(node);
 
 	int error = 0;
 	*readc = 0;
@@ -154,7 +157,7 @@ int pipefs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int 
 
 		revents = internalpoll(node, &desc.data[0], POLLIN);
 
-		VOP_UNLOCK(node);
+		INTERNAL_UNLOCK(node);
 
 		error = poll_dowait(&desc, 0);
 
@@ -164,7 +167,7 @@ int pipefs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int 
 		if (error)
 			return error;
 
-		VOP_LOCK(node);
+		INTERNAL_LOCK(node);
 	}
 
 	*readc = ringbuffer_read(&pipenode->data, buffer, size);
@@ -174,7 +177,7 @@ int pipefs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int 
 		poll_event(&pipenode->pollheader, POLLOUT);
 
 	leave:
-	VOP_UNLOCK(node);
+	INTERNAL_UNLOCK(node);
 	return error;
 }
 
@@ -195,7 +198,7 @@ static int writetopipe(pipenode_t *pipenode, void *buffer, size_t size, size_t *
 
 int pipefs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int flags, size_t *writec, cred_t *cred) {
 	pipenode_t *pipenode = (pipenode_t *)node;
-	VOP_LOCK(node);
+	INTERNAL_LOCK(node);
 
 	int error = 0;
 	*writec = 0;
@@ -269,7 +272,7 @@ int pipefs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int
 
 		revents = internalpoll(node, &desc.data[0], POLLOUT);
 
-		VOP_UNLOCK(node);
+		INTERNAL_UNLOCK(node);
 
 		error = poll_dowait(&desc, 0);
 
@@ -279,33 +282,33 @@ int pipefs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int
 		if (error)
 			return error;
 
-		VOP_LOCK(node);
+		INTERNAL_LOCK(node);
 	}
 
 	error = writetopipe(pipenode, buffer, size, writec);
 
 	leave:
-	VOP_UNLOCK(node);
+	INTERNAL_UNLOCK(node);
 	return error;
 }
 
 int pipefs_poll(vnode_t *node, polldata_t *data, int events) {
 	int revents = 0;
-	VOP_LOCK(node);
+	INTERNAL_LOCK(node);
 
 	revents = internalpoll(node, data, events);
 
-	VOP_UNLOCK(node);
+	INTERNAL_UNLOCK(node);
 	return revents;
 }
 
 int pipefs_getattr(vnode_t *node, vattr_t *attr, cred_t *cred) {
 	pipenode_t *pipenode = (pipenode_t *)node;
 
-	VOP_LOCK(node);
+	INTERNAL_LOCK(node);
 	*attr = pipenode->attr;
 	attr->type = node->type;
-	VOP_UNLOCK(node);
+	INTERNAL_UNLOCK(node);
 
 	return 0;
 }
@@ -313,7 +316,7 @@ int pipefs_getattr(vnode_t *node, vattr_t *attr, cred_t *cred) {
 int pipefs_setattr(vnode_t *node, vattr_t *attr, int which, cred_t *cred) {
 	pipenode_t *pipenode = (pipenode_t *)node;
 
-	VOP_LOCK(node);
+	INTERNAL_LOCK(node);
 	if (which & V_ATTR_GID)
 		pipenode->attr.gid = attr->gid;
 	if (which & V_ATTR_UID)
@@ -326,18 +329,28 @@ int pipefs_setattr(vnode_t *node, vattr_t *attr, int which, cred_t *cred) {
 		pipenode->attr.mtime = attr->mtime;
 	if (which & V_ATTR_CTIME)
 		pipenode->attr.ctime = attr->ctime;
-	VOP_UNLOCK(node);
+	INTERNAL_UNLOCK(node);
 	return 0;
 }
 
 int pipefs_inactive(vnode_t *node) {
 	pipenode_t *pipenode = (pipenode_t *)node;
-	VOP_LOCK(node);
+	INTERNAL_LOCK(node);
 	ringbuffer_destroy(&pipenode->data);
 	slab_free(nodecache, node);
 	return 0;
 }
 
+// the mutex vnode is handled internally
+// (as we can sleep when waiting for data/space)
+// this does mean that operations are not atomic between a VOP_LOCK and VOP_UNLOCK
+static int pipefs_lock(vnode_t *vnode) {
+	return 0;
+}
+
+static int pipefs_unlock(vnode_t *vnode) {
+	return 0;
+}
 
 static int pipefs_enodev() {
 	return ENODEV;
@@ -366,7 +379,9 @@ static vops_t vnops = {
 	.rename = pipefs_enodev,
 	.putpage = pipefs_enodev,
 	.getpage = pipefs_enodev,
-	.sync = pipefs_enodev
+	.sync = pipefs_enodev,
+	.lock = pipefs_lock,
+	.unlock = pipefs_unlock
 };
 
 static void ctor(scache_t *cache, void *obj) {

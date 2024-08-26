@@ -21,6 +21,9 @@ static uintmax_t currentinode;
 static vfsops_t vfsops;
 static vops_t vnops;
 
+#define INTERNAL_LOCK(v) MUTEX_ACQUIRE(&(v)->lock, false)
+#define INTERNAL_UNLOCK(v) MUTEX_RELEASE(&(v)->lock);
+
 static int devfs_mount(vfs_t **vfs, vnode_t *mountpoint, vnode_t *backing, void *data) {
 	vfs_t *vfsp = alloc(sizeof(vfs_t));
 	if (vfs == NULL)
@@ -96,18 +99,18 @@ int devfs_lookup(vnode_t *node, char *name, vnode_t **result, cred_t *cred) {
 		return ENOTDIR;
 
 	void *v;
-	VOP_LOCK(node);
+	INTERNAL_LOCK(node);
 	MUTEX_ACQUIRE(&tablelock, false);
 	int error = hashtable_get(&devnode->children, &v, name, strlen(name));
 	MUTEX_RELEASE(&tablelock);
 	if (error) {
-		VOP_UNLOCK(node);
+		INTERNAL_UNLOCK(node);
 		return error;
 	}
 
 	vnode_t *rnode = v;
 	VOP_HOLD(rnode);
-	VOP_UNLOCK(node);
+	INTERNAL_UNLOCK(node);
 	*result = rnode;
 
 	return 0;
@@ -117,16 +120,16 @@ int devfs_getattr(vnode_t *node, vattr_t *attr, cred_t *cred) {
 	devnode_t *devnode = (devnode_t *)node;
 
 	if (devnode->physical && devnode->physical != node) {
-		VOP_LOCK(devnode->physical);
+		INTERNAL_LOCK(devnode->physical);
 		int err = VOP_GETATTR(devnode->physical, attr, cred);
-		VOP_UNLOCK(devnode->physical);
+		INTERNAL_UNLOCK(devnode->physical);
 		return err;
 	}
 
-	VOP_LOCK(node);
+	INTERNAL_LOCK(node);
 	*attr = devnode->attr;
 	attr->type = node->type;
-	VOP_UNLOCK(node);
+	INTERNAL_UNLOCK(node);
 
 	return 0;
 }
@@ -139,7 +142,7 @@ int devfs_setattr(vnode_t *node, vattr_t *attr, int which, cred_t *cred) {
 		return err;
 	}
 
-	VOP_LOCK(node);
+	INTERNAL_LOCK(node);
 	if (which & V_ATTR_GID)
 		devnode->attr.gid = attr->gid;
 	if (which & V_ATTR_UID)
@@ -152,7 +155,7 @@ int devfs_setattr(vnode_t *node, vattr_t *attr, int which, cred_t *cred) {
 		devnode->attr.mtime = attr->mtime;
 	if (which & V_ATTR_CTIME)
 		devnode->attr.ctime = attr->ctime;
-	VOP_UNLOCK(node);
+	INTERNAL_UNLOCK(node);
 	return 0;
 }
 
@@ -218,7 +221,7 @@ int devfs_maxseek(vnode_t *node, size_t *max) {
 }
 
 int devfs_inactive(vnode_t *node) {
-	VOP_LOCK(node);
+	INTERNAL_LOCK(node);
 	devnode_t *devnode = (devnode_t *)node;
 	vnode_t *master = (vnode_t *)devnode->master;
 	if (devnode->physical && devnode->physical != node)
@@ -242,15 +245,15 @@ int devfs_create(vnode_t *parent, char *name, vattr_t *attr, int type, vnode_t *
 
 	size_t namelen = strlen(name);
 	void *v;
-	VOP_LOCK(parent);
+	INTERNAL_LOCK(parent);
 	if (hashtable_get(&parentdevnode->children, &v, name, namelen) == 0) {
-		VOP_UNLOCK(parent);
+		INTERNAL_UNLOCK(parent);
 		return EEXIST;
 	}
 
 	devnode_t *node = slab_allocate(nodecache);
 	if (node == NULL) {
-		VOP_UNLOCK(parent);
+		INTERNAL_UNLOCK(parent);
 		return ENOMEM;
 	}
 
@@ -272,13 +275,13 @@ int devfs_create(vnode_t *parent, char *name, vattr_t *attr, int type, vnode_t *
 		int error = hashtable_init(&node->children, 100);
 		if (error) {
 			slab_free(nodecache, node);
-			VOP_UNLOCK(parent);
+			INTERNAL_UNLOCK(parent);
 			return error;
 		}
 		if (hashtable_set(&node->children, node, ".", 1, true) || hashtable_set(&node->children, parent, "..", 2, true)) {
 			hashtable_destroy(&node->children);
 			slab_free(nodecache, node);
-			VOP_UNLOCK(parent);
+			INTERNAL_UNLOCK(parent);
 			return error;
 		}
 	}
@@ -287,7 +290,7 @@ int devfs_create(vnode_t *parent, char *name, vattr_t *attr, int type, vnode_t *
 	if (error) {
 		if (type == V_TYPE_DIR)
 			hashtable_destroy(&node->children);
-		VOP_UNLOCK(parent);
+		INTERNAL_UNLOCK(parent);
 		slab_free(nodecache, node);
 		return error;
 	}
@@ -297,7 +300,7 @@ int devfs_create(vnode_t *parent, char *name, vattr_t *attr, int type, vnode_t *
 		VOP_HOLD(parent);
 
 	VOP_HOLD(&node->vnode);
-	VOP_UNLOCK(parent);
+	INTERNAL_UNLOCK(parent);
 	*result = &node->vnode;
 
 	return 0;
@@ -307,7 +310,7 @@ static int devfs_getdents(vnode_t *node, dent_t *buffer, size_t count, uintmax_t
 	if (node->type != V_TYPE_DIR)
 		return ENOTDIR;
 
-	VOP_LOCK(node);
+	INTERNAL_LOCK(node);
 
 	devnode_t *devnode = (devnode_t *)node;
 
@@ -336,7 +339,7 @@ static int devfs_getdents(vnode_t *node, dent_t *buffer, size_t count, uintmax_t
 		*readcount += 1;
 	}
 
-	VOP_UNLOCK(node);
+	INTERNAL_UNLOCK(node);
 	return 0;
 }
 
@@ -363,6 +366,21 @@ static int devfs_putpage(vnode_t *node, uintmax_t offset, struct page_t *page) {
 
 static int devfs_sync(vnode_t *vnode) {
 	return vmmcache_sync(vnode);
+}
+
+// most locking is handled by the devices.
+// we only care about the tree side of things, and each function
+// will have their own handling of the vnode mutex with the
+// INTERNAL_LOCK and INTERNAL_UNLOCK macros.
+//
+// the current handling does mean that it is not atomic between operations.
+// a future locking implementation could lock only specific types, such as directories.
+static int devfs_lock(vnode_t *vnode) {
+	return 0;
+}
+
+static int devfs_unlock(vnode_t *vnode) {
+	return 0;
 }
 
 static int devfs_enodev() {
@@ -400,7 +418,9 @@ static vops_t vnops = {
 	.rename = devfs_enodev,
 	.putpage = devfs_putpage,
 	.getpage = devfs_getpage,
-	.sync = devfs_sync
+	.sync = devfs_sync,
+	.lock = devfs_lock,
+	.unlock = devfs_unlock
 };
 
 static void ctor(scache_t *cache, void *obj) {
@@ -530,7 +550,7 @@ void devfs_remove(char *name, int major, int minor) {
 	__assert(vfs_lookup(&parent, (vnode_t *)devfsroot, name, namebuff, VFS_LOOKUP_PARENT) == 0);
 	devnode_t *parentdevnode = (devnode_t *)parent;
 
-	VOP_LOCK(parent);
+	INTERNAL_LOCK(parent);
 
 	// get device vnode
 	void *tmp;
@@ -541,7 +561,7 @@ void devfs_remove(char *name, int major, int minor) {
 
 	__assert(hashtable_remove(&parentdevnode->children, namebuff, strlen(namebuff)) == 0);
 
-	VOP_UNLOCK(parent);
+	INTERNAL_UNLOCK(parent);
 
 	// release all the references to the removed node:
 	VOP_RELEASE(vnode);

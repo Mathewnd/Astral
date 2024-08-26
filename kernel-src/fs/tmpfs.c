@@ -520,6 +520,16 @@ static int tmpfs_sync(vnode_t *node) {
 	return 0;
 }
 
+static int tmpfs_lock(vnode_t *node) {
+	MUTEX_ACQUIRE(&node->lock, false);
+	return 0;
+}
+
+static int tmpfs_unlock(vnode_t *node) {
+	MUTEX_RELEASE(&node->lock);
+	return 0;
+}
+
 static vfsops_t vfsops = {
 	.mount = tmpfs_mount,
 	.root = tmpfs_root
@@ -548,7 +558,9 @@ static vops_t vnops = {
 	.rename = tmpfs_rename,
 	.getpage = tmpfs_getpage,
 	.putpage = tmpfs_putpage,
-	.sync = tmpfs_sync
+	.sync = tmpfs_sync,
+	.lock = tmpfs_lock,
+	.unlock = tmpfs_unlock
 };
 
 static tmpfsnode_t *newnode(vfs_t *vfs, int type) {

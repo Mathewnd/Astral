@@ -12,6 +12,9 @@
 static scache_t *nodecache;
 static uintmax_t currentinode;
 
+#define INTERNAL_LOCK(v) MUTEX_ACQUIRE(&(v)->lock, false)
+#define INTERNAL_UNLOCK(v) MUTEX_RELEASE(&(v)->lock)
+
 int sockfs_open(vnode_t **node, int flags, cred_t *cred) {
 	return ENOSYS; // not needed
 }
@@ -38,17 +41,17 @@ int sockfs_poll(vnode_t *node, polldata_t *data, int events) {
 int sockfs_getattr(vnode_t *node, vattr_t *attr, cred_t *cred) {
 	socketnode_t *socketnode = (socketnode_t *)node;
 
-	VOP_LOCK(node);
+	INTERNAL_LOCK(node);
 	*attr = socketnode->attr;
 	attr->type = node->type;
-	VOP_UNLOCK(node);
+	INTERNAL_UNLOCK(node);
 
 	return 0;
 }
 
 int sockfs_setattr(vnode_t *node, vattr_t *attr, int which, cred_t *cred) {
 	socketnode_t *socketnode = (socketnode_t *)node;
-	VOP_LOCK(node);
+	INTERNAL_LOCK(node);
 
 	if (which & V_ATTR_GID)
 		socketnode->attr.gid = attr->gid;
@@ -63,7 +66,7 @@ int sockfs_setattr(vnode_t *node, vattr_t *attr, int which, cred_t *cred) {
 	if (which & V_ATTR_CTIME)
 		socketnode->attr.ctime = attr->ctime;
 
-	VOP_UNLOCK(node);
+	INTERNAL_UNLOCK(node);
 	return 0;
 }
 
@@ -167,9 +170,20 @@ int sockfs_ioctl(vnode_t *node, unsigned long request, void *arg, int *result) {
 
 int sockfs_inactive(vnode_t *node) {
 	socket_t *socket = SOCKFS_SOCKET_FROM_NODE(node);
-	VOP_LOCK(node);
+	INTERNAL_LOCK(node);
 	socket->ops->destroy(socket);
 	slab_free(nodecache, node);
+	return 0;
+}
+
+// the mutex vnode is handled internally
+// (as we can sleep when waiting for data/space, and the handling happens in the socket layer)
+// this does mean that operations are not atomic between a INTERNAL_LOCK and INTERNAL_UNLOCK
+static int sockfs_lock(vnode_t *) {
+	return 0;
+}
+
+static int sockfs_unlock(vnode_t *) {
 	return 0;
 }
 
@@ -201,7 +215,9 @@ static vops_t vnops = {
 	.ioctl = sockfs_ioctl,
 	.putpage = sockfs_enodev,
 	.getpage = sockfs_enodev,
-	.sync = sockfs_enodev
+	.sync = sockfs_enodev,
+	.lock = sockfs_lock,
+	.unlock = sockfs_unlock
 };
 
 static void ctor(scache_t *cache, void *obj) {

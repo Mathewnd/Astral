@@ -142,6 +142,8 @@ typedef struct vops_t {
 	int (*getpage)(vnode_t *node, uintmax_t offset, struct page_t *page);
 	int (*putpage)(vnode_t *node, uintmax_t offset, struct page_t *page);
 	int (*sync)(vnode_t *node);
+	int (*lock)(vnode_t *node);
+	int (*unlock)(vnode_t *node);
 } vops_t;
 
 #define VFS_INIT(v, o, f) \
@@ -166,8 +168,8 @@ typedef struct vops_t {
 	(vn)->vfs = v; \
 	(vn)->vfsmounted = NULL; 
 
-#define VOP_LOCK(v) MUTEX_ACQUIRE(&(v)->lock, false)
-#define VOP_UNLOCK(v) MUTEX_RELEASE(&(v)->lock)
+#define VOP_LOCK(v) (v)->ops->lock(v)
+#define VOP_UNLOCK(v) (v)->ops->unlock(v)
 
 #define VOP_OPEN(v, f, c) (*v)->ops->open(v, f, c)
 #define VOP_CLOSE(v, f, c) (v)->ops->close(v, f, c)
