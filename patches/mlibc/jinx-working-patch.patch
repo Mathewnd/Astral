@@ -101,10 +101,22 @@ index fc34a3b..b1a95a9 100644
  #include <dlfcn.h>
  
 diff --git mlibc-clean/options/posix/generic/unistd-stubs.cpp mlibc-workdir/options/posix/generic/unistd-stubs.cpp
-index 16ab8b7..688908c 100644
+index 16ab8b7..5ccc503 100644
 --- mlibc-clean/options/posix/generic/unistd-stubs.cpp
 +++ mlibc-workdir/options/posix/generic/unistd-stubs.cpp
-@@ -1257,6 +1257,7 @@ void encrypt(char[64], int) {
+@@ -484,8 +484,9 @@ int lockf(int fd, int op, off_t size) {
+ }
+ 
+ int nice(int) {
+-	__ensure(!"Not implemented");
+-	__builtin_unreachable();
++	return EPERM;
++	//__ensure(!"Not implemented");
++	//__builtin_unreachable();
+ }
+ 
+ long pathconf(const char *, int name) {
+@@ -1257,6 +1258,7 @@ void encrypt(char[64], int) {
  }
  #endif
  
@@ -112,7 +124,7 @@ index 16ab8b7..688908c 100644
  #if __MLIBC_BSD_OPTION
  void *sbrk(intptr_t increment) {
  	if(increment) {
-@@ -1273,3 +1274,4 @@ void *sbrk(intptr_t increment) {
+@@ -1273,3 +1275,4 @@ void *sbrk(intptr_t increment) {
  	return out;
  }
  #endif

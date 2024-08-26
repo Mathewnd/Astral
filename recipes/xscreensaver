@@ -3,10 +3,10 @@ revision=1
 from_source=xscreensaver
 imagedeps="meson ninja base-devel intltool"
 hostdeps="xgcc xbinutils pkgconfig"
-deps="mlibc libxcrypt libx11 libxt libjpeg-turbo libpng libxft libxext libxi"
+deps="mlibc libxcrypt libx11 libxt libjpeg-turbo libpng libxft libxext libxi mesa glu"
 
 build() {
-	${source_dir}/configure --prefix=${prefix} --host=x86_64-astral
+	${source_dir}/configure --prefix=${prefix} --host=x86_64-astral --with-glx
 	make -j${parallelism}
 }
 
