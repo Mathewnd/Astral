@@ -1450,7 +1450,7 @@ static int tcp_bind(socket_t *socket, sockaddr_t *addr) {
 	return error;
 }
 
-static int tcp_connect(socket_t *socket, sockaddr_t *addr, uintmax_t flags) {
+static int tcp_connect(socket_t *socket, sockaddr_t *addr, uintmax_t flags, cred_t *cred) {
 	tcpsocket_t *tcpsocket = (tcpsocket_t *)socket;
 
 	size_t mtu = ipv4_getmtu(addr->ipv4addr.addr);

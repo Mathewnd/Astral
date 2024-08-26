@@ -197,8 +197,34 @@ static int credlistener(cred_t *cred, int actions, void *arg0, void *arg1, void 
 	return weight ? AUTH_DECISION_ALLOW : AUTH_DECISION_DEFER;
 }
 
+static int process(cred_t *cred, int actions, void *arg0, void *arg1, void *arg2) {
+	proc_t *proc = arg0;
+	int *signal = arg1;
+
+	int weight = 0;
+	if (actions & AUTH_ACTIONS_PROCESS_SIGNAL) {
+		if (CRED_IS_ESU(cred))
+			weight += 1;
+		else if (cred->uid == proc->cred.uid ||
+				cred->uid == proc->cred.suid ||
+				cred->euid == proc->cred.uid ||
+				cred->euid == proc->cred.suid)
+			weight += 1;
+		else if (*signal == SIGCONT) {
+			// TODO SIGCONT is supposed to work on the same process group; we are being a bit more permissive here for now
+			weight += 1;
+		}
+
+		DONE_CHECK(actions);
+	}
+
+	done:
+	return weight ? AUTH_DECISION_ALLOW : AUTH_DECISION_DEFER;
+}
+
 void defaultauth_init() {
 	auth_registerlistener(AUTH_SCOPE_FILESYSTEM, filesystem);
 	auth_registerlistener(AUTH_SCOPE_SYSTEM, system);
 	auth_registerlistener(AUTH_SCOPE_CRED, credlistener);
+	auth_registerlistener(AUTH_SCOPE_PROCESS, process);
 }

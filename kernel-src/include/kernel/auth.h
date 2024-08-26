@@ -3,11 +3,13 @@
 
 #include <kernel/cred.h>
 #include <kernel/vfs.h>
+#include <kernel/scheduler.h>
 
-#define AUTH_SCOPE_COUNT 3
+#define AUTH_SCOPE_COUNT 4
 #define AUTH_SCOPE_SYSTEM 0
 #define AUTH_SCOPE_FILESYSTEM 1
 #define AUTH_SCOPE_CRED 2
+#define AUTH_SCOPE_PROCESS 3
 
 #define AUTH_LISTENER_LIMIT 8
 
@@ -31,6 +33,8 @@
 #define AUTH_ACTIONS_CRED_SETEUID	16
 #define AUTH_ACTIONS_CRED_SETEGID	32
 
+#define AUTH_ACTIONS_PROCESS_SIGNAL	1
+
 typedef int (*authlistener_t)(cred_t *cred, int actions, void *arg0, void *arg1, void *arg2);
 
 typedef struct {
@@ -50,6 +54,10 @@ static inline int auth_system_check(cred_t *cred, int actions) {
 
 static inline int auth_cred_check(cred_t *cred, int actions, int id, int eid, int sid) {
 	return auth_check(AUTH_SCOPE_CRED, cred, actions, &id, &eid, &sid);
+}
+
+static inline int auth_process_check(cred_t *cred, int actions, proc_t *proc) {
+	return auth_check(AUTH_SCOPE_PROCESS, cred, actions, proc, NULL, NULL);
 }
 
 static inline int auth_filesystem_convertaccess(int access) {
