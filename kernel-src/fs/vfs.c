@@ -420,41 +420,50 @@ int vfs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t 
 // in both cases, linkref and linkpath describe the location of where to create the new link
 int vfs_link(vnode_t *destref, char *destpath, vnode_t *linkref, char *linkpath, int type, vattr_t *attr) {
 	__assert(type == V_TYPE_LINK || type == V_TYPE_REGULAR);
-	char *component = alloc(strlen(linkpath) + 1);
-	vnode_t *parent = NULL;
-	int err = vfs_lookup(&parent, linkref, linkpath, component, VFS_LOOKUP_PARENT);
-	if (err)
-		goto cleanup;
 
-	err = VOP_ACCESS(parent, V_ACCESS_WRITE, getcred());
-	if (err) {
-		// locked by vfs_lookup
-		VOP_UNLOCK(parent);
+	int err;
+	vnode_t *targetnode = NULL;
+	if (type == V_TYPE_REGULAR) {
+		targetnode = NULL;
+		err = vfs_lookup(&targetnode, destref, destpath, NULL, 0);
+		if (err)
+			return err;
+	}
+
+	char *component = alloc(strlen(linkpath) + 1);
+	if (component == NULL) {
+		err = ENOMEM;
 		goto cleanup;
 	}
 
-	// TODO rewrite this as it can deadlock as a directory is locked
+	vnode_t *parent = NULL;
+	err = vfs_lookup(&parent, linkref, linkpath, component, VFS_LOOKUP_PARENT);
+	if (err)
+		goto cleanup_component;
+
+	err = VOP_ACCESS(parent, V_ACCESS_WRITE, getcred());
+	if (err)
+		goto cleanup_parent;
+
 	if (type == V_TYPE_REGULAR) {
-		vnode_t *targetnode = NULL;
-		err = vfs_lookup(&targetnode, destref, destpath, NULL, 0);
-		if (err) {
-			// locked by vfs_lookup
-			VOP_UNLOCK(parent);
-			goto cleanup;
-		}
 		err = VOP_LINK(targetnode, parent, component, getcred());
-		// locked by vfs_lookup
-		VOP_UNLOCK(targetnode);
-		VOP_RELEASE(targetnode);
 	} else {
 		err = VOP_SYMLINK(parent, component, attr, destpath, getcred());
 	}
 
-	// locked by vfs_lookup
+	cleanup_parent:
 	VOP_UNLOCK(parent);
-	cleanup:
 	VOP_RELEASE(parent);
+
+	cleanup_component:
 	free(component);
+
+	cleanup:
+	if (type == V_TYPE_REGULAR) {
+		VOP_UNLOCK(targetnode);
+		VOP_RELEASE(targetnode);
+	}
+
 	return err;
 }
 
