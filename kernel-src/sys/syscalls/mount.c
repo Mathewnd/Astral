@@ -78,7 +78,10 @@ syscallret_t syscall_mount(context_t *context, char *ubacking, char *umountpoint
 		ret.errno = vfs_lookup(&backingnode, backingrefnode, backing, NULL, 0);
 		if (ret.errno)
 			goto cleanup;
+
+		VOP_UNLOCK(backingnode);
 	}
+
 
 	ret.errno = vfs_mount(backingnode, mountpointrefnode, mountpoint, fs, data);
 	if (ubacking) {

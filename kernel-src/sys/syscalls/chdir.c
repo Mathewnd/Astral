@@ -33,6 +33,8 @@ syscallret_t syscall_chdir(context_t *, char *upath) {
 	if (ret.errno)
 		goto cleanup;
 
+	VOP_UNLOCK(new);
+
 	if (new->type != V_TYPE_DIR) {
 		ret.errno = ENOTDIR;
 		goto cleanup;
