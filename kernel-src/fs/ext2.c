@@ -1176,7 +1176,8 @@ static int ext2_lookup(vnode_t *vnode, char *name, vnode_t **result, cred_t *cre
 
 	// VOP_LOOKUP returns the vnode locked
 	*result = &newnode->vnode;
-	VOP_LOCK(*result);
+	if (newnode != node)
+		VOP_LOCK(*result);
 
 	cleanup:
 	if (err && newnode) {
@@ -1487,9 +1488,7 @@ static int ext2_symlink(vnode_t *vnode, char *name, vattr_t *attr, char *path, c
 	if (err)
 		return err;
 
-	// no lock needed, not gonna be accessed by anyone else as the direcotry lock is held
 	ext2node_t *newnode = (ext2node_t *)newvnode;
-	VOP_UNLOCK(newvnode);
 
 	if (linklen <= 60) {
 		// store it in the inode
@@ -1511,8 +1510,12 @@ static int ext2_symlink(vnode_t *vnode, char *name, vattr_t *attr, char *path, c
 	VOP_RELEASE(newvnode);
 
 	cleanup:
-	if (err)
-		ASSERT_UNCLEAN(fs, VOP_UNLINK(vnode, name, cred) == 0);
+	if (err) {
+		ASSERT_UNCLEAN(fs, VOP_UNLINK(vnode, newvnode, name, cred) == 0);
+	} else {
+		VOP_UNLOCK(newvnode); // locked by internalcreate
+	}
+
 	return err;
 }
 
@@ -1582,22 +1585,16 @@ static int handleinodeunlink(ext2fs_t *fs, ext2node_t *node, int inode) {
 	return err;
 }
 
-static int internalunlink(ext2fs_t *fs, ext2node_t *node, char *name) {
+static int ext2_unlink(vnode_t *vnode, vnode_t *child, char *name, cred_t *cred) {
+	ext2node_t *node = (ext2node_t *)vnode;
+	ext2fs_t *fs = (ext2fs_t *)vnode->vfs;
+
 	int inode = 0;
 	int err = removedent(fs, node, name, &inode);
 	if (err)
 		return err;
 
 	err = handleinodeunlink(fs, node, inode);
-	return err;
-}
-
-// TODO name -> child, name
-static int ext2_unlink(vnode_t *vnode, char *name, cred_t *cred) {
-	ext2node_t *node = (ext2node_t *)vnode;
-	ext2fs_t *fs = (ext2fs_t *)vnode->vfs;
-
-	int err = internalunlink(fs, node, name);
 
 	return err;
 }
@@ -1686,7 +1683,7 @@ static int ext2_rename(vnode_t *sourcedir, char *oldname, vnode_t *targetdir, ch
 
 	if (ext2sourcenode->id == oldinode) {
 		// link still points to the same inode, unlink it
-		err = internalunlink(fs, ext2sourcedirnode, oldname);
+		err = VOP_UNLINK(sourcedir, source, oldname, NULL);
 	}
 
 	cleanup:

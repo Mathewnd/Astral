@@ -40,6 +40,15 @@ int vfs_pollstub(vnode_t *node, struct polldata *, int events) {
 	return revents;
 }
 
+static int noop() {
+	return 0;
+}
+
+static vops_t vnops = {
+	.lock = noop,
+	.unlock = noop
+};
+
 void vfs_init() {
 	__assert(hashtable_init(&fstable, 20) == 0);
 	vfsroot = alloc(sizeof(vnode_t));
@@ -47,6 +56,7 @@ void vfs_init() {
 	SPINLOCK_INIT(listlock);
 	vfsroot->type = V_TYPE_DIR;
 	vfsroot->refcount = 1;
+	vfsroot->ops = &vnops;
 }
 
 int vfs_register(vfsops_t *ops, char *name) {
@@ -131,7 +141,7 @@ int vfs_open(vnode_t *ref, char *path, int flags, vnode_t **res) {
 		return err;
 	}
 
-	vnode_t *new = ref;
+	vnode_t *new = tmp;
 	err = VOP_OPEN(&new, flags, getcred());
 	if (err) {
 		VOP_RELEASE(tmp);
@@ -455,7 +465,25 @@ int vfs_unlink(vnode_t *ref, char *path) {
 	if (err)
 		goto cleanup;
 
-	VOP_UNLINK(parent, component, getcred());
+	vnode_t *child = NULL;
+	err = VOP_LOOKUP(parent, component, &child, getcred());
+	if (err) {
+		VOP_UNLOCK(parent);
+		goto cleanup;
+	}
+
+	// TODO auth check
+	if (0) {
+		// locked by VOP_LOOKUP
+		VOP_UNLOCK(child);
+		// locked by vfs_lookup
+		VOP_UNLOCK(parent);
+		return err;
+	}
+
+	err = VOP_UNLINK(parent, child, component, getcred());
+	// locked by VOP_LOOKUP
+	VOP_UNLOCK(child);
 	// locked by vfs_lookup
 	VOP_UNLOCK(parent);
 	VOP_RELEASE(parent);
@@ -509,7 +537,9 @@ int vfs_lookup(vnode_t **result, vnode_t *start, char *path, char *lastcomp, int
 			return e;
 
 		if ((flags & VFS_LOOKUP_INPUTLOCKED) == 0) {
+			arch_e9_puts("lock1\n");
 			VOP_LOCK(r);
+			arch_e9_puts("lock1ok\n");
 		}
 
 		VOP_HOLD(r);
@@ -540,8 +570,10 @@ int vfs_lookup(vnode_t **result, vnode_t *start, char *path, char *lastcomp, int
 	error = 0;
 	VOP_HOLD(current);
 
+	arch_e9_puts("lock2\n");
 	if ((flags & VFS_LOOKUP_INPUTLOCKED) == 0 || current != start)
 		VOP_LOCK(current);
+	arch_e9_puts("lock2ok\n");
 
 	for (int i = 0; i < pathlen; ++i) {
 		if (compbuffer[i] == '\0')
@@ -563,11 +595,15 @@ int vfs_lookup(vnode_t **result, vnode_t *start, char *path, char *lastcomp, int
 			islast = j == pathlen;
 		}
 
+		arch_e9_puts("component: ");
+		arch_e9_puts(component);
+
 		if (islast && (flags & VFS_LOOKUP_PARENT)) {
 			__assert(lastcomp);
 			strcpy(lastcomp, component);
 			break;
 		}
+
 
 		if (strcmp(component, "..") == 0) {
 			// if the tree root, skip to next component
@@ -581,6 +617,7 @@ int vfs_lookup(vnode_t **result, vnode_t *start, char *path, char *lastcomp, int
 			// if the root of a mounted fs, go to
 			if (current->flags & V_FLAGS_ROOT) {
 				vnode_t *n = lowestnodeinmp(current);
+				arch_e9_puts("lock3\n");
 				if (n != current) {
 					VOP_HOLD(n);
 					VOP_UNLOCK(current);
@@ -588,6 +625,7 @@ int vfs_lookup(vnode_t **result, vnode_t *start, char *path, char *lastcomp, int
 					current = n;
 					VOP_LOCK(current);
 				}
+				arch_e9_puts("lock3ok\n");
 			}
 		}
 
@@ -596,7 +634,9 @@ int vfs_lookup(vnode_t **result, vnode_t *start, char *path, char *lastcomp, int
 		if (error)
 			break;
 
+		arch_e9_puts("lookup\n");
 		error = VOP_LOOKUP(current, component, &next, getcred());
+		arch_e9_puts("lookupok\n");
 		if (error)
 			break;
 
@@ -614,11 +654,13 @@ int vfs_lookup(vnode_t **result, vnode_t *start, char *path, char *lastcomp, int
 		}
 
 		if (r != next) {
+			arch_e9_puts("lock4\n");
 			VOP_HOLD(r);
 			VOP_UNLOCK(next);
 			VOP_RELEASE(next);
 			next = r;
 			VOP_LOCK(next);
+			arch_e9_puts("lock4ok\n");
 		}
 
 		// dereference symlink
@@ -652,7 +694,9 @@ int vfs_lookup(vnode_t **result, vnode_t *start, char *path, char *lastcomp, int
 			}
 
 			// TODO possible deadlock when input vnode is locked and the vfs_lookup would lock it
+			arch_e9_puts("it1\n");
 			error = vfs_lookup(&derefresult, derefstart, linkderef, NULL, pass);
+			arch_e9_puts("it1ok\n");
 
 			if (*linkderef == '/')
 				VOP_RELEASE(derefstart);

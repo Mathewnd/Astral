@@ -126,7 +126,7 @@ typedef struct vops_t {
 	int (*setattr)(vnode_t *node, vattr_t *attr, int attrs, cred_t *cred);
 	int (*poll)(vnode_t *node, struct polldata *, int events);
 	int (*access)(vnode_t *node, mode_t mode, cred_t *cred);
-	int (*unlink)(vnode_t *node, char *name, cred_t *cred);
+	int (*unlink)(vnode_t *node, vnode_t *child, char *name, cred_t *cred);
 	int (*link)(vnode_t *node, vnode_t *dir, char *name, cred_t *cred);
 	int (*symlink)(vnode_t *parent, char *name, vattr_t *attr, char *path, cred_t *cred);
 	int (*readlink)(vnode_t *parent, char **link, cred_t *cred);
@@ -180,7 +180,7 @@ typedef struct vops_t {
 #define VOP_GETATTR(v, a, c) (v)->ops->getattr(v, a, c)
 #define VOP_SETATTR(v, a, w, c) (v)->ops->setattr(v, a, w, c)
 #define VOP_ACCESS(v, m, c) (v)->ops->access(v, m, c)
-#define VOP_UNLINK(v, n, c) (v)->ops->unlink(v, n, c)
+#define VOP_UNLINK(v, ch, n, c) (v)->ops->unlink(v, ch, n, c)
 #define VOP_LINK(v, d, n, c) (v)->ops->link(v, d, n, c)
 #define VOP_SYMLINK(v, n, a, p, c) (v)->ops->symlink(v, n, a, p, c)
 #define VOP_READLINK(v, l, c) (v)->ops->readlink(v, l, c)

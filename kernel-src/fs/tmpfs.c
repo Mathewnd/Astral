@@ -235,7 +235,7 @@ static int tmpfs_access(vnode_t *vnode, mode_t mode, cred_t *cred) {
 	return auth_filesystem_check(cred, auth_filesystem_convertaccess(mode), vnode) ? EACCES : 0;
 }
 
-static int tmpfs_unlink(vnode_t *node, char *name, cred_t *cred) {
+static int tmpfs_unlink(vnode_t *node, vnode_t *child, char *name, cred_t *cred) {
 	tmpfsnode_t *tmpnode = (tmpfsnode_t *)node;
 	if (node->type != V_TYPE_DIR)
 		return ENOTDIR;
@@ -254,6 +254,7 @@ static int tmpfs_unlink(vnode_t *node, char *name, cred_t *cred) {
 
 	vnode_t *unlinknode = r;
 	tmpfsnode_t *unlinktmpnode = r;
+	__assert(child == unlinknode);
 
 	err = hashtable_remove(&tmpnode->children, name, namelen);
 	if (err)
