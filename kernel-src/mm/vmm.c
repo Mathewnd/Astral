@@ -231,11 +231,15 @@ static void destroyrange(vmmrange_t *range, uintmax_t _offset, size_t size, int 
 			// shared file mapping or character device mapping
 			if (range->vnode->type == V_TYPE_CHDEV) {
 				// character device mapping
+				VOP_LOCK(range->vnode);
 				__assert(VOP_MUNMAP(range->vnode, vaddr, range->offset + offset, mmuflagstovnodeflags(range->mmuflags) | (range->flags & VMM_FLAGS_SHARED ? V_FFLAGS_SHARED : 0), cred) == 0);
+				VOP_UNLOCK(range->vnode);
 			} else if (arch_mmu_iswritable(_cpu()->vmmctx->pagetable, vaddr) && arch_mmu_isdirty(_cpu()->vmmctx->pagetable, vaddr)) {
 				// dirty page cache mapping
 				arch_mmu_unmap(_cpu()->vmmctx->pagetable, vaddr);
+				VOP_LOCK(range->vnode);
 				vmmcache_makedirty(pmm_getpage(physical));
+				VOP_UNLOCK(range->vnode);
 				pmm_release(physical);
 			} else {
 				// non dirty page mapping
@@ -499,12 +503,16 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 			uintmax_t mapoffset = (uintptr_t)addr - (uintptr_t)range->start;
 			if (range->vnode->type != V_TYPE_BLKDEV && range->vnode->type != V_TYPE_REGULAR) {
 				// map non cacheable vnodes
+				VOP_LOCK(range->vnode);
 				__assert(VOP_MMAP(range->vnode, addr, range->offset + mapoffset, mmuflagstovnodeflags(range->mmuflags) | (range->flags & VMM_FLAGS_SHARED ? V_FFLAGS_SHARED : 0), cred) == 0);
+				VOP_UNLOCK(range->vnode);
 				status = true;
 			} else {
 				// cacheable vnode
 				page_t *res = NULL;
+				VOP_LOCK(range->vnode);
 				int error = vmmcache_getpage(range->vnode, range->offset + mapoffset, &res);
+				VOP_UNLOCK(range->vnode);
 				if (error == ENXIO || error == ENOMEM)  {
 					if (error == ENOMEM)
 						printf("vmm: out of memory to handle getpage (sending SIGBUS)\n");
@@ -540,8 +548,11 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 		void *oldphys = arch_mmu_getphysical(_cpu()->vmmctx->pagetable, addr);
 		if ((range->flags & VMM_FLAGS_FILE) && (range->flags & VMM_FLAGS_SHARED)) {
 			arch_mmu_remap(_cpu()->vmmctx->pagetable, oldphys, addr, range->mmuflags);
-			if (range->vnode->type != V_TYPE_CHDEV)
+			if (range->vnode->type != V_TYPE_CHDEV) {
+				VOP_LOCK(range->vnode);
 				vmmcache_makedirty(pmm_getpage(oldphys));
+				VOP_UNLOCK(range->vnode);
+			}
 
 			status = true;
 		} else {

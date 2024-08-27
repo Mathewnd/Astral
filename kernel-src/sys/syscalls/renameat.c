@@ -60,16 +60,21 @@ syscallret_t syscall_renameat(context_t *context, int olddirfd, char *uoldpath, 
 	if (oldcomponent == NULL && newcomponent == NULL)
 		goto cleanup;
 
+	// TODO possibly deadlocks
 	ret.errno = vfs_lookup(&sourcedirnode, olddirnode, oldpath, oldcomponent, VFS_LOOKUP_NOLINK | VFS_LOOKUP_PARENT);
 	if (ret.errno)
 		goto cleanup;
 
 	ret.errno = vfs_lookup(&targetdirnode, newdirnode, newpath, newcomponent, VFS_LOOKUP_NOLINK | VFS_LOOKUP_PARENT);
-	if (ret.errno)
+	if (ret.errno) {
+		VOP_UNLOCK(sourcedirnode);
 		goto cleanup;
+	}
 
 	ret.errno = VOP_RENAME(sourcedirnode, oldcomponent, targetdirnode, newcomponent, flags);
 	ret.ret = ret.errno ? -1 : 0;
+	VOP_UNLOCK(targetdirnode);
+	VOP_UNLOCK(sourcedirnode);
 
 	cleanup:
 

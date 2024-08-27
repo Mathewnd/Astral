@@ -37,18 +37,15 @@ static int tmpfs_mount(vfs_t **vfs, vnode_t *mountpoint, vnode_t *backing, void 
 #define DATAMMUFLAGS (ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_NOEXEC)
 
 static int tmpfs_getattr(vnode_t *node, vattr_t *attr, cred_t *cred) {
-	VOP_LOCK(node);
 	tmpfsnode_t *tmpnode = (tmpfsnode_t *)node;
 	*attr = tmpnode->attr;
 	attr->blocksused = ROUND_UP(attr->size, PAGE_SIZE) / PAGE_SIZE;
 	attr->devmajor = 0;
 	attr->devminor = ((tmpfs_t *)node->vfs)->id;
-	VOP_UNLOCK(node);
 	return 0;
 }
 
 static int tmpfs_setattr(vnode_t *node, vattr_t *attr, int which, cred_t *cred) {
-	VOP_LOCK(node);
 	tmpfsnode_t *tmpnode = (tmpfsnode_t *)node;
 
 	if (which & V_ATTR_GID)
@@ -64,7 +61,6 @@ static int tmpfs_setattr(vnode_t *node, vattr_t *attr, int which, cred_t *cred) 
 	if (which & V_ATTR_CTIME)
 		tmpnode->attr.ctime = attr->ctime;
 
-	VOP_UNLOCK(node);
 	return 0;
 }
 
@@ -74,17 +70,17 @@ static int tmpfs_lookup(vnode_t *parent, char *name, vnode_t **result, cred_t *c
 	if (parent->type != V_TYPE_DIR)
 		return ENOTDIR;
 
-	VOP_LOCK(parent);
 	void *r;
 	int err = hashtable_get(&tmpparent->children, &r, name, strlen(name));
-	if (err) {
-		VOP_UNLOCK(parent);
+	if (err)
 		return err;
-	}
 
 	child = r;
 	VOP_HOLD(child);
-	VOP_UNLOCK(parent);
+	// VOP_LOOKUP is expected to return child locked
+	if (child != parent)
+		VOP_LOCK(child);
+
 	*result = child;
 	return 0;
 }
@@ -97,18 +93,13 @@ static int tmpfs_create(vnode_t *parent, char *name, vattr_t *attr, int type, vn
 	size_t namelen = strlen(name);
 	void *v;
 
-	VOP_LOCK(parent);
-	if (hashtable_get(&parenttmpnode->children, &v, name, namelen) == 0) {
-		VOP_UNLOCK(parent);
+	if (hashtable_get(&parenttmpnode->children, &v, name, namelen) == 0)
 		return EEXIST;
-	}
 
 	tmpfsnode_t *tmpnode = newnode(parent->vfs, type);
 	vnode_t *node = (vnode_t *)tmpnode;
-	if (tmpnode == NULL) {
-		VOP_UNLOCK(parent);
+	if (tmpnode == NULL)
 		return ENOMEM;
-	}
 
 	timespec_t time = timekeeper_time();
 
@@ -122,23 +113,20 @@ static int tmpfs_create(vnode_t *parent, char *name, vattr_t *attr, int type, vn
 	tmpnode->attr.nlinks = 1;
 
 	if (error) {
-		VOP_UNLOCK(parent);
 		VOP_RELEASE(node);
-		return error; 
+		return error;
 	}
 
 	// if a dir, create the .. entry (the . entry is already made in newnode() if it has the dir type)
 	if (type == V_TYPE_DIR) {
 		error = hashtable_set(&tmpnode->children, parenttmpnode, "..", 2, true);
 		if (error) {
-			VOP_UNLOCK(parent);
 			VOP_RELEASE(node);
 			return error;
 		}
 	}
 
 	error = hashtable_set(&parenttmpnode->children, tmpnode, name, namelen, true);
-	VOP_UNLOCK(parent);
 
 	if (error) {
 		VOP_RELEASE(node);
@@ -152,6 +140,8 @@ static int tmpfs_create(vnode_t *parent, char *name, vattr_t *attr, int type, vn
 	node->vfs = parent->vfs;
 	*result = node;
 	VOP_HOLD(node);
+	// VOP_CREATE is expected to return child locked
+	VOP_LOCK(node);
 
 	return error;
 }
@@ -171,22 +161,28 @@ static int tmpfs_open(vnode_t **nodep, int flags, cred_t *cred) {
 		if (error)
 			return error;
 
-		VOP_RELEASE(node);
-		VOP_HOLD(devnode);
-		*nodep = devnode; 
+		VOP_LOCK(devnode);
+		error = VOP_OPEN(&devnode, flags, cred);
+		VOP_UNLOCK(devnode);
+		if (error == 0) {
+			VOP_HOLD(devnode);
+			*nodep = devnode;
+		}
 	}
 
 	if (node->type == V_TYPE_FIFO) {
-		VOP_LOCK(*nodep);
 		vnode_t *fifo;
 		error = pipefs_getbinding(*nodep, &fifo);
-		VOP_UNLOCK(*nodep);
 		if (error)
 			return error;
 
+		VOP_LOCK(fifo);
 		error = VOP_OPEN(&fifo, flags, cred);
-		if (error == 0)
+		VOP_UNLOCK(fifo);
+		if (error == 0) {
 			*nodep = fifo;
+			VOP_HOLD(fifo);
+		}
 	}
 
 	return error;
@@ -249,7 +245,6 @@ static int tmpfs_unlink(vnode_t *node, char *name, cred_t *cred) {
 
 	size_t namelen = strlen(name);
 	void *r;
-	VOP_LOCK(node);
 
 	int err = hashtable_get(&tmpnode->children, &r, name, namelen);
 	if (err) {
@@ -261,7 +256,6 @@ static int tmpfs_unlink(vnode_t *node, char *name, cred_t *cred) {
 	tmpfsnode_t *unlinktmpnode = r;
 
 	err = hashtable_remove(&tmpnode->children, name, namelen);
-	VOP_UNLOCK(node);
 	if (err)
 		return err;
 
@@ -286,14 +280,12 @@ static int tmpfs_link(vnode_t *node, vnode_t *dir, char *name, cred_t *cred) {
 	tmpfsnode_t *tmpdir = (tmpfsnode_t *)dir;
 	size_t namelen = strlen(name);
 	void *v;
-	VOP_LOCK(dir);
 	if (hashtable_get(&tmpdir->children, &v, name, namelen) == 0) {
 		VOP_UNLOCK(node);
 		return EEXIST;
 	}
 
 	int error = hashtable_set(&tmpdir->children, node, name, namelen, true);
-	VOP_UNLOCK(dir);
 	if (error)
 		return error;
 
@@ -316,13 +308,6 @@ static int tmpfs_rename(vnode_t *source, char *oldname, vnode_t *target, char *n
 
 	size_t oldlen = strlen(oldname);
 	size_t newlen = strlen(newname);
-
-	if (target != source) {
-		VOP_LOCK(source);
-		VOP_LOCK(target);
-	} else {
-		VOP_LOCK(target);
-	}
 
 	// get original node
 	void *v;
@@ -361,13 +346,6 @@ static int tmpfs_rename(vnode_t *source, char *oldname, vnode_t *target, char *n
 		VOP_RELEASE(oldnode);
 
 	cleanup:
-	if (target != source) {
-		VOP_UNLOCK(target);
-		VOP_UNLOCK(source);
-	} else {
-		VOP_UNLOCK(target);
-	}
-
 	return error;
 }
 
@@ -388,9 +366,9 @@ static int tmpfs_symlink(vnode_t *node, char *name, vattr_t *attr, char *path, c
 		return err;
 	}
 
-	VOP_LOCK(linknode);
 	tmpfsnode_t *linktmpnode = (tmpfsnode_t *)linknode;
 	linktmpnode->link = pathbuf;
+	// locked by tmpfs_create
 	VOP_UNLOCK(linknode);
 	VOP_RELEASE(linknode);
 
@@ -403,7 +381,6 @@ static int tmpfs_readlink(vnode_t *node, char **link, cred_t *cred) {
 
 	tmpfsnode_t *tmpnode = (tmpfsnode_t *)node;
 
-	VOP_LOCK(node);
 	char *ret = alloc(strlen(tmpnode->link) + 1);
 	if (ret == NULL) {
 		VOP_UNLOCK(node);
@@ -413,7 +390,6 @@ static int tmpfs_readlink(vnode_t *node, char **link, cred_t *cred) {
 	strcpy(ret, tmpnode->link);
 	*link = ret;
 
-	VOP_UNLOCK(node);
 	return 0;
 }
 
@@ -431,8 +407,6 @@ static int tmpfs_munmap(vnode_t *node, void *addr, uintmax_t offset, int flags, 
 static int tmpfs_getdents(vnode_t *node, dent_t *buffer, size_t count, uintmax_t offset, size_t *readcount) {
 	if (node->type != V_TYPE_DIR)
 		return ENOTDIR;
-
-	VOP_LOCK(node);
 
 	tmpfsnode_t *tmpnode = (tmpfsnode_t *)node;
 
@@ -460,7 +434,6 @@ static int tmpfs_getdents(vnode_t *node, dent_t *buffer, size_t count, uintmax_t
 		*readcount += 1;
 	}
 
-	VOP_UNLOCK(node);
 	return 0;
 }
 
@@ -473,8 +446,6 @@ static int tmpfs_inactive(vnode_t *node) {
 }
 
 static int tmpfs_resize(vnode_t *node, size_t size, cred_t *) {
-	VOP_LOCK(node);
-
 	tmpfsnode_t *tmpfsnode = (tmpfsnode_t *)node;
 	if (size != tmpfsnode->attr.size && tmpfsnode->vnode.type == V_TYPE_REGULAR) {
 		if (tmpfsnode->attr.size > size)
@@ -482,20 +453,16 @@ static int tmpfs_resize(vnode_t *node, size_t size, cred_t *) {
 
 		tmpfsnode->attr.size = size;
 	}
-
-	VOP_UNLOCK(node);
 	return 0;
 }
 
 static int tmpfs_getpage(vnode_t *node, uintmax_t offset, struct page_t *page) {
 	int error = 0;
 
-	VOP_LOCK(node);
 	tmpfsnode_t *tmpfsnode = (tmpfsnode_t *)node;
 	if (offset >= tmpfsnode->attr.size)
 		error = ENXIO;
 
-	VOP_UNLOCK(node);
 	if (error)
 		return error;
 

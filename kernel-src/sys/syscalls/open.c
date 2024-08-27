@@ -43,16 +43,16 @@ syscallret_t syscall_openat(context_t *context, int dirfd, char *path, int flags
 	int newfd;
 	ret.errno = fd_new(flags & O_CLOEXEC, &newfile, &newfd);
 	if (ret.errno)
-		goto cleanup;
+		goto cleanup_nounlock;
 
 	vnode_t *vnode = NULL;
 	ret.errno = vfs_open(dirnode, pathbuf, fileflagstovnodeflags(flags), &vnode);
 	if (ret.errno == 0 && (flags & O_CREAT) && (flags & O_EXCL)) {
+		// exclusive and file already exists
 		ret.errno = EEXIST;
-		return ret;
-	}
-
-	if (ret.errno == ENOENT && (flags & O_CREAT)) {
+		goto cleanup_nounlock;
+	} else if (ret.errno == ENOENT && (flags & O_CREAT)) {
+		// create file
 		vattr_t attr = {
 			.mode = UMASK(mode),
 			.gid = _cpu()->thread->proc->cred.egid,
@@ -62,6 +62,12 @@ syscallret_t syscall_openat(context_t *context, int dirfd, char *path, int flags
 		ret.errno = vfs_create(dirnode, pathbuf, &attr, V_TYPE_REGULAR, &vnode);
 		if (ret.errno == EEXIST && (flags & O_EXCL) == 0)
 			goto retry_open;
+	} else if (ret.errno) {
+		// any other error
+		goto cleanup_nounlock;
+	} else {
+		// success, lock file
+		VOP_LOCK(vnode);
 	}
 
 	if (ret.errno)
@@ -78,9 +84,7 @@ syscallret_t syscall_openat(context_t *context, int dirfd, char *path, int flags
 		goto cleanup;
 
 	if (vnode->type == V_TYPE_REGULAR && (flags & O_TRUNC) && (flags & FILE_WRITE)) {
-		MUTEX_ACQUIRE(&vnode->sizelock, false);
 		ret.errno = VOP_RESIZE(vnode, 0, &_cpu()->thread->proc->cred);
-		MUTEX_RELEASE(&vnode->sizelock);
 		if (ret.errno)
 			goto cleanup;
 	}
@@ -95,6 +99,8 @@ syscallret_t syscall_openat(context_t *context, int dirfd, char *path, int flags
 	ret.ret = newfd;
 
 	cleanup:
+	VOP_UNLOCK(vnode);
+	cleanup_nounlock:
 	if (vnode && ret.errno) {
 		vfs_close(vnode, fileflagstovnodeflags(flags));
 		VOP_RELEASE(vnode);

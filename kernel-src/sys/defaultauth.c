@@ -9,7 +9,7 @@
 	}
 
 static int filesystem(cred_t *cred, int actions, void *arg0, void *arg1, void *arg2) {
-	vnode_t *vnode = arg0;
+	vnode_t *vnode = arg0; // expected locked
 
 	vattr_t attr;
 	VOP_GETATTR(vnode, &attr, NULL);

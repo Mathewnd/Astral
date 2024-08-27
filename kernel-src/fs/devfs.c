@@ -120,9 +120,7 @@ int devfs_getattr(vnode_t *node, vattr_t *attr, cred_t *cred) {
 	devnode_t *devnode = (devnode_t *)node;
 
 	if (devnode->physical && devnode->physical != node) {
-		INTERNAL_LOCK(devnode->physical);
 		int err = VOP_GETATTR(devnode->physical, attr, cred);
-		INTERNAL_UNLOCK(devnode->physical);
 		return err;
 	}
 
@@ -451,6 +449,7 @@ int devfs_getbyname(char *name, vnode_t **ret) {
 	if (error)
 		goto cleanup;
 
+	VOP_UNLOCK(*ret);
 	cleanup:
 	return error;
 }
@@ -480,7 +479,6 @@ int devfs_register(devops_t *devops, char *name, int type, int major, int minor,
 	attr.uid = cred == NULL ? 0 : cred->euid;
 	attr.gid = cred == NULL ? 0 : cred->egid;
 
-
 	vnode_t *dir = NULL;
 	char lastcomp[strlen(name) + 1];
 	error = vfs_lookup(&dir, (vnode_t *)devfsroot, name, lastcomp, VFS_LOOKUP_PARENT);
@@ -493,6 +491,8 @@ int devfs_register(devops_t *devops, char *name, int type, int major, int minor,
 	// the devfs node will have a reference from both the devtable and from the fs link
 	error = VOP_CREATE(dir, lastcomp, &attr, type, &newvnode, NULL);
 
+	// locked by vfs_lookup
+	VOP_UNLOCK(dir);
 	VOP_RELEASE(dir);
 
 	if (error) {
@@ -507,6 +507,8 @@ int devfs_register(devops_t *devops, char *name, int type, int major, int minor,
 	master->attr = newdevnode->attr;
 	master->vnode.type = type;
 	newdevnode->master = master;
+	// locked by VOP_CREATE
+	VOP_UNLOCK(newvnode);
 
 	return 0;
 }

@@ -14,7 +14,9 @@ syscallret_t syscall_isatty(context_t *context, int fd) {
 	}
 
 	// mlibc expects isatty to return 1 if a terminal and 0 if not.
+	VOP_LOCK(file->vnode);
 	int e = VOP_ISATTY(file->vnode);
+	VOP_UNLOCK(file->vnode);
 
 	ret.errno = e;
 	ret.ret = e ? 0 : 1;

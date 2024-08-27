@@ -157,6 +157,7 @@ void initrd_unpack() {
 				if (err)
 					break;
 
+				VOP_UNLOCK(node);
 				err = vfs_write(node, datastart, entry.size, 0, &writecount, 0);
 				VOP_RELEASE(node);
 				break;

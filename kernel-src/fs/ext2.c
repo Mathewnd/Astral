@@ -1071,7 +1071,10 @@ static int ext2_open(vnode_t **vnodep, int flags, cred_t *cred) {
 		if (error)
 			return error;
 
+		VOP_LOCK(fifo);
 		error = VOP_OPEN(&fifo, flags, cred);
+		VOP_UNLOCK(fifo);
+
 		if (error == 0)
 			*vnodep = fifo;
 	}
@@ -1085,8 +1088,6 @@ static int ext2_close(vnode_t *vnode, int flags, cred_t *cred) {
 
 static int ext2_getattr(vnode_t *vnode, vattr_t *attr, cred_t *cred) {
 	ext2node_t *node = (ext2node_t *)vnode;
-	VOP_LOCK(vnode);
-
 	attr->rdevmajor = 0;
 	attr->rdevminor = 0;
 	attr->devmajor = ((ext2fs_t *)vnode->vfs)->backingmajor;
@@ -1106,15 +1107,11 @@ static int ext2_getattr(vnode_t *vnode, vattr_t *attr, cred_t *cred) {
 	attr->mtime.s = node->inode.mtime;
 	attr->mtime.ns = 0;
 	attr->blocksused = ROUND_UP(attr->size, attr->fsblocksize) / attr->fsblocksize;
-
-	VOP_UNLOCK(vnode);
 	return 0;
 }
 
 static int ext2_setattr(vnode_t *vnode, vattr_t *attr, int which, cred_t *cred) {
 	ext2node_t *node = (ext2node_t *)vnode;
-	VOP_LOCK(vnode);
-
 	if (which & V_ATTR_MODE)
 		INODE_TYPEPERM_SETPERM(node->inode.typeperm, attr->mode);
 	if (which & V_ATTR_GID)
@@ -1128,8 +1125,6 @@ static int ext2_setattr(vnode_t *vnode, vattr_t *attr, int which, cred_t *cred) 
 	if (which & V_ATTR_ATIME)
 		node->inode.atime = attr->atime.s;
 	int e = writeinode((ext2fs_t *)vnode->vfs, &node->inode, node->id);
-	VOP_UNLOCK(vnode);
-
 	return e;
 }
 
@@ -1137,8 +1132,6 @@ static int ext2_lookup(vnode_t *vnode, char *name, vnode_t **result, cred_t *cre
 	ext2node_t *node = (ext2node_t *)vnode;
 	ext2fs_t *fs = (ext2fs_t *)node->vnode.vfs;
 	ext2node_t *newnode = NULL;
-	VOP_LOCK(vnode);
-
 	int inode = 0;
 	int err = findindir(fs, node, name, &inode, NULL);
 	if (err)
@@ -1181,7 +1174,9 @@ static int ext2_lookup(vnode_t *vnode, char *name, vnode_t **result, cred_t *cre
 
 	MUTEX_RELEASE(&fs->inodetablelock);
 
+	// VOP_LOOKUP returns the vnode locked
 	*result = &newnode->vnode;
+	VOP_LOCK(*result);
 
 	cleanup:
 	if (err && newnode) {
@@ -1189,8 +1184,6 @@ static int ext2_lookup(vnode_t *vnode, char *name, vnode_t **result, cred_t *cre
 		VOP_RELEASE(tmp);
 		MUTEX_RELEASE(&fs->inodetablelock);
 	}
-
-	VOP_UNLOCK(vnode);
 	return err;
 }
 
@@ -1200,8 +1193,6 @@ static int ext2_getdents(vnode_t *vnode, dent_t *buffer, size_t count, uintmax_t
 
 	if (vnode->type != V_TYPE_DIR)
 		return ENOTDIR;
-
-	VOP_LOCK(vnode);
 
 	int err = 0;
 	// XXX loading the whole dir into memory at once isn't the best idea but works for now
@@ -1242,7 +1233,6 @@ static int ext2_getdents(vnode_t *vnode, dent_t *buffer, size_t count, uintmax_t
 	if (dirbuffer)
 		vmm_unmap(dirbuffer, INODE_SIZE(&node->inode) + 1, 0);
 
-	VOP_UNLOCK(vnode);
 	return err;
 }
 
@@ -1256,7 +1246,6 @@ static int ext2_readlink(vnode_t *vnode, char **link, cred_t *cred) {
 	if (vnode->type != V_TYPE_LINK)
 		return EINVAL;
 
-	VOP_LOCK(vnode);
 	int err = 0;
 
 	size_t linksize = INODE_SIZE(&node->inode);
@@ -1271,7 +1260,6 @@ static int ext2_readlink(vnode_t *vnode, char **link, cred_t *cred) {
 
 	buf[linksize] = '\0';
 
-	VOP_UNLOCK(vnode);
 	if (err)
 		free(buf);
 	else
@@ -1291,7 +1279,6 @@ static int ext2_read(vnode_t *vnode, void *buffer, size_t size, uintmax_t offset
 	ext2fs_t *fs = (ext2fs_t *)vnode->vfs;
 	uintmax_t endoffset = offset + size;
 	int err = 0;
-	VOP_LOCK(vnode);
 
 	size_t inodesize = INODE_SIZE(&node->inode);
 
@@ -1317,7 +1304,6 @@ static int ext2_read(vnode_t *vnode, void *buffer, size_t size, uintmax_t offset
 	*readc = err ? -1 : size;
 
 	cleanup:
-	VOP_UNLOCK(vnode);
 	return err;
 }
 
@@ -1331,7 +1317,6 @@ int ext2_write(vnode_t *vnode, void *buffer, size_t size, uintmax_t offset, int 
 	ext2node_t *node = (ext2node_t *)vnode;
 	ext2fs_t *fs = (ext2fs_t *)vnode->vfs;
 	uintmax_t endoffset = offset + size;
-	VOP_LOCK(vnode);
 	int err = 0;
 	size_t inodesize = INODE_SIZE(&node->inode);
 
@@ -1357,7 +1342,6 @@ int ext2_write(vnode_t *vnode, void *buffer, size_t size, uintmax_t offset, int 
 	//ASSERT_UNCLEAN(fs, writeinode(fs, &node->inode, node->id) == 0);
 
 	cleanup:
-	VOP_UNLOCK(vnode);
 	return err;
 }
 
@@ -1371,7 +1355,6 @@ int ext2_resize(vnode_t *vnode, size_t newsize, cred_t *cred) {
 	__assert(vnode->type == V_TYPE_REGULAR);
 	ext2node_t *node = (ext2node_t *)vnode;
 	ext2fs_t *fs = (ext2fs_t *)vnode->vfs;
-	VOP_LOCK(vnode);
 	size_t size = INODE_SIZE(&node->inode);
 	int e = 0;
 	if (size != newsize) {
@@ -1379,7 +1362,6 @@ int ext2_resize(vnode_t *vnode, size_t newsize, cred_t *cred) {
 		if (size > newsize)
 			vmmcache_truncate(vnode, newsize);
 	}
-	VOP_UNLOCK(vnode);
 	return e;
 }
 
@@ -1414,11 +1396,7 @@ static int ext2_link(vnode_t *vnode, vnode_t *dirvnode, char *name, cred_t *cred
 	ext2node_t *node = (ext2node_t *)vnode;
 	ext2node_t *dirnode = (ext2node_t *)dirvnode;
 	ext2fs_t *fs = (ext2fs_t *)dirvnode->vfs;
-	VOP_LOCK(dirvnode);
-	VOP_LOCK(vnode);
 	int err = linkinternal(fs, dirnode, node, name);
-	VOP_UNLOCK(vnode);
-	VOP_UNLOCK(dirvnode);
 	return err;
 }
 
@@ -1482,6 +1460,9 @@ static int internalcreate(vnode_t *parent, char *name, vattr_t *attr, int type, 
 		ASSERT_UNCLEAN(fs, changedircount(fs, INODE_GETGROUP(fs, newnode->id), 1) == 0);
 	}
 
+	// VOP_CREATE expects result to be locked
+	VOP_LOCK(*result);
+
 	cleanup:
 	if (err && id)
 		ASSERT_UNCLEAN(fs, freestructure(fs, id, true) == 0);
@@ -1493,9 +1474,7 @@ static int internalcreate(vnode_t *parent, char *name, vattr_t *attr, int type, 
 }
 
 static int ext2_create(vnode_t *parent, char *name, vattr_t *attr, int type, vnode_t **result, cred_t *cred) {
-	VOP_LOCK(parent);
 	int err = internalcreate(parent, name, attr, type, result, cred);
-	VOP_UNLOCK(parent);
 	return err;
 }
 
@@ -1503,17 +1482,14 @@ static int ext2_symlink(vnode_t *vnode, char *name, vattr_t *attr, char *path, c
 	ext2fs_t *fs = (ext2fs_t *)vnode->vfs;
 	size_t linklen = strlen(path);
 
-	VOP_LOCK(vnode);
 	vnode_t *newvnode;
 	int err = internalcreate(vnode, name, attr, V_TYPE_LINK, &newvnode, cred);
-	if (err) {
-		VOP_UNLOCK(vnode);
+	if (err)
 		return err;
-	}
 
-	// TODO no lock needed; (probably) not gonna be accessed by anyone else as the direcotry lock is held
-	VOP_LOCK(newvnode);
+	// no lock needed, not gonna be accessed by anyone else as the direcotry lock is held
 	ext2node_t *newnode = (ext2node_t *)newvnode;
+	VOP_UNLOCK(newvnode);
 
 	if (linklen <= 60) {
 		// store it in the inode
@@ -1537,8 +1513,6 @@ static int ext2_symlink(vnode_t *vnode, char *name, vattr_t *attr, char *path, c
 	cleanup:
 	if (err)
 		ASSERT_UNCLEAN(fs, VOP_UNLINK(vnode, name, cred) == 0);
-	VOP_UNLOCK(newvnode);
-	VOP_UNLOCK(vnode);
 	return err;
 }
 
@@ -1618,14 +1592,13 @@ static int internalunlink(ext2fs_t *fs, ext2node_t *node, char *name) {
 	return err;
 }
 
+// TODO name -> child, name
 static int ext2_unlink(vnode_t *vnode, char *name, cred_t *cred) {
 	ext2node_t *node = (ext2node_t *)vnode;
 	ext2fs_t *fs = (ext2fs_t *)vnode->vfs;
-	VOP_LOCK(vnode);
 
 	int err = internalunlink(fs, node, name);
 
-	VOP_UNLOCK(vnode);
 	return err;
 }
 
@@ -1664,6 +1637,7 @@ static int ext2_putpage(vnode_t *node, uintmax_t offset, struct page_t *page) {
 	return error;
 }
 
+// TODO redo this (newname -> targetvnode + newname)
 static int ext2_rename(vnode_t *sourcedir, char *oldname, vnode_t *targetdir, char *newname, int flags) {
 	if (sourcedir->vfs != targetdir->vfs)
 		return EXDEV;
@@ -1680,12 +1654,13 @@ static int ext2_rename(vnode_t *sourcedir, char *oldname, vnode_t *targetdir, ch
 	if (err)
 		return err;
 
+	VOP_UNLOCK(source);
+
 	ext2fs_t *fs = (ext2fs_t *)targetdir->vfs;
 	ext2node_t *ext2targetnode = (ext2node_t *)targetdir;
 	ext2node_t *ext2sourcenode = (ext2node_t *)source;
 
 	// switch out or create the target dirent
-	VOP_LOCK(targetdir);
 	int oldinode;
 	err = findindir(fs, ext2targetnode, newname, &oldinode, ext2sourcenode);
 	if (err == ENOENT) {
@@ -1699,13 +1674,10 @@ static int ext2_rename(vnode_t *sourcedir, char *oldname, vnode_t *targetdir, ch
 	}
 
 	if (err) {
-		VOP_UNLOCK(targetdir);
 		VOP_RELEASE(source);
 		return err;
 	}
 
-	VOP_UNLOCK(targetdir);
-	VOP_LOCK(sourcedir);
 	ext2node_t *ext2sourcedirnode = (ext2node_t *)sourcedir;
 	// unlink the original dirent
 	err = findindir(fs, ext2sourcedirnode, oldname, &oldinode, NULL);
@@ -1718,7 +1690,6 @@ static int ext2_rename(vnode_t *sourcedir, char *oldname, vnode_t *targetdir, ch
 	}
 
 	cleanup:
-	VOP_UNLOCK(sourcedir);
 	VOP_RELEASE(source);
 	return err;
 }
@@ -1824,7 +1795,9 @@ static int ext2_mount(vfs_t **vfs, vnode_t *mountpoint, vnode_t *backing, void *
 	MUTEX_INIT(&fs->descriptorlock);
 
 	vattr_t vattr;
+	VOP_LOCK(backing);
 	int err = VOP_GETATTR(backing, &vattr, NULL);
+	VOP_UNLOCK(backing);
 	if (err)
 		goto cleanup;
 

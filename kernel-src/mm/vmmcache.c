@@ -102,6 +102,7 @@ static void removepage(page_t *page) {
 	--vmmcache_cachedpages;
 }
 
+// vnode expected locked
 int vmmcache_getpage(vnode_t *vnode, uintmax_t offset, page_t **res) {
 	__assert(vnode->type == V_TYPE_REGULAR || vnode->type == V_TYPE_BLKDEV);
 	__assert((offset % PAGE_SIZE) == 0);
@@ -292,6 +293,7 @@ int vmmcache_truncate(vnode_t *vnode, uintmax_t offset) {
 
 // called with lock held
 // returns with lock released
+// expects backing lock to be held
 static int syncpage(page_t *page) {
 	__assert(page->flags & PAGE_FLAGS_DIRTY);
 	page->flags &= ~PAGE_FLAGS_DIRTY;
@@ -312,6 +314,7 @@ static int syncpage(page_t *page) {
 
 static page_t *dirtylist;
 
+// expects vnode to be held
 int vmmcache_syncvnode(vnode_t *vnode, uintmax_t offset, size_t size) {
 	offset = ROUND_DOWN(offset, PAGE_SIZE);
 	uintmax_t top = offset + size;
@@ -381,6 +384,7 @@ int vmmcache_sync() {
 	return 0;
 }
 
+// backing expected locked
 int vmmcache_makedirty(page_t *page) {
 	bool madedirty = false;
 	HOLD_LOCK();
@@ -437,7 +441,9 @@ static void writer() {
 
 		page->writenext = NULL;
 		// TODO notify error on vmmcache_syncvnode
+		VOP_LOCK(page->backing);
 		syncpage((page_t *)page);
+		VOP_UNLOCK(page->backing);
 	}
 }
 

@@ -35,10 +35,6 @@ syscallret_t syscall_pread(context_t *context, int fd, void *buffer, size_t size
 		goto cleanup;
 	}
 	
-
-	vattr_t attr;
-	VOP_GETATTR(file->vnode, &attr, NULL);
-
 	size_t bytesread;
 	ret.errno = vfs_read(file->vnode, kernelbuff, size, offset, &bytesread, fileflagstovnodeflags(file->flags));
 

@@ -62,6 +62,7 @@ void vfs_inactive(vnode_t *vnode) {
 	vnode->ops->inactive(vnode);
 }
 
+// backing and pathref are expected to be unlocked
 int vfs_mount(vnode_t *backing, vnode_t *pathref, char *path, char *name, void *data) {
 	vfsops_t *ops;
 	int err = hashtable_get(&fstable, (void **)(&ops), name, strlen(name));
@@ -75,13 +76,16 @@ int vfs_mount(vnode_t *backing, vnode_t *pathref, char *path, char *name, void *
 		return err;
 
 	err = auth_filesystem_check(getcred(), AUTH_ACTIONS_FILESYSTEM_MOUNT, mounton);
-
 	if (err) {
+		// locked by vfs_lookup
+		VOP_UNLOCK(mounton);
 		VOP_RELEASE(mounton);
 		return err;
 	}
 
 	if (mounton->type != V_TYPE_DIR) {
+		// locked by vfs_lookup
+		VOP_UNLOCK(mounton);
 		VOP_RELEASE(mounton);
 		return ENOTDIR;
 	}
@@ -91,6 +95,8 @@ int vfs_mount(vnode_t *backing, vnode_t *pathref, char *path, char *name, void *
 	err = ops->mount(&vfs, mounton, backing, data);
 
 	if (err) {
+		// locked by vfs_lookup
+		VOP_UNLOCK(mounton);
 		VOP_RELEASE(mounton);
 		return err;
 	}
@@ -105,9 +111,13 @@ int vfs_mount(vnode_t *backing, vnode_t *pathref, char *path, char *name, void *
 	mounton->vfsmounted = vfs;
 	vfs->nodecovered = mounton;
 
+	// locked by vfs_lookup
+	VOP_UNLOCK(mounton);
+
 	return 0;
 }
 
+// ref is expected to be unlocked
 int vfs_open(vnode_t *ref, char *path, int flags, vnode_t **res) {
 	vnode_t *tmp = NULL;
 	int err = vfs_lookup(&tmp, ref, path, NULL, 0);
@@ -115,25 +125,37 @@ int vfs_open(vnode_t *ref, char *path, int flags, vnode_t **res) {
 		return err;
 
 	err = VOP_ACCESS(tmp, ((flags & V_FFLAGS_READ) ? V_ACCESS_READ : 0) | ((flags & V_FFLAGS_WRITE) ? V_ACCESS_WRITE : 0), getcred());
-	if (err)
+	if (err) {
+		// locked by vfs_lookup
+		VOP_UNLOCK(tmp);
 		return err;
+	}
 
-	err = VOP_OPEN(&tmp, flags, getcred());
+	vnode_t *new = ref;
+	err = VOP_OPEN(&new, flags, getcred());
 	if (err) {
 		VOP_RELEASE(tmp);
 	} else {
-		*res = tmp;
+		*res = new != tmp ? new : tmp;
 	}
+
+	// locked by vfs_lookup
+	VOP_UNLOCK(tmp);
 
 	return err;
 }
 
+// node is expected to be unlocked
 int vfs_close(vnode_t *node, int flags) {
+	VOP_LOCK(node);
 	int err = VOP_CLOSE(node, flags, getcred());
+	VOP_UNLOCK(node);
 	return err;
 }
 
 // if node is not NULL, then a reference is kept and the newnode is returned in node
+// ref is expected to be unlocked.
+// the new node is returned locked
 int vfs_create(vnode_t *ref, char *path, vattr_t *attr, int type, vnode_t **node) {
 	vnode_t *parent;
 	char *component = alloc(strlen(path) + 1);
@@ -143,21 +165,29 @@ int vfs_create(vnode_t *ref, char *path, vattr_t *attr, int type, vnode_t **node
 
 	err = VOP_ACCESS(parent, V_ACCESS_WRITE, getcred());
 	if (err) {
+		VOP_UNLOCK(parent);
 		VOP_RELEASE(parent);
-		goto cleanup;
+		goto cleanup_parent;
 	}
 
 	vnode_t *ret;
 	err = VOP_CREATE(parent, component, attr, type, &ret, getcred());
 	VOP_RELEASE(parent);
-	if (err)
+	if (err) {
+		VOP_UNLOCK(parent);
 		goto cleanup;
+	}
 
-	if (node)
+	if (node) {
 		*node = ret;
-	else
+	} else {
+		// returned locked by VOP_CREATE
+		VOP_UNLOCK(ret);
 		VOP_RELEASE(ret);
+	}
 
+	cleanup_parent:
+	VOP_UNLOCK(parent);
 	cleanup:
 	free(component);
 	return err;
@@ -188,20 +218,19 @@ static int writenocache(vnode_t *node, page_t *page, uintmax_t pageoffset) {
 }
 
 int vfs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t *written, int flags) {
-	int err;
+	VOP_LOCK(node);
+	int err = 0;
 	if (node->type == V_TYPE_REGULAR || node->type == V_TYPE_BLKDEV) {
 		*written = 0;
 		// can't write a size 0 buffer
 		if (size == 0)
-			return 0;
+			goto leave;
 
 		// overflow
 		if (size + offset < offset) {
 			err = EINVAL;
 			goto leave;
 		}
-
-		MUTEX_ACQUIRE(&node->sizelock, false);
 
 		vattr_t attr;
 		err = VOP_GETATTR(node, &attr, getcred());
@@ -248,12 +277,12 @@ int vfs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t
 			pageoffset += 1;
 			pagecount -= 1;
 
-			if (flags & V_FFLAGS_NOCACHE) {
+			if (flags & V_FFLAGS_NOCACHE)
 				err = writenocache(node, page, pageoffset * PAGE_SIZE);
-				if (err)
-					goto leave;
-			}
+
 			pmm_release(FROM_HHDM(address));
+			if (err)
+				goto leave;
 		}
 
 		for (uintmax_t offset = 0; offset < pagecount * PAGE_SIZE; offset += PAGE_SIZE) {
@@ -268,31 +297,32 @@ int vfs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t
 			vmmcache_makedirty(page);
 			*written += writesize;
 
-			if (flags & V_FFLAGS_NOCACHE) {
+			if (flags & V_FFLAGS_NOCACHE)
 				err = writenocache(node, page, pageoffset * PAGE_SIZE + offset);
-				if (err)
-					goto leave;
-			}
-			pmm_release(FROM_HHDM(address));
-		}
 
-		leave:
-		MUTEX_RELEASE(&node->sizelock);
+			pmm_release(FROM_HHDM(address));
+
+			if (err)
+				goto leave;
+		}
 	} else {
 		// special file, just write as its not being cached
 		err = VOP_WRITE(node, buffer, size, offset, flags, written, getcred());
 	}
 
+	leave:
+	VOP_UNLOCK(node);
 	return err;
 }
 
 int vfs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t *bytesread, int flags) {
-	int err;
+	VOP_LOCK(node);
+	int err = 0;
 	if (node->type == V_TYPE_REGULAR || node->type == V_TYPE_BLKDEV) {
 		*bytesread = 0;
 		// can't read 0 bytes from the cache
 		if (size == 0)
-			return 0;
+			goto leave;
 
 		// overflow
 		if (size + offset < offset) {
@@ -300,7 +330,6 @@ int vfs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t 
 			goto leave;
 		}
 
-		MUTEX_ACQUIRE(&node->sizelock, false);
 		size_t nodesize = 0;
 
 		if (node->type == V_TYPE_REGULAR) {
@@ -365,13 +394,12 @@ int vfs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t 
 			}
 			pmm_release(FROM_HHDM(address));
 		}
-
-		leave:
-		MUTEX_RELEASE(&node->sizelock);
 	} else {
 		// special file, just read as size doesn't matter
 		err = VOP_READ(node, buffer, size, offset, flags, bytesread, getcred());
 	}
+	leave:
+	VOP_UNLOCK(node);
 	return err;
 }
 
@@ -389,22 +417,31 @@ int vfs_link(vnode_t *destref, char *destpath, vnode_t *linkref, char *linkpath,
 		goto cleanup;
 
 	err = VOP_ACCESS(parent, V_ACCESS_WRITE, getcred());
-	if (err)
+	if (err) {
+		// locked by vfs_lookup
+		VOP_UNLOCK(parent);
 		goto cleanup;
+	}
 
+	// TODO rewrite this as it can deadlock as a directory is locked
 	if (type == V_TYPE_REGULAR) {
 		vnode_t *targetnode = NULL;
 		err = vfs_lookup(&targetnode, destref, destpath, NULL, 0);
 		if (err) {
-			VOP_RELEASE(parent);
+			// locked by vfs_lookup
+			VOP_UNLOCK(parent);
 			goto cleanup;
 		}
 		err = VOP_LINK(targetnode, parent, component, getcred());
+		// locked by vfs_lookup
+		VOP_UNLOCK(targetnode);
 		VOP_RELEASE(targetnode);
 	} else {
 		err = VOP_SYMLINK(parent, component, attr, destpath, getcred());
 	}
 
+	// locked by vfs_lookup
+	VOP_UNLOCK(parent);
 	cleanup:
 	VOP_RELEASE(parent);
 	free(component);
@@ -419,6 +456,8 @@ int vfs_unlink(vnode_t *ref, char *path) {
 		goto cleanup;
 
 	VOP_UNLINK(parent, component, getcred());
+	// locked by vfs_lookup
+	VOP_UNLOCK(parent);
 	VOP_RELEASE(parent);
 
 	cleanup:
@@ -446,6 +485,8 @@ static vnode_t *lowestnodeinmp(vnode_t *node) {
 }
 
 // looks up a pathname
+// result will always be returned locked.
+// if flags & VFS_LOOKUP_INPUTLOCKED, the input is already locked and will be locked on return
 // if flags & VFS_LOOKUP_PARENT, the parent of the resulting node will be put in
 // the result pointer and lastcomp will contain the last component name
 // if flags & VFS_LOOKUP_NOLINK, the last component will not be dereferenced if its a symbolic link
@@ -462,10 +503,15 @@ int vfs_lookup(vnode_t **result, vnode_t *start, char *path, char *lastcomp, int
 			return ENOENT;
 		}
 
-		vnode_t *r = start; 
+		vnode_t *r = start;
 		int e = highestnodeinmp(start, &r);
 		if (e)
 			return e;
+
+		if ((flags & VFS_LOOKUP_INPUTLOCKED) == 0) {
+			VOP_LOCK(r);
+		}
+
 		VOP_HOLD(r);
 		*result = r;
 		return 0;
@@ -494,6 +540,9 @@ int vfs_lookup(vnode_t **result, vnode_t *start, char *path, char *lastcomp, int
 	error = 0;
 	VOP_HOLD(current);
 
+	if ((flags & VFS_LOOKUP_INPUTLOCKED) == 0 || current != start)
+		VOP_LOCK(current);
+
 	for (int i = 0; i < pathlen; ++i) {
 		if (compbuffer[i] == '\0')
 			continue;
@@ -510,7 +559,7 @@ int vfs_lookup(vnode_t **result, vnode_t *start, char *path, char *lastcomp, int
 		// check if its last with trailing '/' (or '\0's in this case, as '/'s were turned into '\0's in the buffer)
 		if (!islast) {
 			int j;
-			for (j = i + complen; j < pathlen && compbuffer[j] == '\0'; ++j);
+			for (j = i + complen; j < pathlen && compbuffer[j] == '\0'; ++j) asm("");
 			islast = j == pathlen;
 		}
 
@@ -528,17 +577,21 @@ int vfs_lookup(vnode_t **result, vnode_t *start, char *path, char *lastcomp, int
 				i += complen;
 				continue;
 			}
+
 			// if the root of a mounted fs, go to
 			if (current->flags & V_FLAGS_ROOT) {
 				vnode_t *n = lowestnodeinmp(current);
 				if (n != current) {
 					VOP_HOLD(n);
+					VOP_UNLOCK(current);
 					VOP_RELEASE(current);
 					current = n;
+					VOP_LOCK(current);
 				}
 			}
 		}
 
+		// locked at the beggining of the function if nescessary or by a previous VOP_LOOKUP
 		error = VOP_ACCESS(current, V_ACCESS_SEARCH, getcred());
 		if (error)
 			break;
@@ -547,24 +600,35 @@ int vfs_lookup(vnode_t **result, vnode_t *start, char *path, char *lastcomp, int
 		if (error)
 			break;
 
+		if ((current != start || (flags & VFS_LOOKUP_INPUTLOCKED) == 0) && current != next)
+			VOP_UNLOCK(current);
+
 		vnode_t *r = next;
 		error = highestnodeinmp(next, &r);
 		if (error) {
+			if (current != next)
+				VOP_UNLOCK(next);
+
 			VOP_RELEASE(next);
 			break;
 		}
 
 		if (r != next) {
 			VOP_HOLD(r);
+			VOP_UNLOCK(next);
 			VOP_RELEASE(next);
 			next = r;
+			VOP_LOCK(next);
 		}
 
 		// dereference symlink
 		if (next->type == V_TYPE_LINK && (islast == false || (islast == true && (flags & VFS_LOOKUP_NOLINK) == 0))) {
 			// get path
 			char *linkderef;
+
+			// next is already returned locked by VOP_LOOKUP
 			error = VOP_READLINK(next, &linkderef, getcred());
+			VOP_UNLOCK(next);
 			if (error) {
 				VOP_RELEASE(next);
 				break;
@@ -587,6 +651,7 @@ int vfs_lookup(vnode_t **result, vnode_t *start, char *path, char *lastcomp, int
 				VOP_HOLD(derefstart);
 			}
 
+			// TODO possible deadlock when input vnode is locked and the vfs_lookup would lock it
 			error = vfs_lookup(&derefresult, derefstart, linkderef, NULL, pass);
 
 			if (*linkderef == '/')
@@ -595,8 +660,9 @@ int vfs_lookup(vnode_t **result, vnode_t *start, char *path, char *lastcomp, int
 			free(linkderef);
 
 			VOP_RELEASE(next);
-			if (error)
+			if (error) {
 				break;
+			}
 
 			next = derefresult;
 		}
@@ -607,8 +673,13 @@ int vfs_lookup(vnode_t **result, vnode_t *start, char *path, char *lastcomp, int
 	}
 
 	if (error) {
+		// current is locked here, unlock it if not the start or start wasnt locked
+		if (current != start || (flags & VFS_LOOKUP_INPUTLOCKED) == 0)
+			VOP_UNLOCK(current);
+
 		VOP_RELEASE(current);
 	} else {
+		// result is already locked here
 		*result = current;
 	}
 

@@ -413,16 +413,23 @@ static int localsock_connect(socket_t *socket, sockaddr_t *addr, uintmax_t flags
 	// check if its a socket node
 	if (result->type != V_TYPE_SOCKET) {
 		error = ENOTSOCK;
+		// locked by vfs_lookup
+		VOP_UNLOCK(result);
 		goto leave;
 	}
 
 	// and we have write access
 	error = VOP_ACCESS(result, V_ACCESS_WRITE, cred);
-	if (error)
+	if (error) {
+		// locked by vfs_lookup
+		VOP_UNLOCK(result);
 		goto leave;
+	}
 
 	// and if it has a valid binding
 	binding = result->socketbinding;
+	// locked by vfs_lookup
+	VOP_UNLOCK(result);
 	if (binding == NULL) {
 		error = ECONNREFUSED;
 		goto leave;
@@ -690,8 +697,8 @@ static int localsock_bind(socket_t *socket, sockaddr_t *addr) {
 	binding->server = localsocket;
 	MUTEX_INIT(&binding->mutex);
 
-	VOP_LOCK(vnode);
 	vnode->socketbinding = binding;
+	// locked by vfs_create
 	VOP_UNLOCK(vnode);
 	localsocket->binding = binding;
 	localsocket->bindpath = path;

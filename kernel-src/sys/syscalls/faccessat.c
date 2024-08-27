@@ -39,6 +39,7 @@ syscallret_t syscall_faccessat(context_t *, int dirfd, char *upath, int mode, in
 		goto cleanup;
 
 	ret.errno = VOP_ACCESS(node, mode, &_cpu()->thread->proc->cred);
+	VOP_UNLOCK(node);
 	ret.ret = 0;
 
 	cleanup:

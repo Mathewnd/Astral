@@ -6,6 +6,7 @@
 #include <kernel/file.h>
 #include <kernel/alloc.h>
 
+// vnode should be locked
 static int dostat(vnode_t *vnode, stat_t *stat) {
 	vattr_t attr;
 	int e = VOP_GETATTR(vnode, &attr, &_cpu()->thread->proc->cred);
@@ -40,7 +41,9 @@ syscallret_t syscall_fstat(context_t *ctx, int fd, stat_t *ustat) {
 	}
 
 	stat_t buf;
+	VOP_LOCK(file->vnode);
 	ret.errno = dostat(file->vnode, &buf);
+	VOP_UNLOCK(file->vnode);
 	if (ret.errno)
 		goto cleanup;
 
@@ -87,6 +90,8 @@ syscallret_t syscall_fstatat(context_t *ctx, int dirfd, char *upath, stat_t *ust
 
 	stat_t buf;
 	ret.errno = dostat(node, &buf);
+	// locked by vfs_lookup
+	VOP_UNLOCK(node);
 	if (ret.errno)
 		goto cleanup;
 

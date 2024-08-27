@@ -178,8 +178,10 @@ static syscallret_t execve(context_t *context, char *upath, char *uargv[], char 
 		goto error;
 
 	ret.errno = VOP_ACCESS(node, V_ACCESS_EXECUTE, &_cpu()->thread->proc->cred);
-	if (ret.errno)
+	VOP_UNLOCK(node);
+	if (ret.errno) {
 		goto error;
+	}
 
 	size_t readcount;
 	ret.errno = vfs_read(node, shebang, SHEBANG_SIZE - 1, 0, &readcount, 0);
@@ -229,8 +231,6 @@ static syscallret_t execve(context_t *context, char *upath, char *uargv[], char 
 		goto error;
 	}
 
-	// TODO permission and type checks and all
-
 	vmm_switchcontext(vmmctx);
 
 	auxv64list_t auxv64;
@@ -245,6 +245,8 @@ static syscallret_t execve(context_t *context, char *upath, char *uargv[], char 
 		ret.errno = vfs_lookup(&interpnode, interprefnode, interp, NULL, 0);
 		if (ret.errno)
 			goto error;
+
+		VOP_UNLOCK(interpnode);
 
 		auxv64list_t interpauxv;
 		char *interpinterp = NULL;
@@ -263,7 +265,9 @@ static syscallret_t execve(context_t *context, char *upath, char *uargv[], char 
 	}
 
 	vattr_t vattr;
+	VOP_LOCK(node);
 	ret.errno = VOP_GETATTR(node, &vattr, NULL);
+	VOP_UNLOCK(node);
 	if (ret.errno)
 		goto error;
 

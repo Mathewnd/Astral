@@ -39,6 +39,8 @@ syscallret_t syscall_readlinkat(context_t *, int dirfd, char *upath, char *ubuff
 		goto cleanup;
 
 	ret.errno = VOP_READLINK(node, &buffer, &_cpu()->thread->proc->cred);
+	// locked by vfs_lookup
+	VOP_UNLOCK(node);
 	if (ret.errno)
 		goto cleanup;
 

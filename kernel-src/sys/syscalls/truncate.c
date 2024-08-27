@@ -17,9 +17,10 @@ syscallret_t syscall_ftruncate(int fd, size_t size) {
 		goto cleanup;
 	}
 
-	MUTEX_ACQUIRE(&file->vnode->sizelock, false);
+	VOP_LOCK(file->vnode);
 	ret.errno = VOP_RESIZE(file->vnode, size, &_cpu()->thread->proc->cred);
-	MUTEX_RELEASE(&file->vnode->sizelock);
+	VOP_UNLOCK(file->vnode);
+
 	ret.ret = ret.errno ? -1 : 0;
 
 	cleanup:

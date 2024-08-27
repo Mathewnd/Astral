@@ -35,7 +35,9 @@ syscallret_t syscall_getdents(context_t *, int dirfd, void *ubuffer, size_t read
 	}
 
 	size_t offset = fd->offset;
+	VOP_LOCK(fd->vnode);
 	ret.errno = VOP_GETDENTS(fd->vnode, buffer, count, offset, &ret.ret);
+	VOP_UNLOCK(fd->vnode);
 
 	if (ret.errno)
 		goto cleanup;

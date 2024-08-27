@@ -18,7 +18,9 @@ syscallret_t syscall_fsync(context_t *context, int fd) {
 		return ret;
 	}
 
+	VOP_LOCK(file->vnode);
 	ret.errno = VOP_SYNC(file->vnode);
+	VOP_UNLOCK(file->vnode);
 
 	fd_release(file);
 	ret.ret = ret.errno ? -1 : 0;

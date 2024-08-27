@@ -5,6 +5,7 @@
 #include <arch/cpu.h>
 #include <kernel/auth.h>
 
+// node expected to be locked
 static int dochmod(vnode_t *node, mode_t mode) {
 	vattr_t attr;
 	cred_t *cred = &_cpu()->thread->proc->cred;
@@ -58,6 +59,9 @@ syscallret_t syscall_fchmodat(context_t *, int dirfd, char *upath, mode_t mode, 
 	ret.errno = dochmod(node, mode);
 	ret.ret = ret.errno ? -1 : 0;
 
+	// locked by vfs_lookup
+	VOP_UNLOCK(node);
+
 	cleanup:
 
 	if (node)
@@ -82,8 +86,10 @@ syscallret_t syscall_fchmod(context_t *, int fd, mode_t mode) {
 		return ret;
 	}
 
+	VOP_LOCK(file->vnode);
 	ret.errno = dochmod(file->vnode, mode);
 	ret.ret = ret.errno ? -1 : 0;
+	VOP_UNLOCK(file->vnode);
 
 	fd_release(file);
 

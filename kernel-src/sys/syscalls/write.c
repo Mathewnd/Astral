@@ -36,7 +36,10 @@ syscallret_t syscall_write(context_t *context, int fd, void *buffer, size_t size
 
 	if (file->flags & O_APPEND) {
 		vattr_t attr;
+		// TODO racey
+		VOP_LOCK(file->vnode);
 		ret.errno = VOP_GETATTR(file->vnode, &attr, &_cpu()->thread->proc->cred);
+		VOP_UNLOCK(file->vnode);
 		if (ret.errno)
 			goto cleanup;
 

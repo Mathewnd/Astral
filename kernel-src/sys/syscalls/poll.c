@@ -62,7 +62,10 @@ syscallret_t syscall_poll(context_t *, pollfd_t *fds, size_t nfds, int timeoutms
 
 		filebuff[i] = file;
 
+		VOP_LOCK(file->vnode);
 		int revents = VOP_POLL(file->vnode, timeoutms == 0 ? NULL : &desc.data[i], fdsbuff[i].events);
+		VOP_UNLOCK(file->vnode);
+
 		if (revents) {
 			fdsbuff[i].revents = revents;
 			++eventcount;

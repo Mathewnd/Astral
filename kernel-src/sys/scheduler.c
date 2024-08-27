@@ -760,11 +760,13 @@ void sched_runinit() {
 
 	vnode_t *consolenode;
 	__assert(devfs_getbyname("console", &consolenode) == 0);
-	__assert(VOP_OPEN(&consolenode, V_FFLAGS_READ | V_FFLAGS_NOCTTY, &proc->cred) == 0)
+	VOP_LOCK(consolenode);
+	__assert(VOP_OPEN(&consolenode, V_FFLAGS_READ | V_FFLAGS_NOCTTY, &proc->cred) == 0);
 	VOP_HOLD(consolenode);
-	__assert(VOP_OPEN(&consolenode, V_FFLAGS_WRITE | V_FFLAGS_NOCTTY, &proc->cred) == 0)
+	__assert(VOP_OPEN(&consolenode, V_FFLAGS_WRITE | V_FFLAGS_NOCTTY, &proc->cred) == 0);
 	VOP_HOLD(consolenode);
-	__assert(VOP_OPEN(&consolenode, V_FFLAGS_WRITE | V_FFLAGS_NOCTTY, &proc->cred) == 0)
+	__assert(VOP_OPEN(&consolenode, V_FFLAGS_WRITE | V_FFLAGS_NOCTTY, &proc->cred) == 0);
+	VOP_UNLOCK(consolenode);
 
 	file_t *stdin = fd_allocate();
 	file_t *stdout = fd_allocate();

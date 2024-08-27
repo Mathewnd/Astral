@@ -49,6 +49,8 @@ syscallret_t syscall_unlinkat(context_t *, int dirfd, char *upath, int flags) {
 
 	ret.errno = VOP_UNLINK(node, component, &_cpu()->thread->proc->cred);
 	ret.ret = ret.errno ? -1 : 0;
+	// locked by vfs_lookup
+	VOP_UNLOCK(node);
 
 	cleanup:
 	if (component)

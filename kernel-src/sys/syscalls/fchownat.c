@@ -27,6 +27,7 @@ syscallret_t syscall_fchownat(context_t *, int fd, char *upath, uid_t owner, gid
 
 		node = file->vnode;
 		VOP_HOLD(node);
+		VOP_LOCK(node);
 		fd_release(file);
 	} else {
 		// chown is done on the file pointed to by the path relative to fd
@@ -50,13 +51,17 @@ syscallret_t syscall_fchownat(context_t *, int fd, char *upath, uid_t owner, gid
 	}
 
 	ret.errno = auth_filesystem_check(&_cpu()->thread->proc->cred, AUTH_ACTIONS_FILESYSTEM_SETATTR, node);
-	if (ret.errno)
+	if (ret.errno) {
+		VOP_UNLOCK(node);
 		goto cleanup;
+	}
 
 	vattr_t attr;
 	ret.errno = VOP_GETATTR(node, &attr, &_cpu()->thread->proc->cred);
-	if (ret.errno)
+	if (ret.errno) {
+		VOP_UNLOCK(node);
 		goto cleanup;
+	}
 
 	// TODO retain set uid and set gid bits if an auth access was ok
 	attr.uid = owner;
@@ -65,6 +70,8 @@ syscallret_t syscall_fchownat(context_t *, int fd, char *upath, uid_t owner, gid
 
 	ret.errno = VOP_SETATTR(node, &attr, ((owner == -1) ? 0 : V_ATTR_UID) | ((group == -1) ? 0 : V_ATTR_GID), &_cpu()->thread->proc->cred);
 	ret.ret = ret.errno ? -1 : 0;
+
+	VOP_UNLOCK(node);
 
 	cleanup:
 	if (node)
