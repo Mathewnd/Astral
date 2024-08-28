@@ -238,7 +238,7 @@ static int tmpfs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offse
 }
 
 static int tmpfs_access(vnode_t *vnode, mode_t mode, cred_t *cred) {
-	return auth_filesystem_check(cred, auth_filesystem_convertaccess(mode), vnode) ? EACCES : 0;
+	return auth_filesystem_check(cred, auth_filesystem_convertaccess(mode), vnode, NULL) ? EACCES : 0;
 }
 
 static int tmpfs_unlink(vnode_t *node, vnode_t *child, char *name, cred_t *cred) {

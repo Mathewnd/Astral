@@ -1243,7 +1243,7 @@ static int ext2_getdents(vnode_t *vnode, dent_t *buffer, size_t count, uintmax_t
 }
 
 static int ext2_access(vnode_t *vnode, mode_t mode, cred_t *cred) {
-	return auth_filesystem_check(cred, auth_filesystem_convertaccess(mode), vnode) ? EACCES : 0;
+	return auth_filesystem_check(cred, auth_filesystem_convertaccess(mode), vnode, NULL) ? EACCES : 0;
 }
 
 static int ext2_readlink(vnode_t *vnode, char **link, cred_t *cred) {

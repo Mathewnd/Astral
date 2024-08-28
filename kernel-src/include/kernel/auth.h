@@ -25,6 +25,7 @@
 #define AUTH_ACTIONS_FILESYSTEM_READ 	4
 #define AUTH_ACTIONS_FILESYSTEM_SETATTR 8
 #define AUTH_ACTIONS_FILESYSTEM_MOUNT 	16
+#define AUTH_ACTIONS_FILESYSTEM_UNLINK	32
 
 #define AUTH_ACTIONS_CRED_SETRESUID	1
 #define AUTH_ACTIONS_CRED_SETRESGID	2
@@ -44,8 +45,8 @@ typedef struct {
 void auth_registerlistener(int scope, authlistener_t listener);
 int auth_check(int scope, cred_t *cred, int actions, void *arg0, void *arg1, void *arg2);
 
-static inline int auth_filesystem_check(cred_t *cred, int actions, vnode_t *vnode) {
-	return auth_check(AUTH_SCOPE_FILESYSTEM, cred, actions, vnode, NULL, NULL);
+static inline int auth_filesystem_check(cred_t *cred, int actions, vnode_t *vnode, vnode_t *dirvnode) {
+	return auth_check(AUTH_SCOPE_FILESYSTEM, cred, actions, vnode, dirvnode, NULL);
 }
 
 static inline int auth_system_check(cred_t *cred, int actions) {

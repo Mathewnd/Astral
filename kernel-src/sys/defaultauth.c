@@ -10,9 +10,14 @@
 
 static int filesystem(cred_t *cred, int actions, void *arg0, void *arg1, void *arg2) {
 	vnode_t *vnode = arg0; // expected locked
+	vnode_t *dirvnode = arg1; // expected locked
 
 	vattr_t attr;
 	VOP_GETATTR(vnode, &attr, NULL);
+
+	vattr_t dirattr;
+	if (dirvnode)
+		VOP_GETATTR(dirvnode, &dirattr, NULL);
 
 	int weight = 0;
 	if (actions & AUTH_ACTIONS_FILESYSTEM_WRITE) {
@@ -77,8 +82,43 @@ static int filesystem(cred_t *cred, int actions, void *arg0, void *arg1, void *a
 			weight += 1;
 		else
 			return AUTH_DECISION_DENY;
+
+		DONE_CHECK(actions);
 	}
 
+	if (actions & AUTH_ACTIONS_FILESYSTEM_UNLINK) {
+		__assert(dirvnode);
+
+		bool dosticky = false;
+		if (CRED_IS_ESU(cred)) {
+			dosticky = false;
+			weight += 1;
+		} else if (dirattr.uid == cred->euid && (dirattr.mode & V_ATTR_MODE_USER_WRITE)) {
+			dosticky = true;
+		} else if (dirattr.uid != cred->euid && dirattr.gid == cred->egid && (dirattr.mode & V_ATTR_MODE_GROUP_WRITE)) {
+			dosticky = true;
+		} else if (dirattr.uid != cred->euid && dirattr.gid != cred->egid && (dirattr.mode & V_ATTR_MODE_OTHERS_WRITE)) {
+			dosticky = true;
+		} else {
+			return AUTH_DECISION_DENY;
+		}
+
+		if (dosticky && (dirattr.mode & V_ATTR_MODE_STICKY)) {
+			// sticky directory, file can only be unlinked if:
+			// - user requesting deletion is root (already checked for)
+			// OR
+			// - user requesting deletion has write access (already checked for) AND
+			// - 	effective user requesting deletion is owner of directory
+			// 	OR
+			// - 	effective user requesting deletion is owner of file
+			if (dirattr.uid == cred->euid || attr.uid == cred->euid)
+				weight += 1;
+			else
+				return AUTH_DECISION_DENY;
+		}
+
+		DONE_CHECK(actions);
+	}
 
 	done:
 	return weight ? AUTH_DECISION_ALLOW : AUTH_DECISION_DEFER;

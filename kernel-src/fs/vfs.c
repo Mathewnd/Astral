@@ -85,7 +85,7 @@ int vfs_mount(vnode_t *backing, vnode_t *pathref, char *path, char *name, void *
 	if (err)
 		return err;
 
-	err = auth_filesystem_check(getcred(), AUTH_ACTIONS_FILESYSTEM_MOUNT, mounton);
+	err = auth_filesystem_check(getcred(), AUTH_ACTIONS_FILESYSTEM_MOUNT, mounton, NULL);
 	if (err) {
 		// locked by vfs_lookup
 		VOP_UNLOCK(mounton);
@@ -487,22 +487,15 @@ int vfs_unlink(vnode_t *ref, char *path) {
 		goto cleanup;
 	}
 
-	// TODO auth check
-	if (0) {
-		// locked by VOP_LOOKUP
-		VOP_UNLOCK(child);
-		// locked by vfs_lookup, unlocked by VOP_LOOKUP if component is ".."
-		if (!isdotdot)
-			VOP_UNLOCK(parent);
-		VOP_RELEASE(child);
-		VOP_RELEASE(parent);
-		return err;
-	}
+	err = auth_filesystem_check(getcred(), AUTH_ACTIONS_FILESYSTEM_UNLINK, child, parent) ? EACCES : 0;
+	if (err)
+		goto cleanup_release;
 
 	err = VOP_UNLINK(parent, child, component, getcred());
+	cleanup_release:
 	// locked by VOP_LOOKUP
 	VOP_UNLOCK(child);
-		// locked by vfs_lookup, unlocked by VOP_LOOKUP if component is ".."
+	// locked by vfs_lookup, unlocked by VOP_LOOKUP if component is ".."
 	if (!isdotdot)
 		VOP_UNLOCK(parent);
 
@@ -570,7 +563,6 @@ int vfs_rename(vnode_t *srcref, char *srcpath, vnode_t *dstref, char *dstpath, i
 	if (src != dst)
 		VOP_LOCK(src); // lock it again for the rename if they arent the same
 
-	// TODO auth check
 	if (0)
 		goto cleanup_child;
 

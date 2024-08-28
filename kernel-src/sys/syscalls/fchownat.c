@@ -50,7 +50,7 @@ syscallret_t syscall_fchownat(context_t *, int fd, char *upath, uid_t owner, gid
 			goto cleanup;
 	}
 
-	ret.errno = auth_filesystem_check(&_cpu()->thread->proc->cred, AUTH_ACTIONS_FILESYSTEM_SETATTR, node);
+	ret.errno = auth_filesystem_check(&_cpu()->thread->proc->cred, AUTH_ACTIONS_FILESYSTEM_SETATTR, node, NULL);
 	if (ret.errno) {
 		VOP_UNLOCK(node);
 		goto cleanup;

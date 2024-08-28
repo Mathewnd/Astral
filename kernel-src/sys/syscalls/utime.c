@@ -71,7 +71,7 @@ syscallret_t syscall_utimensat(context_t *, int fd, char *upath, timespec_t uts[
 	attr.atime = ts[0];
 	attr.mtime = ts[1];
 
-	ret.errno = auth_filesystem_check(&_cpu()->thread->proc->cred, AUTH_ACTIONS_FILESYSTEM_SETATTR, node);
+	ret.errno = auth_filesystem_check(&_cpu()->thread->proc->cred, AUTH_ACTIONS_FILESYSTEM_SETATTR, node, NULL);
 	if (ret.errno) {
 		if (uts == NULL)
 			ret.errno = VOP_ACCESS(node, V_ACCESS_WRITE, &_cpu()->thread->proc->cred);
