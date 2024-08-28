@@ -33,9 +33,9 @@ static void removefromlist(proc_t *pgrp, proc_t *proc) {
 	spinlock_release(&pgrp->pgrp.lock);
 }
 
-void jobctl_setctty(proc_t *proc, void *_ctty) {
+int jobctl_setctty(proc_t *proc, void *_ctty, bool steal) {
 	tty_t *tty = _ctty;
-
+	int error = 0;
 	bool intstatus = interrupt_set(false);
 	spinlock_acquire(&proc->jobctllock);
 
@@ -45,21 +45,38 @@ void jobctl_setctty(proc_t *proc, void *_ctty) {
 	if (proc->session.leader)
 		goto leave;
 
-	if (tty == NULL && proc->session.controllingtty) {
-		unholdtty = proc->session.controllingtty;
-		proc->session.controllingtty = NULL;
-		spinlock_acquire(&unholdtty->sessionlock);
-		unholdtty->session = NULL;
-		spinlock_release(&unholdtty->sessionlock);
+	tty_t *checktty = proc->session.controllingtty;
+	if (tty == NULL && checktty) {
+		if (checktty)
+			spinlock_acquire(&checktty->sessionlock);
+
+		// check if it was stolen
+		if (checktty->session == proc) {
+			// not stolen, unset it
+			// TODO SIGHUP and SIGCONT to foregroup group
+			unholdtty = checktty;
+			proc->session.controllingtty = NULL;
+			checktty->session = NULL;
+		}
+
+		spinlock_release(&checktty->sessionlock);
 	}
 
 	if (tty && proc->session.controllingtty == NULL) {
 		spinlock_acquire(&tty->sessionlock);
+
 		if (tty->session == NULL) {
 			VOP_HOLD(tty->mastervnode);
 			proc->session.controllingtty = tty;
 			tty->session = proc;
+		} else if (steal) {
+			// vnode reference gets transferred over to the new proc
+			tty->session->session.controllingtty = NULL;
+			tty->session = proc;
+		} else {
+			error = EPERM;
 		}
+
 		spinlock_release(&tty->sessionlock);
 	}
 
@@ -70,6 +87,8 @@ void jobctl_setctty(proc_t *proc, void *_ctty) {
 	if (unholdtty) {
 		VOP_RELEASE(unholdtty->mastervnode);
 	}
+
+	return error;
 }
 
 void *jobctl_getctty(proc_t *proc) {
@@ -77,22 +96,18 @@ void *jobctl_getctty(proc_t *proc) {
 
 	bool intstatus = interrupt_set(false);
 	spinlock_acquire(&proc->jobctllock);
+	proc_t *session = proc->session.leader ? proc->session.leader : proc;
 
-	if (proc->session.leader) {
-		proc_t *session = proc->session.leader;
+	if (session != proc)
 		spinlock_acquire(&session->jobctllock);
 
-		tty = session->session.controllingtty;
-		if (tty) {
-			VOP_HOLD(tty->mastervnode);
-		}
-
-		spinlock_release(&session->jobctllock);
-	} else if (proc->session.controllingtty){
-		// is the session leader
-		tty = proc->session.controllingtty;
+	tty = session->session.controllingtty;
+	if (tty) {
 		VOP_HOLD(tty->mastervnode);
 	}
+
+	if (session != proc)
+		spinlock_release(&session->jobctllock);
 
 	spinlock_release(&proc->jobctllock);
 	interrupt_set(intstatus);
@@ -262,7 +277,7 @@ void jobctl_detach(proc_t *proc) {
 	if (unholdsession) {
 		PROC_RELEASE(unholdsession);
 	} else {
-		jobctl_setctty(proc, NULL);
+		jobctl_setctty(proc, NULL, 0);
 		jobctl_signal(foreground, SIGHUP);
 		jobctl_signal(foreground, SIGCONT);
 		PROC_RELEASE(foreground);

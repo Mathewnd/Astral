@@ -320,19 +320,8 @@ int tty_ioctl(tty_t *tty, unsigned long req, void *arg, int *result) {
 		case TCSETS:
 			return USERCOPY_POSSIBLY_FROM_USER(&tty->termios, arg, sizeof(termios_t));
 		case TIOCSCTTY: {
-			if (arg) {
-				int steal;
-				int e = USERCOPY_POSSIBLY_FROM_USER(&steal, arg, sizeof(int));
-				if (e)
-					return e;
-
-				if (steal == 1) {
-					printf("tty: stealing not supported\n");
-					return EINVAL;
-				}
-			}
 			// set as controlling tty
-			jobctl_setctty(_cpu()->thread->proc, tty);
+			return jobctl_setctty(_cpu()->thread->proc, tty, (uintptr_t)arg == 1);
 			break;
 		}
 		case TIOCGPGRP: {
@@ -399,7 +388,7 @@ static int open(int minor, vnode_t **vnode, int flags) {
 		return ENODEV;
 	} else if ((flags & V_FFLAGS_NOCTTY) == 0) {
 		// set as controlling tty
-		jobctl_setctty(_cpu()->thread->proc, tty);
+		jobctl_setctty(_cpu()->thread->proc, tty, false);
 	}
 
 	return 0;
