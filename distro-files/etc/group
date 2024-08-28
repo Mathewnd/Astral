@@ -1,2 +1,4 @@
 root::0:root
 sshd::100:sshd
+unknown::999:unknown
+astral::999:astral
