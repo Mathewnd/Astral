@@ -1,0 +1,69 @@
+diff --git libevent-clean/Makefile.am libevent-workdir/Makefile.am
+index 2181500..1bee092 100644
+--- libevent-clean/Makefile.am
++++ libevent-workdir/Makefile.am
+@@ -211,9 +211,6 @@ endif
+ if KQUEUE_BACKEND
+ SYS_SRC += kqueue.c
+ endif
+-if EPOLL_BACKEND
+-SYS_SRC += epoll.c
+-endif
+ if EVPORT_BACKEND
+ SYS_SRC += evport.c
+ endif
+diff --git libevent-clean/configure.ac libevent-workdir/configure.ac
+index d00e063..f8f8e8d 100644
+--- libevent-clean/configure.ac
++++ libevent-workdir/configure.ac
+@@ -606,50 +606,6 @@ if test "x$ac_cv_header_sys_event_h" = "xyes"; then
+ fi
+ AM_CONDITIONAL(KQUEUE_BACKEND, [test "x$havekqueue" = "xyes"])
+ 
+-haveepollsyscall=no
+-haveepoll=no
+-AC_CHECK_FUNCS(epoll_ctl, [haveepoll=yes], )
+-if test "x$haveepoll" = "xyes" ; then
+-	AC_DEFINE(HAVE_EPOLL, 1,
+-		[Define if your system supports the epoll system calls])
+-	needsignal=yes
+-fi
+-if test "x$ac_cv_header_sys_epoll_h" = "xyes"; then
+-	if test "x$haveepoll" = "xno" ; then
+-		AC_MSG_CHECKING(for epoll system call)
+-		AC_RUN_IFELSE(
+-      [AC_LANG_PROGRAM([[
+-#include <stdint.h>
+-#include <sys/param.h>
+-#include <sys/types.h>
+-#include <sys/syscall.h>
+-#include <sys/epoll.h>
+-#include <unistd.h>
+-
+-int
+-epoll_create(int size)
+-{
+-	return (syscall(__NR_epoll_create, size));
+-}
+-        ]],[[
+-	int epfd;
+-
+-	epfd = epoll_create(256);
+-	return (epfd == -1 ? 1 : 0);
+-        ]]
+-      )], 
+-      [AC_MSG_RESULT(yes)
+-      AC_DEFINE(HAVE_EPOLL, 1,
+-	      [Define if your system supports the epoll system calls])
+-      needsignal=yes
+-      have_epoll=yes
+-      AC_LIBOBJ(epoll_sub)
+-      ], [AC_MSG_RESULT(no)], [AC_MSG_RESULT(no)]
+-    )
+-	fi
+-fi
+-AM_CONDITIONAL(EPOLL_BACKEND, [test "x$haveepoll" = "xyes"])
+-
+ haveeventports=no
+ AC_CHECK_FUNCS(port_create, [haveeventports=yes], )
+ if test "x$haveeventports" = "xyes" ; then
