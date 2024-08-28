@@ -138,7 +138,7 @@ typedef struct vops_t {
 	int (*ioctl)(vnode_t *node, unsigned long request, void *arg, int *result);
 	int (*maxseek)(vnode_t *node, size_t *max);
 	int (*resize)(vnode_t *node, size_t newsize, cred_t *cred);
-	int (*rename)(vnode_t *source, char *oldname, vnode_t *target, char *newname, int flags);
+	int (*rename)(vnode_t *sourcedir, vnode_t *source, char *oldname, vnode_t *targetdir, vnode_t *target, char *newname, int flags);
 	int (*getpage)(vnode_t *node, uintmax_t offset, struct page_t *page);
 	int (*putpage)(vnode_t *node, uintmax_t offset, struct page_t *page);
 	int (*sync)(vnode_t *node);
@@ -192,7 +192,7 @@ typedef struct vops_t {
 #define VOP_IOCTL(v, r, a, rp) ((v)->ops->ioctl ? (v)->ops->ioctl(v, r, a, rp) : ENOTTY)
 #define VOP_MAXSEEK(v, rp) ((v)->ops->maxseek ? (v)->ops->maxseek(v, rp) : ENOTTY)
 #define VOP_RESIZE(v, s, c) (v)->ops->resize(v, s, c)
-#define VOP_RENAME(s, o, t, n, f) (s)->ops->rename(s, o, t, n, f)
+#define VOP_RENAME(sd, s, o, td, t, n, f) (s)->ops->rename(sd, s, o, td, t, n, f)
 #define VOP_GETPAGE(v, o, p) (v)->ops->getpage(v, o, p)
 #define VOP_PUTPAGE(v, o, p) (v)->ops->putpage(v, o, p)
 #define VOP_SYNC(v) (v)->ops->sync(v)
@@ -216,11 +216,11 @@ int vfs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t
 int vfs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t *bytesread, int flags);
 int vfs_create(vnode_t *ref, char *path, vattr_t *attr, int type, vnode_t **node);
 int vfs_link(vnode_t *destref, char *destpath, vnode_t *linkref, char *linkpath, int type, vattr_t *attr);
+int vfs_rename(vnode_t *srcref, char *srcpath, vnode_t *dstref, char *dstpath, int flags);
 int vfs_unlink(vnode_t *ref, char *path);
 int vfs_pollstub(vnode_t *node, struct polldata *, int events);
 void vfs_inactive(vnode_t *node);
 
-#define VFS_LOOKUP_INPUTLOCKED 	0x10000000
 #define VFS_LOOKUP_PARENT 	0x20000000
 #define VFS_LOOKUP_NOLINK 	0x40000000
 #define VFS_LOOKUP_INTERNAL 	0x80000000

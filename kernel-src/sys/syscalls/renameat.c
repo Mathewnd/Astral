@@ -18,8 +18,6 @@ syscallret_t syscall_renameat(context_t *context, int olddirfd, char *uoldpath, 
 		return ret;
 	}
 
-	char *oldcomponent = NULL;
-	char *newcomponent = NULL;
 	char *oldpath = alloc(oldpathlen + 1);
 	if (oldpath == NULL) {
 		ret.errno = ENOMEM;
@@ -42,53 +40,18 @@ syscallret_t syscall_renameat(context_t *context, int olddirfd, char *uoldpath, 
 	file_t *oldfile = NULL;
 	vnode_t *newdirnode = NULL;
 	file_t *newfile = NULL;
-	vnode_t *targetdirnode = NULL;
-	vnode_t *sourcedirnode = NULL;
 	ret.errno = dirfd_enter(oldpath, olddirfd, &oldfile, &olddirnode);
-
 	if (ret.errno)
 		goto cleanup;
 
 	ret.errno = dirfd_enter(newpath, newdirfd, &newfile, &newdirnode);
-
 	if (ret.errno)
 		goto cleanup;
 
-	oldcomponent = alloc(strlen(oldpath) + 1);
-	newcomponent = alloc(strlen(newpath) + 1);
-
-	if (oldcomponent == NULL && newcomponent == NULL)
-		goto cleanup;
-
-	// TODO deadlocks.
-	ret.errno = vfs_lookup(&sourcedirnode, olddirnode, oldpath, oldcomponent, VFS_LOOKUP_NOLINK | VFS_LOOKUP_PARENT);
-	if (ret.errno)
-		goto cleanup;
-
-	ret.errno = vfs_lookup(&targetdirnode, newdirnode, newpath, newcomponent, VFS_LOOKUP_NOLINK | VFS_LOOKUP_PARENT);
-	if (ret.errno) {
-		VOP_UNLOCK(sourcedirnode);
-		goto cleanup;
-	}
-
-	ret.errno = VOP_RENAME(sourcedirnode, oldcomponent, targetdirnode, newcomponent, flags);
+	ret.errno = vfs_rename(olddirnode, oldpath, newdirnode, newpath, flags);
 	ret.ret = ret.errno ? -1 : 0;
-	VOP_UNLOCK(targetdirnode);
-	VOP_UNLOCK(sourcedirnode);
 
 	cleanup:
-
-	if (targetdirnode)
-		VOP_RELEASE(targetdirnode);
-
-	if (sourcedirnode)
-		VOP_RELEASE(sourcedirnode);
-
-	if (oldcomponent)
-		free(oldcomponent);
-
-	if (newcomponent)
-		free(newcomponent);
 
 	if (olddirnode)
 		dirfd_leave(olddirnode, oldfile);

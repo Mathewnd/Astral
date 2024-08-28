@@ -99,7 +99,10 @@ syscallret_t syscall_openat(context_t *context, int dirfd, char *path, int flags
 	ret.ret = newfd;
 
 	cleanup:
-	VOP_UNLOCK(vnode);
+
+	if (vnode)
+		VOP_UNLOCK(vnode);
+
 	cleanup_nounlock:
 	if (vnode && ret.errno) {
 		vfs_close(vnode, fileflagstovnodeflags(flags));

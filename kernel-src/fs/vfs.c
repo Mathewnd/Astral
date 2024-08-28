@@ -469,15 +469,21 @@ int vfs_link(vnode_t *destref, char *destpath, vnode_t *linkref, char *linkpath,
 
 int vfs_unlink(vnode_t *ref, char *path) {
 	char *component = alloc(strlen(path) + 1);
+	if (component == NULL)
+		return ENOMEM;
+
 	vnode_t *parent = NULL;
-	int err = vfs_lookup(&parent, ref, path, component, VFS_LOOKUP_PARENT);
+	int err = vfs_lookup(&parent, ref, path, component, VFS_LOOKUP_NOLINK | VFS_LOOKUP_PARENT);
 	if (err)
 		goto cleanup;
+
+	bool isdotdot = strcmp(path, "..") == 0;
 
 	vnode_t *child = NULL;
 	err = VOP_LOOKUP(parent, component, &child, getcred());
 	if (err) {
 		VOP_UNLOCK(parent);
+		VOP_RELEASE(parent);
 		goto cleanup;
 	}
 
@@ -485,20 +491,115 @@ int vfs_unlink(vnode_t *ref, char *path) {
 	if (0) {
 		// locked by VOP_LOOKUP
 		VOP_UNLOCK(child);
-		// locked by vfs_lookup
-		VOP_UNLOCK(parent);
+		// locked by vfs_lookup, unlocked by VOP_LOOKUP if component is ".."
+		if (!isdotdot)
+			VOP_UNLOCK(parent);
+		VOP_RELEASE(child);
+		VOP_RELEASE(parent);
 		return err;
 	}
 
 	err = VOP_UNLINK(parent, child, component, getcred());
 	// locked by VOP_LOOKUP
 	VOP_UNLOCK(child);
-	// locked by vfs_lookup
-	VOP_UNLOCK(parent);
+		// locked by vfs_lookup, unlocked by VOP_LOOKUP if component is ".."
+	if (!isdotdot)
+		VOP_UNLOCK(parent);
+
+	VOP_RELEASE(child);
 	VOP_RELEASE(parent);
 
 	cleanup:
 	free(component);
+	return err;
+}
+
+int vfs_rename(vnode_t *srcref, char *srcpath, vnode_t *dstref, char *dstpath, int flags) {
+	void *srccomp = alloc(strlen(srcpath) + 1);
+	if (srccomp == NULL)
+		return ENOMEM;
+
+	void *dstcomp = alloc(strlen(dstpath) + 1);
+	if (dstcomp == NULL) {
+		free(srccomp);
+		return ENOMEM;
+	}
+
+	vnode_t *srcdir = NULL;
+	vnode_t *dstdir = NULL;
+	int err = vfs_lookup(&srcdir, srcref, srcpath, srccomp, VFS_LOOKUP_NOLINK | VFS_LOOKUP_PARENT);
+	if (err)
+		goto cleanup_comp;
+
+	VOP_UNLOCK(srcdir); // locked by vfs_lookup, unlocked here to allow the other vfs_lookup to not deadlock
+
+	err = vfs_lookup(&dstdir, dstref, dstpath, dstcomp, VFS_LOOKUP_NOLINK | VFS_LOOKUP_PARENT);
+	if (err) {
+		VOP_RELEASE(srcdir);
+		goto cleanup_comp;
+	}
+
+	if (srcdir != dstdir)
+		VOP_LOCK(srcdir); // lock it again for the other ops if they arent the same
+
+	bool srcdotdot = strcmp(srccomp, "..") == 0;
+	bool dstdotdot = strcmp(dstcomp, "..") == 0;
+	vnode_t *src = NULL;
+	vnode_t *dst = NULL;
+
+	err = VOP_LOOKUP(srcdir, srccomp, &src, getcred());
+	if (err)
+		goto cleanup_locks;
+
+	// srcdir is unlocked by VOP_LOOKUP if srccomp is ".."
+	if (srcdotdot)
+		VOP_LOCK(srcdir);
+
+	VOP_UNLOCK(src); // locked by VOP_LOOKUP, unlocked here to allow the other VOP_LOOKUP to not deadlock
+
+	err = VOP_LOOKUP(dstdir, dstcomp, &dst, getcred());
+	if (err != 0 && err != ENOENT) {
+		VOP_RELEASE(src);
+		goto cleanup_locks;
+	}
+
+	// dstdir is unlocked by VOP_LOOKUP if dstcomp is ".."
+	if (dstdotdot)
+		VOP_LOCK(dstdir);
+
+	if (src != dst)
+		VOP_LOCK(src); // lock it again for the rename if they arent the same
+
+	// TODO auth check
+	if (0)
+		goto cleanup_child;
+
+	err = VOP_RENAME(srcdir, src, srccomp, dstdir, dst, dstcomp, flags);
+
+	cleanup_child:
+
+	if (src != dst)
+		VOP_UNLOCK(src);
+
+	if (dst)
+		VOP_UNLOCK(dst);
+
+	VOP_RELEASE(src);
+
+	if (dst)
+		VOP_RELEASE(dst);
+
+	cleanup_locks:
+	if (srcdir != dstdir)
+		VOP_UNLOCK(srcdir);
+
+	VOP_UNLOCK(dstdir); // locked by vfs_lookup
+	VOP_RELEASE(srcdir);
+	VOP_RELEASE(dstdir);
+
+	cleanup_comp:
+	free(srccomp);
+	free(dstcomp);
 	return err;
 }
 
@@ -523,7 +624,6 @@ static vnode_t *lowestnodeinmp(vnode_t *node) {
 
 // looks up a pathname
 // result will always be returned locked.
-// if flags & VFS_LOOKUP_INPUTLOCKED, the input is already locked and will be locked on return
 // if flags & VFS_LOOKUP_PARENT, the parent of the resulting node will be put in
 // the result pointer and lastcomp will contain the last component name
 // if flags & VFS_LOOKUP_NOLINK, the last component will not be dereferenced if its a symbolic link
@@ -544,12 +644,6 @@ int vfs_lookup(vnode_t **result, vnode_t *start, char *path, char *lastcomp, int
 		int e = highestnodeinmp(start, &r);
 		if (e)
 			return e;
-
-		if ((flags & VFS_LOOKUP_INPUTLOCKED) == 0) {
-			arch_e9_puts("lock1\n");
-			VOP_LOCK(r);
-			arch_e9_puts("lock1ok\n");
-		}
 
 		VOP_HOLD(r);
 		*result = r;
@@ -578,11 +672,7 @@ int vfs_lookup(vnode_t **result, vnode_t *start, char *path, char *lastcomp, int
 	vnode_t *next;
 	error = 0;
 	VOP_HOLD(current);
-
-	arch_e9_puts("lock2\n");
-	if ((flags & VFS_LOOKUP_INPUTLOCKED) == 0 || current != start)
-		VOP_LOCK(current);
-	arch_e9_puts("lock2ok\n");
+	VOP_LOCK(current);
 
 	for (int i = 0; i < pathlen; ++i) {
 		if (compbuffer[i] == '\0')
@@ -604,17 +694,14 @@ int vfs_lookup(vnode_t **result, vnode_t *start, char *path, char *lastcomp, int
 			islast = j == pathlen;
 		}
 
-		arch_e9_puts("component: ");
-		arch_e9_puts(component);
-
 		if (islast && (flags & VFS_LOOKUP_PARENT)) {
 			__assert(lastcomp);
 			strcpy(lastcomp, component);
 			break;
 		}
 
-
-		if (strcmp(component, "..") == 0) {
+		bool isdotdot = strcmp(component, "..") == 0;
+		if (isdotdot) {
 			// if the tree root, skip to next component
 			vnode_t *root = NULL;
 			__assert(highestnodeinmp(vfsroot, &root) == 0);
@@ -626,7 +713,6 @@ int vfs_lookup(vnode_t **result, vnode_t *start, char *path, char *lastcomp, int
 			// if the root of a mounted fs, go to
 			if (current->flags & V_FLAGS_ROOT) {
 				vnode_t *n = lowestnodeinmp(current);
-				arch_e9_puts("lock3\n");
 				if (n != current) {
 					VOP_HOLD(n);
 					VOP_UNLOCK(current);
@@ -634,7 +720,6 @@ int vfs_lookup(vnode_t **result, vnode_t *start, char *path, char *lastcomp, int
 					current = n;
 					VOP_LOCK(current);
 				}
-				arch_e9_puts("lock3ok\n");
 			}
 		}
 
@@ -643,13 +728,12 @@ int vfs_lookup(vnode_t **result, vnode_t *start, char *path, char *lastcomp, int
 		if (error)
 			break;
 
-		arch_e9_puts("lookup\n");
 		error = VOP_LOOKUP(current, component, &next, getcred());
-		arch_e9_puts("lookupok\n");
 		if (error)
 			break;
 
-		if ((current != start || (flags & VFS_LOOKUP_INPUTLOCKED) == 0) && current != next)
+		// if the current node is not the next one and VOP_LOOKUP didn't already by looking up "..", unlock it
+		if (current != next && isdotdot == false)
 			VOP_UNLOCK(current);
 
 		vnode_t *r = next;
@@ -663,13 +747,11 @@ int vfs_lookup(vnode_t **result, vnode_t *start, char *path, char *lastcomp, int
 		}
 
 		if (r != next) {
-			arch_e9_puts("lock4\n");
 			VOP_HOLD(r);
 			VOP_UNLOCK(next);
 			VOP_RELEASE(next);
 			next = r;
 			VOP_LOCK(next);
-			arch_e9_puts("lock4ok\n");
 		}
 
 		// dereference symlink
@@ -703,9 +785,7 @@ int vfs_lookup(vnode_t **result, vnode_t *start, char *path, char *lastcomp, int
 			}
 
 			// TODO possible deadlock when input vnode is locked and the vfs_lookup would lock it
-			arch_e9_puts("it1\n");
 			error = vfs_lookup(&derefresult, derefstart, linkderef, NULL, pass);
-			arch_e9_puts("it1ok\n");
 
 			if (*linkderef == '/')
 				VOP_RELEASE(derefstart);
@@ -726,10 +806,7 @@ int vfs_lookup(vnode_t **result, vnode_t *start, char *path, char *lastcomp, int
 	}
 
 	if (error) {
-		// current is locked here, unlock it if not the start or start wasnt locked
-		if (current != start || (flags & VFS_LOOKUP_INPUTLOCKED) == 0)
-			VOP_UNLOCK(current);
-
+		VOP_UNLOCK(current);
 		VOP_RELEASE(current);
 	} else {
 		// result is already locked here

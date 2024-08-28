@@ -294,13 +294,19 @@ int vmmcache_truncate(vnode_t *vnode, uintmax_t offset) {
 // called with lock held
 // returns with lock released
 // expects backing lock to be held
-static int syncpage(page_t *page) {
+static int syncpage(page_t *page, bool backinglock) {
 	__assert(page->flags & PAGE_FLAGS_DIRTY);
 	page->flags &= ~PAGE_FLAGS_DIRTY;
 	RELEASE_LOCK();
 	int e = 0;
 	if ((page->flags & PAGE_FLAGS_TRUNCATED) == 0) {
+		if (backinglock)
+			VOP_LOCK(page->backing);
+
 		e = VOP_PUTPAGE(page->backing, page->offset, (page_t *)page);
+
+		if (backinglock)
+			VOP_UNLOCK(page->backing);
 		VOP_RELEASE(page->backing);
 	} else {
 		// page got truncated from the file while waiting to be written to disk
@@ -355,7 +361,9 @@ int vmmcache_syncvnode(vnode_t *vnode, uintmax_t offset, size_t size) {
 		page_t *page = vnodedirtylist;
 		vnodedirtylist = vnodedirtylist->writenext;
 		page->writenext = NULL;
-		int error = syncpage(page);
+
+		int error = syncpage(page, false);
+
 		if (e == 0)
 			e = error;
 		// syncpage returns with lock released
@@ -441,9 +449,7 @@ static void writer() {
 
 		page->writenext = NULL;
 		// TODO notify error on vmmcache_syncvnode
-		VOP_LOCK(page->backing);
-		syncpage((page_t *)page);
-		VOP_UNLOCK(page->backing);
+		syncpage((page_t *)page, true);
 	}
 }
 

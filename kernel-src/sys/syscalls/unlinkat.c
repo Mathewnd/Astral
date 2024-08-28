@@ -40,25 +40,10 @@ syscallret_t syscall_unlinkat(context_t *, int dirfd, char *upath, int flags) {
 	if (ret.errno)
 		goto cleanup;
 
-	// TODO rmdir flag
-
-	vnode_t *node = NULL;
-	ret.errno = vfs_lookup(&node, dirnode, path, component, VFS_LOOKUP_NOLINK | VFS_LOOKUP_PARENT);
-	if (ret.errno)
-		goto cleanup;
-
-	ret.errno = VOP_UNLINK(node, component, &_cpu()->thread->proc->cred);
+	ret.errno = vfs_unlink(dirnode, path);
 	ret.ret = ret.errno ? -1 : 0;
-	// locked by vfs_lookup
-	VOP_UNLOCK(node);
 
 	cleanup:
-	if (component)
-		free(component);
-
-	if (node)
-		VOP_RELEASE(node);
-
 	if (dirnode)
 		dirfd_leave(dirnode, file);
 

@@ -1174,6 +1174,11 @@ static int ext2_lookup(vnode_t *vnode, char *name, vnode_t **result, cred_t *cre
 
 	MUTEX_RELEASE(&fs->inodetablelock);
 
+	// VOP_LOOKUP is required to unlock the parent vnode
+	// if the name is ".."
+	if (strcmp(name, "..") == 0)
+		VOP_UNLOCK(vnode);
+
 	// VOP_LOOKUP returns the vnode locked
 	*result = &newnode->vnode;
 	if (newnode != node)
@@ -1529,12 +1534,13 @@ static int ext2_munmap(vnode_t *node, void *addr, uintmax_t offset, int flags, c
 	__assert(!"unreachable");
 }
 
-static int handleinodeunlink(ext2fs_t *fs, ext2node_t *node, int inode) {
+static int handleinodeunlink(ext2fs_t *fs, ext2node_t *node, int inode, ext2node_t *known) {
 	bool isdir = false;
 	void *v;
 	MUTEX_ACQUIRE(&fs->inodetablelock, false);
 	int err = hashtable_get(&fs->inodetable, &v, &inode, sizeof(inode));
 	if (err == ENOENT) {
+		__assert(known == NULL);
 		inode_t buff;
 		err = readinode(fs, &buff, inode);
 		ASSERT_UNCLEAN(fs, err == 0);
@@ -1560,7 +1566,13 @@ static int handleinodeunlink(ext2fs_t *fs, ext2node_t *node, int inode) {
 		ext2node_t *unlinknode = v;
 		MUTEX_RELEASE(&fs->inodetablelock);
 
-		VOP_LOCK(&unlinknode->vnode);
+		if (known) {
+			__assert(unlinknode == known);
+		}
+
+		if (known == NULL)
+			VOP_LOCK(&unlinknode->vnode);
+
 		if (INODE_TYPEPERM_TYPE(unlinknode->inode.typeperm) == INODE_TYPE_DIR) { // account for . entry
 			isdir = 1;
 			unlinknode->inode.links -= 1;
@@ -1569,7 +1581,9 @@ static int handleinodeunlink(ext2fs_t *fs, ext2node_t *node, int inode) {
 		int nlinks = --unlinknode->inode.links;
 		err = writeinode(fs, &unlinknode->inode, unlinknode->id);
 		ASSERT_UNCLEAN(fs, err == 0);
-		VOP_UNLOCK(&unlinknode->vnode);
+		if (known == NULL)
+			VOP_UNLOCK(&unlinknode->vnode);
+
 		if (nlinks == 0) {
 			vnode_t *unlinkvnode = v;
 			// do an operation to remove from memory and inode table if theres no more refcounts nor links.
@@ -1594,7 +1608,7 @@ static int ext2_unlink(vnode_t *vnode, vnode_t *child, char *name, cred_t *cred)
 	if (err)
 		return err;
 
-	err = handleinodeunlink(fs, node, inode);
+	err = handleinodeunlink(fs, node, inode, (ext2node_t *)child);
 
 	return err;
 }
@@ -1634,8 +1648,7 @@ static int ext2_putpage(vnode_t *node, uintmax_t offset, struct page_t *page) {
 	return error;
 }
 
-// TODO redo this (newname -> targetvnode + newname)
-static int ext2_rename(vnode_t *sourcedir, char *oldname, vnode_t *targetdir, char *newname, int flags) {
+static int ext2_rename(vnode_t *sourcedir, vnode_t *source, char *oldname, vnode_t *targetdir, vnode_t *new, char *newname, int flags) {
 	if (sourcedir->vfs != targetdir->vfs)
 		return EXDEV;
 
@@ -1645,33 +1658,24 @@ static int ext2_rename(vnode_t *sourcedir, char *oldname, vnode_t *targetdir, ch
 	// the only guarantee mandated by posix is that target will always point to a valid file
 	// and it *may* have both source and target pointing to the same file
 
-	// get the source vnode
-	vnode_t *source = NULL;
-	int err = VOP_LOOKUP(sourcedir, oldname, &source, NULL);
-	if (err)
-		return err;
-
-	VOP_UNLOCK(source);
-
 	ext2fs_t *fs = (ext2fs_t *)targetdir->vfs;
 	ext2node_t *ext2targetnode = (ext2node_t *)targetdir;
 	ext2node_t *ext2sourcenode = (ext2node_t *)source;
 
 	// switch out or create the target dirent
 	int oldinode;
-	err = findindir(fs, ext2targetnode, newname, &oldinode, ext2sourcenode);
+	int err = findindir(fs, ext2targetnode, newname, &oldinode, ext2sourcenode);
 	if (err == ENOENT) {
 		// the dirent needs to be created
 		err = linkinternal(fs, ext2targetnode, ext2sourcenode, newname);
 	} else if (err == 0){
 		// the dirent was switched, clean up the inode
-		err = handleinodeunlink(fs, ext2targetnode, oldinode);
+		err = handleinodeunlink(fs, ext2targetnode, oldinode, (ext2node_t *)new);
 		ext2sourcenode->inode.links += 1;
 		ASSERT_UNCLEAN(fs, writeinode(fs, &ext2sourcenode->inode, ext2sourcenode->id) == 0);
 	}
 
 	if (err) {
-		VOP_RELEASE(source);
 		return err;
 	}
 
@@ -1687,15 +1691,14 @@ static int ext2_rename(vnode_t *sourcedir, char *oldname, vnode_t *targetdir, ch
 	}
 
 	cleanup:
-	VOP_RELEASE(source);
 	return err;
 }
 
 static int ext2_sync(vnode_t *vnode) {
-	int e = vmmcache_sync(vnode);
+	int e = vmmcache_syncvnode(vnode, 0, UINT64_MAX);
 	ext2fs_t *fs = (ext2fs_t *)vnode->vfs;
 	// TODO don't sync the entire disk but rather only the inodes and blocks
-	int e2 = vmmcache_sync(fs->backing);
+	int e2 = vmmcache_syncvnode(fs->backing, 0, UINT64_MAX);
 	// only the first errors are reported
 	return e ? e : e2;
 }

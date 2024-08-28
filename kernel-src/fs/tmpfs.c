@@ -77,6 +77,12 @@ static int tmpfs_lookup(vnode_t *parent, char *name, vnode_t **result, cred_t *c
 
 	child = r;
 	VOP_HOLD(child);
+
+	// VOP_LOOKUP is required to unlock the parent vnode
+	// if the name is ".."
+	if (strcmp(name, "..") == 0)
+		VOP_UNLOCK(parent);
+
 	// VOP_LOOKUP is expected to return child locked
 	if (child != parent)
 		VOP_LOCK(child);
@@ -248,7 +254,6 @@ static int tmpfs_unlink(vnode_t *node, vnode_t *child, char *name, cred_t *cred)
 
 	int err = hashtable_get(&tmpnode->children, &r, name, namelen);
 	if (err) {
-		VOP_UNLOCK(node);
 		return err;
 	}
 
@@ -260,9 +265,7 @@ static int tmpfs_unlink(vnode_t *node, vnode_t *child, char *name, cred_t *cred)
 	if (err)
 		return err;
 
-	VOP_LOCK(unlinknode);
 	--unlinktmpnode->attr.nlinks;
-	VOP_UNLOCK(unlinknode);
 	VOP_RELEASE(unlinknode);
 
 	return 0;
@@ -281,10 +284,8 @@ static int tmpfs_link(vnode_t *node, vnode_t *dir, char *name, cred_t *cred) {
 	tmpfsnode_t *tmpdir = (tmpfsnode_t *)dir;
 	size_t namelen = strlen(name);
 	void *v;
-	if (hashtable_get(&tmpdir->children, &v, name, namelen) == 0) {
-		VOP_UNLOCK(node);
+	if (hashtable_get(&tmpdir->children, &v, name, namelen) == 0)
 		return EEXIST;
-	}
 
 	int error = hashtable_set(&tmpdir->children, node, name, namelen, true);
 	if (error)
@@ -297,7 +298,7 @@ static int tmpfs_link(vnode_t *node, vnode_t *dir, char *name, cred_t *cred) {
 	return 0;
 }
 
-static int tmpfs_rename(vnode_t *source, char *oldname, vnode_t *target, char *newname, int flags) {
+static int tmpfs_rename(vnode_t *source, vnode_t *sourcefile, char *oldname, vnode_t *target, vnode_t *targetfile, char *newname, int flags) {
 	if (source->vfs != target->vfs)
 		return EXDEV;
 
@@ -317,6 +318,8 @@ static int tmpfs_rename(vnode_t *source, char *oldname, vnode_t *target, char *n
 		goto cleanup;
 
 	vnode_t *node = v;
+	__assert(sourcefile == node);
+
 	vnode_t *oldnode = NULL;
 
 	// get old node in target
@@ -325,6 +328,8 @@ static int tmpfs_rename(vnode_t *source, char *oldname, vnode_t *target, char *n
 		goto cleanup;
 	else if (error == 0) // found
 		oldnode = v;
+
+	__assert(oldnode == targetfile);
 
 	if (node->vfsmounted || (oldnode && oldnode->vfsmounted)) {
 		error = EBUSY;
@@ -383,10 +388,8 @@ static int tmpfs_readlink(vnode_t *node, char **link, cred_t *cred) {
 	tmpfsnode_t *tmpnode = (tmpfsnode_t *)node;
 
 	char *ret = alloc(strlen(tmpnode->link) + 1);
-	if (ret == NULL) {
-		VOP_UNLOCK(node);
+	if (ret == NULL)
 		return ENOMEM;
-	}
 
 	strcpy(ret, tmpnode->link);
 	*link = ret;
