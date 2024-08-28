@@ -8,6 +8,19 @@
 			goto done; \
 	}
 
+static inline bool writecheck(cred_t *cred, vattr_t *attr) {
+	if (CRED_IS_ESU(cred))
+		return true;
+	else if (attr->uid == cred->euid && (attr->mode & V_ATTR_MODE_USER_WRITE))
+		return true;
+	else if (attr->uid != cred->euid && attr->gid == cred->egid && (attr->mode & V_ATTR_MODE_GROUP_WRITE))
+		return true;
+	else if (attr->uid != cred->euid && attr->gid != cred->egid && (attr->mode & V_ATTR_MODE_OTHERS_WRITE))
+		return true;
+	else
+		return false;
+}
+
 static int filesystem(cred_t *cred, int actions, void *arg0, void *arg1, void *arg2) {
 	vnode_t *vnode = arg0; // expected locked
 	vnode_t *dirvnode = arg1; // expected locked
@@ -21,13 +34,7 @@ static int filesystem(cred_t *cred, int actions, void *arg0, void *arg1, void *a
 
 	int weight = 0;
 	if (actions & AUTH_ACTIONS_FILESYSTEM_WRITE) {
-		if (CRED_IS_ESU(cred))
-			weight += 1;
-		else if (attr.uid == cred->euid && (attr.mode & V_ATTR_MODE_USER_WRITE))
-			weight += 1;
-		else if (attr.uid != cred->euid && attr.gid == cred->egid && (attr.mode & V_ATTR_MODE_GROUP_WRITE))
-			weight += 1;
-		else if (attr.uid != cred->euid && attr.gid != cred->egid && (attr.mode & V_ATTR_MODE_OTHERS_WRITE))
+		if (writecheck(cred, &attr))
 			weight += 1;
 		else
 			return AUTH_DECISION_DENY;
@@ -86,20 +93,21 @@ static int filesystem(cred_t *cred, int actions, void *arg0, void *arg1, void *a
 		DONE_CHECK(actions);
 	}
 
-	if (actions & AUTH_ACTIONS_FILESYSTEM_UNLINK) {
+	if (actions & (AUTH_ACTIONS_FILESYSTEM_UNLINK | AUTH_ACTIONS_FILESYSTEM_RENAME)) {
 		__assert(dirvnode);
 
 		bool dosticky = false;
 		if (CRED_IS_ESU(cred)) {
 			dosticky = false;
-			weight += 1;
-		} else if (dirattr.uid == cred->euid && (dirattr.mode & V_ATTR_MODE_USER_WRITE)) {
-			dosticky = true;
-		} else if (dirattr.uid != cred->euid && dirattr.gid == cred->egid && (dirattr.mode & V_ATTR_MODE_GROUP_WRITE)) {
-			dosticky = true;
-		} else if (dirattr.uid != cred->euid && dirattr.gid != cred->egid && (dirattr.mode & V_ATTR_MODE_OTHERS_WRITE)) {
+		} else if (writecheck(cred, &dirattr)) {
 			dosticky = true;
 		} else {
+			return AUTH_DECISION_DENY;
+		}
+
+		// when renaming, we need to make sure we can also change the .. entry for the renamed
+		// directory when it is a directory
+		if ((actions & AUTH_ACTIONS_FILESYSTEM_RENAME) && vnode->type == V_TYPE_DIR && writecheck(cred, &attr) == false) {
 			return AUTH_DECISION_DENY;
 		}
 
@@ -115,6 +123,8 @@ static int filesystem(cred_t *cred, int actions, void *arg0, void *arg1, void *a
 				weight += 1;
 			else
 				return AUTH_DECISION_DENY;
+		} else {
+			weight += 1;
 		}
 
 		DONE_CHECK(actions);

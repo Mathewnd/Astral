@@ -563,7 +563,21 @@ int vfs_rename(vnode_t *srcref, char *srcpath, vnode_t *dstref, char *dstpath, i
 	if (src != dst)
 		VOP_LOCK(src); // lock it again for the rename if they arent the same
 
-	if (0)
+	// check if we can rename the old file
+	err = auth_filesystem_check(getcred(), AUTH_ACTIONS_FILESYSTEM_RENAME, src, srcdir) ? EACCES : 0;
+	if (err)
+		goto cleanup_child;
+
+	if (dst) {
+		// and if we have a file, check if we can replace it
+		err = auth_filesystem_check(getcred(), AUTH_ACTIONS_FILESYSTEM_UNLINK, dst, dstdir) ? EACCES : 0;
+		if (err)
+			goto cleanup_child;
+	}
+
+	// and if we can then write the new link to the directory
+	err = VOP_ACCESS(dstdir, V_ACCESS_WRITE, getcred());
+	if (err)
 		goto cleanup_child;
 
 	err = VOP_RENAME(srcdir, src, srccomp, dstdir, dst, dstcomp, flags);
