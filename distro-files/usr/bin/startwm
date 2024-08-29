@@ -1,3 +1,4 @@
+#!/usr/bin/bash
 export DISPLAY=":0"
 X &
 while [ 1 ]
@@ -16,5 +17,5 @@ do
   sleep 0.5
 done
 stty -echo -echoctl -isig
-xterm -e "bash -l" & &> /usr/var/log/xtermstderr > /usr/var/log/xtermstdout
-exec fvwm3 &> /usr/var/log/fvwm3stderr > /usr/var/log/fvwm3stdout
+xterm -e "bash -l" & &> /tmp/.xtermstderr > /tmp/.xtermstdout
+exec fvwm3 &> /tmp/.fvwm3stderr > /tmp/.fvwm3stdout
