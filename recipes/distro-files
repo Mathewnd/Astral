@@ -5,5 +5,21 @@ from_source=distro-files
 package() {
 	cp -r ${source_dir}/* ${dest_dir}
 	mkdir -p ${dest_dir}/root/.fvwm
+	mkdir -p ${dest_dir}/home/astral/.fvwm
+	mkdir -p ${dest_dir}/etc/skel/.fvwm
+
+	# fvwm background
 	ln -fvs /usr/share/fvwm3/default-config/images/background/bg3.png ${dest_dir}/root/.fvwm/.BGdefault
+	ln -fvs /usr/share/fvwm3/default-config/images/background/bg3.png ${dest_dir}/home/astral/.fvwm/.BGdefault
+	ln -fvs /usr/share/fvwm3/default-config/images/background/bg3.png ${dest_dir}/etc/skel/.fvwm/.BGdefault
+
+	# quake files
+	ln -fvs /usr/share/games/quake/id1 ${dest_dir}/root/id1
+	ln -fvs /usr/share/games/quake/id1 ${dest_dir}/home/astral/id1
+	ln -fvs /usr/share/games/quake/id1 ${dest_dir}/etc/skel
+
+	# doom files
+	ln -fvs /usr/share/games/doom/DOOM1.WAD ${dest_dir}/root/DOOM1.WAD
+	ln -fvs /usr/share/games/doom/DOOM1.WAD ${dest_dir}/home/astral/DOOM1.WAD
+	ln -fvs /usr/share/games/doom/DOOM1.WAD ${dest_dir}/etc/skel/DOOM1.WAD
 }
