@@ -7,6 +7,108 @@
 #include <string.h>
 #include <sys/param.h>
 
+static void snatchconsole(void) {
+	int rfd = open("/dev/console", O_RDONLY);
+	int wfd = open("/dev/console", O_WRONLY);
+	close(0);
+	close(1);
+	close(2);
+
+	dup2(rfd, 0);
+	dup2(wfd, 1);
+	dup2(wfd, 2);
+
+	close(rfd);
+	close(wfd);
+}
+
+static void dowaitpid(pid_t pid) {
+	int status;
+	pid_t retpid;
+	do {
+		retpid = waitpid(-1, &status, 0);
+		if (retpid == -1) {
+			perror("init: waitpid failed");
+			exit(EXIT_FAILURE);
+		}
+	} while (retpid != pid);
+
+	if (WEXITSTATUS(status) == EXIT_FAILURE)
+		exit(EXIT_FAILURE);
+}
+
+static void dorootshell(void) {
+	// loop starting a root shell every time it exits
+	for (;;) {
+		printf("init: starting root shell\n");
+
+		pid_t pid = fork();
+		if (pid == -1) {
+			perror("init: fork failed");
+			exit(EXIT_FAILURE);
+		}
+
+		if (pid == 0) {
+			// create its own process group and set is as the foreground group
+			if (setpgid(0, 0) == -1) {
+				perror("init: setpgrp failed");
+				exit(EXIT_FAILURE);
+			}
+
+			if (tcsetpgrp(0, getpid()) == -1) {
+				perror("init: tcsetpgrp failed");
+				exit(EXIT_FAILURE);
+			}
+
+			execl("/usr/bin/bash", "/usr/bin/bash", "-l", NULL);
+			perror("init: execl /usr/bin/bash failed");
+			return exit(EXIT_FAILURE);
+		}
+
+		dowaitpid(pid);
+	}
+}
+
+static void dologinprompt(void) {
+	for (;;) {
+		pid_t pid = fork();
+		if (pid == -1) {
+			perror("init: fork failed");
+			exit(EXIT_FAILURE);
+		}
+
+		if (pid == 0) {
+			setsid();
+			snatchconsole();
+			execl("/bin/login", NULL);
+			perror("init: exec /bin/login failed");
+			exit(EXIT_FAILURE);
+		}
+
+		dowaitpid(pid);
+	}
+}
+
+static void dostartwm(void) {
+	pid_t pid = fork();
+	if (pid == -1) {
+		perror("init: fork failed");
+		exit(EXIT_FAILURE);
+	}
+
+	if (pid == 0) {
+
+		execl("/usr/bin/startwm", NULL);
+		perror("init: exec /usr/bin/startwm failed");
+		exit(EXIT_FAILURE);
+	}
+
+	dowaitpid(pid);
+
+	// fall back to a root shell if this ever returns (it shouldn't)
+	dorootshell();
+}
+
 int main(int argc, char *argv[]) {
 	printf("init: Welcome to Astral!\n");
 
@@ -78,56 +180,16 @@ int main(int argc, char *argv[]) {
 		return EXIT_FAILURE;
 	}
 
-	// open /dev/console but as the controlling terminal
+	if (argc >1 && strcmp(argv[1], "withlogin") == 0)
+		dologinprompt();
+
+	// open /dev/console as the controlling terminal if we're not doing login
 	printf("init: reopening /dev/console as the controlling terminal\n");
-	int rfd = open("/dev/console", O_RDONLY);
-	int wfd = open("/dev/console", O_WRONLY);
-	close(0);
-	close(1);
-	close(2);
+	snatchconsole();
 
-	dup2(rfd, 0);
-	dup2(wfd, 1);
-	dup2(wfd, 2);
-
-	close(rfd);
-	close(wfd);
-
-	// run the startwm script
-	// if that exits, we will fall back to the console shell
 	if (argc > 1 && strcmp(argv[1], "withx") == 0)
-		system("/usr/bin/startwm");
+		dostartwm();
 
-	// start user shell
-	printf("init: running /usr/bin/bash\n");
-	pid = fork();
-	if (pid == -1) {
-		perror("init: fork failed");
-		return EXIT_FAILURE;
-	}
-
-	if (pid == 0) {
-		// create its own process group and set is as the foreground group
-		if (setpgid(0, 0) == -1) {
-			perror("init: setpgrp failed");
-			return EXIT_FAILURE;
-		}
-
-		if (tcsetpgrp(0, getpid()) == -1) {
-			perror("init: tcsetpgrp failed");
-			return EXIT_FAILURE;
-		}
-
-		execl("/usr/bin/bash", "/usr/bin/bash", "-l", NULL);
-		perror("init: execl /usr/bin/bash failed");
-		return EXIT_FAILURE;
-	}
-
-	for (;;) {
-		int status;
-		if (waitpid(-1, &status, 0) == -1) {
-			perror("init: waitpid failed");
-			return EXIT_FAILURE;
-		}
-	}
+	dorootshell();
+	__builtin_unreachable();
 }
