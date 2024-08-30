@@ -4,9 +4,6 @@
 #include <kernel/auth.h>
 
 int cred_setuids(cred_t *cred, int uid, int euid, int suid) {
-	if (uid < -1 || euid < -1 || suid < -1 || (uid == -1 && euid == -1 && suid == -1))
-		return EINVAL;
-
 	int error = auth_cred_check(cred, AUTH_ACTIONS_CRED_SETRESUID, uid, euid, suid);
 	if (error)
 		return error;
@@ -19,9 +16,6 @@ int cred_setuids(cred_t *cred, int uid, int euid, int suid) {
 }
 
 int cred_setgids(cred_t *cred, int gid, int egid, int sgid) {
-	if (gid < -1 || egid < -1 || sgid < -1 || (gid == -1 && egid == -1 && sgid == -1))
-		return EINVAL;
-
 	int error = auth_cred_check(cred, AUTH_ACTIONS_CRED_SETRESGID, gid, egid, sgid);
 	if (error)
 		return error;

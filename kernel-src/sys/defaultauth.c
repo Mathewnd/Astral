@@ -171,7 +171,7 @@ static int credlistener(cred_t *cred, int actions, void *arg0, void *arg1, void 
 		} else {
 			if (*id != -1 && *id != cred->uid && *id != cred->euid && *id != cred->suid)
 				return AUTH_DECISION_DENY;
-			if (*eid != -1 && *id != cred->uid && *id != cred->euid && *id != cred->suid)
+			if (*eid != -1 && *eid != cred->uid && *eid != cred->euid && *eid != cred->suid)
 				return AUTH_DECISION_DENY;
 			if (*sid != -1 && *sid != cred->uid && *sid != cred->euid && *sid != cred->suid)
 				return AUTH_DECISION_DENY;
@@ -188,7 +188,7 @@ static int credlistener(cred_t *cred, int actions, void *arg0, void *arg1, void 
 		} else {
 			if (*id != -1 && *id != cred->gid && *id != cred->egid && *id != cred->sgid)
 				return AUTH_DECISION_DENY;
-			if (*eid != -1 && *id != cred->gid && *id != cred->egid && *id != cred->sgid)
+			if (*eid != -1 && *eid != cred->gid && *eid != cred->egid && *eid != cred->sgid)
 				return AUTH_DECISION_DENY;
 			if (*sid != -1 && *sid != cred->gid && *sid != cred->egid && *sid != cred->sgid)
 				return AUTH_DECISION_DENY;
