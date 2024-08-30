@@ -361,7 +361,7 @@ bool signal_check(struct thread_t *thread, context_t *context, bool syscall, uin
 		// get where in memory to put the frame
 		void *stack = altstack ? altstack : (void *)CTX_SP(context);
 		#if ARCH_SIGNAL_STACK_GROWS_DOWNWARDS == 1
-		stack = (void *)(((uintptr_t)stack - ARCH_SIGNAL_REDZONE_SIZE - sizeof(sigframe_t)) & ~0xfl);
+		stack = (void *)((((uintptr_t)stack - ARCH_SIGNAL_REDZONE_SIZE - sizeof(sigframe_t)) & ~0xfl) - 0x8);
 		#else
 			#error unsupported
 		#endif
