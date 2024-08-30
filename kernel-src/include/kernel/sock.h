@@ -30,6 +30,7 @@ typedef struct {
 } sockaddr_t;
 
 #define SOCKET_RECV_FLAGS_PEEK 0x8000000000000000l
+#define SOCKET_RECV_FLAGS_WAITALL 0x4000000000000000l
 #define SOCKET_SEND_FLAGS_NOSIGNAL 0x8000000000000000l
 typedef struct socketops_t {
 	int (*bind)(socket_t *socket, sockaddr_t *addr);

@@ -257,9 +257,15 @@ static int localsock_recv(socket_t *socket, sockaddr_t *addr, void *buffer, size
 		int revents = internalpoll(socket, &desc.data[0], POLLIN);
 
 		if (revents) {
-			poll_leave(&desc);
-			poll_destroydesc(&desc);
-			break;
+			if ((revents & POLLHUP) == 0 && (flags & SOCKET_RECV_FLAGS_WAITALL) &&
+				(flags & SOCKET_RECV_FLAGS_PEEK) == 0 && RINGBUFFER_DATACOUNT(&localsocket->ringbuffer) < count) {
+				// wait for more data (WAITALL is set)
+				poll_add(&socket->pollheader, &desc.data[0], POLLIN);
+			} else {
+				poll_leave(&desc);
+				poll_destroydesc(&desc);
+				break;
+			}
 		}
 
 		if (flags & V_FFLAGS_NONBLOCKING) {

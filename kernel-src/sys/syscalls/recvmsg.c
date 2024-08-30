@@ -6,7 +6,7 @@
 #include <kernel/file.h>
 #include <kernel/alloc.h>
 
-#define KNOWN_FLAGS (MSG_PEEK)
+#define KNOWN_FLAGS (MSG_PEEK | MSG_WAITALL)
 
 syscallret_t syscall_recvmsg(context_t *, int fd, msghdr_t *umsghdr, int flags) {
 	__assert((flags & ~KNOWN_FLAGS) == 0);
@@ -41,7 +41,15 @@ syscallret_t syscall_recvmsg(context_t *, int fd, msghdr_t *umsghdr, int flags) 
 	sockaddr_t sockaddr;
 	socket_t *socket = SOCKFS_SOCKET_FROM_NODE(file->vnode);
 	size_t recvcount;
-	ret.errno = socket->ops->recv(socket, &sockaddr, buffer, buffersize, fileflagstovnodeflags(file->flags) | ((flags & MSG_PEEK) ? SOCKET_RECV_FLAGS_PEEK : 0), &recvcount);
+
+	uintmax_t recvflags = 0;
+	if (flags & MSG_PEEK)
+		recvflags |= SOCKET_RECV_FLAGS_PEEK;
+
+	if (flags & MSG_WAITALL)
+		recvflags |= SOCKET_RECV_FLAGS_WAITALL;
+
+	ret.errno = socket->ops->recv(socket, &sockaddr, buffer, buffersize, fileflagstovnodeflags(file->flags) | recvflags, &recvcount);
 	ret.ret = ret.errno ? -1 : recvcount;
 	if (ret.errno)
 		goto cleanup;
