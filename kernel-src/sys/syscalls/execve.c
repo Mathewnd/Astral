@@ -284,7 +284,14 @@ static syscallret_t execve(context_t *context, char *upath, char *uargv[], char 
 	}
 
 	memset(&_cpu()->thread->signals.stack, 0, sizeof(stack_t));
-	memset(&proc->signals.actions[0], 0, sizeof(sigaction_t) * NSIG);
+
+	// execve keeps information about ignored signals
+	for (int i = 0; i < NSIG; ++i) {
+		bool ign = proc->signals.actions[i].address == SIG_IGN;
+		memset(&proc->signals.actions[i], 0, sizeof(sigaction_t));
+		if (ign)
+			proc->signals.actions[i].address = SIG_IGN;
+	}
 
 	vmm_destroycontext(oldctx);
 	CTX_SP(context) = (uint64_t)stack;
