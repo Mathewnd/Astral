@@ -234,7 +234,7 @@ static void destroyrange(vmmrange_t *range, uintmax_t _offset, size_t size, int 
 				VOP_LOCK(range->vnode);
 				__assert(VOP_MUNMAP(range->vnode, vaddr, range->offset + offset, mmuflagstovnodeflags(range->mmuflags) | (range->flags & VMM_FLAGS_SHARED ? V_FFLAGS_SHARED : 0), cred) == 0);
 				VOP_UNLOCK(range->vnode);
-			} else if (arch_mmu_iswritable(_cpu()->vmmctx->pagetable, vaddr) && arch_mmu_isdirty(_cpu()->vmmctx->pagetable, vaddr)) {
+			} else if (arch_mmu_iswritable(_cpu()->vmmctx->pagetable, vaddr)) {
 				// dirty page cache mapping
 				arch_mmu_unmap(_cpu()->vmmctx->pagetable, vaddr);
 				VOP_LOCK(range->vnode);
@@ -258,7 +258,11 @@ static void destroyrange(vmmrange_t *range, uintmax_t _offset, size_t size, int 
 		VOP_RELEASE(range->vnode);
 }
 
-static void changemmurange(void *base, size_t size, mmuflags_t newflags) {
+#define CHANGE_MASK_CHECK(m, f, c, n) \
+	if (((n) & (f)) == 0 && ((c) & (f))) \
+			m |= f;
+
+static void changemmurange(vmmrange_t *range, void *base, size_t size, mmuflags_t newflags) {
 	for (uintmax_t offset = 0; offset < size; offset += PAGE_SIZE) {
 		void *address = (void *)((uintptr_t)base + offset);
 
@@ -269,12 +273,25 @@ static void changemmurange(void *base, size_t size, mmuflags_t newflags) {
 
 		void *physical = arch_mmu_getphysical(_cpu()->vmmctx->pagetable, address);
 
+		uintmax_t mask = 0;
+		// check which flags are currently set and will be unset
+		CHANGE_MASK_CHECK(mask, ARCH_MMU_FLAGS_READ, currentflags, newflags);
+		CHANGE_MASK_CHECK(mask, ARCH_MMU_FLAGS_WRITE, currentflags, newflags);
+		CHANGE_MASK_CHECK(mask, ARCH_MMU_FLAGS_USER, currentflags, newflags);
+		CHANGE_MASK_CHECK(mask, ARCH_MMU_FLAGS_NOEXEC, currentflags, newflags);
+
+		if ((range->flags & VMM_FLAGS_FILE) && (range->flags & VMM_FLAGS_SHARED) && (mask & ARCH_MMU_FLAGS_WRITE)) {
+			// removing write permissions from a writeable dirty shared mapped page, mark it as dirty, as
+			// it won't be marked dirty upon a vmm_unmap after this
+			page_t *page = pmm_getpage(physical);
+			VOP_LOCK(range->vnode);
+			vmmcache_makedirty(page);
+			VOP_UNLOCK(range->vnode);
+		}
+
 		// we will only change the mapping if the permissions decreased
-		if (	((newflags & ARCH_MMU_FLAGS_READ) == 0 && (currentflags & ARCH_MMU_FLAGS_READ)) ||
-			((newflags & ARCH_MMU_FLAGS_WRITE) == 0 && (currentflags & ARCH_MMU_FLAGS_WRITE)) ||
-			((newflags & ARCH_MMU_FLAGS_USER) == 0 && (currentflags & ARCH_MMU_FLAGS_USER)) ||
-			((newflags & ARCH_MMU_FLAGS_NOEXEC) && (currentflags & ARCH_MMU_FLAGS_NOEXEC))) {
-			arch_mmu_remap(_cpu()->vmmctx->pagetable, physical, address, newflags);
+		if (mask) {
+			arch_mmu_remap(_cpu()->vmmctx->pagetable, physical, address, currentflags & ~mask);
 			arch_mmu_invalidate(address);
 		}
 	}
@@ -308,7 +325,7 @@ static void changemap(vmmspace_t *space, void *address, size_t size, bool free, 
 				destroyrange(range, 0, range->size, 0);
 				freerange(range);
 			} else {
-				changemmurange(range->start, range->size, newmmuflags);
+				changemmurange(range, range->start, range->size, newmmuflags);
 				range->mmuflags = newmmuflags;
 			}
 		} else if (address > range->start && top < rangetop) {
@@ -343,7 +360,7 @@ static void changemap(vmmspace_t *space, void *address, size_t size, bool free, 
 				newrange->flags = range->flags;
 				newrange->mmuflags = newmmuflags;
 
-				changemmurange(newrange->start, newrange->size, newrange->mmuflags);
+				changemmurange(range, newrange->start, newrange->size, newrange->mmuflags);
 
 				if (range->flags & VMM_FLAGS_FILE) {
 					newrange->vnode = range->vnode;
@@ -373,7 +390,7 @@ static void changemap(vmmspace_t *space, void *address, size_t size, bool free, 
 				newrange->flags = range->flags;
 				newrange->mmuflags = newmmuflags;
 
-				changemmurange(newrange->start, newrange->size, newrange->mmuflags);
+				changemmurange(range, newrange->start, newrange->size, newrange->mmuflags);
 
 				if (range->flags & VMM_FLAGS_FILE) {
 					newrange->vnode = range->vnode;
@@ -397,7 +414,7 @@ static void changemap(vmmspace_t *space, void *address, size_t size, bool free, 
 				newrange->flags = range->flags;
 				newrange->mmuflags = newmmuflags;
 
-				changemmurange(newrange->start, newrange->size, newrange->mmuflags);
+				changemmurange(range, newrange->start, newrange->size, newrange->mmuflags);
 
 				if (range->flags & VMM_FLAGS_FILE) {
 					newrange->vnode = range->vnode;
@@ -545,10 +562,13 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 		}
 	} else if (arch_mmu_iswritable(_cpu()->vmmctx->pagetable, addr) == false) {
 		// page present but not writeable in the page tables
+
 		void *oldphys = arch_mmu_getphysical(_cpu()->vmmctx->pagetable, addr);
 		if ((range->flags & VMM_FLAGS_FILE) && (range->flags & VMM_FLAGS_SHARED)) {
+			// shared file, remap it as writable
 			arch_mmu_remap(_cpu()->vmmctx->pagetable, oldphys, addr, range->mmuflags);
 			if (range->vnode->type != V_TYPE_CHDEV) {
+				// and if its a cache page, mark it as dirty
 				VOP_LOCK(range->vnode);
 				vmmcache_makedirty(pmm_getpage(oldphys));
 				VOP_UNLOCK(range->vnode);
