@@ -1,0 +1,20 @@
+name=sudo
+revision=1
+from_source=sudo
+imagedeps="base-devel"
+hostdeps="xgcc xbinutils"
+deps="mlibc libxcrypt"
+
+build() {
+	${source_dir}/configure --host=x86_64-astral --prefix=${prefix} --with-secure-path --with-env-editor --with-passprompt="[sudo] password for %p: " --disable-nls
+	make -j ${parallelism}
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+	export mode=$(stat -c "%a" ${dest_dir}/etc/sudoers)
+	chmod 700 ${dest_dir}/etc/sudoers
+	echo "astral ALL=(ALL:ALL) ALL" >> ${dest_dir}/etc/sudoers
+	chmod ${mode} ${dest_dir}/etc/sudoers
+	chmod u+s ${dest_dir}/etc/sudoers
+}

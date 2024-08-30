@@ -1,0 +1,112 @@
+diff --git sudo-clean/plugins/sudoers/getspwuid.c sudo-workdir/plugins/sudoers/getspwuid.c
+index dd5092d..319facd 100644
+--- sudo-clean/plugins/sudoers/getspwuid.c
++++ sudo-workdir/plugins/sudoers/getspwuid.c
+@@ -119,7 +119,8 @@ sudo_setspent(void)
+     setprpwent();
+ #endif
+ #ifdef HAVE_GETSPNAM
+-    setspent();
++    fprintf(stderr, "sudo: setspent not implemented!\n");
++    //setspent();
+ #endif
+     debug_return;
+ }
+diff --git sudo-clean/scripts/install-sh sudo-workdir/scripts/install-sh
+index 228a0b1..9a2fc41 100755
+--- sudo-clean/scripts/install-sh
++++ sudo-workdir/scripts/install-sh
+@@ -7,8 +7,8 @@
+ PROGNAME=`basename $0`
+ 
+ ##  Paths to programs.  CHOWN, STRIP and WHOAMI are checked below.
+-CHOWN=chown
+-CHGRP=chgrp
++CHOWN=true
++CHGRP=true
+ CHMOD=chmod
+ CP=cp
+ LN=ln
+@@ -19,21 +19,21 @@ STRIP=strip
+ WHOAMI="echo root"
+ 
+ ##  Some systems don't support -x, so we have to use -f.
+-for d in /sbin /etc /usr/sbin /usr/etc; do
+-    if [ -f $d/chown ]; then
+-	CHOWN=${d}/chown
+-	break
+-    fi
+-done
++#for d in /sbin /etc /usr/sbin /usr/etc; do
++#    if [ -f $d/chown ]; then
++#	CHOWN=${d}/chown
++#	break
++#    fi
++#done
+ 
+-for d in /usr/bin /bin /usr/ucb /usr/bsd; do
+-    if [ -f $d/whoami ]; then
+-	WHOAMI=${d}/whoami
+-	break
+-    elif [ -f $d/id ]; then
+-	WHOAMI=${d}/id | sed -n 's/^[^(]*(\([^)]*\)).*/\1/p'
+-    fi
+-done
++#for d in /usr/bin /bin /usr/ucb /usr/bsd; do
++#    if [ -f $d/whoami ]; then
++#	WHOAMI=${d}/whoami
++#	break
++#    elif [ -f $d/id ]; then
++#	WHOAMI=${d}/id | sed -n 's/^[^(]*(\([^)]*\)).*/\1/p'
++#    fi
++#done
+ 
+ for d in /usr/ccs/bin /usr/bin /bin; do
+     if [ -f $d/strip ]; then
+diff --git sudo-clean/src/utmp.c sudo-workdir/src/utmp.c
+index 7ce683d..79ff0f7 100644
+--- sudo-clean/src/utmp.c
++++ sudo-workdir/src/utmp.c
+@@ -189,6 +189,8 @@ bool
+ utmp_login(const char *from_line, const char *to_line, int ttyfd,
+     const char *user)
+ {
++    return false;
++#if 0
+     sudo_utmp_t utbuf, *ut_old = NULL;
+     bool ret = false;
+     debug_decl(utmp_login, SUDO_DEBUG_UTMP);
+@@ -204,7 +206,7 @@ utmp_login(const char *from_line, const char *to_line, int ttyfd,
+ 	/* Lookup old line. */
+ 	memset(&utbuf, 0, sizeof(utbuf));
+ 	strncpy(utbuf.ut_line, from_line, sizeof(utbuf.ut_line));
+-	ut_old = sudo_getutline(&utbuf);
++//	ut_old = sudo_getutline(&utbuf);
+ 	sudo_setutent();
+     }
+     utmp_fill(to_line, user, ut_old, &utbuf);
+@@ -213,11 +215,14 @@ utmp_login(const char *from_line, const char *to_line, int ttyfd,
+     sudo_endutent();
+ 
+     debug_return_bool(ret);
++#endif
+ }
+ 
+ bool
+ utmp_logout(const char *line, int status)
+ {
++    return false;
++#if 0
+     bool ret = false;
+     sudo_utmp_t *ut, utbuf;
+     debug_decl(utmp_logout, SUDO_DEBUG_UTMP);
+@@ -242,8 +247,8 @@ utmp_logout(const char *line, int status)
+ 	    ret = true;
+     }
+     debug_return_bool(ret);
++#endif
+ }
+-
+ #else /* !HAVE_GETUTSID && !HAVE_GETUTXID && !HAVE_GETUTID */
+ 
+ /*
