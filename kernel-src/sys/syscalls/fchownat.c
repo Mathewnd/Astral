@@ -63,12 +63,11 @@ syscallret_t syscall_fchownat(context_t *, int fd, char *upath, uid_t owner, gid
 		goto cleanup;
 	}
 
-	// TODO retain set uid and set gid bits if an auth access was ok
 	attr.uid = owner;
 	attr.gid = group;
 	attr.mode = (attr.mode) & ~(V_ATTR_MODE_SGID | V_ATTR_MODE_SUID);
 
-	ret.errno = VOP_SETATTR(node, &attr, ((owner == -1) ? 0 : V_ATTR_UID) | ((group == -1) ? 0 : V_ATTR_GID), &_cpu()->thread->proc->cred);
+	ret.errno = VOP_SETATTR(node, &attr, ((owner == -1) ? 0 : V_ATTR_UID) | ((group == -1) ? 0 : V_ATTR_GID) | ((group + owner == -2) ? 0 : V_ATTR_MODE), &_cpu()->thread->proc->cred);
 	ret.ret = ret.errno ? -1 : 0;
 
 	VOP_UNLOCK(node);
