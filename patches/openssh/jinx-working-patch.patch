@@ -1,15 +1,13 @@
-diff --git openssh-clean/configure.ac openssh-workdir/configure.ac
-index 82e8bb7..84d2753 100644
---- openssh-clean/configure.ac
-+++ openssh-workdir/configure.ac
-@@ -719,6 +719,10 @@ case "$host" in
- 	AC_DEFINE([DISABLE_UTMP], [1], [Define if you don't want to use utmp])
- 	AC_DEFINE([DISABLE_WTMP], [1], [Define if you don't want to use wtmp])
- 	;;
-+*-*-astral*)
-+	AC_DEFINE([NO_UID_RESTORATION_TEST], [1],
-+		[Define to disable UID restoration test])
-+	;;
- *-*-cygwin*)
- 	LIBS="$LIBS /usr/lib/textreadmode.o"
- 	AC_DEFINE([HAVE_CYGWIN], [1], [Define if you are on Cygwin])
+diff --git openssh-clean/sshd.c openssh-workdir/sshd.c
+index b4f2b97..302ac7a 100644
+--- openssh-clean/sshd.c
++++ openssh-workdir/sshd.c
+@@ -1403,7 +1403,7 @@ server_accept_loop(int *sock_in, int *sock_out, int *newsock, int *config_s)
+ static void
+ check_ip_options(struct ssh *ssh)
+ {
+-#ifdef IP_OPTIONS
++#if 0//def IP_OPTIONS
+ 	int sock_in = ssh_packet_get_connection_in(ssh);
+ 	struct sockaddr_storage from;
+ 	u_char opts[200];
