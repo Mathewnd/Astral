@@ -126,7 +126,7 @@ void udp_process(netdev_t *netdev, void *buffer, uint32_t peer) {
 	__atomic_sub_fetch(&socket->packetsprocessing, 1, __ATOMIC_SEQ_CST);
 }
 
-static int udp_bind(socket_t *socket, sockaddr_t *addr) {
+static int udp_bind(socket_t *socket, sockaddr_t *addr, cred_t *cred) {
 	int e;
 	MUTEX_ACQUIRE(&socket->mutex, false);
 	if (socket->state != SOCKET_STATE_UNBOUND) {

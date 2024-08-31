@@ -1412,7 +1412,7 @@ static int tcp_poll(socket_t *socket, polldata_t *data, int events) {
 	return revents;
 }
 
-static int tcp_bind(socket_t *socket, sockaddr_t *addr) {
+static int tcp_bind(socket_t *socket, sockaddr_t *addr, cred_t *cred) {
 	tcpsocket_t *tcpsocket = (tcpsocket_t *)socket;
 	if (addr->ipv4addr.addr != 0) {
 		printf("tcp: bind tried to bind to non zero address %x\n", addr->ipv4addr.addr);
@@ -1787,7 +1787,7 @@ static int tcp_getpeername(socket_t *socket, sockaddr_t *addr) {
 }
 
 // called with socket locked
-static int tcp_setopt(socket_t *socket, int optname, void *buffer, size_t len) {
+static int tcp_setopt(socket_t *socket, int optname, void *buffer, size_t len, cred_t *cred) {
 	tcpsocket_t *tcpsocket = (tcpsocket_t *)socket;
 	tcb_t *tcb = tcpsocket->tcb;
 

@@ -33,7 +33,7 @@ typedef struct {
 #define SOCKET_RECV_FLAGS_WAITALL 0x4000000000000000l
 #define SOCKET_SEND_FLAGS_NOSIGNAL 0x8000000000000000l
 typedef struct socketops_t {
-	int (*bind)(socket_t *socket, sockaddr_t *addr);
+	int (*bind)(socket_t *socket, sockaddr_t *addr, cred_t *cred);
 	int (*send)(socket_t *socket, sockaddr_t *addr, void *buffer, size_t count, uintmax_t flags, size_t *sendcount);
 	int (*recv)(socket_t *socket, sockaddr_t *addr, void *buffer, size_t count, uintmax_t flags, size_t *recvcount);
 	int (*poll)(socket_t *socket, polldata_t *data, int events);
@@ -44,7 +44,7 @@ typedef struct socketops_t {
 	int (*getpeername)(socket_t *socket, sockaddr_t *addr);
 	size_t (*datacount)(socket_t *socket);
 	void (*destroy)(socket_t *socket);
-	int (*setopt)(socket_t *socket, int optname, void *buffer, size_t len);
+	int (*setopt)(socket_t *socket, int optname, void *buffer, size_t len, cred_t *cred);
 } socketops_t;
 
 typedef struct {

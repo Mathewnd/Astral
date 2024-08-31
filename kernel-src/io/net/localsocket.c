@@ -668,7 +668,7 @@ static void localsock_destroy(socket_t *socket) {
 	free(socket);
 }
 
-static int localsock_bind(socket_t *socket, sockaddr_t *addr) {
+static int localsock_bind(socket_t *socket, sockaddr_t *addr, cred_t *cred) {
 	MUTEX_ACQUIRE(&socket->mutex, false);
 	int error;
 	char *path = NULL;
