@@ -46,7 +46,7 @@ syscallret_t syscall_bind(context_t *, int fd, void *uaddr, size_t addrlen) {
 
 	socket_t *socket = SOCKFS_SOCKET_FROM_NODE(file->vnode);
 
-	ret.errno = socket->ops->bind(socket, &sockaddr);
+	ret.errno = socket->ops->bind(socket, &sockaddr, &_cpu()->thread->proc->cred);
 	ret.ret = ret.errno ? -1 : 0;
 
 	cleanup:
