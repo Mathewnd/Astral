@@ -8,6 +8,7 @@
 #include <kernel/abi.h>
 #include <kernel/poll.h>
 #include <kernel/sock.h>
+#include <kernel/auth.h>
 
 static scache_t *nodecache;
 static uintmax_t currentinode;
@@ -81,6 +82,10 @@ int sockfs_ioctl(vnode_t *node, unsigned long request, void *arg, int *result, c
 
 			netdev_t *netdev = netdev_getdev(ifreq.name);
 			if (netdev) {
+				e = auth_network_check(cred, AUTH_ACTIONS_NETWORK_CONFIGURE, NULL, netdev);
+				if (e)
+					return e;
+
 				sockaddr_t sockaddr;
 				e = sock_convertaddress(&sockaddr, &ifreq.addr);
 				if (e)
@@ -149,7 +154,9 @@ int sockfs_ioctl(vnode_t *node, unsigned long request, void *arg, int *result, c
 				return ENOMEM;
 			}
 
-			e = ipv4_addroute(netdev, addr.ipv4addr.addr, gateway.ipv4addr.addr, mask.ipv4addr.addr, abirtentry.rt_metric);
+			e = auth_network_check(cred, AUTH_ACTIONS_NETWORK_CONFIGURE, NULL, netdev);
+			if (e == 0)
+				e = ipv4_addroute(netdev, addr.ipv4addr.addr, gateway.ipv4addr.addr, mask.ipv4addr.addr, abirtentry.rt_metric);
 
 			free(dev);
 			return e;
