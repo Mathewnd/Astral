@@ -125,6 +125,25 @@ static inline int sock_copymsghdr(msghdr_t *khdr, msghdr_t *uhdr) {
 		khdr->addr = addrtmp;
 	}
 
+	if (khdr->msgctrl) {
+		void *ctrltmp = alloc(khdr->ctrllen);
+		if (ctrltmp == NULL) {
+			if (khdr->addr)
+				free(khdr->addr);
+			free(iovectmp);
+			return ENOMEM;
+		}
+
+		if (usercopy_fromuser(ctrltmp, khdr->msgctrl, khdr->ctrllen)) {
+			if (khdr->addr)
+				free(khdr->addr);
+			free(iovectmp);
+			return EFAULT;
+		}
+
+		khdr->msgctrl = ctrltmp;
+	}
+
 	return 0;
 }
 
@@ -132,6 +151,8 @@ static inline void sock_freemsghdr(msghdr_t *hdr) {
 	free(hdr->iov);
 	if (hdr->addr)
 		free(hdr->addr);
+	if (hdr->msgctrl)
+		free(hdr->msgctrl);
 }
 
 void localsock_leavebinding(vnode_t *vnode);
