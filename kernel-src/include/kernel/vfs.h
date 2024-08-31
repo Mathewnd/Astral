@@ -135,7 +135,7 @@ typedef struct vops_t {
 	int (*munmap)(vnode_t *node, void *addr, uintmax_t offset, int flags, cred_t *cred);
 	int (*getdents)(vnode_t *node, dent_t *buffer, size_t count, uintmax_t offset, size_t *readcount);
 	int (*isatty)(vnode_t *node);
-	int (*ioctl)(vnode_t *node, unsigned long request, void *arg, int *result);
+	int (*ioctl)(vnode_t *node, unsigned long request, void *arg, int *result, cred_t *cred);
 	int (*maxseek)(vnode_t *node, size_t *max);
 	int (*resize)(vnode_t *node, size_t newsize, cred_t *cred);
 	int (*rename)(vnode_t *sourcedir, vnode_t *source, char *oldname, vnode_t *targetdir, vnode_t *target, char *newname, int flags);
@@ -189,7 +189,7 @@ typedef struct vops_t {
 #define VOP_GETDENTS(v, b, c, o, rc) (v)->ops->getdents(v, b, c, o, rc)
 #define VOP_POLL(v, d, p) (v)->ops->poll(v, d, p)
 #define VOP_ISATTY(v) ((v)->ops->isatty ? (v)->ops->isatty(v) : ENOTTY)
-#define VOP_IOCTL(v, r, a, rp) ((v)->ops->ioctl ? (v)->ops->ioctl(v, r, a, rp) : ENOTTY)
+#define VOP_IOCTL(v, r, a, rp, c) ((v)->ops->ioctl ? (v)->ops->ioctl(v, r, a, rp, c) : ENOTTY)
 #define VOP_MAXSEEK(v, rp) ((v)->ops->maxseek ? (v)->ops->maxseek(v, rp) : ENOTTY)
 #define VOP_RESIZE(v, s, c) (v)->ops->resize(v, s, c)
 #define VOP_RENAME(sd, s, o, td, t, n, f) (s)->ops->rename(sd, s, o, td, t, n, f)

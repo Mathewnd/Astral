@@ -258,7 +258,7 @@ int vfs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t
 			// else just get the disk size and limit the read size
 			blockdesc_t blockdesc;
 			int r;
-			err = VOP_IOCTL(node, BLOCK_IOCTL_GETDESC, &blockdesc, &r);
+			err = VOP_IOCTL(node, BLOCK_IOCTL_GETDESC, &blockdesc, &r, NULL);
 			__assert(err == 0);
 
 			size_t bytesize = blockdesc.blockcapacity * blockdesc.blocksize;
@@ -352,7 +352,7 @@ int vfs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t 
 		} else {
 			blockdesc_t blockdesc;
 			int r;
-			err = VOP_IOCTL(node, BLOCK_IOCTL_GETDESC, &blockdesc, &r);
+			err = VOP_IOCTL(node, BLOCK_IOCTL_GETDESC, &blockdesc, &r, NULL);
 			__assert(err == 0);
 
 			nodesize = blockdesc.blockcapacity * blockdesc.blocksize;

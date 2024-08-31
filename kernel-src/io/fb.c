@@ -169,7 +169,7 @@ static int munmap(int minor, void *addr, uintmax_t offset, int flags) {
 #define FBIOGET_FSCREENINFO	0x4602
 #define FBIOBLANK		0x4611
 
-static int ioctl(int minor, unsigned long request, void *arg, int *result){
+static int ioctl(int minor, unsigned long request, void *arg, int *result, cred_t *cred){
         if (minor >= count)
                 return ENODEV;
 

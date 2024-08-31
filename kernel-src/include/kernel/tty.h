@@ -36,6 +36,6 @@ void tty_init();
 tty_t *tty_create(char *name, ttydevicewritefn_t writefn, ttyinactivefn_t inactivefn, void *internal);
 void tty_process(tty_t *tty, char c);
 void tty_unregister(tty_t *tty);
-int tty_ioctl(tty_t *tty, unsigned long req, void *arg, int *result);
+int tty_ioctl(tty_t *tty, unsigned long req, void *arg, int *result, cred_t *cred);
 
 #endif

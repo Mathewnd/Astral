@@ -192,7 +192,7 @@ static int poll(int minor, polldata_t *data, int events) {
 	return revents;
 }
 #define TIOCGPTN 0x80045430
-static int ioctl(int minor, unsigned long request, void *_arg, int *result) {
+static int ioctl(int minor, unsigned long request, void *_arg, int *result, cred_t *cred) {
 	pty_t *pty = ptyget(minor);
 	if (pty == NULL)
 		return ENODEV;
@@ -202,7 +202,7 @@ static int ioctl(int minor, unsigned long request, void *_arg, int *result) {
 			return USERCOPY_POSSIBLY_TO_USER(_arg, &pty->minor, sizeof(int));
 		}
 		default:
-			return tty_ioctl(pty->tty, request, _arg, result);
+			return tty_ioctl(pty->tty, request, _arg, result, cred);
 	}
 
 	return 0;

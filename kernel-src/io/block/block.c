@@ -132,7 +132,7 @@ static int write(int minor, void *buffer, size_t size, uintmax_t offset, int fla
 	return rwblock(minor, buffer, size, offset, flags, true, writec);
 }
 
-static int ioctl(int minor, unsigned long request, void *arg, int *result) {
+static int ioctl(int minor, unsigned long request, void *arg, int *result, cred_t *cred) {
 	blockdesc_t *desc = getdesc(minor);
 	if (desc == NULL)
 		return ENODEV;

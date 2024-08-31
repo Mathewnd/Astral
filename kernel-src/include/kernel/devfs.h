@@ -28,7 +28,7 @@ typedef struct {
 	int (*mmap)(int minor, void *addr, uintmax_t offset, int flags);
 	int (*munmap)(int minor, void *addr, uintmax_t offset, int flags);
 	int (*isatty)(int minor);
-	int (*ioctl)(int minor, unsigned long request, void *arg, int *result);
+	int (*ioctl)(int minor, unsigned long request, void *arg, int *result, cred_t *cred);
 	int (*maxseek)(int minor, size_t *max);
 	void (*inactive)(int minor);
 } devops_t;

@@ -71,7 +71,7 @@ int sockfs_setattr(vnode_t *node, vattr_t *attr, int which, cred_t *cred) {
 }
 
 // arg can be in userspace
-int sockfs_ioctl(vnode_t *node, unsigned long request, void *arg, int *result) {
+int sockfs_ioctl(vnode_t *node, unsigned long request, void *arg, int *result, cred_t *cred) {
 	switch (request) {
 		case SIOCSIFADDR: {
 			ifreq_t ifreq;
@@ -80,7 +80,7 @@ int sockfs_ioctl(vnode_t *node, unsigned long request, void *arg, int *result) {
 				return e;
 
 			netdev_t *netdev = netdev_getdev(ifreq.name);
-			if(netdev) {
+			if (netdev) {
 				sockaddr_t sockaddr;
 				e = sock_convertaddress(&sockaddr, &ifreq.addr);
 				if (e)

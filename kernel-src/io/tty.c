@@ -299,7 +299,7 @@ static int poll(int minor, polldata_t *data, int events) {
 #define TTY_IOCTL_NAME 0x771101141113l
 #define TTY_NAME_MAX 32
 
-int tty_ioctl(tty_t *tty, unsigned long req, void *arg, int *result) {
+int tty_ioctl(tty_t *tty, unsigned long req, void *arg, int *result, cred_t *cred) {
 	switch (req) {
 		case TIOCGWINSZ:
 			return USERCOPY_POSSIBLY_TO_USER(arg, &tty->winsize, sizeof(winsize_t));
@@ -359,12 +359,12 @@ int tty_ioctl(tty_t *tty, unsigned long req, void *arg, int *result) {
 	return 0;
 }
 
-static int ioctl(int minor, unsigned long req, void *arg, int *result) {
+static int ioctl(int minor, unsigned long req, void *arg, int *result, cred_t *cred) {
 	tty_t *tty = ttyget(minor);
 	if (tty == NULL)
 		return ENODEV;
 
-	return tty_ioctl(tty, req, arg, result);
+	return tty_ioctl(tty, req, arg, result, cred);
 }
 
 static int isatty(int minor) {

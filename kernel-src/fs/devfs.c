@@ -202,12 +202,12 @@ int devfs_isatty(vnode_t *node) {
 	return devnode->devops->isatty ? devnode->devops->isatty(devnode->attr.rdevminor) : ENOTTY;
 }
 
-int devfs_ioctl(vnode_t *node, unsigned long request, void *arg, int *ret) {
+int devfs_ioctl(vnode_t *node, unsigned long request, void *arg, int *ret, cred_t *cred) {
 	devnode_t *devnode = (devnode_t *)node;
 	if (devnode->master)
 		devnode = devnode->master;
 
-	return devnode->devops->ioctl ? devnode->devops->ioctl(devnode->attr.rdevminor, request, arg, ret) : ENOTTY;
+	return devnode->devops->ioctl ? devnode->devops->ioctl(devnode->attr.rdevminor, request, arg, ret, cred) : ENOTTY;
 }
 
 int devfs_maxseek(vnode_t *node, size_t *max) {

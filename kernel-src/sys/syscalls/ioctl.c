@@ -20,7 +20,7 @@ syscallret_t syscall_ioctl(context_t *, int fd, unsigned long request, void *arg
 
 	int r = 0;
 	VOP_LOCK(file->vnode);
-	ret.errno = VOP_IOCTL(file->vnode, request, arg, &r);
+	ret.errno = VOP_IOCTL(file->vnode, request, arg, &r, &_cpu()->thread->proc->cred);
 	VOP_UNLOCK(file->vnode);
 	ret.ret = ret.errno ? -1 : r;
 
