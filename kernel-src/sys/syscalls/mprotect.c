@@ -27,12 +27,14 @@ syscallret_t syscall_mprotect(context_t *context, void *address, size_t len, int
 	mmuflags_t mmuflags = ARCH_MMU_FLAGS_USER;
 	if (prot & PROT_READ)
 		mmuflags |= ARCH_MMU_FLAGS_READ;
+
 	if (prot & PROT_WRITE)
 		mmuflags |= ARCH_MMU_FLAGS_WRITE;
+
 	if ((prot & PROT_EXEC) == 0)
 		mmuflags |= ARCH_MMU_FLAGS_NOEXEC;
 
-	ret.errno = vmm_changemmuflags(address, len, mmuflags, 0) ? 0 : ENOMEM;
+	ret.errno = vmm_changemmuflags(address, len, mmuflags, VMM_FLAGS_CREDCHECK);
 	ret.ret = ret.errno ? -1 : 0;
 
 	return ret;

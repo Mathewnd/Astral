@@ -12,6 +12,7 @@
 #define VMM_FLAGS_EXACT   16
 #define VMM_FLAGS_SHARED  32
 #define VMM_FLAGS_REPLACE 64
+#define VMM_FLAGS_CREDCHECK 128
 
 #define VMM_PERMANENT_FLAGS_MASK (VMM_FLAGS_FILE | VMM_FLAGS_SHARED | VMM_FLAGS_PHYSICAL)
 
@@ -92,7 +93,7 @@ static inline int mmuflagstovnodeflags(mmuflags_t mmuflags) {
 	return flags;
 }
 
-bool vmm_changemmuflags(void *base, size_t size, mmuflags_t mmuflags, int flags);
+int vmm_changemmuflags(void *base, size_t size, mmuflags_t mmuflags, int flags);
 void vmm_destroycontext(vmmcontext_t *context);
 vmmcontext_t *vmm_fork(vmmcontext_t *oldcontext);
 void *vmm_map(void *addr, size_t size, int flags, mmuflags_t mmuflags, void *private);
