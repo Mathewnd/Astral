@@ -272,9 +272,21 @@ static int process(cred_t *cred, int actions, void *arg0, void *arg1, void *arg2
 	return weight ? AUTH_DECISION_ALLOW : AUTH_DECISION_DEFER;
 }
 
+static int network(cred_t *cred, int actions, void *arg0, void *arg1, void *arg2) {
+	//socket_t *socket = arg0;
+	//netdev_t *netdev = arg1;
+
+	// for now, all checks will just be privileged operations
+	if (CRED_IS_ESU(cred))
+		return AUTH_DECISION_ALLOW;
+	else
+		return AUTH_DECISION_DENY;
+}
+
 void defaultauth_init() {
 	auth_registerlistener(AUTH_SCOPE_FILESYSTEM, filesystem);
 	auth_registerlistener(AUTH_SCOPE_SYSTEM, system);
 	auth_registerlistener(AUTH_SCOPE_CRED, credlistener);
 	auth_registerlistener(AUTH_SCOPE_PROCESS, process);
+	auth_registerlistener(AUTH_SCOPE_NETWORK, network);
 }
