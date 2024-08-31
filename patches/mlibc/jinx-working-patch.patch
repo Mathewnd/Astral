@@ -130,7 +130,7 @@ index 16ab8b7..5ccc503 100644
  #endif
 +#endif
 diff --git mlibc-clean/options/rtld/generic/main.cpp mlibc-workdir/options/rtld/generic/main.cpp
-index 360ed37..62e5d39 100644
+index 0f5f1a3..c66ef93 100644
 --- mlibc-clean/options/rtld/generic/main.cpp
 +++ mlibc-workdir/options/rtld/generic/main.cpp
 @@ -17,6 +17,8 @@
@@ -219,10 +219,10 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..5047fee
+index 0000000..3f0df5d
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -0,0 +1,979 @@
+@@ -0,0 +1,985 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -288,6 +288,12 @@ index 0000000..5047fee
 +
 +	int sys_setgroups(size_t size, const gid_t *list) {
 +		// TODO unstub
++		return 0;
++	}
++
++	int sys_getgroups(size_t size, const gid_t *list, int *ret) {
++		// TODO unstub
++		*ret = 0;
 +		return 0;
 +	}
 +
