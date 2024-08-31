@@ -6,6 +6,7 @@
 #include <spinlock.h>
 #include <kernel/interrupt.h>
 #include <ringbuffer.h>
+#include <kernel/auth.h>
 
 #define SOCKET_BUFFER (256 * 1024)
 
@@ -127,6 +128,13 @@ void udp_process(netdev_t *netdev, void *buffer, uint32_t peer) {
 }
 
 static int udp_bind(socket_t *socket, sockaddr_t *addr, cred_t *cred) {
+	if (addr->ipv4addr.port != 0 && addr->ipv4addr.port < 1024) {
+		// this port is reserved for privileged users
+		int error = auth_network_check(cred, AUTH_ACTIONS_NETWORK_BINDRESERVED, socket, NULL);
+		if (error)
+			return error;
+	}
+
 	int e;
 	MUTEX_ACQUIRE(&socket->mutex, false);
 	if (socket->state != SOCKET_STATE_UNBOUND) {

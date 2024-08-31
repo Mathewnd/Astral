@@ -4,6 +4,7 @@
 #include <kernel/itimer.h>
 #include <kernel/timekeeper.h>
 #include <kernel/interrupt.h>
+#include <kernel/auth.h>
 
 #define WORKER_COUNT 12
 #define WORKER_BUFFER_SIZE (64 * 1024)
@@ -1417,6 +1418,14 @@ static int tcp_bind(socket_t *socket, sockaddr_t *addr, cred_t *cred) {
 	if (addr->ipv4addr.addr != 0) {
 		printf("tcp: bind tried to bind to non zero address %x\n", addr->ipv4addr.addr);
 	}
+
+	if (addr->ipv4addr.port != 0 && addr->ipv4addr.port < 1024) {
+		// this port is reserved for privileged users
+		int error = auth_network_check(cred, AUTH_ACTIONS_NETWORK_BINDRESERVED, socket, NULL);
+		if (error)
+			return error;
+	}
+
 	MUTEX_ACQUIRE(&socket->mutex, false);
 	tcb_t *tcb = tcpsocket->tcb;
 	if (tcb == NULL) {
