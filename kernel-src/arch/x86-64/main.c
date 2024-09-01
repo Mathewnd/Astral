@@ -124,3 +124,7 @@ void kernel_entry() {
 	sched_runinit();
 	sched_threadexit();
 }
+
+cpu_t *_bsp(void) {
+	return &bsp_cpu;
+}

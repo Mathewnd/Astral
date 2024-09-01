@@ -54,6 +54,8 @@ static inline uint16_t be_to_cpu_w(uint16_t w) {
 	return __builtin_bswap16(w);
 }
 
+cpu_t *_bsp(void);
+
 static inline cpu_t *_cpu() {
 	cpu_t *cpu;
 	asm volatile ("mov %%gs:0, %%rax" : "=a"(cpu) : : "memory");
