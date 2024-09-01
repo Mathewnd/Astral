@@ -196,6 +196,29 @@ int fd_clone(proc_t *targproc) {
 	return error;
 }
 
+int fd_insert(file_t *file, int *fdp) {
+	proc_t *proc = _cpu()->thread->proc;
+	int err = 0;
+	MUTEX_ACQUIRE(&proc->fdmutex, false);
+	int fd = getfree(0);
+
+	if (fd == -1) {
+		fd = proc->fdcount;
+		err = growtable(proc->fdcount);
+		if (err)
+			goto cleanup;
+	}
+
+	proc->fd[fd].file = file;
+	proc->fd[fd].flags = 0;
+	FILE_HOLD(file);
+	*fdp = fd;
+
+	cleanup:
+	MUTEX_RELEASE(&proc->fdmutex);
+	return err;
+}
+
 int fd_dup(int oldfd, int newfd, bool exact, int fdflags, int *retfd) {
 	proc_t *proc = _cpu()->thread->proc;
 	int err = 0;

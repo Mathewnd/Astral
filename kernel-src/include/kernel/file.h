@@ -28,6 +28,7 @@ int fd_dup(int oldfd, int newfd, bool exact, int flags, int *ret);
 int fd_clone(proc_t *proc);
 int fd_setflags(int fd, int flags);
 int fd_getflags(int fd, int *flags);
+int fd_insert(file_t *file, int *fdp);
 
 #define FILE_LOCK(x) MUTEX_ACQUIRE(&(x)->mutex, false)
 #define FILE_UNLOCK(x) MUTEX_RELEASE(&(x)->mutex)
