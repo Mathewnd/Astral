@@ -16,6 +16,13 @@ syscallret_t syscall_sendmsg(context_t *, int fd, msghdr_t *umsghdr, int flags) 
 
 	file_t *file = NULL;
 	size_t buffersize = iovec_size(msghdr.iov, msghdr.iovcount);
+	if (buffersize == 0) {
+		sock_freemsghdr(&msghdr);
+		ret.errno = 0;
+		ret.ret = 0;
+		return ret;
+	}
+
 	void *buffer = vmm_map(NULL, buffersize, VMM_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, NULL);
 	if (buffer == NULL) {
 		ret.errno = ENOMEM;
@@ -51,9 +58,20 @@ syscallret_t syscall_sendmsg(context_t *, int fd, msghdr_t *umsghdr, int flags) 
 	}
 
 	socket_t *socket = SOCKFS_SOCKET_FROM_NODE(file->vnode);
-	size_t sendcount;
-	ret.errno = socket->ops->send(socket, msghdr.addr ? &sockaddr : NULL, buffer, buffersize, fileflagstovnodeflags(file->flags) | ((flags & MSG_NOSIGNAL) ? SOCKET_SEND_FLAGS_NOSIGNAL : 0), &sendcount);
-	ret.ret = ret.errno ? -1 : sendcount;
+
+	sockdesc_t desc = {
+		.addr = msghdr.addr ? &sockaddr : NULL,
+		.buffer = buffer,
+		.count = buffersize,
+		.flags = fileflagstovnodeflags(file->flags) | ((flags & MSG_NOSIGNAL) ? SOCKET_SEND_FLAGS_NOSIGNAL : 0),
+		.donecount = 0,
+		.ctrl = msghdr.msgctrl,
+		.ctrllen = msghdr.ctrllen,
+		.ctrldone = 0
+	};
+
+	ret.errno = socket->ops->send(socket, &desc);
+	ret.ret = ret.errno ? -1 : desc.donecount;
 
 	cleanup:
 	if (file)

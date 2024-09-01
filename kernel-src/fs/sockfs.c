@@ -26,12 +26,38 @@ int sockfs_close(vnode_t *node, int flags, cred_t *cred) {
 
 int sockfs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int flags, size_t *readc, cred_t *cred) {
 	socket_t *socket = SOCKFS_SOCKET_FROM_NODE(node);
-	return socket->ops->recv(socket, NULL, buffer, size, flags, readc);
+	sockdesc_t desc = {
+		.addr = NULL,
+		.buffer = buffer,
+		.count = size,
+		.flags = flags,
+		.donecount = 0,
+		.ctrl = NULL,
+		.ctrllen = 0
+	};
+
+	int e = socket->ops->recv(socket, &desc);
+
+	*readc = desc.donecount;
+	return e;
 }
 
 int sockfs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int flags, size_t *writec, cred_t *cred) {
 	socket_t *socket = SOCKFS_SOCKET_FROM_NODE(node);
-	return socket->ops->send(socket, NULL, buffer, size, flags, writec);
+	sockdesc_t desc = {
+		.addr = NULL,
+		.buffer = buffer,
+		.count = size,
+		.flags = flags,
+		.donecount = 0,
+		.ctrl = NULL,
+		.ctrllen = 0
+	};
+
+	int e = socket->ops->send(socket, &desc);
+
+	*writec = desc.donecount;
+	return e;
 }
 
 int sockfs_poll(vnode_t *node, polldata_t *data, int events) {

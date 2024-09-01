@@ -180,17 +180,17 @@ static int internalpoll(socket_t *socket, polldata_t *data, int events) {
 	return revents;
 }
 
-static int udp_send(socket_t *socket, sockaddr_t *addr, void *buffer, size_t count, uintmax_t flags, size_t *sendcount) {
+static int udp_send(socket_t *socket, sockdesc_t *sockdesc) {
 	udpsocket_t *udpsocket = (udpsocket_t *)socket;
 	int e;
 	MUTEX_ACQUIRE(&socket->mutex, false);
 
-	if (addr == NULL && socket->state != SOCKET_STATE_CONNECTED) {
+	if (sockdesc->addr == NULL && socket->state != SOCKET_STATE_CONNECTED) {
 		e = ENOTCONN;
 		goto cleanup;
 	}
 
-	if ((addr ? addr->ipv4addr.addr : udpsocket->peeraddress) == IPV4_BROADCAST_ADDRESS && (udpsocket->socket.broadcast == 0 || udpsocket->socket.netdev == NULL)) {
+	if ((sockdesc->addr ? sockdesc->addr->ipv4addr.addr : udpsocket->peeraddress) == IPV4_BROADCAST_ADDRESS && (udpsocket->socket.broadcast == 0 || udpsocket->socket.netdev == NULL)) {
 		e = EACCES;
 		goto cleanup;
 	}
@@ -203,16 +203,20 @@ static int udp_send(socket_t *socket, sockaddr_t *addr, void *buffer, size_t cou
 		socket->state = SOCKET_STATE_BOUND;
 	}
 
-	e = udp_sendpacket(buffer, count, addr ? addr->ipv4addr.addr : udpsocket->peeraddress, udpsocket->port, addr ? addr->ipv4addr.port : udpsocket->peerport, udpsocket->socket.netdev);
+	e = udp_sendpacket(sockdesc->buffer, sockdesc->count, sockdesc->addr ? sockdesc->addr->ipv4addr.addr : udpsocket->peeraddress, 
+			udpsocket->port, sockdesc->addr ? sockdesc->addr->ipv4addr.port : udpsocket->peerport, udpsocket->socket.netdev);
 
-	*sendcount = count;
+	sockdesc->donecount = sockdesc->count;
 	cleanup:
 	MUTEX_RELEASE(&socket->mutex);
 	return e;
 }
 
-static int udp_recv(socket_t *socket, sockaddr_t *addr, void *buffer, size_t count, uintmax_t flags, size_t *recvcount) {
+static int udp_recv(socket_t *socket, sockdesc_t *sockdesc) {
 	udpsocket_t *udpsocket = (udpsocket_t *)socket;
+	uintmax_t flags = sockdesc->flags;
+	sockdesc->flags = 0;
+
 	int e = 0;
 	MUTEX_ACQUIRE(&socket->mutex, false);
 
@@ -262,25 +266,25 @@ static int udp_recv(socket_t *socket, sockaddr_t *addr, void *buffer, size_t cou
 	dataheader_t header;
 	if (flags & SOCKET_RECV_FLAGS_PEEK) {
 		__assert(ringbuffer_peek(&udpsocket->ringbuffer, &header, 0, sizeof(header)) == sizeof(header));
-		copycount = min(header.length, count);
+		copycount = min(header.length, sockdesc->count);
 
-		__assert(ringbuffer_peek(&udpsocket->ringbuffer, &buffer, sizeof(header), copycount) == copycount);
+		__assert(ringbuffer_peek(&udpsocket->ringbuffer, sockdesc->buffer, sizeof(header), copycount) == copycount);
 	} else {
 		__assert(ringbuffer_read(&udpsocket->ringbuffer, &header, sizeof(header)) == sizeof(header));
 
-		copycount = min(header.length, count);
-		__assert(ringbuffer_read(&udpsocket->ringbuffer, buffer, copycount) == copycount);
+		copycount = min(header.length, sockdesc->count);
+		__assert(ringbuffer_read(&udpsocket->ringbuffer, sockdesc->buffer, copycount) == copycount);
 
 		// truncate the rest if the buffer wasn't big enough to handle everything
-		if (header.length > count)
+		if (header.length > sockdesc->count)
 			ringbuffer_truncate(&udpsocket->ringbuffer, header.length - copycount);
 	}
 	spinlock_release(&udpsocket->ringbufferlock);
 	interrupt_set(intstate);
 
-	*recvcount = copycount;
-	addr->ipv4addr.addr = header.peer;
-	addr->ipv4addr.port = header.srcport;
+	sockdesc->donecount = copycount;
+	sockdesc->addr->ipv4addr.addr = header.peer;
+	sockdesc->addr->ipv4addr.port = header.srcport;
 
 	cleanup:
 	MUTEX_RELEASE(&socket->mutex);

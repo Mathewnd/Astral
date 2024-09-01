@@ -29,13 +29,33 @@ typedef struct {
 	};
 } sockaddr_t;
 
+typedef struct {
+	size_t length;
+	int level;
+	int type;
+	uint8_t data[];
+} sockctrl_t;
+
+typedef struct {
+	sockaddr_t *addr;
+	void *buffer;
+	size_t count;
+	uintmax_t flags;
+	size_t donecount;
+	sockctrl_t *ctrl;
+	size_t ctrllen;
+	size_t ctrldone;
+} sockdesc_t;
+
 #define SOCKET_RECV_FLAGS_PEEK 0x8000000000000000l
 #define SOCKET_RECV_FLAGS_WAITALL 0x4000000000000000l
+#define SOCKET_RECV_FLAGS_CTRLTRUNCATED 0x2000000000000000l
 #define SOCKET_SEND_FLAGS_NOSIGNAL 0x8000000000000000l
+
 typedef struct socketops_t {
 	int (*bind)(socket_t *socket, sockaddr_t *addr, cred_t *cred);
-	int (*send)(socket_t *socket, sockaddr_t *addr, void *buffer, size_t count, uintmax_t flags, size_t *sendcount);
-	int (*recv)(socket_t *socket, sockaddr_t *addr, void *buffer, size_t count, uintmax_t flags, size_t *recvcount);
+	int (*send)(socket_t *socket, sockdesc_t *desc);
+	int (*recv)(socket_t *socket, sockdesc_t *desc);
 	int (*poll)(socket_t *socket, polldata_t *data, int events);
 	int (*connect)(socket_t *socket, sockaddr_t *addr, uintmax_t data, cred_t *cred);
 	int (*listen)(socket_t *socket, int backlog);
@@ -153,6 +173,28 @@ static inline void sock_freemsghdr(msghdr_t *hdr) {
 		free(hdr->addr);
 	if (hdr->msgctrl)
 		free(hdr->msgctrl);
+}
+
+#define SOCK_CTRL_NEXT(c) ((sockctrl_t *)((uintptr_t)(c) + (c)->length))
+
+static inline size_t sock_countctrl(sockctrl_t *ctrl, size_t len) {
+	size_t count = 0;
+	uintmax_t offset = 0;
+
+	while (offset < len) {
+		if (ctrl->length < sizeof(sockctrl_t))
+			break;
+
+		offset += ctrl->length;
+
+		if (offset > len || offset < ctrl->length)
+			break;
+
+		++count;
+		ctrl = SOCK_CTRL_NEXT(ctrl);
+	}
+
+	return count;
 }
 
 void localsock_leavebinding(vnode_t *vnode);

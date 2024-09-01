@@ -1239,8 +1239,8 @@ static int internalpoll(tcb_t *tcb, polldata_t* data, int events) {
 }
 
 // TODO buffer up segments instead of instantly sending them
-static int tcp_send(socket_t *socket, sockaddr_t *addr, void *buffer, size_t count, uintmax_t flags, size_t *sendcount) {
-	if (addr)
+static int tcp_send(socket_t *socket, sockdesc_t *sockdesc) {
+	if (sockdesc->addr)
 		return ENOTCONN;
 
 	tcpsocket_t *tcpsocket = (tcpsocket_t *)socket;
@@ -1272,7 +1272,7 @@ static int tcp_send(socket_t *socket, sockaddr_t *addr, void *buffer, size_t cou
 			poll_leave(&polldesc);
 			poll_destroydesc(&polldesc);
 
-			if (_cpu()->thread->proc && (flags & SOCKET_SEND_FLAGS_NOSIGNAL) == 0)
+			if (_cpu()->thread->proc && (sockdesc->flags & SOCKET_SEND_FLAGS_NOSIGNAL) == 0)
 				signal_signalproc(_cpu()->thread->proc, SIGPIPE);
 
 			error = EPIPE;
@@ -1302,11 +1302,11 @@ static int tcp_send(socket_t *socket, sockaddr_t *addr, void *buffer, size_t cou
 			goto leave;
 	}
 
-	size_t writesize = min(TCB_RINGBUFFER_SIZE - RINGBUFFER_DATACOUNT(&tcb->transmitbuffer), count);
+	size_t writesize = min(TCB_RINGBUFFER_SIZE - RINGBUFFER_DATACOUNT(&tcb->transmitbuffer), sockdesc->count);
 	__assert(writesize);
 
-	__assert(ringbuffer_write(&tcb->transmitbuffer, buffer, writesize) == writesize);
-	*sendcount = writesize;
+	__assert(ringbuffer_write(&tcb->transmitbuffer, sockdesc->buffer, writesize) == writesize);
+	sockdesc->donecount = writesize;
 
 	if (tcb->sndnext == tcb->sndunack)
 		error = tcp_transmitnextsegment(tcb);
@@ -1317,9 +1317,12 @@ static int tcp_send(socket_t *socket, sockaddr_t *addr, void *buffer, size_t cou
 	return error;
 }
 
-static int tcp_recv(socket_t *socket, sockaddr_t *addr, void *buffer, size_t count, uintmax_t flags, size_t *recvcount) {
+static int tcp_recv(socket_t *socket, sockdesc_t *sockdesc) {
 	tcpsocket_t *tcpsocket = (tcpsocket_t *)socket;
+	uintmax_t flags = sockdesc->flags;
+	sockdesc->flags = 0;
 	int error = 0;
+
 	MUTEX_ACQUIRE(&socket->mutex, false);
 	tcb_t *tcb = tcpsocket->tcb;
 	if (tcb == NULL) {
@@ -1347,7 +1350,7 @@ static int tcp_recv(socket_t *socket, sockaddr_t *addr, void *buffer, size_t cou
 
 		if (revents) {
 			if ((revents & POLLHUP) == 0 && (flags & SOCKET_RECV_FLAGS_WAITALL) &&
-				(flags & SOCKET_RECV_FLAGS_PEEK) == 0 && RINGBUFFER_DATACOUNT(&tcb->receivebuffer) < count) {
+				(flags & SOCKET_RECV_FLAGS_PEEK) == 0 && RINGBUFFER_DATACOUNT(&tcb->receivebuffer) < sockdesc->count) {
 				// wait for more data (WAITALL is set)
 				poll_add(&socket->pollheader, &desc.data[0], POLLIN);
 			} else {
@@ -1376,16 +1379,16 @@ static int tcp_recv(socket_t *socket, sockaddr_t *addr, void *buffer, size_t cou
 			goto cleanup;
 	}
 
-	size_t copycount = min(RINGBUFFER_DATACOUNT(&tcb->receivebuffer), count);
+	size_t copycount = min(RINGBUFFER_DATACOUNT(&tcb->receivebuffer), sockdesc->count);
 	if (flags & SOCKET_RECV_FLAGS_PEEK) {
-		__assert(ringbuffer_peek(&tcb->receivebuffer, buffer, 0, copycount) == copycount);
+		__assert(ringbuffer_peek(&tcb->receivebuffer, sockdesc->buffer, 0, copycount) == copycount);
 	} else {
-		__assert(ringbuffer_read(&tcb->receivebuffer, buffer, copycount) == copycount);
+		__assert(ringbuffer_read(&tcb->receivebuffer, sockdesc->buffer, copycount) == copycount);
 		tcb->rcvwindow += copycount;
 		// notify about the window increase
 		tcp_ack(tcb);
 	}
-	*recvcount = copycount;
+	sockdesc->donecount = copycount;
 
 	cleanup:
 	MUTEX_RELEASE(&tcb->mutex);
