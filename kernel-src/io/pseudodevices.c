@@ -24,6 +24,11 @@ static int null_read(int minor, void *buffer, size_t count, uintmax_t offset, in
 	return 0;
 }
 
+static int maxseek(int minor, size_t *max) {
+	*max = 0;
+	return 0;
+}
+
 static long current = 0xdeadbeefbadc0ffe;
 
 static uint8_t getrand8() {
@@ -42,22 +47,26 @@ static int urandom_read(int minor, void *_buffer, size_t count, uintmax_t offset
 
 static devops_t nullops = {
 	.read = null_read,
-	.write = null_write
+	.write = null_write,
+	.maxseek = maxseek
 };
 
 static devops_t fullops = {
 	.read = zero_read,
-	.write = full_write
+	.write = full_write,
+	.maxseek = maxseek
 };
 
 static devops_t zeroops = {
 	.read = zero_read,
-	.write = null_write
+	.write = null_write,
+	.maxseek = maxseek
 };
 
 static devops_t urandomops = {
 	.read = urandom_read,
-	.write = null_write
+	.write = null_write,
+	.maxseek = maxseek
 };
 
 void pseudodevices_init() {
