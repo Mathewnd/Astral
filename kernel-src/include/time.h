@@ -35,4 +35,8 @@ static inline time_t timespec_diffus(timespec_t a, timespec_t b) {
 	return nsecdiff / 1000 + secdiff * 1000000;
 }
 
+static inline time_t timespec_ns(timespec_t a) {
+	return a.ns + a.s * 1000000000;
+}
+
 #endif
