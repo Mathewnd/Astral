@@ -1,4 +1,3 @@
-#include <arch/acpi.h>
 #include <logging.h>
 #include <kernel/vmm.h>
 #include <arch/mmu.h>
@@ -8,6 +7,9 @@
 #include <arch/hpet.h>
 #include <kernel/timer.h>
 #include <kernel/timekeeper.h>
+
+#include <uacpi/tables.h>
+#include <uacpi/acpi.h>
 
 #define IOAPIC_REG_ID 0
 #define IOAPIC_REG_ENTRYCOUNT 1
@@ -34,47 +36,6 @@
 #define LVT_MASK (1 << 16)
 
 typedef struct {
-	uint8_t type;
-	uint8_t length;
-} __attribute__((packed)) listheader_t;
-
-typedef struct {
-	listheader_t header;
-	uint16_t reserved;
-	uint64_t addr;
-} __attribute__((packed)) lapicoverride_t;
-
-typedef struct {
-	listheader_t header;
-	uint8_t id;
-	uint8_t reserved;
-	uint32_t addr;
-	uint32_t intbase;
-} __attribute__((packed)) ioentry_t;
-
-typedef struct {
-	listheader_t header;
-	uint8_t acpiid;
-	uint8_t lapicid;
-	uint32_t flags;
-} __attribute__((packed)) lapicentry_t;
-
-typedef struct {
-	listheader_t header;
-	uint8_t acpiid;
-	uint16_t flags;
-	uint8_t lint;
-} __attribute__((packed)) lapicnmientry_t;
-
-typedef struct {
-	listheader_t header;
-	uint8_t bus;
-	uint8_t irq;
-	uint32_t gsi;
-	uint16_t flags;
-} __attribute__((packed)) ioapicoverride_t;
-
-typedef struct {
 	void *addr;
 	int base;
 	int top;
@@ -82,9 +43,9 @@ typedef struct {
 
 static ioapicdesc_t *ioapics;
 
-static madt_t *madt;
-static listheader_t *liststart;
-static listheader_t *listend;
+static struct acpi_madt *madt;
+static struct acpi_entry_hdr *liststart;
+static struct acpi_entry_hdr *listend;
 static void *lapicaddr;
 
 static size_t overridecount;
@@ -100,13 +61,13 @@ static ioapicdesc_t *ioapicfromgsi(int gsi) {
 	return NULL;
 }
 
-static inline listheader_t *getnext(listheader_t *header) {
+static inline struct acpi_entry_hdr *getnext(struct acpi_entry_hdr *header) {
 	uintptr_t ptr = (uintptr_t)header;
-	return (listheader_t *)(ptr + header->length);
+	return (struct acpi_entry_hdr *)(ptr + header->length);
 }
 
 static inline void *getentry(int type, int n) {
-	listheader_t *entry = liststart;
+	struct acpi_entry_hdr *entry = liststart;
 
 	while (entry < listend) {
 		if (entry->type == type) {
@@ -120,7 +81,7 @@ static inline void *getentry(int type, int n) {
 }
 
 static int getcount(int type) {
-	listheader_t *entry = liststart;
+	struct acpi_entry_hdr *entry = liststart;
 	int count = 0;
 
 	while (entry < listend) {
@@ -171,8 +132,8 @@ void arch_ioapic_setirq(uint8_t irq, uint8_t vector, uint8_t proc, bool masked) 
 	uint8_t polarity = 1; // active high
 	uint8_t trigger  = 0; // edge triggered
 	for (uintmax_t i = 0; i < overridecount; ++i) {
-		ioapicoverride_t *override = getentry(ACPI_MADT_TYPE_OVERRIDE, i);
-		if (override->irq != irq)
+		struct acpi_madt_interrupt_source_override *override = getentry(ACPI_MADT_ENTRY_TYPE_INTERRUPT_SOURCE_OVERRIDE, i);
+		if (override->source != irq)
 			continue;
 
 		polarity = override->flags & 2 ? 1 : 0; // active low
@@ -210,9 +171,9 @@ void arch_apic_initap() {
 	// get the acpi id for the local nmi sources
 
 	for (size_t i = 0; i < lapiccount; ++i) {
-		lapicentry_t *current = getentry(ACPI_MADT_TYPE_LAPIC, i);
-		if (_cpu()->id == current->lapicid) {
-			_cpu()->acpiid = current->acpiid;
+		struct acpi_madt_lapic *current = getentry(ACPI_MADT_ENTRY_TYPE_LAPIC, i);
+		if (_cpu()->id == current->id) {
+			_cpu()->acpiid = current->uid;
 			break;
 		}
 	}
@@ -221,10 +182,10 @@ void arch_apic_initap() {
 
 	isr_t *nmiisr = interrupt_allocate(nmi, NULL, IPL_MAX); // MAX IPL because NMI
 	__assert(nmiisr);
-	
+
 	for (size_t i = 0; i < lapicnmicount; ++i) {
-		lapicnmientry_t* current = getentry(ACPI_MADT_TYPE_LANMI, i);
-		if (current->acpiid == _cpu()->acpiid || current->acpiid == 0xff)
+		struct acpi_madt_lapic_nmi* current = getentry(ACPI_MADT_ENTRY_TYPE_LAPIC_NMI, i);
+		if (current->uid == _cpu()->acpiid || current->uid == 0xff)
 			writelapic(APIC_LVT_LINT0 + 0x10 * current->lint, (nmiisr->id & 0xff) | LVT_DELIVERY_NMI | (current->flags << 12));
 	}
 }
@@ -288,22 +249,25 @@ void arch_apic_sendipi(uint8_t cpu, uint8_t vec, uint8_t dest, uint8_t mode, uin
 }
 
 void arch_apic_init() {
-	madt = arch_acpi_findtable("APIC", 0);
-	__assert(madt);
+	uacpi_table tbl;
 
-	liststart = (void *)((uintptr_t)madt + sizeof(madt_t));
-	listend   = (void *)((uintptr_t)madt + madt->header.length);
+	uacpi_status ret = uacpi_table_find_by_signature("APIC", &tbl);
+	__assert(ret == UACPI_STATUS_OK);
 
-	overridecount = getcount(ACPI_MADT_TYPE_OVERRIDE);
-	iocount = getcount(ACPI_MADT_TYPE_IOAPIC);
-	lapiccount = getcount(ACPI_MADT_TYPE_LAPIC);
-	lapicnmicount = getcount(ACPI_MADT_TYPE_LANMI);
+	madt = tbl.ptr;
+	liststart = (void *)((uintptr_t)madt + sizeof(struct acpi_madt));
+	listend   = (void *)((uintptr_t)madt + madt->hdr.length);
+
+	overridecount = getcount(ACPI_MADT_ENTRY_TYPE_INTERRUPT_SOURCE_OVERRIDE);
+	iocount = getcount(ACPI_MADT_ENTRY_TYPE_IOAPIC);
+	lapiccount = getcount(ACPI_MADT_ENTRY_TYPE_LAPIC);
+	lapicnmicount = getcount(ACPI_MADT_ENTRY_TYPE_LAPIC_NMI);
 
 	// map LAPIC to virtual memory
 
-	lapicoverride_t *lapic64 = getentry(ACPI_MADT_TYPE_64BITADDR, 0);
+	struct acpi_madt_lapic_address_override *lapic64 = getentry(ACPI_MADT_ENTRY_TYPE_LAPIC_ADDRESS_OVERRIDE, 0);
 
-	void *paddr = lapic64 ? (void *)lapic64->addr : (void *)(uint64_t)madt->addr;
+	void *paddr = lapic64 ? (void *)lapic64->address : (void *)(uint64_t)madt->local_interrupt_controller_address;
 
 	if (lapic64)
 		printf("\e[94mUsing 64 bit override for the local APIC address\n\e[0m");
@@ -317,17 +281,17 @@ void arch_apic_init() {
 	__assert(ioapics);
 
 	for (int i = 0; i < iocount; ++i) {
-		ioentry_t *entry = getentry(ACPI_MADT_TYPE_IOAPIC, i);
+		struct acpi_madt_ioapic *entry = getentry(ACPI_MADT_ENTRY_TYPE_IOAPIC, i);
 
-		__assert((entry->addr % PAGE_SIZE) == 0);
-		ioapics[i].addr = vmm_map(NULL, PAGE_SIZE, VMM_FLAGS_PHYSICAL, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, (void *)(uint64_t)entry->addr);
+		__assert((entry->address % PAGE_SIZE) == 0);
+		ioapics[i].addr = vmm_map(NULL, PAGE_SIZE, VMM_FLAGS_PHYSICAL, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, (void *)(uint64_t)entry->address);
 		__assert(ioapics[i].addr);
-		ioapics[i].base = entry->intbase;
+		ioapics[i].base = entry->gsi_base;
 		ioapics[i].top = ioapics[i].base + ((readioapic(ioapics[i].addr, IOAPIC_REG_ENTRYCOUNT) >> 16) & 0xff) + 1;
-		printf("ioapic%lu: addr %p base %lu top %lu\n", i, entry->addr, entry->intbase, ioapics[i].top);
+		printf("ioapic%lu: addr %p base %lu top %lu\n", i, entry->address, entry->gsi_base, ioapics[i].top);
 		for (int j = ioapics[i].base; j < ioapics[i].top; ++j)
 			writeiored(ioapics[i].addr, j - ioapics[i].base, 0xfe, 0, 0, 0, 0, 1, 0);
-			
+
 	}
 
 	// FIXME limine does this already but just in case the PIC should be masked

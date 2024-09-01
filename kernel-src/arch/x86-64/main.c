@@ -3,6 +3,7 @@
 #include <arch/cpu.h>
 #include <arch/gdt.h>
 #include <arch/idt.h>
+#include <kernel/acpi.h>
 #include <kernel/term.h>
 #include <kernel/pmm.h>
 #include <arch/mmu.h>
@@ -57,7 +58,7 @@ void kernel_entry() {
 	vmm_init();
 	alloc_init();
 	cmdline_parse();
-	arch_acpi_init();
+	acpi_early_init();
 	arch_apic_init();
 	cpu_initstate();
 	// XXX fall back to another clock source
@@ -66,6 +67,9 @@ void kernel_entry() {
 	arch_apic_timerinit();
 	sched_init();
 	arch_smp_wakeup();
+	pci_init();
+
+	acpi_init();
 
 	vmmcache_init();
 
@@ -89,7 +93,6 @@ void kernel_entry() {
 	block_init();
 	pseudodevices_init();
 	arch_e9_initdev();
-	pci_init();
 	keyboard_init();
 	mouse_init();
 	arch_ps2_init();
@@ -123,4 +126,8 @@ void kernel_entry() {
 	defaultauth_init();
 	sched_runinit();
 	sched_threadexit();
+}
+
+cpu_t *_bsp(void) {
+	return &bsp_cpu;
 }

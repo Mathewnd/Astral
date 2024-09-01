@@ -19,6 +19,7 @@
 #define IPL_DISK 500
 #define IPL_KEYBOARD 600
 #define IPL_MOUSE 650
+#define IPL_ACPI 700
 #define IPL_DPC 900
 #define IPL_NORMAL 1000
 
@@ -28,6 +29,7 @@ typedef struct _isr_t {
 	struct _isr_t *prev;
 	void (*func)(struct _isr_t *self, context_t *ctx);
 	void (*eoi)(struct _isr_t *self);
+	void *priv;
 	long id;
 	long priority;
 	bool pending;
