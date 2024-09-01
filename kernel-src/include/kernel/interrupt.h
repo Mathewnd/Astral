@@ -28,6 +28,7 @@ typedef struct _isr_t {
 	struct _isr_t *prev;
 	void (*func)(struct _isr_t *self, context_t *ctx);
 	void (*eoi)(struct _isr_t *self);
+	void *priv;
 	long id;
 	long priority;
 	bool pending;
