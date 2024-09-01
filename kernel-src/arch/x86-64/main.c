@@ -66,6 +66,7 @@ void kernel_entry() {
 	arch_apic_timerinit();
 	sched_init();
 	arch_smp_wakeup();
+	pci_init();
 
 	vmmcache_init();
 
@@ -89,7 +90,6 @@ void kernel_entry() {
 	block_init();
 	pseudodevices_init();
 	arch_e9_initdev();
-	pci_init();
 	keyboard_init();
 	mouse_init();
 	arch_ps2_init();
