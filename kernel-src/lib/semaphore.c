@@ -88,6 +88,23 @@ int semaphore_wait(semaphore_t *sem, bool interruptible) {
 	return ret;
 }
 
+int semaphore_timedwait(semaphore_t *sem, time_t timeoutusec, bool interruptible) {
+	time_t sleepus;
+
+	do {
+		if (semaphore_test(sem))
+			return true;
+
+		sleepus = min(timeoutusec, 10);
+		timeoutusec -= sleepus;
+
+		if (sleepus)
+			sched_sleepus(sleepus);
+	} while (timeoutusec);
+
+	return false;
+}
+
 void semaphore_signal(semaphore_t *sem) {
 	bool intstate = interrupt_set(false);
 	spinlock_acquire(&sem->lock);
