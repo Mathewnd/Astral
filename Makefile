@@ -9,6 +9,7 @@ DISTROTYPE=full
 .PHONY: all kernel clean clean-kernel iso initrd full minimal
 
 all: jinx
+	git submodule update --init --recursive
 	make kernel
 	./jinx build-all
 	make $(ISO)
