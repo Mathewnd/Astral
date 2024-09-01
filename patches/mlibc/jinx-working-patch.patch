@@ -101,7 +101,7 @@ index fc34a3b..b1a95a9 100644
  #include <dlfcn.h>
  
 diff --git mlibc-clean/options/posix/generic/unistd-stubs.cpp mlibc-workdir/options/posix/generic/unistd-stubs.cpp
-index 16ab8b7..5ccc503 100644
+index 444ad22..0f1b125 100644
 --- mlibc-clean/options/posix/generic/unistd-stubs.cpp
 +++ mlibc-workdir/options/posix/generic/unistd-stubs.cpp
 @@ -484,8 +484,9 @@ int lockf(int fd, int op, off_t size) {
@@ -116,7 +116,7 @@ index 16ab8b7..5ccc503 100644
  }
  
  long pathconf(const char *, int name) {
-@@ -1257,6 +1258,7 @@ void encrypt(char[64], int) {
+@@ -1297,6 +1298,7 @@ void encrypt(char[64], int) {
  }
  #endif
  
@@ -124,7 +124,7 @@ index 16ab8b7..5ccc503 100644
  #if __MLIBC_BSD_OPTION
  void *sbrk(intptr_t increment) {
  	if(increment) {
-@@ -1273,3 +1275,4 @@ void *sbrk(intptr_t increment) {
+@@ -1313,3 +1315,4 @@ void *sbrk(intptr_t increment) {
  	return out;
  }
  #endif
@@ -219,7 +219,7 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..3f0df5d
+index 0000000..de92048
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
 @@ -0,0 +1,985 @@
@@ -291,7 +291,7 @@ index 0000000..3f0df5d
 +		return 0;
 +	}
 +
-+	int sys_getgroups(size_t size, const gid_t *list, int *ret) {
++	int sys_getgroups(size_t size, gid_t *list, int *ret) {
 +		// TODO unstub
 +		*ret = 0;
 +		return 0;
