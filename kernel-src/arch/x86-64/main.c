@@ -105,7 +105,7 @@ void kernel_entry() {
 	char *root   = cmdline_get("root");
 	char *rootfs = cmdline_get("rootfs");
 
-	printf("mounting %s (%s) on /\n", root == NULL ? "none" : root, rootfs);
+	printf("entry: mounting %s (%s) on /\n", root == NULL ? "none" : root, rootfs);
 
 	vnode_t *backing;
 	if (root) {

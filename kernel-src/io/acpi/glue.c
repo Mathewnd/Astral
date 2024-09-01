@@ -1,27 +1,23 @@
-#include "arch/context.h"
-#include "arch/cpu.h"
-#include "arch/mmu.h"
-#include "kernel/interrupt.h"
-#include "kernel/scheduler.h"
-#include "mutex.h"
-#include "semaphore.h"
-#include "spinlock.h"
-#include "uacpi/types.h"
-#include "util.h"
-#include <arch/io.h>
-
+#include <uacpi/kernel_api.h>
+#include <uacpi/status.h>
+#include <uacpi/types.h>
+#include <kernel/interrupt.h>
+#include <kernel/scheduler.h>
 #include <kernel/alloc.h>
 #include <kernel/pmm.h>
 #include <kernel/pci.h>
 #include <kernel/timekeeper.h>
-#include <stdint.h>
-#include <time.h>
-
+#include <arch/cpu.h>
+#include <arch/mmu.h>
+#include <arch/context.h>
+#include <arch/io.h>
 #include <logging.h>
-
-#include <uacpi/kernel_api.h>
-#include <uacpi/status.h>
-
+#include <stdint.h>
+#include <mutex.h>
+#include <semaphore.h>
+#include <spinlock.h>
+#include <time.h>
+#include <util.h>
 
 void uacpi_kernel_log(uacpi_log_level lvl, const uacpi_char *str) {
 	const char *lvlstr;
@@ -46,7 +42,7 @@ void uacpi_kernel_log(uacpi_log_level lvl, const uacpi_char *str) {
 			lvlstr = "<invalid>";
 	}
 
-	printf("acpi/%s %s", lvlstr, str)
+	printf("acpi: [%s] %s", lvlstr, str)
 }
 
 void *uacpi_kernel_alloc(uacpi_size size) {
@@ -66,21 +62,22 @@ void uacpi_kernel_free(void *ptr) {
 
 void *uacpi_kernel_map(uacpi_phys_addr physical, uacpi_size length) {
 	uintmax_t pageoffset = (uintptr_t)physical % PAGE_SIZE;
-	void *virt = vmm_map(NULL, ROUND_UP(length, PAGE_SIZE), VMM_FLAGS_PHYSICAL,
+	void *virt = vmm_map(NULL, ROUND_UP(length + pageoffset, PAGE_SIZE), VMM_FLAGS_PHYSICAL,
 		ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC,
 		(void*)ROUND_DOWN(physical, PAGE_SIZE));
+
 	__assert(virt);
 	return (void *)((uintptr_t)virt + pageoffset);
 }
 
 void uacpi_kernel_unmap(void *ptr, uacpi_size length) {
+	uintmax_t pageoffset = (uintptr_t)ptr % PAGE_SIZE;
+
 	uintptr_t addr = (uintptr_t)ptr;
-	vmm_unmap((void*)ROUND_DOWN(addr, PAGE_SIZE), ROUND_UP(length, PAGE_SIZE), 0);
+	vmm_unmap((void*)ROUND_DOWN(addr, PAGE_SIZE), ROUND_UP(length + pageoffset, PAGE_SIZE), 0);
 }
 
-uacpi_status uacpi_kernel_raw_memory_read(
-	uacpi_phys_addr address, uacpi_u8 width, uacpi_u64 *out
-) {
+uacpi_status uacpi_kernel_raw_memory_read(uacpi_phys_addr address, uacpi_u8 width, uacpi_u64 *out) {
 	void *ptr = uacpi_kernel_map(address, width);
 
 	switch (width) {
@@ -105,9 +102,7 @@ uacpi_status uacpi_kernel_raw_memory_read(
 	return UACPI_STATUS_OK;
 }
 
-uacpi_status uacpi_kernel_raw_memory_write(
-	uacpi_phys_addr address, uacpi_u8 width, uacpi_u64 in
-) {
+uacpi_status uacpi_kernel_raw_memory_write(uacpi_phys_addr address, uacpi_u8 width, uacpi_u64 in) {
 	void *ptr = uacpi_kernel_map(address, width);
 
 	switch (width) {
@@ -132,10 +127,8 @@ uacpi_status uacpi_kernel_raw_memory_write(
 	return UACPI_STATUS_OK;
 }
 
-#ifdef __amd64__
-uacpi_status
-uacpi_kernel_raw_io_write(uacpi_io_addr addr, uacpi_u8 width,
-    uacpi_u64 value) {
+#ifdef __x86_64__
+uacpi_status uacpi_kernel_raw_io_write(uacpi_io_addr addr, uacpi_u8 width, uacpi_u64 value) {
 	switch (width) {
 		case 1:
 			outb(addr, value);
@@ -153,9 +146,7 @@ uacpi_kernel_raw_io_write(uacpi_io_addr addr, uacpi_u8 width,
 	return UACPI_STATUS_OK;
 }
 
-uacpi_status
-uacpi_kernel_raw_io_read(uacpi_io_addr addr, uacpi_u8 width,
-    uacpi_u64 *out) {
+uacpi_status uacpi_kernel_raw_io_read(uacpi_io_addr addr, uacpi_u8 width, uacpi_u64 *out) {
 	switch (width) {
 		case 1:
 			*out = inb(addr);
@@ -191,18 +182,15 @@ int __popcountdi2(int64_t a) {
 	return (x + (x >> 8)) & 0x0000007F; // (7 significant bits)
 }
 #else
-uacpi_status uacpi_kernel_raw_io_read(uacpi_io_addr addr, uacpi_u8 width,
-	uacpi_u64 *out) {
+uacpi_status uacpi_kernel_raw_io_read(uacpi_io_addr addr, uacpi_u8 width, uacpi_u64 *out) {
 	return UACPI_STATUS_UNIMPLEMENTED;
 }
-uacpi_status uacpi_kernel_raw_io_write(uacpi_io_addr addr, uacpi_u8 width,
-	uacpi_u64 value) {
+uacpi_status uacpi_kernel_raw_io_write(uacpi_io_addr addr, uacpi_u8 width, uacpi_u64 value) {
 	return UACPI_STATUS_UNIMPLEMENTED;
 }
 #endif
 
-uacpi_status uacpi_kernel_io_map(uacpi_io_addr base, uacpi_size size,
-	uacpi_handle *outhandle) {
+uacpi_status uacpi_kernel_io_map(uacpi_io_addr base, uacpi_size size, uacpi_handle *outhandle) {
 	*outhandle = (uacpi_handle)base;
 	return UACPI_STATUS_OK;
 }
@@ -211,20 +199,15 @@ void uacpi_kernel_io_unmap(uacpi_handle handle) {
 	(void)handle;
 }
 
-uacpi_status uacpi_kernel_io_read(uacpi_handle handle, uacpi_size offset,
-	uacpi_u8 width, uacpi_u64 *out) {
+uacpi_status uacpi_kernel_io_read(uacpi_handle handle, uacpi_size offset, uacpi_u8 width, uacpi_u64 *out) {
 	return uacpi_kernel_raw_io_read((uacpi_io_addr)handle + offset, width, out);
 }
 
-uacpi_status uacpi_kernel_io_write(uacpi_handle handle, uacpi_size offset,
-	uacpi_u8 width, uacpi_u64 value) {
+uacpi_status uacpi_kernel_io_write(uacpi_handle handle, uacpi_size offset, uacpi_u8 width, uacpi_u64 value) {
 	return uacpi_kernel_raw_io_write((uacpi_io_addr)handle + offset, width, value);
 }
 
-uacpi_status uacpi_kernel_pci_read(
-	uacpi_pci_address *address, uacpi_size offset,
-	uacpi_u8 width, uacpi_u64 *out
-) {
+uacpi_status uacpi_kernel_pci_read(uacpi_pci_address *address, uacpi_size offset, uacpi_u8 width, uacpi_u64 *out) {
 	if (address->segment != 0) {
 		printf("reading from PCI segment %u is not supported\n", address->segment);
 		return UACPI_STATUS_UNIMPLEMENTED;
@@ -250,10 +233,7 @@ uacpi_status uacpi_kernel_pci_read(
 	return UACPI_STATUS_OK;
 }
 
-uacpi_status uacpi_kernel_pci_write(
-	uacpi_pci_address *address, uacpi_size offset,
-	uacpi_u8 width, uacpi_u64 value
-) {
+uacpi_status uacpi_kernel_pci_write(uacpi_pci_address *address, uacpi_size offset, uacpi_u8 width, uacpi_u64 value) {
 	if (address->segment != 0) {
 		printf("writing to PCI segment %u is not supported\n", address->segment);
 		return UACPI_STATUS_UNIMPLEMENTED;
@@ -286,7 +266,7 @@ uacpi_u64 uacpi_kernel_get_ticks(void) {
 
 void uacpi_kernel_stall(uacpi_u8 usec) {
 	timespec_t start = timekeeper_timefromboot();
-	while (timespec_diffus(start, timekeeper_timefromboot()) < usec);
+	while (timespec_diffus(start, timekeeper_timefromboot()) < usec) CPU_PAUSE();
 }
 
 void uacpi_kernel_sleep(uacpi_u64 msec) {
@@ -303,10 +283,7 @@ static void acpi_irq(isr_t *isr, context_t *ctx) {
 	actx->handler(actx->ctx);
 }
 
-uacpi_status uacpi_kernel_install_interrupt_handler(
-	uacpi_u32 irq, uacpi_interrupt_handler handler, uacpi_handle ctx,
-	uacpi_handle *outhandle
-) {
+uacpi_status uacpi_kernel_install_interrupt_handler(uacpi_u32 irq, uacpi_interrupt_handler handler, uacpi_handle ctx, uacpi_handle *outhandle) {
 	struct acpi_irqctx *actx = alloc(sizeof(struct acpi_irqctx));
 	__assert(actx);
 
@@ -323,8 +300,7 @@ uacpi_status uacpi_kernel_install_interrupt_handler(
 	return UACPI_STATUS_OK;
 }
 
-uacpi_status uacpi_kernel_uninstall_interrupt_handler(
-	uacpi_interrupt_handler handler, uacpi_handle handle) {
+uacpi_status uacpi_kernel_uninstall_interrupt_handler(uacpi_interrupt_handler handler, uacpi_handle handle) {
 	(void)handler; (void)handle;
 
 	// We currently don't have an API to unregister interrupts
@@ -414,12 +390,12 @@ uacpi_status uacpi_kernel_schedule_work(
 	work->handler = handler;
 
 	switch (type) {
-	case UACPI_WORK_GPE_EXECUTION:
-		workctx = &gpework;
-		break;
-	default:
-		workctx = &notifywork;
-		break;
+		case UACPI_WORK_GPE_EXECUTION:
+			workctx = &gpework;
+			break;
+		default:
+			workctx = &notifywork;
+			break;
 	}
 
 	bool irqstate = spinlock_acquireirqclear(&workctx->queuelock);
@@ -454,7 +430,7 @@ uacpi_status uacpi_kernel_wait_for_work_completion(void) {
 
 uacpi_status uacpi_kernel_handle_firmware_request(
 	uacpi_firmware_request *req) {
-	switch(req->type) {
+	switch (req->type) {
 		case UACPI_FIRMWARE_REQUEST_TYPE_BREAKPOINT:
 			break;
 		case UACPI_FIRMWARE_REQUEST_TYPE_FATAL:

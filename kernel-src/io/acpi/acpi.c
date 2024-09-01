@@ -1,17 +1,14 @@
-
-#include "uacpi/kernel_api.h"
-#include "uacpi/status.h"
-#include "uacpi/types.h"
-#include <kernel/acpi.h>
-#include <kernel/interrupt.h>
-#include <arch/acpi.h>
-#include <logging.h>
-
+#include <uacpi/kernel_api.h>
+#include <uacpi/status.h>
+#include <uacpi/types.h>
 #include <uacpi/uacpi.h>
 #include <uacpi/utilities.h>
 #include <uacpi/sleep.h>
 #include <uacpi/event.h>
-
+#include <kernel/acpi.h>
+#include <kernel/interrupt.h>
+#include <arch/acpi.h>
+#include <logging.h>
 
 void acpi_early_init(void) {
 	struct uacpi_init_params params = {
@@ -44,10 +41,7 @@ void acpi_init(void) {
 	ret = uacpi_namespace_initialize();
 	__assert(ret == UACPI_STATUS_OK);
 
-	uacpi_install_fixed_event_handler(
-		UACPI_FIXED_EVENT_POWER_BUTTON,
-		handle_pwrbtn, UACPI_NULL
-	);
+	uacpi_install_fixed_event_handler(UACPI_FIXED_EVENT_POWER_BUTTON, handle_pwrbtn, UACPI_NULL);
 }
 
 int acpi_poweroff(void) {
@@ -78,7 +72,7 @@ int acpi_reboot(void) {
 
 	uacpi_status ret = uacpi_reboot();
 	if (uacpi_unlikely_error(ret)) {
-		printf("unable to perform system reset: %s\n", uacpi_status_to_string(ret));
+		printf("acpi: unable to perform system reset: %s\n", uacpi_status_to_string(ret));
 		return EIO;
 	}
 
