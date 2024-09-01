@@ -125,6 +125,13 @@ void semaphore_signal(semaphore_t *sem) {
 	interrupt_set(intstate);
 }
 
+void semaphore_reset(semaphore_t *sem) {
+	bool intstate = spinlock_acquireirqclear(&sem->lock);
+	__assert(sem->head == NULL);
+	sem->i = 0;
+	spinlock_releaseirqrestore(&sem->lock, intstate);
+}
+
 bool semaphore_haswaiters(semaphore_t *sem) {
 	bool intstate = interrupt_set(false);
 	spinlock_acquire(&sem->lock);

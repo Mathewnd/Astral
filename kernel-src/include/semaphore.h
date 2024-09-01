@@ -27,6 +27,7 @@ typedef struct semaphore_t{
 int semaphore_wait(semaphore_t *sem, bool interruptible);
 int semaphore_timedwait(semaphore_t *sem, time_t timeoutusec, bool interruptible);
 void semaphore_signal(semaphore_t *sem);
+void semaphore_reset(semaphore_t *sem);
 bool semaphore_test(semaphore_t *sem);
 bool semaphore_haswaiters(semaphore_t *sem);
 
