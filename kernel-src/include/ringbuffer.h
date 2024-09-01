@@ -20,5 +20,6 @@ size_t ringbuffer_peek(ringbuffer_t *ringbuffer, void *buffer, uintmax_t offset,
 
 #define RINGBUFFER_DATACOUNT(x) ((x)->write - (x)->read)
 #define RINGBUFFER_SIZE(x) (x)->size
+#define RINGBUFFER_FREESPACE(x) (RINGBUFFER_SIZE(x) - RINGBUFFER_DATACOUNT(x))
 
 #endif

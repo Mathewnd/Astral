@@ -223,7 +223,7 @@ int pipefs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int
 		if (revents & POLLHUP)
 			break;
 
-		size_t freebytes = RINGBUFFER_SIZE(&pipenode->data) - RINGBUFFER_DATACOUNT(&pipenode->data);
+		size_t freebytes = RINGBUFFER_FREESPACE(&pipenode->data);
 		// case 1
 		if (nonblock == false && atomic && freebytes >= size)
 			break;
