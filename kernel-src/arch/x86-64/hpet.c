@@ -5,6 +5,9 @@
 #include <kernel/vmm.h>
 #include <kernel/interrupt.h>
 
+#include <uacpi/acpi.h>
+#include <uacpi/tables.h>
+
 #define HPET_REG_CAPS 0
 #define HPET_REG_CONFIG 2
 #define HPET_REG_INTSTATUS 4
@@ -62,10 +65,6 @@ void arch_hpet_waitus(time_t us) {
 	arch_hpet_waitticks(us * ticksperus);
 }
 
-bool arch_hpet_exists() {
-	return arch_acpi_findtable("HPET", 0) != NULL;
-}
-
 static void counterirq(isr_t *isr, context_t *context) {
 	write64(HPET_REG_CONFIG, 0);
 
@@ -75,26 +74,36 @@ static void counterirq(isr_t *isr, context_t *context) {
 	write64(HPET_REG_CONFIG, 1 + ((type == TYPE_LEGACY) ? 2 : 0));
 }
 
+bool arch_hpet_exists() {
+	// This is assumed by arch_hpet_init below
+	return true;
+}
 
 time_t arch_hpet_init() {
-	__assert(arch_hpet_exists());
-	hpet_t *table = arch_acpi_findtable("HPET", 0);
-	printf("hpet%lu: %lu bits %lu comparators\n", table->hpetnum, 32 + table->countersize * 32, table->comparatorcount);
-	__assert(table->addrid == 0);
-	__assert((table->addr & PAGE_SIZE) == 0);
-	hpet = vmm_map(NULL, PAGE_SIZE, VMM_FLAGS_PHYSICAL, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, (void *)table->addr);
+	uacpi_table tbl;
+	struct acpi_hpet *table;
+
+	__assert(uacpi_table_find_by_signature("HPET", &tbl) == UACPI_STATUS_OK);
+	table = tbl.ptr;
+
+	printf("hpet%lu: %lu bits %lu comparators\n", table->number,
+		(table->block_id & ACPI_HPET_COUNT_SIZE_CAP) ? 64 : 32,
+		(table->block_id >> ACPI_HPET_NUMBER_OF_COMPARATORS_SHIFT) & ACPI_HPET_NUMBER_OF_COMPARATORS_MASK);
+	__assert(table->address.address_space_id == ACPI_AS_ID_SYS_MEM);
+	__assert((table->address.address & PAGE_SIZE) == 0);
+	hpet = vmm_map(NULL, PAGE_SIZE, VMM_FLAGS_PHYSICAL, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, (void *)table->address.address);
 	__assert(hpet);
 
 	uint64_t capabilities = read64(HPET_REG_CAPS);
 
 	ticksperus = 1000000000 / HPET_CAP_FSPERTICK(capabilities);
-	printf("hpet%lu: %lu ticks per us (%lu fs per tick)\n", table->hpetnum, ticksperus, HPET_CAP_FSPERTICK(capabilities));
+	printf("hpet%lu: %lu ticks per us (%lu fs per tick)\n", table->number, ticksperus, HPET_CAP_FSPERTICK(capabilities));
 	__assert(ticksperus);
 
 	write64(HPET_REG_CONFIG, 0);
 	write64(HPET_REG_COUNTER, 0);
 
-	if (table->countersize == 0) {
+	if (!(table->block_id & ACPI_HPET_COUNT_SIZE_CAP)) {
 		int selectedtimer = 2;
 		uint64_t timerconfig = read64(HPET_TIMER_CONFIG(selectedtimer));
 		// a 32 bit main counter will require more handling on our side.
@@ -122,7 +131,7 @@ time_t arch_hpet_init() {
 
 		write64(HPET_TIMER_CONFIG(selectedtimer), timerconfig);
 		write64(HPET_TIMER_COMPARATOR(selectedtimer), 0x80000000);
-		printf("hpet%d: timer %d on isr %d using %s\n", table->hpetnum, selectedtimer, isr->id & 0xff, "legacy replacement");
+		printf("hpet%d: timer %d on isr %d using %s\n", table->number, selectedtimer, isr->id & 0xff, "legacy replacement");
 	} else {
 		type = TYPE_64BIT;
 	}
