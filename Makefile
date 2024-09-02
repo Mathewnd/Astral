@@ -40,7 +40,7 @@ full:
 	cd sysroot; tar --format=ustar -cf $(INITRD) *
 
 minimal:
-	./jinx install $(MINIMALPACKAGES)
+	./jinx install minimalsysroot $(MINIMALPACKAGES)
 	cd minimalsysroot; tar --format=ustar -cf $(INITRD) *
 
 kernel:
