@@ -37,31 +37,31 @@ void pci_write32(int bus, int device, int function, uint32_t offset, uint32_t va
 }
 
 int pci_getcapoffset(pcienum_t *e, int cap, int n) {
-	if ((pci_read16(e->bus, e->device, e->function, PCI_CONFIG_STATUS) & PCI_STATUS_HASCAP) == 0)
+	if ((PCI_READ16(e, PCI_CONFIG_STATUS) & PCI_STATUS_HASCAP) == 0)
 		return 0;
 
-	int offset = pci_read8(e->bus, e->device, e->function, PCI_CONFIG_CAP);
+	int offset = PCI_READ8(e, PCI_CONFIG_CAP);
 	while (offset) {
-		if (pci_read8(e->bus, e->device, e->function, offset) == cap) {
+		if (PCI_READ8(e, offset) == cap) {
 			if (n-- == 0)
 				break;
 		}
 
-		offset = pci_read8(e->bus, e->device, e->function, offset + 1);
+		offset = PCI_READ8(e, offset + 1);
 	}
 
 	return offset;
 }
 
 void pci_setcommand(pcienum_t *e, int mask, int v) {
-	uint16_t current = pci_read16(e->bus, e->device, e->function, PCI_CONFIG_COMMAND);
+	uint16_t current = PCI_READ16(e, PCI_CONFIG_COMMAND);
 
 	if (v)
 		current |= mask;
 	else
 		current &= ~mask;
 
-	pci_write16(e->bus, e->device, e->function, PCI_CONFIG_COMMAND, current);
+	PCI_WRITE16(e, PCI_CONFIG_COMMAND, current);
 }
 
 typedef struct {
@@ -88,32 +88,71 @@ void pci_msixadd(pcienum_t *e, int msixvec, int vec, int edgetrigger, int deasse
 }
 
 void pci_msixsetmask(pcienum_t *e, int v) {
-	uint16_t msgctl = pci_read16(e->bus, e->device, e->function, e->msix.offset + 2);
+	uint16_t msgctl = PCI_READ16(e, e->msix.offset + 2);
 	msgctl = v ? msgctl | 0x4000 : msgctl & ~0x4000;
-	pci_write16(e->bus, e->device, e->function, e->msix.offset + 2, msgctl);
+	PCI_WRITE16(e, e->msix.offset + 2, msgctl);
 }
 
 size_t pci_initmsix(pcienum_t *e) {
 	if (e->msix.exists == false)
 		return 0;
 
-	uint16_t msgctl = pci_read16(e->bus, e->device, e->function, e->msix.offset + 2);
+	uint16_t msgctl = PCI_READ16(e, e->msix.offset + 2);
 	msgctl |= 0xc000;
-	pci_write16(e->bus, e->device, e->function, e->msix.offset + 2, msgctl);
+	PCI_WRITE16(e, e->msix.offset + 2, msgctl);
 
 	e->irq.msix.entrycount = (msgctl & 0x3ff) + 1;
 
-	uint32_t bir = pci_read32(e->bus, e->device, e->function, e->msix.offset + 4);
+	uint32_t bir = PCI_READ32(e, e->msix.offset + 4);
 	e->irq.msix.bir = bir & 0x7;
 	e->irq.msix.tableoffset = bir & ~0x7;
 
-	bir = pci_read32(e->bus, e->device, e->function, e->msix.offset + 8);
+	bir = PCI_READ32(e, e->msix.offset + 8);
 	e->irq.msix.pbir = bir & 0x7;
 	e->irq.msix.pboffset = bir & ~0x7;
 
 	pci_setcommand(e, PCI_COMMAND_IRQDISABLE, 1);
 
 	return e->irq.msix.entrycount;
+}
+
+#define PCI_MSI_ENABLE 1
+#define PCI_MSI_MULTIPLE_MESSAGE_SUPPORT_MASK 0x70
+#define PCI_MSI_64BIT (1 << 7)
+
+size_t pci_initmsi(pcienum_t *e, int requested) {
+	__assert(requested == 1);
+	if (e->msi.exists == false)
+		return 0;
+
+	uint16_t msgctl = PCI_READ16(e, e->msi.offset + 2);
+	msgctl |= PCI_MSI_ENABLE;
+	msgctl &= ~(PCI_MSI_MULTIPLE_MESSAGE_SUPPORT_MASK); // no multiple message support
+	PCI_WRITE16(e, e->msi.offset + 2, msgctl);
+
+	pci_setcommand(e, PCI_COMMAND_IRQDISABLE, 1);
+
+	return 1;
+}
+
+void pci_msisetbase(pcienum_t *e, int base, int edgetrigger, int deassert) {
+	__assert(e->msi.exists);
+
+	uint32_t data;
+	uint64_t address = msiformatmessage(&data, base, edgetrigger, deassert);
+
+	bool is64bit = PCI_READ16(e, e->msi.offset + 2) & PCI_MSI_64BIT;
+	int dataoffset = 8 + (is64bit ? 4 : 0);
+
+	// address low
+	PCI_WRITE32(e, e->msi.offset + 4, address & 0xffffffff);
+
+	// address high
+	if (is64bit)
+		PCI_WRITE32(e, e->msi.offset + 8, (address > 32) & 0xffffffff);
+
+	// data
+	PCI_WRITE16(e, e->msi.offset + dataoffset, data);
 }
 
 #define BAR_MAP_FLAGS (ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_NOEXEC)
@@ -135,14 +174,14 @@ pcibar_t pci_getbar(pcienum_t *e, int n) {
 	pcibar_t ret;
 	int offset = 0x10 + n * 4;
 
-	uint32_t bar = pci_read32(e->bus, e->device, e->function, offset);
+	uint32_t bar = PCI_READ32(e, offset);
 	if (bar & BAR_IO) {
 		ret.mmio = false;
 		ret.prefetchable = false;
 		ret.address = bar & 0xfffffffc;
-		pci_write32(e->bus, e->device, e->function, offset, -1);
-		ret.length = ~(pci_read32(e->bus, e->device, e->function, offset) & 0xfffffffc) + 1;
-		pci_write32(e->bus, e->device, e->function, offset, bar);
+		PCI_WRITE32(e, offset, -1);
+		ret.length = ~(PCI_READ32(e, offset) & 0xfffffffc) + 1;
+		PCI_WRITE32(e, offset, bar);
 	} else {
 		ret.mmio = true;
 		ret.prefetchable = bar & BAR_PREFETCHABLE;
@@ -150,11 +189,11 @@ pcibar_t pci_getbar(pcienum_t *e, int n) {
 		ret.length = -1;
 		ret.is64bits = (bar & BAR_TYPE_MASK) == BAR_TYPE_64BIT;
 		if (ret.is64bits)
-			ret.address += (uint64_t)pci_read32(e->bus, e->device, e->function, offset + 4) << 32;
+			ret.address += (uint64_t)PCI_READ32(e, offset + 4) << 32;
 
-		pci_write32(e->bus, e->device, e->function, offset, -1);
-		ret.length = ~(pci_read32(e->bus, e->device, e->function, offset) & 0xfffffff0) + 1;
-		pci_write32(e->bus, e->device, e->function, offset, bar);
+		PCI_WRITE32(e, offset, -1);
+		ret.length = ~(PCI_READ32(e, offset) & 0xfffffff0) + 1;
+		PCI_WRITE32(e, offset, bar);
 		ret.address = (uint64_t)pci_mapbar(ret);
 		__assert(ret.address);
 	}
