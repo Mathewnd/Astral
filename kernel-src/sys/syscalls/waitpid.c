@@ -4,10 +4,11 @@
 #include <errno.h>
 #include <logging.h>
 
+#define __WALL 0x40000000
 #define WNOHANG 1
 #define WSTOPPED 2
 #define WCONTINUED 8
-#define KNOWN_FLAGS (WNOHANG | WSTOPPED | WCONTINUED)
+#define KNOWN_FLAGS (WNOHANG | WSTOPPED | WCONTINUED | __WALL)
 
 syscallret_t syscall_waitpid(context_t *context, pid_t pid, int *status, int options) {
 	syscallret_t ret = {
