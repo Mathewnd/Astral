@@ -1,5 +1,5 @@
 diff --git shadow-clean/etc/login.defs shadow-workdir/etc/login.defs
-index 33622c2..adc6025 100644
+index 33622c2..71a7b87 100644
 --- shadow-clean/etc/login.defs
 +++ shadow-workdir/etc/login.defs
 @@ -93,7 +93,7 @@ MOTD_FILE	/etc/motd
@@ -11,6 +11,15 @@ index 33622c2..adc6025 100644
  
  #
  # If defined, file which maps tty line to TERM environment parameter.
+@@ -188,7 +188,7 @@ TTYPERM		0600
+ #
+ # Prefix these values with "0" to get octal, "0x" to get hexadecimal.
+ #
+-ERASECHAR	0177
++ERASECHAR	010
+ KILLCHAR	025
+ #ULIMIT		2097152
+ 
 diff --git shadow-clean/lib/freezero.c shadow-workdir/lib/freezero.c
 index c565f43..a6adf98 100644
 --- shadow-clean/lib/freezero.c
