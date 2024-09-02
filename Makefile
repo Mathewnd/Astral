@@ -6,12 +6,14 @@ QEMUFLAGS=-M q35 -cdrom $(ISO) -m 2G -smp cpus=1 -no-shutdown -no-reboot -monito
 INITRD=$(shell pwd)/iso/initrd
 DISTROTYPE=full
 
+MINIMALPACKAGES=mlibc bash coreutils init distro-files vim nano mount netd
+
 .PHONY: all kernel clean clean-kernel iso initrd full minimal
 
 all: jinx
 	git submodule update --init --recursive
 	make kernel
-	./jinx build-all
+	make build-$(DISTROTYPE)
 	make $(ISO)
 
 jinx:
@@ -27,12 +29,18 @@ initrd:
 	mkdir -p $(ISODIR)
 	make $(DISTROTYPE)
 
+build-full:
+	./jinx build-all
+
+build-minimal:
+	./jinx build $(MINIMALPACKAGES)
+
 full:
 	./jinx sysroot
 	cd sysroot; tar --format=ustar -cf $(INITRD) *
 
 minimal:
-	./jinx install minimalsysroot mlibc bash coreutils init distro-files vim nano mount netd
+	./jinx install $(MINIMALPACKAGES)
 	cd minimalsysroot; tar --format=ustar -cf $(INITRD) *
 
 kernel:
