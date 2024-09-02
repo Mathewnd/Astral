@@ -7,8 +7,8 @@
 #include <ringbuffer.h>
 #include <kernel/vfs.h>
 
-#define DEVICE_BUFFER_SIZE 512
-#define READ_BUFFER_SIZE 4096
+#define TTY_DEVICE_BUFFER_SIZE 512
+#define TTY_READ_BUFFER_SIZE 4096
 
 typedef size_t (*ttydevicewritefn_t)(void *internal, char *str, size_t size);
 typedef void (*ttyinactivefn_t)(void *internal);

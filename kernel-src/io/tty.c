@@ -100,7 +100,7 @@ void tty_process(tty_t *tty, char c) {
 				tty->writetodevice(tty->deviceinternal, "\b \b", 3);
 
 			tty->devicepos = 0;
-			memset(tty->devicebuffer, 0, DEVICE_BUFFER_SIZE);
+			memset(tty->devicebuffer, 0, TTY_DEVICE_BUFFER_SIZE);
 			return;
 		} else if (c == tty->termios.c_cc[VEOF]) {
 			// end of file TODO make read return 0
@@ -115,17 +115,18 @@ void tty_process(tty_t *tty, char c) {
 
 		// check if buffer is full
 		tty->devicebuffer[tty->devicepos++] = c;
-		if (tty->devicepos == DEVICE_BUFFER_SIZE)
+		if (tty->devicepos == TTY_DEVICE_BUFFER_SIZE)
 			flush = true;
 
 		if (flush) {
 			MUTEX_ACQUIRE(&tty->readmutex, false);
+
 			ringbuffer_write(&tty->readbuffer, tty->devicebuffer, tty->devicepos);
+
+			memset(tty->devicebuffer, 0, TTY_DEVICE_BUFFER_SIZE);
+
 			tty->devicepos = 0;
-			// XXX is this needed?
-			size_t datacount = RINGBUFFER_DATACOUNT(&tty->readbuffer);
-			if (datacount)
-				poll_event(&tty->pollheader, POLLIN);
+			poll_event(&tty->pollheader, POLLIN);
 
 			MUTEX_RELEASE(&tty->readmutex);
 		}
@@ -453,11 +454,11 @@ tty_t *tty_create(char *name, ttydevicewritefn_t writefn, ttyinactivefn_t inacti
 	if (tty->name == NULL)
 		goto error;
 
-	tty->devicebuffer = alloc(DEVICE_BUFFER_SIZE);
+	tty->devicebuffer = alloc(TTY_DEVICE_BUFFER_SIZE);
 	if (tty->devicebuffer == NULL)
 		goto error;
 
-	if (ringbuffer_init(&tty->readbuffer, READ_BUFFER_SIZE))
+	if (ringbuffer_init(&tty->readbuffer, TTY_READ_BUFFER_SIZE))
 		goto error;
 
 	int minor = allocminor(tty);
