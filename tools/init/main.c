@@ -12,6 +12,12 @@
 
 #include "common.h"
 
+static void unblocksignals(void) {
+	sigset_t signals;
+	sigfillset(&signals);
+	sigprocmask(SIG_UNBLOCK, &signals, NULL);
+}
+
 static void sendacpicommand(char c) {
 	int acpifd = open("/dev/acpi", O_WRONLY);
 	if (acpifd == -1) {
@@ -161,6 +167,8 @@ static void dorootshell(void) {
 			exit(EXIT_FAILURE);
 		}
 
+		unblocksignals();
+
 		execl("/usr/bin/bash", "/usr/bin/bash", "-l", NULL);
 		perror("init: execl /usr/bin/bash failed");
 		return exit(EXIT_FAILURE);
@@ -179,6 +187,7 @@ static void dologinprompt(void) {
 	if (pid == 0) {
 		setsid();
 		snatchconsole();
+		unblocksignals();
 		execl("/bin/login", NULL);
 		perror("init: exec /bin/login failed");
 		exit(EXIT_FAILURE);
@@ -195,7 +204,7 @@ static void dostartwm(void) {
 	}
 
 	if (pid == 0) {
-
+		unblocksignals();
 		execl("/usr/bin/startwm", NULL);
 		perror("init: exec /usr/bin/startwm failed");
 		exit(EXIT_FAILURE);
