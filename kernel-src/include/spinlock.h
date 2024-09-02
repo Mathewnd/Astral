@@ -31,4 +31,15 @@ static inline void spinlock_releaseirqrestore(spinlock_t *lock, bool irqstate){
 	interrupt_set(irqstate);
 }
 
+static inline long spinlock_acquireraiseipl(spinlock_t *lock, long ipl) {
+	long ret = interrupt_raiseipl(ipl);
+	spinlock_acquire(lock);
+	return ret;
+}
+
+static inline void spinlock_releaseloweripl(spinlock_t *lock, long ipl) {
+	spinlock_release(lock);
+	interrupt_loweripl(ipl);
+}
+
 #endif
