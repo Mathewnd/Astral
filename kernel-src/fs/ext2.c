@@ -1064,7 +1064,6 @@ static int ext2_open(vnode_t **vnodep, int flags, cred_t *cred) {
 
 	int error = 0;
 	if (type == V_TYPE_FIFO) {
-		VOP_LOCK(*vnodep);
 		vnode_t *fifo;
 		error = pipefs_getbinding(*vnodep, &fifo);
 		VOP_UNLOCK(*vnodep);
@@ -1074,9 +1073,12 @@ static int ext2_open(vnode_t **vnodep, int flags, cred_t *cred) {
 		VOP_LOCK(fifo);
 		error = VOP_OPEN(&fifo, flags, cred);
 		VOP_UNLOCK(fifo);
+		VOP_LOCK(*vnodep);
 
-		if (error == 0)
+		if (error == 0) {
+			VOP_HOLD(fifo);
 			*vnodep = fifo;
+		}
 	}
 
 	return error;

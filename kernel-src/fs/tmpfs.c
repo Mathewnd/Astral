@@ -183,8 +183,10 @@ static int tmpfs_open(vnode_t **nodep, int flags, cred_t *cred) {
 			return error;
 
 		VOP_LOCK(fifo);
+		VOP_UNLOCK(node);
 		error = VOP_OPEN(&fifo, flags, cred);
 		VOP_UNLOCK(fifo);
+		VOP_LOCK(node);
 		if (error == 0) {
 			*nodep = fifo;
 			VOP_HOLD(fifo);
