@@ -6,6 +6,93 @@
 #include <fcntl.h>
 #include <string.h>
 #include <sys/param.h>
+#include <sys/stat.h>
+#include <errno.h>
+#include <signal.h>
+
+#include "common.h"
+
+static void dopoweroff(void) {
+	printf("init: shutting down system\n");
+	//printf("init: sending SIGTERM to all processes\n");
+	// TODO kill(-1, SIGTERM);
+	// TODO wait 5 seconds or until all children have died
+	//printf("init: sending SIGKILL to all processes\n");
+	// TODO kill(-1, SIGKILL);
+	// TODO wait until all children have died
+
+	printf("init: syncing disks\n");
+	sync();
+	printf("init: powering off\n");
+	int acpifd = open("/dev/acpi", O_WRONLY);
+	if (acpifd == -1) {
+		perror("init: open /dev/acpi");
+		goto oops;
+	}
+
+	write(acpifd, "p", 1);
+	perror("init: write /dev/acpi");
+
+	oops:
+	printf("init: failed to send acpi power off. please manually turn the computer off.\n");
+	for (;;)
+		sleep(1);
+}
+
+static void handlecommands(void) {
+	for (;;) {
+		int fd = open(COMMAND_FIFO, O_RDONLY);
+		if (fd == -1) {
+			perror("init: open command fifo");
+			return;
+		}
+
+		char c;
+		int num;
+		for (;;) {
+			num = read(fd, &c, 1);
+			if (num == 0)
+				break;
+
+			if (num == -1) {
+				if (errno == EINTR)
+					continue;
+
+				perror("init: read");
+				close(fd);
+				continue;
+			}
+
+			switch (c) {
+				case COMMAND_POWEROFF:
+					dopoweroff();
+					break;
+				default:
+					printf("init: unknown command %c\n", c);
+			}
+		}
+
+
+		close(fd);
+	}
+}
+
+static void reap(int signum) {
+	pid_t pid;
+
+	for (;;) {
+		pid = waitpid(-1, NULL, WNOHANG);
+		if (pid == 0)
+			break;
+
+		if (pid == -1) {
+			if (errno == ECHILD)
+				break;
+
+			perror("init: waitpid");
+		}
+	}
+}
 
 static void snatchconsole(void) {
 	int rfd = open("/dev/console", O_RDONLY);
@@ -38,55 +125,50 @@ static void dowaitpid(pid_t pid) {
 }
 
 static void dorootshell(void) {
-	// loop starting a root shell every time it exits
-	for (;;) {
-		printf("init: starting root shell\n");
+	printf("init: starting root shell\n");
 
-		pid_t pid = fork();
-		if (pid == -1) {
-			perror("init: fork failed");
+	pid_t pid = fork();
+	if (pid == -1) {
+		perror("init: fork failed");
+		exit(EXIT_FAILURE);
+	}
+
+	if (pid == 0) {
+		// create its own process group and set is as the foreground group
+		if (setpgid(0, 0) == -1) {
+			perror("init: setpgrp failed");
 			exit(EXIT_FAILURE);
 		}
 
-		if (pid == 0) {
-			// create its own process group and set is as the foreground group
-			if (setpgid(0, 0) == -1) {
-				perror("init: setpgrp failed");
-				exit(EXIT_FAILURE);
-			}
-
-			if (tcsetpgrp(0, getpid()) == -1) {
-				perror("init: tcsetpgrp failed");
-				exit(EXIT_FAILURE);
-			}
-
-			execl("/usr/bin/bash", "/usr/bin/bash", "-l", NULL);
-			perror("init: execl /usr/bin/bash failed");
-			return exit(EXIT_FAILURE);
+		if (tcsetpgrp(0, getpid()) == -1) {
+			perror("init: tcsetpgrp failed");
+			exit(EXIT_FAILURE);
 		}
 
-		dowaitpid(pid);
+		execl("/usr/bin/bash", "/usr/bin/bash", "-l", NULL);
+		perror("init: execl /usr/bin/bash failed");
+		return exit(EXIT_FAILURE);
 	}
+
+	handlecommands();
 }
 
 static void dologinprompt(void) {
-	for (;;) {
-		pid_t pid = fork();
-		if (pid == -1) {
-			perror("init: fork failed");
-			exit(EXIT_FAILURE);
-		}
-
-		if (pid == 0) {
-			setsid();
-			snatchconsole();
-			execl("/bin/login", NULL);
-			perror("init: exec /bin/login failed");
-			exit(EXIT_FAILURE);
-		}
-
-		dowaitpid(pid);
+	pid_t pid = fork();
+	if (pid == -1) {
+		perror("init: fork failed");
+		exit(EXIT_FAILURE);
 	}
+
+	if (pid == 0) {
+		setsid();
+		snatchconsole();
+		execl("/bin/login", NULL);
+		perror("init: exec /bin/login failed");
+		exit(EXIT_FAILURE);
+	}
+
+	handlecommands();
 }
 
 static void dostartwm(void) {
@@ -103,14 +185,22 @@ static void dostartwm(void) {
 		exit(EXIT_FAILURE);
 	}
 
-	dowaitpid(pid);
-
-	// fall back to a root shell if this ever returns (it shouldn't)
-	dorootshell();
+	handlecommands();
 }
 
 int main(int argc, char *argv[]) {
 	printf("init: Welcome to Astral!\n");
+
+	// set up signal mask
+	sigset_t signals;
+	sigfillset(&signals);
+	sigprocmask(SIG_SETMASK, &signals, NULL);
+
+	// set up signal actions
+	struct sigaction sa;
+	memset(&sa, 0, sizeof(sigaction));
+	sa.sa_handler = reap;
+	sigaction(SIGCHLD, &sa, NULL);
 
 	// set up initial environmental variables
 	struct passwd* pw = getpwuid(getuid());
@@ -177,6 +267,15 @@ int main(int argc, char *argv[]) {
 
 	if (WEXITSTATUS(status)) {
 		printf("init: /etc/rc returned failure status %d\n", WEXITSTATUS(status));
+		return EXIT_FAILURE;
+	}
+
+	// unmask sigchild to reap children now
+	sigdelset(&signals, SIGCHLD);
+
+	printf("init: creating %s\n", COMMAND_FIFO);
+	if (mkfifo(COMMAND_FIFO, 0600)) {
+		perror("init: mkfifo failed");
 		return EXIT_FAILURE;
 	}
 

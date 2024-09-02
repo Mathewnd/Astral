@@ -20,3 +20,9 @@ tools/mount/mount
 tools/mount/main.o
 tools/netd/main.o
 tools/netd/netd
+tools/init/poweroff
+tools/init/poweroff.o
+tools/init/reboot
+tools/init/reboot.o
+tools/init/acpid
+tools/init/acpid.o
