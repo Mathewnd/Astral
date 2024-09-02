@@ -80,6 +80,8 @@ void kernel_entry() {
 	sockfs_init();
 	ext2_init();
 
+	acpi_initdevice();
+
 	tty_init();
 	pty_init();
 

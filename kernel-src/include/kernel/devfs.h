@@ -18,6 +18,7 @@
 #define DEV_MAJOR_NET 10
 #define DEV_MAJOR_MOUSE 11
 #define DEV_MAJOR_PTY 12
+#define DEV_MAJOR_ACPI 13
 
 typedef struct {
 	int (*open)(int minor, vnode_t **vnode, int flags);

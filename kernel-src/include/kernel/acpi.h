@@ -10,4 +10,9 @@ void acpi_init(void);
 int acpi_poweroff(void);
 int acpi_reboot(void);
 
+void acpi_signaldevice(char c);
+
+// Depends on devfs
+void acpi_initdevice(void);
+
 #endif

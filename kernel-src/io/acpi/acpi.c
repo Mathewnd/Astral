@@ -22,7 +22,7 @@ void acpi_early_init(void) {
 
 void acpi_dopoweroff(uacpi_handle ctx) {
 	(void)ctx;
-	acpi_poweroff();
+	acpi_signaldevice('p');
 }
 
 static uacpi_interrupt_ret handle_pwrbtn(uacpi_handle ctx) {
