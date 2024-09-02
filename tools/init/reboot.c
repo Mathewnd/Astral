@@ -6,7 +6,7 @@
 #include "common.h"
 
 int main() {
-	char c = COMMAND_POWEROFF;
+	char c = COMMAND_REBOOT;
 	int fd = open(COMMAND_FIFO, O_WRONLY);
 
 	if (fd == -1) {

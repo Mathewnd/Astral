@@ -12,8 +12,24 @@
 
 #include "common.h"
 
-static void dopoweroff(void) {
-	printf("init: shutting down system\n");
+static void sendacpicommand(char c) {
+	int acpifd = open("/dev/acpi", O_WRONLY);
+	if (acpifd == -1) {
+		perror("init: open /dev/acpi");
+		goto oops;
+	}
+
+	write(acpifd, &c, 1);
+	perror("init: write /dev/acpi");
+
+	oops:
+	printf("init: failed to send acpi command. please manually do what is needed.\n");
+	for (;;)
+		sleep(1);
+}
+
+static void preparetodie(void) {
+	printf("init: bringing system down\n");
 	//printf("init: sending SIGTERM to all processes\n");
 	// TODO kill(-1, SIGTERM);
 	// TODO wait 5 seconds or until all children have died
@@ -23,20 +39,16 @@ static void dopoweroff(void) {
 
 	printf("init: syncing disks\n");
 	sync();
+}
+
+static void doreboot(void) {
+	printf("init: rebooting\n");
+	sendacpicommand('r');
+}
+
+static void dopoweroff(void) {
 	printf("init: powering off\n");
-	int acpifd = open("/dev/acpi", O_WRONLY);
-	if (acpifd == -1) {
-		perror("init: open /dev/acpi");
-		goto oops;
-	}
-
-	write(acpifd, "p", 1);
-	perror("init: write /dev/acpi");
-
-	oops:
-	printf("init: failed to send acpi power off. please manually turn the computer off.\n");
-	for (;;)
-		sleep(1);
+	sendacpicommand('p');
 }
 
 static void handlecommands(void) {
@@ -65,8 +77,12 @@ static void handlecommands(void) {
 
 			switch (c) {
 				case COMMAND_POWEROFF:
+					preparetodie();
 					dopoweroff();
 					break;
+				case COMMAND_REBOOT:
+					preparetodie();
+					doreboot();
 				default:
 					printf("init: unknown command %c\n", c);
 			}

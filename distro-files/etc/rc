@@ -16,3 +16,5 @@ chmod 0755 /dev/pts
 # required to be owned by root and sticky for rootless Xorg.
 mkdir -p /tmp/.X11-unix
 chmod 1777 /tmp/.X11-unix
+
+/usr/sbin/acpid
