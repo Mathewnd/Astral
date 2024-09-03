@@ -171,6 +171,8 @@ typedef struct vops_t {
 #define VOP_LOCK(v) (v)->ops->lock(v)
 #define VOP_UNLOCK(v) (v)->ops->unlock(v)
 
+#define VOP_MMAP_ADDRESS_MMAP_SUPPORTED (void *)-1
+
 #define VOP_OPEN(v, f, c) (*v)->ops->open(v, f, c)
 #define VOP_CLOSE(v, f, c) (v)->ops->close(v, f, c)
 #define VOP_READ(v, b, s, o, f, r, c) (v)->ops->read(v, b, s, o, f, r, c)

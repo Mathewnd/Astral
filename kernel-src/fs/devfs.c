@@ -176,6 +176,11 @@ int devfs_mmap(vnode_t *node, void *addr, uintmax_t offset, int flags, cred_t *c
 	if (devnode->devops->mmap == NULL)
 		return ENODEV;
 
+	// if addr is this magic value, the caller is only
+	// testing for mmap support from the device
+	if (addr == VOP_MMAP_ADDRESS_MMAP_SUPPORTED)
+		return 0;
+
 	return devnode->devops->mmap(devnode->attr.rdevminor, addr, offset, flags);
 }
 

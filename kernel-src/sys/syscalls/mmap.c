@@ -68,12 +68,23 @@ syscallret_t syscall_mmap(context_t *context, void *hint, size_t len, int prot, 
 			return ret;
 		}
 
+		// check if the file is of a type that can be mapped
+		// and if the fd was opened with the required permissions
 		int type = file->vnode->type;
 		if ((type != V_TYPE_REGULAR && type != V_TYPE_BLKDEV && type != V_TYPE_CHDEV)
 			|| ((prot & PROT_READ) && (file->flags & FILE_READ) == 0)
 			|| ((flags & MAP_SHARED) && (prot & PROT_WRITE) && (file->flags & FILE_WRITE) == 0)) {
 			ret.errno = EACCES;
 			goto cleanup;
+		}
+
+		// not all charcter devices support mapping, so check if its supported
+		// (regular files and block devices go through the page cache)
+		// TODO move this check to vmm_map once the return value of mmap is fixed to return an errno
+		if (type == V_TYPE_CHDEV) {
+			ret.errno = VOP_MMAP(file->vnode, VOP_MMAP_ADDRESS_MMAP_SUPPORTED, 0, 0, NULL);
+			if (ret.errno)
+				goto cleanup;
 		}
 
 		vfd.node = file->vnode;
