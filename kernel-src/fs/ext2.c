@@ -751,13 +751,33 @@ static int resizeinode(ext2fs_t *fs, ext2node_t *node, size_t newsize) {
 
 static int rwblocks(ext2fs_t *fs, ext2node_t *node, void *buffer, size_t count, uintmax_t index, bool write, bool cache) {
 	for (uintmax_t i = 0; i < count; ++i) {
+		size_t inodesize = INODE_SIZE(&node->inode);
+		__assert(index + i < ROUND_UP(inodesize, fs->blocksize) / fs->blocksize);
+
 		void *bufferp = (void *)((uintptr_t)buffer + i * fs->blocksize);
 		blockptr_t block;
 		int e = getinodeblock(fs, node, index + i, &block);
 		if (e)
 			return e;
 
-		__assert(block);
+		// for sparse files
+		if (block == 0 && write) {
+			uintmax_t newblock;
+			e = allocatestructure(fs, &newblock, false);
+			if (e)
+				return e;
+
+			e = setinodeblock(fs, node, index + i, newblock);
+			if (e) {
+				freestructure(fs, newblock, false);
+				return e;
+			}
+
+			block = newblock;
+		} else if (block == 0 && write == false) {
+			memset(bufferp, 0, fs->blocksize);
+			continue;
+		}
 
 		size_t donecount;
 		e = write ?
@@ -774,12 +794,33 @@ static int rwblocks(ext2fs_t *fs, ext2node_t *node, void *buffer, size_t count, 
 
 static int rwblock(ext2fs_t *fs, ext2node_t *node, void *buffer, size_t count, uintmax_t offset, uintmax_t index, bool write, bool cache) {
 	__assert(offset + count <= fs->blocksize);
+	size_t inodesize = INODE_SIZE(&node->inode);
+	__assert(index < ROUND_UP(inodesize, fs->blocksize) / fs->blocksize);
+
 	blockptr_t block;
 	int e = getinodeblock(fs, node, index, &block);
 	if (e)
 		return e;
 
-	__assert(block);
+
+	// for sparse files
+	if (block == 0 && write) {
+		uintmax_t newblock;
+		e = allocatestructure(fs, &newblock, false);
+		if (e)
+			return e;
+
+		e = setinodeblock(fs, node, index, newblock);
+		if (e) {
+			freestructure(fs, newblock, false);
+			return e;
+		}
+
+		block = newblock;
+	} else if (block == 0 && write == false) {
+		memset(buffer, 0, count);
+		return 0;
+	}
 
 	size_t donecount;
 	e = write ?
