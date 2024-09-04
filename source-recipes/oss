@@ -1,0 +1,10 @@
+name=oss
+version=4.2
+source_method=tarball
+tarball_url="http://www.4front-tech.com/developer/sources/stable/gpl/oss-v4.2-build2020-src-gpl.tar.bz2"
+tarball_sha512=6b0c5390e92f9c9466669600321140b54d1fde5eeaef2f9938d6bdbc7ae686f4a1ad0fa9669a1505962eb515d61d29d8a677911557a9b245ce039e1ab3b77d69
+
+regenerate() {
+	true
+	#touch ${source_dir}/cmd/ossdevlinks/.nomake
+}

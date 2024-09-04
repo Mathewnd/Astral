@@ -1,0 +1,153 @@
+diff --git oss-clean/configure oss-workdir/configure
+index 48ca437..3aaf791 100755
+--- oss-clean/configure
++++ oss-workdir/configure
+@@ -90,6 +90,14 @@ do
+ 		TARGETOS=VxWorks
+ 		export CROSSCOMPILE uOSS
+ 		;;
++   
++	"--target=astral-x86_64")
++		CROSSCOMPILE=astral-x86_64
++		CONFIGSCRIPT=$SRCDIR/setup/setupdir.sh
++		TARGETOS=Linux
++		NO_REGPARM=1
++		export CROSSCOMPILE NO_REGPARM
++		;;
+ 
+ 	"--config-vmix=NO")
+ 		VMIX_MODE=DISABLED
+@@ -199,7 +207,7 @@ then
+ 	exec sh $CONFIGSCRIPT
+ fi
+ 
+-case `uname` in
++case "Astral" in
+ 
+ "SunOS")
+ 	case `uname -r` in
+@@ -267,13 +275,13 @@ case `uname` in
+ 	        echo Using the Linux specific script
+ 		exec sh $SRCDIR/setup/Linux/linsetup.sh
+ 	else
+-		echo Using the default script
++		echo "Using the default script (1)"
+ 		exec sh $SRCDIR/setup/setupdir.sh
+ 	fi
+ 	;;
+ 
+ *)
+-	echo Using the default script
++	echo "Using the default script (2)"
+ 	exec sh $SRCDIR/setup/setupdir.sh
+ 
+ esac
+diff --git oss-clean/kernel/OS/Linux/os_linux.h oss-workdir/kernel/OS/Linux/os_linux.h
+index 89d5c42..a1e3360 100644
+--- oss-clean/kernel/OS/Linux/os_linux.h
++++ oss-workdir/kernel/OS/Linux/os_linux.h
+@@ -58,8 +58,8 @@
+ #include <sys/file.h>
+ #include "oss_ddi.h"
+ #include <sys/stat.h>
+-#include <sys/fcntl.h>
+-#include <asm/poll.h>
++#include <fcntl.h>
++#include <poll.h>
+ #include "kernel/OS/Linux/wrapper/wrap.h"
+ 
+ #undef HZ
+diff --git oss-clean/lib/libossmix/libossmix_tcp.c oss-workdir/lib/libossmix/libossmix_tcp.c
+index a5da6f6..e3adfa3 100644
+--- oss-clean/lib/libossmix/libossmix_tcp.c
++++ oss-workdir/lib/libossmix/libossmix_tcp.c
+@@ -479,7 +479,7 @@ tcp_connect (const char *remotehost, int port)
+ 
+   if ((he = gethostbyname (remotehost)) == NULL)
+     {
+-      herror (remotehost);
++      //herror (remotehost);
+       fprintf (stderr, "Cannot find the OSSMIX server \"%s\"\n", remotehost);
+       return -1;
+     }
+diff --git oss-clean/os_cmd/Linux/ossdetect/ossdetect.c oss-workdir/os_cmd/Linux/ossdetect/ossdetect.c
+index 4130851..13d7365 100644
+--- oss-clean/os_cmd/Linux/ossdetect/ossdetect.c
++++ oss-workdir/os_cmd/Linux/ossdetect/ossdetect.c
+@@ -24,6 +24,7 @@
+ #include <sys/stat.h>
+ #include <sys/sysmacros.h>
+ #include <sys/dir.h>
++#include <limits.h>
+ 
+ #define PCI_PASS	0
+ #define USB_PASS	1
+diff --git oss-clean/setup/setupdir.sh oss-workdir/setup/setupdir.sh
+index 3e779a3..ac8d216 100644
+--- oss-clean/setup/setupdir.sh
++++ oss-workdir/setup/setupdir.sh
+@@ -9,7 +9,7 @@ then
+ 	exit 1
+ fi
+ 
+-[ -z "$CC" ] && CC=cc
++CC=cc
+ 
+ echo srcdir=$SRCDIR
+ 
+diff --git oss-clean/setup/srcconf.c oss-workdir/setup/srcconf.c
+index 63162aa..195bb11 100644
+--- oss-clean/setup/srcconf.c
++++ oss-workdir/setup/srcconf.c
+@@ -72,7 +72,7 @@ typedef struct
+   char *purpose;
+ } conf_t;
+ 
+-#define DEFAULT_CC "cc"
++#define DEFAULT_CC "x86_64-astral-gcc"
+ 
+ static conf_t conf = {
+   "Open Sound System",
+@@ -914,29 +914,30 @@ printf("Symlink %s -> %s\n", source, target);
+   if (config_phpmake)
+      fprintf (f, "<?php require getenv(\"PHPMAKE_LIBPATH\") . \"library.php\"; phpmake_makefile_top_rules(); ?>\n");
+ 
+-  fprintf (f, "CC=%s\n", conf.ccomp);
++  // ASTRAL NOTE:
++  // EVIL HACK EVIL HACK
++  // due to the build system being HORRIBLE, we will just manually define here the variables that will get passed down to the Makefiles.
++  // these will get defined in the jinx recipe
++
++  fprintf (f, "CC=%s\n", getenv("ASTRAL_CC"));
+   // fprintf (f, "LD=ld\n");
+-  fprintf (f, "HOSTCC=%s\n", hostcc);
+-  fprintf (f, "CPLUSPLUS=%s\n", conf.cplusplus);
++  fprintf (f, "HOSTCC=%s\n", getenv("ASTRAL_HOSTCC"));
++  fprintf (f, "CPLUSPLUS=%s\n", getenv("ASTRAL_CPLUSPLUS"));
+ 
+ #ifdef VXWORKS
+   vxworks_genheader (f, path);
+ #endif
+ 
+-#if defined(__SCO_VERSION__)
+-  if (*conf.cflags != 0)
+-    fprintf (f, "CFLAGS=%s\n", conf.cflags);
+-#endif
++  fprintf (f, "CFLAGS=%s\n", getenv("ASTRAL_CFLAGS"));
+   if (*conf.ldflags != 0)
+-    fprintf (f, "LDFLAGS=%s\n", conf.ldflags);
++    fprintf (f, "LDFLAGS=%s\n", strcat(strcat(conf.ldflags, " "), getenv("ASTRAL_LDFLAGS")));
+ 
+-  if (strcmp(conf.endianess, "UNKNOWN") != 0)
+-     sprintf (tmp_endian, " -DOSS_%s_ENDIAN", conf.endianess);
++  sprintf (tmp_endian, " -DOSS_%s_ENDIAN", getenv("ASTRAL_ENDIAN"));
+ 
+   fprintf (f, "OSFLAGS=%s%s\n", conf.OSflags, tmp_endian);
+ 
+-  fprintf (f, "OS=%s\n", conf.system);
+-  fprintf (f, "ARCH=%s\n", conf.arch);
++  fprintf (f, "OS=%s\n", getenv("ASTRAL_OS"));
++  fprintf (f, "ARCH=%s\n", getenv("ASTRAL_ARCH"));
+ 
+   if (topdir == NULL)
+     fprintf (f, "TOPDIR=.\n");

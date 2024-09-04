@@ -1,0 +1,23 @@
+name=oss
+revision=1
+from_source=oss
+imagedeps="base-devel"
+hostdeps="xgcc xbinutils"
+deps="mlibc"
+
+build() { 
+	ASTRAL_CC=x86_64-astral-gcc \
+	ASTRAL_HOSTCC=cc \
+	ASTRAL_CPLUSPLUS=x86_64-astral-g++ \
+	ASTRAL_CFLAGS="${CFLAGS}" \
+	ASTRAL_LDFLAGS="${LDFLAGS}" \
+	ASTRAL_ENDIAN=LITTLE \
+	ASTRAL_OS=Astral \
+	ASTRAL_ARCH=x86_64 \
+	${source_dir}/configure --enable-libsalsa=NO --only-drv= --target=astral-x86_64
+	CC=x86_64-astral-gcc make -j${parallelism}
+}
+
+package() {
+	make copy DESTDIR="${dest_dir}"
+}
