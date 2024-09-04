@@ -14,6 +14,7 @@ Astral is a 64 bit operating system with its own kernel written in C for the x86
 - Filesystems: tmpfs, devfs, ext2
 - Block devices: NVMe, virtio-block
 - Network devices: virtio-net
+- ACPI: thanks to [uACPI](https://github.com/UltraOS/uACPI), there is ACPI support with proper poweroff, etc.
 
 ## Current Goals
 
@@ -25,9 +26,11 @@ Astral is a 64 bit operating system with its own kernel written in C for the x86
 
 ## Building
 
-The build process only needs xorriso, curl, zstd and bsdtar on the host. All other needed packages will be installed/built on the container.
+The build process only needs xorriso, curl, zstd, fakeroot and bsdtar on the host. All other needed packages will be installed/built on the container.
 
 To build the project, run ``make``. This will create a file named ``astral.iso``
+
+After this, if you wish to create an ext2 disk image, run ``make disk``
 
 ## Running
 You can download the latest release from github and run it in the virtual machine of your liking.
@@ -40,10 +43,6 @@ There are a few targets in the makefile to run Astral with qemu when built from 
 
 ``make run-kvm``
 
-VirtualBox-specific instructions:
+``make run-disk`` (if you built the disk image)
 
-Set 1 CPU for the VM\
-After you've created a new VM from the iso file:\
-`vboxmanage list vms`\
-`vboxmanage modifyvm <name of Astral VM> --hpet on`\
-Then select "Astral (initrd)" from the boot menu
+``make run-disk-kvm`` (if you built the disk image)
