@@ -26,3 +26,6 @@ tools/init/reboot
 tools/init/reboot.o
 tools/init/acpid
 tools/init/acpid.o
+initrds
+hdd.img
+netdump.dat
