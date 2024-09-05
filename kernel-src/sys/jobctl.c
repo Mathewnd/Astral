@@ -1,6 +1,7 @@
 #include <kernel/jobctl.h>
 #include <kernel/interrupt.h>
 #include <kernel/tty.h>
+#include <kernel/auth.h>
 #include <errno.h>
 #include <logging.h>
 
@@ -278,8 +279,8 @@ void jobctl_detach(proc_t *proc) {
 		PROC_RELEASE(unholdsession);
 	} else {
 		jobctl_setctty(proc, NULL, 0);
-		jobctl_signal(foreground, SIGHUP);
-		jobctl_signal(foreground, SIGCONT);
+		jobctl_signal(foreground, SIGHUP, NULL);
+		jobctl_signal(foreground, SIGCONT, NULL);
 		PROC_RELEASE(foreground);
 	}
 }
@@ -378,11 +379,13 @@ void jobctl_procremove(proc_t *proc) {
 
 // proc can be null if the signal is being sent to the calling processes own process group
 // since that is only passed from a userland thread, we can assume _cpu()->thread->proc is not null
-int jobctl_signal(proc_t *proc, int signal) {
+int jobctl_signal(proc_t *proc, int signal, proc_t *sender) {
 	int error = 0;
 	bool intstatus = interrupt_set(false);
 	proc_t *leader;
 	proc_t *tmpproc = _cpu()->thread->proc;
+	pid_t senderpgid = sender ? jobctl_getpgid(sender) : 0;
+
 	if (proc == NULL) {
 		spinlock_acquire(&tmpproc->jobctllock);
 		leader = tmpproc->pgrp.leader ? tmpproc->pgrp.leader : tmpproc;
@@ -400,11 +403,21 @@ int jobctl_signal(proc_t *proc, int signal) {
 
 	spinlock_acquire(&leader->pgrp.lock);
 
+	size_t donecount = 0;
 	proc_t *iterator = leader;
 	while (iterator) {
-		signal_signalproc(iterator, signal);
+		// only send the signal if:
+		// there isn't a specific sender (for example, ^C from the tty)
+		// the signal is SIGCONT and they are from the same process group
+		// the auth check passes
+		if (senderpgid == 0 || (signal == SIGCONT && leader->pid == senderpgid) || auth_process_check(&sender->cred, AUTH_ACTIONS_PROCESS_SIGNAL, iterator) == 0) {
+			signal_signalproc(iterator, signal);
+			++donecount;
+		}
+
 		iterator = iterator->pgrp.nextmember;
 	}
+	error = donecount == 0 ? EPERM : 0;
 
 	spinlock_release(&leader->pgrp.lock);
 

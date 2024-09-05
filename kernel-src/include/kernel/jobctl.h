@@ -13,7 +13,7 @@ pid_t jobctl_getpgid(proc_t *proc);
 pid_t jobctl_getsid(proc_t *proc);
 int jobctl_setctty(proc_t *proc, void *ctty, bool steal);
 void *jobctl_getctty(proc_t *proc);
-int jobctl_signal(proc_t *proc, int signal);
+int jobctl_signal(proc_t *proc, int signal, proc_t *sender);
 proc_t *jobctl_getforeground(proc_t *proc);
 int jobctl_setforeground(proc_t *session, proc_t *pgrp);
 

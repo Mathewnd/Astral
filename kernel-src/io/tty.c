@@ -74,7 +74,7 @@ void tty_process(tty_t *tty, char c) {
 		if (signal >= 0) {
 			proc_t *pgrp = getforeground(tty);
 			if (pgrp) {
-				jobctl_signal(pgrp, signal);
+				jobctl_signal(pgrp, signal, NULL);
 				PROC_RELEASE(pgrp);
 			}
 			return;
@@ -311,7 +311,7 @@ int tty_ioctl(tty_t *tty, unsigned long req, void *arg, int *result, cred_t *cre
 
 			proc_t *foreground = getforeground(tty);
 			if (foreground) {
-				jobctl_signal(foreground, SIGWINCH);
+				jobctl_signal(foreground, SIGWINCH, NULL);
 				PROC_RELEASE(foreground);
 			}
 			break;
@@ -524,7 +524,7 @@ void tty_unregister(tty_t *tty) {
 
 	proc_t *foreground = getforeground(tty);
 	if (foreground) {
-		jobctl_signal(foreground, SIGHUP);
+		jobctl_signal(foreground, SIGHUP, NULL);
 		PROC_RELEASE(foreground);
 	}
 }
