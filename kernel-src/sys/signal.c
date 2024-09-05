@@ -96,7 +96,7 @@ void signal_changemask(struct thread_t *thread, int how, sigset_t *new, sigset_t
 		switch (how) {
 			case SIG_BLOCK:
 			case SIG_UNBLOCK: {
-				for (int i = 0; i < NSIG; ++i) {
+				for (int i = 1; i < NSIG; ++i) {
 					if (SIGNAL_GET(new, i) == 0)
 						continue;
 
@@ -127,7 +127,7 @@ void signal_pending(struct thread_t *thread, sigset_t *sigset) {
 	// urgent set doesn't get returned here as it will always be handled
 	// before a return to userspace
 	memset(sigset, 0, sizeof(sigset_t));
-	for (int i = 0; i < NSIG; ++i) {
+	for (int i = 1; i < NSIG; ++i) {
 		if (SIGNAL_GET(&proc->signals.pending, i))
 			SIGNAL_SETON(sigset, i);
 		
@@ -275,7 +275,7 @@ bool signal_check(struct thread_t *thread, context_t *context, bool syscall, uin
 	sigset_t *sigset = NULL;
 
 	// check the urgent sigset first
-	for (int i = 0; i < NSIG; ++i) {
+	for (int i = 1; i < NSIG; ++i) {
 		if (SIGNAL_GET(&thread->signals.urgent, i) == 0)
 			continue;
 
@@ -283,7 +283,7 @@ bool signal_check(struct thread_t *thread, context_t *context, bool syscall, uin
 		sigset = &thread->signals.urgent;
 	}
 
-	for (int i = 0; i < NSIG && sigset == NULL; ++i) {
+	for (int i = 1; i < NSIG && sigset == NULL; ++i) {
 		if (SIGNAL_GET(&thread->signals.mask, i))
 			continue;
 
@@ -397,7 +397,7 @@ bool signal_check(struct thread_t *thread, context_t *context, bool syscall, uin
 		if ((action->flags & SA_NODEFER) == 0)
 			SIGNAL_SETON(&thread->signals.mask, signal);
 
-		for (int i = 0; i < signal; ++i) {
+		for (int i = 1; i < signal; ++i) {
 			if (SIGNAL_GET(&action->mask, i) == 0)
 				continue;
 

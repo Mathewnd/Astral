@@ -64,7 +64,7 @@ int sched_signalall(int signal, proc_t *sender) {
 
 		pid_t currentpgid = jobctl_getpgid(current);
 
-		if (senderpgid == 0 || (signal == SIGCONT && currentpgid == senderpgid) || auth_process_check(&sender->cred, AUTH_ACTIONS_PROCESS_SIGNAL, current)) {
+		if (senderpgid == 0 || (signal == SIGCONT && currentpgid == senderpgid) || auth_process_check(&sender->cred, AUTH_ACTIONS_PROCESS_SIGNAL, current) == 0) {
 			++donecount;
 			signal_signalproc(current, signal);
 		}

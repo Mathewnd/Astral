@@ -31,7 +31,7 @@ syscallret_t syscall_kill(context_t *context, int pid, int signal) {
 		goto leave;
 
 	if (pid >= 1) {
-		if (signal != SIGCONT && jobctl_getpgid(target) != jobctl_getpgid(_cpu()->thread->proc)) {
+		if (signal != SIGCONT || jobctl_getpgid(target) != jobctl_getpgid(_cpu()->thread->proc)) {
 			ret.errno = auth_process_check(&_cpu()->thread->proc->cred, AUTH_ACTIONS_PROCESS_SIGNAL, target);
 			if (ret.errno)
 				goto leave;

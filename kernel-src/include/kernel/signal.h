@@ -14,9 +14,9 @@ typedef struct {
 	uint64_t sig[1024 / 64];
 } sigset_t;
 
-#define SIGNAL_GET(sigset, signal) ((sigset)->sig[(signal) / 64] & (1lu << ((signal) % 64)))
-#define SIGNAL_SETON(sigset, signal) (sigset)->sig[(signal) / 64] |= (1lu << ((signal) % 64))
-#define SIGNAL_SETOFF(sigset, signal) (sigset)->sig[(signal) / 64] &= ~(1lu << ((signal) % 64))
+#define SIGNAL_GET(sigset, signal) ((sigset)->sig[((signal) - 1) / 64] & (1lu << (((signal) - 1) % 64)))
+#define SIGNAL_SETON(sigset, signal) (sigset)->sig[((signal) - 1) / 64] |= (1lu << (((signal) - 1) % 64))
+#define SIGNAL_SETOFF(sigset, signal) (sigset)->sig[((signal) - 1) / 64] &= ~(1lu << (((signal) - 1) % 64))
 
 #define SIG_DFL ((void *)(0))
 #define SIG_IGN ((void *)(1))
