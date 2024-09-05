@@ -227,10 +227,10 @@ static void destroyrange(vmmrange_t *range, uintmax_t _offset, size_t size, int 
 		proc_t *proc = thread ? thread->proc : NULL;
 		cred_t *cred = proc ? &proc->cred : NULL;
 
-		if ((range->flags & VMM_FLAGS_FILE) && ((range->flags & VMM_FLAGS_SHARED) || range->vnode->type == V_TYPE_CHDEV)) {
-			// shared file mapping or character device mapping
-			if (range->vnode->type == V_TYPE_CHDEV) {
-				// character device mapping
+		if ((range->flags & VMM_FLAGS_FILE) && ((range->flags & VMM_FLAGS_SHARED) || vfs_iscacheable(range->vnode) == false)) {
+			// shared file mapping or non cacheable mapping
+			if (vfs_iscacheable(range->vnode) == false) {
+				// non cacheable mapping
 				VOP_LOCK(range->vnode);
 				__assert(VOP_MUNMAP(range->vnode, vaddr, range->offset + offset, mmuflagstovnodeflags(range->mmuflags) | (range->flags & VMM_FLAGS_SHARED ? V_FFLAGS_SHARED : 0), cred) == 0);
 				VOP_UNLOCK(range->vnode);
@@ -280,7 +280,7 @@ static void changemmurange(vmmrange_t *range, void *base, size_t size, mmuflags_
 		CHANGE_MASK_CHECK(mask, ARCH_MMU_FLAGS_USER, currentflags, newflags);
 		CHANGE_MASK_CHECK(mask, ARCH_MMU_FLAGS_NOEXEC, currentflags, newflags);
 
-		if ((range->flags & VMM_FLAGS_FILE) && (range->flags & VMM_FLAGS_SHARED) && (mask & ARCH_MMU_FLAGS_WRITE)) {
+		if ((range->flags & VMM_FLAGS_FILE) && (range->flags & VMM_FLAGS_SHARED) && (mask & ARCH_MMU_FLAGS_WRITE) && vfs_iscacheable(range->vnode)) {
 			// removing write permissions from a writeable dirty shared mapped page, mark it as dirty, as
 			// it won't be marked dirty upon a vmm_unmap after this
 			page_t *page = pmm_getpage(physical);
@@ -568,7 +568,7 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 		// page not present in the page tables
 		if (range->flags & VMM_FLAGS_FILE) {
 			uintmax_t mapoffset = (uintptr_t)addr - (uintptr_t)range->start;
-			if (range->vnode->type != V_TYPE_BLKDEV && range->vnode->type != V_TYPE_REGULAR) {
+			if (vfs_iscacheable(range->vnode) == false) {
 				// map non cacheable vnodes
 				VOP_LOCK(range->vnode);
 				__assert(VOP_MMAP(range->vnode, addr, range->offset + mapoffset, mmuflagstovnodeflags(range->mmuflags) | (range->flags & VMM_FLAGS_SHARED ? V_FFLAGS_SHARED : 0), cred) == 0);
@@ -617,7 +617,7 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 		if ((range->flags & VMM_FLAGS_FILE) && (range->flags & VMM_FLAGS_SHARED)) {
 			// shared file, remap it as writable
 			arch_mmu_remap(_cpu()->vmmctx->pagetable, oldphys, addr, range->mmuflags);
-			if (range->vnode->type != V_TYPE_CHDEV) {
+			if (vfs_iscacheable(range->vnode)) {
 				// and if its a cache page, mark it as dirty
 				VOP_LOCK(range->vnode);
 				vmmcache_makedirty(pmm_getpage(oldphys));
@@ -635,7 +635,7 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 			} else {
 				memcpy(MAKE_HHDM(newphys), MAKE_HHDM(oldphys), PAGE_SIZE);
 				arch_mmu_remap(_cpu()->vmmctx->pagetable, newphys, addr, range->mmuflags);
-				if ((range->flags & VMM_FLAGS_FILE) == 0 || range->vnode->type != V_TYPE_CHDEV)
+				if ((range->flags & VMM_FLAGS_FILE) == 0 || vfs_iscacheable(range->vnode))
 					pmm_release(oldphys);
 
 				status = true;

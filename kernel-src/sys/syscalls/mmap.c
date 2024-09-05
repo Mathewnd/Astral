@@ -78,10 +78,9 @@ syscallret_t syscall_mmap(context_t *context, void *hint, size_t len, int prot, 
 			goto cleanup;
 		}
 
-		// not all charcter devices support mapping, so check if its supported
-		// (regular files and block devices go through the page cache)
+		// if the vnode is not cacheable, we need to make sure we can map it
 		// TODO move this check to vmm_map once the return value of mmap is fixed to return an errno
-		if (type == V_TYPE_CHDEV) {
+		if (vfs_iscacheable(file->vnode) == false) {
 			ret.errno = VOP_MMAP(file->vnode, VOP_MMAP_ADDRESS_MMAP_SUPPORTED, 0, 0, NULL);
 			if (ret.errno)
 				goto cleanup;

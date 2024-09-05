@@ -270,4 +270,14 @@ static inline mode_t vfs_getsystemtype(int type) {
 	}
 }
 
+static inline bool vfs_iscacheable(vnode_t *vnode) {
+	int type = vnode->type;
+	// vnodes will be cacheable if:
+	// - the vnode is a regular or block device
+	// AND
+	// - the filesystem implementation exposes the VOP_*PAGE operations.
+
+	return (type == V_TYPE_REGULAR || type == V_TYPE_BLKDEV) && vnode->ops->putpage && vnode->ops->getpage;
+}
+
 #endif

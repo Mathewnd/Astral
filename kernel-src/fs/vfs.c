@@ -230,7 +230,7 @@ static int writenocache(vnode_t *node, page_t *page, uintmax_t pageoffset) {
 int vfs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t *written, int flags) {
 	VOP_LOCK(node);
 	int err = 0;
-	if (node->type == V_TYPE_REGULAR || node->type == V_TYPE_BLKDEV) {
+	if (vfs_iscacheable(node)) {
 		*written = 0;
 		// can't write a size 0 buffer
 		if (size == 0)
@@ -328,7 +328,7 @@ int vfs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t
 int vfs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t *bytesread, int flags) {
 	VOP_LOCK(node);
 	int err = 0;
-	if (node->type == V_TYPE_REGULAR || node->type == V_TYPE_BLKDEV) {
+	if (vfs_iscacheable(node)) {
 		*bytesread = 0;
 		// can't read 0 bytes from the cache
 		if (size == 0)
