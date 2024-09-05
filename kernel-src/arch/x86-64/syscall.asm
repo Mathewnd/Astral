@@ -67,8 +67,8 @@ extern syscall_hostname
 extern syscall_sync
 extern syscall_fsync
 extern syscall_fchdir
-extern syscall_getitimer
 extern syscall_setitimer
+extern syscall_getitimer
 extern syscall_socketpair
 extern syscall_getsockname
 extern syscall_getpeername
