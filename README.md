@@ -15,6 +15,7 @@ Astral is a 64 bit operating system with its own kernel written in C for the x86
 - Block devices: NVMe, virtio-block
 - Network devices: virtio-net
 - ACPI: thanks to [uACPI](https://github.com/UltraOS/uACPI), there is ACPI support with proper poweroff, etc.
+- Multiple user support
 
 ## Current Goals
 
@@ -22,7 +23,6 @@ Astral is a 64 bit operating system with its own kernel written in C for the x86
 - Audio
 - Installation program
 - Fully self hosting
-- Multiple user support
 
 ## Building
 
