@@ -166,5 +166,6 @@ void sched_sleepus(size_t us);
 void sched_apentry();
 void sched_inactiveproc(proc_t *proc);
 void sched_terminateprogram(int status);
+int sched_signalall(int signal, proc_t *sender);
 
 #endif

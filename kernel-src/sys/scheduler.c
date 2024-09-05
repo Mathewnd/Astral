@@ -12,6 +12,7 @@
 #include <kernel/devfs.h>
 #include <kernel/jobctl.h>
 #include <kernel/cmdline.h>
+#include <kernel/auth.h>
 
 #define QUANTUM_US 100000
 #define SCHEDULER_STACK_SIZE PAGE_SIZE * 16
@@ -47,6 +48,30 @@ proc_t *sched_getprocfrompid(int pid) {
 	MUTEX_RELEASE(&sched_pidtablemutex);
 
 	return proc;
+}
+
+int sched_signalall(int signal, proc_t *sender) {
+	MUTEX_ACQUIRE(&sched_pidtablemutex, false);
+
+	pid_t senderpgid = sender ? jobctl_getpgid(sender) : 0;
+
+	size_t donecount = 0;
+	HASHTABLE_FOREACH(&pidtable) {
+		proc_t *current = entry->value;
+		// init does not get signaled
+		if (current->pid == 1)
+			continue;
+
+		pid_t currentpgid = jobctl_getpgid(current);
+
+		if (senderpgid == 0 || (signal == SIGCONT && currentpgid == senderpgid) || auth_process_check(&sender->cred, AUTH_ACTIONS_PROCESS_SIGNAL, current)) {
+			++donecount;
+			signal_signalproc(current, signal);
+		}
+	}
+
+	MUTEX_RELEASE(&sched_pidtablemutex);
+	return donecount == 0 ? EPERM : 0;
 }
 
 static void rtdpc(context_t *, dpcarg_t arg) {
