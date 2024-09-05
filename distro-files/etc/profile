@@ -7,3 +7,8 @@ PS1="$GREEN\u$NORMAL@$BLUE\h$NORMAL:$WHITE\w$NORMAL>"
 
 alias ls="ls --color=auto"
 alias grep="grep --color=auto"
+
+if [ $(tty) == "/dev/console" ]
+then
+	alias startwm="exec /usr/libexec/astral/startwm"
+fi

@@ -16,6 +16,8 @@ do
 
   sleep 0.5
 done
-stty -echo -echoctl -isig
+stty -echo -echoctl -isig -icanon min 0 time 0
 xterm -e "bash -l" & &> /tmp/.xtermstderr > /tmp/.xtermstdout
-exec fvwm3 &> /tmp/.fvwm3stderr > /tmp/.fvwm3stdout
+fvwm3 &> /tmp/.fvwm3stderr > /tmp/.fvwm3stdout
+stty -echo -echoctl -isig -icanon min 0 time 0
+cat -
