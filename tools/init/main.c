@@ -9,6 +9,7 @@
 #include <sys/stat.h>
 #include <errno.h>
 #include <signal.h>
+#include <stdbool.h>
 
 #include "common.h"
 
@@ -34,14 +35,49 @@ static void sendacpicommand(char c) {
 		sleep(1);
 }
 
+static bool alarmfired;
+static void timeout(int signal) {
+	alarmfired = true;
+}
+
+static void waitforall(bool timeout) {
+	alarmfired = false;
+	if (timeout) {
+		alarm(5);
+	}
+
+	int err = 0;
+	errno = 0;
+	do {
+		pid_t pid = waitpid(-1, NULL, WNOHANG);
+		int err = errno;
+		if (pid == 0)
+			sleep(1);
+	} while (errno != ECHILD && alarmfired == false);
+}
+
 static void preparetodie(void) {
 	printf("init: bringing system down\n");
-	//printf("init: sending SIGTERM to all processes\n");
-	// TODO kill(-1, SIGTERM);
-	// TODO wait 5 seconds or until all children have died
-	//printf("init: sending SIGKILL to all processes\n");
-	// TODO kill(-1, SIGKILL);
-	// TODO wait until all children have died
+
+	// preapre alarm
+	struct sigaction sa;
+	memset(&sa, 0, sizeof(sigaction));
+	sa.sa_handler = timeout;
+	sigaction(SIGALRM, &sa, NULL);
+
+	// unblock sigalarm for timeout
+	sigset_t signals;
+	sigemptyset(&signals);
+	sigaddset(&signals, SIGALRM);
+	sigprocmask(SIG_UNBLOCK, &signals, NULL);
+
+	printf("init: sending SIGTERM to all processes\n");
+	kill(-1, SIGTERM);
+	waitforall(true);
+
+	printf("init: sending SIGKILL to all processes\n");
+	kill(-1, SIGKILL);
+	waitforall(false);
 
 	printf("init: syncing disks\n");
 	sync();
