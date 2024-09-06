@@ -30,10 +30,10 @@ jinx:
 
 iso: $(ISO)
 
-$(ISO): limine.cfg liminebg.bmp $(KERNEL) $(INITRD)-$(DISTROTYPE)
+$(ISO): limine.conf liminebg.bmp $(KERNEL) $(INITRD)-$(DISTROTYPE)
 	mkdir -p $(ISODIR)
 	ln -f $(INITRD)-$(DISTROTYPE) $(ISODIR)/initrd
-	cp $(KERNEL) liminebg.bmp limine.cfg $(LIMINEDIR)/limine-bios.sys $(LIMINEDIR)/limine-bios-cd.bin $(LIMINEDIR)/limine-uefi-cd.bin $(ISODIR)
+	cp $(KERNEL) liminebg.bmp limine.conf $(LIMINEDIR)/limine-bios.sys $(LIMINEDIR)/limine-bios-cd.bin $(LIMINEDIR)/limine-uefi-cd.bin $(ISODIR)
 	xorriso -as mkisofs -b limine-bios-cd.bin -no-emul-boot -boot-load-size 4 -boot-info-table --efi-boot limine-uefi-cd.bin -efi-boot-part --efi-boot-image --protective-msdos-label $(ISODIR) -o $(ISO)
 
 # ------ build targets ------
