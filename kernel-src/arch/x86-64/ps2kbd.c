@@ -116,7 +116,6 @@ static char extendedcodes[128] = {
 };
 
 #define KEYBOARDIRQ 1
-#define KEYBOARD_CMD_REPORTDATA 0xf4
 
 keyboard_t *kb;
 static bool extended = false;
@@ -153,15 +152,6 @@ static void kbdisr(isr_t *isr, context_t *ctx) {
 }
 
 void ps2kbd_init() {
-	// clear PS/2 buffer to make sure its empty
-	inb(PS2_PORT_DATA);
-
-	int response = device_write_response(1, KEYBOARD_CMD_REPORTDATA);
-	if (response != ACK) {
-		printf("ps2keyboard: expected ACK, got %x\n", response);
-		return;
-	}
-
 	isr_t *isr = interrupt_allocate(kbdisr, arch_apic_eoi, IPL_KEYBOARD);
 	__assert(isr);
 	arch_ioapic_setirq(KEYBOARDIRQ, isr->id & 0xff, _cpu()->id, false);

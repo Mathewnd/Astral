@@ -2,35 +2,23 @@
 #include <logging.h>
 #include <kernel/mouse.h>
 
-#define MOUSE_CMD_SAMPLERATE 0xF3
-#define MOUSE_CMD_REPORTDATA 0xF4
+#define PS2_MOUSE_CMD_SAMPLERATE 0xF3
 
-#define MOUSE 0
-#define MOUSE_Z 3
-#define MOUSE_5B 4
+#define PS2_MOUSE 0
+#define PS2_MOUSE_Z 3
+#define PS2_MOUSE_5B 4
 
 static bool haswheel = false;
 static bool fivebuttons = false;
 
-static void mouse_setrate(int port, uint8_t rate) {
-	device_write_response(port, MOUSE_CMD_SAMPLERATE);
-	device_write_response(port, rate);
-}
-
-static uint8_t identify(int port) {
-	bool timeout;
-
-	device_command(port, DEVICE_CMD_IDENTIFY);
-	uint8_t b = read_data_timeout(5, &timeout);
-
-	if (b != ACK) {
-		printf("ps2mouse: identify failed: %x\n", b);
-		return RESEND;
+static void ps2_mouse_setrate(int port, uint8_t rate) {
+	if (ps2_device_write_ok(port, PS2_MOUSE_CMD_SAMPLERATE) == false) {
+		printf("ps2mouse: setting rate at port %d failed\n", port);
 	}
 
-	b = read_data_timeout(5, &timeout);
-
-	return timeout ? RESEND : b;
+	if (ps2_device_write_ok(port, rate) == false) {
+		printf("ps2mouse: setting rate at port %d failed\n", port);
+	}
 }
 
 static int datac; 
@@ -81,42 +69,49 @@ static void mouseisr() {
 	mouse_packet(mouse, &packet);
 }
 
+#define DO_IDENTIFY_CHECK(step) \
+	if (ps2_identify(2, identity) == false) { \
+		printf("ps2: ps2mouse_init: failed to identify mouse at port %d (step \"%s\")\n", port, step); \
+		return; \
+	}
 
 void ps2mouse_init() {
-	inb(PS2_PORT_DATA);
+	int port = 2;
+	uint8_t identity[2];
 
-	if (identify(2) != MOUSE) {
+	DO_IDENTIFY_CHECK("first");
+
+	if (identity[0] != PS2_MOUSE) {
 		printf("Not a mouse!\n");
 		return;
 	}
 
 	// check if mouse has scroll wheel
-	mouse_setrate(2, 200);
-	mouse_setrate(2, 100);
-	mouse_setrate(2, 80);
+	ps2_mouse_setrate(2, 200);
+	ps2_mouse_setrate(2, 100);
+	ps2_mouse_setrate(2, 80);
+
+	DO_IDENTIFY_CHECK("has scroll");
 	
-	if (identify(2) == MOUSE_Z) {
+	if (identity[0] == PS2_MOUSE_Z) {
 		haswheel = true;
 
 		// check if mouse has 5 buttons
-		mouse_setrate(2, 200);
-		mouse_setrate(2, 200);
-		mouse_setrate(2, 80);
+		ps2_mouse_setrate(2, 200);
+		ps2_mouse_setrate(2, 200);
+		ps2_mouse_setrate(2, 80);
 
-		if (identify(2) == MOUSE_5B)
+		DO_IDENTIFY_CHECK("5 buttons");
+
+		if (identity[0] == PS2_MOUSE_5B)
 			fivebuttons = true;
 	}
 
-	mouse_setrate(2, 60);
-	int response = device_write_response(2, MOUSE_CMD_REPORTDATA);
-	if (response != ACK) {
-		printf("ps2mouse: expected ACK, got %x\n", response);
-		return;
-	}
+	ps2_mouse_setrate(2, 60);
 
 	isr_t *isr = interrupt_allocate(mouseisr, arch_apic_eoi, IPL_MOUSE);
 	__assert(isr);
-	arch_ioapic_setirq(MOUSEIRQ, isr->id & 0xff, _cpu()->id, false);
+	arch_ioapic_setirq(PS2_MOUSEIRQ, isr->id & 0xff, _cpu()->id, false);
 	mouse = mouse_new();
 	__assert(mouse);
 	printf("ps2mouse: irq enabled with vector %u\n", isr->id & 0xff);
