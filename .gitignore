@@ -3,10 +3,12 @@ builds
 host-builds
 host-pkgs
 iso
+img
 jinx
 pkgs
 sources
 astral.iso
+astral-bootable.img
 kernel-src/include/limine.h
 kernel-src/include/printf.h
 kernel-src/include/build.h
