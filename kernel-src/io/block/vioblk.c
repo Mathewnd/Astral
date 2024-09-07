@@ -34,8 +34,6 @@ typedef struct {
 #define HEADER_TYPE_READ 0
 #define HEADER_TYPE_WRITE 1
 
-static hashtable_t inttable; // int id -> vioblkdev
-
 static void vioblk_dpc(context_t *context, dpcarg_t arg) {
 	vioblkdev_t *blkdev = arg;
 	volatile viobuffer_t *buffers = VIO_QUEUE_BUFFERS(&blkdev->queue);
@@ -55,9 +53,7 @@ static void vioblk_dpc(context_t *context, dpcarg_t arg) {
 }
 
 static void vioblk_irq(isr_t *isr, context_t *context) {
-	void *v;
-	__assert(hashtable_get(&inttable, &v, &isr->id, sizeof(isr->id)) == 0);
-	vioblkdev_t *blkdev = v;
+	vioblkdev_t *blkdev = isr->priv;
 	dpc_enqueue(&blkdev->queuedpc, vioblk_dpc, blkdev);
 }
 
@@ -176,9 +172,9 @@ int vioblk_newdevice(viodevice_t *viodevice) {
 
 	isr_t *isr = interrupt_allocate(vioblk_irq, ARCH_EOI, IPL_DISK);
 	__assert(isr);
+	isr->priv = blkdev;
 	pci_msixadd(viodevice->e, 0, INTERRUPT_IDTOVECTOR(isr->id), 0, 0);
 	pci_msixsetmask(viodevice->e, 0);
-	__assert(hashtable_set(&inttable, blkdev, &isr->id, sizeof(isr->id), true) == 0);
 
 	// initialize queue
 	size_t size = min(QUEUE_MAX_SIZE, virtio_queuesize(viodevice, 0));
@@ -204,8 +200,4 @@ int vioblk_newdevice(viodevice_t *viodevice) {
 	block_register(&blkdesc, name);
 
 	return 0;
-}
-
-void vioblk_init() {
-	__assert(hashtable_init(&inttable, 10) == 0);
 }

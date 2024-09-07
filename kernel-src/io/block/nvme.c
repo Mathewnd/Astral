@@ -294,18 +294,15 @@ static void nvme_dpc(context_t *, dpcarg_t arg) {
 	spinlock_release(&pair->lock);
 }
 
-static hashtable_t irqtable;
-
 static void nvme_irq(isr_t *isr, context_t *context) {
-	void *v;
-	__assert(hashtable_get(&irqtable, &v, &isr->id, sizeof(isr->id)) == 0);
-	queuepair_t *pair = v;
+	queuepair_t *pair = isr->priv;
 	dpc_enqueue(&pair->dpc, nvme_dpc, pair);
 }
+
 static isr_t *msixnewisrforqueue(queuepair_t *queuepair) {
 	isr_t *isr = interrupt_allocate(nvme_irq, ARCH_EOI, IPL_DISK);
 	__assert(isr);
-	__assert(hashtable_set(&irqtable, queuepair, &isr->id, sizeof(isr->id), true) == 0);
+	isr->priv = queuepair;
 	return isr;
 }
 
@@ -764,7 +761,6 @@ static void initcontroller(pcienum_t *e) {
 }
 
 void nvme_init() {
-	__assert(hashtable_init(&irqtable, 10) == 0);
 	int i = 0;
 	for (;;) {
 		pcienum_t *e = pci_getenum(PCI_CLASS_STORAGE, PCI_SUBCLASS_STORAGE_NVM, -1, -1, -1, -1, i++);

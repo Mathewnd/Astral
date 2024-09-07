@@ -166,9 +166,6 @@ static void virtio_newdevice(pcienum_t *e) {
 }
 
 void virtio_init() {
-	vioblk_init();
-	vionet_init();
-
 	for (int dev = VIRTIO_DEVICE_MIN; dev <= VIRTIO_DEVICE_MAX; ++dev) {
 		int i = 0;
 		for (;;) {

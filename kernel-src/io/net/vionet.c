@@ -38,8 +38,6 @@ typedef struct {
 	uint16_t buffercount;
 } __attribute__((packed)) vioframe_t;
 
-static hashtable_t irqtable; // isr id -> netdev
-
 static void rx_dpc(context_t *context, dpcarg_t arg) {
 	vionetdev_t *netdev = arg;
 	volatile viobuffer_t *buffers = VIO_QUEUE_BUFFERS(&netdev->rxqueue);
@@ -54,9 +52,7 @@ static void rx_dpc(context_t *context, dpcarg_t arg) {
 }
 
 static void rx_irq(isr_t *isr, context_t *context) {
-	void *v;
-	__assert(hashtable_get(&irqtable, &v, &isr->id, sizeof(isr->id)) == 0);
-	vionetdev_t *netdev = v;
+	vionetdev_t *netdev = isr->priv;
 	dpc_enqueue(&netdev->txdpc, rx_dpc, netdev);
 }
 
@@ -77,9 +73,7 @@ static void tx_dpc(context_t *context, dpcarg_t arg) {
 }
 
 static void tx_irq(isr_t *isr, context_t *context) {
-	void *v;
-	__assert(hashtable_get(&irqtable, &v, &isr->id, sizeof(isr->id)) == 0);
-	vionetdev_t *netdev = v;
+	vionetdev_t *netdev = isr->priv;
 	dpc_enqueue(&netdev->txdpc, tx_dpc, netdev);
 }
 
@@ -196,12 +190,13 @@ int vionet_newdevice(viodevice_t *viodevice) {
 	isr_t *rxisr = interrupt_allocate(rx_irq, ARCH_EOI, IPL_NET);
 	__assert(rxisr);
 	pci_msixadd(viodevice->e, 0, INTERRUPT_IDTOVECTOR(rxisr->id), 1, 0);
-	__assert(hashtable_set(&irqtable, netdev, &rxisr->id, sizeof(rxisr->id), true) == 0);
+	rxisr->priv = netdev;
 
 	isr_t *txisr = interrupt_allocate(tx_irq, ARCH_EOI, IPL_NET);
 	__assert(txisr);
 	pci_msixadd(viodevice->e, 1, INTERRUPT_IDTOVECTOR(txisr->id), 1, 0);
-	__assert(hashtable_set(&irqtable, netdev, &txisr->id, sizeof(txisr->id), true) == 0);
+	txisr->priv = netdev;
+
 	pci_msixsetmask(viodevice->e, 0);
 
 	virtio_enablequeue(viodevice, 0);
@@ -235,8 +230,4 @@ int vionet_newdevice(viodevice_t *viodevice) {
 	__assert(netdev_register((netdev_t *)netdev, name) == 0);
 
 	return 0;
-}
-
-void vionet_init() {
-	__assert(hashtable_init(&irqtable, 20) == 0);
 }
