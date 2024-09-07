@@ -46,7 +46,6 @@ void cpu_initstate() {
 	unsigned int eax = 0,ebx = 0,ecx = 0,edx = 0;
 	__get_cpuid(0x80000001, &eax, &ebx, &ecx, &edx);
 
-	// TODO in the future, have an alternative way of handling syscalls
 	__assert(edx & CPUID_SYSCALL);
 	uint64_t efer = rdmsr(MSR_EFER);
 	efer |= EFER_SYSCALLENABLE;

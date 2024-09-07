@@ -790,7 +790,6 @@ int vfs_lookup(vnode_t **result, vnode_t *start, char *path, char *lastcomp, int
 				VOP_HOLD(derefstart);
 			}
 
-			// TODO possible deadlock when input vnode is locked and the vfs_lookup would lock it
 			error = vfs_lookup(&derefresult, derefstart, linkderef, NULL, pass);
 
 			if (*linkderef == '/')
