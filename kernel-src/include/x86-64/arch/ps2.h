@@ -133,7 +133,7 @@ static inline uint8_t ps2_device_write_response(int port, uint8_t command) {
 	return r;
 }
 
-static bool ps2_identify(int port, uint8_t results[2]) {
+static inline bool ps2_identify(int port, uint8_t results[2]) {
 	ps2_device_command(port, PS2_DEVICE_CMD_IDENTIFY);
 	int resends = 0;
 	bool timeout;
