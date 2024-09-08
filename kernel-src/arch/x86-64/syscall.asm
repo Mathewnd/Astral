@@ -88,6 +88,7 @@ extern syscall_seteuid
 extern syscall_setgid
 extern syscall_setegid
 extern syscall_sigsuspend
+extern syscall_sigtimedwait
 syscalltab:
 dq syscall_print
 dq syscall_mmap
@@ -178,7 +179,8 @@ dq syscall_seteuid
 dq syscall_setgid
 dq syscall_setegid
 dq syscall_sigsuspend
-syscallcount equ 89
+dq syscall_sigtimedwait
+syscallcount equ 90
 section .text
 global arch_syscall_entry
 ; on entry:

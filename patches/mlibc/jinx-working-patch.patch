@@ -219,10 +219,10 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..32711c2
+index 0000000..f8c16e7
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -0,0 +1,990 @@
+@@ -0,0 +1,997 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -295,6 +295,13 @@ index 0000000..32711c2
 +		// TODO unstub
 +		*ret = 0;
 +		return 0;
++	}
++
++	int sys_sigtimedwait(const sigset_t *__restrict set, siginfo_t *__restrict info, const struct timespec *__restrict timeout, int *out_signal) {
++		long ret;
++		long err = syscall(SYSCALL_SIGTIMEDWAIT, &ret, (uint64_t)set, (uint64_t)info, (uint64_t)timeout);
++		*out_signal = ret;
++		return err;
 +	}
 +
 +	int sys_sigsuspend(const sigset_t *set) {
@@ -1232,10 +1239,10 @@ index 0000000..990eca0
 +#endif
 diff --git mlibc-workdir/sysdeps/astral/include/astral/syscall.h mlibc-workdir/sysdeps/astral/include/astral/syscall.h
 new file mode 100644
-index 0000000..7772e74
+index 0000000..11376a2
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/include/astral/syscall.h
-@@ -0,0 +1,112 @@
+@@ -0,0 +1,113 @@
 +#ifndef _SYSCALL_H_INCLUDE
 +#define _SYSCALL_H_INCLUDE
 +
@@ -1328,6 +1335,7 @@ index 0000000..7772e74
 +#define SYSCALL_SETGID 86
 +#define SYSCALL_SETEGID 87
 +#define SYSCALL_SIGSUSPEND 88
++#define SYSCALL_SIGTIMEDWAIT 89
 +
 +#include <stddef.h>
 +#include <stdint.h>
