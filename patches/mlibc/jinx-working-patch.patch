@@ -219,10 +219,10 @@ index 0000000..e5b087a
 +
 diff --git mlibc-workdir/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 new file mode 100644
-index 0000000..13f1f36
+index 0000000..32711c2
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -0,0 +1,985 @@
+@@ -0,0 +1,990 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -295,6 +295,11 @@ index 0000000..13f1f36
 +		// TODO unstub
 +		*ret = 0;
 +		return 0;
++	}
++
++	int sys_sigsuspend(const sigset_t *set) {
++		long ret;
++		return syscall(SYSCALL_SIGSUSPEND, &ret, (uint64_t)set);
 +	}
 +
 +	int sys_vm_protect(void *pointer, size_t size, int prot) {
@@ -1227,10 +1232,10 @@ index 0000000..990eca0
 +#endif
 diff --git mlibc-workdir/sysdeps/astral/include/astral/syscall.h mlibc-workdir/sysdeps/astral/include/astral/syscall.h
 new file mode 100644
-index 0000000..90516f7
+index 0000000..7772e74
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/include/astral/syscall.h
-@@ -0,0 +1,111 @@
+@@ -0,0 +1,112 @@
 +#ifndef _SYSCALL_H_INCLUDE
 +#define _SYSCALL_H_INCLUDE
 +
@@ -1322,6 +1327,7 @@ index 0000000..90516f7
 +#define SYSCALL_SETEUID 85
 +#define SYSCALL_SETGID 86
 +#define SYSCALL_SETEGID 87
++#define SYSCALL_SIGSUSPEND 88
 +
 +#include <stddef.h>
 +#include <stdint.h>
