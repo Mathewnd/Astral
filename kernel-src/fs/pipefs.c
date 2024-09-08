@@ -75,10 +75,11 @@ int pipefs_open(vnode_t **node, int flags, cred_t *cred) {
 	// and there are either no writers or no readers.
 	eventlistener_t listener;
 	EVENT_INITLISTENER(&listener);
-	if (flags & V_FFLAGS_READ)
+	if (flags & V_FFLAGS_READ) {
 		EVENT_ATTACH(&listener, &pipenode->writeopenevent);
-	else
+	} else {
 		EVENT_ATTACH(&listener, &pipenode->readopenevent);
+	}
 
 	INTERNAL_UNLOCK(*node);
 	error = EVENT_WAIT(&listener, 0);
