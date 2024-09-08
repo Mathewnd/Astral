@@ -350,7 +350,6 @@ void signal_signalproc(struct proc_t *proc, int signal) {
 		while (thread) {
 			THREAD_ENTER(thread);
 
-			thread = thread->procnext;
 			if (SIGNAL_GET(&thread->signals.waiting, signal)) {
 				// thread is waiting for this signal, set it as pending in its pending set and
 				// signal that it should wake up
