@@ -1,0 +1,63 @@
+diff --git qemu-clean/block/file-posix.c qemu-workdir/block/file-posix.c
+index ff928b5..4744f13 100644
+--- qemu-clean/block/file-posix.c
++++ qemu-workdir/block/file-posix.c
+@@ -110,6 +110,13 @@
+ #include <sys/diskslice.h>
+ #endif
+ 
++#ifdef __astral__
++#include <sys/ioctl.h>
++#ifdef CONFIG_BLKZONED
++#include <linux/blkzoned.h>
++#endif
++#endif
++
+ /* OS X does not have O_DSYNC */
+ #ifndef O_DSYNC
+ #ifdef O_SYNC
+@@ -1217,7 +1224,7 @@ static int hdev_get_max_hw_transfer(int fd, struct stat *st)
+ /*
+  * Get a sysfs attribute value as character string.
+  */
+-#ifdef CONFIG_LINUX
++#if defined(CONFIG_LINUX) || defined(CONFIG_ASTRAL)
+ static int get_sysfs_str_val(struct stat *st, const char *attribute,
+                              char **val) {
+     g_autofree char *sysfspath = NULL;
+@@ -1271,7 +1278,7 @@ static int get_sysfs_zoned_model(struct stat *st, BlockZoneModel *zoned)
+ /*
+  * Get a sysfs attribute value as a long integer.
+  */
+-#ifdef CONFIG_LINUX
++#if defined(CONFIG_LINUX) || defined(CONFIG_ASTRAL)
+ static long get_sysfs_long_val(struct stat *st, const char *attribute)
+ {
+     g_autofree char *str = NULL;
+diff --git qemu-clean/configure qemu-workdir/configure
+index d08b71f..837d840 100755
+--- qemu-clean/configure
++++ qemu-workdir/configure
+@@ -333,7 +333,9 @@ int main(void) { return 0; }
+ EOF
+ }
+ 
+-if check_define __linux__ ; then
++if check_define __astral__ ; then
++  host_os=astral
++elif check_define __linux__ ; then
+   host_os=linux
+ elif check_define _WIN32 ; then
+   host_os=windows
+diff --git qemu-clean/meson.build qemu-workdir/meson.build
+index fbda17c..b401e8b 100644
+--- qemu-clean/meson.build
++++ qemu-workdir/meson.build
+@@ -2364,6 +2364,7 @@ config_host_data.set('CONFIG_PIXMAN', pixman.found())
+ config_host_data.set('CONFIG_SLIRP', slirp.found())
+ config_host_data.set('CONFIG_SNAPPY', snappy.found())
+ config_host_data.set('CONFIG_SOLARIS', host_os == 'sunos')
++config_host_data.set('CONFIG_ASTRAL', host_os == 'astral')
+ if get_option('tcg').allowed()
+   config_host_data.set('CONFIG_TCG', 1)
+   config_host_data.set('CONFIG_TCG_INTERPRETER', tcg_arch == 'tci')

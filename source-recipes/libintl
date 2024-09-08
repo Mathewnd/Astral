@@ -1,0 +1,19 @@
+name=libiconv
+version=1.17
+source_method=tarball
+tarball_url="https://ftp.gnu.org/gnu/libiconv/libiconv-${version}.tar.gz"
+tarball_sha512=18a09de2d026da4f2d8b858517b0f26d853b21179cf4fa9a41070b2d140030ad9525637dc4f34fc7f27abca8acdc84c6751dfb1d426e78bf92af4040603ced86
+hostdeps="autoconf automake libtool pkgconfig"
+
+regenerate() {
+	cp -v /usr/local/share/aclocal/libtool.m4 ./m4/
+	cp -v /usr/local/share/aclocal/libtool.m4 ./libcharset/m4/
+	cp -v /usr/local/share/libtool/build-aux/ltmain.sh ./build-aux/
+	cp -v /usr/local/share/libtool/build-aux/ltmain.sh ./libcharset/build-aux/
+	cp -v /usr/local/share/aclocal/ltversion.m4 ./m4
+	cp -v /usr/local/share/aclocal/ltversion.m4 ./libcharset/m4
+
+        autoreconf -vfi -I${source_dir}/m4 -I${source_dir}/srcm4
+
+	cp -v $(find /usr/local/share/automake* -name config.sub) ./libcharset/build-aux/
+}

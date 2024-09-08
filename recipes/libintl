@@ -1,0 +1,19 @@
+name=libintl
+revision=1
+from_source=gettext
+imagedeps="base-devel"
+hostdeps="xgcc xbinutils libstdc++-v3 automake autoconf pkgconfig libtool"
+deps="mlibc"
+
+build() {
+	cp -rp ${source_dir}/* .
+
+	ACLOCAL=true AUTCONF=true AUTOMAKE=true AUTOHEADER=true ./configure \
+	--host=x86_64-astral --prefix=${prefix} --without-emacs --without-lispdir --enable-nls --with-included-gettext --disable-c++ --disable-libasprintf --disable-java --enable-threads=posix --disable-curses --without-git --without-cvs --without-bzip2 --without-xz --disable-static
+	sed -i 's/touch $@//g' gettext-runtime/intl/Makefile
+	make -C gettext-runtime/intl -j${parallelism}
+}
+
+package() {
+	make install -C gettext-runtime/intl DESTDIR=${dest_dir}
+}

@@ -1,0 +1,15 @@
+name=libffi
+revision=1
+from_source=libffi
+imagedeps="base-devel"
+hostdeps="xgcc xbinutils autoconf automake pkgconfig libtool"
+deps="mlibc ncurses"
+
+build() {
+	${source_dir}/configure --host=x86_64-astral --prefix=${prefix} --disable-static --enable-shared
+	make -j ${parallelism}
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+}

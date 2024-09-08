@@ -1,0 +1,15 @@
+name=glib
+revision=1
+from_source=glib
+imagedeps="gcc meson ninja"
+hostdeps="xgcc xbinutils pkgconfig automake autoconf util-macros libtool"
+deps="mlibc libiconv pcre2 libffi libintl"
+
+build() {
+	meson --cross-file ${base_dir}/util/crossfile --prefix=${prefix} --buildtype=release -Dxattr=false ${source_dir}
+	ninja -j${parallelism}
+}
+
+package() {
+	DESTDIR=${dest_dir} ninja install
+}

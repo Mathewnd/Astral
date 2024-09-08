@@ -1,0 +1,8 @@
+name=glib
+version=2.82
+source_method=tarball
+tarball_url="https://download.gnome.org/sources/glib/${version}/glib-${version}.0.tar.xz"
+tarball_sha512="7ce4dbc2b80fea1dca722bea02b1c35404108747b94c296760469b5416fc5ca737fc29c56a091120e5457a732656761424da614f3a626eb79b80b145507deb00"
+regenerate() {
+	true
+}

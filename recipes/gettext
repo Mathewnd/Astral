@@ -1,0 +1,21 @@
+name=gettext
+revision=1
+from_source=gettext
+imagedeps="base-devel"
+hostdeps="xgcc xbinutils autoconf automake pkgconfig libtool"
+deps="mlibc libiconv"
+
+build() {
+	cp -rp ${source_dir}/* .
+
+	ACLOCAL=true AUTCONF=true AUTOMAKE=true AUTOHEADER=true ./configure --host=x86_64-astral --prefix=${prefix} --disable-static
+	make -j ${parallelism}
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+
+	rm -f ${dest_dir}/${prefix}/include/libintl.h
+	rm -f ${dest_dir}/${prefix}/lib/libintl.so*
+	rm -f ${dest_dir}/${prefix}/share/locale/locale.alias
+}

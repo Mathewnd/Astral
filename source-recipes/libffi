@@ -1,0 +1,10 @@
+name=libffi
+version=3.4.2
+source_method=tarball
+tarball_url="https://github.com/libffi/libffi/releases/download/v${version}/libffi-${version}.tar.gz"
+tarball_sha512=31bad35251bf5c0adb998c88ff065085ca6105cf22071b9bd4b5d5d69db4fadf16cadeec9baca944c4bb97b619b035bb8279de8794b922531fddeb0779eb7fb1
+hostdeps="autoconf automake libtool pkgconfig libtool"
+
+regenerate() {
+	autoreconf -fvi
+}

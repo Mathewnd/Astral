@@ -1,0 +1,15 @@
+name=gettext
+version=0.22.5
+source_method=tarball
+tarball_url="https://ftp.gnu.org/gnu/gettext/gettext-${version}.tar.gz"
+tarball_sha512=d8b22d7fba10052a2045f477f0a5b684d932513bdb3b295c22fbd9dfc2a9d8fccd9aefd90692136c62897149aa2f7d1145ce6618aa1f0be787cb88eba5bc09be
+hostdeps="autoconf automake libtool pkgconfig"
+
+regenerate() {
+	( cd gettext-runtime/libasprintf && autoreconf -fvi )
+	( cd gettext-runtime/intl && autoreconf -fvi )
+	( cd gettext-runtime && autoreconf -fvi )
+	( cd gettext-tools && autoreconf -fvi )
+	( cd libtextstyle && autoreconf -fvi )
+	autoreconf -fvi
+}

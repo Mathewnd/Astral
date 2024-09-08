@@ -13,15 +13,17 @@ index 87bc25f..d7370d0 100644
  #define IPPROTO_HOPOPTS  0
  #define IPPROTO_ICMP     1
 diff --git mlibc-clean/meson.build mlibc-workdir/meson.build
-index bb8928f..7fd3280 100644
+index bb8928f..969145b 100644
 --- mlibc-clean/meson.build
 +++ mlibc-workdir/meson.build
-@@ -256,6 +256,13 @@ elif host_machine.system() == 'dripos'
+@@ -256,6 +256,15 @@ elif host_machine.system() == 'dripos'
  	rtld_include_dirs += include_directories('sysdeps/dripos/include')
  	libc_include_dirs += include_directories('sysdeps/dripos/include')
  	subdir('sysdeps/dripos')
 +elif host_machine.system() == 'astral'
 +        disable_crypt_option = true
++        disable_iconv_option = true
++        disable_intl_option = true
 +        rtld_include_dirs += include_directories('sysdeps/astral/include')
 +        libc_include_dirs += include_directories('sysdeps/astral/include')
 +	internal_conf.set10('MLIBC_MAP_DSO_SEGMENTS', true)

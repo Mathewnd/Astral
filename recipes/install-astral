@@ -1,0 +1,14 @@
+name=install-astral
+revision=1
+from_source=install-astral
+imagedeps="base-devel"
+hostdeps="xbinutils xgcc"
+deps="mlibc"
+
+build() {
+	make -C ${source_dir} -j ${parallelism}
+}
+
+package() {
+	make -C ${source_dir} install DESTDIR=${dest_dir}
+}
