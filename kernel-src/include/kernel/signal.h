@@ -158,6 +158,7 @@ void signal_changemask(struct thread_t *thread, int how, sigset_t *new, sigset_t
 void signal_signalproc(struct proc_t *proc, int signal);
 void signal_signalthread(struct thread_t *thread, int signal, bool urgent);
 void signal_pending(struct thread_t *, sigset_t *sigset);
+int signal_wait(sigset_t *sigset, timespec_t *timeout, siginfo_t *siginfo, int *signum);
 bool signal_check(struct thread_t *thread, context_t *context, bool syscall, uint64_t syscallret, uint64_t syscallerrno);
 extern int signal_defaultactions[NSIG];
 

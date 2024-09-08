@@ -139,8 +139,127 @@ void signal_pending(struct thread_t *thread, sigset_t *sigset) {
 	PROCESS_LEAVE(proc);
 }
 
+int signal_wait(sigset_t *sigset, timespec_t *timeout, siginfo_t *siginfo, int *signum) {
+	thread_t *thread = _cpu()->thread;
+	PROCESS_ENTER(thread->proc);
+	THREAD_ENTER(thread);
+	// if timeoutus is 0, this wait is just a poll
+	// if timeout == NULL, this will sleep indefinitely
+	// otherwise, use the timeout specified in timeout
+	uintmax_t timeoutus = -1;
+	int pending = 0;
+
+	if (timeout)
+		timeoutus = timeout->s * 1000000 + timeout->ns / 1000;
+
+	for (int i = 1; i < NSIG; ++i) {
+		if (SIGNAL_GET(sigset, i) == 0)
+			continue;
+
+		if (SIGNAL_GET(&thread->signals.pending, i)) {
+			SIGNAL_SETOFF(&thread->signals.pending, i);
+			pending = i;
+			break;
+		}
+
+		if (SIGNAL_GET(&thread->proc->signals.pending, i)) {
+			SIGNAL_SETOFF(&thread->proc->signals.pending, i);
+			pending = i;
+			break;
+		}
+	}
+
+	if (pending) {
+		// TODO change this to actually return the siginfo when its implemented
+		memset(siginfo, 0, sizeof(siginfo_t));
+		*signum = pending;
+
+		THREAD_LEAVE(thread);
+		PROCESS_LEAVE(thread->proc);
+		return 0;
+	}
+
+	// signal is not pending and we are just polling
+	// return EAGAIN
+	if (pending == 0 && timeoutus == 0) {
+		THREAD_LEAVE(thread);
+		PROCESS_LEAVE(thread->proc);
+		return EAGAIN;
+	}
+
+	memcpy(&thread->signals.waiting, sigset, sizeof(sigset_t));
+
+	eventlistener_t eventlistener;
+	EVENT_INITLISTENER(&eventlistener);
+
+	EVENT_ATTACH(&eventlistener, &thread->signals.waitpendingevent);
+
+	THREAD_LEAVE(thread);
+	PROCESS_LEAVE(thread->proc);
+
+	int err = EVENT_WAIT(&eventlistener, timeout ? timeoutus : 0);
+	EVENT_DETACHALL(&eventlistener);
+
+	// now one of the following has happened:
+	// - the timeout expired
+	// - the event has been signaled, which means there is a pending signal
+	//   in the thread pending set which was in the waiting set
+	// - the thread needs to return to userspace to service a signal (err == EINTR)
+
+	if (err == 0) {
+		PROCESS_ENTER(thread->proc);
+		THREAD_ENTER(thread);
+		// timeout or event happened
+		// we still check for it even if it could have been a timeout,
+		// as the lock wasn't held for a while which means that inbetween the
+		// time out and the lock being held, a signal could've happened
+
+		for (int i = 1; i < NSIG; ++i) {
+			if (SIGNAL_GET(sigset, i) == 0)
+				continue;
+
+			if (SIGNAL_GET(&thread->signals.pending, i)) {
+				SIGNAL_SETOFF(&thread->signals.pending, i);
+				pending = i;
+				break;
+			}
+
+			if (SIGNAL_GET(&thread->proc->signals.pending, i)) {
+				SIGNAL_SETOFF(&thread->proc->signals.pending, i);
+				pending = i;
+				break;
+			}
+		}
+
+		if (pending) {
+			// there is a signal pending, and it has been removed from the pending set
+			// TODO change this to actually return the siginfo when its implemented
+			memset(siginfo, 0, sizeof(siginfo_t));
+			*signum = pending;
+		} else {
+			// timed out and thre are no pending signals, return EAGAIN
+			__assert(timeout);
+			err = EAGAIN;
+		}
+
+		memset(&thread->signals.waiting, 0, sizeof(sigset_t));
+
+		THREAD_LEAVE(thread);
+		PROCESS_LEAVE(thread->proc);
+	} else {
+		PROCESS_ENTER(thread->proc);
+		THREAD_ENTER(thread);
+
+		memset(&thread->signals.waiting, 0, sizeof(sigset_t));
+
+		THREAD_LEAVE(thread);
+		PROCESS_LEAVE(thread->proc);
+	}
+
+	return err;
+}
+
 void signal_signalthread(struct thread_t *thread, int signal, bool urgent) {
-	//bool notignorable = signal == SIGKILL || signal == SIGSTOP || signal == SIGCONT;
 	PROCESS_ENTER(thread->proc);
 	THREAD_ENTER(thread);
 
@@ -153,7 +272,14 @@ void signal_signalthread(struct thread_t *thread, int signal, bool urgent) {
 	bool notignored = address != SIG_IGN && ((address == SIG_DFL && signal_defaultactions[signal] != ACTION_IGN) || address != SIG_DFL);
 
 	if (signal == SIGKILL || signal == SIGSTOP || urgent || (SIGNAL_GET(&thread->signals.mask, signal) == 0 && notignored)) {
+		// signal cannot be ignored or its urgent or its not masked and not ignored
 		sched_wakeup(thread, SCHED_WAKEUP_REASON_INTERRUPTED);
+	} else if (notignored == false) {
+		// ignored, remove from pending set
+		SIGNAL_SETOFF(sigset, signal);
+	} else if (notignored && SIGNAL_GET(&thread->signals.mask, signal) && SIGNAL_GET(&thread->signals.waiting, signal)) {
+		// not ignored, masked and the thread is waiting on this signal
+		EVENT_SIGNAL(&thread->signals.waitpendingevent);
 	}
 
 	THREAD_LEAVE(thread);
@@ -170,9 +296,11 @@ void signal_signalproc(struct proc_t *proc, int signal) {
 	bool isdefaultaction = address == SIG_DFL;
 	bool shouldstop = (isdefaultaction && signal_defaultactions[signal] == ACTION_STOP) || signal == SIGSTOP;
 
-	// TODO is one thread has a stop signal masked, the masked wait breaks completely
+	// TODO if one thread has a stop signal masked, the masked wait breaks completely
 
 	thread_t *thread = proc->threadlist;
+	spinlock_acquire(&proc->threadlistlock);
+
 	while (thread) {
 		if (thread->flags & SCHED_THREAD_FLAGS_DEAD) {
 			thread = thread->procnext;
@@ -216,9 +344,33 @@ void signal_signalproc(struct proc_t *proc, int signal) {
 		thread = thread->procnext;
 	}
 
+	// no thread has it unmasked, see if any threads are waiting for the signal
+	if (notignorable == false && (threadcontinued || shouldstop) == false) {
+		thread_t *thread = proc->threadlist;
+		while (thread) {
+			THREAD_ENTER(thread);
+
+			thread = thread->procnext;
+			if (SIGNAL_GET(&thread->signals.waiting, signal)) {
+				// thread is waiting for this signal, set it as pending in its pending set and
+				// signal that it should wake up
+				SIGNAL_SETON(&thread->signals.pending, signal);
+				EVENT_SIGNAL(&thread->signals.waitpendingevent);
+
+				THREAD_LEAVE(thread);
+				spinlock_release(&proc->threadlistlock);
+				PROCESS_LEAVE(proc);
+				return;
+			}
+
+			THREAD_LEAVE(thread);
+			thread = thread->procnext;
+		}
+	}
+
 	spinlock_release(&proc->threadlistlock);
 
-	// if its ignorable and there wasn't any thread with it unmasked, set it as pending for the whole process
+	// if its ignorable and there wasn't any thread with it unmasked nor waiting for it, set it as pending for the whole process
 	// not ignorable signals will be sent to all threads individually
 	if (notignorable == false && (threadcontinued || shouldstop) == false) {
 		SIGNAL_SETON(&proc->signals.pending, signal);

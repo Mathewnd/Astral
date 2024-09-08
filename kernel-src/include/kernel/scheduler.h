@@ -9,6 +9,7 @@
 #include <mutex.h>
 #include <kernel/signal.h>
 #include <kernel/itimer.h>
+#include <kernel/event.h>
 
 #define SCHED_THREAD_FLAGS_QUEUED 1
 #define SCHED_THREAD_FLAGS_RUNNING 2
@@ -54,10 +55,12 @@ typedef struct thread_t {
 	context_t *usercopyctx;
 	struct {
 		spinlock_t lock;
+		eventheader_t waitpendingevent;
 		stack_t stack;
 		sigset_t mask;
 		sigset_t pending;
 		sigset_t urgent;
+		sigset_t waiting;
 		bool stopped;
 	} signals;
 } thread_t;
@@ -108,6 +111,7 @@ typedef struct proc_t {
 		// these are only applicable if the process is leader
 		spinlock_t lock; // protects the linked list
 	} pgrp;
+
 	struct {
 		spinlock_t lock;
 		sigaction_t actions[NSIG];
@@ -152,7 +156,6 @@ void sched_stopcurrentthread();
 int sched_yield();
 void sched_preparesleep(bool interruptible);
 bool sched_wakeup(thread_t *thread, int reason);
-int sched_sleep();
 proc_t *sched_newproc();
 vnode_t *sched_getcwd();
 vnode_t *sched_getroot();

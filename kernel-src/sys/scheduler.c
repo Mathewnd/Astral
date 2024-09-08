@@ -166,6 +166,7 @@ thread_t *sched_newthread(void *ip, size_t kstacksize, int priority, proc_t *pro
 	CTX_IP(&thread->context) = (ctxreg_t)ip;
 	SPINLOCK_INIT(thread->sleeplock);
 	SPINLOCK_INIT(thread->signals.lock);
+	EVENT_INITHEADER(&thread->signals.waitpendingevent);
 
 	return thread;
 }
