@@ -3,7 +3,7 @@ revision=1
 from_source=xrandr
 imagedeps="gcc"
 hostdeps="xgcc xbinutils pkgconfig"
-deps="mlibc xorgproto libx11 libxrandr"
+deps="base xorgproto libx11 libxrandr"
 
 build() {
 	${source_dir}/configure --prefix=${prefix} --host=x86_64-astral

@@ -3,7 +3,7 @@ revision=1
 from_source=gettext
 imagedeps="base-devel"
 hostdeps="xgcc xbinutils autoconf automake pkgconfig libtool"
-deps="mlibc libiconv"
+deps="base libiconv"
 
 build() {
 	cp -rp ${source_dir}/* .

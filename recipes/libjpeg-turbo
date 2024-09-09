@@ -3,7 +3,7 @@ revision=1
 from_source=libjpeg-turbo
 imagedeps="base-devel"
 hostdeps="xgcc xbinutils cmake"
-deps="mlibc"
+deps="base"
 
 build() {
 	cmake \

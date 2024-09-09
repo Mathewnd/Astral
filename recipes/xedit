@@ -3,7 +3,7 @@ revision=1
 from_source=xedit
 imagedeps="gcc"
 hostdeps="xgcc xbinutils pkgconfig"
-deps="mlibc libx11 xorgproto libxt libxaw libxmu"
+deps="base libx11 xorgproto libxt libxaw libxmu"
 
 build() {
 	${source_dir}/configure --prefix=${prefix} --host=x86_64-astral

@@ -3,7 +3,7 @@ revision=1
 from_source=libffi
 imagedeps="base-devel"
 hostdeps="xgcc xbinutils autoconf automake pkgconfig libtool"
-deps="mlibc ncurses"
+deps="base ncurses"
 
 build() {
 	${source_dir}/configure --host=x86_64-astral --prefix=${prefix} --disable-static --enable-shared

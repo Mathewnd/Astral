@@ -3,7 +3,7 @@ revision=1
 from_source=qemu
 imagedeps="base-devel python-sphinx ninja meson git"
 hostdeps="xgcc xbinutils pkgconfig libtool"
-deps="mlibc sdl2 glib libiconv libintl"
+deps="base sdl2 glib libiconv libintl"
 allow_network="yes"
 
 build() {

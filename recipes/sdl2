@@ -3,7 +3,7 @@ revision=1
 from_source=sdl2
 imagedeps="meson ninja base-devel"
 hostdeps="xgcc xbinutils pkgconfig cmake libstdc++-v3"
-deps="mlibc libx11 libxext libxcursor libxinerama libxi libxfixes libxrandr libxrender libxxf86vm mesa libiconv"
+deps="base libx11 libxext libxcursor libxinerama libxi libxfixes libxrandr libxrender libxxf86vm mesa libiconv"
 
 build() {
 	cmake \

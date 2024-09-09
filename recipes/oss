@@ -3,7 +3,7 @@ revision=1
 from_source=oss
 imagedeps="base-devel"
 hostdeps="xgcc xbinutils"
-deps="mlibc"
+deps="base"
 
 build() { 
 	ASTRAL_CC=x86_64-astral-gcc \

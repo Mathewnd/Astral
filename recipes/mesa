@@ -3,7 +3,7 @@ revision=1
 from_source=mesa
 imagedeps="gcc meson ninja python-mako python-setuptools python-yaml"
 hostdeps="xgcc xbinutils pkgconfig automake autoconf util-macros libtool libstdc++-v3"
-deps="mlibc llvm libexpat libxcb libx11 libxext zlib"
+deps="base llvm libexpat libxcb libx11 libxext zlib"
 
 build() {
 	cp -rp ${source_dir}/* .

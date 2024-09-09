@@ -3,7 +3,7 @@ revision=1
 from_source=fvwm
 imagedeps="base-devel"
 hostdeps="xgcc xbinutils pkgconfig"
-deps="mlibc libx11 libxinerama libxcursor libxt libevent libxrandr freetype libpng libxft"
+deps="base libx11 libxinerama libxcursor libxt libevent libxrandr freetype libpng libxft"
 
 build() {
 	cp -rvp ${source_dir}/* .

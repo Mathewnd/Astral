@@ -3,7 +3,7 @@ revision=1
 from_source=sudo
 imagedeps="base-devel"
 hostdeps="xgcc xbinutils"
-deps="mlibc libxcrypt"
+deps="base libxcrypt"
 
 build() {
 	${source_dir}/configure --host=x86_64-astral --prefix=${prefix} --with-secure-path --with-env-editor --with-passprompt="[sudo] password for %p: " --disable-nls

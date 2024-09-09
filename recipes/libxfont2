@@ -3,7 +3,7 @@ revision=1
 from_source=libxfont2
 imagedeps="meson ninja gcc"
 hostdeps="xgcc xbinutils pkgconfig"
-deps="mlibc xorgproto freetype zlib xtrans libfontenc"
+deps="base xorgproto freetype zlib xtrans libfontenc"
 
 build() {
 	${source_dir}/configure --prefix=${prefix} --host=x86_64-astral --disable-malloc0returnsnull

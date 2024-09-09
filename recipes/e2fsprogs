@@ -3,7 +3,7 @@ revision=1
 from_source=e2fsprogs
 imagedeps="base-devel"
 hostdeps="xgcc xbinutils"
-deps="mlibc"
+deps="base"
 
 build() {
 	${source_dir}/configure --host=x86_64-astral --prefix=${prefix}

@@ -3,7 +3,7 @@ revision=1
 from_source=xorgproto
 imagedeps="meson ninja gcc"
 hostdeps="xgcc xbinutils pkgconfig"
-deps="mlibc"
+deps="base"
 
 build() {
 	meson --cross-file=${base_dir}/util/crossfile --prefix=${prefix} -Dlegacy=true ${source_dir}

@@ -3,7 +3,7 @@ revision=1
 from_source=openssh
 imagedeps="gcc"
 hostdeps="xgcc xbinutils"
-deps="mlibc zlib openssl libxcrypt"
+deps="base zlib openssl libxcrypt"
 
 build() {
 	${source_dir}/configure --prefix=${prefix} --host=x86_64-astral --sysconfdir=/etc/ssh --with-privsep-path=/var/lib/sshd --with-default-path=${prefix}/bin --with-superuser-path=${prefix}/sbin:${prefix}/bin --with-pid-dir=/run

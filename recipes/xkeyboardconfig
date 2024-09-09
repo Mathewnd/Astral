@@ -3,7 +3,7 @@ revision=1
 from_source=xkeyboardconfig
 imagedeps="gcc meson ninja"
 hostdeps="xgcc xbinutils pkgconfig automake autoconf util-macros libtool"
-deps="mlibc"
+deps="base"
 
 build() {
 	meson --cross-file ${base_dir}/util/crossfile --prefix=${prefix} ${source_dir}

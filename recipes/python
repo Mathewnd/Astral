@@ -3,7 +3,7 @@ revision=1
 from_source=python
 imagedeps="base-devel"
 hostdeps="xgcc xbinutils pkgconfig python"
-deps="mlibc mlibc-headers"
+deps="base"
 
 build() {
 	echo "ac_cv_file__dev_ptmx=yes" > /tmp/configsite

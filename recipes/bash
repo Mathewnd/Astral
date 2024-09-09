@@ -3,7 +3,7 @@ revision=1
 from_source=bash
 imagedeps="base-devel"
 hostdeps="xgcc xbinutils"
-deps="readline mlibc"
+deps="readline base"
 
 build() {
 	cp -rp ${source_dir}/* .

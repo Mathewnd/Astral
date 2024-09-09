@@ -3,7 +3,7 @@ revision=1
 from_source=mount
 imagedeps="base-devel"
 hostdeps="xbinutils xgcc"
-deps="mlibc"
+deps="base"
 
 build() {
 	make -C ${source_dir} -j ${parallelism}

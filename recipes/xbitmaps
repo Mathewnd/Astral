@@ -3,7 +3,7 @@ revision=1
 from_source=xbitmaps
 imagedeps="meson base-devel"
 hostdeps="xgcc xbinutils pkgconfig util-macros"
-deps="mlibc"
+deps="base"
 
 build() {
 	${source_dir}/configure --prefix=${prefix} --host=x86_64-astral

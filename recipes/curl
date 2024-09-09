@@ -3,7 +3,7 @@ revision=1
 from_source=curl
 imagedeps="base-devel"
 hostdeps="xgcc xbinutils pkgconfig"
-deps="mlibc openssl zlib"
+deps="base openssl zlib"
 
 build() {
 	cp -rpv ${source_dir}/* .

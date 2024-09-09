@@ -3,7 +3,7 @@ revision=1
 from_source=mpfr
 imagedeps="base-devel"
 hostdeps="xgcc xbinutils"
-deps="mlibc gmp"
+deps="base gmp"
 
 build() {
 	cp -pr ${source_dir}/* .

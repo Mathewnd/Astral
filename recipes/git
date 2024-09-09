@@ -3,7 +3,7 @@ revision=1
 from_source=git
 imagedeps="base-devel"
 hostdeps="xgcc xbinutils"
-deps="mlibc python zlib curl openssl openssh"
+deps="base python zlib curl openssl openssh"
 
 build() {
 	cp -rp ${source_dir}/* .

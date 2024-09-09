@@ -3,7 +3,7 @@ revision=1
 from_source=libxcursor
 imagedeps="gcc"
 hostdeps="xgcc xbinutils pkgconfig"
-deps="mlibc libxrender libxfixes libx11"
+deps="base libxrender libxfixes libx11"
 
 build() {
 	${source_dir}/configure --prefix=${prefix} --host=x86_64-astral

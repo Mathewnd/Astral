@@ -3,7 +3,7 @@ revision=1
 from_source=llvm
 imagedeps="meson ninja base-devel"
 hostdeps="xgcc xbinutils pkgconfig cmake libstdc++-v3"
-deps="mlibc ncurses zlib"
+deps="base ncurses zlib"
 
 build() {
 	cmake \

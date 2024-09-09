@@ -3,7 +3,7 @@ revision=1
 from_source=binutils
 imagedeps="base-devel"
 hostdeps="xgcc xbinutils automake autoconf"
-deps="mlibc"
+deps="base"
 
 build() {
 	${source_dir}/configure --host=x86_64-astral --target=x86_64-astral --prefix=${prefix} --disable-werror

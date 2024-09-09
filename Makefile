@@ -98,7 +98,7 @@ clean-kernel:
 	find builds/astral/ -name *.asmo -delete
 
 clean:
-	make clean-kernel
+	make -i clean-kernel
 	./jinx clean
 	rm jinx
 	rm -rf $(ISODIR)

@@ -3,7 +3,7 @@ revision=1
 from_source=links
 imagedeps="meson ninja base-devel libpng"
 hostdeps="xgcc xbinutils pkgconfig"
-deps="mlibc zlib openssl bzip2 libpng libxext freetype fontconfig libjpeg-turbo"
+deps="base zlib openssl bzip2 libpng libxext freetype fontconfig libjpeg-turbo"
 
 build() {
 	CC=x86_64-astral-gcc ${source_dir}/configure --prefix=${prefix} --host=x86_64-astral --enable-graphics --without-directfb --without-librsvg --with-bzip2 --with-X --x-includes=${sysroot_dir}/usr/include --x-libraries=${sysroot_dir}/usr/lib --with-zlib --with-openssl --without-libtiff --without-openmp --without-lzma --with-freetype --without-ipv6

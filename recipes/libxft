@@ -3,7 +3,7 @@ revision=1
 from_source=libxft
 imagedeps="meson ninja base-devel"
 hostdeps="xgcc xbinutils pkgconfig"
-deps="mlibc libx11 libxt libxrender freetype fontconfig"
+deps="base libx11 libxt libxrender freetype fontconfig"
 
 build() {
 	${source_dir}/configure --prefix=${prefix} --host=x86_64-astral --enable-shared --disable-static

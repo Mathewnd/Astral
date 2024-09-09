@@ -3,7 +3,7 @@ revision=1
 from_source=openssl
 imagedeps="gcc"
 hostdeps="xgcc xbinutils"
-deps="mlibc zlib"
+deps="base zlib"
 
 build() {
 	cp -rpv ${source_dir}/* .

@@ -3,7 +3,7 @@ revision=1
 from_source=xneko
 imagedeps="meson ninja base-devel"
 hostdeps="xgcc xbinutils pkgconfig"
-deps="mlibc libx11"
+deps="base libx11"
 
 build() {
 	x86_64-astral-gcc -o xneko ${source_dir}/xneko.c -lX11 -lm

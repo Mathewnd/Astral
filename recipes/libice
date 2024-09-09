@@ -3,7 +3,7 @@ revision=1
 from_source=libice
 imagedeps="meson ninja base-devel"
 hostdeps="xgcc xbinutils pkgconfig"
-deps="mlibc libx11"
+deps="base libx11"
 
 
 build() {

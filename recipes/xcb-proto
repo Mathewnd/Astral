@@ -3,7 +3,7 @@ revision=1
 from_source=xcb-proto
 imagedeps="base-devel python3"
 hostdeps="xgcc xbinutils"
-deps="mlibc"
+deps="base"
 
 build() {
 	PYTHON=python3 ${source_dir}/configure --host=x86_64-astral --prefix=${prefix}

@@ -2,13 +2,13 @@ name=tar
 revision=1
 from_source=tar
 imagedeps="base-devel"
-hostdeps="xgcc xbinutils"
-deps="mlibc bzip2 zlib gzip"
+hostdeps="xgcc xbinutils pkgconfig libtool"
+deps="base bzip2 zlib gzip"
 
 build() {
 	cp -rpf ${source_dir}/* .
 	./configure --host=x86_64-astral --prefix=${prefix}
-	make -j ${parallelism}
+	make -j ${parallelism} LDFLAGS="-lintl -liconv"
 }
 
 package() {

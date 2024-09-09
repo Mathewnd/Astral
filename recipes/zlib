@@ -3,7 +3,7 @@ revision=1
 from_source=zlib
 imagedeps="base-devel"
 hostdeps="xgcc xbinutils"
-deps="mlibc"
+deps="base"
 
 build() {
 	CHOST=x86_64-astral prefix=${prefix} ${source_dir}/configure

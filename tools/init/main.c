@@ -241,8 +241,8 @@ static void dostartwm(void) {
 
 	if (pid == 0) {
 		unblocksignals();
-		execl("/usr/bin/startwm", NULL);
-		perror("init: exec /usr/bin/startwm failed");
+		execl("/usr/libexec/astral/startwm", NULL);
+		perror("init: exec /usr/libexec/astral/startwm failed");
 		exit(EXIT_FAILURE);
 	}
 

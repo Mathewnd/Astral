@@ -3,7 +3,7 @@ revision=1
 from_source=coreutils
 imagedeps="base-devel gperf"
 hostdeps="xgcc xbinutils"
-deps="mlibc"
+deps="base"
 
 build() {
 	cp -pr ${source_dir}/* .

@@ -3,7 +3,7 @@ revision=1
 from_source=gzip
 imagedeps="base-devel"
 hostdeps="xgcc xbinutils automake autoconf"
-deps="mlibc"
+deps="base"
 
 build() {
 	cp -rf ${source_dir}/* .

@@ -3,7 +3,7 @@ revision=1
 from_source=tyrquake
 imagedeps="base-devel"
 hostdeps="xgcc xbinutils"
-deps="mlibc libx11 libxext libxxf86vm sdl2"
+deps="base libx11 libxext libxxf86vm sdl2"
 
 build() {
 	cp -rp ${source_dir}/* .

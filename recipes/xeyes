@@ -3,7 +3,7 @@ revision=1
 from_source=xeyes
 imagedeps="meson ninja base-devel"
 hostdeps="xgcc xbinutils pkgconfig"
-deps="mlibc xorg-server libxt libxmu libxext libxi libxrender"
+deps="base xorg-server libxt libxmu libxext libxi libxrender"
 
 build() {
 	${source_dir}/configure --prefix=${prefix} --host=x86_64-astral

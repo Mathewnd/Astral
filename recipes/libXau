@@ -3,7 +3,7 @@ revision=1
 from_source=libXau
 imagedeps="gcc"
 hostdeps="xgcc xbinutils pkgconfig"
-deps="mlibc xorgproto"
+deps="base xorgproto"
 
 build() {
 	${source_dir}/configure --host=x86_64-astral --prefix=${prefix}

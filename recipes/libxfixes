@@ -3,7 +3,7 @@ revision=1
 from_source=libxfixes
 imagedeps="meson ninja base-devel"
 hostdeps="xgcc xbinutils pkgconfig"
-deps="mlibc libx11"
+deps="base libx11"
 
 build() {
 	${source_dir}/configure --prefix=${prefix} --host=x86_64-astral --enable-shared --disable-static

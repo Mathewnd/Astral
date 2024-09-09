@@ -3,7 +3,7 @@ revision=1
 from_source=bzip2
 imagedeps="base-devel"
 hostdeps="xgcc xbinutils"
-deps="mlibc"
+deps="base"
 
 build() {
 	cp -rpf ${source_dir}/* .

@@ -3,7 +3,7 @@ revision=1
 from_source=gcc
 imagedeps="base-devel"
 hostrundeps="automake autoconf xgcc xbinutils libstdc++-v3"
-deps="mlibc gmp mpfr mpc binutils"
+deps="base gmp mpfr mpc binutils"
 
 build() {
 	${source_dir}/configure --host=x86_64-astral --target=x86_64-astral --prefix=${prefix} --enable-languages=c,c++ --with-sysroot=/ --with-build-sysroot=${sysroot_dir}

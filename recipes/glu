@@ -3,7 +3,7 @@ revision=1
 from_source=glu
 imagedeps="gcc meson ninja"
 hostdeps="xgcc xbinutils pkgconfig libtool libstdc++-v3"
-deps="mlibc mesa"
+deps="base mesa"
 
 build() {
 	meson setup --cross-file ${base_dir}/util/crossfile --prefix=${prefix} --buildtype=release ${source_dir} -Dgl_provider=gl

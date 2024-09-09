@@ -3,7 +3,7 @@ revision=1
 from_source=xfontalias
 imagedeps="gcc xorg-mkfontscale"
 hostdeps="xgcc xbinutils pkgconfig util-macros fontutil"
-deps="mlibc"
+deps="base"
 
 build() {
 	${source_dir}/configure --prefix=${prefix} --host=x86_64-astral

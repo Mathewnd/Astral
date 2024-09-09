@@ -3,7 +3,7 @@ revision=1
 from_source=xauth
 imagedeps="base-devel"
 hostdeps="xgcc xbinutils pkgconfig xorgproto"
-deps="mlibc libx11 libxaw libxext libxmu"
+deps="base libx11 libxaw libxext libxmu"
 
 build() {
 	${source_dir}/configure --prefix=${prefix} --host=x86_64-astral

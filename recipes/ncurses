@@ -3,7 +3,7 @@ revision=1
 from_source=ncurses
 imagedeps="base-devel"
 hostdeps="xgcc xbinutils libstdc++-v3"
-deps="mlibc"
+deps="base"
 
 build() {
 	${source_dir}/configure --host=x86_64-astral --prefix=${prefix} --with-shared --without-normal --with-termlib --enable-pc-files --enable-widec

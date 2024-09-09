@@ -3,7 +3,7 @@ revision=1
 from_source=readline
 imagedeps="base-devel"
 hostdeps="xgcc xbinutils"
-deps="mlibc ncurses"
+deps="base ncurses"
 
 build() {
 	${source_dir}/configure --host=x86_64-astral --prefix=${prefix} --enable-multibyte --disable-static --enable-shared

@@ -3,7 +3,7 @@ revision=1
 from_source=libxcvt
 imagedeps="meson ninja gcc"
 hostdeps="xgcc xbinutils pkgconfig"
-deps="mlibc"
+deps="base"
 
 build() {
 	meson --cross-file=${base_dir}/util/crossfile --prefix=${prefix} ${source_dir}

@@ -3,7 +3,7 @@ revision=1
 from_source=gawk
 imagedeps="base-devel"
 hostdeps="xgcc xbinutils"
-deps="mlibc"
+deps="base"
 
 build() {
 	cp -rp ${source_dir}/* .
