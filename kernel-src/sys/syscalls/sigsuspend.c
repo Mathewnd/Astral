@@ -8,18 +8,12 @@ syscallret_t syscall_sigsuspend(context_t *, sigset_t *umask) {
 	};
 
 	sigset_t mask;
-	sigset_t old;
 
 	ret.errno = usercopy_fromuser(&mask, umask, sizeof(sigset_t));
 	if (ret.errno)
 		return ret;
 
-	signal_changemask(_cpu()->thread, SIG_SETMASK, &mask, &old);
-
-	sched_preparesleep(true);
-	__assert(sched_yield() == SCHED_WAKEUP_REASON_INTERRUPTED);
-
-	signal_changemask(_cpu()->thread, SIG_SETMASK, &old, NULL);
+	signal_suspend(&mask);
 
 	ret.errno = EINTR;
 	return ret;

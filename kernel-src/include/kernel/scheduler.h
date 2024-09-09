@@ -59,8 +59,10 @@ typedef struct thread_t {
 		stack_t stack;
 		sigset_t mask;
 		sigset_t pending;
-		sigset_t urgent;
-		sigset_t waiting;
+		sigset_t urgent; // always handled before returning to userspace
+		sigset_t waiting; // for signal_wait
+		sigset_t oldmask; // for signal_suspend
+		bool suspending;
 		bool stopped;
 	} signals;
 } thread_t;

@@ -139,6 +139,20 @@ void signal_pending(struct thread_t *thread, sigset_t *sigset) {
 	PROCESS_LEAVE(proc);
 }
 
+void signal_suspend(sigset_t *sigset) {
+	thread_t *thread = _cpu()->thread;
+	THREAD_ENTER(thread);
+
+	memcpy(&thread->signals.oldmask, &thread->signals.mask, sizeof(sigset_t));
+	memcpy(&thread->signals.mask, sigset, sizeof(sigset_t));
+	thread->signals.suspending = true;
+
+	THREAD_LEAVE(thread);
+
+	sched_preparesleep(true);
+	sched_yield();
+}
+
 int signal_wait(sigset_t *sigset, timespec_t *timeout, siginfo_t *siginfo, int *signum) {
 	thread_t *thread = _cpu()->thread;
 	PROCESS_ENTER(thread->proc);
@@ -531,7 +545,16 @@ bool signal_check(struct thread_t *thread, context_t *context, bool syscall, uin
 			memcpy(&sigframe.oldstack, &thread->signals.stack, sizeof(stack_t));
 			memset(&thread->signals.stack, 0, sizeof(stack_t));
 		}
-		memcpy(&sigframe.oldmask, &thread->signals.mask, sizeof(sigset_t));
+
+		if (thread->signals.suspending) {
+			// if we were waiting in signal_suspend, push the old mask into the return frame
+			// of the first signal and set it to not act this way the next check
+			memcpy(&sigframe.oldmask, &thread->signals.oldmask, sizeof(sigset_t));
+			thread->signals.suspending = false;
+		} else {
+			// else, just push the current mask
+			memcpy(&sigframe.oldmask, &thread->signals.mask, sizeof(sigset_t));
+		}
 		memcpy(&sigframe.context, context, sizeof(context_t));
 		memcpy(&sigframe.extracontext, &thread->extracontext, sizeof(extracontext_t));
 		// TODO siginfo
