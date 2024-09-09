@@ -90,6 +90,7 @@ extern syscall_setegid
 extern syscall_sigsuspend
 extern syscall_sigtimedwait
 extern syscall_sigpending
+extern syscall_killthread
 syscalltab:
 dq syscall_print
 dq syscall_mmap
@@ -182,7 +183,8 @@ dq syscall_setegid
 dq syscall_sigsuspend
 dq syscall_sigtimedwait
 dq syscall_sigpending
-syscallcount equ 91
+dq syscall_killthread
+syscallcount equ 92
 section .text
 global arch_syscall_entry
 ; on entry:
