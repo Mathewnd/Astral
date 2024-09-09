@@ -61,3 +61,25 @@ index fbda17c..b401e8b 100644
  if get_option('tcg').allowed()
    config_host_data.set('CONFIG_TCG', 1)
    config_host_data.set('CONFIG_TCG_INTERPRETER', tcg_arch == 'tci')
+diff --git qemu-clean/os-posix.c qemu-workdir/os-posix.c
+index 43f9a43..12da1c0 100644
+--- qemu-clean/os-posix.c
++++ qemu-workdir/os-posix.c
+@@ -262,7 +262,7 @@ void os_setup_limits(void)
+     struct rlimit nofile;
+ 
+     if (getrlimit(RLIMIT_NOFILE, &nofile) < 0) {
+-        warn_report("unable to query NOFILE limit: %s", strerror(errno));
++    //    warn_report("unable to query NOFILE limit: %s", strerror(errno));
+         return;
+     }
+ 
+@@ -277,7 +277,7 @@ void os_setup_limits(void)
+ #endif
+ 
+     if (setrlimit(RLIMIT_NOFILE, &nofile) < 0) {
+-        warn_report("unable to set NOFILE limit: %s", strerror(errno));
++     //   warn_report("unable to set NOFILE limit: %s", strerror(errno));
+         return;
+     }
+ }
