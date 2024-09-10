@@ -77,15 +77,11 @@ void signal_action(struct proc_t *proc, int signal, sigaction_t *new, sigaction_
 void signal_altstack(struct thread_t *thread, stack_t *new, stack_t *old) {
 	THREAD_ENTER(thread);
 
-	if (old) {
+	if (old)
 		*old = thread->signals.stack;
-		printf("signal altstack: old base %p size %lu flg %x\n", old->base, old->size, old->flags);
-	}
 
-	if (new) {
+	if (new)
 		thread->signals.stack = *new;
-		printf("signal altstack: new base %p size %lu flg %x\n", new->base, new->size, new->flags);
-	}
 
 	THREAD_LEAVE(thread);
 }
