@@ -47,7 +47,8 @@ $(IMG): limine.conf liminebg.bmp $(KERNEL) $(INITRD)-$(DISTROTYPE)
 	mkdir -p $(IMGDIR)/EFI/BOOT
 	ln -f $(INITRD)-$(DISTROTYPE) $(IMGDIR)/initrd
 	cp $(KERNEL) liminebg.bmp limine.conf $(LIMINEDIR)/limine-bios.sys $(IMGDIR)
-	cp $(LIMINEDIR)/BOOT{IA32,X64}.EFI $(IMGDIR)/EFI/BOOT
+	cp $(LIMINEDIR)/BOOTIA32.EFI $(IMGDIR)/EFI/BOOT
+	cp $(LIMINEDIR)/BOOTX64.EFI $(IMGDIR)/EFI/BOOT
 	./genbootimg.sh 1G $(IMG) $(IMGDIR)
 
 # ------ build targets ------
