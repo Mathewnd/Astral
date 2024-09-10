@@ -114,6 +114,7 @@ void semaphore_signal(semaphore_t *sem) {
 			// wake SOMEONE up. this will *try* to wake up a thread
 			// it could wake up none though, as a thread could have been interrupted by a signal
 			thread = get(sem);
+			// TODO this is broken
 			// XXX the current method doesn't respect thread priorities
 			if (thread) {
 				sched_wakeup(thread, 0);

@@ -546,7 +546,11 @@ static void yield(context_t *context, void *) {
 
 	if (sleeping && (thread->shouldexit || gotsignal) && (thread->flags & SCHED_THREAD_FLAGS_INTERRUPTIBLE)) {
 		sleeping = false;
+
+		if (next)
+			runqueueinsert(next);
 		next = NULL;
+
 		thread->flags &= ~(SCHED_THREAD_FLAGS_SLEEP | SCHED_THREAD_FLAGS_INTERRUPTIBLE);
 		thread->wakeupreason = SCHED_WAKEUP_REASON_INTERRUPTED;
 		spinlock_release(&thread->sleeplock);
