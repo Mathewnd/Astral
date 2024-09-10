@@ -77,11 +77,15 @@ void signal_action(struct proc_t *proc, int signal, sigaction_t *new, sigaction_
 void signal_altstack(struct thread_t *thread, stack_t *new, stack_t *old) {
 	THREAD_ENTER(thread);
 
-	if (old)
+	if (old) {
 		*old = thread->signals.stack;
+		printf("signal altstack: old base %p size %lu flg %x\n", old->base, old->size, old->flags);
+	}
 
-	if (new)
+	if (new) {
 		thread->signals.stack = *new;
+		printf("signal altstack: new base %p size %lu flg %x\n", new->base, new->size, new->flags);
+	}
 
 	THREAD_LEAVE(thread);
 }
@@ -524,8 +528,8 @@ bool signal_check(struct thread_t *thread, context_t *context, bool syscall, uin
 			altstack = thread->signals.stack.base;
 
 		// get where in memory to put the frame
-		void *stack = altstack ? altstack : (void *)CTX_SP(context);
 		#if ARCH_SIGNAL_STACK_GROWS_DOWNWARDS == 1
+		void *stack = altstack ? (void *)((uintptr_t)altstack + thread->signals.stack.size) : (void *)CTX_SP(context);
 		stack = (void *)((((uintptr_t)stack - ARCH_SIGNAL_REDZONE_SIZE - sizeof(sigframe_t)) & ~0xfl) - 0x8);
 		#else
 			#error unsupported
@@ -544,6 +548,8 @@ bool signal_check(struct thread_t *thread, context_t *context, bool syscall, uin
 		if (altstack) {
 			memcpy(&sigframe.oldstack, &thread->signals.stack, sizeof(stack_t));
 			memset(&thread->signals.stack, 0, sizeof(stack_t));
+		} else {
+			memset(&sigframe.oldstack, 0, sizeof(stack_t));
 		}
 
 		if (thread->signals.suspending) {
@@ -560,7 +566,7 @@ bool signal_check(struct thread_t *thread, context_t *context, bool syscall, uin
 		// TODO siginfo
 
 		if (usercopy_touser(stack, &sigframe, sizeof(sigframe_t))) {
-			printf("signal: bad user stack\n");
+			printf("signal: bad user stack %p\n", stack);
 			THREAD_LEAVE(thread);
 			PROCESS_LEAVE(proc);
 			interrupt_set(true);
