@@ -222,7 +222,7 @@ __attribute__((no_caller_saved_registers)) void arch_syscall_log_return(uint64_t
 	thread_t *thread = _cpu()->thread;
 	proc_t *proc = thread->proc;
 
-	snprintf(printbuff, 1024, "\e[94msyscall return: pid %d tid %d: %lu %lu (%lu cached pages, %lu free pages)\n\e[0m", proc->pid, thread->tid, ret, errno, vmmcache_cachedpages, freepagecount);
+	snprintf(printbuff, 1024, "\e[94msyscall return: pid %d tid %d: %lu %s (%lu cached pages, %lu free pages)\n\e[0m", proc->pid, thread->tid, ret, strerror(errno), vmmcache_cachedpages, freepagecount);
 	LOGSTR(printbuff);
 #endif
 }
