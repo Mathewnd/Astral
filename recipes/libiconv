@@ -2,11 +2,11 @@ name=libiconv
 revision=1
 from_source=libiconv
 imagedeps="base-devel"
-hostdeps="xgcc xbinutils libstdc++-v3"
+hostdeps="xgcc xbinutils libstdc++-v3 pkgconfig libtool"
 deps="mlibc"
 
 build() {
-	${source_dir}/configure --host=x86_64-astral --prefix=${prefix}
+	${source_dir}/configure --host=x86_64-astral --prefix=${prefix} --disable-nls --enable-shared --disable-static
 	make -j ${parallelism}
 }
 
