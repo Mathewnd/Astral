@@ -1646,6 +1646,36 @@ static int ext2_unlink(vnode_t *vnode, vnode_t *child, char *name, cred_t *cred)
 	ext2node_t *node = (ext2node_t *)vnode;
 	ext2fs_t *fs = (ext2fs_t *)vnode->vfs;
 
+	// check if its actually empty (readcount > 2, asserted 2 for . and ..)
+	if (child->type == V_TYPE_DIR) {
+		size_t readcount;
+		dent_t *dents = alloc(sizeof(dent_t) * 3);
+		if (dents == NULL)
+			return ENOMEM;
+
+		int err = ext2_getdents(child, dents, 3, 0, &readcount);
+		if (err) {
+			free(dents);
+			return err;
+		}
+
+		if (readcount > 2) {
+			free(dents);
+			return ENOTEMPTY;
+		}
+
+		// if any of the dot entries is missing, mark filesystem as unclean and return not empty as we cant really be sure
+		if (readcount != 2 ||
+		strcmp(dents[0].d_name, "..") == 0 || strcmp(dents[0].d_name, ".") != 0 ||
+		strcmp(dents[0].d_name, "..") == 0 || strcmp(dents[0].d_name, ".") != 0) {
+			ASSERT_UNCLEAN(fs, !"missing dot dent");
+			free(dents);
+			return ENOTEMPTY;
+		}
+
+		free(dents);
+	}
+
 	int inode = 0;
 	int err = removedent(fs, node, name, &inode);
 	if (err)

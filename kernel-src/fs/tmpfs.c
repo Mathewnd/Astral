@@ -263,6 +263,14 @@ static int tmpfs_unlink(vnode_t *node, vnode_t *child, char *name, cred_t *cred)
 	tmpfsnode_t *unlinktmpnode = r;
 	__assert(child == unlinknode);
 
+	if (unlinknode->type == V_TYPE_DIR) {
+		// check if directory is empty
+		HASHTABLE_FOREACH(&unlinktmpnode->children) {
+			if (memcmp(entry->key, ".", 1) && memcmp(entry->key, "..", 2))
+				return ENOTEMPTY;
+		}
+	}
+
 	err = hashtable_remove(&tmpnode->children, name, namelen);
 	if (err)
 		return err;
