@@ -319,6 +319,7 @@ static int syncpage(page_t *page, bool backinglock) {
 }
 
 static page_t *dirtylist;
+static page_t *dirtylistend;
 
 // expects vnode to be held
 int vmmcache_syncvnode(vnode_t *vnode, uintmax_t offset, size_t size) {
@@ -345,6 +346,9 @@ int vmmcache_syncvnode(vnode_t *vnode, uintmax_t offset, size_t size) {
 			page->writeprev->writenext = page->writenext;
 		else
 			dirtylist = page->writenext;
+
+		if (dirtylist == NULL)
+			dirtylistend = NULL;
 
 		page->writenext = vnodedirtylist;
 		page->writeprev = NULL;
@@ -406,6 +410,8 @@ int vmmcache_makedirty(page_t *page) {
 		page->writenext = dirtylist;
 		if (dirtylist)
 			dirtylist->writeprev = page;
+		else
+			dirtylistend = page;
 
 		dirtylist = page;
 		pmm_hold(pmm_getpageaddress(page));
@@ -434,8 +440,7 @@ static void writer() {
 	interrupt_set(true);
 	for (;;) {
 		HOLD_LOCK();
-		// TODO make FIFO rather than LIFO
-		volatile page_t *page = dirtylist;
+		volatile page_t *page = dirtylistend;
 		if (page == NULL) {
 			EVENT_SIGNAL(&syncevent);
 			RELEASE_LOCK();
@@ -443,11 +448,13 @@ static void writer() {
 			continue;
 		}
 
-		dirtylist = page->writenext;
-		if (dirtylist)
-			dirtylist->writeprev = NULL;
+		dirtylistend = page->writeprev;
+		if (dirtylistend)
+			dirtylistend->writenext = NULL;
+		else
+			dirtylist = NULL;
 
-		page->writenext = NULL;
+		page->writeprev = NULL;
 		// TODO notify error on vmmcache_syncvnode
 		syncpage((page_t *)page, true);
 	}
