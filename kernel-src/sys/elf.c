@@ -65,14 +65,12 @@ static int load(vnode_t *vnode, elfph64_t *ph) {
 		size_t firstpagecount = PAGE_SIZE - firstpageoffset;
 		firstpagecount = fsize > firstpagecount ? firstpagecount : fsize;
 		void *page = (void *)ROUND_DOWN(mempos, PAGE_SIZE);
-		if (vmm_map(page, PAGE_SIZE, VMM_FLAGS_EXACT | VMM_FLAGS_ALLOCATE, mmuflags | ARCH_MMU_FLAGS_WRITE, NULL) == NULL)
+		if (vmm_map(page, PAGE_SIZE, VMM_FLAGS_EXACT | VMM_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_USER | ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE, NULL) == NULL)
 			return ENOMEM;
 
 		error = readexact(vnode, (void *)mempos, firstpagecount, foffset);
 		if (error)
 			return error;
-
-		// TODO switch out protection
 
 		memset(page, 0, firstpageoffset);
 		mempos += firstpagecount;
@@ -91,6 +89,10 @@ static int load(vnode_t *vnode, elfph64_t *ph) {
 			msize -= remainingmsize;
 			mempos += remainingmsize;
 		}
+
+		error = vmm_changemmuflags(page, PAGE_SIZE, mmuflags, 0);
+		if (error)
+			return error;
 	}
 
 	// map middle of file
@@ -112,18 +114,21 @@ static int load(vnode_t *vnode, elfph64_t *ph) {
 	// map end of file
 	size_t lastpagecount = fsize % PAGE_SIZE;
 	if (lastpagecount) {
-		if (vmm_map((void *)mempos, PAGE_SIZE, VMM_FLAGS_EXACT | VMM_FLAGS_ALLOCATE, mmuflags | ARCH_MMU_FLAGS_WRITE, NULL) == NULL)
+		if (vmm_map((void *)mempos, PAGE_SIZE, VMM_FLAGS_EXACT | VMM_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_USER | ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE, NULL) == NULL)
 			return ENOMEM;
 
 		error = readexact(vnode, (void *)mempos, lastpagecount, foffset);
 		if (error)
 			return error;
 
-		// TODO switch out protection
-
 		memset((void *)(mempos + lastpagecount), 0, PAGE_SIZE - lastpagecount);
-		mempos += PAGE_SIZE;
 		msize -= msize > PAGE_SIZE ? PAGE_SIZE : msize;
+
+		error = vmm_changemmuflags((void *)mempos, PAGE_SIZE, mmuflags, 0);
+		if (error)
+			return error;
+
+		mempos += PAGE_SIZE;
 	}
 
 	// zero some parts if needed
