@@ -5,6 +5,10 @@
 
 static void insert(timer_t *timer, timerentry_t *entry, time_t us) {
 	entry->absolutetick = timer->tickcurrent + us * timer->ticksperus;
+	// it overflowed, this will be so far into the future we can just
+	// set it to be far off enough into the future that it really does not matter.
+	if (entry->absolutetick < timer->tickcurrent)
+		entry->absolutetick = timer->ticksperus * 1000 * 1000 * 60 * 60 * 24 * 30 * 12 * 1000; // a thousand years from now.
 
 	if (timer->queue == NULL) { // if no other entries in the queue
 		entry->next = NULL;
@@ -32,7 +36,7 @@ static void insert(timer_t *timer, timerentry_t *entry, time_t us) {
 	}
 }
 
-// expects IPL to be at least IPL_DPC
+// expects IPL to be at least IPL_TIMER
 static void timercheck(timer_t *timer) {
 	while (timer->queue && timer->queue->absolutetick == timer->tickcurrent) {
 		timerentry_t *entry = timer->queue;
@@ -127,10 +131,11 @@ void timer_insert(timer_t *timer, timerentry_t *entry, dpcfn_t fn, dpcarg_t arg,
 }
 
 uintmax_t timer_remove(timer_t *timer, timerentry_t *entry) {
-	timer_stop(timer);
-
 	long oldipl = interrupt_raiseipl(IPL_TIMER);
 	spinlock_acquire(&timer->lock);
+
+	if (timer->running)
+		timer->tickcurrent += timer->stop(timer);
 
 	uintmax_t timeremaining = 0;
 
@@ -154,14 +159,18 @@ uintmax_t timer_remove(timer_t *timer, timerentry_t *entry) {
 		prev->next = iterator->next;
 
 	iterator->next = NULL;
+
 	// ALWAYS round up the time remaining
 	timeremaining = ROUND_UP(iterator->absolutetick - timer->tickcurrent, timer->ticksperus) / timer->ticksperus;
+
+	if (timer->queue) {
+		timercheck(timer);
+		timer->arm(timer->queue->absolutetick - timer->tickcurrent);
+	}
 
 	cleanup:
 	spinlock_release(&timer->lock);
 	interrupt_loweripl(oldipl);
-
-	timer_resume(timer);
 	return timeremaining;
 }
 
