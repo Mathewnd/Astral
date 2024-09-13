@@ -227,9 +227,9 @@ void arch_apic_timerinit() {
 
 	writelapic(APIC_TIMER_INITIALCOUNT, 0xffffffff);
 
-	uswait(1000);
+	uswait(50000);
 
-	time_t ticksperus = (0xffffffff - readlapic(APIC_TIMER_COUNT)) / 1000;
+	time_t ticksperus = (0xffffffff - readlapic(APIC_TIMER_COUNT)) / 50000;
 
 	writelapic(APIC_TIMER_INITIALCOUNT, 0);
 
