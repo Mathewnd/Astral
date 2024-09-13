@@ -155,6 +155,7 @@ struct thread_t;
 void signal_action(struct proc_t *proc, int signal, sigaction_t *new, sigaction_t *old);
 void signal_altstack(struct thread_t *thread, stack_t *new, stack_t *old);
 void signal_changemask(struct thread_t *thread, int how, sigset_t *new, sigset_t *old);
+void signal_returnmask(struct thread_t *thread, sigset_t *sigset);
 void signal_signalproc(struct proc_t *proc, int signal);
 void signal_signalthread(struct thread_t *thread, int signal, bool urgent);
 void signal_pending(struct thread_t *, sigset_t *sigset);

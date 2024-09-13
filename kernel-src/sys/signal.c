@@ -139,13 +139,17 @@ void signal_pending(struct thread_t *thread, sigset_t *sigset) {
 	PROCESS_LEAVE(proc);
 }
 
+void signal_returnmask(struct thread_t *thread, sigset_t *sigset) {
+	memcpy(&thread->signals.returnmask, sigset, sizeof(sigset_t));
+	thread->signals.hasreturnmask = true;
+}
+
 void signal_suspend(sigset_t *sigset) {
 	thread_t *thread = _cpu()->thread;
 	THREAD_ENTER(thread);
 
-	memcpy(&thread->signals.oldmask, &thread->signals.mask, sizeof(sigset_t));
 	memcpy(&thread->signals.mask, sigset, sizeof(sigset_t));
-	thread->signals.suspending = true;
+	signal_returnmask(thread, sigset);
 
 	THREAD_LEAVE(thread);
 
@@ -548,11 +552,11 @@ bool signal_check(struct thread_t *thread, context_t *context, bool syscall, uin
 			memset(&sigframe.oldstack, 0, sizeof(stack_t));
 		}
 
-		if (thread->signals.suspending) {
+		if (thread->signals.hasreturnmask) {
 			// if we were waiting in signal_suspend, push the old mask into the return frame
 			// of the first signal and set it to not act this way the next check
-			memcpy(&sigframe.oldmask, &thread->signals.oldmask, sizeof(sigset_t));
-			thread->signals.suspending = false;
+			memcpy(&sigframe.oldmask, &thread->signals.returnmask, sizeof(sigset_t));
+			thread->signals.hasreturnmask = false;
 		} else {
 			// else, just push the current mask
 			memcpy(&sigframe.oldmask, &thread->signals.mask, sizeof(sigset_t));

@@ -529,7 +529,7 @@ static void yield(context_t *context, void *) {
 
 	thread_t *next = runqueuenext(sleeping ? 0x0fffffff : thread->priority);
 	bool gotsignal = false;
-	for (int i = 0; i < NSIG && thread->proc; ++i) {
+	for (int i = 1; i < NSIG && thread->proc; ++i) {
 		void *action = thread->proc->signals.actions[i].address;
 		if (SIGNAL_GET(&thread->signals.urgent, i)) {
 			gotsignal = true;

@@ -286,7 +286,7 @@ static syscallret_t execve(context_t *context, char *upath, char *uargv[], char 
 	memset(&_cpu()->thread->signals.stack, 0, sizeof(stack_t));
 
 	// execve keeps information about ignored signals
-	for (int i = 0; i < NSIG; ++i) {
+	for (int i = 1; i < NSIG; ++i) {
 		bool ign = proc->signals.actions[i].address == SIG_IGN;
 		memset(&proc->signals.actions[i], 0, sizeof(sigaction_t));
 		if (ign)

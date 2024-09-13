@@ -61,8 +61,8 @@ typedef struct thread_t {
 		sigset_t pending;
 		sigset_t urgent; // always handled before returning to userspace
 		sigset_t waiting; // for signal_wait
-		sigset_t oldmask; // for signal_suspend
-		bool suspending;
+		sigset_t returnmask; // for signal_returnmask
+		bool hasreturnmask;
 		bool stopped;
 	} signals;
 } thread_t;
