@@ -215,6 +215,7 @@ static int tmpfs_root(vfs_t *vfs, vnode_t **vnode) {
 	vfs->root = *vnode;
 
 	node->vnode.flags |= V_FLAGS_ROOT;
+	node->attr.mode = 0755;
 
 	return 0;
 }
