@@ -72,6 +72,12 @@ int devfs_close(vnode_t *node, int flags, cred_t *cred) {
 }
 
 int devfs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int flags, size_t *readc, cred_t *cred) {
+	if (node->type == V_TYPE_DIR)
+		return EISDIR;
+
+	if (node->type != V_TYPE_BLKDEV && node->type != V_TYPE_CHDEV)
+		return ENODEV;
+
 	devnode_t *devnode = (devnode_t *)node;
 	if (devnode->master)
 		devnode = devnode->master;
@@ -83,6 +89,12 @@ int devfs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int f
 }
 
 int devfs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int flags, size_t *writec, cred_t *cred) {
+	if (node->type == V_TYPE_DIR)
+		return EISDIR;
+
+	if (node->type != V_TYPE_BLKDEV && node->type != V_TYPE_CHDEV)
+		return ENODEV;
+
 	devnode_t *devnode = (devnode_t *)node;
 	if (devnode->master)
 		devnode = devnode->master;
@@ -158,17 +170,23 @@ int devfs_setattr(vnode_t *node, vattr_t *attr, int which, cred_t *cred) {
 }
 
 int devfs_poll(vnode_t *node, polldata_t *data, int events) {
+	if (node->type != V_TYPE_BLKDEV && node->type != V_TYPE_CHDEV)
+		return events;
+
 	devnode_t *devnode = (devnode_t *)node;
 	if (devnode->master)
 		devnode = devnode->master;
 
 	if (devnode->devops->poll == NULL)
-		return ENODEV;
+		return events;
 
 	return devnode->devops->poll(devnode->attr.rdevminor, data, events);
 }
 
 int devfs_mmap(vnode_t *node, void *addr, uintmax_t offset, int flags, cred_t *cred) {
+	if (node->type != V_TYPE_BLKDEV && node->type != V_TYPE_CHDEV)
+		return ENODEV;
+
 	devnode_t *devnode = (devnode_t *)node;
 	if (devnode->master)
 		devnode = devnode->master;
@@ -185,6 +203,9 @@ int devfs_mmap(vnode_t *node, void *addr, uintmax_t offset, int flags, cred_t *c
 }
 
 int devfs_munmap(vnode_t *node, void *addr, uintmax_t offset, int flags, cred_t *cred) {
+	if (node->type != V_TYPE_BLKDEV && node->type != V_TYPE_CHDEV)
+		return ENODEV;
+
 	devnode_t *devnode = (devnode_t *)node;
 	if (devnode->master)
 		devnode = devnode->master;
@@ -200,6 +221,9 @@ int devfs_access(vnode_t *vnode, mode_t mode, cred_t *cred) {
 }
 
 int devfs_isatty(vnode_t *node) {
+	if (node->type != V_TYPE_CHDEV)
+		return ENOTTY;
+
 	devnode_t *devnode = (devnode_t *)node;
 	if (devnode->master)
 		devnode = devnode->master;
@@ -208,6 +232,9 @@ int devfs_isatty(vnode_t *node) {
 }
 
 int devfs_ioctl(vnode_t *node, unsigned long request, void *arg, int *ret, cred_t *cred) {
+	if (node->type != V_TYPE_BLKDEV && node->type != V_TYPE_CHDEV)
+		return ENODEV;
+
 	devnode_t *devnode = (devnode_t *)node;
 	if (devnode->master)
 		devnode = devnode->master;
@@ -216,6 +243,9 @@ int devfs_ioctl(vnode_t *node, unsigned long request, void *arg, int *ret, cred_
 }
 
 int devfs_maxseek(vnode_t *node, size_t *max) {
+	if (node->type != V_TYPE_BLKDEV && node->type != V_TYPE_CHDEV)
+		return ENOTTY;
+
 	devnode_t *devnode = (devnode_t *)node;
 	if (devnode->master)
 		devnode = devnode->master;
@@ -241,6 +271,9 @@ int devfs_inactive(vnode_t *node) {
 }
 
 int devfs_create(vnode_t *parent, char *name, vattr_t *attr, int type, vnode_t **result, cred_t *cred) {
+	if (parent->type != V_TYPE_DIR)
+		return ENOTDIR;
+
 	if (type != V_TYPE_CHDEV && type != V_TYPE_BLKDEV && type != V_TYPE_DIR)
 		return EINVAL;
 
