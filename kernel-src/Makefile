@@ -13,8 +13,9 @@ FLANTERMINCDIR=$(shell pwd)/flanterm
 UACPIINCDIR=$(shell pwd)/io/acpi/uacpi/include
 UACPIOPTS=-DUACPI_OVERRIDE_LIBC -DUACPI_KERNEL_INITIALIZATION
 KERNELCONFIG=#-DX86_64_ENABLE_E9 -DSYSCALL_LOGGING
-CFLAGS=-g -ffreestanding -mcmodel=kernel -O2 -mno-red-zone -mgeneral-regs-only -mno-mmx -mno-sse -mno-sse2 -nostdlib -Wall -I "${INCDIR}" -I "$(ARCHINCDIR)" -I "$(FLANTERMINCDIR)" -I "$(UACPIINCDIR)" $(UACPIOPTS) $(PRINTFOPTS) $(KERNELCONFIG)
+CFLAGS=-g -ffreestanding -mcmodel=kernel -O2 -mno-red-zone -mgeneral-regs-only -mno-mmx -mno-sse -mno-sse2 -nostdlib -Wall -MMD -I "${INCDIR}" -I "$(ARCHINCDIR)" -I "$(FLANTERMINCDIR)" -I "$(UACPIINCDIR)" $(UACPIOPTS) $(PRINTFOPTS) $(KERNELCONFIG)
 ASFLAGS=-felf64
+DEPS=$(CSOURCES:.c=.d)
 
 .PHONY: all
 all:
@@ -37,3 +38,5 @@ astral:	$(OBJS)
 %.asmo: %.asm
 	@echo [AS] $@
 	@nasm $(ASFLAGS) -o $@ $<
+
+-include $(DEPS)
