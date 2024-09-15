@@ -42,11 +42,9 @@ static void runisr(isr_t *isr, context_t *ctx) {
 }
 
 static void dopending(context_t *ctx, void *) {
+	arch_interrupt_disable();
 	bool entrystatus = _cpu()->intstatus;
-	if (entrystatus) {
-		arch_interrupt_disable();
-		_cpu()->intstatus = false;
-	}
+	_cpu()->intstatus = false;
 
 	isr_t *list = NULL;
 	isr_t *iterator = _cpu()->isrqueue;
@@ -135,15 +133,20 @@ void interrupt_raise(isr_t *isr) {
 }
 
 void interrupt_register(int vector, void (*func)(isr_t *self, context_t *ctx), void (*eoi)(isr_t *self), long priority) {
+	bool intstatus = interrupt_set(false);
+
 	isr_t *isr = &_cpu()->isr[vector];
 	isr->func = func;
 	isr->eoi = eoi;
-	isr->id = (uint64_t)_cpu()->id << 32 | vector;
+	isr->id = (uint64_t)current_cpu_id() | vector;
 	isr->priority = priority;
 	isr->pending = false;
+
+	interrupt_set(intstatus);
 }
 
 isr_t *interrupt_allocate(void (*func)(isr_t *self, context_t *ctx), void (*eoi)(isr_t *self), long priority) {
+	bool intstatus = interrupt_set(false);
 	isr_t *isr = NULL;
 
 	for (int i = 0; i < MAX_ISR_COUNT; ++i) {
@@ -154,6 +157,7 @@ isr_t *interrupt_allocate(void (*func)(isr_t *self, context_t *ctx), void (*eoi)
 		}
 	}
 
+	interrupt_set(intstatus);
 	return isr;
 }
 
@@ -183,16 +187,14 @@ long interrupt_raiseipl(long ipl) {
 }
 
 bool interrupt_set(bool status) {
+	arch_interrupt_disable();
 	bool old = _cpu()->intstatus;
 	_cpu()->intstatus = status;
 
-	if (status)
+	if (status) {
 		arch_interrupt_enable();
-	else
-		arch_interrupt_disable();
-
-	if (status)
 		DOPENDING_SAVE();
+	}
 
 	return old;
 }

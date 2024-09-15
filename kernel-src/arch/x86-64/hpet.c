@@ -116,7 +116,7 @@ time_t arch_hpet_init() {
 		if (capabilities & HPET_CAP_LEGACYCAPABLE) {
 			type = TYPE_LEGACY;
 
-			arch_ioapic_setirq(0, isr->id & 0xff, _cpu()->id, false);
+			arch_ioapic_setirq(0, isr->id & 0xff, current_cpu_id(), false);
 
 			selectedtimer = 0;
 			timerconfig = read64(HPET_TIMER_CONFIG(selectedtimer));

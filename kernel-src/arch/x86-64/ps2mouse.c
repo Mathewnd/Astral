@@ -111,7 +111,7 @@ void ps2mouse_init() {
 
 	isr_t *isr = interrupt_allocate(mouseisr, arch_apic_eoi, IPL_MOUSE);
 	__assert(isr);
-	arch_ioapic_setirq(PS2_MOUSEIRQ, isr->id & 0xff, _cpu()->id, false);
+	arch_ioapic_setirq(PS2_MOUSEIRQ, isr->id & 0xff, current_cpu_id(), false);
 	mouse = mouse_new();
 	__assert(mouse);
 	printf("ps2mouse: irq enabled with vector %u\n", isr->id & 0xff);

@@ -574,10 +574,10 @@ static void yield(context_t *context, void *) {
 }
 
 int sched_yield() {
-	__assert(_cpu()->ipl == IPL_NORMAL);
 	bool sleeping = current_thread()->flags & SCHED_THREAD_FLAGS_SLEEP;
 	bool old = sleeping ? current_thread()->sleepintstatus : interrupt_set(false);
 	arch_context_saveandcall(yield, _cpu()->schedulerstack, NULL);
+	__assert(_cpu()->ipl == IPL_NORMAL);
 	interrupt_set(old);
 	return sleeping ? current_thread()->wakeupreason : 0;
 }

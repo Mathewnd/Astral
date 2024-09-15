@@ -294,7 +294,7 @@ uacpi_status uacpi_kernel_install_interrupt_handler(uacpi_u32 irq, uacpi_interru
 	actx->ctx = ctx;
 	isr->priv = actx;
 
-	arch_ioapic_setirq(irq, isr->id & 0xff, _cpu()->id, false);
+	arch_ioapic_setirq(irq, isr->id & 0xff, current_cpu_id(), false);
 
 	*outhandle = isr;
 	return UACPI_STATUS_OK;

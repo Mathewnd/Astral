@@ -154,7 +154,7 @@ static void kbdisr(isr_t *isr, context_t *ctx) {
 void ps2kbd_init() {
 	isr_t *isr = interrupt_allocate(kbdisr, arch_apic_eoi, IPL_KEYBOARD);
 	__assert(isr);
-	arch_ioapic_setirq(KEYBOARDIRQ, isr->id & 0xff, _cpu()->id, false);
+	arch_ioapic_setirq(KEYBOARDIRQ, isr->id & 0xff, current_cpu_id(), false);
 	kb = keyboard_new();
 	__assert(kb);
 	printf("ps2kbd: irq enabled with vector %u\n", isr->id & 0xff);

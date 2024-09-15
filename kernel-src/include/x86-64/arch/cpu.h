@@ -19,9 +19,9 @@ typedef struct cpu_t {
 	thread_t *thread;
 	struct cpu_t *self;
 	vmmcontext_t *vmmctx;
+	long id;
 	uint64_t gdt[7];
 	ist_t ist;
-	long id;
 	isr_t isr[MAX_ISR_COUNT];
 	int acpiid;
 	timer_t *timer;
@@ -76,6 +76,12 @@ static inline vmmcontext_t *current_vmm_context(void) {
 
 static inline void set_current_vmm_context(vmmcontext_t *context) {
 	asm volatile ("mov %%rax, %%gs:16" : : "a"(context) : "memory");
+}
+
+static inline long current_cpu_id(void) {
+	long id;
+	asm volatile ("mov %%gs:24, %%rax" : "=a"(id) : : "memory");
+	return id;
 }
 
 static inline void cpu_set(cpu_t *ptr) {

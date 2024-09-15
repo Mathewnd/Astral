@@ -4,7 +4,7 @@
 #include <kernel/interrupt.h>
 
 __attribute__((noreturn)) void _panic(char *msg, context_t *ctx) {
-	printf("cpu%lu: Oops.\n", _cpu()->id);
+	printf("cpu%lu: Oops.\n", current_cpu_id());
 
 	if (msg)
 		printf("%s\n", msg);
