@@ -400,7 +400,6 @@ void pipefs_init() {
 }
 
 int pipefs_newpipe(vnode_t **nodep) {
-	__assert(_cpu()->intstatus);
 	vnode_t *vnode = slab_allocate(nodecache);
 	pipenode_t *node = (pipenode_t *)vnode;
 	if (node == NULL)

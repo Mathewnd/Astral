@@ -56,7 +56,7 @@ static syscallret_t execve(context_t *context, char *upath, char *uargv[], char 
 	char **argv = NULL;
 	char **envp = NULL;
 	vmmcontext_t *vmmctx = NULL;
-	vmmcontext_t *oldctx = _cpu()->vmmctx;
+	vmmcontext_t *oldctx = current_vmm_context();
 	vnode_t *node = NULL;
 	vnode_t *refnode = NULL;
 	char *interp = NULL;

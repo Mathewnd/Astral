@@ -18,11 +18,11 @@
 typedef struct cpu_t {
 	thread_t *thread;
 	struct cpu_t *self;
+	vmmcontext_t *vmmctx;
 	uint64_t gdt[7];
 	ist_t ist;
 	long id;
 	isr_t isr[MAX_ISR_COUNT];
-	vmmcontext_t *vmmctx;
 	int acpiid;
 	timer_t *timer;
 	bool intstatus;
@@ -56,16 +56,26 @@ static inline uint16_t be_to_cpu_w(uint16_t w) {
 
 cpu_t *_bsp(void);
 
+static inline thread_t *current_thread(void) {
+	thread_t *thread;
+	asm volatile ("mov %%gs:0, %%rax" : "=a"(thread) : : "memory");
+	return thread;
+}
+
 static inline cpu_t *_cpu(void) {
 	cpu_t *cpu;
 	asm volatile ("mov %%gs:8, %%rax" : "=a"(cpu) : : "memory");
 	return cpu;
 }
 
-static inline thread_t *current_thread(void) {
-	thread_t *thread;
-	asm volatile ("mov %%gs:0, %%rax" : "=a"(thread) : : "memory");
-	return thread;
+static inline vmmcontext_t *current_vmm_context(void) {
+	vmmcontext_t *context;
+	asm volatile ("mov %%gs:16, %%rax" : "=a"(context) : : "memory");
+	return context;
+}
+
+static inline void set_current_vmm_context(vmmcontext_t *context) {
+	asm volatile ("mov %%rax, %%gs:16" : : "a"(context) : "memory");
 }
 
 static inline void cpu_set(cpu_t *ptr) {

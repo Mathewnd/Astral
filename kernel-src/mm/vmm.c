@@ -87,7 +87,7 @@ static vmmspace_t kernelspace = {
 // returns a pointer to the space of vaddr
 static vmmspace_t *getspace(void *vaddr) {
 	if (USERSPACE_START <= vaddr && vaddr < USERSPACE_END)
-		return &_cpu()->vmmctx->space;
+		return &current_vmm_context()->space;
 	else if (KERNELSPACE_START <= vaddr && vaddr < KERNELSPACE_END)
 		return &kernelspace;
 	else
@@ -219,7 +219,7 @@ static void destroyrange(vmmrange_t *range, uintmax_t _offset, size_t size, int 
 
 	for (uintmax_t offset = _offset; offset < top; offset += PAGE_SIZE) {
 		void *vaddr = (void *)((uintptr_t)range->start + offset);
-		void *physical = arch_mmu_getphysical(_cpu()->vmmctx->pagetable, vaddr);
+		void *physical = arch_mmu_getphysical(current_vmm_context()->pagetable, vaddr);
 		if (physical == NULL)
 			continue;
 
@@ -234,21 +234,21 @@ static void destroyrange(vmmrange_t *range, uintmax_t _offset, size_t size, int 
 				VOP_LOCK(range->vnode);
 				__assert(VOP_MUNMAP(range->vnode, vaddr, range->offset + offset, mmuflagstovnodeflags(range->mmuflags) | (range->flags & VMM_FLAGS_SHARED ? V_FFLAGS_SHARED : 0), cred) == 0);
 				VOP_UNLOCK(range->vnode);
-			} else if (arch_mmu_iswritable(_cpu()->vmmctx->pagetable, vaddr)) {
+			} else if (arch_mmu_iswritable(current_vmm_context()->pagetable, vaddr)) {
 				// dirty page cache mapping
-				arch_mmu_unmap(_cpu()->vmmctx->pagetable, vaddr);
+				arch_mmu_unmap(current_vmm_context()->pagetable, vaddr);
 				VOP_LOCK(range->vnode);
 				vmmcache_makedirty(pmm_getpage(physical));
 				VOP_UNLOCK(range->vnode);
 				pmm_release(physical);
 			} else {
 				// non dirty page mapping
-				arch_mmu_unmap(_cpu()->vmmctx->pagetable, vaddr);
+				arch_mmu_unmap(current_vmm_context()->pagetable, vaddr);
 				pmm_release(physical);
 			}
 		} else {
 			// anonymous, physical or private non character device mapping
-			arch_mmu_unmap(_cpu()->vmmctx->pagetable, vaddr);
+			arch_mmu_unmap(current_vmm_context()->pagetable, vaddr);
 			if ((range->flags & VMM_FLAGS_PHYSICAL) == 0)
 				pmm_release(physical);
 		}
@@ -268,10 +268,10 @@ static void changemmurange(vmmrange_t *range, void *base, size_t size, mmuflags_
 
 		mmuflags_t currentflags;
 		// if page is not mapped, do nothing
-		if (arch_mmu_getflags(_cpu()->vmmctx->pagetable, address, &currentflags) == false)
+		if (arch_mmu_getflags(current_vmm_context()->pagetable, address, &currentflags) == false)
 			continue;
 
-		void *physical = arch_mmu_getphysical(_cpu()->vmmctx->pagetable, address);
+		void *physical = arch_mmu_getphysical(current_vmm_context()->pagetable, address);
 
 		uintmax_t mask = 0;
 		// check which flags are currently set and will be unset
@@ -291,7 +291,7 @@ static void changemmurange(vmmrange_t *range, void *base, size_t size, mmuflags_
 
 		// we will only change the mapping if the permissions decreased
 		if (mask) {
-			arch_mmu_remap(_cpu()->vmmctx->pagetable, physical, address, currentflags & ~mask);
+			arch_mmu_remap(current_vmm_context()->pagetable, physical, address, currentflags & ~mask);
 			arch_mmu_invalidate(address);
 		}
 	}
@@ -564,7 +564,7 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 	proc_t *proc = thread ? thread->proc : NULL;
 	cred_t *cred = proc ? &proc->cred : NULL;
 
-	if (arch_mmu_ispresent(_cpu()->vmmctx->pagetable, addr) == false) {
+	if (arch_mmu_ispresent(current_vmm_context()->pagetable, addr) == false) {
 		// page not present in the page tables
 		if (range->flags & VMM_FLAGS_FILE) {
 			uintmax_t mapoffset = (uintptr_t)addr - (uintptr_t)range->start;
@@ -590,7 +590,7 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 					printf("vmm: error on vmmcache_getpage(): %d\n", error);
 					status = false;
 				} else {
-					status = arch_mmu_map(_cpu()->vmmctx->pagetable, pmm_getpageaddress(res), addr, range->mmuflags & ~ARCH_MMU_FLAGS_WRITE);
+					status = arch_mmu_map(current_vmm_context()->pagetable, pmm_getpageaddress(res), addr, range->mmuflags & ~ARCH_MMU_FLAGS_WRITE);
 					if (!status) {
 						printf("vmm: out of memory to map file into address space (sending SIGBUS)\n");
 						pmm_release(pmm_getpageaddress(res));
@@ -601,7 +601,7 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 			}
 		} else {
 			// anonymous memory. map the zero'd page
-			status = arch_mmu_map(_cpu()->vmmctx->pagetable, zeropage, addr, range->mmuflags & ~ARCH_MMU_FLAGS_WRITE);
+			status = arch_mmu_map(current_vmm_context()->pagetable, zeropage, addr, range->mmuflags & ~ARCH_MMU_FLAGS_WRITE);
 			if (!status) {
 				printf("vmm: out of memory to map zero page into address space (sending SIGBUS)\n");
 				signal_signalthread(current_thread(), SIGBUS, true);
@@ -610,13 +610,13 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 				pmm_hold(zeropage);
 			}
 		}
-	} else if (arch_mmu_iswritable(_cpu()->vmmctx->pagetable, addr) == false) {
+	} else if (arch_mmu_iswritable(current_vmm_context()->pagetable, addr) == false) {
 		// page present but not writeable in the page tables
 
-		void *oldphys = arch_mmu_getphysical(_cpu()->vmmctx->pagetable, addr);
+		void *oldphys = arch_mmu_getphysical(current_vmm_context()->pagetable, addr);
 		if ((range->flags & VMM_FLAGS_FILE) && (range->flags & VMM_FLAGS_SHARED)) {
 			// shared file, remap it as writable
-			arch_mmu_remap(_cpu()->vmmctx->pagetable, oldphys, addr, range->mmuflags);
+			arch_mmu_remap(current_vmm_context()->pagetable, oldphys, addr, range->mmuflags);
 			if (vfs_iscacheable(range->vnode)) {
 				// and if its a cache page, mark it as dirty
 				VOP_LOCK(range->vnode);
@@ -634,7 +634,7 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 				status = true;
 			} else {
 				memcpy(MAKE_HHDM(newphys), MAKE_HHDM(oldphys), PAGE_SIZE);
-				arch_mmu_remap(_cpu()->vmmctx->pagetable, newphys, addr, range->mmuflags);
+				arch_mmu_remap(current_vmm_context()->pagetable, newphys, addr, range->mmuflags);
 				if ((range->flags & VMM_FLAGS_FILE) == 0 || vfs_iscacheable(range->vnode))
 					pmm_release(oldphys);
 
@@ -660,7 +660,7 @@ void *vmm_getphysical(void *addr) {
 
 	MUTEX_ACQUIRE(&space->lock, false);
 
-	void *physical = arch_mmu_getphysical(_cpu()->vmmctx->pagetable, addr);
+	void *physical = arch_mmu_getphysical(current_vmm_context()->pagetable, addr);
 
 	MUTEX_RELEASE(&space->lock);
 	return physical + ((uintptr_t)addr - ROUND_DOWN((uintptr_t)addr, PAGE_SIZE));
@@ -726,9 +726,9 @@ void *vmm_map(void *addr, volatile size_t size, int flags, mmuflags_t mmuflags, 
 	if (flags & VMM_FLAGS_PHYSICAL) {
 		// map to allocated virtual memory
 		for (uintmax_t i = 0; i < size; i += PAGE_SIZE) {
-			if (arch_mmu_map(_cpu()->vmmctx->pagetable, (void *)((uintptr_t)private + i), (void *)((uintptr_t)start + i), mmuflags) == false) {
+			if (arch_mmu_map(current_vmm_context()->pagetable, (void *)((uintptr_t)private + i), (void *)((uintptr_t)start + i), mmuflags) == false) {
 				for (uintmax_t j = 0; j < size; j += PAGE_SIZE)
-					arch_mmu_unmap(_cpu()->vmmctx->pagetable, (void *)((uintptr_t)start + j));
+					arch_mmu_unmap(current_vmm_context()->pagetable, (void *)((uintptr_t)start + j));
 
 				retaddr = NULL;
 				goto cleanup;
@@ -743,14 +743,14 @@ void *vmm_map(void *addr, volatile size_t size, int flags, mmuflags_t mmuflags, 
 				goto cleanup;
 			}
 
-			if (arch_mmu_map(_cpu()->vmmctx->pagetable, allocated, (void *)((uintptr_t)start + i), mmuflags) == false) {
+			if (arch_mmu_map(current_vmm_context()->pagetable, allocated, (void *)((uintptr_t)start + i), mmuflags) == false) {
 				for (uintmax_t j = 0; j < size; j += PAGE_SIZE) {
 						void *virt = (void *)((uintptr_t)start + i);
-						void *physical = arch_mmu_getphysical(_cpu()->vmmctx->pagetable, virt);
+						void *physical = arch_mmu_getphysical(current_vmm_context()->pagetable, virt);
 
 						if (physical) {
 							pmm_release(physical);
-							arch_mmu_unmap(_cpu()->vmmctx->pagetable, virt);
+							arch_mmu_unmap(current_vmm_context()->pagetable, virt);
 						}
 				}
 
@@ -877,7 +877,7 @@ vmmcontext_t *vmm_fork(vmmcontext_t *oldcontext) {
 void vmm_switchcontext(vmmcontext_t *ctx) {
 	if (current_thread())
 		current_thread()->vmmctx = ctx;
-	_cpu()->vmmctx = ctx;
+	set_current_vmm_context(ctx);
 	arch_mmu_switch(ctx->pagetable);
 }
 

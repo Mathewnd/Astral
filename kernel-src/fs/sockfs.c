@@ -266,7 +266,6 @@ void sockfs_init() {
 }
 
 int sockfs_newsocket(vnode_t **nodep, socket_t *socket) {
-	__assert(_cpu()->intstatus);
 	vnode_t *vnode = slab_allocate(nodecache);
 	socketnode_t *node = (socketnode_t *)vnode;
 	if (node == NULL)
