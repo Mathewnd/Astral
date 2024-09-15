@@ -17,6 +17,7 @@
 
 typedef struct cpu_t {
 	thread_t *thread;
+	struct cpu_t *self;
 	uint64_t gdt[7];
 	ist_t ist;
 	long id;
@@ -31,7 +32,6 @@ typedef struct cpu_t {
 	void *schedulerstack;
 	isr_t *isrqueue;
 	dpc_t *dpcqueue;
-	struct cpu_t *self;
 	isr_t *dpcisr;
 } cpu_t;
 
@@ -58,13 +58,13 @@ cpu_t *_bsp(void);
 
 static inline cpu_t *_cpu() {
 	cpu_t *cpu;
-	asm volatile ("mov %%gs:0, %%rax" : "=a"(cpu) : : "memory");
+	asm volatile ("mov %%gs:8, %%rax" : "=a"(cpu) : : "memory");
 	return cpu;
 }
 
 static inline void cpu_set(cpu_t *ptr) {
 	ptr->self = ptr;
-	wrmsr(MSR_GSBASE, (uint64_t)&ptr->self);
+	wrmsr(MSR_GSBASE, (uint64_t)ptr);
 }
 
 void cpu_initstate();
