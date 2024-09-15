@@ -62,7 +62,7 @@ static inline thread_t *current_thread(void) {
 	return thread;
 }
 
-static inline cpu_t *_cpu(void) {
+static inline cpu_t *current_cpu(void) {
 	cpu_t *cpu;
 	asm volatile ("mov %%gs:8, %%rax" : "=a"(cpu) : : "memory");
 	return cpu;

@@ -27,13 +27,13 @@ syscallret_t syscall_nanosleep(context_t *, timespec_t *utime, timespec_t *remai
 	timerentry_t sleepentry;
 	sched_preparesleep(true);
 
-	sched_targetcpu(_cpu());
-	timer_insert(_cpu()->timer, &sleepentry, timeout, current_thread(), time.s * 1000000 + time.ns / 1000, false);
+	sched_targetcpu(current_cpu());
+	timer_insert(current_cpu()->timer, &sleepentry, timeout, current_thread(), time.s * 1000000 + time.ns / 1000, false);
 
 	ret.errno = sched_yield() == SCHED_WAKEUP_REASON_INTERRUPTED ? EINTR : 0;
 
 	if (ret.errno && remaining) {
-		uintmax_t remainingus = timer_remove(_cpu()->timer, &sleepentry);
+		uintmax_t remainingus = timer_remove(current_cpu()->timer, &sleepentry);
 		time.ns = (remainingus % 1000000) * 1000;
 		time.s  = (remainingus / 1000000);
 		ret.errno = usercopy_touser(remaining, &time, sizeof(timespec_t)) ? EFAULT : EINTR;

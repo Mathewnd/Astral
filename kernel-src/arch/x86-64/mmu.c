@@ -232,7 +232,7 @@ void arch_mmu_tlbshootdown(void *page) {
 		mmupage = page;
 		remaining = arch_smp_cpusawake - 1;
 
-		arch_smp_sendipi(NULL, &_cpu()->isr[0xfe], ARCH_SMP_IPI_OTHERCPUS, false);
+		arch_smp_sendipi(NULL, &current_cpu()->isr[0xfe], ARCH_SMP_IPI_OTHERCPUS, false);
 
 		while (__atomic_load_n(&remaining, __ATOMIC_SEQ_CST)) CPU_PAUSE();
 

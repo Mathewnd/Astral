@@ -83,7 +83,7 @@ int arch_context_saveandcall(void (*fn)(context_t *context, void *argument), voi
 
 // kernelgsbase is set as user because they'll be swapped in the context switch
 #define ARCH_CONTEXT_SWITCHTHREAD(x) \
-	_cpu()->ist.rsp0 = (uint64_t)(x)->kernelstacktop; \
+	current_cpu()->ist.rsp0 = (uint64_t)(x)->kernelstacktop; \
 	wrmsr(MSR_KERNELGSBASE, (x)->extracontext.gsbase); \
 	wrmsr(MSR_FSBASE, (x)->extracontext.fsbase); \
 	asm("fxrstor (%%rax)" : : "a"(&(x)->extracontext.fx[0])); \
@@ -99,7 +99,7 @@ int arch_context_saveandcall(void (*fn)(context_t *context, void *argument), voi
 
 #define ARCH_CONTEXT_THREADLOAD(t, c) \
 	memcpy(c, &(t)->context, sizeof(context_t)); \
-	_cpu()->ist.rsp0 = (uint64_t)(t)->kernelstacktop; \
+	current_cpu()->ist.rsp0 = (uint64_t)(t)->kernelstacktop; \
 	wrmsr(MSR_KERNELGSBASE, (t)->extracontext.gsbase); \
 	wrmsr(MSR_FSBASE, (t)->extracontext.fsbase); \
 	asm("fxrstor (%%rax)" : : "a"(&(t)->extracontext.fx[0])); \

@@ -185,7 +185,7 @@ static thread_t *getinrunqueue(rqueue_t *rq) {
 	thread_t *thread = rq->list;
 
 	while (thread) {
-		if (thread->cputarget == NULL || thread->cputarget == _cpu())
+		if (thread->cputarget == NULL || thread->cputarget == current_cpu())
 			break;
 
 		thread = thread->next;
@@ -233,13 +233,13 @@ static __attribute__((noreturn)) void switchthread(thread_t *thread) {
 	interrupt_set(false);
 	thread_t* current = current_thread();
 	
-	_cpu()->thread = thread;
+	current_cpu()->thread = thread;
 
 	if(current == NULL || thread->vmmctx != current->vmmctx)
 		vmm_switchcontext(thread->vmmctx);
 
-	_cpu()->intstatus = ARCH_CONTEXT_INTSTATUS(&thread->context);
-	thread->cpu = _cpu();
+	current_cpu()->intstatus = ARCH_CONTEXT_INTSTATUS(&thread->context);
+	thread->cpu = current_cpu();
 	// XXX make the locking of the flags field better, candidate for a r/w lock
 	spinlock_acquire(&runqueuelock);
 	if (current)
@@ -254,7 +254,7 @@ static __attribute__((noreturn)) void switchthread(thread_t *thread) {
 	__assert((thread->flags & SCHED_THREAD_FLAGS_QUEUED) == 0);
 	spinlock_release(&runqueuelock);
 
-	void *schedulerstack = _cpu()->schedulerstack;
+	void *schedulerstack = current_cpu()->schedulerstack;
 	__assert(!((void *)thread->context.rsp < schedulerstack && (void *)thread->context.rsp >= (schedulerstack - SCHEDULER_STACK_SIZE)));
 
 	ARCH_CONTEXT_SWITCHTHREAD(thread);
@@ -300,7 +300,7 @@ __attribute__((noreturn)) void sched_stopcurrentthread() {
 
 	thread_t *next = runqueuenext(0x0fffffff);
 	if (next == NULL)
-		next = _cpu()->idlethread;
+		next = current_cpu()->idlethread;
 
 	spinlock_release(&runqueuelock);
 
@@ -382,7 +382,7 @@ static void threadexit_internal(context_t *, void *) {
 	// we don't need to access the current thread anymore, as any state will be ignored and we are running on the scheduler stack
 	// as well as not being preempted at all
 	interrupt_set(false);
-	_cpu()->thread = NULL;
+	current_cpu()->thread = NULL;
 
 	spinlock_acquire(&runqueuelock);
 	thread->flags |= SCHED_THREAD_FLAGS_DEAD;
@@ -416,7 +416,7 @@ __attribute__((noreturn)) void sched_threadexit() {
 	}
 
 	interrupt_set(false);
-	arch_context_saveandcall(threadexit_internal, _cpu()->schedulerstack, NULL);
+	arch_context_saveandcall(threadexit_internal, current_cpu()->schedulerstack, NULL);
 	__builtin_unreachable();
 }
 
@@ -444,13 +444,13 @@ static void checktrampoline(context_t *context, void *_args) {
 	__assert(ARCH_CONTEXT_INTSTATUS(context) == false);
 	checkargs_t *args = _args;
 	userspacecheck(args);
-	_cpu()->intstatus = ARCH_CONTEXT_INTSTATUS(args->context);
+	current_cpu()->intstatus = ARCH_CONTEXT_INTSTATUS(args->context);
 	arch_context_switch(args->context);
 }
 
 // called right before going back to userspace in the syscall handler, interrupt handler and arch_context_switch
 __attribute__((no_caller_saved_registers)) void sched_userspacecheck(context_t *context, bool syscall, uint64_t syscallerrno, uint64_t syscallret) {
-	__assert(_cpu());
+	__assert(current_cpu());
 	if (current_thread() == NULL || ARCH_CONTEXT_ISUSER(context) == false)
 		return;
 
@@ -466,13 +466,13 @@ __attribute__((no_caller_saved_registers)) void sched_userspacecheck(context_t *
 	// return context is user mode, so its kernel stack is free
 	// if we are running on the scheduler stack, run on the kernel stack
 	// so we don't risk stack corruption (as we have to turn on interrupts should the thread need to exit)
-	if (&args < (checkargs_t *)_cpu()->schedulerstack && &args >= (checkargs_t *)((uintptr_t)_cpu()->schedulerstack - SCHEDULER_STACK_SIZE)) {
+	if (&args < (checkargs_t *)current_cpu()->schedulerstack && &args >= (checkargs_t *)((uintptr_t)current_cpu()->schedulerstack - SCHEDULER_STACK_SIZE)) {
 		arch_context_saveandcall(checktrampoline, current_thread()->kernelstacktop, &args);
 	} else {
 		userspacecheck(&args);
 	}
 
-	_cpu()->intstatus = intstatus;
+	current_cpu()->intstatus = intstatus;
 }
 
 void sched_stopotherthreads() {
@@ -564,7 +564,7 @@ static void yield(context_t *context, void *) {
 			runqueueinsert(thread);
 
 		if (next == NULL)
-			next = _cpu()->idlethread;
+			next = current_cpu()->idlethread;
 
 		spinlock_release(&runqueuelock);
 		switchthread(next);
@@ -576,8 +576,8 @@ static void yield(context_t *context, void *) {
 int sched_yield() {
 	bool sleeping = current_thread()->flags & SCHED_THREAD_FLAGS_SLEEP;
 	bool old = sleeping ? current_thread()->sleepintstatus : interrupt_set(false);
-	arch_context_saveandcall(yield, _cpu()->schedulerstack, NULL);
-	__assert(_cpu()->ipl == IPL_NORMAL);
+	arch_context_saveandcall(yield, current_cpu()->schedulerstack, NULL);
+	__assert(current_cpu()->ipl == IPL_NORMAL);
 	interrupt_set(old);
 	return sleeping ? current_thread()->wakeupreason : 0;
 }
@@ -684,12 +684,12 @@ static void timerhook(context_t *context, dpcarg_t arg) {
 	ARCH_CONTEXT_THREADSAVE(current, context);
 
 	CTX_INIT(context, false, false);
-	CTX_SP(context) = (uintptr_t)_cpu()->schedulerstack;
+	CTX_SP(context) = (uintptr_t)current_cpu()->schedulerstack;
 	CTX_IP(context) = (uintptr_t)dopreempt;
 }
 
 static void cpuidlethread() {
-	sched_targetcpu(_cpu());
+	sched_targetcpu(current_cpu());
 	interrupt_set(true);
 	while (1) {
 		CPU_HALT();
@@ -712,20 +712,20 @@ void sched_sleepus(size_t us) {
 	timerentry_t sleepentry = {0};
 	sched_preparesleep(false);
 
-	timer_insert(_cpu()->timer, &sleepentry, timeout, current_thread(), us, false);
+	timer_insert(current_cpu()->timer, &sleepentry, timeout, current_thread(), us, false);
 	sched_yield();
 }
 
 void sched_apentry() {
-	_cpu()->schedulerstack = vmm_map(NULL, SCHEDULER_STACK_SIZE, VMM_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, NULL);
-	__assert(_cpu()->schedulerstack);
-	_cpu()->schedulerstack = (void *)((uintptr_t)_cpu()->schedulerstack + SCHEDULER_STACK_SIZE);
+	current_cpu()->schedulerstack = vmm_map(NULL, SCHEDULER_STACK_SIZE, VMM_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, NULL);
+	__assert(current_cpu()->schedulerstack);
+	current_cpu()->schedulerstack = (void *)((uintptr_t)current_cpu()->schedulerstack + SCHEDULER_STACK_SIZE);
 
-	_cpu()->idlethread = sched_newthread(cpuidlethread, PAGE_SIZE * 4, 3, NULL, NULL);
-	__assert(_cpu()->idlethread);
+	current_cpu()->idlethread = sched_newthread(cpuidlethread, PAGE_SIZE * 4, 3, NULL, NULL);
+	__assert(current_cpu()->idlethread);
 
-	timer_insert(_cpu()->timer, &_cpu()->schedtimerentry, timerhook, NULL, QUANTUM_US, true);
-	timer_resume(_cpu()->timer);
+	timer_insert(current_cpu()->timer, &current_cpu()->schedtimerentry, timerhook, NULL, QUANTUM_US, true);
+	timer_resume(current_cpu()->timer);
 	sched_stopcurrentthread();
 }
 
@@ -738,20 +738,20 @@ void sched_init() {
 	__assert(hashtable_init(&pidtable, 100) == 0);
 	MUTEX_INIT(&sched_pidtablemutex);
 
-	_cpu()->schedulerstack = vmm_map(NULL, SCHEDULER_STACK_SIZE, VMM_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, NULL);
-	__assert(_cpu()->schedulerstack);
-	_cpu()->schedulerstack = (void *)((uintptr_t)_cpu()->schedulerstack + SCHEDULER_STACK_SIZE);
+	current_cpu()->schedulerstack = vmm_map(NULL, SCHEDULER_STACK_SIZE, VMM_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, NULL);
+	__assert(current_cpu()->schedulerstack);
+	current_cpu()->schedulerstack = (void *)((uintptr_t)current_cpu()->schedulerstack + SCHEDULER_STACK_SIZE);
 
 	SPINLOCK_INIT(runqueuelock);
 
-	_cpu()->idlethread = sched_newthread(cpuidlethread, PAGE_SIZE * 4, 3, NULL, NULL);
-	__assert(_cpu()->idlethread);
-	_cpu()->thread = sched_newthread(NULL, PAGE_SIZE * 32, 0, NULL, NULL);
+	current_cpu()->idlethread = sched_newthread(cpuidlethread, PAGE_SIZE * 4, 3, NULL, NULL);
+	__assert(current_cpu()->idlethread);
+	current_cpu()->thread = sched_newthread(NULL, PAGE_SIZE * 32, 0, NULL, NULL);
 	__assert(current_thread());
 
-	timer_insert(_cpu()->timer, &_cpu()->schedtimerentry, timerhook, NULL, QUANTUM_US, true);
+	timer_insert(current_cpu()->timer, &current_cpu()->schedtimerentry, timerhook, NULL, QUANTUM_US, true);
 	// XXX move this resume to a more appropriate place
-	timer_resume(_cpu()->timer);
+	timer_resume(current_cpu()->timer);
 }
 
 #define STACK_TOP (void *)0x0000800000000000

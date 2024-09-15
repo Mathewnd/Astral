@@ -13,7 +13,7 @@ static void removefromqueue(isr_t *isr) {
 	if (isr->prev)
 		isr->prev->next = isr->next;
 	else
-		_cpu()->isrqueue = isr->next;
+		current_cpu()->isrqueue = isr->next;
 
 	if (isr->next)
 		isr->next->prev = isr->prev;
@@ -23,10 +23,10 @@ static void insertinqueue(isr_t *isr) {
 	if (isr->pending)
 		return;
 
-	isr->next = _cpu()->isrqueue;
+	isr->next = current_cpu()->isrqueue;
 	if (isr->next)
 		isr->next->prev = isr;
-	_cpu()->isrqueue = isr;
+	current_cpu()->isrqueue = isr;
 }
 
 static void runisr(isr_t *isr, context_t *ctx) {
@@ -43,16 +43,16 @@ static void runisr(isr_t *isr, context_t *ctx) {
 
 static void dopending(context_t *ctx, void *) {
 	arch_interrupt_disable();
-	bool entrystatus = _cpu()->intstatus;
-	_cpu()->intstatus = false;
+	bool entrystatus = current_cpu()->intstatus;
+	current_cpu()->intstatus = false;
 
 	isr_t *list = NULL;
-	isr_t *iterator = _cpu()->isrqueue;
+	isr_t *iterator = current_cpu()->isrqueue;
 
 	// build a list of pending ISRs and remove them from the main queue
 	while (iterator) {
 		isr_t *next = iterator->next;
-		if (_cpu()->ipl > iterator->priority) {
+		if (current_cpu()->ipl > iterator->priority) {
 			removefromqueue(iterator);
 
 			if (list)
@@ -88,7 +88,7 @@ static void dopending(context_t *ctx, void *) {
 
 	cleanup:
 	if (entrystatus) {
-		_cpu()->intstatus = true;
+		current_cpu()->intstatus = true;
 		arch_interrupt_enable();
 	}
 }
@@ -96,13 +96,13 @@ static void dopending(context_t *ctx, void *) {
 __attribute__((no_caller_saved_registers)) void sched_userspacecheck(context_t *context, bool syscall, uint64_t syscallret, uint64_t syscallerrno);
 
 void interrupt_isr(int vec, context_t *ctx) {
-	isr_t *isr = &_cpu()->isr[vec];
-	_cpu()->intstatus = false;
+	isr_t *isr = &current_cpu()->isr[vec];
+	current_cpu()->intstatus = false;
 
 	if (isr->func == NULL)
 		_panic("Unregistered interrupt", ctx);
 
-	if (_cpu()->ipl > isr->priority) {
+	if (current_cpu()->ipl > isr->priority) {
 		runisr(isr, ctx);
 		dopending(ctx, NULL);
 	} else {
@@ -116,7 +116,7 @@ void interrupt_isr(int vec, context_t *ctx) {
 	if (ARCH_CONTEXT_ISUSER(ctx))
 		sched_userspacecheck(ctx, false, 0, 0);
 
-	_cpu()->intstatus = ARCH_CONTEXT_INTSTATUS(ctx);
+	current_cpu()->intstatus = ARCH_CONTEXT_INTSTATUS(ctx);
 }
 
 void interrupt_raise(isr_t *isr) {
@@ -135,7 +135,7 @@ void interrupt_raise(isr_t *isr) {
 void interrupt_register(int vector, void (*func)(isr_t *self, context_t *ctx), void (*eoi)(isr_t *self), long priority) {
 	bool intstatus = interrupt_set(false);
 
-	isr_t *isr = &_cpu()->isr[vector];
+	isr_t *isr = &current_cpu()->isr[vector];
 	isr->func = func;
 	isr->eoi = eoi;
 	isr->id = (uint64_t)current_cpu_id() | vector;
@@ -150,8 +150,8 @@ isr_t *interrupt_allocate(void (*func)(isr_t *self, context_t *ctx), void (*eoi)
 	isr_t *isr = NULL;
 
 	for (int i = 0; i < MAX_ISR_COUNT; ++i) {
-		if (_cpu()->isr[i].func == NULL) {
-			isr = &_cpu()->isr[i];
+		if (current_cpu()->isr[i].func == NULL) {
+			isr = &current_cpu()->isr[i];
 			interrupt_register(i, func, eoi, priority);
 			break;
 		}
@@ -163,9 +163,9 @@ isr_t *interrupt_allocate(void (*func)(isr_t *self, context_t *ctx), void (*eoi)
 
 long interrupt_loweripl(long ipl) {
 	bool oldintstatus = interrupt_set(false);
-	long oldipl = _cpu()->ipl;
+	long oldipl = current_cpu()->ipl;
 	if (oldipl < ipl)
-		_cpu()->ipl = ipl;
+		current_cpu()->ipl = ipl;
 	interrupt_set(oldintstatus);
 
 	if (oldintstatus)
@@ -176,10 +176,10 @@ long interrupt_loweripl(long ipl) {
 
 long interrupt_raiseipl(long ipl) {
 	bool oldintstatus = interrupt_set(false);
-	long oldipl = _cpu()->ipl;
+	long oldipl = current_cpu()->ipl;
 
 	if (oldipl > ipl)
-		_cpu()->ipl = ipl;
+		current_cpu()->ipl = ipl;
 
 	interrupt_set(oldintstatus);
 
@@ -188,8 +188,8 @@ long interrupt_raiseipl(long ipl) {
 
 bool interrupt_set(bool status) {
 	arch_interrupt_disable();
-	bool old = _cpu()->intstatus;
-	_cpu()->intstatus = status;
+	bool old = current_cpu()->intstatus;
+	current_cpu()->intstatus = status;
 
 	if (status) {
 		arch_interrupt_enable();

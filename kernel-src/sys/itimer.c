@@ -11,7 +11,7 @@ static void itimer_dpc(context_t *context, dpcarg_t arg) {
 	itimer->paused = itimer->repeatus == 0;
 	itimer->fn(context, itimer->arg);
 	if (itimer->repeatus) {
-		timer_insert(_cpu()->timer, &itimer->entry, itimer_dpc, itimer, itimer->remainingus, false);
+		timer_insert(current_cpu()->timer, &itimer->entry, itimer_dpc, itimer, itimer->remainingus, false);
 	}
 
 	leave:
@@ -30,7 +30,7 @@ void itimer_pause(itimer_t *itimer, uintmax_t *remainingus, uintmax_t *repeatus)
 	bool intstatus = interrupt_set(false);
 	spinlock_acquire(&itimer->lock);
 
-	while (itimer->cpu && itimer->cpu != _cpu()) {
+	while (itimer->cpu && itimer->cpu != current_cpu()) {
 		// schedule on the itimer cpu
 		sched_targetcpu(itimer->cpu);
 		spinlock_release(&itimer->lock);
@@ -47,7 +47,7 @@ void itimer_pause(itimer_t *itimer, uintmax_t *remainingus, uintmax_t *repeatus)
 		goto cleanup;
 
 	itimer->cpu = NULL;
-	itimer->remainingus = timer_remove(_cpu()->timer, &itimer->entry);
+	itimer->remainingus = timer_remove(current_cpu()->timer, &itimer->entry);
 	if (itimer->remainingus == 0) {
 		// while we were running in the cpu, the timer fired.
 		// the dpc won't be handled because the timer entry
@@ -83,9 +83,9 @@ void itimer_resume(itimer_t *itimer) {
 	spinlock_acquire(&itimer->lock);
 
 	__assert(itimer->paused && itimer->remainingus);
-	itimer->cpu = _cpu();
+	itimer->cpu = current_cpu();
 	itimer->paused = false;
-	timer_insert(_cpu()->timer, &itimer->entry, itimer_dpc, itimer, itimer->remainingus, false);
+	timer_insert(current_cpu()->timer, &itimer->entry, itimer_dpc, itimer, itimer->remainingus, false);
 
 	spinlock_release(&itimer->lock);
 	interrupt_set(intstatus);

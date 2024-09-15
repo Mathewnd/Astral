@@ -81,7 +81,7 @@ void arch_idt_reload() {
 	for (int i = 0; i < 32; ++i)
 		interrupt_register(i, exceptisr, NULL, IPL_IGNORE);
 
-	_cpu()->ipl = IPL_NORMAL;
+	current_cpu()->ipl = IPL_NORMAL;
 	interrupt_set(true);
 }
 

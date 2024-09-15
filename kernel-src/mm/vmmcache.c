@@ -436,7 +436,7 @@ static void writer() {
 	timerentry_t timerentry;
 	// this will be inserted on some random cpu's timer, but it will always work after that
 	interrupt_set(false);
-	timer_insert(_cpu()->timer, &timerentry, tick, NULL, (uintmax_t)WRITER_TICK_SECONDS * 1000000, true);
+	timer_insert(current_cpu()->timer, &timerentry, tick, NULL, (uintmax_t)WRITER_TICK_SECONDS * 1000000, true);
 	interrupt_set(true);
 	for (;;) {
 		HOLD_LOCK();

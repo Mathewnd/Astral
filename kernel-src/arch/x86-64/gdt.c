@@ -21,18 +21,18 @@ typedef struct {
 } __attribute__((packed)) gdtr_t;
 
 void arch_gdt_reload() {
-	memcpy(_cpu()->gdt, template, sizeof(template));
-	uintptr_t istaddr = (uintptr_t)&_cpu()->ist;
+	memcpy(current_cpu()->gdt, template, sizeof(template));
+	uintptr_t istaddr = (uintptr_t)&current_cpu()->ist;
 
 	// add ist to gdt
-	_cpu()->gdt[5] |= ((istaddr & 0xff000000) << 32) | ((istaddr & 0xff0000) << 16) | ((istaddr & 0xffff) << 16) | sizeof(ist_t);
-	_cpu()->gdt[6] = (istaddr >> 32) & 0xffffffff;
+	current_cpu()->gdt[5] |= ((istaddr & 0xff000000) << 32) | ((istaddr & 0xff0000) << 16) | ((istaddr & 0xffff) << 16) | sizeof(ist_t);
+	current_cpu()->gdt[6] = (istaddr >> 32) & 0xffffffff;
 
 	// reload gdt and ist
 
 	gdtr_t gdtr = {
 		.size = sizeof(template) - 1,
-		.address = (uintptr_t)&_cpu()->gdt
+		.address = (uintptr_t)&current_cpu()->gdt
 	};
 
 	asm volatile("lgdt (%%rax)" : : "a"(&gdtr) : "memory");

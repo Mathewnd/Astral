@@ -166,26 +166,26 @@ void arch_apic_initap() {
 	interrupt_register(0xff, spurious, NULL, IPL_IGNORE);
 	writelapic(APIC_REG_SPURIOUS, 0x1FF);
 
-	_cpu()->id = readlapic(APIC_REG_ID) >> 24;
+	current_cpu()->id = readlapic(APIC_REG_ID) >> 24;
 
 	// get the acpi id for the local nmi sources
 
 	for (size_t i = 0; i < lapiccount; ++i) {
 		struct acpi_madt_lapic *current = getentry(ACPI_MADT_ENTRY_TYPE_LAPIC, i);
-		if (_cpu()->id == current->id) {
-			_cpu()->acpiid = current->uid;
+		if (current_cpu()->id == current->id) {
+			current_cpu()->acpiid = current->uid;
 			break;
 		}
 	}
 
-	printf("processor id: %lu (APIC) %lu (ACPI)\n", _cpu()->id, _cpu()->acpiid);
+	printf("processor id: %lu (APIC) %lu (ACPI)\n", current_cpu()->id, current_cpu()->acpiid);
 
 	isr_t *nmiisr = interrupt_allocate(nmi, NULL, IPL_MAX); // MAX IPL because NMI
 	__assert(nmiisr);
 
 	for (size_t i = 0; i < lapicnmicount; ++i) {
 		struct acpi_madt_lapic_nmi* current = getentry(ACPI_MADT_ENTRY_TYPE_LAPIC_NMI, i);
-		if (current->uid == _cpu()->acpiid || current->uid == 0xff)
+		if (current->uid == current_cpu()->acpiid || current->uid == 0xff)
 			writelapic(APIC_LVT_LINT0 + 0x10 * current->lint, (nmiisr->id & 0xff) | LVT_DELIVERY_NMI | (current->flags << 12));
 	}
 }
@@ -204,7 +204,7 @@ static time_t stoptimer() {
 }
 
 static void timerisr(isr_t *isr, context_t *context) {
-	timer_isr(_cpu()->timer, context);
+	timer_isr(current_cpu()->timer, context);
 }
 
 static void armtimer(time_t ticks) {
@@ -233,12 +233,12 @@ void arch_apic_timerinit() {
 
 	writelapic(APIC_TIMER_INITIALCOUNT, 0);
 
-	printf("cpu%lu: local apic timer calibrated at %lu ticks per us. ISR vector %lu\n", _cpu()->id, ticksperus, vec);
+	printf("cpu%lu: local apic timer calibrated at %lu ticks per us. ISR vector %lu\n", current_cpu()->id, ticksperus, vec);
 
 	writelapic(APIC_LVT_TIMER, vec);
 
-	_cpu()->timer = timer_new(ticksperus, armtimer, stoptimer);
-	__assert(_cpu()->timer);
+	current_cpu()->timer = timer_new(ticksperus, armtimer, stoptimer);
+	__assert(current_cpu()->timer);
 }
 
 void arch_apic_sendipi(uint8_t cpu, uint8_t vec, uint8_t dest, uint8_t mode, uint8_t level) {

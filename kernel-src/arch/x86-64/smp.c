@@ -44,7 +44,7 @@ void arch_smp_sendipi(cpu_t *targcpu, isr_t *isr, int target, bool nmi) {
 }
 
 void arch_smp_haltallothers() {
-	arch_smp_sendipi(NULL, &_cpu()->isr[0xfd], ARCH_SMP_IPI_OTHERCPUS, true);
+	arch_smp_sendipi(NULL, &current_cpu()->isr[0xfd], ARCH_SMP_IPI_OTHERCPUS, true);
 }
 
 void arch_smp_wakeup() {
