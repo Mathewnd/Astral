@@ -5,15 +5,15 @@
 syscallret_t syscall_setsid(context_t *) {
 	syscallret_t ret;
 
-	ret.errno = jobctl_newsession(_cpu()->thread->proc);
-	ret.ret = ret.errno ? -1 : _cpu()->thread->proc->pid;
+	ret.errno = jobctl_newsession(current_thread()->proc);
+	ret.ret = ret.errno ? -1 : current_thread()->proc->pid;
 	return ret;
 }
 
 syscallret_t syscall_setpgid(context_t *, pid_t pid, pid_t pgid) {
 	syscallret_t ret;
 
-	proc_t *currentproc = _cpu()->thread->proc;
+	proc_t *currentproc = current_thread()->proc;
 
 	if (pgid < 0) {
 		ret.errno = EINVAL;

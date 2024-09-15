@@ -9,7 +9,7 @@
 void arch_syscall_entry();
 static void illisr(isr_t *self, context_t *ctx) {
 	if (ARCH_CONTEXT_ISUSER(ctx)) {
-		signal_signalthread(_cpu()->thread, SIGILL, true);
+		signal_signalthread(current_thread(), SIGILL, true);
 	} else {
 		_panic("Invalid Opcode", ctx);
 	}
@@ -17,7 +17,7 @@ static void illisr(isr_t *self, context_t *ctx) {
 
 static void div0isr(isr_t *self, context_t *ctx) {
 	if (ARCH_CONTEXT_ISUSER(ctx)) {
-		signal_signalthread(_cpu()->thread, SIGFPE, true);
+		signal_signalthread(current_thread(), SIGFPE, true);
 	} else {
 		_panic("Division by 0", ctx);
 	}
@@ -25,7 +25,7 @@ static void div0isr(isr_t *self, context_t *ctx) {
 
 static void simdisr(isr_t *self, context_t *ctx) {
 	if (ARCH_CONTEXT_ISUSER(ctx)) {
-		signal_signalthread(_cpu()->thread, SIGFPE, true);
+		signal_signalthread(current_thread(), SIGFPE, true);
 	} else {
 		_panic("SIMD Exception", ctx);
 	}
@@ -33,7 +33,7 @@ static void simdisr(isr_t *self, context_t *ctx) {
 
 static void x87isr(isr_t *self, context_t *ctx) {
 	if (ARCH_CONTEXT_ISUSER(ctx)) {
-		signal_signalthread(_cpu()->thread, SIGFPE, true);
+		signal_signalthread(current_thread(), SIGFPE, true);
 	} else {
 		_panic("x87 Floating-Point Exception", ctx);
 	}

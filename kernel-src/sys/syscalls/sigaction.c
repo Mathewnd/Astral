@@ -24,7 +24,7 @@ syscallret_t syscall_sigaction(context_t *, int sig, sigaction_t *new, sigaction
 		}
 	}
 
-	signal_action(_cpu()->thread->proc, sig, new ? &newtmp : NULL, old ? &oldtmp : NULL);
+	signal_action(current_thread()->proc, sig, new ? &newtmp : NULL, old ? &oldtmp : NULL);
 
 	if (old && usercopy_touser(old, &oldtmp, sizeof(sigaction_t))) {
 		ret.errno = EFAULT;

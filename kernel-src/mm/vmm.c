@@ -223,7 +223,7 @@ static void destroyrange(vmmrange_t *range, uintmax_t _offset, size_t size, int 
 		if (physical == NULL)
 			continue;
 
-		thread_t *thread = _cpu()->thread;
+		thread_t *thread = current_thread();
 		proc_t *proc = thread ? thread->proc : NULL;
 		cred_t *cred = proc ? &proc->cred : NULL;
 
@@ -299,7 +299,7 @@ static void changemmurange(vmmrange_t *range, void *base, size_t size, mmuflags_
 
 static inline bool canwritevnode(vmmrange_t *range) {
 	VOP_LOCK(range->vnode);
-	int error = VOP_ACCESS(range->vnode, V_ACCESS_WRITE, &_cpu()->thread->proc->cred);
+	int error = VOP_ACCESS(range->vnode, V_ACCESS_WRITE, &current_thread()->proc->cred);
 	VOP_UNLOCK(range->vnode);
 	return error == 0;
 }
@@ -560,7 +560,7 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 		goto cleanup;
 	}
 
-	thread_t *thread = _cpu()->thread;
+	thread_t *thread = current_thread();
 	proc_t *proc = thread ? thread->proc : NULL;
 	cred_t *cred = proc ? &proc->cred : NULL;
 
@@ -584,7 +584,7 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 					if (error == ENOMEM)
 						printf("vmm: out of memory to handle getpage (sending SIGBUS)\n");
 					// address is past the last page of the file
-					signal_signalthread(_cpu()->thread, SIGBUS, true);
+					signal_signalthread(current_thread(), SIGBUS, true);
 					status = true;
 				} else if (error) {
 					printf("vmm: error on vmmcache_getpage(): %d\n", error);
@@ -594,7 +594,7 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 					if (!status) {
 						printf("vmm: out of memory to map file into address space (sending SIGBUS)\n");
 						pmm_release(pmm_getpageaddress(res));
-						signal_signalthread(_cpu()->thread, SIGBUS, true);
+						signal_signalthread(current_thread(), SIGBUS, true);
 						status = true;
 					}
 				}
@@ -604,7 +604,7 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 			status = arch_mmu_map(_cpu()->vmmctx->pagetable, zeropage, addr, range->mmuflags & ~ARCH_MMU_FLAGS_WRITE);
 			if (!status) {
 				printf("vmm: out of memory to map zero page into address space (sending SIGBUS)\n");
-				signal_signalthread(_cpu()->thread, SIGBUS, true);
+				signal_signalthread(current_thread(), SIGBUS, true);
 				status = true;
 			} else {
 				pmm_hold(zeropage);
@@ -630,7 +630,7 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 			void *newphys = pmm_allocpage(PMM_SECTION_DEFAULT);
 			if (newphys == NULL) {
 				printf("vmm: out of memory to do copy on write on address space (sending SIGBUS)\n");
-				signal_signalthread(_cpu()->thread, SIGBUS, true);
+				signal_signalthread(current_thread(), SIGBUS, true);
 				status = true;
 			} else {
 				memcpy(MAKE_HHDM(newphys), MAKE_HHDM(oldphys), PAGE_SIZE);
@@ -820,7 +820,7 @@ vmmcontext_t *vmm_newcontext() {
 }
 
 void vmm_destroycontext(vmmcontext_t *context) {
-	vmmcontext_t *oldctx = _cpu()->thread->vmmctx;
+	vmmcontext_t *oldctx = current_thread()->vmmctx;
 	vmm_switchcontext(context);
 	vmm_unmap(context->space.start, context->space.end - context->space.start, 0);
 	vmm_switchcontext(oldctx);
@@ -875,8 +875,8 @@ vmmcontext_t *vmm_fork(vmmcontext_t *oldcontext) {
 }
 
 void vmm_switchcontext(vmmcontext_t *ctx) {
-	if (_cpu()->thread)
-		_cpu()->thread->vmmctx = ctx;
+	if (current_thread())
+		current_thread()->vmmctx = ctx;
 	_cpu()->vmmctx = ctx;
 	arch_mmu_switch(ctx->pagetable);
 }

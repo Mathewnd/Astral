@@ -67,7 +67,7 @@ syscallret_t syscall_setsockopt(context_t *, int fd, int level, int optname, voi
 			if (val == NULL)
 				ret.errno = EFAULT;
 			else
-				ret.errno = socket->ops->setopt ? socket->ops->setopt(socket, optname, buffer, len, &_cpu()->thread->proc->cred) : ENOPROTOOPT;
+				ret.errno = socket->ops->setopt ? socket->ops->setopt(socket, optname, buffer, len, &current_thread()->proc->cred) : ENOPROTOOPT;
 			break;
 		}
 		default:

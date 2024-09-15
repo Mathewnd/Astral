@@ -8,7 +8,7 @@ syscallret_t syscall_umask(context_t *, mode_t mode) {
 
 	mode &= 0777;
 
-	ret.ret = __atomic_exchange_n(&_cpu()->thread->proc->umask, mode, __ATOMIC_SEQ_CST);
+	ret.ret = __atomic_exchange_n(&current_thread()->proc->umask, mode, __ATOMIC_SEQ_CST);
 
 	return ret;
 }

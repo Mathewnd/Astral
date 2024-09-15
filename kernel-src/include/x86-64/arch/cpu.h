@@ -56,10 +56,16 @@ static inline uint16_t be_to_cpu_w(uint16_t w) {
 
 cpu_t *_bsp(void);
 
-static inline cpu_t *_cpu() {
+static inline cpu_t *_cpu(void) {
 	cpu_t *cpu;
 	asm volatile ("mov %%gs:8, %%rax" : "=a"(cpu) : : "memory");
 	return cpu;
+}
+
+static inline thread_t *current_thread(void) {
+	thread_t *thread;
+	asm volatile ("mov %%gs:0, %%rax" : "=a"(thread) : : "memory");
+	return thread;
 }
 
 static inline void cpu_set(cpu_t *ptr) {

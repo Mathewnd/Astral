@@ -838,7 +838,7 @@ typedef struct {
 } __attribute__((packed)) synoptions_t;
 
 __attribute__((noreturn)) static void tcp_worker() {
-	tcpworker_t *self = _cpu()->thread->kernelarg;
+	tcpworker_t *self = current_thread()->kernelarg;
 	ipv4pseudoheader_t ipv4;
 	int tasktype;
 	tcb_t *tcb = NULL;
@@ -1254,8 +1254,8 @@ static int tcp_send(socket_t *socket, sockdesc_t *sockdesc) {
 
 	MUTEX_ACQUIRE(&tcb->mutex, false);
 	if (tcb->reset) {
-		if (_cpu()->thread->proc)
-			signal_signalproc(_cpu()->thread->proc, SIGPIPE);
+		if (current_thread()->proc)
+			signal_signalproc(current_thread()->proc, SIGPIPE);
 		error = ECONNRESET;
 		goto leave;
 	}
@@ -1272,8 +1272,8 @@ static int tcp_send(socket_t *socket, sockdesc_t *sockdesc) {
 			poll_leave(&polldesc);
 			poll_destroydesc(&polldesc);
 
-			if (_cpu()->thread->proc && (sockdesc->flags & SOCKET_SEND_FLAGS_NOSIGNAL) == 0)
-				signal_signalproc(_cpu()->thread->proc, SIGPIPE);
+			if (current_thread()->proc && (sockdesc->flags & SOCKET_SEND_FLAGS_NOSIGNAL) == 0)
+				signal_signalproc(current_thread()->proc, SIGPIPE);
 
 			error = EPIPE;
 			goto leave;

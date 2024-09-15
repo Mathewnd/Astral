@@ -183,8 +183,8 @@ int pipefs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int 
 
 static int writetopipe(pipenode_t *pipenode, void *buffer, size_t size, size_t *writec) {
 	if (pipenode->readers == 0) {
-		if (_cpu()->thread->proc)
-			signal_signalproc(_cpu()->thread->proc, SIGPIPE);
+		if (current_thread()->proc)
+			signal_signalproc(current_thread()->proc, SIGPIPE);
 
 		return EPIPE;
 	}

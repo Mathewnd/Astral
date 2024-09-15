@@ -145,7 +145,7 @@ void signal_returnmask(struct thread_t *thread, sigset_t *sigset) {
 }
 
 void signal_suspend(sigset_t *sigset) {
-	thread_t *thread = _cpu()->thread;
+	thread_t *thread = current_thread();
 	THREAD_ENTER(thread);
 
 	memcpy(&thread->signals.mask, sigset, sizeof(sigset_t));
@@ -158,7 +158,7 @@ void signal_suspend(sigset_t *sigset) {
 }
 
 int signal_wait(sigset_t *sigset, timespec_t *timeout, siginfo_t *siginfo, int *signum) {
-	thread_t *thread = _cpu()->thread;
+	thread_t *thread = current_thread();
 	PROCESS_ENTER(thread->proc);
 	THREAD_ENTER(thread);
 	// if timeoutus is 0, this wait is just a poll

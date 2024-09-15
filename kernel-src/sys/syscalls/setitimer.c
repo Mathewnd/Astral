@@ -15,11 +15,11 @@ typedef struct {
 static itimer_t *selectitimer(int which) {
 	itimer_t *itimer = NULL;
 	if (which == ITIMER_REAL)
-		itimer = &_cpu()->thread->proc->timer.realtime;
+		itimer = &current_thread()->proc->timer.realtime;
 	else if (which == ITIMER_VIRTUAL)
-		itimer = &_cpu()->thread->proc->timer.virtualtime;
+		itimer = &current_thread()->proc->timer.virtualtime;
 	else if (which == ITIMER_PROF)
-		itimer = &_cpu()->thread->proc->timer.profiling;
+		itimer = &current_thread()->proc->timer.profiling;
 
 	return itimer;
 }
@@ -36,14 +36,14 @@ syscallret_t syscall_getitimer(context_t *context, int which, itimerval_t *value
 		return ret;
 	}
 
-	MUTEX_ACQUIRE(&_cpu()->thread->proc->timer.mutex, false);
+	MUTEX_ACQUIRE(&current_thread()->proc->timer.mutex, false);
 
 	uintmax_t oldremaining, oldrepeat;
 	itimer_pause(itimer, &oldremaining, &oldrepeat);
 	if (oldremaining)
 		itimer_resume(itimer);
 
-	MUTEX_RELEASE(&_cpu()->thread->proc->timer.mutex);
+	MUTEX_RELEASE(&current_thread()->proc->timer.mutex);
 
 	itimerval_t tmp;
 
@@ -76,7 +76,7 @@ syscallret_t syscall_setitimer(context_t *context, int which, itimerval_t *unew,
 			return ret;
 	}
 
-	MUTEX_ACQUIRE(&_cpu()->thread->proc->timer.mutex, false);
+	MUTEX_ACQUIRE(&current_thread()->proc->timer.mutex, false);
 	uintmax_t oldremaining, oldrepeat;
 	itimer_pause(itimer, &oldremaining, &oldrepeat);
 
@@ -87,7 +87,7 @@ syscallret_t syscall_setitimer(context_t *context, int which, itimerval_t *unew,
 	if (newus)
 		itimer_resume(itimer);
 
-	MUTEX_RELEASE(&_cpu()->thread->proc->timer.mutex);
+	MUTEX_RELEASE(&current_thread()->proc->timer.mutex);
 
 	ret.errno = 0;
 	if (uold) {

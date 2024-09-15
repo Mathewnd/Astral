@@ -206,7 +206,7 @@ __attribute__((no_caller_saved_registers)) void arch_syscall_log(int syscall, ui
 	char argbuff[768];
 	char printbuff[1024];
 
-	thread_t *thread = _cpu()->thread;
+	thread_t *thread = current_thread();
 	proc_t *proc = thread->proc;
 	snprintf(argbuff, 768, syscall < SYSCALL_COUNT ? args[syscall] : "N/A", a1, a2, a3, a4, a5, a6);
 	snprintf(printbuff, 1024, "\e[92msyscall: pid %d tid %d: %s: %s (%lu cached pages, %lu free pages)\n\e[0m", proc->pid, thread->tid, syscall < SYSCALL_COUNT ? name[syscall] : "invalid syscall", argbuff, vmmcache_cachedpages, freepagecount);
@@ -219,7 +219,7 @@ __attribute__((no_caller_saved_registers)) void arch_syscall_log_return(uint64_t
 #ifdef SYSCALL_LOGGING
 	char printbuff[1024];
 
-	thread_t *thread = _cpu()->thread;
+	thread_t *thread = current_thread();
 	proc_t *proc = thread->proc;
 
 	snprintf(printbuff, 1024, "\e[94msyscall return: pid %d tid %d: %lu %s (%lu cached pages, %lu free pages)\n\e[0m", proc->pid, thread->tid, ret, strerror(errno), vmmcache_cachedpages, freepagecount);

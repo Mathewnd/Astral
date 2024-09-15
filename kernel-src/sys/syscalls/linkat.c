@@ -50,8 +50,8 @@ syscallret_t syscall_linkat(context_t *, int olddirfd, char *uoldpath, int newdi
 		goto cleanup;
 
 	vattr_t attr = {
-		.gid = _cpu()->thread->proc->cred.gid,
-		.uid = _cpu()->thread->proc->cred.uid,
+		.gid = current_thread()->proc->cred.gid,
+		.uid = current_thread()->proc->cred.uid,
 		.mode = UMASK(0777)
 	};
 

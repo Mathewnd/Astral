@@ -13,12 +13,12 @@ __attribute__((noreturn)) void syscall_sigreturn(context_t *context) {
 	}
 
 	interrupt_set(false);
-	signal_altstack(_cpu()->thread, &sigframe.oldstack, NULL);
-	signal_changemask(_cpu()->thread, SIG_SETMASK, &sigframe.oldmask, NULL);
+	signal_altstack(current_thread(), &sigframe.oldstack, NULL);
+	signal_changemask(current_thread(), SIG_SETMASK, &sigframe.oldmask, NULL);
 
 	__assert(ARCH_CONTEXT_ISUSER(&sigframe.context));
-	memcpy(&_cpu()->thread->extracontext, &sigframe.extracontext, sizeof(extracontext_t));
-	ARCH_CONTEXT_THREADLOAD(_cpu()->thread, context);
+	memcpy(&current_thread()->extracontext, &sigframe.extracontext, sizeof(extracontext_t));
+	ARCH_CONTEXT_THREADLOAD(current_thread(), context);
 
 	interrupt_set(true);
 	arch_context_switch(&sigframe.context);

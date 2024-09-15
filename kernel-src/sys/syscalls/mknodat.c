@@ -38,8 +38,8 @@ syscallret_t syscall_mknodat(context_t *, int dirfd, char *upath, mode_t mode, d
 
 	vattr_t attr = {
 		.mode = UMASK(mode),
-		.gid = _cpu()->thread->proc->cred.egid,
-		.uid = _cpu()->thread->proc->cred.euid,
+		.gid = current_thread()->proc->cred.egid,
+		.uid = current_thread()->proc->cred.euid,
 		.rdevmajor = (type == V_TYPE_CHDEV || type == V_TYPE_BLKDEV) ? MAJORDEV(dev) : 0,
 		.rdevminor = (type == V_TYPE_CHDEV || type == V_TYPE_BLKDEV) ? MINORDEV(dev) : 0,
 	};

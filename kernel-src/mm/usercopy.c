@@ -23,13 +23,13 @@ static void memcpyinternal(context_t *ctx, void *arg) {
 
 	// this sets up the thread so that in the next invalid page fault, it will jump to
 	// this context with CTX_RET set to EFAULT
-	_cpu()->thread->usercopyctx = ctx;
+	current_thread()->usercopyctx = ctx;
 
 	memcpy(desc->dst, desc->src, desc->size);
 
 	// no errors!
 	CTX_RET(ctx) = 0;
-	_cpu()->thread->usercopyctx = NULL;
+	current_thread()->usercopyctx = NULL;
 }
 
 static void strleninternal(context_t *ctx, void *arg) {
@@ -37,13 +37,13 @@ static void strleninternal(context_t *ctx, void *arg) {
 
 	// this sets up the thread so that in the next invalid page fault, it will jump to
 	// this context with CTX_RET set to EFAULT
-	_cpu()->thread->usercopyctx = ctx;
+	current_thread()->usercopyctx = ctx;
 
 	*desc->size = strlen(desc->str);
 
 	// no errors!
 	CTX_RET(ctx) = 0;
-	_cpu()->thread->usercopyctx = NULL;
+	current_thread()->usercopyctx = NULL;
 }
 
 static void atomic32internal(context_t *ctx, void *arg) {
@@ -51,13 +51,13 @@ static void atomic32internal(context_t *ctx, void *arg) {
 
 	// this sets up the thread so that in the next invalid page fault, it will jump to
 	// this context with CTX_RET set to EFAULT
-	_cpu()->thread->usercopyctx = ctx;
+	current_thread()->usercopyctx = ctx;
 
 	__atomic_load(desc->address, desc->value, __ATOMIC_SEQ_CST);
 
 	// no errors!
 	CTX_RET(ctx) = 0;
-	_cpu()->thread->usercopyctx = NULL;
+	current_thread()->usercopyctx = NULL;
 }
 
 int usercopy_touser(void *user, void *kernel, size_t size) {

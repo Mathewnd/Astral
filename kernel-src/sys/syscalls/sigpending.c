@@ -6,7 +6,7 @@ syscallret_t syscall_sigpending(context_t *, sigset_t *uset) {
 	syscallret_t ret;
 
 	sigset_t set;
-	signal_pending(_cpu()->thread, &set);
+	signal_pending(current_thread(), &set);
 
 	ret.errno = usercopy_touser(uset, &set, sizeof(sigset_t));
 	ret.ret = ret.errno ? -1 : 0;

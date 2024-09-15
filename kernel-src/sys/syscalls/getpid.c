@@ -5,7 +5,7 @@
 
 syscallret_t syscall_getpid(context_t *ctx) {
 	syscallret_t ret = {
-		.ret = _cpu()->thread->proc->pid,
+		.ret = current_thread()->proc->pid,
 		.errno = 0
 	};
 	return ret;
@@ -13,7 +13,7 @@ syscallret_t syscall_getpid(context_t *ctx) {
 
 syscallret_t syscall_getppid(context_t *ctx) {
 	syscallret_t ret = {
-		.ret = _cpu()->thread->proc->parent ? _cpu()->thread->proc->parent->pid : 1,
+		.ret = current_thread()->proc->parent ? current_thread()->proc->parent->pid : 1,
 		.errno = 0
 	};
 	return ret;
@@ -25,7 +25,7 @@ syscallret_t syscall_getpgid(context_t *ctx, pid_t pid) {
 	};
 
 	__assert(pid == 0);
-	ret.ret = jobctl_getpgid(_cpu()->thread->proc);
+	ret.ret = jobctl_getpgid(current_thread()->proc);
 	return ret;
 }
 
@@ -35,6 +35,6 @@ syscallret_t syscall_getsid(context_t *ctx, pid_t pid) {
 	};
 
 	__assert(pid == 0);
-	ret.ret = jobctl_getsid(_cpu()->thread->proc);
+	ret.ret = jobctl_getsid(current_thread()->proc);
 	return ret;
 }

@@ -8,7 +8,7 @@ syscallret_t syscall_getresgid(context_t *, gid_t *gidp, gid_t *egidp, gid_t *sg
 	};
 
 	int gid, egid, sgid;
-	cred_getgids(&_cpu()->thread->proc->cred, &gid, &egid, &sgid);
+	cred_getgids(&current_thread()->proc->cred, &gid, &egid, &sgid);
 
 	ret.errno = usercopy_touser(gidp, &gid, sizeof(gid));
 	if (ret.errno)

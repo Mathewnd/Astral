@@ -11,7 +11,7 @@ syscallret_t syscall_fork(context_t *ctx) {
 		.errno = 0
 	};
 
-	proc_t *proc = _cpu()->thread->proc;
+	proc_t *proc = current_thread()->proc;
 	proc_t *nproc = sched_newproc();
 	if (nproc == NULL) {
 		ret.errno = ENOMEM;
@@ -24,7 +24,7 @@ syscallret_t syscall_fork(context_t *ctx) {
 		goto cleanup;
 	}
 
-	nthread->vmmctx = vmm_fork(_cpu()->thread->vmmctx);
+	nthread->vmmctx = vmm_fork(current_thread()->vmmctx);
 
 	if (nthread->vmmctx == NULL) {
 		ret.errno = ENOMEM;
@@ -43,8 +43,8 @@ syscallret_t syscall_fork(context_t *ctx) {
 
 	MUTEX_RELEASE(&proc->mutex);
 
-	nproc->umask = _cpu()->thread->proc->umask;
-	nproc->cred = _cpu()->thread->proc->cred;
+	nproc->umask = current_thread()->proc->umask;
+	nproc->cred = current_thread()->proc->cred;
 	nproc->root = sched_getroot();
 	nproc->cwd = sched_getcwd();
 	nproc->threadlist = nthread;
@@ -56,9 +56,9 @@ syscallret_t syscall_fork(context_t *ctx) {
 	CTX_ERRNO(&nthread->context) = 0;
 	jobctl_addproc(proc, nproc);
 
-	memcpy(&nthread->signals.mask, &_cpu()->thread->signals.mask, sizeof(sigset_t));
-	memcpy(&nthread->signals.pending, &_cpu()->thread->signals.pending, sizeof(sigset_t));
-	memcpy(&nthread->signals.stack, &_cpu()->thread->signals.stack, sizeof(stack_t));
+	memcpy(&nthread->signals.mask, &current_thread()->signals.mask, sizeof(sigset_t));
+	memcpy(&nthread->signals.pending, &current_thread()->signals.pending, sizeof(sigset_t));
+	memcpy(&nthread->signals.stack, &current_thread()->signals.stack, sizeof(stack_t));
 	memcpy(&nproc->signals.pending, &proc->signals.pending, sizeof(sigset_t));
 	memcpy(&nproc->signals.actions, &proc->signals.actions[0], sizeof(sigaction_t) * NSIG);
 

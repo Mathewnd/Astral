@@ -124,8 +124,8 @@ syscallret_t syscall_ppoll(context_t *context, pollfd_t *fds, size_t nfds, times
 		if (ret.errno)
 			return ret;
 
-		signal_changemask(_cpu()->thread, SIG_SETMASK, &sigset, &savedset);
-		signal_returnmask(_cpu()->thread, &savedset);
+		signal_changemask(current_thread(), SIG_SETMASK, &sigset, &savedset);
+		signal_returnmask(current_thread(), &savedset);
 	}
 
 	syscallret_t ret = syscall_poll(context, fds, nfds, utimeout ? (timeout.s * 1000 + timeout.ns / 1000000) : -1);

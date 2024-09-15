@@ -132,7 +132,7 @@ typedef struct proc_t {
 
 #include <arch/cpu.h>
 
-#define UMASK(mode) ((mode) & ~_cpu()->thread->proc->umask)
+#define UMASK(mode) ((mode) & ~current_thread()->proc->umask)
 #define PROC_HOLD(v) __atomic_add_fetch(&(v)->refcount, 1, __ATOMIC_SEQ_CST)
 // the acquire of the pid table mutex is done here to prevent a nasty race condition where sched_inactiveproc could be called multiple times
 // due to the pid table itself not holding any references to the process

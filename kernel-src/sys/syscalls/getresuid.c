@@ -8,7 +8,7 @@ syscallret_t syscall_getresuid(context_t *, uid_t *uidp, uid_t *euidp, uid_t *su
 	};
 
 	int uid, euid, suid;
-	cred_getuids(&_cpu()->thread->proc->cred, &uid, &euid, &suid);
+	cred_getuids(&current_thread()->proc->cred, &uid, &euid, &suid);
 
 	ret.errno = usercopy_touser(uidp, &uid, sizeof(uid));
 	if (ret.errno)

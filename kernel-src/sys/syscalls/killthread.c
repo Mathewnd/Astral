@@ -14,7 +14,7 @@ syscallret_t syscall_killthread(context_t *context, int pid, int tid, int signal
 		return ret;
 	}
 
-	proc_t *sender = _cpu()->thread->proc;
+	proc_t *sender = current_thread()->proc;
 	proc_t *target = sched_getprocfrompid(pid);
 	if (target == NULL) {
 		ret.errno = ESRCH;

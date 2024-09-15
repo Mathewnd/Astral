@@ -36,7 +36,7 @@ int poll_initdesc(polldesc_t *desc, size_t size) {
 			return ENOMEM;
 	}
 
-	desc->thread = _cpu()->thread;
+	desc->thread = current_thread();
 	desc->size = size;
 	SPINLOCK_INIT(desc->lock);
 	SPINLOCK_INIT(desc->eventlock);

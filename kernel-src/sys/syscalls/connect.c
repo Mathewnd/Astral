@@ -47,7 +47,7 @@ syscallret_t syscall_connect(context_t *, int fd, abisockaddr_t *uaddr, size_t a
 
 	socket_t *socket = SOCKFS_SOCKET_FROM_NODE(file->vnode);
 
-	ret.errno = socket->ops->connect ? socket->ops->connect(socket, &sockaddr, fileflagstovnodeflags(file->flags), &_cpu()->thread->proc->cred) : EOPNOTSUPP;
+	ret.errno = socket->ops->connect ? socket->ops->connect(socket, &sockaddr, fileflagstovnodeflags(file->flags), &current_thread()->proc->cred) : EOPNOTSUPP;
 	ret.ret = ret.errno ? -1 : 0;
 
 	cleanup:

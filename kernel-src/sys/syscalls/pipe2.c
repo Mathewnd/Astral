@@ -12,7 +12,7 @@ static void open(file_t *file, vnode_t *node, int flags) {
 	file->offset = 0;
 	file->mode = 0777;
 	VOP_LOCK(node);
-	VOP_OPEN(&node, fileflagstovnodeflags(flags) | V_FFLAGS_NONBLOCKING, &_cpu()->thread->proc->cred);
+	VOP_OPEN(&node, fileflagstovnodeflags(flags) | V_FFLAGS_NONBLOCKING, &current_thread()->proc->cred);
 	VOP_UNLOCK(node);
 }
 

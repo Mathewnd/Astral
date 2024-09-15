@@ -34,7 +34,7 @@ static thread_t *get(semaphore_t *sem) {
 }
 
 static void removeself(semaphore_t *sem) {
-	thread_t *thread = _cpu()->thread;
+	thread_t *thread = current_thread();
 
 	// first see if we have been removed already
 	if ((sem->head == NULL && sem->tail == NULL) || // no threads in sleep list
@@ -59,7 +59,7 @@ static void removeself(semaphore_t *sem) {
 }
 
 int semaphore_wait(semaphore_t *sem, bool interruptible) {
-	if (_cpu()->thread == NULL) {
+	if (current_thread() == NULL) {
 		while (semaphore_test(sem) == false) CPU_PAUSE();
 		return 0;
 	}
@@ -69,7 +69,7 @@ int semaphore_wait(semaphore_t *sem, bool interruptible) {
 	spinlock_acquire(&sem->lock);
 
 	if (--sem->i < 0) {
-		insert(sem, _cpu()->thread);
+		insert(sem, current_thread());
 		sched_preparesleep(interruptible);
 		spinlock_release(&sem->lock);
 		ret = sched_yield();

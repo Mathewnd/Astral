@@ -19,7 +19,7 @@ syscallret_t syscall_waitpid(context_t *context, pid_t pid, int *status, int opt
 	// TODO implement these
 	__assert(pid == -1 || pid > 0);
 
-	thread_t *thread = _cpu()->thread;
+	thread_t *thread = current_thread();
 	proc_t *proc = thread->proc;
 	MUTEX_ACQUIRE(&proc->mutex, false);
 

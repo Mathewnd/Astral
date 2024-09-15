@@ -43,7 +43,7 @@ file_t *fd_allocate() {
 }
 
 static int getfree(int start) {
-	proc_t *proc = _cpu()->thread->proc;
+	proc_t *proc = current_thread()->proc;
 	int fd = -1;
 	int sfd;
 	for (sfd = start; sfd < proc->fdcount && proc->fd[sfd].file; ++sfd);
@@ -58,7 +58,7 @@ static int growtable(int newcount) {
 	if (newcount > FDTABLE_LIMIT)
 		return EMFILE;
 
-	proc_t *proc = _cpu()->thread->proc;
+	proc_t *proc = current_thread()->proc;
 	__assert(newcount > proc->fdcount);
 	void *newtable = realloc(proc->fd, sizeof(fd_t) * newcount);
 	if (newtable == NULL)
@@ -70,7 +70,7 @@ static int growtable(int newcount) {
 }
 
 file_t *fd_get(int fd) {
-	proc_t *proc = _cpu()->thread->proc;
+	proc_t *proc = current_thread()->proc;
 	MUTEX_ACQUIRE(&proc->fdmutex, false);
 
 	file_t *file = fd < proc->fdcount ? proc->fd[fd].file : NULL;
@@ -84,7 +84,7 @@ file_t *fd_get(int fd) {
 
 int fd_setflags(int fd, int flags) {
 	int error = 0;
-	proc_t *proc = _cpu()->thread->proc;
+	proc_t *proc = current_thread()->proc;
 	MUTEX_ACQUIRE(&proc->fdmutex, false);
 
 	if (proc->fd[fd].file)
@@ -98,7 +98,7 @@ int fd_setflags(int fd, int flags) {
 
 int fd_getflags(int fd, int *flags) {
 	int error = 0;
-	proc_t *proc = _cpu()->thread->proc;
+	proc_t *proc = current_thread()->proc;
 	MUTEX_ACQUIRE(&proc->fdmutex, false);
 
 	if (proc->fd[fd].file)
@@ -119,7 +119,7 @@ int fd_new(int flags, file_t **rfile, int *rfd) {
 	if (file == NULL)
 		return ENOMEM;
 
-	proc_t *proc = _cpu()->thread->proc;
+	proc_t *proc = current_thread()->proc;
 	MUTEX_ACQUIRE(&proc->fdmutex, false);
 
 	// find first free fd
@@ -148,7 +148,7 @@ int fd_new(int flags, file_t **rfile, int *rfd) {
 }
 
 int fd_close(int fd) {
-	proc_t *proc = _cpu()->thread->proc;
+	proc_t *proc = current_thread()->proc;
 	MUTEX_ACQUIRE(&proc->fdmutex, false);
 
 	file_t *file = fd < proc->fdcount ? proc->fd[fd].file : NULL;
@@ -171,7 +171,7 @@ int fd_close(int fd) {
 }
 
 int fd_clone(proc_t *targproc) {
-	proc_t *proc = _cpu()->thread->proc;
+	proc_t *proc = current_thread()->proc;
 	int error = 0;
 	MUTEX_ACQUIRE(&proc->fdmutex, false);
 
@@ -197,7 +197,7 @@ int fd_clone(proc_t *targproc) {
 }
 
 int fd_insert(file_t *file, int *fdp) {
-	proc_t *proc = _cpu()->thread->proc;
+	proc_t *proc = current_thread()->proc;
 	int err = 0;
 	MUTEX_ACQUIRE(&proc->fdmutex, false);
 	int fd = getfree(0);
@@ -220,7 +220,7 @@ int fd_insert(file_t *file, int *fdp) {
 }
 
 int fd_dup(int oldfd, int newfd, bool exact, int fdflags, int *retfd) {
-	proc_t *proc = _cpu()->thread->proc;
+	proc_t *proc = current_thread()->proc;
 	int err = 0;
 
 	if (newfd < 0 || newfd >= FDTABLE_LIMIT)

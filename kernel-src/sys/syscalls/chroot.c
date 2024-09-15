@@ -10,7 +10,7 @@ syscallret_t syscall_chroot(context_t *, char *upath) {
 		.ret = -1
 	};
 
-	ret.errno = auth_system_check(&_cpu()->thread->proc->cred, AUTH_ACTIONS_SYSTEM_CHROOT);
+	ret.errno = auth_system_check(&current_thread()->proc->cred, AUTH_ACTIONS_SYSTEM_CHROOT);
 	if (ret.errno)
 		return ret;
 

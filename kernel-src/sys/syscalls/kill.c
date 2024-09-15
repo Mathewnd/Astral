@@ -31,17 +31,17 @@ syscallret_t syscall_kill(context_t *context, int pid, int signal) {
 		goto leave;
 
 	if (pid >= 1) {
-		if (signal != SIGCONT || jobctl_getpgid(target) != jobctl_getpgid(_cpu()->thread->proc)) {
-			ret.errno = auth_process_check(&_cpu()->thread->proc->cred, AUTH_ACTIONS_PROCESS_SIGNAL, target);
+		if (signal != SIGCONT || jobctl_getpgid(target) != jobctl_getpgid(current_thread()->proc)) {
+			ret.errno = auth_process_check(&current_thread()->proc->cred, AUTH_ACTIONS_PROCESS_SIGNAL, target);
 			if (ret.errno)
 				goto leave;
 		}
 
 		signal_signalproc(target, signal);
 	} else if (pid == -1) {
-		ret.errno = sched_signalall(signal, _cpu()->thread->proc);
+		ret.errno = sched_signalall(signal, current_thread()->proc);
 	} else {
-		ret.errno = jobctl_signal(target, signal, _cpu()->thread->proc);
+		ret.errno = jobctl_signal(target, signal, current_thread()->proc);
 	}
 
 	leave:

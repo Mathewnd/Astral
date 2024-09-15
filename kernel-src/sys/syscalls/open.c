@@ -55,8 +55,8 @@ syscallret_t syscall_openat(context_t *context, int dirfd, char *path, int flags
 		// create file
 		vattr_t attr = {
 			.mode = UMASK(mode),
-			.gid = _cpu()->thread->proc->cred.egid,
-			.uid = _cpu()->thread->proc->cred.euid
+			.gid = current_thread()->proc->cred.egid,
+			.uid = current_thread()->proc->cred.euid
 		};
 
 		ret.errno = vfs_create(dirnode, pathbuf, &attr, V_TYPE_REGULAR, &vnode);
@@ -79,12 +79,12 @@ syscallret_t syscall_openat(context_t *context, int dirfd, char *path, int flags
 	}
 
 	vattr_t attr;
-	ret.errno = VOP_GETATTR(vnode, &attr, &_cpu()->thread->proc->cred);
+	ret.errno = VOP_GETATTR(vnode, &attr, &current_thread()->proc->cred);
 	if (ret.errno)
 		goto cleanup;
 
 	if (vnode->type == V_TYPE_REGULAR && (flags & O_TRUNC) && (flags & FILE_WRITE)) {
-		ret.errno = VOP_RESIZE(vnode, 0, &_cpu()->thread->proc->cred);
+		ret.errno = VOP_RESIZE(vnode, 0, &current_thread()->proc->cred);
 		if (ret.errno)
 			goto cleanup;
 	}

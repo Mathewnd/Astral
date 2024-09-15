@@ -322,7 +322,7 @@ int tty_ioctl(tty_t *tty, unsigned long req, void *arg, int *result, cred_t *cre
 			return USERCOPY_POSSIBLY_FROM_USER(&tty->termios, arg, sizeof(termios_t));
 		case TIOCSCTTY: {
 			// set as controlling tty
-			return jobctl_setctty(_cpu()->thread->proc, tty, (uintptr_t)arg == 1);
+			return jobctl_setctty(current_thread()->proc, tty, (uintptr_t)arg == 1);
 			break;
 		}
 		case TIOCGPGRP: {
@@ -377,7 +377,7 @@ static int open(int minor, vnode_t **vnode, int flags) {
 
 	if (minor == CONTROLLING_TTY_MINOR) {
 		// return controlling tty
-		tty_t *ctty = jobctl_getctty(_cpu()->thread->proc);
+		tty_t *ctty = jobctl_getctty(current_thread()->proc);
 
 		if (ctty == NULL) {
 			return ENXIO;
@@ -389,7 +389,7 @@ static int open(int minor, vnode_t **vnode, int flags) {
 		return ENODEV;
 	} else if ((flags & V_FFLAGS_NOCTTY) == 0) {
 		// set as controlling tty
-		jobctl_setctty(_cpu()->thread->proc, tty, false);
+		jobctl_setctty(current_thread()->proc, tty, false);
 	}
 
 	return 0;
@@ -467,7 +467,7 @@ tty_t *tty_create(char *name, ttydevicewritefn_t writefn, ttyinactivefn_t inacti
 		goto error;
 	}
 
-	if (devfs_register(&devops, name, V_TYPE_CHDEV, DEV_MAJOR_TTY, minor, 0600, _cpu()->thread->proc ? &_cpu()->thread->proc->cred : NULL)) {
+	if (devfs_register(&devops, name, V_TYPE_CHDEV, DEV_MAJOR_TTY, minor, 0600, current_thread()->proc ? &current_thread()->proc->cred : NULL)) {
 		freeminor(minor);
 		ringbuffer_destroy(&tty->readbuffer);
 		goto error;

@@ -378,12 +378,12 @@ void jobctl_procremove(proc_t *proc) {
 }
 
 // proc can be null if the signal is being sent to the calling processes own process group
-// since that is only passed from a userland thread, we can assume _cpu()->thread->proc is not null
+// since that is only passed from a userland thread, we can assume current_thread()->proc is not null
 int jobctl_signal(proc_t *proc, int signal, proc_t *sender) {
 	int error = 0;
 	bool intstatus = interrupt_set(false);
 	proc_t *leader;
-	proc_t *tmpproc = _cpu()->thread->proc;
+	proc_t *tmpproc = current_thread()->proc;
 	pid_t senderpgid = sender ? jobctl_getpgid(sender) : 0;
 
 	if (proc == NULL) {

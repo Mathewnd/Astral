@@ -231,7 +231,7 @@ static thread_t *runqueuenext(int minprio) {
 
 static __attribute__((noreturn)) void switchthread(thread_t *thread) {
 	interrupt_set(false);
-	thread_t* current = _cpu()->thread;
+	thread_t* current = current_thread();
 	
 	_cpu()->thread = thread;
 
@@ -295,8 +295,8 @@ __attribute__((noreturn)) void sched_stopcurrentthread() {
 	interrupt_set(false);
 
 	spinlock_acquire(&runqueuelock);
-	if (_cpu()->thread)
-		_cpu()->thread->flags &= ~SCHED_THREAD_FLAGS_RUNNING;
+	if (current_thread())
+		current_thread()->flags &= ~SCHED_THREAD_FLAGS_RUNNING;
 
 	thread_t *next = runqueuenext(0x0fffffff);
 	if (next == NULL)
@@ -309,7 +309,7 @@ __attribute__((noreturn)) void sched_stopcurrentthread() {
 
 // called when all threads in a process have exited
 void sched_procexit() {
-	proc_t *proc = _cpu()->thread->proc;
+	proc_t *proc = current_thread()->proc;
 	__assert(proc != sched_initproc);
 
 	// the process is going to be referenced by the child list, hold it
@@ -378,12 +378,12 @@ void sched_inactiveproc(proc_t *proc) {
 }
 
 static void threadexit_internal(context_t *, void *) {
-	thread_t *thread = _cpu()->thread;
+	thread_t *thread = current_thread();
 	// we don't need to access the current thread anymore, as any state will be ignored and we are running on the scheduler stack
 	// as well as not being preempted at all
+	interrupt_set(false);
 	_cpu()->thread = NULL;
 
-	interrupt_set(false);
 	spinlock_acquire(&runqueuelock);
 	thread->flags |= SCHED_THREAD_FLAGS_DEAD;
 	spinlock_release(&runqueuelock);
@@ -396,7 +396,7 @@ static void threadexit_internal(context_t *, void *) {
 }
 
 __attribute__((noreturn)) void sched_threadexit() {
-	thread_t *thread = _cpu()->thread;
+	thread_t *thread = current_thread();
 	proc_t *proc = thread->proc;
 
 	vmmcontext_t *oldctx = thread->vmmctx;
@@ -430,7 +430,7 @@ typedef struct {
 // SHOULD NOT BE CALLED WITH THE SCHEDULER STACK
 static void userspacecheck(void *_args) {
 	checkargs_t *args = _args;
-	thread_t *thread = _cpu()->thread;
+	thread_t *thread = current_thread();
 
 	if (thread->shouldexit) {
 		interrupt_set(true);
@@ -451,7 +451,7 @@ static void checktrampoline(context_t *context, void *_args) {
 // called right before going back to userspace in the syscall handler, interrupt handler and arch_context_switch
 __attribute__((no_caller_saved_registers)) void sched_userspacecheck(context_t *context, bool syscall, uint64_t syscallerrno, uint64_t syscallret) {
 	__assert(_cpu());
-	if (_cpu()->thread == NULL || ARCH_CONTEXT_ISUSER(context) == false)
+	if (current_thread() == NULL || ARCH_CONTEXT_ISUSER(context) == false)
 		return;
 
 	bool intstatus = interrupt_set(false);
@@ -467,7 +467,7 @@ __attribute__((no_caller_saved_registers)) void sched_userspacecheck(context_t *
 	// if we are running on the scheduler stack, run on the kernel stack
 	// so we don't risk stack corruption (as we have to turn on interrupts should the thread need to exit)
 	if (&args < (checkargs_t *)_cpu()->schedulerstack && &args >= (checkargs_t *)((uintptr_t)_cpu()->schedulerstack - SCHEDULER_STACK_SIZE)) {
-		arch_context_saveandcall(checktrampoline, _cpu()->thread->kernelstacktop, &args);
+		arch_context_saveandcall(checktrampoline, current_thread()->kernelstacktop, &args);
 	} else {
 		userspacecheck(&args);
 	}
@@ -476,7 +476,7 @@ __attribute__((no_caller_saved_registers)) void sched_userspacecheck(context_t *
 }
 
 void sched_stopotherthreads() {
-	thread_t *thread = _cpu()->thread;
+	thread_t *thread = current_thread();
 	proc_t *proc = thread->proc;
 
 	bool intstatus = interrupt_set(false);
@@ -508,7 +508,7 @@ void sched_stopotherthreads() {
 }
 
 void sched_terminateprogram(int status) {
-	thread_t *thread = _cpu()->thread;
+	thread_t *thread = current_thread();
 	proc_t *proc = thread->proc;
 	if (spinlock_try(&proc->exiting) == false)
 		sched_threadexit();
@@ -521,7 +521,7 @@ void sched_terminateprogram(int status) {
 }
 
 static void yield(context_t *context, void *) {
-	thread_t *thread = _cpu()->thread;
+	thread_t *thread = current_thread();
 
 	spinlock_acquire(&runqueuelock);
 
@@ -575,18 +575,18 @@ static void yield(context_t *context, void *) {
 
 int sched_yield() {
 	__assert(_cpu()->ipl == IPL_NORMAL);
-	bool sleeping = _cpu()->thread->flags & SCHED_THREAD_FLAGS_SLEEP;
-	bool old = sleeping ? _cpu()->thread->sleepintstatus : interrupt_set(false);
+	bool sleeping = current_thread()->flags & SCHED_THREAD_FLAGS_SLEEP;
+	bool old = sleeping ? current_thread()->sleepintstatus : interrupt_set(false);
 	arch_context_saveandcall(yield, _cpu()->schedulerstack, NULL);
 	interrupt_set(old);
-	return sleeping ? _cpu()->thread->wakeupreason : 0;
+	return sleeping ? current_thread()->wakeupreason : 0;
 }
 
 void sched_preparesleep(bool interruptible) {
-	_cpu()->thread->sleepintstatus = interrupt_set(false);
-	spinlock_acquire(&_cpu()->thread->sleeplock);
+	current_thread()->sleepintstatus = interrupt_set(false);
+	spinlock_acquire(&current_thread()->sleeplock);
 	// no locking needed as only we will be accessing it
-	_cpu()->thread->flags |= SCHED_THREAD_FLAGS_SLEEP | (interruptible ? SCHED_THREAD_FLAGS_INTERRUPTIBLE : 0);
+	current_thread()->flags |= SCHED_THREAD_FLAGS_SLEEP | (interruptible ? SCHED_THREAD_FLAGS_INTERRUPTIBLE : 0);
 }
 
 bool sched_wakeup(thread_t *thread, int reason) {
@@ -610,7 +610,7 @@ bool sched_wakeup(thread_t *thread, int reason) {
 }
 
 static vnode_t *getnodeslock(vnode_t **addr) {
-	proc_t *proc = _cpu()->thread->proc;
+	proc_t *proc = current_thread()->proc;
 	bool intstatus = interrupt_set(false);
 	spinlock_acquire(&proc->nodeslock);
 	vnode_t *vnode = *addr;
@@ -621,17 +621,17 @@ static vnode_t *getnodeslock(vnode_t **addr) {
 }
 
 vnode_t *sched_getcwd() {
-	proc_t *proc = _cpu()->thread->proc;
+	proc_t *proc = current_thread()->proc;
 	return getnodeslock(&proc->cwd);
 }
 
 vnode_t *sched_getroot() {
-	proc_t *proc = _cpu()->thread->proc;
+	proc_t *proc = current_thread()->proc;
 	return getnodeslock(&proc->root);
 }
 
 static void setnodeslock(vnode_t **addr, vnode_t *new) {
-	proc_t *proc = _cpu()->thread->proc;
+	proc_t *proc = current_thread()->proc;
 	vnode_t *oldnode;
 	VOP_HOLD(new);
 	bool intstatus = interrupt_set(false);
@@ -644,11 +644,11 @@ static void setnodeslock(vnode_t **addr, vnode_t *new) {
 }
 
 void sched_setcwd(vnode_t *new) {
-	proc_t *proc = _cpu()->thread->proc;
+	proc_t *proc = current_thread()->proc;
 	setnodeslock(&proc->cwd, new);
 }
 void sched_setroot(vnode_t *new) {
-	proc_t *proc = _cpu()->thread->proc;
+	proc_t *proc = current_thread()->proc;
 	setnodeslock(&proc->root, new);
 }
 
@@ -657,7 +657,7 @@ static void dopreempt() {
 	// interrupts are disabled, the thread context is already saved
 	spinlock_acquire(&runqueuelock);
 
-	thread_t *current = _cpu()->thread;
+	thread_t *current = current_thread();
 	thread_t *next = runqueuenext(current->priority);
 
 	current->flags &= ~SCHED_THREAD_FLAGS_PREEMPTED;
@@ -673,7 +673,7 @@ static void dopreempt() {
 }
 
 static void timerhook(context_t *context, dpcarg_t arg) {
-	thread_t* current = _cpu()->thread;
+	thread_t* current = current_thread();
 	interrupt_set(false);
 
 	// no need to preempt it again
@@ -699,7 +699,7 @@ static void cpuidlethread() {
 
 void sched_targetcpu(cpu_t *cpu) {
 	bool intstatus = interrupt_set(false);
-	_cpu()->thread->cputarget = cpu;
+	current_thread()->cputarget = cpu;
 	interrupt_set(intstatus);
 }
 
@@ -712,7 +712,7 @@ void sched_sleepus(size_t us) {
 	timerentry_t sleepentry = {0};
 	sched_preparesleep(false);
 
-	timer_insert(_cpu()->timer, &sleepentry, timeout, _cpu()->thread, us, false);
+	timer_insert(_cpu()->timer, &sleepentry, timeout, current_thread(), us, false);
 	sched_yield();
 }
 
@@ -747,7 +747,7 @@ void sched_init() {
 	_cpu()->idlethread = sched_newthread(cpuidlethread, PAGE_SIZE * 4, 3, NULL, NULL);
 	__assert(_cpu()->idlethread);
 	_cpu()->thread = sched_newthread(NULL, PAGE_SIZE * 32, 0, NULL, NULL);
-	__assert(_cpu()->thread);
+	__assert(current_thread());
 
 	timer_insert(_cpu()->timer, &_cpu()->schedtimerentry, timerhook, NULL, QUANTUM_US, true);
 	// XXX move this resume to a more appropriate place

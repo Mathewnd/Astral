@@ -8,7 +8,7 @@
 // node expected to be locked
 static int dochmod(vnode_t *node, mode_t mode) {
 	vattr_t attr;
-	cred_t *cred = &_cpu()->thread->proc->cred;
+	cred_t *cred = &current_thread()->proc->cred;
 
 	int e = auth_filesystem_check(cred, AUTH_ACTIONS_FILESYSTEM_SETATTR, node, NULL);
 	if (e)

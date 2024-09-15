@@ -324,7 +324,7 @@ static void enqueueandwait(queuepair_t *queuepair, entrypair_t *entries) {
 
 	*queuepair->submission.doorbell = queuepair->submission.index;
 	sched_preparesleep(false);
-	entries->thread = _cpu()->thread;
+	entries->thread = current_thread();
 	spinlock_release(&queuepair->lock);
 	sched_yield();
 	interrupt_set(intstatus);

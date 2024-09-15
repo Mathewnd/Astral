@@ -502,7 +502,7 @@ void uacpi_kernel_reset_event(uacpi_handle sem) {
 }
 
 uacpi_thread_id uacpi_kernel_get_thread_id(void) {
-	return _cpu()->thread;
+	return current_thread();
 }
 
 uacpi_handle uacpi_kernel_create_spinlock(void) {

@@ -12,7 +12,7 @@ syscallret_t syscall_sigaltstack(context_t *, stack_t *new, stack_t *old) {
 		return ret;
 	}
 
-	signal_altstack(_cpu()->thread, new ? &newtmp : NULL, old ? &oldtmp : NULL);
+	signal_altstack(current_thread(), new ? &newtmp : NULL, old ? &oldtmp : NULL);
 
 	if (old && usercopy_touser(old, &oldtmp, sizeof(stack_t))) {
 		ret.errno = EFAULT;

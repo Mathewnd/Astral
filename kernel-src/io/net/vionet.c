@@ -139,7 +139,7 @@ static int vionet_sendpacket(netdev_t *internal, netdesc_t desc, mac_t targetmac
 	VIO_QUEUE_DRV_RING(&netdev->txqueue)[driveridx % netdev->txqueue.size] = idx;
 
 	sched_preparesleep(false);
-	netdev->txwait[idx] = _cpu()->thread;
+	netdev->txwait[idx] = current_thread();
 	*netdev->txqueue.notify = 0;
 
 	spinlock_release(&netdev->txlock);

@@ -220,11 +220,11 @@ void arch_mmu_tlbipi(isr_t *isr, context_t *context) {
 
 void arch_mmu_tlbshootdown(void *page) {
 	// scheduler not up yet, or there are no other cpus, nothing to do
-	if (_cpu()->thread == NULL || arch_smp_cpusawake == 1)
+	if (current_thread() == NULL || arch_smp_cpusawake == 1)
 		return;
 
 	if (page >= KERNELSPACE_START ||
-	(_cpu()->thread->proc->runningthreadcount > 1 && page >= USERSPACE_START && page < USERSPACE_END)) {
+	(current_thread()->proc->runningthreadcount > 1 && page >= USERSPACE_START && page < USERSPACE_END)) {
 		// shoot down if page is in the kernel space or in a multithreaded userland application
 		int oldipl = interrupt_raiseipl(IPL_DPC);
 		spinlock_acquire(&shootdownlock);
@@ -275,7 +275,7 @@ static volatile struct limine_kernel_address_request kaddrreq = {
 #define ERROR_FETCH   16
 
 static void pfisr(isr_t *self, context_t *ctx) {
-	thread_t *thread = _cpu()->thread;
+	thread_t *thread = current_thread();
 	interrupt_set(true);
 	int vmmerror = 0;
 	if (ctx->error & ERROR_PRESENT)
@@ -301,7 +301,7 @@ static void pfisr(isr_t *self, context_t *ctx) {
 }
 
 static void gpfisr(isr_t *self, context_t *ctx) {
-	thread_t *thread = _cpu()->thread;
+	thread_t *thread = current_thread();
 	if (thread->usercopyctx) {
 		memcpy(ctx, thread->usercopyctx, sizeof(context_t));
 		thread->usercopyctx = NULL;

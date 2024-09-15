@@ -62,7 +62,7 @@ syscallret_t syscall_utimensat(context_t *, int fd, char *upath, timespec_t uts[
 	}
 
 	vattr_t attr;
-	ret.errno = VOP_GETATTR(node, &attr, &_cpu()->thread->proc->cred);
+	ret.errno = VOP_GETATTR(node, &attr, &current_thread()->proc->cred);
 	if (ret.errno) {
 		VOP_UNLOCK(node);
 		goto cleanup;
@@ -71,10 +71,10 @@ syscallret_t syscall_utimensat(context_t *, int fd, char *upath, timespec_t uts[
 	attr.atime = ts[0];
 	attr.mtime = ts[1];
 
-	ret.errno = auth_filesystem_check(&_cpu()->thread->proc->cred, AUTH_ACTIONS_FILESYSTEM_SETATTR, node, NULL);
+	ret.errno = auth_filesystem_check(&current_thread()->proc->cred, AUTH_ACTIONS_FILESYSTEM_SETATTR, node, NULL);
 	if (ret.errno) {
 		if (uts == NULL)
-			ret.errno = VOP_ACCESS(node, V_ACCESS_WRITE, &_cpu()->thread->proc->cred);
+			ret.errno = VOP_ACCESS(node, V_ACCESS_WRITE, &current_thread()->proc->cred);
 
 		if (ret.errno) {
 			VOP_UNLOCK(node);
@@ -82,7 +82,7 @@ syscallret_t syscall_utimensat(context_t *, int fd, char *upath, timespec_t uts[
 		}
 	}
 
-	ret.errno = VOP_SETATTR(node, &attr, V_ATTR_ATIME | V_ATTR_MTIME, &_cpu()->thread->proc->cred);
+	ret.errno = VOP_SETATTR(node, &attr, V_ATTR_ATIME | V_ATTR_MTIME, &current_thread()->proc->cred);
 	ret.ret = ret.errno ? -1 : 0;
 	VOP_UNLOCK(node);
 

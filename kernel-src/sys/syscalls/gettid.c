@@ -4,7 +4,7 @@
 syscallret_t syscall_gettid(context_t *) {
 	syscallret_t ret = {
 		.errno = 0,
-		.ret = _cpu()->thread->tid
+		.ret = current_thread()->tid
 	};
 
 	return ret;

@@ -15,15 +15,15 @@ syscallret_t syscall_newthread(context_t *, void *entry, void *stack) {
 		return ret;
 	}
 
-	proc_t *proc = _cpu()->thread->proc;
+	proc_t *proc = current_thread()->proc;
 
-	thread_t *thread = sched_newthread(entry, 16 * PAGE_SIZE, 1, _cpu()->thread->proc, stack);
+	thread_t *thread = sched_newthread(entry, 16 * PAGE_SIZE, 1, current_thread()->proc, stack);
 	if (thread == NULL) {
 		ret.errno = ENOMEM;
 		return ret;
 	}
 
-	thread->vmmctx = _cpu()->thread->vmmctx;
+	thread->vmmctx = current_thread()->vmmctx;
 
 	bool intstatus = interrupt_set(false);
 	spinlock_acquire(&proc->threadlistlock);

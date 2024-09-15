@@ -9,7 +9,7 @@
 // vnode should be locked
 static int dostat(vnode_t *vnode, stat_t *stat) {
 	vattr_t attr;
-	int e = VOP_GETATTR(vnode, &attr, &_cpu()->thread->proc->cred);
+	int e = VOP_GETATTR(vnode, &attr, &current_thread()->proc->cred);
 	if (e)
 		return e;
 

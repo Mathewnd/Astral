@@ -22,10 +22,10 @@ static spinlock_t listlock;
 static vfs_t *vfslist;
 
 static cred_t *getcred() {
-	if (_cpu()->thread == NULL || _cpu()->thread->proc == NULL)
+	if (current_thread() == NULL || current_thread()->proc == NULL)
 		return NULL;
 	else
-		return &_cpu()->thread->proc->cred;
+		return &current_thread()->proc->cred;
 }
 
 int vfs_pollstub(vnode_t *node, struct polldata *, int events) {
@@ -251,7 +251,7 @@ int vfs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t
 
 		if (node->type == V_TYPE_REGULAR && newsize) {
 			// do resize stuff if regular and applicable
-			err = VOP_RESIZE(node, newsize, &_cpu()->thread->proc->cred);
+			err = VOP_RESIZE(node, newsize, &current_thread()->proc->cred);
 			if (err)
 				goto leave;
 		} else if (node->type == V_TYPE_BLKDEV) {
@@ -780,11 +780,11 @@ int vfs_lookup(vnode_t **result, vnode_t *start, char *path, char *lastcomp, int
 			// get the start node of the dereference
 			vnode_t *derefstart = current;
 
-			if (*linkderef == '/' && _cpu()->thread && _cpu()->thread->proc) {
-				MUTEX_ACQUIRE(&_cpu()->thread->proc->mutex, false);
-				derefstart = _cpu()->thread->proc->root;
+			if (*linkderef == '/' && current_thread() && current_thread()->proc) {
+				MUTEX_ACQUIRE(&current_thread()->proc->mutex, false);
+				derefstart = current_thread()->proc->root;
 				VOP_HOLD(derefstart);
-				MUTEX_RELEASE(&_cpu()->thread->proc->mutex);
+				MUTEX_RELEASE(&current_thread()->proc->mutex);
 			} else if (*linkderef == '/') {
 				derefstart = vfsroot;
 				VOP_HOLD(derefstart);

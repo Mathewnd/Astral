@@ -357,8 +357,8 @@ static int localsock_send(socket_t *socket, sockdesc_t *sockdesc) {
 
 	localsocket_t *peer = pair->client == localsocket ? pair->server : pair->client;
 	if (peer == NULL) {
-		if (_cpu()->thread->proc && (sockdesc->flags & SOCKET_SEND_FLAGS_NOSIGNAL) == 0)
-			signal_signalproc(_cpu()->thread->proc, SIGPIPE);
+		if (current_thread()->proc && (sockdesc->flags & SOCKET_SEND_FLAGS_NOSIGNAL) == 0)
+			signal_signalproc(current_thread()->proc, SIGPIPE);
 
 		error = EPIPE;
 		goto leave;
@@ -873,9 +873,9 @@ static int localsock_bind(socket_t *socket, sockaddr_t *addr, cred_t *cred) {
 
 	refnode = *path == '/' ? sched_getroot() : sched_getcwd();
 	vattr_t attr = {
-		.mode = _cpu()->thread->proc ? UMASK(0777) : 0644,
-		.gid = _cpu()->thread->proc ? _cpu()->thread->proc->cred.gid : 0,
-		.uid = _cpu()->thread->proc ? _cpu()->thread->proc->cred.uid : 0
+		.mode = current_thread()->proc ? UMASK(0777) : 0644,
+		.gid = current_thread()->proc ? current_thread()->proc->cred.gid : 0,
+		.uid = current_thread()->proc ? current_thread()->proc->cred.uid : 0
 	};
 
 	vnode_t *vnode;

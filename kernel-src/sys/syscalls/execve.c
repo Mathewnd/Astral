@@ -177,7 +177,7 @@ static syscallret_t execve(context_t *context, char *upath, char *uargv[], char 
 	if (ret.errno)
 		goto error;
 
-	ret.errno = VOP_ACCESS(node, V_ACCESS_EXECUTE, &_cpu()->thread->proc->cred);
+	ret.errno = VOP_ACCESS(node, V_ACCESS_EXECUTE, &current_thread()->proc->cred);
 	VOP_UNLOCK(node);
 	if (ret.errno) {
 		goto error;
@@ -277,13 +277,13 @@ static syscallret_t execve(context_t *context, char *upath, char *uargv[], char 
 
 	// close O_CLOEXEC fds
 
-	proc_t *proc = _cpu()->thread->proc;
+	proc_t *proc = current_thread()->proc;
 	for (int fd = 0; fd < proc->fdcount; ++fd) {
 		if (proc->fd[fd].flags & O_CLOEXEC)
                 	fd_close(fd);
 	}
 
-	memset(&_cpu()->thread->signals.stack, 0, sizeof(stack_t));
+	memset(&current_thread()->signals.stack, 0, sizeof(stack_t));
 
 	// execve keeps information about ignored signals
 	for (int i = 1; i < NSIG; ++i) {
@@ -306,7 +306,7 @@ static syscallret_t execve(context_t *context, char *upath, char *uargv[], char 
 	if (vattr.mode & V_ATTR_MODE_SGID)
 		sgid = vattr.gid;
 
-	cred_doexec(&_cpu()->thread->proc->cred, suid, sgid);
+	cred_doexec(&current_thread()->proc->cred, suid, sgid);
 
 	error:
 	free(path);
