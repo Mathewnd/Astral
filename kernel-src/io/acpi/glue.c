@@ -355,7 +355,7 @@ static void acpi_dowork(struct acpi_workctx *ctx) {
 }
 
 static void acpi_dogpework() {
-	sched_targetcpu(_bsp());
+	sched_targetcpu(get_bsp());
 	sched_yield();
 
 	acpi_dowork(&gpework);

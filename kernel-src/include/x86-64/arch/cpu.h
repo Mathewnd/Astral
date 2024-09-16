@@ -54,7 +54,7 @@ static inline uint16_t be_to_cpu_w(uint16_t w) {
 	return __builtin_bswap16(w);
 }
 
-cpu_t *_bsp(void);
+cpu_t *get_bsp(void);
 
 static inline thread_t *current_thread(void) {
 	thread_t *thread;

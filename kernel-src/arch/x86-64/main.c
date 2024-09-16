@@ -130,6 +130,6 @@ void kernel_entry() {
 	sched_threadexit();
 }
 
-cpu_t *_bsp(void) {
+cpu_t *get_bsp(void) {
 	return &bsp_cpu;
 }
