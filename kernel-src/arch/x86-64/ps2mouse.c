@@ -82,7 +82,7 @@ void ps2mouse_init() {
 	DO_IDENTIFY_CHECK("first");
 
 	if (identity[0] != PS2_MOUSE) {
-		printf("ps2: ps2moune_init: not a mouse!\n");
+		printf("ps2: ps2mouse_init: not a mouse!\n");
 		return;
 	}
 
