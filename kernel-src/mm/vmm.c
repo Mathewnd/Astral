@@ -292,7 +292,6 @@ static void changemmurange(vmmrange_t *range, void *base, size_t size, mmuflags_
 		// we will only change the mapping if the permissions decreased
 		if (mask) {
 			arch_mmu_remap(current_vmm_context()->pagetable, physical, address, currentflags & ~mask);
-			arch_mmu_invalidate(address);
 		}
 	}
 }

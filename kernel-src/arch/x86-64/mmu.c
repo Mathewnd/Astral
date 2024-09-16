@@ -136,17 +136,12 @@ bool arch_mmu_map(pagetableptr_t table, void *paddr, void *vaddr, mmuflags_t fla
 	return add_page(table, vaddr, entry, 0);
 }
 
-void arch_mmu_invalidate(void *vaddr) {
-	arch_mmu_tlbshootdown(vaddr);
-	asm volatile ("invlpg (%%rax)" : : "a"(vaddr));
-}
-
 void arch_mmu_unmap(pagetableptr_t table, void *vaddr) {
 	uint64_t *entry = get_page(table, vaddr);
 	if (entry == NULL)
 		return;
 	*entry = 0;
-	arch_mmu_invalidate(vaddr);
+	arch_mmu_invalidate_range(vaddr, PAGE_SIZE);
 }
 
 void arch_mmu_remap(pagetableptr_t table, void *paddr, void *vaddr, mmuflags_t flags) {
@@ -155,7 +150,7 @@ void arch_mmu_remap(pagetableptr_t table, void *paddr, void *vaddr, mmuflags_t f
 		return;
 	uintptr_t addr = paddr == NULL ? (*entryptr & ADDRMASK) : ((uintptr_t)paddr & ADDRMASK);
 	*entryptr = addr | flags;
-	arch_mmu_invalidate(vaddr);
+	arch_mmu_invalidate_range(vaddr, PAGE_SIZE);
 }
 
 void *arch_mmu_getphysical(pagetableptr_t table, void *vaddr) {
@@ -209,35 +204,53 @@ pagetableptr_t arch_mmu_newtable() {
 	return table;
 }
 
-static void *mmupage = NULL;
-static spinlock_t shootdownlock;
-static int remaining = 0;
+static void *shootdown_page;
+static size_t shootdown_size;
+static spinlock_t shootdown_lock;
+static int shootdown_remaining = 0;
 
-void arch_mmu_tlbipi(isr_t *isr, context_t *context) {
-	asm volatile ("invlpg (%%rax)" : : "a"(mmupage));
-	__atomic_sub_fetch(&remaining, 1, __ATOMIC_SEQ_CST);
+static inline void do_invalidate(void *page, size_t size) {
+	for (uintptr_t i = 0; i < size; i += PAGE_SIZE) {
+		uintptr_t ptr = (uintptr_t)page + i;
+		asm volatile ("invlpg (%%rax)" : : "a"(ptr) : "memory");
+	}
 }
 
-void arch_mmu_tlbshootdown(void *page) {
-	// scheduler not up yet, or there are no other cpus, nothing to do
-	if (current_thread() == NULL || arch_smp_cpusawake == 1)
-		return;
+void arch_mmu_tlbipi(isr_t *isr, context_t *context) {
+	do_invalidate(shootdown_page, shootdown_size);
+	__atomic_sub_fetch(&shootdown_remaining, 1, __ATOMIC_SEQ_CST);
+}
 
-	if (page >= KERNELSPACE_START ||
-	(current_thread()->proc->runningthreadcount > 1 && page >= USERSPACE_START && page < USERSPACE_END)) {
-		// shoot down if page is in the kernel space or in a multithreaded userland application
-		int oldipl = interrupt_raiseipl(IPL_DPC);
-		spinlock_acquire(&shootdownlock);
+void arch_mmu_invalidate_range(void *page, size_t size) {
+	__assert(((uintptr_t)page % PAGE_SIZE) == 0);
+	thread_t *thread = current_thread();
 
-		mmupage = page;
-		remaining = arch_smp_cpusawake - 1;
+	bool do_shootdown = // do shootdown if
+		current_thread() // scheduler is up
+		&& arch_smp_cpusawake >= 2 // and there are multiple cpus in the system
+		&& (page >= KERNELSPACE_START // and its either in the kernel
+		|| (page >= USERSPACE_START && page < USERSPACE_END // or in an userspace...
+			&& thread->proc && thread->proc->runningthreadcount > 1)); // in a process which has multiple threads running
+
+	int old_ipl;
+	if (do_shootdown) {
+		old_ipl = interrupt_raiseipl(IPL_DPC);
+		spinlock_acquire(&shootdown_lock);
+
+		shootdown_page = page;
+		shootdown_size = size;
+		shootdown_remaining = arch_smp_cpusawake - 1;
 
 		arch_smp_sendipi(NULL, &current_cpu()->isr[0xfe], ARCH_SMP_IPI_OTHERCPUS, false);
+	}
 
-		while (__atomic_load_n(&remaining, __ATOMIC_SEQ_CST)) CPU_PAUSE();
+	do_invalidate(page, size);
 
-		spinlock_release(&shootdownlock);
-		interrupt_loweripl(oldipl);
+	if (do_shootdown) {
+		while (__atomic_load_n(&shootdown_remaining, __ATOMIC_SEQ_CST)) CPU_PAUSE();
+
+		spinlock_release(&shootdown_lock);
+		interrupt_loweripl(old_ipl);
 	}
 }
 
