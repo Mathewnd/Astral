@@ -99,8 +99,11 @@ void interrupt_isr(int vec, context_t *ctx) {
 	isr_t *isr = &current_cpu()->isr[vec];
 	current_cpu()->intstatus = false;
 
-	if (isr->func == NULL)
-		_panic("Unregistered interrupt", ctx);
+	if (isr->func == NULL) {
+		char oops[64];
+		snprintf(oops, 64, "Unregistered interrupt %d\n", vec);
+		_panic(oops, ctx);
+	}
 
 	if (current_cpu()->ipl > isr->priority) {
 		runisr(isr, ctx);
@@ -138,7 +141,7 @@ void interrupt_register(int vector, void (*func)(isr_t *self, context_t *ctx), v
 	isr_t *isr = &current_cpu()->isr[vector];
 	isr->func = func;
 	isr->eoi = eoi;
-	isr->id = (uint64_t)current_cpu_id() | vector;
+	isr->id = ((uint64_t)current_cpu_id() << 32) | vector;
 	isr->priority = priority;
 	isr->pending = false;
 
