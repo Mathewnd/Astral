@@ -208,8 +208,7 @@ arch_syscall_entry:
 	; because it's still using the user stack
 	mov cr2, rax
 	; rax can be used just fine now
-	mov rax, [gs:0x8] ; cpu pointer
-	mov rax, [rax] ; thread pointer
+	mov rax, [gs:0] ; thread pointer
 	mov rax, [rax] ; kernel stack top
 	xchg rsp, rax ; switch stack pointers
 
