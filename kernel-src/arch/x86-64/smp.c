@@ -6,6 +6,7 @@
 #include <arch/idt.h>
 #include <kernel/cmdline.h>
 #include <arch/smp.h>
+#include <kernel/alloc.h>
 
 static volatile struct limine_smp_request smprequest = {
 	.id = LIMINE_SMP_REQUEST
@@ -19,7 +20,6 @@ static void cpuwakeuphalt(struct limine_smp_info *info) {
 	asm("cli");
 	for (;;) CPU_HALT();
 }
-
 
 static void cpuwakeup(struct limine_smp_info *info) {
 	cpu_set((cpu_t *)info->extra_argument);
@@ -47,6 +47,8 @@ void arch_smp_haltallothers() {
 	arch_smp_sendipi(NULL, &current_cpu()->isr[0xfd], ARCH_SMP_IPI_OTHERCPUS, true);
 }
 
+cpu_t **smp_cpus;
+
 void arch_smp_wakeup() {
 	interrupt_register(0xfd, (void *)cpuwakeuphalt, NULL, IPL_IGNORE);
 	struct limine_smp_response *response = smprequest.response;
@@ -59,21 +61,27 @@ void arch_smp_wakeup() {
 	printf("smp: %d processor%s\n", response->cpu_count, response->cpu_count > 1 ? "s" : "");
 
 	// use physical pages so the other cpus have it on the hhdm
-	size_t apcpusize = ROUND_UP(sizeof(cpu_t) * response->cpu_count, PAGE_SIZE);
-	cpu_t *apcpu = pmm_alloc(apcpusize / PAGE_SIZE, PMM_SECTION_DEFAULT);
-	__assert(apcpu);
-	apcpu = MAKE_HHDM(apcpu);
-	memset(apcpu, 0, apcpusize);
+	size_t cpu_size = ROUND_UP(sizeof(cpu_t) * response->cpu_count, PAGE_SIZE);
+	cpu_t *cpus = pmm_alloc(cpu_size / PAGE_SIZE, PMM_SECTION_DEFAULT);
+	__assert(cpus);
+	cpus = MAKE_HHDM(cpus);
+	memset(cpus, 0, cpu_size);
+
+	smp_cpus = alloc(response->cpu_count * sizeof(cpu_t *));
+	__assert(smp_cpus);
 
 	void (*wakeupfn)(struct limine_smp_info *) = cmdline_get("nosmp") ? cpuwakeuphalt : cpuwakeup;
 
 	// make the other processors jump to cpuwakeup()
 	for (int i = 0; i < response->cpu_count; ++i) {
 		// skip the bootstrap processor
-		if (response->cpus[i]->lapic_id == response->bsp_lapic_id)
+		if (response->cpus[i]->lapic_id == response->bsp_lapic_id) {
+			smp_cpus[i] = get_bsp();
 			continue;
+		}
 
-		response->cpus[i]->extra_argument = (uint64_t)&apcpu[i];
+		smp_cpus[i] = &cpus[i];
+		response->cpus[i]->extra_argument = (uint64_t)&cpus[i];
 
 		__atomic_store_n(&response->cpus[i]->goto_address, wakeupfn, __ATOMIC_SEQ_CST);
 	}
