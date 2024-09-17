@@ -141,7 +141,6 @@ void arch_mmu_unmap(pagetableptr_t table, void *vaddr) {
 	if (entry == NULL)
 		return;
 	*entry = 0;
-	arch_mmu_invalidate_range(vaddr, PAGE_SIZE);
 }
 
 void arch_mmu_remap(pagetableptr_t table, void *paddr, void *vaddr, mmuflags_t flags) {
@@ -150,7 +149,6 @@ void arch_mmu_remap(pagetableptr_t table, void *paddr, void *vaddr, mmuflags_t f
 		return;
 	uintptr_t addr = paddr == NULL ? (*entryptr & ADDRMASK) : ((uintptr_t)paddr & ADDRMASK);
 	*entryptr = addr | flags;
-	arch_mmu_invalidate_range(vaddr, PAGE_SIZE);
 }
 
 void *arch_mmu_getphysical(pagetableptr_t table, void *vaddr) {
@@ -210,9 +208,15 @@ static spinlock_t shootdown_lock;
 static int shootdown_remaining = 0;
 
 static inline void do_invalidate(void *page, size_t size) {
-	for (uintptr_t i = 0; i < size; i += PAGE_SIZE) {
-		uintptr_t ptr = (uintptr_t)page + i;
-		asm volatile ("invlpg (%%rax)" : : "a"(ptr) : "memory");
+	// if a full reload was requested or we are doing a big release on 
+	if (page == NULL || size >= 128 * PAGE_SIZE) {
+		// TODO if global pages are ever supported, we should disable them in CR4, flush, and then reenable them
+		asm volatile("mov %%cr3, %%rax; mov %%rax, %%cr3;" : : : "rax", "memory");
+	} else {
+		for (uintptr_t i = 0; i < size; i += PAGE_SIZE) {
+			uintptr_t ptr = (uintptr_t)page + i;
+			asm volatile ("invlpg (%%rax)" : : "a"(ptr) : "memory");
+		}
 	}
 }
 
@@ -221,6 +225,7 @@ void arch_mmu_tlbipi(isr_t *isr, context_t *context) {
 	__atomic_sub_fetch(&shootdown_remaining, 1, __ATOMIC_SEQ_CST);
 }
 
+// if page == NULL, this will do a userspace shootdown that flushes the whole tlb
 void arch_mmu_invalidate_range(void *page, size_t size) {
 	__assert(((uintptr_t)page % PAGE_SIZE) == 0);
 	thread_t *thread = current_thread();
@@ -229,7 +234,7 @@ void arch_mmu_invalidate_range(void *page, size_t size) {
 		current_thread() // scheduler is up
 		&& arch_smp_cpusawake >= 2 // and there are multiple cpus in the system
 		&& (page >= KERNELSPACE_START // and its either in the kernel
-		|| (page >= USERSPACE_START && page < USERSPACE_END // or in an userspace...
+		|| ((page == NULL || (page >= USERSPACE_START && page < USERSPACE_END)) // or in userspace...
 			&& thread->proc && thread->proc->runningthreadcount > 1)); // in a process which has multiple threads running
 
 	int old_ipl;
@@ -241,7 +246,12 @@ void arch_mmu_invalidate_range(void *page, size_t size) {
 		shootdown_size = size;
 		shootdown_remaining = arch_smp_cpusawake - 1;
 
-		arch_smp_sendipi(NULL, &current_cpu()->isr[0xfe], ARCH_SMP_IPI_OTHERCPUS, false);
+		for (int i = 0; i < arch_smp_cpusawake; ++i) {
+			if (smp_cpus[i] == current_cpu())
+				continue;
+
+			arch_smp_sendipi(smp_cpus[i], &smp_cpus[i]->isr[0xfe], ARCH_SMP_IPI_TARGET, false);
+		}
 	}
 
 	do_invalidate(page, size);

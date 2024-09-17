@@ -156,10 +156,11 @@ static int mmap(int minor, void *addr, uintmax_t offset, int flags) {
 
 static int munmap(int minor, void *addr, uintmax_t offset, int flags) {
 	void *phys = arch_mmu_getphysical(current_vmm_context()->pagetable, addr);
+	bool release = (flags & V_FFLAGS_SHARED) && arch_mmu_iswritable(current_vmm_context()->pagetable, addr);
 	arch_mmu_unmap(current_vmm_context()->pagetable, addr);
-	if ((flags & V_FFLAGS_SHARED) == 0) {
+	arch_mmu_invalidate_range(addr, PAGE_SIZE);
+	if (release)
 		pmm_release(phys);
-	}
 
 	return 0;
 }

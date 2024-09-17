@@ -317,9 +317,13 @@ static int changemap(vmmspace_t *space, void *address, size_t size, bool free, i
 
 	int error = 0;
 
-	while (range) {
+	while (range && range->start >= top) {
 		__assert(range != space->ranges || range->prev == NULL);
 		void *rangetop = RANGE_TOP(range);
+		if ((uintptr_t)range->start >= (uintptr_t)address + size)
+			break;
+
+		vmmrange_t *nextsave = range->next;
 		if (range->start >= address && rangetop <= top) {
 			// completely changed
 			if (free) {
@@ -452,7 +456,7 @@ static int changemap(vmmspace_t *space, void *address, size_t size, bool free, i
 			if (free) {
 				destroyrange(range, range->size, difference, 0);
 			} else {
-				newrange->start = (void *)((uintptr_t)range->start + difference);
+				newrange->start = (void *)((uintptr_t)range->start + range->size + difference);
 				newrange->size = difference;
 				newrange->flags = range->flags;
 				newrange->mmuflags = newmmuflags;
@@ -461,7 +465,7 @@ static int changemap(vmmspace_t *space, void *address, size_t size, bool free, i
 
 				if (range->flags & VMM_FLAGS_FILE) {
 					newrange->vnode = range->vnode;
-					newrange->offset = range->offset + difference;
+					newrange->offset = range->offset + range->size + difference;
 					VOP_HOLD(range->vnode);
 				}
 
@@ -474,7 +478,7 @@ static int changemap(vmmspace_t *space, void *address, size_t size, bool free, i
 			}
 		}
 
-		range = range->next;
+		range = nextsave;
 	}
 
 	leave:
@@ -500,7 +504,10 @@ int vmm_changemmuflags(void *base, size_t size, mmuflags_t mmuflags, int flags) 
 		return ENOMEM;
 
 	MUTEX_ACQUIRE(&space->lock, false);
+
 	int error = changemap(space, base, size, false, flags, mmuflags);
+	arch_mmu_invalidate_range(base, size);
+
 	MUTEX_RELEASE(&space->lock);
 	return error;
 }
@@ -634,6 +641,7 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 			} else {
 				memcpy(MAKE_HHDM(newphys), MAKE_HHDM(oldphys), PAGE_SIZE);
 				arch_mmu_remap(current_vmm_context()->pagetable, newphys, addr, range->mmuflags);
+				arch_mmu_invalidate_range(addr, PAGE_SIZE);
 				if ((range->flags & VMM_FLAGS_FILE) == 0 || vfs_iscacheable(range->vnode))
 					pmm_release(oldphys);
 
@@ -704,6 +712,10 @@ void *vmm_map(void *addr, volatile size_t size, int flags, mmuflags_t mmuflags, 
 		range->flags = VMM_PERMANENT_FLAGS_MASK & flags;
 		range->mmuflags = mmuflags;
 		__assert((flags & (VMM_FLAGS_ALLOCATE | VMM_FLAGS_PHYSICAL)) == 0);
+		// make the memory inacessible
+		changemap(space, addr, size, false, flags, 0);
+		arch_mmu_invalidate_range(addr, size);
+		// and then free it
 		changemap(space, addr, size, true, flags, 0);
 	} else {
 		retaddr = start;
@@ -729,6 +741,8 @@ void *vmm_map(void *addr, volatile size_t size, int flags, mmuflags_t mmuflags, 
 				for (uintmax_t j = 0; j < size; j += PAGE_SIZE)
 					arch_mmu_unmap(current_vmm_context()->pagetable, (void *)((uintptr_t)start + j));
 
+				// invalidate here just to be sure
+				arch_mmu_invalidate_range(start, size);
 				retaddr = NULL;
 				goto cleanup;
 			}
@@ -753,6 +767,8 @@ void *vmm_map(void *addr, volatile size_t size, int flags, mmuflags_t mmuflags, 
 						}
 				}
 
+				// invalidate here just to be sure
+				arch_mmu_invalidate_range(start, size);
 				retaddr = NULL;
 				goto cleanup;
 			}
@@ -785,7 +801,14 @@ void vmm_unmap(void *addr, size_t size, int flags) {
 		return;
 
 	MUTEX_ACQUIRE(&space->lock, false);
+
+	// make memory inacessible
+	changemap(space, addr, size, false, flags, 0);
+	arch_mmu_invalidate_range(addr, size);
+
+	// and then free it
 	changemap(space, addr, size, true, flags, 0);
+
 	MUTEX_RELEASE(&space->lock);
 }
 
@@ -858,12 +881,16 @@ vmmcontext_t *vmm_fork(vmmcontext_t *oldcontext) {
 
 			if (arch_mmu_map(newcontext->pagetable, phys, vaddr, newrange->mmuflags & ~ARCH_MMU_FLAGS_WRITE) == false)
 				goto error;
+
 			pmm_hold(phys);
+
 			arch_mmu_remap(oldcontext->pagetable, phys, vaddr, newrange->mmuflags & ~ARCH_MMU_FLAGS_WRITE);
 		}
 
 		range = range->next;
 	}
+
+	arch_mmu_invalidate_range(NULL, 0);
 
 	MUTEX_RELEASE(&oldcontext->space.lock);
 	return newcontext;
