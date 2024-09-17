@@ -33,14 +33,14 @@ static thread_t *get(semaphore_t *sem) {
 	return thread;
 }
 
-static void removeself(semaphore_t *sem) {
+static bool removeself(semaphore_t *sem) {
 	thread_t *thread = current_thread();
 
 	// first see if we have been removed already
 	if ((sem->head == NULL && sem->tail == NULL) || // no threads in sleep list
 	   !((thread->sleepnext != NULL || thread->sleepprev != NULL) || // 2 or more threads in sleep list and we are one of them
 	    (sem->head == thread && sem->tail == thread))) // 1 thread in the sleep list and it is us
-		return;
+		return false;
 
 	if (sem->head == thread) {
 		sem->head = thread->sleepnext;
@@ -56,6 +56,7 @@ static void removeself(semaphore_t *sem) {
 
 	thread->sleepprev = NULL;
 	thread->sleepnext = NULL;
+	return true;
 }
 
 int semaphore_wait(semaphore_t *sem, bool interruptible) {
@@ -75,8 +76,12 @@ int semaphore_wait(semaphore_t *sem, bool interruptible) {
 		ret = sched_yield();
 		if (ret) {
 			spinlock_acquire(&sem->lock);
-			++sem->i;
-			removeself(sem);
+
+			if (removeself(sem))
+				++sem->i;
+			else
+				ret = 0; // we have already been removed in the meantime, so pretend we did not actually get interrupted
+
 			spinlock_release(&sem->lock);
 		}
 		goto leave;
@@ -108,20 +113,16 @@ int semaphore_timedwait(semaphore_t *sem, time_t timeoutusec, bool interruptible
 void semaphore_signal(semaphore_t *sem) {
 	bool intstate = interrupt_set(false);
 	spinlock_acquire(&sem->lock);
+
 	if (++sem->i <= 0) {
-		thread_t *thread;
-		do {
-			// wake SOMEONE up. this will *try* to wake up a thread
-			// it could wake up none though, as a thread could have been interrupted by a signal
-			thread = get(sem);
-			// TODO this is broken
-			// XXX the current method doesn't respect thread priorities
-			if (thread) {
-				sched_wakeup(thread, 0);
-				break;
-			}
-		} while (thread);
+		thread_t *thread = get(sem);
+		// a thread will always be returned if sem->i <= 0
+		__assert(thread);
+
+		// XXX the current method doesn't respect thread priorities
+		sched_wakeup(thread, 0);
 	}
+
 	spinlock_release(&sem->lock);
 	interrupt_set(intstate);
 }
