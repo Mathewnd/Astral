@@ -95,6 +95,7 @@ disk-minimal:
 # ------ clean targets ------
 
 clean-kernel:
+	find builds/astral/ -name *.d -delete
 	find builds/astral/ -name *.o -delete
 	find builds/astral/ -name *.asmo -delete
 
