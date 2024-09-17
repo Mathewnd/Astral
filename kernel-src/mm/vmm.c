@@ -317,11 +317,9 @@ static int changemap(vmmspace_t *space, void *address, size_t size, bool free, i
 
 	int error = 0;
 
-	while (range && range->start >= top) {
+	while (range && range->start < top) {
 		__assert(range != space->ranges || range->prev == NULL);
 		void *rangetop = RANGE_TOP(range);
-		if ((uintptr_t)range->start >= (uintptr_t)address + size)
-			break;
 
 		vmmrange_t *nextsave = range->next;
 		if (range->start >= address && rangetop <= top) {
@@ -456,7 +454,7 @@ static int changemap(vmmspace_t *space, void *address, size_t size, bool free, i
 			if (free) {
 				destroyrange(range, range->size, difference, 0);
 			} else {
-				newrange->start = (void *)((uintptr_t)range->start + range->size + difference);
+				newrange->start = (void *)((uintptr_t)range->start + range->size);
 				newrange->size = difference;
 				newrange->flags = range->flags;
 				newrange->mmuflags = newmmuflags;
@@ -465,7 +463,7 @@ static int changemap(vmmspace_t *space, void *address, size_t size, bool free, i
 
 				if (range->flags & VMM_FLAGS_FILE) {
 					newrange->vnode = range->vnode;
-					newrange->offset = range->offset + range->size + difference;
+					newrange->offset = range->offset + range->size;
 					VOP_HOLD(range->vnode);
 				}
 
