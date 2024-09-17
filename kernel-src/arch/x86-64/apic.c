@@ -93,12 +93,12 @@ static int getcount(int type) {
 	return count;
 }
 
-static void writelapic(int reg, uint32_t v) {
+	static inline void writelapic(int reg, uint32_t v) {
 	volatile uint32_t *ptr = (void *)((uintptr_t)lapicaddr + reg);
 	*ptr = v;
 }
 
-static uint32_t readlapic(int reg) {
+static inline uint32_t readlapic(int reg) {
 	volatile uint32_t *ptr = (void *)((uintptr_t)lapicaddr + reg);
 	return *ptr;
 }
@@ -242,10 +242,9 @@ void arch_apic_timerinit() {
 }
 
 void arch_apic_sendipi(uint8_t cpu, uint8_t vec, uint8_t dest, uint8_t mode, uint8_t level) {
-	while (readlapic(APIC_REG_ICR_LO) & APIC_REG_ICR_LO_STATUS) CPU_PAUSE();
-
 	writelapic(APIC_REG_ICR_HI, (uint32_t)cpu << 24);
 	writelapic(APIC_REG_ICR_LO, vec | (level << 8) | (mode << 11) | (dest << 18) | (1 << 14));
+	while (readlapic(APIC_REG_ICR_LO) & APIC_REG_ICR_LO_STATUS) CPU_PAUSE();
 }
 
 void arch_apic_init() {
