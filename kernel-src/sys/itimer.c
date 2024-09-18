@@ -30,16 +30,11 @@ void itimer_pause(itimer_t *itimer, uintmax_t *remainingus, uintmax_t *repeatus)
 	bool intstatus = interrupt_set(false);
 	spinlock_acquire(&itimer->lock);
 
+
 	while (itimer->cpu && itimer->cpu != current_cpu()) {
 		// schedule on the itimer cpu
-		sched_targetcpu(itimer->cpu);
 		spinlock_release(&itimer->lock);
-		// allow interrupts to be handled (such as a tlb shootdown)
-		// as the other cpu could be busy waiting for this one
-		interrupt_set(true);
-		interrupt_set(false);
-		sched_yield();
-		sched_targetcpu(NULL);
+		sched_reschedule_on_cpu(itimer->cpu, false);
 		spinlock_acquire(&itimer->lock);
 	}
 

@@ -13,6 +13,7 @@
 #include <kernel/jobctl.h>
 #include <kernel/cmdline.h>
 #include <kernel/auth.h>
+#include <arch/smp.h>
 
 #define QUANTUM_US 100000
 #define SCHEDULER_STACK_SIZE PAGE_SIZE * 16
@@ -712,6 +713,52 @@ void sched_targetcpu(cpu_t *cpu) {
 	bool intstatus = interrupt_set(false);
 	current_thread()->cputarget = cpu;
 	interrupt_set(intstatus);
+}
+
+// yields the current thread and sends an reschedule ipi to a specific cpu
+static void reschedule_yield(context_t *context, void *_cpu) {
+	thread_t *thread = current_thread();
+	cpu_t *cpu = _cpu;
+
+	spinlock_acquire(&runqueuelock);
+
+	thread_t *next = runqueuenext(0x0fffffff);
+
+	ARCH_CONTEXT_THREADSAVE(thread, context);
+
+	thread->flags &= ~SCHED_THREAD_FLAGS_RUNNING;
+	runqueueinsert(thread);
+
+	if (next == NULL)
+		next = current_cpu()->idlethread;
+
+	arch_smp_sendipi(cpu, cpu->reschedule_isr, ARCH_SMP_IPI_TARGET, false);
+
+	spinlock_release(&runqueuelock);
+	switchthread(next);
+}
+
+void sched_reschedule_on_cpu(cpu_t *cpu, bool target) {
+	cpu_t *old_target = current_thread()->cputarget;
+	current_thread()->cputarget = cpu;
+
+	bool status = interrupt_set(false);
+
+	// already on the cpu
+	if (cpu == current_cpu())
+		goto leave;
+
+	long old_priority = current_thread()->priority;
+	current_thread()->priority = 0;
+
+	arch_context_saveandcall(reschedule_yield, current_cpu()->schedulerstack, cpu);
+
+	current_thread()->priority = old_priority;
+
+	leave:
+	interrupt_set(status);
+	if (target == false)
+		current_thread()->cputarget = old_target;
 }
 
 static void timeout(context_t *, dpcarg_t arg) {
