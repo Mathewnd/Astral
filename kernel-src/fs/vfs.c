@@ -215,11 +215,13 @@ static int writenocache(vnode_t *node, page_t *page, uintmax_t pageoffset) {
 	// don't keep the pages in the cache!
 	// if its a file, do the proper filesystem sync.
 	// if its a block device, sync only the page we just dirtied
+	VOP_LOCK(node);
 	int e;
 	if (node->type == V_TYPE_REGULAR)
 		e = VOP_SYNC(node);
 	else
 		e = vmmcache_syncvnode(node, pageoffset, PAGE_SIZE);
+	VOP_UNLOCK(node);
 
 	// try to turn it into anonymous memory
 	vmmcache_evict(page);
@@ -288,7 +290,9 @@ int vfs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t
 
 			size_t writesize = min(PAGE_SIZE - startoffset, size);
 			void *address = MAKE_HHDM(pmm_getpageaddress(page));
+
 			memcpy((void *)((uintptr_t)address + startoffset), buffer, writesize);
+
 			vmmcache_makedirty(page);
 			*written += writesize;
 			pageoffset += 1;

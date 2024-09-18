@@ -1771,7 +1771,9 @@ static int ext2_sync(vnode_t *vnode) {
 	int e = vmmcache_syncvnode(vnode, 0, UINT64_MAX);
 	ext2fs_t *fs = (ext2fs_t *)vnode->vfs;
 	// TODO don't sync the entire disk but rather only the inodes and blocks
+	VOP_LOCK(fs->backing);
 	int e2 = vmmcache_syncvnode(fs->backing, 0, UINT64_MAX);
+	VOP_UNLOCK(fs->backing);
 	// only the first errors are reported
 	return e ? e : e2;
 }
