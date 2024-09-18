@@ -47,5 +47,6 @@ size_t ringbuffer_remove(ringbuffer_t *ringbuffer, size_t count);
 #define RINGBUFFER_DATACOUNT(x) ((x)->write - (x)->read)
 #define RINGBUFFER_SIZE(x) (x)->size
 #define RINGBUFFER_FREESPACE(x) (RINGBUFFER_SIZE(x) - RINGBUFFER_DATACOUNT(x))
+#define RINGBUFFER_USER_COPY_FAILED -1lu
 
 #endif

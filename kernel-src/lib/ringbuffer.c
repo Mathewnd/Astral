@@ -34,13 +34,13 @@ size_t ringbuffer_read(ringbuffer_t *ringbuffer, void *buffer, size_t count) {
 	size_t firstpasscount = min(count, firstpassremaining);
 
 	if (USERCOPY_POSSIBLY_FROM_USER(buffer, (void *)((uintptr_t)ringbuffer->data + firstpassoffset), firstpasscount))
-		return -1;
+		return RINGBUFFER_USER_COPY_FAILED;
 
 	if (firstpasscount == count)
 		goto leave;
 
 	if (USERCOPY_POSSIBLY_FROM_USER((void *)((uintptr_t)buffer + firstpasscount), ringbuffer->data, count - firstpasscount))
-		return -1;
+		return RINGBUFFER_USER_COPY_FAILED;
 
 	leave:
 	ringbuffer->read += count;
@@ -62,13 +62,13 @@ size_t ringbuffer_peek(ringbuffer_t *ringbuffer, void *buffer, uintmax_t offset,
 	size_t firstpasscount = min(count, firstpassremaining);
 
 	if (USERCOPY_POSSIBLY_TO_USER(buffer, (void *)((uintptr_t)ringbuffer->data + firstpassoffset), firstpasscount))
-		return -1;
+		return RINGBUFFER_USER_COPY_FAILED;
 
 	if (firstpasscount == count)
 		return count;
 
 	if (USERCOPY_POSSIBLY_TO_USER((void *)((uintptr_t)buffer + firstpasscount), ringbuffer->data, count - firstpasscount))
-		return -1;
+		return -RINGBUFFER_USER_COPY_FAILED;
 
 	return count;
 }
@@ -81,13 +81,13 @@ size_t ringbuffer_write(ringbuffer_t *ringbuffer, void *buffer, size_t count) {
 	size_t firstpasscount = min(count, firstpassremaining);
 
 	if (USERCOPY_POSSIBLY_FROM_USER((void *)((uintptr_t)ringbuffer->data + firstpassoffset), buffer, firstpasscount))
-		return -1;
+		return RINGBUFFER_USER_COPY_FAILED;
 
 	if (firstpasscount == count)
 		goto leave;
 
 	if (USERCOPY_POSSIBLY_FROM_USER(ringbuffer->data, (void *)((uintptr_t)buffer + firstpasscount), count - firstpasscount))
-		return -1;
+		return RINGBUFFER_USER_COPY_FAILED;
 
 	leave:
 	ringbuffer->write += count;
