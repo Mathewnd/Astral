@@ -229,6 +229,7 @@ static int writenocache(vnode_t *node, page_t *page, uintmax_t pageoffset) {
 	return e;
 }
 
+// buffer can be a user address
 int vfs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t *written, int flags) {
 	int err = 0;
 	if (vfs_iscacheable(node)) {
@@ -291,7 +292,11 @@ int vfs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t
 			size_t writesize = min(PAGE_SIZE - startoffset, size);
 			void *address = MAKE_HHDM(pmm_getpageaddress(page));
 
-			memcpy((void *)((uintptr_t)address + startoffset), buffer, writesize);
+			err = USERCOPY_POSSIBLY_FROM_USER((void *)((uintptr_t)address + startoffset), buffer, writesize);
+			if (err) {
+				pmm_release(FROM_HHDM(address));
+				goto leave;
+			}
 
 			vmmcache_makedirty(page);
 			*written += writesize;
@@ -314,7 +319,13 @@ int vfs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t
 
 			size_t writesize = min(PAGE_SIZE, size - *written);
 			void *address = MAKE_HHDM(pmm_getpageaddress(page));
-			memcpy(address, (void *)((uintptr_t)buffer + *written), writesize);
+
+			err = USERCOPY_POSSIBLY_FROM_USER(address, (void *)((uintptr_t)buffer + *written), writesize);
+			if (err) {
+				pmm_release(FROM_HHDM(address));
+				goto leave;
+			}
+
 			vmmcache_makedirty(page);
 			*written += writesize;
 
@@ -394,7 +405,13 @@ int vfs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t 
 
 			size_t readsize = min(PAGE_SIZE - startoffset, size);
 			void *address = MAKE_HHDM(pmm_getpageaddress(page));
-			memcpy(buffer, (void *)((uintptr_t)address + startoffset), readsize);
+
+			err = USERCOPY_POSSIBLY_TO_USER(buffer, (void *)((uintptr_t)address + startoffset), readsize);
+			if (err) {
+				pmm_release(FROM_HHDM(address));
+				goto leave;
+			}
+
 			*bytesread += readsize;
 			pageoffset += 1;
 			pagecount -= 1;
@@ -403,6 +420,7 @@ int vfs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t 
 				// try to turn it into anonymous memory
 				vmmcache_evict(page);
 			}
+
 			pmm_release(FROM_HHDM(address));
 		}
 
@@ -414,7 +432,13 @@ int vfs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t 
 
 			size_t readsize = min(PAGE_SIZE, size - *bytesread);
 			void *address = MAKE_HHDM(pmm_getpageaddress(page));
-			memcpy((void *)((uintptr_t)buffer + *bytesread), address, readsize);
+
+			err = USERCOPY_POSSIBLY_TO_USER((void *)((uintptr_t)buffer + *bytesread), address, readsize);
+			if (err) {
+				pmm_release(FROM_HHDM(address));
+				goto leave;
+			}
+
 			*bytesread += readsize;
 			if (flags & V_FFLAGS_NOCACHE) {
 				// try to turn it into anonymous memory
