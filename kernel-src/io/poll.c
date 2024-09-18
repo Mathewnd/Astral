@@ -145,7 +145,7 @@ void poll_event(pollheader_t *header, int events) {
 			insertinheader(header, iterator);
 		}
 
-		if (desc->event == NULL) {
+		if (desc->event == NULL && revents) {
 			iterator->revents = revents;
 			desc->event = iterator;
 		}
