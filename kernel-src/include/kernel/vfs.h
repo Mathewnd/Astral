@@ -92,7 +92,7 @@ typedef struct vfs_t {
 typedef struct vnode_t {
 	struct vops_t *ops;
 	mutex_t lock;
-	mutex_t sizelock;
+	mutex_t size_lock;
 	int refcount;
 	int flags;
 	int type;
@@ -161,7 +161,7 @@ typedef struct vops_t {
 #define VOP_INIT(vn, o, f, t, v) \
 	(vn)->ops = o; \
 	MUTEX_INIT(&(vn)->lock); \
-	MUTEX_INIT(&(vn)->sizelock); \
+	MUTEX_INIT(&(vn)->size_lock); \
 	(vn)->refcount = 1; \
 	(vn)->flags = f; \
 	(vn)->type = t; \

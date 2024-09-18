@@ -43,14 +43,14 @@ syscallret_t syscall_openat(context_t *context, int dirfd, char *path, int flags
 	int newfd;
 	ret.errno = fd_new(flags & O_CLOEXEC, &newfile, &newfd);
 	if (ret.errno)
-		goto cleanup_nounlock;
+		goto cleanup;
 
 	vnode_t *vnode = NULL;
 	ret.errno = vfs_open(dirnode, pathbuf, fileflagstovnodeflags(flags), &vnode);
 	if (ret.errno == 0 && (flags & O_CREAT) && (flags & O_EXCL)) {
 		// exclusive and file already exists
 		ret.errno = EEXIST;
-		goto cleanup_nounlock;
+		goto cleanup;
 	} else if (ret.errno == ENOENT && (flags & O_CREAT)) {
 		// create file
 		vattr_t attr = {
@@ -62,12 +62,7 @@ syscallret_t syscall_openat(context_t *context, int dirfd, char *path, int flags
 		ret.errno = vfs_create(dirnode, pathbuf, &attr, V_TYPE_REGULAR, &vnode);
 		if (ret.errno == EEXIST && (flags & O_EXCL) == 0)
 			goto retry_open;
-	} else if (ret.errno) {
-		// any other error
-		goto cleanup_nounlock;
-	} else {
-		// success, lock file
-		VOP_LOCK(vnode);
+		VOP_UNLOCK(vnode);
 	}
 
 	if (ret.errno)
@@ -79,12 +74,22 @@ syscallret_t syscall_openat(context_t *context, int dirfd, char *path, int flags
 	}
 
 	vattr_t attr;
+	VOP_LOCK(vnode);
+
 	ret.errno = VOP_GETATTR(vnode, &attr, &current_thread()->proc->cred);
+
+	VOP_UNLOCK(vnode);
 	if (ret.errno)
 		goto cleanup;
 
 	if (vnode->type == V_TYPE_REGULAR && (flags & O_TRUNC) && (flags & FILE_WRITE)) {
+		MUTEX_ACQUIRE(&vnode->size_lock, false);
+		VOP_LOCK(vnode);
+
 		ret.errno = VOP_RESIZE(vnode, 0, &current_thread()->proc->cred);
+
+		VOP_UNLOCK(vnode);
+		MUTEX_RELEASE(&vnode->size_lock);
 		if (ret.errno)
 			goto cleanup;
 	}
@@ -99,11 +104,6 @@ syscallret_t syscall_openat(context_t *context, int dirfd, char *path, int flags
 	ret.ret = newfd;
 
 	cleanup:
-
-	if (vnode)
-		VOP_UNLOCK(vnode);
-
-	cleanup_nounlock:
 	if (vnode && ret.errno) {
 		vfs_close(vnode, fileflagstovnodeflags(flags));
 		VOP_RELEASE(vnode);
@@ -111,7 +111,6 @@ syscallret_t syscall_openat(context_t *context, int dirfd, char *path, int flags
 
 	if (newfile && ret.errno)
 		__assert(fd_close(newfd) == 0);
-
 
 	if (pathbuf)
 		free(pathbuf);

@@ -102,7 +102,6 @@ static void removepage(page_t *page) {
 	--vmmcache_cachedpages;
 }
 
-// vnode expected locked
 int vmmcache_getpage(vnode_t *vnode, uintmax_t offset, page_t **res) {
 	__assert(vnode->type == V_TYPE_REGULAR || vnode->type == V_TYPE_BLKDEV);
 	__assert((offset % PAGE_SIZE) == 0);
@@ -164,7 +163,9 @@ int vmmcache_getpage(vnode_t *vnode, uintmax_t offset, page_t **res) {
 
 		RELEASE_LOCK();
 
+		VOP_LOCK(vnode);
 		int error = VOP_GETPAGE(vnode, offset, newpage);
+		VOP_UNLOCK(vnode);
 
 		if (error) {
 			// an error happened with GETPAGE, remove the page from the cache,

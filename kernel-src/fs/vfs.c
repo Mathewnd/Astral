@@ -228,7 +228,6 @@ static int writenocache(vnode_t *node, page_t *page, uintmax_t pageoffset) {
 }
 
 int vfs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t *written, int flags) {
-	VOP_LOCK(node);
 	int err = 0;
 	if (vfs_iscacheable(node)) {
 		*written = 0;
@@ -242,8 +241,12 @@ int vfs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t
 			goto leave;
 		}
 
+		MUTEX_ACQUIRE(&node->size_lock, false);
+
 		vattr_t attr;
+		VOP_LOCK(node);
 		err = VOP_GETATTR(node, &attr, getcred());
+		VOP_UNLOCK(node);
 		if (err)
 			goto leave;
 
@@ -251,14 +254,18 @@ int vfs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t
 
 		if (node->type == V_TYPE_REGULAR && newsize) {
 			// do resize stuff if regular and applicable
+			VOP_LOCK(node);
 			err = VOP_RESIZE(node, newsize, &current_thread()->proc->cred);
+			VOP_UNLOCK(node);
 			if (err)
 				goto leave;
 		} else if (node->type == V_TYPE_BLKDEV) {
 			// else just get the disk size and limit the read size
 			blockdesc_t blockdesc;
 			int r;
+			VOP_LOCK(node);
 			err = VOP_IOCTL(node, BLOCK_IOCTL_GETDESC, &blockdesc, &r, NULL);
+			VOP_UNLOCK(node);
 			__assert(err == 0);
 
 			size_t bytesize = blockdesc.blockcapacity * blockdesc.blocksize;
@@ -315,18 +322,20 @@ int vfs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t
 			if (err)
 				goto leave;
 		}
+
+		leave:
+		MUTEX_RELEASE(&node->size_lock);
 	} else {
 		// special file, just write as its not being cached
+		VOP_LOCK(node);
 		err = VOP_WRITE(node, buffer, size, offset, flags, written, getcred());
+		VOP_UNLOCK(node);
 	}
 
-	leave:
-	VOP_UNLOCK(node);
 	return err;
 }
 
 int vfs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t *bytesread, int flags) {
-	VOP_LOCK(node);
 	int err = 0;
 	if (vfs_iscacheable(node)) {
 		*bytesread = 0;
@@ -342,9 +351,12 @@ int vfs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t 
 
 		size_t nodesize = 0;
 
+		MUTEX_ACQUIRE(&node->size_lock, false);
 		if (node->type == V_TYPE_REGULAR) {
 			vattr_t attr;
+			VOP_LOCK(node);
 			err = VOP_GETATTR(node, &attr, getcred());
+			VOP_UNLOCK(node);
 			if (err)
 				goto leave;
 
@@ -352,7 +364,9 @@ int vfs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t 
 		} else {
 			blockdesc_t blockdesc;
 			int r;
+			VOP_LOCK(node);
 			err = VOP_IOCTL(node, BLOCK_IOCTL_GETDESC, &blockdesc, &r, NULL);
+			VOP_UNLOCK(node);
 			__assert(err == 0);
 
 			nodesize = blockdesc.blockcapacity * blockdesc.blocksize;
@@ -404,12 +418,14 @@ int vfs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t 
 			}
 			pmm_release(FROM_HHDM(address));
 		}
+		leave:
+		MUTEX_RELEASE(&node->size_lock);
 	} else {
 		// special file, just read as size doesn't matter
+		VOP_LOCK(node);
 		err = VOP_READ(node, buffer, size, offset, flags, bytesread, getcred());
+		VOP_UNLOCK(node);
 	}
-	leave:
-	VOP_UNLOCK(node);
 	return err;
 }
 

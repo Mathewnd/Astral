@@ -581,9 +581,8 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 			} else {
 				// cacheable vnode
 				page_t *res = NULL;
-				VOP_LOCK(range->vnode);
 				int error = vmmcache_getpage(range->vnode, range->offset + mapoffset, &res);
-				VOP_UNLOCK(range->vnode);
+
 				if (error == ENXIO || error == ENOMEM)  {
 					if (error == ENOMEM)
 						printf("vmm: out of memory to handle getpage (sending SIGBUS)\n");
