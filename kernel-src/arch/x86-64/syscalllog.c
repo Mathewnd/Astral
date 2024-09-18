@@ -200,6 +200,7 @@ static char *args[] = {
 
 #endif
 
+static spinlock_t lock;
 extern size_t freepagecount;
 __attribute__((no_caller_saved_registers)) void arch_syscall_log(int syscall, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5, uint64_t a6) {
 #ifdef SYSCALL_LOGGING
@@ -211,7 +212,11 @@ __attribute__((no_caller_saved_registers)) void arch_syscall_log(int syscall, ui
 	snprintf(argbuff, 768, syscall < SYSCALL_COUNT ? args[syscall] : "N/A", a1, a2, a3, a4, a5, a6);
 	snprintf(printbuff, 1024, "\e[92msyscall: pid %d tid %d: %s: %s (%lu cached pages, %lu free pages)\n\e[0m", proc->pid, thread->tid, syscall < SYSCALL_COUNT ? name[syscall] : "invalid syscall", argbuff, vmmcache_cachedpages, freepagecount);
 
+	arch_interrupt_disable();
+	spinlock_acquire(&lock);
 	LOGSTR(printbuff);
+	spinlock_release(&lock);
+	arch_interrupt_enable();
 #endif
 }
 
@@ -223,6 +228,10 @@ __attribute__((no_caller_saved_registers)) void arch_syscall_log_return(uint64_t
 	proc_t *proc = thread->proc;
 
 	snprintf(printbuff, 1024, "\e[94msyscall return: pid %d tid %d: %lu %s (%lu cached pages, %lu free pages)\n\e[0m", proc->pid, thread->tid, ret, strerror(errno), vmmcache_cachedpages, freepagecount);
+	arch_interrupt_disable();
+	spinlock_acquire(&lock);
 	LOGSTR(printbuff);
+	spinlock_release(&lock);
+	arch_interrupt_enable();
 #endif
 }
