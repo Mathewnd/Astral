@@ -602,6 +602,7 @@ bool sched_wakeup(thread_t *thread, int reason) {
 	thread->flags &= ~(SCHED_THREAD_FLAGS_SLEEP | SCHED_THREAD_FLAGS_INTERRUPTIBLE);
 	thread->wakeupreason = reason;
 
+	// TODO send IPI to idle cores
 	sched_queue(thread);
 	spinlock_release(&thread->sleeplock);
 	interrupt_set(intstate);
@@ -672,7 +673,7 @@ static void dopreempt() {
 	switchthread(next);
 }
 
-static void timerhook(context_t *context, dpcarg_t arg) {
+static void preempt_dpc(context_t *context, dpcarg_t arg) {
 	thread_t* current = current_thread();
 	interrupt_set(false);
 
@@ -686,6 +687,16 @@ static void timerhook(context_t *context, dpcarg_t arg) {
 	CTX_INIT(context, false, false);
 	CTX_SP(context) = (uintptr_t)current_cpu()->schedulerstack;
 	CTX_IP(context) = (uintptr_t)dopreempt;
+}
+
+// IPL_DPC
+static void reschedule_timer_dpc(context_t *context, dpcarg_t arg) {
+	dpc_enqueue(&current_cpu()->reschedule_dpc, preempt_dpc, NULL);
+}
+
+// IPL_MAX
+static void reschedule_ipi(isr_t *, context_t *) {
+	dpc_enqueue(&current_cpu()->reschedule_dpc, preempt_dpc, NULL);
 }
 
 static void cpuidlethread() {
@@ -724,7 +735,10 @@ void sched_apentry() {
 	current_cpu()->idlethread = sched_newthread(cpuidlethread, PAGE_SIZE * 4, 3, NULL, NULL);
 	__assert(current_cpu()->idlethread);
 
-	timer_insert(current_cpu()->timer, &current_cpu()->schedtimerentry, timerhook, NULL, QUANTUM_US, true);
+	current_cpu()->reschedule_isr = interrupt_allocate(reschedule_ipi, ARCH_EOI, IPL_MAX);
+	__assert(current_cpu()->reschedule_isr);
+
+	timer_insert(current_cpu()->timer, &current_cpu()->schedtimerentry, reschedule_timer_dpc, NULL, QUANTUM_US, true);
 	timer_resume(current_cpu()->timer);
 	sched_stopcurrentthread();
 }
@@ -749,7 +763,10 @@ void sched_init() {
 	current_cpu()->thread = sched_newthread(NULL, PAGE_SIZE * 32, 0, NULL, NULL);
 	__assert(current_thread());
 
-	timer_insert(current_cpu()->timer, &current_cpu()->schedtimerentry, timerhook, NULL, QUANTUM_US, true);
+	current_cpu()->reschedule_isr = interrupt_allocate(reschedule_ipi, ARCH_EOI, IPL_MAX);
+	__assert(current_cpu()->reschedule_isr);
+
+	timer_insert(current_cpu()->timer, &current_cpu()->schedtimerentry, reschedule_timer_dpc, NULL, QUANTUM_US, true);
 	// XXX move this resume to a more appropriate place
 	timer_resume(current_cpu()->timer);
 }

@@ -30,9 +30,14 @@ typedef struct cpu_t {
 	thread_t *idlethread;
 	timerentry_t schedtimerentry;
 	void *schedulerstack;
+
 	isr_t *isrqueue;
-	dpc_t *dpcqueue;
+
 	isr_t *dpcisr;
+	dpc_t *dpcqueue;
+
+	dpc_t  reschedule_dpc;
+	isr_t *reschedule_isr;
 } cpu_t;
 
 #define CPU_HALT() asm volatile("hlt")
