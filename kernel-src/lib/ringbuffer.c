@@ -86,3 +86,9 @@ size_t ringbuffer_write(ringbuffer_t *ringbuffer, void *buffer, size_t count) {
 	ringbuffer->write += count;
 	return count;
 }
+
+size_t ringbuffer_remove(ringbuffer_t *ringbuffer, size_t count) {
+	size_t true_count = min(RINGBUFFER_DATACOUNT(ringbuffer), count);
+	ringbuffer->write -= true_count;
+	return true_count;
+}
