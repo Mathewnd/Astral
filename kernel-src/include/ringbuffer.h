@@ -19,11 +19,13 @@ int ringbuffer_init(ringbuffer_t *ringbuffer, size_t size);
 void ringbuffer_destroy(ringbuffer_t *ringbuffer);
 
 // reads count bytes from ring buffer into buffer
+// can accept a buffer in userspace
 // returns -1 if it was unable to read (due to EFAULT when copying a user page)
 // otherwise returns the number of bytes read
 size_t ringbuffer_read(ringbuffer_t* ringbuffer, void *buffer, size_t count);
 
 // writes count bytes from buffer into ring buffer
+// can accept a buffer in userspace
 // returns -1 if it was unable to write (due to EFAULT when copying a user page)
 // otherwise returns the number of bytes read
 size_t ringbuffer_write(ringbuffer_t* ringbuffer, void *buffer, size_t count);
@@ -33,6 +35,7 @@ size_t ringbuffer_write(ringbuffer_t* ringbuffer, void *buffer, size_t count);
 size_t ringbuffer_truncate(ringbuffer_t *ringbuffer, size_t count);
 
 // same as ringbuffer_read, but accepts an offset and does not update the read pointer
+// can accept a buffer in userspace
 // returns -1 if it was unable to read (due to EFAULT when copying a user page)
 // otherwise returns the number of bytes read
 size_t ringbuffer_peek(ringbuffer_t *ringbuffer, void *buffer, uintmax_t offset, size_t count);

@@ -3,6 +3,7 @@
 #include <util.h>
 #include <errno.h>
 #include <string.h>
+#include <kernel/usercopy.h>
 
 int ringbuffer_init(ringbuffer_t *ringbuffer, size_t size) {
 	ringbuffer->data = vmm_map(NULL, ROUND_UP(size, PAGE_SIZE), VMM_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_NOEXEC, NULL);
@@ -32,12 +33,14 @@ size_t ringbuffer_read(ringbuffer_t *ringbuffer, void *buffer, size_t count) {
 	size_t firstpassremaining = ringbuffer->size - firstpassoffset;
 	size_t firstpasscount = min(count, firstpassremaining);
 
-	memcpy(buffer, (void *)((uintptr_t)ringbuffer->data + firstpassoffset), firstpasscount);
+	if (USERCOPY_POSSIBLY_FROM_USER(buffer, (void *)((uintptr_t)ringbuffer->data + firstpassoffset), firstpasscount))
+		return -1;
 
 	if (firstpasscount == count)
 		goto leave;
 
-	memcpy((void *)((uintptr_t)buffer + firstpasscount), ringbuffer->data, count - firstpasscount);
+	if (USERCOPY_POSSIBLY_FROM_USER((void *)((uintptr_t)buffer + firstpasscount), ringbuffer->data, count - firstpasscount))
+		return -1;
 
 	leave:
 	ringbuffer->read += count;
@@ -58,12 +61,14 @@ size_t ringbuffer_peek(ringbuffer_t *ringbuffer, void *buffer, uintmax_t offset,
 	size_t firstpassremaining = ringbuffer->size - firstpassoffset;
 	size_t firstpasscount = min(count, firstpassremaining);
 
-	memcpy(buffer, (void *)((uintptr_t)ringbuffer->data + firstpassoffset), firstpasscount);
+	if (USERCOPY_POSSIBLY_TO_USER(buffer, (void *)((uintptr_t)ringbuffer->data + firstpassoffset), firstpasscount))
+		return -1;
 
 	if (firstpasscount == count)
 		return count;
 
-	memcpy((void *)((uintptr_t)buffer + firstpasscount), ringbuffer->data, count - firstpasscount);
+	if (USERCOPY_POSSIBLY_TO_USER((void *)((uintptr_t)buffer + firstpasscount), ringbuffer->data, count - firstpasscount))
+		return -1;
 
 	return count;
 }
@@ -75,12 +80,14 @@ size_t ringbuffer_write(ringbuffer_t *ringbuffer, void *buffer, size_t count) {
 	size_t firstpassremaining = ringbuffer->size - firstpassoffset;
 	size_t firstpasscount = min(count, firstpassremaining);
 
-	memcpy((void *)((uintptr_t)ringbuffer->data + firstpassoffset), buffer, firstpasscount);
+	if (USERCOPY_POSSIBLY_FROM_USER((void *)((uintptr_t)ringbuffer->data + firstpassoffset), buffer, firstpasscount))
+		return -1;
 
-	if (firstpasscount == count) 
+	if (firstpasscount == count)
 		goto leave;
 
-	memcpy(ringbuffer->data, (void *)((uintptr_t)buffer + firstpasscount), count - firstpasscount);
+	if (USERCOPY_POSSIBLY_FROM_USER(ringbuffer->data, (void *)((uintptr_t)buffer + firstpasscount), count - firstpasscount))
+		return -1;
 
 	leave:
 	ringbuffer->write += count;
