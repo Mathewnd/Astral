@@ -70,9 +70,6 @@ syscallret_t syscall_recvmsg(context_t *, int fd, msghdr_t *umsghdr, int flags) 
 	if (ret.errno)
 		goto cleanup;
 
-	msghdr.ctrllen = desc.ctrldone;
-	msghdr.flags = (desc.flags & SOCKET_RECV_FLAGS_CTRLTRUNCATED) ? MSG_CTRUNC : 0;
-
 	uintmax_t iovoffset = 0;
 	for (int i = 0; i < msghdr.iovcount; ++i) {
 		ret.errno = usercopy_touser(msghdr.iov[i].addr, (void *)((uintptr_t)buffer + iovoffset), msghdr.iov[i].len);
@@ -103,9 +100,18 @@ syscallret_t syscall_recvmsg(context_t *, int fd, msghdr_t *umsghdr, int flags) 
 		if (ret.errno)
 			goto cleanup;
 
+		ret.errno = usercopy_touser(&umsghdr->ctrllen, &desc.ctrldone, sizeof(desc.ctrldone));
+		if (ret.errno)
+			goto cleanup;
+
 		ret.errno = usercopy_touser(ptr, msghdr.msgctrl, desc.ctrldone);
 		if (ret.errno)
 			goto cleanup;
+	}
+
+	if (ret.errno == 0) {
+		int return_flags = (desc.flags & SOCKET_RECV_FLAGS_CTRLTRUNCATED) ? MSG_CTRUNC : 0;
+		ret.errno = usercopy_touser(&umsghdr->flags, &return_flags, sizeof(return_flags));
 	}
 
 	ret.ret = ret.errno ? -1 : desc.donecount;
