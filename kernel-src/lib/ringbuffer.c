@@ -68,7 +68,7 @@ size_t ringbuffer_peek(ringbuffer_t *ringbuffer, void *buffer, uintmax_t offset,
 		return count;
 
 	if (USERCOPY_POSSIBLY_TO_USER((void *)((uintptr_t)buffer + firstpasscount), ringbuffer->data, count - firstpasscount))
-		return -RINGBUFFER_USER_COPY_FAILED;
+		return RINGBUFFER_USER_COPY_FAILED;
 
 	return count;
 }

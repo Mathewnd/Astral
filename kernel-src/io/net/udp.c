@@ -45,11 +45,15 @@ int udp_sendpacket(void *buffer, size_t size, uint32_t ip, uint16_t srcport, uin
 	};
 
 	memcpy(newbuff, &frame, sizeof(udpframe_t));
-	memcpy((void *)((uintptr_t)newbuff + sizeof(udpframe_t)), buffer, size);
+	int error = USERCOPY_POSSIBLY_FROM_USER((void *)((uintptr_t)newbuff + sizeof(udpframe_t)), buffer, size);
+	if (error)
+		goto leave;
 
-	int e = ipv4_sendpacket(newbuff, size + sizeof(udpframe_t), ip, IPV4_PROTO_UDP, broadcastnetdev);
+	error = ipv4_sendpacket(newbuff, size + sizeof(udpframe_t), ip, IPV4_PROTO_UDP, broadcastnetdev);
+
+	leave:
 	free(newbuff);
-	return e;
+	return error;
 }
 
 void udp_init() {
@@ -163,12 +167,8 @@ static int internalpoll(socket_t *socket, polldata_t *data, int events) {
 	int revents = 0;
 
 	if (events & POLLIN) {
-		bool intstate = interrupt_set(false);
-		spinlock_acquire(&udpsocket->ringbufferlock);
 		if (RINGBUFFER_DATACOUNT(&udpsocket->ringbuffer) > 0)
 			revents |= POLLIN;
-		spinlock_release(&udpsocket->ringbufferlock);
-		interrupt_set(intstate);
 	}
 
 	if (events & POLLOUT)
@@ -259,29 +259,31 @@ static int udp_recv(socket_t *socket, sockdesc_t *sockdesc) {
 		MUTEX_ACQUIRE(&socket->mutex, false);
 	}
 
-	bool intstate = interrupt_set(false);
-	spinlock_acquire(&udpsocket->ringbufferlock);
-
-	// TODO rewrite this to handle a possible sleep in the ringbuffer
+	// this abuses an asterisk on the ringbuffer implementation that makes it not need locking when
+	// something is reading and something is writing simultaneously.
+	// this is done to not need to disable interrupts as the ringbuffer_peek could take a fault
+	// multiple readers cannot happen because of the socket mutex and the write on the side of the
+	// NIC is protected by the ringbuffer lock
 	size_t copycount;
 	dataheader_t header;
-	if (flags & SOCKET_RECV_FLAGS_PEEK) {
-		__assert(ringbuffer_peek(&udpsocket->ringbuffer, &header, 0, sizeof(header)) == sizeof(header));
-		copycount = min(header.length, sockdesc->count);
 
-		__assert(ringbuffer_peek(&udpsocket->ringbuffer, sockdesc->buffer, sizeof(header), copycount) == copycount);
-	} else {
-		__assert(ringbuffer_read(&udpsocket->ringbuffer, &header, sizeof(header)) == sizeof(header));
+	__assert(ringbuffer_peek(&udpsocket->ringbuffer, &header, 0, sizeof(header)) == sizeof(header));
+	copycount = min(header.length, sockdesc->count);
 
-		copycount = min(header.length, sockdesc->count);
-		__assert(ringbuffer_read(&udpsocket->ringbuffer, sockdesc->buffer, copycount) == copycount);
-
-		// truncate the rest if the buffer wasn't big enough to handle everything
-		if (header.length > sockdesc->count)
-			ringbuffer_truncate(&udpsocket->ringbuffer, header.length - copycount);
+	sockdesc->donecount = ringbuffer_peek(&udpsocket->ringbuffer, sockdesc->buffer, sizeof(header), copycount);
+	if (sockdesc->donecount == RINGBUFFER_USER_COPY_FAILED) {
+		e = EFAULT;
+		goto cleanup;
 	}
-	spinlock_release(&udpsocket->ringbufferlock);
-	interrupt_set(intstate);
+
+	__assert(sockdesc->donecount == copycount);
+
+	// remove the message if not asked to peek
+	if ((flags & SOCKET_RECV_FLAGS_PEEK) == 0) {
+		bool status = spinlock_acquireirqclear(&udpsocket->ringbufferlock);
+		ringbuffer_truncate(&udpsocket->ringbuffer, sizeof(header) + header.length);
+		spinlock_releaseirqrestore(&udpsocket->ringbufferlock, status);
+	}
 
 	sockdesc->donecount = copycount;
 	sockdesc->addr->ipv4addr.addr = header.peer;
