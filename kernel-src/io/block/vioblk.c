@@ -121,10 +121,12 @@ static int vioblk_rw(vioblkdev_t *blkdev, void *buffer, uintmax_t lba, size_t co
 		size_t docount = (done == 0) ? (PAGE_SIZE - pageoffset) / 512 : PAGE_SIZE / 512;
 		docount = min(docount, count - done);
 
-		void *bufferphys = vmm_getphysical((void *)((uintptr_t)buffer + done * 512));
+		void *bufferphys = vmm_getphysical((void *)((uintptr_t)buffer + done * 512), true);
 		__assert(bufferphys);
 
 		vioblk_enqueue(blkdev, header, bufferphys, docount * 512, status, write);
+
+		pmm_release(bufferphys);
 
 		if (*statushhdm) {
 			err = EIO;

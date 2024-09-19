@@ -655,7 +655,7 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 	return status;
 }
 
-void *vmm_getphysical(void *addr) {
+void *vmm_getphysical(void *addr, bool hold) {
 	addr = (void *)ROUND_DOWN((uintptr_t)addr, PAGE_SIZE);
 
 	vmmspace_t *space = getspace(addr);
@@ -665,6 +665,9 @@ void *vmm_getphysical(void *addr) {
 	MUTEX_ACQUIRE(&space->lock, false);
 
 	void *physical = arch_mmu_getphysical(current_vmm_context()->pagetable, addr);
+
+	if (hold)
+		pmm_hold(physical);
 
 	MUTEX_RELEASE(&space->lock);
 	return physical + ((uintptr_t)addr - ROUND_DOWN((uintptr_t)addr, PAGE_SIZE));

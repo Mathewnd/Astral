@@ -517,10 +517,12 @@ static int rwblocks(nvmenamespace_t *namespace, void *buffer, uintmax_t lba, siz
 		size_t docount = (done == 0) ? (PAGE_SIZE - pageoffset) / namespace->blocksize : PAGE_SIZE / namespace->blocksize;
 		docount = min(docount, count - done);
 
-		prp[0] = (uint64_t)vmm_getphysical((void *)((uintptr_t)buffer + done * namespace->blocksize));
+		prp[0] = (uint64_t)vmm_getphysical((void *)((uintptr_t)buffer + done * namespace->blocksize), true);
 		__assert(prp[0]);
 
 		err = write ? iowrite(namespace, prp, lba + done, docount) : ioread(namespace, prp, lba + done, docount);
+
+		pmm_release((void *)prp[0]);
 
 		if (err)
 			break;

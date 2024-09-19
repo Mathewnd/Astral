@@ -200,7 +200,9 @@ static char *args[] = {
 
 #endif
 
+#ifdef SYSCALL_LOGGING
 static spinlock_t lock;
+#endif
 extern size_t freepagecount;
 __attribute__((no_caller_saved_registers)) void arch_syscall_log(int syscall, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5, uint64_t a6) {
 #ifdef SYSCALL_LOGGING
