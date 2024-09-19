@@ -1305,8 +1305,13 @@ static int tcp_send(socket_t *socket, sockdesc_t *sockdesc) {
 	size_t writesize = min(TCB_RINGBUFFER_SIZE - RINGBUFFER_DATACOUNT(&tcb->transmitbuffer), sockdesc->count);
 	__assert(writesize);
 
-	__assert(ringbuffer_write(&tcb->transmitbuffer, sockdesc->buffer, writesize) == writesize);
-	sockdesc->donecount = writesize;
+	sockdesc->donecount = ringbuffer_write(&tcb->transmitbuffer, sockdesc->buffer, writesize);
+	if (sockdesc->donecount == RINGBUFFER_USER_COPY_FAILED) {
+		error = EFAULT;
+		goto leave;
+	}
+
+	__assert(sockdesc->donecount == writesize);
 
 	if (tcb->sndnext == tcb->sndunack)
 		error = tcp_transmitnextsegment(tcb);
@@ -1381,14 +1386,24 @@ static int tcp_recv(socket_t *socket, sockdesc_t *sockdesc) {
 
 	size_t copycount = min(RINGBUFFER_DATACOUNT(&tcb->receivebuffer), sockdesc->count);
 	if (flags & SOCKET_RECV_FLAGS_PEEK) {
-		__assert(ringbuffer_peek(&tcb->receivebuffer, sockdesc->buffer, 0, copycount) == copycount);
+		sockdesc->donecount = ringbuffer_peek(&tcb->receivebuffer, sockdesc->buffer, 0, copycount);
+		if (sockdesc->donecount == RINGBUFFER_USER_COPY_FAILED) {
+			error = EFAULT;
+			goto cleanup;
+		}
 	} else {
-		__assert(ringbuffer_read(&tcb->receivebuffer, sockdesc->buffer, copycount) == copycount);
+		sockdesc->donecount = ringbuffer_read(&tcb->receivebuffer, sockdesc->buffer, copycount);
+		if (sockdesc->donecount == RINGBUFFER_USER_COPY_FAILED) {
+			error = EFAULT;
+			goto cleanup;
+		}
+
 		tcb->rcvwindow += copycount;
 		// notify about the window increase
 		tcp_ack(tcb);
 	}
-	sockdesc->donecount = copycount;
+
+	__assert(sockdesc->donecount == copycount);
 
 	cleanup:
 	MUTEX_RELEASE(&tcb->mutex);

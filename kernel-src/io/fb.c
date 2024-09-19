@@ -99,7 +99,10 @@ static int read(int minor, void *buffer, size_t size, uintmax_t offset, int flag
 	if(size + offset > end)
 		size = end - offset;
 
-	memcpy(buffer, (void *)((uintptr_t)fbs[minor]->address + offset), size);
+	int error = USERCOPY_POSSIBLY_TO_USER(buffer, (void *)((uintptr_t)fbs[minor]->address + offset), size);
+	if (error)
+		return error;
+
 	*readc = size;
 
 	return 0;
@@ -118,7 +121,10 @@ static int write(int minor, void *buffer, size_t size, uintmax_t offset, int fla
 	if(size + offset > end)
 		size = end - offset;
 
-	memcpy((void *)((uintptr_t)fbs[minor]->address + offset), buffer, size);
+	int error = USERCOPY_POSSIBLY_FROM_USER((void *)((uintptr_t)fbs[minor]->address + offset), buffer, size);
+	if (error)
+		return error;
+
 	*writec = size;
 
 	return 0;

@@ -365,6 +365,11 @@ static int localsock_send(socket_t *socket, sockdesc_t *sockdesc) {
 	}
 
 	sockdesc->donecount = ringbuffer_write(&peer->ringbuffer, sockdesc->buffer, sockdesc->count);
+	if (sockdesc->donecount == RINGBUFFER_USER_COPY_FAILED) {
+		error = EFAULT;
+		goto leave;
+	}
+
 	__assert(sockdesc->donecount > 0);
 
 	error = sendctrl(socket, sockdesc->ctrl, sockdesc->ctrllen, sockdesc->donecount);
@@ -465,8 +470,17 @@ static int localsock_recv(socket_t *socket, sockdesc_t *sockdesc) {
 
 	if (flags & SOCKET_RECV_FLAGS_PEEK) {
 		sockdesc->donecount = ringbuffer_peek(&localsocket->ringbuffer, sockdesc->buffer, 0, recvcount);
+		if (sockdesc->donecount == RINGBUFFER_USER_COPY_FAILED) {
+			error = EFAULT;
+			goto leave;
+		}
 	} else {
 		sockdesc->donecount = ringbuffer_read(&localsocket->ringbuffer, sockdesc->buffer, recvcount);
+		if (sockdesc->donecount == RINGBUFFER_USER_COPY_FAILED) {
+			error = EPIPE;
+			goto leave;
+		}
+
 		localsocket_t *peer = pair->client == localsocket ? pair->server : pair->client;
 		// signal that there is space to write for any threads blocked on this socket
 		if (peer && sockdesc->donecount)

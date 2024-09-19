@@ -7,15 +7,11 @@
 
 static ringbuffer_t ringbuffer;
 static pollheader_t pollheader;
-static spinlock_t lock;
+static mutex_t mutex;
 
 void acpi_signaldevice(char c) {
-	long ipl = spinlock_acquireraiseipl(&lock, IPL_DPC);
-
 	if (ringbuffer_write(&ringbuffer, &c, 1))
 		poll_event(&pollheader, POLLIN);
-
-	spinlock_releaseloweripl(&lock, ipl);
 }
 
 static int internalpoll(polldata_t *data, int events) {
@@ -43,12 +39,10 @@ static int read(int minor, void *buffer, size_t size, uintmax_t offset, int flag
 	if (error)
 		return error;
 
+	MUTEX_ACQUIRE(&mutex, false);
+
 	for (;;) {
-		long ipl = spinlock_acquireraiseipl(&lock, IPL_DPC);
-
 		int revents = internalpoll(&desc.data[0], POLLIN);
-
-		spinlock_releaseloweripl(&lock, ipl);
 
 		if (revents)
 			break;
@@ -66,13 +60,14 @@ static int read(int minor, void *buffer, size_t size, uintmax_t offset, int flag
 		poll_leave(&desc);
 	}
 
-	long ipl = spinlock_acquireraiseipl(&lock, IPL_DPC);
-
+	// this abuses a behavior of how the ringbuffer works to not need a lock for reading
+	// (as it would need interrupts to be off)
 	*readc = ringbuffer_read(&ringbuffer, buffer, size);
-
-	spinlock_releaseloweripl(&lock, ipl);
+	if (*readc == RINGBUFFER_USER_COPY_FAILED)
+		error = EFAULT;
 
 	leave:
+	MUTEX_RELEASE(&mutex);
 	poll_leave(&desc);
 	poll_destroydesc(&desc);
 	return error;
@@ -98,11 +93,9 @@ static int write(int minor, void *buffer, size_t size, uintmax_t offset, int fla
 }
 
 static int poll(int minor, polldata_t *data, int events) {
-	long ipl = spinlock_acquireraiseipl(&lock, IPL_DPC);
-
+	MUTEX_ACQUIRE(&mutex, false);
 	int revents = internalpoll(data, events);
-
-	spinlock_releaseloweripl(&lock, ipl);
+	MUTEX_RELEASE(&mutex);
 	return revents;
 }
 

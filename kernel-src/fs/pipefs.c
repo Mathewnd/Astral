@@ -130,6 +130,7 @@ static int internalpoll(vnode_t *node, polldata_t *data, int events) {
 	return revents;
 }
 
+// buffer can possibly be a user address
 int pipefs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int flags, size_t *readc, cred_t *cred) {
 	pipenode_t *pipenode = (pipenode_t *)node;
 	INTERNAL_LOCK(node);
@@ -171,6 +172,8 @@ int pipefs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int 
 	}
 
 	*readc = ringbuffer_read(&pipenode->data, buffer, size);
+	if (*readc == RINGBUFFER_USER_COPY_FAILED)
+		error = EFAULT;
 
 	// signal that there is space to write for any threads blocked on this pipe
 	if (RINGBUFFER_DATACOUNT(&pipenode->data) < BUFFER_SIZE - PIPE_ATOMIC_SIZE)
@@ -190,6 +193,8 @@ static int writetopipe(pipenode_t *pipenode, void *buffer, size_t size, size_t *
 	}
 
 	*writec = ringbuffer_write(&pipenode->data, buffer, size);
+	if (*writec == RINGBUFFER_USER_COPY_FAILED)
+		return EFAULT;
 
 	__assert(*writec);
 	poll_event(&pipenode->pollheader, POLLIN);

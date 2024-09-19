@@ -122,6 +122,11 @@ static int read(int minor, void *buffer, size_t size, uintmax_t offset, int flag
 	}
 
 	*readc = ringbuffer_read(&mouse->packetbuffer, buffer, sizeof(mousepacket_t) * packetcount);
+	if (*readc == RINGBUFFER_USER_COPY_FAILED) {
+		error = EFAULT;
+		goto leave;
+	}
+
 	__assert(*readc);
 
 	leave:

@@ -195,8 +195,13 @@ static int read(int minor, void *buffer, size_t size, uintmax_t offset, int flag
 	if (min == 0 && time == 0) {
 		MUTEX_ACQUIRE(&tty->readmutex, false);
 		*readc = ringbuffer_read(&tty->readbuffer, buffer, size);
+
+		int error = 0;
+		if (*readc == RINGBUFFER_USER_COPY_FAILED)
+			error = EFAULT;
+
 		MUTEX_RELEASE(&tty->readmutex);
-		return 0;
+		return error;
 	}
 
 	// time is in 1/10 of a second
@@ -206,8 +211,6 @@ static int read(int minor, void *buffer, size_t size, uintmax_t offset, int flag
 	int error = 0;
 	size_t readcount = 0;
 	size_t spaceleft = size;
-
-	// TODO hangup stuff
 
 	for (;;) {
 		// for VMIN > 0 and VTIME > 0, the timeout is inter byte only.
@@ -225,13 +228,19 @@ static int read(int minor, void *buffer, size_t size, uintmax_t offset, int flag
 			MUTEX_ACQUIRE(&tty->readmutex, false);
 
 			size_t actuallyread = ringbuffer_read(&tty->readbuffer, (void *)((uintptr_t)buffer + readcount), spaceleft);
-			readcount += actuallyread;
-			spaceleft -= actuallyread;
+
 			MUTEX_RELEASE(&tty->readmutex);
 
-			// XXX is this valid?
-			if (spaceleft > 0 && readcount < min)
-				continue;
+			if (actuallyread == RINGBUFFER_USER_COPY_FAILED) {
+				error = EFAULT;
+			} else {
+				readcount += actuallyread;
+				spaceleft -= actuallyread;
+
+				// XXX is this valid?
+				if (spaceleft > 0 && readcount < min && (revents & POLLHUP) == 0)
+					continue;
+			}
 
 			poll_leave(&desc);
 			poll_destroydesc(&desc);
@@ -276,11 +285,18 @@ static int write(int minor, void *_buffer, size_t size, uintmax_t offset, int fl
 
 	*writec = size;
 	for (int i = 0; i < size; ++i) {
-		if (buffer[i] == '\n' && (tty->termios.c_oflag & ONLCR)) {
+		// bruh
+		char c;
+		int error = USERCOPY_POSSIBLY_FROM_USER(&c, &buffer[i], sizeof(char));
+		if (error)
+			return error;
+
+		if (c == '\n' && (tty->termios.c_oflag & ONLCR)) {
 			char cr = '\r';
 			tty->writetodevice(tty->deviceinternal, &cr, 1);
 		}
-		tty->writetodevice(tty->deviceinternal, &buffer[i], 1);
+
+		tty->writetodevice(tty->deviceinternal, &c, 1);
 	}
 
 	return 0;

@@ -132,10 +132,10 @@ static int read(int minor, void *buffer, size_t size, uintmax_t offset, int flag
 	if (pty == NULL)
 		return ENODEV;
 
-
+	int e = 0;
 	for (;;) {
 		polldesc_t desc = {0};
-		int e = poll_initdesc(&desc, 1);
+		e = poll_initdesc(&desc, 1);
 		if (e)
 			return e;
 
@@ -146,6 +146,8 @@ static int read(int minor, void *buffer, size_t size, uintmax_t offset, int flag
 
 		if (revents) {
 			*readc = ringbuffer_read(&pty->ringbuffer, buffer, size);
+			if (*readc == RINGBUFFER_USER_COPY_FAILED)
+				e = EFAULT;
 
 			spinlock_release(&pty->lock);
 			interrupt_set(intstatus);
@@ -173,7 +175,7 @@ static int read(int minor, void *buffer, size_t size, uintmax_t offset, int flag
 			return e;
 	}
 
-	return 0;
+	return e;
 }
 
 static int poll(int minor, polldata_t *data, int events) {
@@ -215,8 +217,15 @@ static int write(int minor, void *buffer, size_t size, uintmax_t offset, int fla
 
 	char *str = buffer;
 
-	for (int i = 0; i < size; ++i)
-		tty_process(pty->tty, str[i]);
+	for (int i = 0; i < size; ++i) {
+		// bruh
+		char c;
+		int error = USERCOPY_POSSIBLY_FROM_USER(&c, &str[i], sizeof(char));
+		if (error)
+			return error;
+
+		tty_process(pty->tty, c);
+	}
 
 	*writec = size;
 	return 0;

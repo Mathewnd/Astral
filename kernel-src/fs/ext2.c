@@ -1317,6 +1317,8 @@ static int ext2_readlink(vnode_t *vnode, char **link, cred_t *cred) {
 	return err;
 }
 
+// this *should*, by the rules of the vnode ops, accept a user buffer. however, this will never be the case. all I/O will
+// go through the page cache
 static int ext2_read(vnode_t *vnode, void *buffer, size_t size, uintmax_t offset, int flags, size_t *readc, cred_t *cred) {
 	if (vnode->type == V_TYPE_DIR)
 		return EISDIR;
@@ -1356,6 +1358,8 @@ static int ext2_read(vnode_t *vnode, void *buffer, size_t size, uintmax_t offset
 	return err;
 }
 
+// this *should*, by the rules of the vnode ops, accept a user buffer. however, this will never be the case. all I/O will
+// go through the page cache
 int ext2_write(vnode_t *vnode, void *buffer, size_t size, uintmax_t offset, int flags, size_t *writec, cred_t *cred) {
 	if (vnode->type == V_TYPE_DIR)
 		return EISDIR;

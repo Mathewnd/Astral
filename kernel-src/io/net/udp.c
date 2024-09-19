@@ -262,6 +262,7 @@ static int udp_recv(socket_t *socket, sockdesc_t *sockdesc) {
 	bool intstate = interrupt_set(false);
 	spinlock_acquire(&udpsocket->ringbufferlock);
 
+	// TODO rewrite this to handle a possible sleep in the ringbuffer
 	size_t copycount;
 	dataheader_t header;
 	if (flags & SOCKET_RECV_FLAGS_PEEK) {

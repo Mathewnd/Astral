@@ -5,6 +5,7 @@
 #include <kernel/devfs.h>
 #include <hashtable.h>
 #include <kernel/poll.h>
+#include <kernel/usercopy.h>
 
 #define BUFFER_PACKET_CAPACITY 100
 #define BUFFER_SIZE (BUFFER_PACKET_CAPACITY * sizeof(kbpacket_t))
@@ -165,24 +166,33 @@ static int read(int minor, void *buffer, size_t size, uintmax_t offset, int flag
 
 	for (int i = 0; i < count; ++i) {
 		kbpacket_t *buff = (kbpacket_t *)((uintptr_t)buffer + i * sizeof(kbpacket_t));
-		bool ok = keyboard_get(kb, buff);
+		kbpacket_t packet;
+
+		bool ok = keyboard_get(kb, &packet);
 		if (ok == false) {
 			if (i == 0 && (flags & V_FFLAGS_NONBLOCKING) == 0) {
-				int err = keyboard_wait(kb, buff);
-				*readc += err ? 0 : sizeof(kbpacket_t);
-				return err;
+				int error = keyboard_wait(kb, &packet);
+				if (error)
+					return error;
+
+				error = USERCOPY_POSSIBLY_TO_USER(buff, &packet, sizeof(kbpacket_t));
+
+				*readc += error ? 0 : sizeof(kbpacket_t);
+				return error;
 			}
 
 			break;
 		}
+
+		int error = USERCOPY_POSSIBLY_TO_USER(buff, &packet, sizeof(kbpacket_t));
+		if (error)
+			return error;
 
 		*readc += sizeof(kbpacket_t);
 	}
 
 	return 0;
 }
-
-
 
 static int poll(int minor, polldata_t *data, int events) {
 	int revents = 0;

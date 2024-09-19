@@ -1,6 +1,7 @@
 #include <arch/io.h>
 #include <kernel/devfs.h>
 #include <logging.h>
+#include <kernel/usercopy.h>
 
 void arch_e9_putc(char c) {
 #ifdef X86_64_ENABLE_E9
@@ -16,11 +17,18 @@ void arch_e9_puts(char *c) {
 #endif
 }
 
+#ifdef X86_64_ENABLE_E9
 static int devwrite(int minor, void *bufferp, size_t count, uintmax_t offset, int flags, size_t *wcount) {
 	uint8_t *buffer = bufferp;
 
-	for (uintmax_t i = 0; i < count; ++i)
-		outb(0xe9, buffer[i]);
+	for (uintmax_t i = 0; i < count; ++i) {
+		char c;
+		int error = USERCOPY_POSSIBLY_FROM_USER(&c, &buffer[i], 1);
+		if (error)
+			return error;
+
+		outb(0xe9, c);
+	}
 
 	*wcount = count;
 	return 0;
@@ -29,6 +37,7 @@ static int devwrite(int minor, void *bufferp, size_t count, uintmax_t offset, in
 static devops_t devops = {
 	.write = devwrite
 };
+#endif
 
 void arch_e9_initdev() {
 #ifdef X86_64_ENABLE_E9
