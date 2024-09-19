@@ -79,6 +79,7 @@ static int rwblock(int minor, void *buffer, size_t size, uintmax_t offset, int f
 	if (desc == NULL)
 		return ENODEV;
 
+	__assert((size % desc->blocksize) == 0);
 	uintmax_t bytetop = desc->blockcapacity * desc->blocksize;
 
 	// offset past end
@@ -99,28 +100,21 @@ static int rwblock(int minor, void *buffer, size_t size, uintmax_t offset, int f
 	size_t lbaoffset, lbacount, startoffset;
 	bytestolba(desc, offset, size, &lbaoffset, &lbacount, &startoffset);
 
-	void *lbabuffer = vmm_map(NULL, lbacount * desc->blocksize, VMM_FLAGS_ALLOCATE, MAP_FLAGS, NULL);
-	if (lbabuffer == NULL)
-		return ENOMEM;
-
-	int error = DISK_READ(desc, lbabuffer, lbaoffset + desc->lbaoffset, lbacount);
-	if (error)
-		goto cleanup;
-
+	int error = 0;
 	if (write) {
-		memcpy((void *)((uintptr_t)lbabuffer + startoffset), buffer, size);
-		error = DISK_WRITE(desc, lbabuffer, lbaoffset + desc->lbaoffset, lbacount);
+		error = DISK_WRITE(desc, buffer, lbaoffset + desc->lbaoffset, lbacount);
+		if (error)
+			goto cleanup;
+	} else {
+		error = DISK_READ(desc, buffer, lbaoffset + desc->lbaoffset, lbacount);
 		if (error)
 			goto cleanup;
 	}
 
-	if (!write)
-		memcpy(buffer, (void *)((uintptr_t)lbabuffer + startoffset), size);
 
 	*done = size;
 
 	cleanup:
-	vmm_unmap(lbabuffer, lbacount * desc->blocksize, 0);
 	return error;
 }
 
