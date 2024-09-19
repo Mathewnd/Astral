@@ -299,8 +299,7 @@ static int recvctrl(socket_t *socket, sockctrl_t *ctrl, size_t len, bool *trunca
 		fd_release(file);
 	}
 
-	if (file != NULL)
-		*truncated = true;
+	*truncated = file != NULL;
 
 	localsocket->filesremaining[localsocket->barriercurrent] = 0;
 
@@ -377,7 +376,6 @@ static int localsock_send(socket_t *socket, sockdesc_t *sockdesc) {
 		// TODO remove the data that was just sent
 		goto leave;
 	}
-
 
 	// signal that there is data to read for any threads blocked on the peer socket
 	poll_event(&peer->socket.pollheader, POLLIN);
