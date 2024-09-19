@@ -10,10 +10,8 @@ syscallret_t syscall_read(context_t *context, int fd, void *buffer, size_t size)
 		.ret = -1
 	};
 
-	void *kernelbuff = vmm_map(NULL, size == 0 ? 1 : size, VMM_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, NULL);
-	if (kernelbuff == NULL) {
-		printf("read enomem: %d %p %lu\n", fd, buffer, size);
-		ret.errno = ENOMEM;
+	if (IS_USER_ADDRESS(buffer) == false) {
+		ret.errno = EFAULT;
 		return ret;
 	}
 
@@ -32,18 +30,16 @@ syscallret_t syscall_read(context_t *context, int fd, void *buffer, size_t size)
 
 	size_t bytesread;
 	uintmax_t offset = file->offset;
-	ret.errno = vfs_read(file->vnode, kernelbuff, size, file->offset, &bytesread, fileflagstovnodeflags(file->flags));
+	ret.errno = vfs_read(file->vnode, buffer, size, file->offset, &bytesread, fileflagstovnodeflags(file->flags));
 
 	if (ret.errno)
 		goto cleanup;
 
 	file->offset = offset + bytesread;
-	ret.errno = usercopy_touser(buffer, kernelbuff, bytesread);
-	ret.ret = ret.errno ? -1 : bytesread;
+	ret.ret = bytesread;
 cleanup:
 	if (file)
 		fd_release(file);
 
-	vmm_unmap(kernelbuff, size == 0 ? 1 : size, 0);
 	return ret;
 }
