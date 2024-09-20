@@ -2,6 +2,7 @@
 #define _ABI_H
 
 #include <time.h>
+#include <kernel/iovec.h>
 
 typedef int pid_t;
 typedef int tid_t;
@@ -114,20 +115,6 @@ typedef struct {
 	uint16_t sun_family;
 	char sun_path[108];
 } __attribute__((packed)) unaddr_t;
-
-typedef struct {
-	void *addr;
-	size_t len;
-} iovec_t;
-
-static inline size_t iovec_size(iovec_t *iovec, size_t count) {
-	size_t size = 0;
-
-	for (int i = 0; i < count; ++i)
-		size += iovec[i].len;
-
-	return size;
-}
 
 typedef struct {
 	void *addr;

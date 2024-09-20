@@ -6,6 +6,7 @@
 #include <mutex.h>
 #include <kernel/poll.h>
 #include <kernel/usercopy.h>
+#include <kernel/iovec.h>
 
 #define SOCKET_STATE_UNBOUND 0
 #define SOCKET_STATE_BOUND 1

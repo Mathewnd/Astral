@@ -74,12 +74,14 @@ static void bytestolba(blockdesc_t *desc, uintmax_t offset, size_t size, uintmax
 
 #define MAP_FLAGS (ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC)
 
+// this is only really called by the page cache VOP_GETPAGE and VOP_PUTPAGE functions, so we can make a few assumptions
 static int rwblock(int minor, void *buffer, size_t size, uintmax_t offset, int flags, bool write, size_t *done) {
 	blockdesc_t *desc = getdesc(minor);
 	if (desc == NULL)
 		return ENODEV;
 
 	__assert((size % desc->blocksize) == 0);
+	__assert((size % PAGE_SIZE) == 0);
 	uintmax_t bytetop = desc->blockcapacity * desc->blocksize;
 
 	// offset past end
