@@ -62,7 +62,9 @@ syscallret_t syscall_openat(context_t *context, int dirfd, char *path, int flags
 		ret.errno = vfs_create(dirnode, pathbuf, &attr, V_TYPE_REGULAR, &vnode);
 		if (ret.errno == EEXIST && (flags & O_EXCL) == 0)
 			goto retry_open;
-		VOP_UNLOCK(vnode);
+		else if (ret.errno == 0) {
+			VOP_UNLOCK(vnode);
+		}
 	}
 
 	if (ret.errno)
