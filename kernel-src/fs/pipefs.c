@@ -130,8 +130,7 @@ static int internalpoll(vnode_t *node, polldata_t *data, int events) {
 	return revents;
 }
 
-// buffer can possibly be a user address
-int pipefs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int flags, size_t *readc, cred_t *cred) {
+int pipefs_read(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size, uintmax_t offset, int flags, size_t *readc, cred_t *cred) {
 	pipenode_t *pipenode = (pipenode_t *)node;
 	INTERNAL_LOCK(node);
 
@@ -171,7 +170,7 @@ int pipefs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int 
 		INTERNAL_LOCK(node);
 	}
 
-	*readc = ringbuffer_read(&pipenode->data, buffer, size);
+	*readc = iovec_iterator_read_from_ringbuffer(iovec_iterator, &pipenode->data, size);
 	if (*readc == RINGBUFFER_USER_COPY_FAILED)
 		error = EFAULT;
 
@@ -184,7 +183,7 @@ int pipefs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int 
 	return error;
 }
 
-static int writetopipe(pipenode_t *pipenode, void *buffer, size_t size, size_t *writec) {
+static int writetopipe(pipenode_t *pipenode, iovec_iterator_t *iovec_iterator, size_t size, size_t *writec) {
 	if (pipenode->readers == 0) {
 		if (current_thread()->proc)
 			signal_signalproc(current_thread()->proc, SIGPIPE);
@@ -192,7 +191,7 @@ static int writetopipe(pipenode_t *pipenode, void *buffer, size_t size, size_t *
 		return EPIPE;
 	}
 
-	*writec = ringbuffer_write(&pipenode->data, buffer, size);
+	*writec = iovec_iterator_write_to_ringbuffer(iovec_iterator, &pipenode->data, size);
 	if (*writec == RINGBUFFER_USER_COPY_FAILED)
 		return EFAULT;
 
@@ -201,7 +200,7 @@ static int writetopipe(pipenode_t *pipenode, void *buffer, size_t size, size_t *
 	return 0;
 }
 
-int pipefs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int flags, size_t *writec, cred_t *cred) {
+int pipefs_write(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size, uintmax_t offset, int flags, size_t *writec, cred_t *cred) {
 	pipenode_t *pipenode = (pipenode_t *)node;
 	INTERNAL_LOCK(node);
 
@@ -247,7 +246,7 @@ int pipefs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int
 		if (nonblock == false && atomic == false && freebytes) {
 			size_t tmp;
 			size_t writecount = min(freebytes, size - case3written);
-			error = writetopipe(pipenode, (void *)((uintptr_t)buffer + case3written), writecount, &tmp);
+			error = writetopipe(pipenode, iovec_iterator, writecount, &tmp);
 			if (error)
 				goto leave;
 
@@ -290,7 +289,7 @@ int pipefs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int
 		INTERNAL_LOCK(node);
 	}
 
-	error = writetopipe(pipenode, buffer, size, writec);
+	error = writetopipe(pipenode, iovec_iterator, size, writec);
 
 	leave:
 	INTERNAL_UNLOCK(node);

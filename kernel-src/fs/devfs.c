@@ -71,7 +71,7 @@ int devfs_close(vnode_t *node, int flags, cred_t *cred) {
 	return devnode->devops->close(devnode->attr.rdevminor, flags);
 }
 
-int devfs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int flags, size_t *readc, cred_t *cred) {
+int devfs_read(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size, uintmax_t offset, int flags, size_t *readc, cred_t *cred) {
 	if (node->type == V_TYPE_DIR)
 		return EISDIR;
 
@@ -85,19 +85,10 @@ int devfs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int f
 	if (devnode->devops->read == NULL)
 		return ENODEV;
 
-	// TODO remove this once the whole fs uses iovec
-	iovec_iterator_t iovec_iterator;
-	iovec_t iovec = {
-		.addr = buffer,
-		.len = size
-	};
-
-	iovec_iterator_init(&iovec_iterator, &iovec, 1);
-
-	return devnode->devops->read(devnode->attr.rdevminor, &iovec_iterator, size, offset, flags, readc);
+	return devnode->devops->read(devnode->attr.rdevminor, iovec_iterator, size, offset, flags, readc);
 }
 
-int devfs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int flags, size_t *writec, cred_t *cred) {
+int devfs_write(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size, uintmax_t offset, int flags, size_t *writec, cred_t *cred) {
 	if (node->type == V_TYPE_DIR)
 		return EISDIR;
 
@@ -111,16 +102,7 @@ int devfs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int 
 	if (devnode->devops->write == NULL)
 		return ENODEV;
 
-	// TODO remove this once the whole fs uses iovec
-	iovec_iterator_t iovec_iterator;
-	iovec_t iovec = {
-		.addr = buffer,
-		.len = size
-	};
-
-	iovec_iterator_init(&iovec_iterator, &iovec, 1);
-
-	return devnode->devops->write(devnode->attr.rdevminor, &iovec_iterator, size, offset, flags, writec);
+	return devnode->devops->write(devnode->attr.rdevminor, iovec_iterator, size, offset, flags, writec);
 }
 
 int devfs_lookup(vnode_t *node, char *name, vnode_t **result, cred_t *cred) {
@@ -400,8 +382,16 @@ static int devfs_getdents(vnode_t *node, dent_t *buffer, size_t count, uintmax_t
 static int devfs_getpage(vnode_t *node, uintmax_t offset, struct page_t *page) {
 	// only block devices will have this called
 	__assert(node->type == V_TYPE_BLKDEV);
+	iovec_t iovec = {
+		.addr = MAKE_HHDM(pmm_getpageaddress(page)),
+		.len = PAGE_SIZE
+	};
+
+	iovec_iterator_t iovec_iterator;
+	iovec_iterator_init(&iovec_iterator, &iovec, 1);
+
 	size_t readc;
-	int error = VOP_READ(node, MAKE_HHDM(pmm_getpageaddress(page)), PAGE_SIZE, offset, 0, &readc, NULL);
+	int error = VOP_READ(node, &iovec_iterator, PAGE_SIZE, offset, 0, &readc, NULL);
 	if (readc == 0)
 		return ENXIO;
 
@@ -411,8 +401,16 @@ static int devfs_getpage(vnode_t *node, uintmax_t offset, struct page_t *page) {
 static int devfs_putpage(vnode_t *node, uintmax_t offset, struct page_t *page) {
 	// only block devices will have this called
 	__assert(node->type == V_TYPE_BLKDEV);
+	iovec_t iovec = {
+		.addr = MAKE_HHDM(pmm_getpageaddress(page)),
+		.len = PAGE_SIZE
+	};
+
+	iovec_iterator_t iovec_iterator;
+	iovec_iterator_init(&iovec_iterator, &iovec, 1);
+
 	size_t writec;
-	int error = VOP_WRITE(node, MAKE_HHDM(pmm_getpageaddress(page)), PAGE_SIZE, offset, 0, &writec, NULL);
+	int error = VOP_WRITE(node, &iovec_iterator, PAGE_SIZE, offset, 0, &writec, NULL);
 	__assert(writec != 0);
 
 	return error;

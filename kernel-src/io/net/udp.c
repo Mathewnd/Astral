@@ -203,7 +203,7 @@ static int udp_send(socket_t *socket, sockdesc_t *sockdesc) {
 		socket->state = SOCKET_STATE_BOUND;
 	}
 
-	e = udp_sendpacket(&sockdesc->iovec_iterator, sockdesc->count, sockdesc->addr ? sockdesc->addr->ipv4addr.addr : udpsocket->peeraddress,
+	e = udp_sendpacket(sockdesc->iovec_iterator, sockdesc->count, sockdesc->addr ? sockdesc->addr->ipv4addr.addr : udpsocket->peeraddress,
 			udpsocket->port, sockdesc->addr ? sockdesc->addr->ipv4addr.port : udpsocket->peerport, udpsocket->socket.netdev);
 
 	sockdesc->donecount = sockdesc->count;
@@ -274,7 +274,7 @@ static int udp_recv(socket_t *socket, sockdesc_t *sockdesc) {
 
 	copycount = min(header.length, sockdesc->count);
 
-	sockdesc->donecount = iovec_iterator_peek_from_ringbuffer(&sockdesc->iovec_iterator, &udpsocket->ringbuffer, sizeof(header), copycount);
+	sockdesc->donecount = iovec_iterator_peek_from_ringbuffer(sockdesc->iovec_iterator, &udpsocket->ringbuffer, sizeof(header), copycount);
 	if (sockdesc->donecount == RINGBUFFER_USER_COPY_FAILED) {
 		e = EFAULT;
 		goto cleanup;

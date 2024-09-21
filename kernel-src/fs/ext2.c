@@ -749,12 +749,11 @@ static int resizeinode(ext2fs_t *fs, ext2node_t *node, size_t newsize) {
 	return 0;
 }
 
-static int rwblocks(ext2fs_t *fs, ext2node_t *node, void *buffer, size_t count, uintmax_t index, bool write, bool cache) {
+static int rwblocks_iovec(ext2fs_t *fs, ext2node_t *node, iovec_iterator_t *iovec_iterator, size_t count, uintmax_t index, bool write, bool cache) {
 	for (uintmax_t i = 0; i < count; ++i) {
 		size_t inodesize = INODE_SIZE(&node->inode);
 		__assert(index + i < ROUND_UP(inodesize, fs->blocksize) / fs->blocksize);
 
-		void *bufferp = (void *)((uintptr_t)buffer + i * fs->blocksize);
 		blockptr_t block;
 		int e = getinodeblock(fs, node, index + i, &block);
 		if (e)
@@ -775,14 +774,14 @@ static int rwblocks(ext2fs_t *fs, ext2node_t *node, void *buffer, size_t count, 
 
 			block = newblock;
 		} else if (block == 0 && write == false) {
-			memset(bufferp, 0, fs->blocksize);
+			iovec_iterator_memset(iovec_iterator, 0, fs->blocksize);
 			continue;
 		}
 
 		size_t donecount;
 		e = write ?
-			vfs_write(fs->backing, bufferp, fs->blocksize, BLOCK_GETDISKOFFSET(fs, block), &donecount, cache ? 0 : V_FFLAGS_NOCACHE) :
-			vfs_read(fs->backing, bufferp, fs->blocksize, BLOCK_GETDISKOFFSET(fs, block), &donecount, cache ? 0 : V_FFLAGS_NOCACHE);
+			vfs_write_iovec(fs->backing, iovec_iterator, fs->blocksize, BLOCK_GETDISKOFFSET(fs, block), &donecount, cache ? 0 : V_FFLAGS_NOCACHE) :
+			vfs_read_iovec(fs->backing, iovec_iterator, fs->blocksize, BLOCK_GETDISKOFFSET(fs, block), &donecount, cache ? 0 : V_FFLAGS_NOCACHE);
 
 		if (e)
 			return e;
@@ -792,7 +791,7 @@ static int rwblocks(ext2fs_t *fs, ext2node_t *node, void *buffer, size_t count, 
 	return 0;
 }
 
-static int rwblock(ext2fs_t *fs, ext2node_t *node, void *buffer, size_t count, uintmax_t offset, uintmax_t index, bool write, bool cache) {
+static int rwblock_iovec(ext2fs_t *fs, ext2node_t *node, iovec_iterator_t *iovec_iterator, size_t count, uintmax_t offset, uintmax_t index, bool write, bool cache) {
 	__assert(offset + count <= fs->blocksize);
 	size_t inodesize = INODE_SIZE(&node->inode);
 	__assert(index < ROUND_UP(inodesize, fs->blocksize) / fs->blocksize);
@@ -818,14 +817,14 @@ static int rwblock(ext2fs_t *fs, ext2node_t *node, void *buffer, size_t count, u
 
 		block = newblock;
 	} else if (block == 0 && write == false) {
-		memset(buffer, 0, count);
+		iovec_iterator_memset(iovec_iterator, 0, count);
 		return 0;
 	}
 
 	size_t donecount;
 	e = write ?
-		vfs_write(fs->backing, buffer, count, BLOCK_GETDISKOFFSET(fs, block) + offset, &donecount, cache ? 0 : V_FFLAGS_NOCACHE) :
-		vfs_read(fs->backing, buffer, count, BLOCK_GETDISKOFFSET(fs, block) + offset, &donecount, cache ? 0 : V_FFLAGS_NOCACHE);
+		vfs_write_iovec(fs->backing, iovec_iterator, count, BLOCK_GETDISKOFFSET(fs, block) + offset, &donecount, cache ? 0 : V_FFLAGS_NOCACHE) :
+		vfs_read_iovec(fs->backing, iovec_iterator, count, BLOCK_GETDISKOFFSET(fs, block) + offset, &donecount, cache ? 0 : V_FFLAGS_NOCACHE);
 
 	if (e)
 		return e;
@@ -834,7 +833,7 @@ static int rwblock(ext2fs_t *fs, ext2node_t *node, void *buffer, size_t count, u
 	return e;
 }
 
-static int rwbytes(ext2fs_t *fs, ext2node_t *node, void *buffer, size_t count, uintmax_t offset, bool write, bool cache) {
+static int rwbytes_iovec(ext2fs_t *fs, ext2node_t *node, iovec_iterator_t *iovec_iterator, size_t count, uintmax_t offset, bool write, bool cache) {
 	uintmax_t index = offset / fs->blocksize;
 	uintmax_t startoffset = offset % fs->blocksize;
 
@@ -842,11 +841,10 @@ static int rwbytes(ext2fs_t *fs, ext2node_t *node, void *buffer, size_t count, u
 	if (startoffset) {
 		size_t blockremaining = fs->blocksize - startoffset;
 		size_t docount = min(blockremaining, count);
-		int e = rwblock(fs, node, buffer, docount, startoffset, index, write, cache);
+		int e = rwblock_iovec(fs, node, iovec_iterator, docount, startoffset, index, write, cache);
 		if (e)
 			return e;
 
-		buffer = (void *)((uintptr_t)buffer + docount);
 		count -= docount;
 		index += 1;
 	}
@@ -854,17 +852,28 @@ static int rwbytes(ext2fs_t *fs, ext2node_t *node, void *buffer, size_t count, u
 	// r/w all middle blocks
 	size_t blocks = count / fs->blocksize;
 	if (blocks) {
-		int e = rwblocks(fs, node, buffer, blocks, index, write, cache);
+		int e = rwblocks_iovec(fs, node, iovec_iterator, blocks, index, write, cache);
 		if (e)
 			return e;
 
 		count -= blocks * fs->blocksize;
-		buffer = (void *)((uintptr_t)buffer + blocks * fs->blocksize);
 		index += blocks;
 	}
 
 	// r/w remaining block if there's any data left and return
-	return count ? rwblock(fs, node, buffer, count, 0, index, write, cache) : 0;
+	return count ? rwblock_iovec(fs, node, iovec_iterator, count, 0, index, write, cache) : 0;
+}
+
+static int rwbytes(ext2fs_t *fs, ext2node_t *node, void *buffer, size_t count, uintmax_t offset, bool write, bool cache) {
+	iovec_t iovec = {
+		.addr = buffer,
+		.len = count
+	};
+
+	iovec_iterator_t iovec_iterator;
+	iovec_iterator_init(&iovec_iterator, &iovec, 1);
+
+	return rwbytes_iovec(fs, node, &iovec_iterator, count, offset, write, cache);
 }
 
 #define BUFFER_MAP_FLAGS (ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC)
@@ -1317,9 +1326,7 @@ static int ext2_readlink(vnode_t *vnode, char **link, cred_t *cred) {
 	return err;
 }
 
-// this *should*, by the rules of the vnode ops, accept a user buffer. however, this will never be the case. all I/O will
-// go through the page cache
-static int ext2_read(vnode_t *vnode, void *buffer, size_t size, uintmax_t offset, int flags, size_t *readc, cred_t *cred) {
+static int ext2_read(vnode_t *vnode, iovec_iterator_t *iovec_iterator, size_t size, uintmax_t offset, int flags, size_t *readc, cred_t *cred) {
 	if (vnode->type == V_TYPE_DIR)
 		return EISDIR;
 
@@ -1350,7 +1357,7 @@ static int ext2_read(vnode_t *vnode, void *buffer, size_t size, uintmax_t offset
 	if (size == 0)
 		goto cleanup;
 
-	err = rwbytes(fs, node, buffer, size, offset, false, false);
+	err = rwbytes_iovec(fs, node, iovec_iterator, size, offset, false, false);
 
 	*readc = err ? -1 : size;
 
@@ -1360,7 +1367,7 @@ static int ext2_read(vnode_t *vnode, void *buffer, size_t size, uintmax_t offset
 
 // this *should*, by the rules of the vnode ops, accept a user buffer. however, this will never be the case. all I/O will
 // go through the page cache
-int ext2_write(vnode_t *vnode, void *buffer, size_t size, uintmax_t offset, int flags, size_t *writec, cred_t *cred) {
+int ext2_write(vnode_t *vnode, iovec_iterator_t *iovec_iterator, size_t size, uintmax_t offset, int flags, size_t *writec, cred_t *cred) {
 	if (vnode->type == V_TYPE_DIR)
 		return EISDIR;
 
@@ -1386,7 +1393,7 @@ int ext2_write(vnode_t *vnode, void *buffer, size_t size, uintmax_t offset, int 
 		size = min(endoffset, inodesize) - offset;
 	}
 
-	err = rwbytes(fs, node, buffer, size, offset, true, false);
+	err = rwbytes(fs, node, iovec_iterator, size, offset, true, false);
 	*writec = err ? -1 : size;
 	if (err)
 		goto cleanup;
@@ -1695,7 +1702,15 @@ static int ext2_getpage(vnode_t *node, uintmax_t offset, struct page_t *page) {
 	__assert(node->type == V_TYPE_REGULAR);
 	size_t readc = PAGE_SIZE;
 	void *addr = MAKE_HHDM(pmm_getpageaddress(page));
-	int error = VOP_READ(node, addr, PAGE_SIZE, offset, 0, &readc, NULL);
+
+	iovec_t iovec = {
+		.addr = addr,
+		.len = PAGE_SIZE
+	};
+
+	iovec_iterator_t iovec_iterator;
+	iovec_iterator_init(&iovec_iterator, &iovec, 1);
+	int error = VOP_READ(node, &iovec_iterator, PAGE_SIZE, offset, 0, &readc, NULL);
 	if (readc == 0)
 		return ENXIO;
 	else if (readc != PAGE_SIZE)
@@ -1708,7 +1723,14 @@ static int ext2_putpage(vnode_t *node, uintmax_t offset, struct page_t *page) {
 	// only regular files get cached
 	__assert(node->type == V_TYPE_REGULAR);
 	size_t writec;
-	int error = VOP_WRITE(node, MAKE_HHDM(pmm_getpageaddress(page)), PAGE_SIZE, offset, 0, &writec, NULL);
+	iovec_t iovec = {
+		.addr = MAKE_HHDM(pmm_getpageaddress(page)),
+		.len = PAGE_SIZE
+	};
+
+	iovec_iterator_t iovec_iterator;
+	iovec_iterator_init(&iovec_iterator, &iovec, 1);
+	int error = VOP_WRITE(node, &iovec_iterator, PAGE_SIZE, offset, 0, &writec, NULL);
 
 	// its possible that writec is zero here. the condition where this is possible is when
 	// the file is truncated after the check in the page sync function but before it actually is

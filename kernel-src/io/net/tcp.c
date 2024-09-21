@@ -1305,7 +1305,7 @@ static int tcp_send(socket_t *socket, sockdesc_t *sockdesc) {
 	size_t writesize = min(TCB_RINGBUFFER_SIZE - RINGBUFFER_DATACOUNT(&tcb->transmitbuffer), sockdesc->count);
 	__assert(writesize);
 
-	sockdesc->donecount = iovec_iterator_write_to_ringbuffer(&sockdesc->iovec_iterator, &tcb->transmitbuffer, writesize);
+	sockdesc->donecount = iovec_iterator_write_to_ringbuffer(sockdesc->iovec_iterator, &tcb->transmitbuffer, writesize);
 	if (sockdesc->donecount == RINGBUFFER_USER_COPY_FAILED) {
 		error = EFAULT;
 		goto leave;
@@ -1386,13 +1386,13 @@ static int tcp_recv(socket_t *socket, sockdesc_t *sockdesc) {
 
 	size_t copycount = min(RINGBUFFER_DATACOUNT(&tcb->receivebuffer), sockdesc->count);
 	if (flags & SOCKET_RECV_FLAGS_PEEK) {
-		sockdesc->donecount = iovec_iterator_peek_from_ringbuffer(&sockdesc->iovec_iterator, &tcb->receivebuffer, 0, copycount);
+		sockdesc->donecount = iovec_iterator_peek_from_ringbuffer(sockdesc->iovec_iterator, &tcb->receivebuffer, 0, copycount);
 		if (sockdesc->donecount == RINGBUFFER_USER_COPY_FAILED) {
 			error = EFAULT;
 			goto cleanup;
 		}
 	} else {
-		sockdesc->donecount = iovec_iterator_read_from_ringbuffer(&sockdesc->iovec_iterator, &tcb->receivebuffer, copycount);
+		sockdesc->donecount = iovec_iterator_read_from_ringbuffer(sockdesc->iovec_iterator, &tcb->receivebuffer, copycount);
 		if (sockdesc->donecount == RINGBUFFER_USER_COPY_FAILED) {
 			error = EFAULT;
 			goto cleanup;

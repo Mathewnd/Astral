@@ -39,7 +39,7 @@ typedef struct {
 
 typedef struct {
 	sockaddr_t *addr;
-	iovec_iterator_t iovec_iterator;
+	iovec_iterator_t *iovec_iterator;
 	size_t count;
 	uintmax_t flags;
 	size_t donecount;
@@ -80,8 +80,11 @@ typedef struct {
 #define SOCKFS_SOCKET_FROM_NODE(nodep) (((socketnode_t *)(nodep))->socket)
 
 static inline int socket_read(socket_t *socket, void *buffer, size_t size, uintmax_t flags, size_t *bytes_read) {
+	iovec_iterator_t iovec_iterator;
+
 	sockdesc_t desc = {
 		.addr = NULL,
+		.iovec_iterator = &iovec_iterator,
 		.count = size,
 		.flags = flags,
 		.donecount = 0,
@@ -94,7 +97,7 @@ static inline int socket_read(socket_t *socket, void *buffer, size_t size, uintm
 		.len = size
 	};
 
-	iovec_iterator_init(&desc.iovec_iterator, &iovec, 1);
+	iovec_iterator_init(desc.iovec_iterator, &iovec, 1);
 
 	int e = socket->ops->recv(socket, &desc);
 
@@ -104,8 +107,11 @@ static inline int socket_read(socket_t *socket, void *buffer, size_t size, uintm
 }
 
 static inline int socket_write(socket_t *socket, void *buffer, size_t size, uintmax_t flags, size_t *bytes_written) {
+	iovec_iterator_t iovec_iterator;
+
 	sockdesc_t desc = {
 		.addr = NULL,
+		.iovec_iterator = &iovec_iterator,
 		.count = size,
 		.flags = flags,
 		.donecount = 0,
@@ -118,7 +124,7 @@ static inline int socket_write(socket_t *socket, void *buffer, size_t size, uint
 		.len = size
 	};
 
-	iovec_iterator_init(&desc.iovec_iterator, &iovec, 1);
+	iovec_iterator_init(desc.iovec_iterator, &iovec, 1);
 
 	int e = socket->ops->send(socket, &desc);
 

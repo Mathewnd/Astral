@@ -220,7 +220,7 @@ static int tmpfs_root(vfs_t *vfs, vnode_t **vnode) {
 	return 0;
 }
 
-static int tmpfs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int flags, size_t *readc, cred_t *cred) {
+static int tmpfs_read(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size, uintmax_t offset, int flags, size_t *readc, cred_t *cred) {
 	if (node->type == V_TYPE_DIR)
 		return EISDIR;
 
@@ -230,7 +230,7 @@ static int tmpfs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset
 	__assert(!"tmpfs_read is handled by the page cache");
 }
 
-static int tmpfs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int flags, size_t *writec, cred_t *cred) {
+static int tmpfs_write(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size, uintmax_t offset, int flags, size_t *writec, cred_t *cred) {
 	if (node->type == V_TYPE_DIR)
 		return EISDIR;
 

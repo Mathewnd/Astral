@@ -49,8 +49,10 @@ syscallret_t syscall_sendmsg(context_t *, int fd, msghdr_t *umsghdr, int flags) 
 
 	socket_t *socket = SOCKFS_SOCKET_FROM_NODE(file->vnode);
 
+	iovec_iterator_t iovec_iterator;
 	sockdesc_t desc = {
 		.addr = msghdr.addr ? &sockaddr : NULL,
+		.iovec_iterator = &iovec_iterator,
 		.count = buffersize,
 		.flags = fileflagstovnodeflags(file->flags) | ((flags & MSG_NOSIGNAL) ? SOCKET_SEND_FLAGS_NOSIGNAL : 0),
 		.donecount = 0,
@@ -59,7 +61,7 @@ syscallret_t syscall_sendmsg(context_t *, int fd, msghdr_t *umsghdr, int flags) 
 		.ctrldone = 0
 	};
 
-	iovec_iterator_init(&desc.iovec_iterator, msghdr.iov, msghdr.iovcount);
+	iovec_iterator_init(desc.iovec_iterator, msghdr.iov, msghdr.iovcount);
 
 	ret.errno = socket->ops->send(socket, &desc);
 	ret.ret = ret.errno ? -1 : desc.donecount;

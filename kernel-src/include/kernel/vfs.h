@@ -118,8 +118,8 @@ struct polldata;
 typedef struct vops_t {
 	int (*open)(vnode_t **node, int flags, cred_t *cred);
 	int (*close)(vnode_t *node, int flags, cred_t *cred);
-	int (*read)(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int flags, size_t *readc, cred_t *cred);
-	int (*write)(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int flags, size_t *writec, cred_t *cred);
+	int (*read)(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size, uintmax_t offset, int flags, size_t *readc, cred_t *cred);
+	int (*write)(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size, uintmax_t offset, int flags, size_t *writec, cred_t *cred);
 	int (*lookup)(vnode_t *node, char *name, vnode_t **result, cred_t *cred);
 	int (*create)(vnode_t *parent, char *name, vattr_t *attr, int type, vnode_t **result, cred_t *cred);
 	int (*getattr)(vnode_t *node, vattr_t *attr, cred_t *cred);
@@ -214,6 +214,8 @@ int vfs_register(vfsops_t *vfsops, char *name);
 
 int vfs_open(vnode_t *ref, char *path, int flags, vnode_t **result);
 int vfs_close(vnode_t *node, int flags);
+int vfs_write_iovec(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size, uintmax_t offset, size_t *written, int flags);
+int vfs_read_iovec(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size, uintmax_t offset, size_t *bytesread, int flags);
 int vfs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t *written, int flags);
 int vfs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t *bytesread, int flags);
 int vfs_create(vnode_t *ref, char *path, vattr_t *attr, int type, vnode_t **node);

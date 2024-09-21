@@ -24,14 +24,42 @@ int sockfs_close(vnode_t *node, int flags, cred_t *cred) {
 	return ENOSYS; // not needed
 }
 
-int sockfs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int flags, size_t *readc, cred_t *cred) {
+int sockfs_read(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size, uintmax_t offset, int flags, size_t *bytes_read, cred_t *cred) {
 	socket_t *socket = SOCKFS_SOCKET_FROM_NODE(node);
-	return socket_read(socket, buffer, size, flags, readc);
+	sockdesc_t desc = {
+		.addr = NULL,
+		.iovec_iterator = iovec_iterator,
+		.count = size,
+		.flags = flags,
+		.donecount = 0,
+		.ctrl = NULL,
+		.ctrllen = 0
+	};
+
+	int e = socket->ops->recv(socket, &desc);
+
+	*bytes_read = desc.donecount;
+
+	return e;
 }
 
-int sockfs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int flags, size_t *writec, cred_t *cred) {
+int sockfs_write(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size, uintmax_t offset, int flags, size_t *bytes_written, cred_t *cred) {
 	socket_t *socket = SOCKFS_SOCKET_FROM_NODE(node);
-	return socket_write(socket, buffer, size, flags, writec);
+	sockdesc_t desc = {
+		.addr = NULL,
+		.iovec_iterator = iovec_iterator,
+		.count = size,
+		.flags = flags,
+		.donecount = 0,
+		.ctrl = NULL,
+		.ctrllen = 0
+	};
+
+	int e = socket->ops->send(socket, &desc);
+
+	*bytes_written = desc.donecount;
+
+	return e;
 }
 
 int sockfs_poll(vnode_t *node, polldata_t *data, int events) {

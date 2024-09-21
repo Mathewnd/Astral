@@ -229,8 +229,7 @@ static int writenocache(vnode_t *node, page_t *page, uintmax_t pageoffset) {
 	return e;
 }
 
-// buffer can be a user address
-int vfs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t *written, int flags) {
+int vfs_write_iovec(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size, uintmax_t offset, size_t *written, int flags) {
 	int err = 0;
 	if (vfs_iscacheable(node)) {
 		*written = 0;
@@ -292,7 +291,7 @@ int vfs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t
 			size_t writesize = min(PAGE_SIZE - startoffset, size);
 			void *address = MAKE_HHDM(pmm_getpageaddress(page));
 
-			err = USERCOPY_POSSIBLY_FROM_USER((void *)((uintptr_t)address + startoffset), buffer, writesize);
+			err = iovec_iterator_copy_to_buffer(iovec_iterator, (void *)((uintptr_t)address + startoffset), writesize);
 			if (err) {
 				pmm_release(FROM_HHDM(address));
 				goto leave;
@@ -320,7 +319,7 @@ int vfs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t
 			size_t writesize = min(PAGE_SIZE, size - *written);
 			void *address = MAKE_HHDM(pmm_getpageaddress(page));
 
-			err = USERCOPY_POSSIBLY_FROM_USER(address, (void *)((uintptr_t)buffer + *written), writesize);
+			err = iovec_iterator_copy_to_buffer(iovec_iterator, address, writesize);
 			if (err) {
 				pmm_release(FROM_HHDM(address));
 				goto leave;
@@ -343,14 +342,14 @@ int vfs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t
 	} else {
 		// special file, just write as its not being cached
 		VOP_LOCK(node);
-		err = VOP_WRITE(node, buffer, size, offset, flags, written, getcred());
+		err = VOP_WRITE(node, iovec_iterator, size, offset, flags, written, getcred());
 		VOP_UNLOCK(node);
 	}
 
 	return err;
 }
 
-int vfs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t *bytesread, int flags) {
+int vfs_read_iovec(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size, uintmax_t offset, size_t *bytesread, int flags) {
 	int err = 0;
 	if (vfs_iscacheable(node)) {
 		*bytesread = 0;
@@ -406,7 +405,7 @@ int vfs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t 
 			size_t readsize = min(PAGE_SIZE - startoffset, size);
 			void *address = MAKE_HHDM(pmm_getpageaddress(page));
 
-			err = USERCOPY_POSSIBLY_TO_USER(buffer, (void *)((uintptr_t)address + startoffset), readsize);
+			err = iovec_iterator_copy_from_buffer(iovec_iterator, (void *)((uintptr_t)address + startoffset), readsize);
 			if (err) {
 				pmm_release(FROM_HHDM(address));
 				goto leave;
@@ -433,7 +432,7 @@ int vfs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t 
 			size_t readsize = min(PAGE_SIZE, size - *bytesread);
 			void *address = MAKE_HHDM(pmm_getpageaddress(page));
 
-			err = USERCOPY_POSSIBLY_TO_USER((void *)((uintptr_t)buffer + *bytesread), address, readsize);
+			err = iovec_iterator_copy_from_buffer(iovec_iterator, address, readsize);
 			if (err) {
 				pmm_release(FROM_HHDM(address));
 				goto leave;
@@ -451,10 +450,34 @@ int vfs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t 
 	} else {
 		// special file, just read as size doesn't matter
 		VOP_LOCK(node);
-		err = VOP_READ(node, buffer, size, offset, flags, bytesread, getcred());
+		err = VOP_READ(node, iovec_iterator, size, offset, flags, bytesread, getcred());
 		VOP_UNLOCK(node);
 	}
 	return err;
+}
+
+int vfs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t *written, int flags) {
+	iovec_t iovec = {
+		.addr = buffer,
+		.len = size
+	};
+
+	iovec_iterator_t iovec_iterator;
+	iovec_iterator_init(&iovec_iterator, &iovec, 1);
+
+	return vfs_write_iovec(node, &iovec_iterator, size, offset, written, flags);
+}
+
+int vfs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset, size_t *bytes_read, int flags) {
+	iovec_t iovec = {
+		.addr = buffer,
+		.len = size
+	};
+
+	iovec_iterator_t iovec_iterator;
+	iovec_iterator_init(&iovec_iterator, &iovec, 1);
+
+	return vfs_read_iovec(node, &iovec_iterator, size, offset, bytes_read, flags);
 }
 
 // if type is V_TYPE_LINK, a symlink is made

@@ -55,8 +55,10 @@ syscallret_t syscall_recvmsg(context_t *, int fd, msghdr_t *umsghdr, int flags) 
 	if (flags & MSG_WAITALL)
 		recvflags |= SOCKET_RECV_FLAGS_WAITALL;
 
+	iovec_iterator_t iovec_iterator;
 	sockdesc_t desc = {
 		.addr = &sockaddr,
+		.iovec_iterator = &iovec_iterator,
 		.count = buffersize,
 		.flags = fileflagstovnodeflags(file->flags) | recvflags,
 		.donecount = 0,
@@ -65,7 +67,7 @@ syscallret_t syscall_recvmsg(context_t *, int fd, msghdr_t *umsghdr, int flags) 
 		.ctrldone = 0
 	};
 
-	iovec_iterator_init(&desc.iovec_iterator, msghdr.iov, msghdr.iovcount);
+	iovec_iterator_init(desc.iovec_iterator, msghdr.iov, msghdr.iovcount);
 
 	ret.errno = socket->ops->recv(socket, &desc);
 	if (ret.errno)
