@@ -44,6 +44,10 @@ int iovec_iterator_copy_to_buffer(iovec_iterator_t *iovec_iterator, void *buffer
 // NOTE: the iovec can have userspace addresses. in this case, the copy can possibly fail with EFAULT
 int iovec_iterator_copy_from_buffer(iovec_iterator_t *iovec_iterator, void *buffer, size_t byte_count);
 
+// sets byte_count bytes in the iovec_iterator to byte
+// NOTE: the iovec can have userspace addresses. in this case, the memset can possibly fail with EFAULT
+int iovec_iterator_memset(iovec_iterator_t *iovec_iterator, uint8_t byte, size_t byte_count);
+
 // copies byte_count bytes from the iovec_iterator into the ringbuffer
 // returns the number of bytes copied
 // NOTE: the iovec can have userspace addresses. in this case, the copy can possibly fail by returning RINGBUFFER_USER_COPY_FAILED
