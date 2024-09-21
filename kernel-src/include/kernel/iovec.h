@@ -36,6 +36,9 @@ size_t iovec_iterator_skip(iovec_iterator_t *iovec_iterator, size_t skip_count);
 // sets the current offset of the iovec iterator to offset, returns the remaining number of bytes
 size_t iovec_iterator_set(iovec_iterator_t *iovec_iterator, size_t offset);
 
+// returns the offset that the iovec_iterator is on
+size_t iovec_iterator_total_offset(iovec_iterator_t *iovec_iterator);
+
 // copies byte_count bytes from the iovec_iterator into buffer
 // NOTE: the iovec can have userspace addresses. in this case, the copy can possibly fail with EFAULT
 int iovec_iterator_copy_to_buffer(iovec_iterator_t *iovec_iterator, void *buffer, size_t byte_count);

@@ -67,6 +67,10 @@ size_t iovec_iterator_set(iovec_iterator_t *iovec_iterator, size_t offset) {
 	return iovec_iterator_skip(iovec_iterator, offset);
 }
 
+size_t iovec_iterator_total_offset(iovec_iterator_t *iovec_iterator) {
+	return iovec_iterator->total_offset;
+}
+
 int iovec_iterator_copy_to_buffer(iovec_iterator_t *iovec_iterator, void *buffer, size_t byte_count) {
 	size_t iterator_offset_save = iovec_iterator->total_offset;
 	size_t remaining_total = min(byte_count, iovec_iterator->total_size - iovec_iterator->total_offset);
