@@ -237,7 +237,7 @@ void arch_apic_timerinit() {
 
 	writelapic(APIC_LVT_TIMER, vec);
 
-	current_cpu()->timer = timer_new(ticksperus, armtimer, stoptimer);
+	current_cpu()->timer = timer_new(ticksperus, armtimer, stoptimer, 0xffffffff);
 	__assert(current_cpu()->timer);
 }
 

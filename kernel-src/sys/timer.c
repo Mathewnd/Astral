@@ -37,6 +37,18 @@ static void insert(timer_t *timer, timerentry_t *entry, time_t us) {
 }
 
 // expects IPL to be at least IPL_TIMER
+static inline void arm_for_next_target(timer_t *timer) {
+	time_t target;
+	if (timer->queue)
+		target = min(timer->queue->absolutetick - timer->tickcurrent, timer->tick_limit);
+	else
+		target = timer->tick_limit;
+
+	timer->current_target = timer->tickcurrent + target;
+	timer->arm(target);
+}
+
+// expects IPL to be at least IPL_TIMER
 static void timercheck(timer_t *timer) {
 	while (timer->queue && timer->queue->absolutetick == timer->tickcurrent) {
 		timerentry_t *entry = timer->queue;
@@ -52,14 +64,12 @@ static void timercheck(timer_t *timer) {
 	}
 }
 
-// TODO if an entry is removed and the timer still fires,
-// it will skip forwards in time which is bad BAD
 void timer_isr(timer_t *timer, context_t *context) {
 	spinlock_acquire(&timer->lock);
 
 	__assert(timer->queue);
 
-	timer->tickcurrent = timer->queue->absolutetick;
+	timer->tickcurrent = timer->current_target;
 	timerentry_t *oldentry = timer->queue;
 	timer->queue = timer->queue->next;
 	oldentry->next = NULL;
@@ -71,10 +81,8 @@ void timer_isr(timer_t *timer, context_t *context) {
 
 	dpc_enqueue(&oldentry->dpc, oldentry->fn, oldentry->arg);
 
-	if (timer->queue) {
-		timercheck(timer);
-		timer->arm(timer->queue->absolutetick - timer->tickcurrent);
-	}
+	timercheck(timer);
+	arm_for_next_target(timer);
 
 	spinlock_release(&timer->lock);
 }
@@ -89,7 +97,7 @@ void timer_resume(timer_t *timer) {
 		goto leave;
 
 	timercheck(timer);
-	timer->arm(timer->queue->absolutetick - timer->tickcurrent);
+	arm_for_next_target(timer);
 
 	leave:
 	spinlock_release(&timer->lock);
@@ -123,7 +131,7 @@ void timer_insert(timer_t *timer, timerentry_t *entry, dpcfn_t fn, dpcarg_t arg,
 
 	if (timer->running) {
 		timercheck(timer);
-		timer->arm(timer->queue->absolutetick - timer->tickcurrent);
+		arm_for_next_target(timer);
 	}
 
 	spinlock_release(&timer->lock);
@@ -165,7 +173,7 @@ uintmax_t timer_remove(timer_t *timer, timerentry_t *entry) {
 
 	if (timer->queue) {
 		timercheck(timer);
-		timer->arm(timer->queue->absolutetick - timer->tickcurrent);
+		arm_for_next_target(timer);
 	}
 
 	cleanup:
@@ -174,13 +182,14 @@ uintmax_t timer_remove(timer_t *timer, timerentry_t *entry) {
 	return timeremaining;
 }
 
-timer_t *timer_new(time_t ticksperus, void (*arm)(time_t), time_t (*stop)()) {
+timer_t *timer_new(time_t ticksperus, void (*arm)(time_t), time_t (*stop)(), time_t tick_limit) {
 	timer_t *timer = alloc(sizeof(timer_t));
 	if (timer == NULL)
 		return NULL;
 
 	timer->ticksperus = ticksperus;
 	timer->running = false;
+	timer->tick_limit = tick_limit;
 	timer->arm = arm;
 	timer->stop = stop;
 	SPINLOCK_INIT(timer->lock);
