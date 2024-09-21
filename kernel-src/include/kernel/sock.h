@@ -39,7 +39,7 @@ typedef struct {
 
 typedef struct {
 	sockaddr_t *addr;
-	void *buffer;
+	iovec_iterator_t iovec_iterator;
 	size_t count;
 	uintmax_t flags;
 	size_t donecount;
@@ -78,6 +78,53 @@ typedef struct {
 #define SOCKET_TYPE_LOCAL 1
 #define SOCKET_TYPE_TCP 2
 #define SOCKFS_SOCKET_FROM_NODE(nodep) (((socketnode_t *)(nodep))->socket)
+
+static inline int socket_read(socket_t *socket, void *buffer, size_t size, uintmax_t flags, size_t *bytes_read) {
+	sockdesc_t desc = {
+		.addr = NULL,
+		.count = size,
+		.flags = flags,
+		.donecount = 0,
+		.ctrl = NULL,
+		.ctrllen = 0
+	};
+
+	iovec_t iovec = {
+		.addr = buffer,
+		.len = size
+	};
+
+	iovec_iterator_init(&desc.iovec_iterator, &iovec, 1);
+
+	int e = socket->ops->recv(socket, &desc);
+
+	*bytes_read = desc.donecount;
+
+	return e;
+}
+
+static inline int socket_write(socket_t *socket, void *buffer, size_t size, uintmax_t flags, size_t *bytes_written) {
+	sockdesc_t desc = {
+		.addr = NULL,
+		.count = size,
+		.flags = flags,
+		.donecount = 0,
+		.ctrl = NULL,
+		.ctrllen = 0
+	};
+
+	iovec_t iovec = {
+		.addr = buffer,
+		.len = size
+	};
+
+	iovec_iterator_init(&desc.iovec_iterator, &iovec, 1);
+
+	int e = socket->ops->send(socket, &desc);
+
+	*bytes_written = desc.donecount;
+	return e;
+}
 
 static inline int sock_convertaddress(sockaddr_t *sockaddr, abisockaddr_t *abisockaddr) {
 	switch (abisockaddr->type) {

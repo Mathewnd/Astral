@@ -47,12 +47,12 @@ int iovec_iterator_copy_from_buffer(iovec_iterator_t *iovec_iterator, void *buff
 // copies byte_count bytes from the iovec_iterator into the ringbuffer
 // returns the number of bytes copied
 // NOTE: the iovec can have userspace addresses. in this case, the copy can possibly fail by returning RINGBUFFER_USER_COPY_FAILED
-size_t iovec_iterator_copy_to_ringbuffer(iovec_iterator_t *iovec_iterator, ringbuffer_t *ringbuffer, size_t byte_count);
+size_t iovec_iterator_write_to_ringbuffer(iovec_iterator_t *iovec_iterator, ringbuffer_t *ringbuffer, size_t byte_count);
 
 // copies byte_count bytes from the ringbuffer into the iovec_iterator
 // returns the number of bytes copied
 // NOTE: the iovec can have userspace addresses. in this case, the copy can possibly fail with RINGBUFFER_USER_COPY_FAILED
-size_t iovec_iterator_copy_from_ringbuffer(iovec_iterator_t *iovec_iterator, ringbuffer_t *ringbuffer, size_t byte_count);
+size_t iovec_iterator_read_from_ringbuffer(iovec_iterator_t *iovec_iterator, ringbuffer_t *ringbuffer, size_t byte_count);
 
 // copies byte_count bytes from the ringbuffer into the iovec_iterator, without moving the ringbuffer read pointer
 // returns the number of bytes copied

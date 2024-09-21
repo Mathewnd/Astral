@@ -32,7 +32,7 @@ typedef struct {
 static socket_t *ports[65536];
 static spinlock_t portlock;
 
-int udp_sendpacket(void *buffer, size_t size, uint32_t ip, uint16_t srcport, uint16_t dstport, netdev_t *broadcastnetdev) {
+int udp_sendpacket(iovec_iterator_t *iovec_iterator, size_t size, uint32_t ip, uint16_t srcport, uint16_t dstport, netdev_t *broadcastnetdev) {
 	void *newbuff = alloc(size + sizeof(udpframe_t));
 	if (newbuff == NULL)
 		return ENOMEM;
@@ -45,7 +45,7 @@ int udp_sendpacket(void *buffer, size_t size, uint32_t ip, uint16_t srcport, uin
 	};
 
 	memcpy(newbuff, &frame, sizeof(udpframe_t));
-	int error = USERCOPY_POSSIBLY_FROM_USER((void *)((uintptr_t)newbuff + sizeof(udpframe_t)), buffer, size);
+	int error = iovec_iterator_copy_to_buffer(iovec_iterator, (void *)((uintptr_t)newbuff + sizeof(udpframe_t)), size);
 	if (error)
 		goto leave;
 
@@ -203,7 +203,7 @@ static int udp_send(socket_t *socket, sockdesc_t *sockdesc) {
 		socket->state = SOCKET_STATE_BOUND;
 	}
 
-	e = udp_sendpacket(sockdesc->buffer, sockdesc->count, sockdesc->addr ? sockdesc->addr->ipv4addr.addr : udpsocket->peeraddress, 
+	e = udp_sendpacket(&sockdesc->iovec_iterator, sockdesc->count, sockdesc->addr ? sockdesc->addr->ipv4addr.addr : udpsocket->peeraddress,
 			udpsocket->port, sockdesc->addr ? sockdesc->addr->ipv4addr.port : udpsocket->peerport, udpsocket->socket.netdev);
 
 	sockdesc->donecount = sockdesc->count;
@@ -261,16 +261,20 @@ static int udp_recv(socket_t *socket, sockdesc_t *sockdesc) {
 
 	// this abuses an asterisk on the ringbuffer implementation that makes it not need locking when
 	// something is reading and something is writing simultaneously.
-	// this is done to not need to disable interrupts as the ringbuffer_peek could take a fault
+	// this is done to not need to disable interrupts as the iovec_peek_from_ringbuffer could take a fault
 	// multiple readers cannot happen because of the socket mutex and the write on the side of the
-	// NIC is protected by the ringbuffer lock
+	// NIC is protected by the ringbuffer lock. The ringbuffer lock is taken when reading the desc to ensure that
+	// the whole packet has reached the ringbuffer
 	size_t copycount;
 	dataheader_t header;
 
+	long ipl = spinlock_acquireraiseipl(&udpsocket->ringbufferlock, IPL_DPC);
 	__assert(ringbuffer_peek(&udpsocket->ringbuffer, &header, 0, sizeof(header)) == sizeof(header));
+	spinlock_releaseloweripl(&udpsocket->ringbufferlock, ipl);
+
 	copycount = min(header.length, sockdesc->count);
 
-	sockdesc->donecount = ringbuffer_peek(&udpsocket->ringbuffer, sockdesc->buffer, sizeof(header), copycount);
+	sockdesc->donecount = iovec_iterator_peek_from_ringbuffer(&sockdesc->iovec_iterator, &udpsocket->ringbuffer, sizeof(header), copycount);
 	if (sockdesc->donecount == RINGBUFFER_USER_COPY_FAILED) {
 		e = EFAULT;
 		goto cleanup;
@@ -279,11 +283,8 @@ static int udp_recv(socket_t *socket, sockdesc_t *sockdesc) {
 	__assert(sockdesc->donecount == copycount);
 
 	// remove the message if not asked to peek
-	if ((flags & SOCKET_RECV_FLAGS_PEEK) == 0) {
-		bool status = spinlock_acquireirqclear(&udpsocket->ringbufferlock);
+	if ((flags & SOCKET_RECV_FLAGS_PEEK) == 0)
 		ringbuffer_truncate(&udpsocket->ringbuffer, sizeof(header) + header.length);
-		spinlock_releaseirqrestore(&udpsocket->ringbufferlock, status);
-	}
 
 	sockdesc->donecount = copycount;
 	sockdesc->addr->ipv4addr.addr = header.peer;

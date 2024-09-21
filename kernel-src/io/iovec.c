@@ -119,7 +119,7 @@ int iovec_iterator_copy_from_buffer(iovec_iterator_t *iovec_iterator, void *buff
 	return error;
 }
 
-size_t iovec_iterator_copy_to_ringbuffer(iovec_iterator_t *iovec_iterator, ringbuffer_t *ringbuffer, size_t byte_count) {
+size_t iovec_iterator_write_to_ringbuffer(iovec_iterator_t *iovec_iterator, ringbuffer_t *ringbuffer, size_t byte_count) {
 	size_t iterator_offset_save = iovec_iterator->total_offset;
 	size_t remaining_total = min(byte_count, iovec_iterator->total_size - iovec_iterator->total_offset);
 	size_t total_done = 0;
@@ -140,6 +140,7 @@ size_t iovec_iterator_copy_to_ringbuffer(iovec_iterator_t *iovec_iterator, ringb
 			break;
 
 		iovec_iterator_skip(iovec_iterator, copy_current);
+		remaining_total -= current_done;
 		total_done += current_done;
 
 		if (total_done == byte_count || iovec_iterator_finished(iovec_iterator))
@@ -154,7 +155,7 @@ size_t iovec_iterator_copy_to_ringbuffer(iovec_iterator_t *iovec_iterator, ringb
 	return total_done;
 }
 
-size_t iovec_iterator_peek_from_ringbuffer(iovec_iterator_t *iovec_iterator, ringbuffer_t *ringbuffer, size_t byte_count, uintmax_t ringbuffer_offset) {
+size_t iovec_iterator_peek_from_ringbuffer(iovec_iterator_t *iovec_iterator, ringbuffer_t *ringbuffer, size_t offset, size_t byte_count) {
 	size_t iterator_offset_save = iovec_iterator->total_offset;
 	size_t remaining_total = min(byte_count, iovec_iterator->total_size - iovec_iterator->total_offset);
 	size_t total_done = 0;
@@ -164,12 +165,13 @@ size_t iovec_iterator_peek_from_ringbuffer(iovec_iterator_t *iovec_iterator, rin
 		size_t remaining_current = iovec_iterator->current->len - iovec_iterator->current_offset;
 		size_t copy_current = min(remaining_current, remaining_total);
 
-		current_done = ringbuffer_peek(ringbuffer, (void *)((uintptr_t)iovec_iterator->current->addr + iovec_iterator->current_offset), total_done, copy_current);
+		current_done = ringbuffer_peek(ringbuffer, (void *)((uintptr_t)iovec_iterator->current->addr + iovec_iterator->current_offset), offset + total_done, copy_current);
 		if (current_done == 0 || current_done == RINGBUFFER_USER_COPY_FAILED)
 			break;
 
 		iovec_iterator_skip(iovec_iterator, copy_current);
 		total_done += current_done;
+		remaining_total -= current_done;
 
 		if (total_done == byte_count || iovec_iterator_finished(iovec_iterator))
 			break;
@@ -183,8 +185,8 @@ size_t iovec_iterator_peek_from_ringbuffer(iovec_iterator_t *iovec_iterator, rin
 	return total_done;
 }
 
-size_t iovec_iterator_copy_from_ringbuffer(iovec_iterator_t *iovec_iterator, ringbuffer_t *ringbuffer, size_t byte_count) {
-	size_t done = iovec_iterator_peek_from_ringbuffer(iovec_iterator, ringbuffer, byte_count, 0);
+size_t iovec_iterator_read_from_ringbuffer(iovec_iterator_t *iovec_iterator, ringbuffer_t *ringbuffer, size_t byte_count) {
+	size_t done = iovec_iterator_peek_from_ringbuffer(iovec_iterator, ringbuffer, 0, byte_count);
 	if (done == RINGBUFFER_USER_COPY_FAILED)
 		return done;
 

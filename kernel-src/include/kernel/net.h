@@ -78,7 +78,7 @@ void udp_process(netdev_t *netdev, void *buffer, uint32_t ip);
 void arp_process(netdev_t *netdev, void *buffer);
 void tcp_process(netdev_t *netdev, void *buffer, ipv4frame_t *ipv4frame);
 int arp_lookup(netdev_t *netdev, uint32_t ip, mac_t *mac);
-int udp_sendpacket(void *buffer, size_t packetsize, uint32_t ip, uint16_t srcport, uint16_t dstport, netdev_t *broadcastdev);
+int udp_sendpacket(iovec_iterator_t *iovec_iterator, size_t packetsize, uint32_t ip, uint16_t srcport, uint16_t dstport, netdev_t *broadcastdev);
 int ipv4_sendpacket(void *buffer, size_t packetsize, uint32_t ip, int proto, netdev_t *broadcastdev);
 size_t ipv4_getmtu(uint32_t ip);
 uint32_t ipv4_getnetdevip(uint32_t ip);

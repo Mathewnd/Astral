@@ -23,20 +23,10 @@ syscallret_t syscall_sendmsg(context_t *, int fd, msghdr_t *umsghdr, int flags) 
 		return ret;
 	}
 
-	void *buffer = vmm_map(NULL, buffersize, VMM_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, NULL);
-	if (buffer == NULL) {
-		ret.errno = ENOMEM;
-		goto cleanup;
-	}
-
-	uintmax_t iovoffset = 0;
-
-	for (int i = 0; i < msghdr.iovcount; ++i) {
-		ret.errno = usercopy_fromuser((void *)((uintptr_t)buffer + iovoffset), msghdr.iov[i].addr, msghdr.iov[i].len);
-		if (ret.errno)
-			goto cleanup;
-
-		iovoffset += msghdr.iov[i].len;
+	if (iovec_user_check(msghdr.iov, msghdr.iovcount) == false) {
+		ret.errno = EFAULT;
+		sock_freemsghdr(&msghdr);
+		return ret;
 	}
 
 	file = fd_get(fd);
@@ -61,7 +51,6 @@ syscallret_t syscall_sendmsg(context_t *, int fd, msghdr_t *umsghdr, int flags) 
 
 	sockdesc_t desc = {
 		.addr = msghdr.addr ? &sockaddr : NULL,
-		.buffer = buffer,
 		.count = buffersize,
 		.flags = fileflagstovnodeflags(file->flags) | ((flags & MSG_NOSIGNAL) ? SOCKET_SEND_FLAGS_NOSIGNAL : 0),
 		.donecount = 0,
@@ -70,15 +59,14 @@ syscallret_t syscall_sendmsg(context_t *, int fd, msghdr_t *umsghdr, int flags) 
 		.ctrldone = 0
 	};
 
+	iovec_iterator_init(&desc.iovec_iterator, msghdr.iov, msghdr.iovcount);
+
 	ret.errno = socket->ops->send(socket, &desc);
 	ret.ret = ret.errno ? -1 : desc.donecount;
 
 	cleanup:
 	if (file)
 		fd_release(file);
-
-	if (buffer)
-		vmm_unmap(buffer, buffersize, 0);
 
 	sock_freemsghdr(&msghdr);
 	return ret;

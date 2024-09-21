@@ -363,7 +363,7 @@ static int localsock_send(socket_t *socket, sockdesc_t *sockdesc) {
 		goto leave;
 	}
 
-	sockdesc->donecount = ringbuffer_write(&peer->ringbuffer, sockdesc->buffer, sockdesc->count);
+	sockdesc->donecount = iovec_iterator_write_to_ringbuffer(&sockdesc->iovec_iterator, &peer->ringbuffer, sockdesc->count);
 	if (sockdesc->donecount == RINGBUFFER_USER_COPY_FAILED) {
 		error = EFAULT;
 		goto leave;
@@ -467,13 +467,13 @@ static int localsock_recv(socket_t *socket, sockdesc_t *sockdesc) {
 	}
 
 	if (flags & SOCKET_RECV_FLAGS_PEEK) {
-		sockdesc->donecount = ringbuffer_peek(&localsocket->ringbuffer, sockdesc->buffer, 0, recvcount);
+		sockdesc->donecount = iovec_iterator_peek_from_ringbuffer(&sockdesc->iovec_iterator, &localsocket->ringbuffer, 0, recvcount);
 		if (sockdesc->donecount == RINGBUFFER_USER_COPY_FAILED) {
 			error = EFAULT;
 			goto leave;
 		}
 	} else {
-		sockdesc->donecount = ringbuffer_read(&localsocket->ringbuffer, sockdesc->buffer, recvcount);
+		sockdesc->donecount = iovec_iterator_read_from_ringbuffer(&sockdesc->iovec_iterator, &localsocket->ringbuffer, recvcount);
 		if (sockdesc->donecount == RINGBUFFER_USER_COPY_FAILED) {
 			error = EPIPE;
 			goto leave;
