@@ -17,13 +17,20 @@ static inline int _usercopy_strlen_wrapper(void *str, size_t *size) {
 	return 0;
 }
 
+static inline int _usercopy_memset_wrapper(void *dst, uint8_t byte, size_t size) {
+	memset(dst, byte, size);
+	return 0;
+}
+
 #define USERCOPY_POSSIBLY_FROM_USER(kernel, user, size) (IS_USER_ADDRESS(user) ? usercopy_fromuser(kernel, user, size) : _usercopy_memcpy_wrapper(kernel, user, size))
 #define USERCOPY_POSSIBLY_TO_USER(user, kernel, size) (IS_USER_ADDRESS(user) ? usercopy_touser(user, kernel, size) : _usercopy_memcpy_wrapper(user, kernel, size))
 #define USERCOPY_POSSIBLY_STRLEN_FROM_USER(user, sizep) (IS_USER_ADDRESS(user) ? usercopy_strlen(user, sizep) : _usercopy_strlen_wrapper(user, sizep))
+#define USERCOPY_POSSIBLY_MEMSET_TO_USER(user, byte, size) (IS_USER_ADDRESS(user) ? usercopy_memset(user, byte, size) : _usercopy_memset_wrapper(user, byte, size))
 
 int usercopy_touser(void *user, void *kernel, size_t size);
 int usercopy_fromuser(void *kernel, void *user, size_t size);
 int usercopy_fromuseratomic32(uint32_t *user32, uint32_t *value);
 int usercopy_strlen(const char *, size_t *size);
+int usercopy_memset(void *user, uint8_t byte, size_t size);
 
 #endif

@@ -18,6 +18,12 @@ typedef struct {
 	uint32_t *address;
 } atomic32desc_t;
 
+typedef struct {
+	void *dst;
+	uint8_t byte;
+	size_t size;
+} memsetdesc_t;
+
 static void memcpyinternal(context_t *ctx, void *arg) {
 	memcpydesc_t *desc = arg;
 
@@ -54,6 +60,20 @@ static void atomic32internal(context_t *ctx, void *arg) {
 	current_thread()->usercopyctx = ctx;
 
 	__atomic_load(desc->address, desc->value, __ATOMIC_SEQ_CST);
+
+	// no errors!
+	CTX_RET(ctx) = 0;
+	current_thread()->usercopyctx = NULL;
+}
+
+static void memset_internal(context_t *ctx, void *arg) {
+	memsetdesc_t *desc = arg;
+
+	// this sets up the thread so that in the next invalid page fault, it will jump to
+	// this context with CTX_RET set to EFAULT
+	current_thread()->usercopyctx = ctx;
+
+	memset(desc->dst, desc->byte, desc->size);
 
 	// no errors!
 	CTX_RET(ctx) = 0;
@@ -108,4 +128,17 @@ int usercopy_fromuseratomic32(uint32_t *user32, uint32_t *value) {
 		return EFAULT;
 
 	return arch_context_saveandcall(atomic32internal, NULL, &desc);
+}
+
+int usercopy_memset(void *user, uint8_t byte, size_t size) {
+	memsetdesc_t desc = {
+		.dst = user,
+		.byte = byte,
+		.size = size
+	};
+
+	if (IS_USER_ADDRESS(user) == false)
+		return EFAULT;
+
+	return arch_context_saveandcall(memset_internal, NULL, &desc);
 }
