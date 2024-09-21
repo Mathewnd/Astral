@@ -256,13 +256,14 @@ static int read(int minor, iovec_iterator_t *iovec_iterator, size_t size, uintma
 		}
 
 		error = poll_dowait(&desc, effectivetimeout);
+
+		poll_leave(&desc);
+		poll_destroydesc(&desc);
+
 		if (error == 0 && (desc.event == NULL || (desc.event && desc.event->revents == 0))) {
 			// timed out!
 			break;
 		}
-
-		poll_leave(&desc);
-		poll_destroydesc(&desc);
 
 		if (error)
 			goto leave;

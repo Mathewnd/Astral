@@ -112,5 +112,6 @@ static devops_t acpiops = {
 void acpi_initdevice(void) {
 	__assert(devfs_register(&acpiops, "acpi", V_TYPE_CHDEV, DEV_MAJOR_ACPI, 0, 0600, NULL) == 0);
 	__assert(ringbuffer_init(&ringbuffer, 64) == 0);
+	MUTEX_INIT(&mutex);
 	POLL_INITHEADER(&pollheader);
 }
