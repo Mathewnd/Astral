@@ -1,0 +1,15 @@
+name=imlib2
+revision=1
+from_source=imlib2
+imagedeps="base-devel"
+hostdeps="xgcc xbinutils libtool pkgconfig"
+deps="base freetype libx11 libice libpng libjpeg-turbo bzip2 zlib libxext"
+
+build() {
+	${source_dir}/configure --host=x86_64-astral --prefix=${prefix} --disable-static
+	make -j${parallelism}
+}
+
+package() {
+	make install DESTDIR="${dest_dir}"
+}

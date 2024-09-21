@@ -1,0 +1,21 @@
+name=xfishtank
+revision=1
+from_source=xfishtank
+imagedeps="base-devel imake"
+hostdeps="xgcc xbinutils libtool pkgconfig"
+deps="base imlib2"
+
+build() {
+	# the build system sucks, so we will directly call the compiler and ignore it!
+	cp -rp ${source_dir}/* .
+
+	gcc makeh.c -o makeh
+
+	./makeh fishmaps/?*.h > xfishy.h
+	x86_64-astral-gcc -Dlinux -I./fishmaps -lX11 -lImlib2 -lm xfish.c medcut.c -o xfishtank
+}
+
+package() {
+	mkdir -p ${dest_dir}/usr/bin/
+	cp -v xfishtank ${dest_dir}/usr/bin/xfishtank
+}

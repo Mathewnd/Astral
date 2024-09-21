@@ -1,0 +1,9 @@
+name=xfishtank
+version=0
+source_method=tarball
+tarball_url="https://github.com/sydneyjd/xfishtank/archive/63022c8877710cefa7e4815dda8bd6ae50557fb5.tar.gz"
+tarball_sha512=1ef1e0b89cc3fbe3d9a246509dac158d1663d784e302be7e3e28baf52205a11d83a5a0b4170ccef1e8befb49e013177a7480b2ae0e87953129b19d75723d0b81
+
+regenerate() {
+        true
+}
