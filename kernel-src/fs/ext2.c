@@ -1393,7 +1393,7 @@ int ext2_write(vnode_t *vnode, iovec_iterator_t *iovec_iterator, size_t size, ui
 		size = min(endoffset, inodesize) - offset;
 	}
 
-	err = rwbytes(fs, node, iovec_iterator, size, offset, true, false);
+	err = rwbytes_iovec(fs, node, iovec_iterator, size, offset, true, false);
 	*writec = err ? -1 : size;
 	if (err)
 		goto cleanup;
