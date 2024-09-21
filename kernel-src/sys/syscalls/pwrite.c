@@ -8,12 +8,6 @@ syscallret_t syscall_pwrite(context_t *context, int fd, void *buffer, size_t siz
 		.ret = -1
 	};
 
-	void *kernelbuff = vmm_map(NULL, size, VMM_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, NULL);
-	if (kernelbuff == NULL) {
-		ret.errno = ENOMEM;
-		return ret;
-	}
-
 	file_t *file = fd_get(fd);
 
 	if (file == NULL || (file->flags & FILE_WRITE) == 0) {
@@ -27,10 +21,6 @@ syscallret_t syscall_pwrite(context_t *context, int fd, void *buffer, size_t siz
 		goto cleanup;
 	}
 
-	ret.errno = usercopy_fromuser(kernelbuff, buffer, size);
-	if (ret.errno)
-		goto cleanup;
-
 	size_t tmp;
 	if (file->vnode->type == V_TYPE_SOCKET || file->vnode->type == V_TYPE_FIFO || (file->vnode->type == V_TYPE_CHDEV && VOP_MAXSEEK(file->vnode, &tmp))) {
 		ret.errno = ESPIPE;
@@ -38,7 +28,7 @@ syscallret_t syscall_pwrite(context_t *context, int fd, void *buffer, size_t siz
 	}
 
 	size_t byteswritten;
-	ret.errno = vfs_write(file->vnode, kernelbuff, size, offset, &byteswritten, fileflagstovnodeflags(file->flags));
+	ret.errno = vfs_write(file->vnode, buffer, size, offset, &byteswritten, fileflagstovnodeflags(file->flags));
 
 	if (ret.errno)
 		goto cleanup;
@@ -49,6 +39,5 @@ cleanup:
 	if (file)
 		fd_release(file);
 
-	vmm_unmap(kernelbuff, size, 0);
 	return ret;
 }
