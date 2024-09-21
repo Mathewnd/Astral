@@ -79,7 +79,7 @@ typedef struct {
 #define SOCKET_TYPE_TCP 2
 #define SOCKFS_SOCKET_FROM_NODE(nodep) (((socketnode_t *)(nodep))->socket)
 
-static inline int socket_read(socket_t *socket, void *buffer, size_t size, uintmax_t flags, size_t *bytes_read) {
+static inline int socket_recv(socket_t *socket, void *buffer, size_t size, uintmax_t flags, size_t *bytes_read) {
 	iovec_iterator_t iovec_iterator;
 
 	sockdesc_t desc = {
@@ -106,7 +106,7 @@ static inline int socket_read(socket_t *socket, void *buffer, size_t size, uintm
 	return e;
 }
 
-static inline int socket_write(socket_t *socket, void *buffer, size_t size, uintmax_t flags, size_t *bytes_written) {
+static inline int socket_send(socket_t *socket, void *buffer, size_t size, uintmax_t flags, size_t *bytes_written) {
 	iovec_iterator_t iovec_iterator;
 
 	sockdesc_t desc = {
