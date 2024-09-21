@@ -224,19 +224,23 @@ size_t iovec_iterator_read_from_ringbuffer(iovec_iterator_t *iovec_iterator, rin
 	return done;
 }
 
-int iovec_iterator_next_page(iovec_iterator_t *iovec_iterator, void **page) {
+int iovec_iterator_next_page(iovec_iterator_t *iovec_iterator, size_t *page_offset, size_t *page_remaining, void **page) {
 	void *addr = (void *)((uintptr_t)iovec_iterator->current->addr + iovec_iterator->current_offset);
-	if ((uintptr_t)addr % PAGE_SIZE)
-		return EINVAL;
-
+	size_t offset_in_page = ((uintptr_t)addr % PAGE_SIZE);
 	size_t remaining = iovec_iterator->current->len - iovec_iterator->current_offset;
-	if (remaining < PAGE_SIZE)
-		return EINVAL;
 
-	void *phys = vmm_getphysical(addr, true);
+	if (remaining == 0) {
+		*page = NULL;
+		return 0;
+	}
+
+	void *phys = vmm_getphysical((void *)((uintptr_t)addr - offset_in_page), true);
 	if (phys == NULL)
 		return EFAULT;
 
+	*page_offset = offset_in_page;
+	*page_remaining = min(PAGE_SIZE, remaining);
 	*page = phys;
+	iovec_iterator_skip(iovec_iterator, *page_remaining);
 	return 0;
 }

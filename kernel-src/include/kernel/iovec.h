@@ -64,8 +64,9 @@ size_t iovec_iterator_read_from_ringbuffer(iovec_iterator_t *iovec_iterator, rin
 size_t iovec_iterator_peek_from_ringbuffer(iovec_iterator_t *iovec_iterator, ringbuffer_t *ringbuffer, size_t byte_count, uintmax_t ringbuffer_offset);
 
 // returns the physical address of the next page in the iovec_iterator, adding a reference count while at it
-// fails with EINVAL if the iterator does not currently point to the start of a page or there is not enough space for a page
+// sets the page_offset to the offset in the page, page_remaining to the remaining number of bytes in the page and page to the physical address of the page
+// if no more pages in iovec_iterator, returns success with page being set to NULL
 // fails with EFAULT if the page is not mapped
-int iovec_iterator_next_page(iovec_iterator_t *iovec_iterator, void **page);
+int iovec_iterator_next_page(iovec_iterator_t *iovec_iterator, size_t *page_offset, size_t *page_remaining, void **page);
 
 #endif
