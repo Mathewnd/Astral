@@ -99,7 +99,7 @@ static void vioblk_enqueue(vioblkdev_t *blkdev, requestheader_t *headerphys, voi
 	interrupt_set(intstatus);
 }
 
-static int vioblk_rw(vioblkdev_t *blkdev, void *buffer, uintmax_t lba, size_t count, bool write) {
+static int vioblk_rw(vioblkdev_t *blkdev, iovec_iterator_t *iovec_iterator, uintmax_t lba, size_t count, bool write) {
 	void *physpage = pmm_allocpage(PMM_SECTION_DEFAULT);
 	if (physpage == NULL)
 		return ENOMEM;
@@ -112,21 +112,28 @@ static int vioblk_rw(vioblkdev_t *blkdev, void *buffer, uintmax_t lba, size_t co
 
 	headerhhdm->type = write ? HEADER_TYPE_WRITE : HEADER_TYPE_READ;
 
-	__assert(((uintptr_t)buffer % 512) == 0);
-	uintmax_t pageoffset = (uintptr_t)buffer - ROUND_DOWN((uintptr_t)buffer, PAGE_SIZE);
-
 	int done = 0;
 	while (done < count) {
+		void *page;
+		size_t page_offset, page_remaining;
+		err = iovec_iterator_next_page(iovec_iterator, &page_offset, &page_remaining, &page);
+		if (err)
+			break;
+
+		// check that there is enough space to complete the write of this page
+		__assert(page);
+		__assert(page_remaining >= min((count - done) * 512, PAGE_SIZE));
+
+		// and that the space is aligned to the block size
+		__assert((page_remaining % 512) == 0);
+
 		headerhhdm->sector = lba + done;
-		size_t docount = (done == 0) ? (PAGE_SIZE - pageoffset) / 512 : PAGE_SIZE / 512;
+		size_t docount = page_remaining / 512;
 		docount = min(docount, count - done);
 
-		void *bufferphys = vmm_getphysical((void *)((uintptr_t)buffer + done * 512), true);
-		__assert(bufferphys);
+		vioblk_enqueue(blkdev, header, (void *)((uintptr_t)page + page_offset), PAGE_SIZE, status, write);
 
-		vioblk_enqueue(blkdev, header, bufferphys, docount * 512, status, write);
-
-		pmm_release(bufferphys);
+		pmm_release(page);
 
 		if (*statushhdm) {
 			err = EIO;
@@ -140,12 +147,12 @@ static int vioblk_rw(vioblkdev_t *blkdev, void *buffer, uintmax_t lba, size_t co
 	return err;
 }
 
-static int vioblk_write(void *private, void *buffer, uintmax_t lba, size_t count) {
-	return vioblk_rw(private, buffer, lba, count, true);
+static int vioblk_write(void *private, iovec_iterator_t *iovec_iterator, uintmax_t lba, size_t count) {
+	return vioblk_rw(private, iovec_iterator, lba, count, true);
 }
 
-static int vioblk_read(void *private, void *buffer, uintmax_t lba, size_t count) {
-	return vioblk_rw(private, buffer, lba, count, false);
+static int vioblk_read(void *private, iovec_iterator_t *iovec_iterator, uintmax_t lba, size_t count) {
+	return vioblk_rw(private, iovec_iterator, lba, count, false);
 }
 
 int vioblk_newdevice(viodevice_t *viodevice) {

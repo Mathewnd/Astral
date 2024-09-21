@@ -127,7 +127,7 @@ static int internalpoll(pty_t *pty, polldata_t *data, int events) {
 	return revents;
 }
 
-static int read(int minor, void *buffer, size_t size, uintmax_t offset, int flags, size_t *readc) {
+static int read(int minor, iovec_iterator_t *iovec_iterator, size_t size, uintmax_t offset, int flags, size_t *readc) {
 	pty_t *pty = ptyget(minor);
 	if (pty == NULL)
 		return ENODEV;
@@ -139,26 +139,17 @@ static int read(int minor, void *buffer, size_t size, uintmax_t offset, int flag
 		if (e)
 			return e;
 
-		bool intstatus = interrupt_set(false);
-		spinlock_acquire(&pty->lock);
-
 		int revents = internalpoll(pty, &desc.data[0], POLLIN);
 
 		if (revents) {
-			*readc = ringbuffer_read(&pty->ringbuffer, buffer, size);
+			*readc = iovec_iterator_read_from_ringbuffer(iovec_iterator, &pty->ringbuffer, size);
 			if (*readc == RINGBUFFER_USER_COPY_FAILED)
 				e = EFAULT;
-
-			spinlock_release(&pty->lock);
-			interrupt_set(intstatus);
 
 			poll_leave(&desc);
 			poll_destroydesc(&desc);
 			break;
 		}
-
-		spinlock_release(&pty->lock);
-		interrupt_set(intstatus);
 
 		if (flags & V_FFLAGS_NONBLOCKING) {
 			poll_leave(&desc);
@@ -210,17 +201,14 @@ static int ioctl(int minor, unsigned long request, void *_arg, int *result, cred
 	return 0;
 }
 
-static int write(int minor, void *buffer, size_t size, uintmax_t offset, int flags, size_t *writec) {
+static int write(int minor, iovec_iterator_t *iovec_iterator, size_t size, uintmax_t offset, int flags, size_t *writec) {
 	pty_t *pty = ptyget(minor);
 	if (pty == NULL)
 		return ENODEV;
 
-	char *str = buffer;
-
 	for (int i = 0; i < size; ++i) {
-		// bruh
 		char c;
-		int error = USERCOPY_POSSIBLY_FROM_USER(&c, &str[i], sizeof(char));
+		int error = iovec_iterator_copy_to_buffer(iovec_iterator, &c, sizeof(char));
 		if (error)
 			return error;
 

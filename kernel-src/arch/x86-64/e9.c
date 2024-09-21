@@ -18,12 +18,10 @@ void arch_e9_puts(char *c) {
 }
 
 #ifdef X86_64_ENABLE_E9
-static int devwrite(int minor, void *bufferp, size_t count, uintmax_t offset, int flags, size_t *wcount) {
-	uint8_t *buffer = bufferp;
-
+static int devwrite(int minor, iovec_iterator_t *iovec_iterator, size_t count, uintmax_t offset, int flags, size_t *wcount) {
 	for (uintmax_t i = 0; i < count; ++i) {
 		char c;
-		int error = USERCOPY_POSSIBLY_FROM_USER(&c, &buffer[i], 1);
+		int error = iovec_iterator_copy_to_buffer(iovec_iterator, &c, 1);
 		if (error)
 			return error;
 

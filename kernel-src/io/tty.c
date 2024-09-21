@@ -170,7 +170,7 @@ static int internalpoll(tty_t *tty, polldata_t *data, int events) {
 	return revents;
 }
 
-static int read(int minor, void *buffer, size_t size, uintmax_t offset, int flags, size_t *readc) {
+static int read(int minor, iovec_iterator_t *iovec_iterator, size_t size, uintmax_t offset, int flags, size_t *readc) {
 	tty_t *tty = ttyget(minor);
 	if (tty == NULL)
 		return ENODEV;
@@ -194,7 +194,7 @@ static int read(int minor, void *buffer, size_t size, uintmax_t offset, int flag
 	// read data and if theres nothing just return
 	if (min == 0 && time == 0) {
 		MUTEX_ACQUIRE(&tty->readmutex, false);
-		*readc = ringbuffer_read(&tty->readbuffer, buffer, size);
+		*readc = iovec_iterator_read_from_ringbuffer(iovec_iterator, &tty->readbuffer, size);
 
 		int error = 0;
 		if (*readc == RINGBUFFER_USER_COPY_FAILED)
@@ -227,7 +227,7 @@ static int read(int minor, void *buffer, size_t size, uintmax_t offset, int flag
 			// theres data to read
 			MUTEX_ACQUIRE(&tty->readmutex, false);
 
-			size_t actuallyread = ringbuffer_read(&tty->readbuffer, (void *)((uintptr_t)buffer + readcount), spaceleft);
+			size_t actuallyread = iovec_iterator_read_from_ringbuffer(iovec_iterator, &tty->readbuffer, spaceleft);
 
 			MUTEX_RELEASE(&tty->readmutex);
 
@@ -274,20 +274,18 @@ static int read(int minor, void *buffer, size_t size, uintmax_t offset, int flag
 	return error;
 }
 
-static int write(int minor, void *_buffer, size_t size, uintmax_t offset, int flags, size_t *writec) {
+static int write(int minor, iovec_iterator_t *iovec_iterator, size_t size, uintmax_t offset, int flags, size_t *writec) {
 	tty_t *tty = ttyget(minor);
 	if (tty == NULL)
 		return ENODEV;
 
 	// TODO background process stuff etc
 
-	char *buffer = _buffer;
-
 	*writec = size;
 	for (int i = 0; i < size; ++i) {
 		// bruh
 		char c;
-		int error = USERCOPY_POSSIBLY_FROM_USER(&c, &buffer[i], sizeof(char));
+		int error = iovec_iterator_copy_to_buffer(iovec_iterator, &c, sizeof(char));
 		if (error)
 			return error;
 

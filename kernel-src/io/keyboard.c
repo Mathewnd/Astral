@@ -154,7 +154,7 @@ static keyboard_t* getkb(int kb) {
 	return kbp;
 }
 
-static int read(int minor, void *buffer, size_t size, uintmax_t offset, int flags, size_t *readc) {
+static int read(int minor, iovec_iterator_t *iovec_iterator, size_t size, uintmax_t offset, int flags, size_t *readc) {
 	keyboard_t *kb = getkb(minor);
 	if (kb == NULL)
 		return ENODEV;
@@ -165,7 +165,6 @@ static int read(int minor, void *buffer, size_t size, uintmax_t offset, int flag
 		return 0;
 
 	for (int i = 0; i < count; ++i) {
-		kbpacket_t *buff = (kbpacket_t *)((uintptr_t)buffer + i * sizeof(kbpacket_t));
 		kbpacket_t packet;
 
 		bool ok = keyboard_get(kb, &packet);
@@ -175,7 +174,7 @@ static int read(int minor, void *buffer, size_t size, uintmax_t offset, int flag
 				if (error)
 					return error;
 
-				error = USERCOPY_POSSIBLY_TO_USER(buff, &packet, sizeof(kbpacket_t));
+				error = iovec_iterator_copy_from_buffer(iovec_iterator, &packet, sizeof(kbpacket_t));
 
 				*readc += error ? 0 : sizeof(kbpacket_t);
 				return error;
@@ -184,7 +183,7 @@ static int read(int minor, void *buffer, size_t size, uintmax_t offset, int flag
 			break;
 		}
 
-		int error = USERCOPY_POSSIBLY_TO_USER(buff, &packet, sizeof(kbpacket_t));
+		int error = iovec_iterator_copy_from_buffer(iovec_iterator, &packet, sizeof(kbpacket_t));
 		if (error)
 			return error;
 

@@ -8,8 +8,8 @@
 #include <kernel/vmm.h>
 #include <kernel/usercopy.h>
 
-#define DISK_READ(desc, buf, lba, size) (desc)->read(desc->private, buf, lba, size)
-#define DISK_WRITE(desc, buf, lba, size) (desc)->write(desc->private, buf, lba, size)
+#define DISK_READ(desc, it, lba, size) (desc)->read(desc->private, it, lba, size)
+#define DISK_WRITE(desc, it, lba, size) (desc)->write(desc->private, it, lba, size)
 
 typedef struct {
 	char signature[8];
@@ -72,10 +72,34 @@ static void bytestolba(blockdesc_t *desc, uintmax_t offset, size_t size, uintmax
 	*lbacount = toplba - *lbaoffset;
 }
 
+static inline int disk_read_direct(blockdesc_t *desc, void *buffer, size_t lba_offset, size_t block_count) {
+	iovec_t iovec = {
+		.addr = buffer,
+		.len = block_count * desc->blocksize
+	};
+
+	iovec_iterator_t iovec_iterator;
+	iovec_iterator_init(&iovec_iterator, &iovec, 1);
+
+	return DISK_READ(desc, &iovec_iterator, lba_offset, block_count);
+}
+
+static inline int disk_write_direct(blockdesc_t *desc, void *buffer, size_t lba_offset, size_t block_count) {
+	iovec_t iovec = {
+		.addr = buffer,
+		.len = block_count * desc->blocksize
+	};
+
+	iovec_iterator_t iovec_iterator;
+	iovec_iterator_init(&iovec_iterator, &iovec, 1);
+
+	return DISK_WRITE(desc, &iovec_iterator, lba_offset, block_count);
+}
+
 #define MAP_FLAGS (ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC)
 
 // this is only really called by the page cache VOP_GETPAGE and VOP_PUTPAGE functions, so we can make a few assumptions
-static int rwblock(int minor, void *buffer, size_t size, uintmax_t offset, int flags, bool write, size_t *done) {
+static int rwblock(int minor, iovec_iterator_t *iovec_iterator, size_t size, uintmax_t offset, int flags, bool write, size_t *done) {
 	blockdesc_t *desc = getdesc(minor);
 	if (desc == NULL)
 		return ENODEV;
@@ -104,15 +128,14 @@ static int rwblock(int minor, void *buffer, size_t size, uintmax_t offset, int f
 
 	int error = 0;
 	if (write) {
-		error = DISK_WRITE(desc, buffer, lbaoffset + desc->lbaoffset, lbacount);
+		error = DISK_WRITE(desc, iovec_iterator, lbaoffset + desc->lbaoffset, lbacount);
 		if (error)
 			goto cleanup;
 	} else {
-		error = DISK_READ(desc, buffer, lbaoffset + desc->lbaoffset, lbacount);
+		error = DISK_READ(desc, iovec_iterator, lbaoffset + desc->lbaoffset, lbacount);
 		if (error)
 			goto cleanup;
 	}
-
 
 	*done = size;
 
@@ -120,12 +143,12 @@ static int rwblock(int minor, void *buffer, size_t size, uintmax_t offset, int f
 	return error;
 }
 
-static int read(int minor, void *buffer, size_t size, uintmax_t offset, int flags, size_t *readc) {
-	return rwblock(minor, buffer, size, offset, flags, false, readc);
+static int read(int minor, iovec_iterator_t *iovec_iterator, size_t size, uintmax_t offset, int flags, size_t *readc) {
+	return rwblock(minor, iovec_iterator, size, offset, flags, false, readc);
 }
 
-static int write(int minor, void *buffer, size_t size, uintmax_t offset, int flags, size_t *writec) {
-	return rwblock(minor, buffer, size, offset, flags, true, writec);
+static int write(int minor, iovec_iterator_t *iovec_iterator, size_t size, uintmax_t offset, int flags, size_t *writec) {
+	return rwblock(minor, iovec_iterator, size, offset, flags, true, writec);
 }
 
 static int ioctl(int minor, unsigned long request, void *arg, int *result, cred_t *cred) {
@@ -177,7 +200,7 @@ static int detectpart(blockdesc_t *desc) {
 	// read first two sectors
 	void *sects = vmm_map(NULL, desc->blocksize * 2, VMM_FLAGS_ALLOCATE, MAP_FLAGS, NULL);
 	__assert(sects);
-	__assert(DISK_READ(desc, sects, 0, 2) == 0);
+	__assert(disk_read_direct(desc, sects, 0, 2) == 0);
 
 	void *lba0 = sects;
 	void *lba1 = (void *)((uintptr_t)lba0 + desc->blocksize);
@@ -199,7 +222,7 @@ static void dogpt(blockdesc_t *desc, char *name) {
 	// get header
 	void *lba1 = vmm_map(NULL, desc->blocksize, VMM_FLAGS_ALLOCATE, MAP_FLAGS, NULL);
 	__assert(lba1);
-	__assert(DISK_READ(desc, lba1, 1, 1) == 0);
+	__assert(disk_read_direct(desc, lba1, 1, 1) == 0);
 	gptheader_t *header = lba1;
 
 	// get partition table
@@ -207,7 +230,7 @@ static void dogpt(blockdesc_t *desc, char *name) {
 	size_t tablelbasize = ROUND_UP(tablebytesize, desc->blocksize) / desc->blocksize;
 	void *tablebuffer = vmm_map(NULL, tablelbasize * desc->blocksize, VMM_FLAGS_ALLOCATE, MAP_FLAGS, NULL);
 	__assert(tablebuffer);
-	__assert(DISK_READ(desc, tablebuffer, header->entryarraylbastart, tablelbasize) == 0);
+	__assert(disk_read_direct(desc, tablebuffer, header->entryarraylbastart, tablelbasize) == 0);
 
 	// name + 'p' + 3 digits (max gpt partition count is 128) + '\0'
 	size_t namebuflen = strlen(name) + 5;
@@ -241,7 +264,7 @@ static void dombr(blockdesc_t *desc, char *name) {
 	// get entries
 	void *lba0 = vmm_map(NULL, desc->blocksize, VMM_FLAGS_ALLOCATE, MAP_FLAGS, NULL);
 	__assert(lba0);
-	__assert(DISK_READ(desc, lba0, 0, 1) == 0);
+	__assert(disk_read_direct(desc, lba0, 0, 1) == 0);
 	mbrentry_t *mbrents = (mbrentry_t *)((uintptr_t)lba0 + MBR_ENTRIES_OFFSET);
 
 	// name + 'p' + single digit (max mbr partition count is 4) + '\0'

@@ -503,22 +503,35 @@ static int iowrite(nvmenamespace_t *namespace, uint64_t prp[2], uint64_t lba, ui
 
 #define PAGES_FLAGS (ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC)
 
-static int rwblocks(nvmenamespace_t *namespace, void *buffer, uintmax_t lba, size_t count, bool write) {
+static int rwblocks(nvmenamespace_t *namespace, iovec_iterator_t *iovec_iterator, uintmax_t lba, size_t count, bool write) {
 	__assert(namespace->blocksize <= PAGE_SIZE);
 
 	int err = 0;
 
 	uint64_t prp[2] = {0, 0};
-	__assert(((uintptr_t)buffer % namespace->blocksize) == 0);
-	uintmax_t pageoffset = (uintptr_t)buffer - ROUND_DOWN((uintptr_t)buffer, PAGE_SIZE);
 
 	int done = 0;
 	while (done < count) {
-		size_t docount = (done == 0) ? (PAGE_SIZE - pageoffset) / namespace->blocksize : PAGE_SIZE / namespace->blocksize;
+		void *page;
+		size_t page_offset, page_remaining;
+		// XXX this takes an entire page from the iovec, though it may not be used fully.
+		// ATM this does not really matter but it could at one point in the future
+		err = iovec_iterator_next_page(iovec_iterator, &page_offset, &page_remaining, &page);
+
+		if (err)
+			break;
+
+		// check that there is enough space to complete the write of this page
+		__assert(page);
+		__assert(page_remaining >= min((count - done) * namespace->blocksize, PAGE_SIZE));
+
+		// and that the space is aligned to the block size
+		__assert((page_remaining % namespace->blocksize) == 0);
+
+		size_t docount = page_remaining / namespace->blocksize;
 		docount = min(docount, count - done);
 
-		prp[0] = (uint64_t)vmm_getphysical((void *)((uintptr_t)buffer + done * namespace->blocksize), true);
-		__assert(prp[0]);
+		prp[0] = (uint64_t)page + page_offset;
 
 		err = write ? iowrite(namespace, prp, lba + done, docount) : ioread(namespace, prp, lba + done, docount);
 
@@ -533,12 +546,12 @@ static int rwblocks(nvmenamespace_t *namespace, void *buffer, uintmax_t lba, siz
 	return err;
 }
 
-static int read(void *private, void *buffer, uintmax_t lba, size_t count) {
-	return rwblocks(private, buffer, lba, count, false);
+static int read(void *private, iovec_iterator_t *iovec_iterator, uintmax_t lba, size_t count) {
+	return rwblocks(private, iovec_iterator, lba, count, false);
 }
 
-static int write(void *private, void *buffer, uintmax_t lba, size_t count) {
-	return rwblocks(private, buffer, lba, count, true);
+static int write(void *private, iovec_iterator_t *iovec_iterator, uintmax_t lba, size_t count) {
+	return rwblocks(private, iovec_iterator, lba, count, true);
 }
 
 static void initnamespace(nvmecontroller_t *controller, int id) {

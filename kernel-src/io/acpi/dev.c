@@ -28,7 +28,7 @@ static int internalpoll(polldata_t *data, int events) {
 	return revents;
 }
 
-static int read(int minor, void *buffer, size_t size, uintmax_t offset, int flags, size_t *readc) {
+static int read(int minor, iovec_iterator_t *iovec_iterator, size_t size, uintmax_t offset, int flags, size_t *readc) {
 	*readc = 0;
 
 	if (size < 1)
@@ -62,7 +62,7 @@ static int read(int minor, void *buffer, size_t size, uintmax_t offset, int flag
 
 	// this abuses a behavior of how the ringbuffer works to not need a lock for reading
 	// (as it would need interrupts to be off)
-	*readc = ringbuffer_read(&ringbuffer, buffer, size);
+	*readc = iovec_iterator_read_from_ringbuffer(iovec_iterator, &ringbuffer, size);
 	if (*readc == RINGBUFFER_USER_COPY_FAILED)
 		error = EFAULT;
 
@@ -73,14 +73,18 @@ static int read(int minor, void *buffer, size_t size, uintmax_t offset, int flag
 	return error;
 }
 
-static int write(int minor, void *buffer, size_t size, uintmax_t offset, int flags, size_t *writec) {
+static int write(int minor, iovec_iterator_t *iovec_iterator, size_t size, uintmax_t offset, int flags, size_t *writec) {
 	if (size < 1) {
 		*writec = 0;
 		return 0;
 	}
 
-	char *c = buffer;
-	switch (*c) {
+	char c;
+	int error = iovec_iterator_copy_to_buffer(iovec_iterator, &c, 1);
+	if (error)
+		return error;
+
+	switch (c) {
 		case 'p':
 			acpi_poweroff();
 			break;
@@ -89,7 +93,7 @@ static int write(int minor, void *buffer, size_t size, uintmax_t offset, int fla
 			break;
 	}
 
-	return EIO;
+	return error;
 }
 
 static int poll(int minor, polldata_t *data, int events) {

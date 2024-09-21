@@ -5,6 +5,7 @@
 
 #include <kernel/poll.h>
 #include <hashtable.h>
+#include <kernel/iovec.h>
 
 #define DEV_MAJOR_NULL 1
 #define DEV_MAJOR_FULL 2
@@ -23,8 +24,8 @@
 typedef struct {
 	int (*open)(int minor, vnode_t **vnode, int flags);
 	int (*close)(int minor, int flags);
-	int (*read)(int minor, void *buffer, size_t size, uintmax_t offset, int flags, size_t *readc);
-	int (*write)(int minor, void *buffer, size_t size, uintmax_t offset, int flags, size_t *writec);
+	int (*read)(int minor, iovec_iterator_t *iovec_iterator, size_t size, uintmax_t offset, int flags, size_t *readc);
+	int (*write)(int minor, iovec_iterator_t *iovec_iterator, size_t size, uintmax_t offset, int flags, size_t *writec);
 	int (*poll)(int minor, polldata_t *data, int events);
 	int (*mmap)(int minor, void *addr, uintmax_t offset, int flags);
 	int (*munmap)(int minor, void *addr, uintmax_t offset, int flags);

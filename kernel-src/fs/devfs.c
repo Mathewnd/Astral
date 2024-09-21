@@ -85,7 +85,16 @@ int devfs_read(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int f
 	if (devnode->devops->read == NULL)
 		return ENODEV;
 
-	return devnode->devops->read(devnode->attr.rdevminor, buffer, size, offset, flags, readc);
+	// TODO remove this once the whole fs uses iovec
+	iovec_iterator_t iovec_iterator;
+	iovec_t iovec = {
+		.addr = buffer,
+		.len = size
+	};
+
+	iovec_iterator_init(&iovec_iterator, &iovec, 1);
+
+	return devnode->devops->read(devnode->attr.rdevminor, &iovec_iterator, size, offset, flags, readc);
 }
 
 int devfs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int flags, size_t *writec, cred_t *cred) {
@@ -102,7 +111,16 @@ int devfs_write(vnode_t *node, void *buffer, size_t size, uintmax_t offset, int 
 	if (devnode->devops->write == NULL)
 		return ENODEV;
 
-	return devnode->devops->write(devnode->attr.rdevminor, buffer, size, offset, flags, writec);
+	// TODO remove this once the whole fs uses iovec
+	iovec_iterator_t iovec_iterator;
+	iovec_t iovec = {
+		.addr = buffer,
+		.len = size
+	};
+
+	iovec_iterator_init(&iovec_iterator, &iovec, 1);
+
+	return devnode->devops->write(devnode->attr.rdevminor, &iovec_iterator, size, offset, flags, writec);
 }
 
 int devfs_lookup(vnode_t *node, char *name, vnode_t **result, cred_t *cred) {

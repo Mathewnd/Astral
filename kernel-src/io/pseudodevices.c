@@ -4,22 +4,21 @@
 #include <logging.h>
 #include <kernel/timekeeper.h>
 
-static int null_write(int minor, void *buffer, size_t count, uintmax_t offset, int flags, size_t *wcount) {
+static int null_write(int minor, iovec_iterator_t *iovec_iterator, size_t count, uintmax_t offset, int flags, size_t *wcount) {
 	*wcount = count;
 	return 0;
 }
 
-static int full_write(int minor, void *buffer, size_t count, uintmax_t offset, int flags, size_t *wcount) {
+static int full_write(int minor, iovec_iterator_t *iovec_iterator, size_t count, uintmax_t offset, int flags, size_t *wcount) {
 	return ENOSPC;
 }
 
-static int zero_read(int minor, void *buffer, size_t count, uintmax_t offset, int flags, size_t *rcount) {
+static int zero_read(int minor, iovec_iterator_t *iovec_iterator, size_t count, uintmax_t offset, int flags, size_t *rcount) {
 	*rcount = count;
-	memset(buffer, 0, count);
-	return 0;
+	return iovec_iterator_memset(iovec_iterator, 0, count);
 }
 
-static int null_read(int minor, void *buffer, size_t count, uintmax_t offset, int flags, size_t *rcount) {
+static int null_read(int minor, iovec_iterator_t *iovec_iterator, size_t count, uintmax_t offset, int flags, size_t *rcount) {
 	*rcount = 0;
 	return 0;
 }
@@ -36,10 +35,13 @@ static uint8_t getrand8() {
 	return current & 0xff;
 }
 
-static int urandom_read(int minor, void *_buffer, size_t count, uintmax_t offset, int flags, size_t *rcount) {
-	uint8_t *buffer = _buffer;
-	for (int i = 0; i < count; ++i)
-		buffer[i] = getrand8();
+static int urandom_read(int minor, iovec_iterator_t *iovec_iterator, size_t count, uintmax_t offset, int flags, size_t *rcount) {
+	for (int i = 0; i < count; ++i) {
+		uint8_t byte = getrand8();
+		int error = iovec_iterator_copy_from_buffer(iovec_iterator, &byte, sizeof(byte));
+		if (error)
+			return error;
+	}
 
 	*rcount = count;
 	return 0;

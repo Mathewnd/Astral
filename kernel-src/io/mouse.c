@@ -67,7 +67,7 @@ static int internalpoll(mouse_t *mouse, polldata_t *data, int events) {
 	return revents;
 }
 
-static int read(int minor, void *buffer, size_t size, uintmax_t offset, int flags, size_t *readc) {
+static int read(int minor, iovec_iterator_t *iovec_iterator, size_t size, uintmax_t offset, int flags, size_t *readc) {
 	mouse_t *mouse = getmouse(minor);
 	if (mouse == NULL)
 		return ENODEV;
@@ -121,7 +121,7 @@ static int read(int minor, void *buffer, size_t size, uintmax_t offset, int flag
 			goto leave;
 	}
 
-	*readc = ringbuffer_read(&mouse->packetbuffer, buffer, sizeof(mousepacket_t) * packetcount);
+	*readc = iovec_iterator_read_from_ringbuffer(iovec_iterator, &mouse->packetbuffer, sizeof(mousepacket_t) * packetcount);
 	if (*readc == RINGBUFFER_USER_COPY_FAILED) {
 		error = EFAULT;
 		goto leave;

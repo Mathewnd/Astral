@@ -86,7 +86,7 @@ static int maxseek(int minor, size_t *max) {
 	return 0;
 }
 
-static int read(int minor, void *buffer, size_t size, uintmax_t offset, int flags, size_t *readc) {
+static int read(int minor, iovec_iterator_t *iovec_iterator, size_t size, uintmax_t offset, int flags, size_t *readc) {
 	if (minor >= count)
 		return ENODEV;
 
@@ -99,7 +99,7 @@ static int read(int minor, void *buffer, size_t size, uintmax_t offset, int flag
 	if(size + offset > end)
 		size = end - offset;
 
-	int error = USERCOPY_POSSIBLY_TO_USER(buffer, (void *)((uintptr_t)fbs[minor]->address + offset), size);
+	int error = iovec_iterator_copy_from_buffer(iovec_iterator, (void *)((uintptr_t)fbs[minor]->address + offset), size);
 	if (error)
 		return error;
 
@@ -108,7 +108,7 @@ static int read(int minor, void *buffer, size_t size, uintmax_t offset, int flag
 	return 0;
 }
 
-static int write(int minor, void *buffer, size_t size, uintmax_t offset, int flags, size_t *writec) {
+static int write(int minor, iovec_iterator_t *iovec_iterator, size_t size, uintmax_t offset, int flags, size_t *writec) {
 	if (minor >= count)
 		return ENODEV;
 
@@ -121,7 +121,7 @@ static int write(int minor, void *buffer, size_t size, uintmax_t offset, int fla
 	if(size + offset > end)
 		size = end - offset;
 
-	int error = USERCOPY_POSSIBLY_FROM_USER((void *)((uintptr_t)fbs[minor]->address + offset), buffer, size);
+	int error = iovec_iterator_copy_to_buffer(iovec_iterator, (void *)((uintptr_t)fbs[minor]->address + offset), size);
 	if (error)
 		return error;
 
