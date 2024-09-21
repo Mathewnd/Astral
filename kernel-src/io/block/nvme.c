@@ -514,10 +514,7 @@ static int rwblocks(nvmenamespace_t *namespace, iovec_iterator_t *iovec_iterator
 	while (done < count) {
 		void *page;
 		size_t page_offset, page_remaining;
-		// XXX this takes an entire page from the iovec, though it may not be used fully.
-		// ATM this does not really matter but it could at one point in the future
 		err = iovec_iterator_next_page(iovec_iterator, &page_offset, &page_remaining, &page);
-
 		if (err)
 			break;
 
@@ -536,6 +533,13 @@ static int rwblocks(nvmenamespace_t *namespace, iovec_iterator_t *iovec_iterator
 		err = write ? iowrite(namespace, prp, lba + done, docount) : ioread(namespace, prp, lba + done, docount);
 
 		pmm_release((void *)prp[0]);
+
+		// if we didnt use the whole space in the page, set the iterator back a bit
+		size_t diff_between_available_and_used = page_remaining - docount * namespace->blocksize;
+		if (diff_between_available_and_used) {
+			size_t iterator_offset = iovec_iterator_total_offset(iovec_iterator);
+			iovec_iterator_set(iovec_iterator, iterator_offset - diff_between_available_and_used);
+		}
 
 		if (err)
 			break;

@@ -135,6 +135,13 @@ static int vioblk_rw(vioblkdev_t *blkdev, iovec_iterator_t *iovec_iterator, uint
 
 		pmm_release(page);
 
+		// if we didnt use the whole space in the page, set the iterator back a bit
+		size_t diff_between_available_and_used = page_remaining - docount * 512;
+		if (diff_between_available_and_used) {
+			size_t iterator_offset = iovec_iterator_total_offset(iovec_iterator);
+			iovec_iterator_set(iovec_iterator, iterator_offset - diff_between_available_and_used);
+		}
+
 		if (*statushhdm) {
 			err = EIO;
 			break;
