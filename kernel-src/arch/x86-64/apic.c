@@ -216,7 +216,7 @@ void arch_apic_timerinit() {
 	__assert(isr);
 	int vec = isr->id & 0xff;
 
-	writelapic(APIC_TIMER_DIVIDE, 3); // divide by 16 because us precision is desired and most amd64 machines will have the clock frequency at >1GHz anyways
+	writelapic(APIC_TIMER_DIVIDE, 11);
 
 	void (*uswait)(time_t) = NULL;
 
