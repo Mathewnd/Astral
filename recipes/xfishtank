@@ -1,7 +1,7 @@
 name=xfishtank
 revision=1
 from_source=xfishtank
-imagedeps="base-devel imake"
+imagedeps="base-devel"
 hostdeps="xgcc xbinutils libtool pkgconfig"
 deps="base imlib2"
 
