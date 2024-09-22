@@ -293,7 +293,7 @@ void proc_exit(void) {
 }
 
 void proc_run_init() {
-	printf("sched: loading /init\n");
+	printf("proc: loading /init\n");
 
 	vmmcontext_t *vmmctx = vmm_newcontext();
 	__assert(vmmctx);
