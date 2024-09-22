@@ -69,6 +69,15 @@ void timer_isr(timer_t *timer, context_t *context) {
 
 	__assert(timer->queue);
 
+	// check if the timer interrupt happened
+	// while the timer was about to be stopped by a timer_insert or timer_remove
+	time_t time_passed = timer->stop(timer);
+	if (time_passed < timer->current_target - timer->tickcurrent) {
+		arch_e9_puts("bleh bleh\n");
+		timer->tickcurrent += time_passed;
+		goto leave;
+	}
+
 	timer->tickcurrent = timer->current_target;
 	timerentry_t *oldentry = timer->queue;
 	timer->queue = timer->queue->next;
@@ -81,6 +90,7 @@ void timer_isr(timer_t *timer, context_t *context) {
 
 	dpc_enqueue(&oldentry->dpc, oldentry->fn, oldentry->arg);
 
+	leave:
 	timercheck(timer);
 	arm_for_next_target(timer);
 
