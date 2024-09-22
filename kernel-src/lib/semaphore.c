@@ -71,7 +71,7 @@ int semaphore_wait(semaphore_t *sem, bool interruptible) {
 
 	if (--sem->i < 0) {
 		insert(sem, current_thread());
-		sched_preparesleep(interruptible);
+		sched_prepare_sleep(interruptible);
 		spinlock_release(&sem->lock);
 		ret = sched_yield();
 		if (ret) {
@@ -104,7 +104,7 @@ int semaphore_timedwait(semaphore_t *sem, time_t timeoutusec, bool interruptible
 		timeoutusec -= sleepus;
 
 		if (sleepus)
-			sched_sleepus(sleepus);
+			sched_sleep_us(sleepus);
 	} while (timeoutusec);
 
 	return false;

@@ -1,5 +1,4 @@
 #include <kernel/scheduler.h>
-#include <kernel/slab.h>
 #include <logging.h>
 #include <arch/cpu.h>
 #include <spinlock.h>
@@ -18,8 +17,6 @@
 #define QUANTUM_US 100000
 #define SCHEDULER_STACK_SIZE PAGE_SIZE * 16
 
-static scache_t *threadcache;
-
 #define RUNQUEUE_COUNT 64
 
 typedef struct {
@@ -30,48 +27,6 @@ typedef struct {
 static rqueue_t runqueue[RUNQUEUE_COUNT];
 static uint64_t runqueuebitmap;
 static spinlock_t runqueuelock;
-
-thread_t *sched_newthread(void *ip, size_t kstacksize, int priority, proc_t *proc, void *ustack) {
-	thread_t *thread = slab_allocate(threadcache);
-	if (thread == NULL)
-		return NULL;
-
-	memset(thread, 0, sizeof(thread_t));
-
-	thread->kernelstack = vmm_map(NULL, kstacksize, VMM_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_NOEXEC, NULL);
-	if (thread->kernelstack == NULL) {
-		slab_free(threadcache, thread);
-		return NULL;
-	}
-
-	thread->kernelstacktop = (void *)((uintptr_t)thread->kernelstack + kstacksize);
-
-	// non kernel thread vmm contexts are handled by the caller
-	thread->vmmctx = proc ? NULL : &vmm_kernelctx;
-	thread->proc = proc;
-	thread->priority = priority;
-	thread->kernelstacksize = kstacksize;
-	if (proc) {
-		// each thread holds one reference to proc
-		PROC_HOLD(proc);
-		thread->tid = proc_allocate_pid();
-	}
-
-	CTX_INIT(&thread->context, proc != NULL, true);
-	CTX_XINIT(&thread->extracontext, proc != NULL);
-	CTX_SP(&thread->context) = proc ? (ctxreg_t)ustack : (ctxreg_t)thread->kernelstacktop;
-	CTX_IP(&thread->context) = (ctxreg_t)ip;
-	SPINLOCK_INIT(thread->sleeplock);
-	SPINLOCK_INIT(thread->signals.lock);
-	EVENT_INITHEADER(&thread->signals.waitpendingevent);
-
-	return thread;
-}
-
-void sched_destroythread(thread_t *thread) {
-	vmm_unmap(thread->kernelstack, thread->kernelstacksize, 0);
-	slab_free(threadcache, thread);
-}
 
 static thread_t *getinrunqueue(rqueue_t *rq) {
 	thread_t *thread = rq->list;
@@ -114,14 +69,14 @@ static thread_t *runqueuenext(int minprio) {
 	}
 
 	if (thread)
-		thread->flags &= ~SCHED_THREAD_FLAGS_QUEUED;
+		thread->flags &= ~THREAD_FLAGS_QUEUED;
 
 	leave:
 	interrupt_set(intstate);
 	return thread;
 }
 
-static __attribute__((noreturn)) void switchthread(thread_t *thread) {
+static __attribute__((noreturn)) void switch_thread(thread_t *thread) {
 	interrupt_set(false);
 	thread_t* current = current_thread();
 	
@@ -135,15 +90,15 @@ static __attribute__((noreturn)) void switchthread(thread_t *thread) {
 	// XXX make the locking of the flags field better, candidate for a r/w lock
 	spinlock_acquire(&runqueuelock);
 	if (current)
-		current->flags &= ~SCHED_THREAD_FLAGS_RUNNING;
+		current->flags &= ~THREAD_FLAGS_RUNNING;
 
-	__assert((thread->flags & SCHED_THREAD_FLAGS_RUNNING) == 0);
+	__assert((thread->flags & THREAD_FLAGS_RUNNING) == 0);
 
-	if (current && current->flags & SCHED_THREAD_FLAGS_SLEEP)
+	if (current && current->flags & THREAD_FLAGS_SLEEP)
 		spinlock_release(&current->sleeplock);
 
-	thread->flags |= SCHED_THREAD_FLAGS_RUNNING;
-	__assert((thread->flags & SCHED_THREAD_FLAGS_QUEUED) == 0);
+	thread->flags |= THREAD_FLAGS_RUNNING;
+	__assert((thread->flags & THREAD_FLAGS_QUEUED) == 0);
 	spinlock_release(&runqueuelock);
 
 	void *schedulerstack = current_cpu()->schedulerstack;
@@ -154,8 +109,8 @@ static __attribute__((noreturn)) void switchthread(thread_t *thread) {
 }
 
 static void runqueueinsert(thread_t *thread) {
-	__assert((thread->flags & SCHED_THREAD_FLAGS_RUNNING) == 0);
-	thread->flags |= SCHED_THREAD_FLAGS_QUEUED;
+	__assert((thread->flags & THREAD_FLAGS_RUNNING) == 0);
+	thread->flags |= THREAD_FLAGS_QUEUED;
 
 	runqueuebitmap |= ((uint64_t)1 << thread->priority);
 
@@ -174,7 +129,7 @@ void sched_queue(thread_t *thread) {
 	spinlock_acquire(&runqueuelock);
 
 	// maybe instead of an assert, a simple return would suffice as the thread would already be queued anyways
-	__assert((thread->flags & SCHED_THREAD_FLAGS_QUEUED) == 0 && (thread->flags & SCHED_THREAD_FLAGS_RUNNING) == 0);
+	__assert((thread->flags & THREAD_FLAGS_QUEUED) == 0 && (thread->flags & THREAD_FLAGS_RUNNING) == 0);
 
 	runqueueinsert(thread);
 
@@ -183,12 +138,12 @@ void sched_queue(thread_t *thread) {
 	// TODO yield if higher priority than current thread (or send another CPU an IPI)
 }
 
-__attribute__((noreturn)) void sched_stopcurrentthread() {
+__attribute__((noreturn)) void sched_stop_current_thread() {
 	interrupt_set(false);
 
 	spinlock_acquire(&runqueuelock);
 	if (current_thread())
-		current_thread()->flags &= ~SCHED_THREAD_FLAGS_RUNNING;
+		current_thread()->flags &= ~THREAD_FLAGS_RUNNING;
 
 	thread_t *next = runqueuenext(0x0fffffff);
 	if (next == NULL)
@@ -196,109 +151,7 @@ __attribute__((noreturn)) void sched_stopcurrentthread() {
 
 	spinlock_release(&runqueuelock);
 
-	switchthread(next);
-}
-
-// called when all threads in a process have exited
-void sched_procexit() {
-	proc_t *proc = current_thread()->proc;
-	__assert(proc != init_proc);
-
-	// the process is going to be referenced by the child list, hold it
-	// it only holds it now because it has to have running threads to be in the list
-	// which hold a reference. it won't now since its a zombie, which is why it will be held
-	PROC_HOLD(proc);
-
-	jobctl_detach(proc);
-
-	// close fds
-	for (int fd = 0; fd < proc->fdcount; ++fd)
-		fd_close(fd);
-
-	// turn off interval timers
-	itimer_pause(&proc->timer.realtime, NULL, NULL);
-	itimer_pause(&proc->timer.virtualtime, NULL, NULL);
-	itimer_pause(&proc->timer.profiling, NULL, NULL);
-
-	// zombify the proc
-	MUTEX_ACQUIRE(&proc->mutex, false);
-
-	VOP_RELEASE(proc->root);
-	VOP_RELEASE(proc->cwd);
-
-	proc->state = SCHED_PROC_STATE_ZOMBIE;
-	proc_t *lastchild = proc->child;
-
-
-	MUTEX_ACQUIRE(&init_proc->mutex, false);
-
-	int belowzombiecount = 0;
-
-	while (lastchild && lastchild->sibling) {
-		if (lastchild->state == SCHED_PROC_STATE_ZOMBIE)
-			++belowzombiecount;
-
-		lastchild->parent = init_proc;
-		lastchild = lastchild->sibling;
-	}
-
-	if (lastchild) {
-		lastchild->sibling = init_proc->child;
-		init_proc->child = proc->child;
-	}
-
-	MUTEX_RELEASE(&init_proc->mutex);
-	MUTEX_RELEASE(&proc->mutex);
-
-	signal_signalproc(proc->parent, SIGCHLD);
-	semaphore_signal(&proc->parent->waitsem);
-	// TODO sigaction flag for this
-	for (int i = 0; i < belowzombiecount; ++i) {
-		semaphore_signal(&init_proc->waitsem);
-	}
-}
-
-static void threadexit_internal(context_t *, void *) {
-	thread_t *thread = current_thread();
-	// we don't need to access the current thread anymore, as any state will be ignored and we are running on the scheduler stack
-	// as well as not being preempted at all
-	interrupt_set(false);
-	current_cpu()->thread = NULL;
-
-	spinlock_acquire(&runqueuelock);
-	thread->flags |= SCHED_THREAD_FLAGS_DEAD;
-	spinlock_release(&runqueuelock);
-
-	// because a thread deallocating its own data is a nightmare, thread deallocation and such will be left to whoever frees the proc it's tied to
-	// (likely an exit(2) call)
-	// FIXME this doesn't apply to kernel threads and something should be figured out for them
-
-	sched_stopcurrentthread();
-}
-
-__attribute__((noreturn)) void sched_threadexit() {
-	thread_t *thread = current_thread();
-	proc_t *proc = thread->proc;
-
-	vmmcontext_t *oldctx = thread->vmmctx;
-	vmm_switchcontext(&vmm_kernelctx);
-
-	if (proc) {
-		__atomic_fetch_sub(&proc->runningthreadcount, 1, __ATOMIC_SEQ_CST);
-		__assert(oldctx != &vmm_kernelctx);
-		if (proc->runningthreadcount == 0) {
-			if (thread->shouldexit)
-				proc->status = -1;
-
-			sched_procexit();
-			vmm_destroycontext(oldctx);
-			PROC_RELEASE(proc);
-		}
-	}
-
-	interrupt_set(false);
-	arch_context_saveandcall(threadexit_internal, current_cpu()->schedulerstack, NULL);
-	__builtin_unreachable();
+	switch_thread(next);
 }
 
 typedef struct {
@@ -361,7 +214,7 @@ static void yield(context_t *context, void *) {
 
 	spinlock_acquire(&runqueuelock);
 
-	bool sleeping = thread->flags & SCHED_THREAD_FLAGS_SLEEP;
+	bool sleeping = thread->flags & THREAD_FLAGS_SLEEP;
 
 	thread_t *next = runqueuenext(sleeping ? 0x0fffffff : thread->priority);
 	bool gotsignal = false;
@@ -380,14 +233,14 @@ static void yield(context_t *context, void *) {
 		}
 	}
 
-	if (sleeping && (thread->shouldexit || gotsignal) && (thread->flags & SCHED_THREAD_FLAGS_INTERRUPTIBLE)) {
+	if (sleeping && (thread->shouldexit || gotsignal) && (thread->flags & THREAD_FLAGS_INTERRUPTIBLE)) {
 		sleeping = false;
 
 		if (next)
 			runqueueinsert(next);
 		next = NULL;
 
-		thread->flags &= ~(SCHED_THREAD_FLAGS_SLEEP | SCHED_THREAD_FLAGS_INTERRUPTIBLE);
+		thread->flags &= ~(THREAD_FLAGS_SLEEP | THREAD_FLAGS_INTERRUPTIBLE);
 		thread->wakeupreason = SCHED_WAKEUP_REASON_INTERRUPTED;
 		spinlock_release(&thread->sleeplock);
 	}
@@ -395,7 +248,7 @@ static void yield(context_t *context, void *) {
 	if (next || sleeping) {
 		ARCH_CONTEXT_THREADSAVE(thread, context);
 
-		thread->flags &= ~SCHED_THREAD_FLAGS_RUNNING;
+		thread->flags &= ~THREAD_FLAGS_RUNNING;
 		if (sleeping == false)
 			runqueueinsert(thread);
 
@@ -403,14 +256,14 @@ static void yield(context_t *context, void *) {
 			next = current_cpu()->idlethread;
 
 		spinlock_release(&runqueuelock);
-		switchthread(next);
+		switch_thread(next);
 	}
 
 	spinlock_release(&runqueuelock);
 }
 
 int sched_yield() {
-	bool sleeping = current_thread()->flags & SCHED_THREAD_FLAGS_SLEEP;
+	bool sleeping = current_thread()->flags & THREAD_FLAGS_SLEEP;
 	bool old = sleeping ? current_thread()->sleepintstatus : interrupt_set(false);
 	arch_context_saveandcall(yield, current_cpu()->schedulerstack, NULL);
 	__assert(current_cpu()->ipl == IPL_NORMAL);
@@ -418,24 +271,24 @@ int sched_yield() {
 	return sleeping ? current_thread()->wakeupreason : 0;
 }
 
-void sched_preparesleep(bool interruptible) {
+void sched_prepare_sleep(bool interruptible) {
 	current_thread()->sleepintstatus = interrupt_set(false);
 	spinlock_acquire(&current_thread()->sleeplock);
 	// no locking needed as only we will be accessing it
-	current_thread()->flags |= SCHED_THREAD_FLAGS_SLEEP | (interruptible ? SCHED_THREAD_FLAGS_INTERRUPTIBLE : 0);
+	current_thread()->flags |= THREAD_FLAGS_SLEEP | (interruptible ? THREAD_FLAGS_INTERRUPTIBLE : 0);
 }
 
 bool sched_wakeup(thread_t *thread, int reason) {
 	bool intstate = interrupt_set(false);
 	spinlock_acquire(&thread->sleeplock);
 
-	if ((thread->flags & SCHED_THREAD_FLAGS_SLEEP) == 0 || ((reason == SCHED_WAKEUP_REASON_INTERRUPTED) && (thread->flags & SCHED_THREAD_FLAGS_INTERRUPTIBLE) == 0)) {
+	if ((thread->flags & THREAD_FLAGS_SLEEP) == 0 || ((reason == SCHED_WAKEUP_REASON_INTERRUPTED) && (thread->flags & THREAD_FLAGS_INTERRUPTIBLE) == 0)) {
 		spinlock_release(&thread->sleeplock);
 		interrupt_set(intstate);
 		return false;
 	}
 
-	thread->flags &= ~(SCHED_THREAD_FLAGS_SLEEP | SCHED_THREAD_FLAGS_INTERRUPTIBLE);
+	thread->flags &= ~(THREAD_FLAGS_SLEEP | THREAD_FLAGS_INTERRUPTIBLE);
 	thread->wakeupreason = reason;
 
 	// TODO send IPI to idle cores
@@ -454,16 +307,16 @@ static void dopreempt() {
 	thread_t *current = current_thread();
 	thread_t *next = runqueuenext(current->priority);
 
-	current->flags &= ~SCHED_THREAD_FLAGS_PREEMPTED;
+	current->flags &= ~THREAD_FLAGS_PREEMPTED;
 	if (next) {
-		current->flags &= ~SCHED_THREAD_FLAGS_RUNNING;
+		current->flags &= ~THREAD_FLAGS_RUNNING;
 		runqueueinsert(current);
 	} else {
 		next = current;
 	}
 
 	spinlock_release(&runqueuelock);
-	switchthread(next);
+	switch_thread(next);
 }
 
 static void preempt_dpc(context_t *context, dpcarg_t arg) {
@@ -471,10 +324,10 @@ static void preempt_dpc(context_t *context, dpcarg_t arg) {
 	interrupt_set(false);
 
 	// no need to preempt it again
-	if (current->flags & SCHED_THREAD_FLAGS_PREEMPTED)
+	if (current->flags & THREAD_FLAGS_PREEMPTED)
 		return;
 
-	current->flags |= SCHED_THREAD_FLAGS_PREEMPTED;
+	current->flags |= THREAD_FLAGS_PREEMPTED;
 	ARCH_CONTEXT_THREADSAVE(current, context);
 
 	CTX_INIT(context, false, false);
@@ -493,7 +346,7 @@ static void reschedule_ipi(isr_t *, context_t *) {
 }
 
 static void cpuidlethread() {
-	sched_targetcpu(current_cpu());
+	sched_target_cpu(current_cpu());
 	interrupt_set(true);
 	while (1) {
 		CPU_HALT();
@@ -501,7 +354,7 @@ static void cpuidlethread() {
 	}
 }
 
-void sched_targetcpu(cpu_t *cpu) {
+void sched_target_cpu(cpu_t *cpu) {
 	bool intstatus = interrupt_set(false);
 	current_thread()->cputarget = cpu;
 	interrupt_set(intstatus);
@@ -518,7 +371,7 @@ static void reschedule_yield(context_t *context, void *_cpu) {
 
 	ARCH_CONTEXT_THREADSAVE(thread, context);
 
-	thread->flags &= ~SCHED_THREAD_FLAGS_RUNNING;
+	thread->flags &= ~THREAD_FLAGS_RUNNING;
 	runqueueinsert(thread);
 
 	if (next == NULL)
@@ -527,7 +380,7 @@ static void reschedule_yield(context_t *context, void *_cpu) {
 	arch_smp_sendipi(cpu, cpu->reschedule_isr, ARCH_SMP_IPI_TARGET, false);
 
 	spinlock_release(&runqueuelock);
-	switchthread(next);
+	switch_thread(next);
 }
 
 void sched_reschedule_on_cpu(cpu_t *cpu, bool target) {
@@ -558,15 +411,15 @@ static void timeout(context_t *, dpcarg_t arg) {
 	sched_wakeup(thread, 0);
 }
 
-void sched_sleepus(size_t us) {
+void sched_sleep_us(size_t us) {
 	timerentry_t sleepentry = {0};
-	sched_preparesleep(false);
+	sched_prepare_sleep(false);
 
 	timer_insert(current_cpu()->timer, &sleepentry, timeout, current_thread(), us, false);
 	sched_yield();
 }
 
-void sched_apentry() {
+void sched_ap_entry() {
 	current_cpu()->schedulerstack = vmm_map(NULL, SCHEDULER_STACK_SIZE, VMM_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, NULL);
 	__assert(current_cpu()->schedulerstack);
 	current_cpu()->schedulerstack = (void *)((uintptr_t)current_cpu()->schedulerstack + SCHEDULER_STACK_SIZE);
@@ -579,13 +432,11 @@ void sched_apentry() {
 
 	timer_insert(current_cpu()->timer, &current_cpu()->schedtimerentry, reschedule_timer_dpc, NULL, QUANTUM_US, true);
 	timer_resume(current_cpu()->timer);
-	sched_stopcurrentthread();
+	sched_stop_current_thread();
 }
 
 void sched_init() {
 	proc_init();
-	threadcache = slab_newcache(sizeof(thread_t), 0, NULL, NULL);
-	__assert(threadcache);
 
 	current_cpu()->schedulerstack = vmm_map(NULL, SCHEDULER_STACK_SIZE, VMM_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, NULL);
 	__assert(current_cpu()->schedulerstack);
@@ -604,96 +455,4 @@ void sched_init() {
 	timer_insert(current_cpu()->timer, &current_cpu()->schedtimerentry, reschedule_timer_dpc, NULL, QUANTUM_US, true);
 	// XXX move this resume to a more appropriate place
 	timer_resume(current_cpu()->timer);
-}
-
-#define STACK_TOP (void *)0x0000800000000000
-#define INTERP_BASE (void *)0x00000beef0000000
-
-void sched_runinit() {
-	printf("sched: loading /init\n");
-
-	vmmcontext_t *vmmctx = vmm_newcontext();
-	__assert(vmmctx);
-
-	// leave kernel context to load elf
-	vmm_switchcontext(vmmctx);
-
-	proc_t *proc = proc_create();
-	__assert(proc);
-
-	init_proc = proc;
-
-	vnode_t *initnode;
-	__assert(vfs_open(vfsroot, "/init", 0, &initnode) == 0);
-
-	auxv64list_t auxv64;
-	char *interp = NULL;
-	void *entry;
-
-	__assert(elf_load(initnode, NULL, &entry, &interp, &auxv64) == 0);
-	if (interp) {
-		vnode_t *interpnode;
-		__assert(vfs_open(vfsroot, interp, 0, &interpnode) == 0);
-		auxv64list_t interpauxv;
-		char *interpinterp = NULL;
-		__assert(elf_load(interpnode, INTERP_BASE, &entry, &interpinterp, &interpauxv) == 0);
-		__assert(interpinterp == NULL);
-	}
-
-	vnode_t *consolenode;
-	__assert(devfs_getbyname("console", &consolenode) == 0);
-	VOP_LOCK(consolenode);
-	__assert(VOP_OPEN(&consolenode, V_FFLAGS_READ | V_FFLAGS_NOCTTY, &proc->cred) == 0);
-	VOP_HOLD(consolenode);
-	__assert(VOP_OPEN(&consolenode, V_FFLAGS_WRITE | V_FFLAGS_NOCTTY, &proc->cred) == 0);
-	VOP_HOLD(consolenode);
-	__assert(VOP_OPEN(&consolenode, V_FFLAGS_WRITE | V_FFLAGS_NOCTTY, &proc->cred) == 0);
-	VOP_UNLOCK(consolenode);
-
-	file_t *stdin = fd_allocate();
-	file_t *stdout = fd_allocate();
-	file_t *stderr = fd_allocate();
-
-	stdin->vnode = consolenode;
-	stdout->vnode = consolenode;
-	stderr->vnode = consolenode;
-
-	stdin->flags = FILE_READ;
-	stdout->flags = stderr->flags = FILE_WRITE;
-	stdin->offset = stdout->offset = stderr->offset = 0;
-	stdin->mode = stdout->mode = stderr-> mode = 0644;
-
-	proc->fd[0].file = stdin;
-	proc->fd[0].flags = 0;
-	proc->fd[1].file = stdout;
-	proc->fd[1].flags = 0;
-	proc->fd[2].file = stderr;
-	proc->fd[2].flags = 0;
-
-	proc->cwd = vfsroot;
-	VOP_HOLD(vfsroot);
-	proc->root = vfsroot;
-	VOP_HOLD(vfsroot);
-
-	char *argv[] = {"/init", cmdline_get("initarg"), NULL};
-	char *envp[] = {NULL};
-
-	void *stack = elf_preparestack(STACK_TOP, &auxv64, argv, envp);
-	__assert(stack);
-
-	// reenter kernel context
-	vmm_switchcontext(&vmm_kernelctx);
-
-	thread_t *uthread = sched_newthread(entry, PAGE_SIZE * 16, 1, proc, stack);
-	__assert(uthread);
-
-	proc->threadlist = uthread;
-	uthread->procnext = NULL;
-
-	uthread->vmmctx = vmmctx;
-	sched_queue(uthread);
-
-	VOP_RELEASE(initnode);
-	// proc starts with 1 refcount, release it here as to only have the thread reference
-	PROC_RELEASE(proc);
 }

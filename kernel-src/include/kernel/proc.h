@@ -13,6 +13,9 @@
 
 #include <kernel/thread.h>
 
+#define PROC_STATE_NORMAL 0
+#define PROC_STATE_ZOMBIE 1
+
 typedef struct proc_t {
 	mutex_t mutex;
 	int refcount;
@@ -107,5 +110,7 @@ int proc_signal_all(int signal, proc_t *sender);
 void proc_stop_other_threads(void);
 pid_t proc_allocate_pid(void);
 void proc_init(void);
+void proc_exit(void);
+void proc_run_init();
 
 #endif

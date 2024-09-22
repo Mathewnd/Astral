@@ -71,7 +71,7 @@ syscallret_t syscall_waitpid(context_t *context, pid_t pid, int *status, int opt
 				stopped = true;
 			}
 
-			zombie = iterator->state == SCHED_PROC_STATE_ZOMBIE;
+			zombie = iterator->state == PROC_STATE_ZOMBIE;
 		}
 
 		if (zombie || continued || stopped)
@@ -114,7 +114,7 @@ syscallret_t syscall_waitpid(context_t *context, pid_t pid, int *status, int opt
 			threadlist = threadlist->procnext;
 			volatile int *flags = (volatile int *)(&freethread->flags);
 			// wait until the thread can actually be unallocated
-			while ((*flags & SCHED_THREAD_FLAGS_DEAD) == 0)
+			while ((*flags & THREAD_FLAGS_DEAD) == 0)
 				sched_yield();
 
 			sched_destroythread(freethread);

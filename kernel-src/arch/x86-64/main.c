@@ -126,7 +126,7 @@ void kernel_entry() {
 		initrd_unpack();
 
 	defaultauth_init();
-	sched_runinit();
+	proc_run_init();
 	sched_threadexit();
 }
 

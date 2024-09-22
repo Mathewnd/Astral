@@ -5,6 +5,14 @@
 #include <kernel/vmm.h>
 #include <kernel/abi.h>
 #include <kernel/signal.h>
+#include <kernel/event.h>
+
+#define THREAD_FLAGS_QUEUED 1
+#define THREAD_FLAGS_RUNNING 2
+#define THREAD_FLAGS_SLEEP 4
+#define THREAD_FLAGS_INTERRUPTIBLE 8
+#define THREAD_FLAGS_PREEMPTED 16
+#define THREAD_FLAGS_DEAD 32
 
 struct proc_t;
 
@@ -45,5 +53,9 @@ typedef struct thread_t {
 		bool stopped;
 	} signals;
 } thread_t;
+
+__attribute__((noreturn)) void sched_threadexit();
+thread_t *sched_newthread(void *ip, size_t kstacksize, int priority, struct proc_t *proc, void *ustack);
+void sched_destroythread(thread_t *);
 
 #endif

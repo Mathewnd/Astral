@@ -87,7 +87,7 @@ static void vioblk_enqueue(vioblkdev_t *blkdev, requestheader_t *headerphys, voi
 	size_t driveridx = VIO_QUEUE_DRV_IDX(&blkdev->queue);
 	VIO_QUEUE_DRV_RING(&blkdev->queue)[driveridx % blkdev->queue.size] = idx;
 
-	sched_preparesleep(false);
+	sched_prepare_sleep(false);
 	blkdev->queuewaiting[idx / 3] = current_thread();
 
 	++VIO_QUEUE_DRV_IDX(&blkdev->queue);

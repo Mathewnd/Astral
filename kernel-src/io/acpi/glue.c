@@ -270,7 +270,7 @@ void uacpi_kernel_stall(uacpi_u8 usec) {
 }
 
 void uacpi_kernel_sleep(uacpi_u64 msec) {
-	sched_sleepus(msec * 1000);
+	sched_sleep_us(msec * 1000);
 }
 
 struct acpi_irqctx {
@@ -355,7 +355,7 @@ static void acpi_dowork(struct acpi_workctx *ctx) {
 }
 
 static void acpi_dogpework() {
-	sched_targetcpu(get_bsp());
+	sched_target_cpu(get_bsp());
 	sched_yield();
 
 	acpi_dowork(&gpework);
@@ -418,7 +418,7 @@ static void work_await(struct acpi_workctx *ctx) {
 		if (empty)
 			return;
 
-		sched_sleepus(100 * 1000);
+		sched_sleep_us(100 * 1000);
 	}
 }
 

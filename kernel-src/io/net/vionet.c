@@ -138,7 +138,7 @@ static int vionet_sendpacket(netdev_t *internal, netdesc_t desc, mac_t targetmac
 	size_t driveridx = VIO_QUEUE_DRV_IDX(&netdev->txqueue)++;
 	VIO_QUEUE_DRV_RING(&netdev->txqueue)[driveridx % netdev->txqueue.size] = idx;
 
-	sched_preparesleep(false);
+	sched_prepare_sleep(false);
 	netdev->txwait[idx] = current_thread();
 	*netdev->txqueue.notify = 0;
 

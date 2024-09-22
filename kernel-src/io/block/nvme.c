@@ -323,7 +323,7 @@ static void enqueueandwait(queuepair_t *queuepair, entrypair_t *entries) {
 	queuepair->submission.index %= queuepair->submission.entrycount;
 
 	*queuepair->submission.doorbell = queuepair->submission.index;
-	sched_preparesleep(false);
+	sched_prepare_sleep(false);
 	entries->thread = current_thread();
 	spinlock_release(&queuepair->lock);
 	sched_yield();

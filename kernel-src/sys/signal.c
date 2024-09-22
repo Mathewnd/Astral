@@ -153,7 +153,7 @@ void signal_suspend(sigset_t *sigset) {
 
 	THREAD_LEAVE(thread);
 
-	sched_preparesleep(true);
+	sched_prepare_sleep(true);
 	sched_yield();
 }
 
@@ -320,7 +320,7 @@ void signal_signalproc(struct proc_t *proc, int signal) {
 	spinlock_acquire(&proc->threadlistlock);
 
 	while (thread) {
-		if (thread->flags & SCHED_THREAD_FLAGS_DEAD) {
+		if (thread->flags & THREAD_FLAGS_DEAD) {
 			thread = thread->procnext;
 			continue;
 		}
@@ -502,7 +502,7 @@ bool signal_check(struct thread_t *thread, context_t *context, bool syscall, uin
 				}
 				// if not, just sleep. the sigcont won't be sent until THREAD_LEAVE and preparesleep is protecting it from a lost wakeup
 				context_t savecontext = *context; // save context as it could be overwritten if, for example, its the thread->context one
-				sched_preparesleep(false);
+				sched_prepare_sleep(false);
 				thread->signals.stopped = true;
 				THREAD_LEAVE(thread);
 				PROCESS_LEAVE(proc);

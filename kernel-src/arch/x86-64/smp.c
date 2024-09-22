@@ -36,7 +36,7 @@ static void cpuwakeup(struct limine_smp_info *info) {
 
 	__atomic_add_fetch(&arch_smp_cpusawake, 1, __ATOMIC_SEQ_CST);
 
-	sched_apentry();
+	sched_ap_entry();
 }
 
 void arch_smp_sendipi(cpu_t *targcpu, isr_t *isr, int target, bool nmi) {

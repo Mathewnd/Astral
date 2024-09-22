@@ -96,10 +96,10 @@ int poll_dowait(polldesc_t *desc, size_t ustimeout) {
 		return 0;
 	}
 
-	sched_preparesleep(true);
+	sched_prepare_sleep(true);
 
 	if (ustimeout != 0) {
-		sched_targetcpu(current_cpu());
+		sched_target_cpu(current_cpu());
 		timer_insert(current_cpu()->timer, &sleepentry, timeout, desc, ustimeout, false);
 	}
 
@@ -117,7 +117,7 @@ int poll_dowait(polldesc_t *desc, size_t ustimeout) {
 
 	if (ustimeout != 0 && ret != 1) {
 		timer_remove(current_cpu()->timer, &sleepentry);
-		sched_targetcpu(NULL);
+		sched_target_cpu(NULL);
 	}
 
 	interrupt_set(intstate);

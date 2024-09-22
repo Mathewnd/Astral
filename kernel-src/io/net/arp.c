@@ -77,7 +77,7 @@ static void set(netdev_t *netdev, uint32_t ip, mac_t mac, timespec_t time) {
 
 static void cleanupthreadfn() {
 	for (;;) {
-		sched_sleepus(1000000); // 1 second
+		sched_sleep_us(1000000); // 1 second
 		MUTEX_ACQUIRE(&cachelock, false);
 		timespec_t currtime = timekeeper_time();
 		hashentry_t entrybuffer;

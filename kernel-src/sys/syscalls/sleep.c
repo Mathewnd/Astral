@@ -25,9 +25,9 @@ syscallret_t syscall_nanosleep(context_t *, timespec_t *utime, timespec_t *remai
 	}
 
 	timerentry_t sleepentry;
-	sched_preparesleep(true);
+	sched_prepare_sleep(true);
 
-	sched_targetcpu(current_cpu());
+	sched_target_cpu(current_cpu());
 	timer_insert(current_cpu()->timer, &sleepentry, timeout, current_thread(), time.s * 1000000 + time.ns / 1000, false);
 
 	ret.errno = sched_yield() == SCHED_WAKEUP_REASON_INTERRUPTED ? EINTR : 0;
@@ -39,7 +39,7 @@ syscallret_t syscall_nanosleep(context_t *, timespec_t *utime, timespec_t *remai
 		ret.errno = usercopy_touser(remaining, &time, sizeof(timespec_t)) ? EFAULT : EINTR;
 	}
 
-	sched_targetcpu(NULL);
+	sched_target_cpu(NULL);
 
 	ret.ret = 0;
 	return ret;
