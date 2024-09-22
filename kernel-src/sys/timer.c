@@ -73,7 +73,6 @@ void timer_isr(timer_t *timer, context_t *context) {
 	// while the timer was about to be stopped by a timer_insert or timer_remove
 	time_t time_passed = timer->stop(timer);
 	if (time_passed < timer->current_target - timer->tickcurrent) {
-		arch_e9_puts("bleh bleh\n");
 		timer->tickcurrent += time_passed;
 		goto leave;
 	}
