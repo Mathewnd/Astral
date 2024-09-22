@@ -12,7 +12,7 @@ syscallret_t syscall_fork(context_t *ctx) {
 	};
 
 	proc_t *proc = current_thread()->proc;
-	proc_t *nproc = sched_newproc();
+	proc_t *nproc = proc_create();
 	if (nproc == NULL) {
 		ret.errno = ENOMEM;
 		goto cleanup;
@@ -45,8 +45,8 @@ syscallret_t syscall_fork(context_t *ctx) {
 
 	nproc->umask = current_thread()->proc->umask;
 	nproc->cred = current_thread()->proc->cred;
-	nproc->root = sched_getroot();
-	nproc->cwd = sched_getcwd();
+	nproc->root = proc_get_root();
+	nproc->cwd = proc_get_cwd();
 	nproc->threadlist = nthread;
 	nthread->procnext = NULL;
 

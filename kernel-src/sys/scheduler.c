@@ -19,7 +19,6 @@
 #define SCHEDULER_STACK_SIZE PAGE_SIZE * 16
 
 static scache_t *threadcache;
-static scache_t *processcache;
 
 #define RUNQUEUE_COUNT 64
 
@@ -31,109 +30,6 @@ typedef struct {
 static rqueue_t runqueue[RUNQUEUE_COUNT];
 static uint64_t runqueuebitmap;
 static spinlock_t runqueuelock;
-static hashtable_t pidtable;
-// not defined as static because its acquired/released from a macro in kernel/scheduler.h
-mutex_t sched_pidtablemutex;
-
-proc_t *sched_initproc;
-static pid_t currpid = 1;
-
-proc_t *sched_getprocfrompid(int pid) {
-	MUTEX_ACQUIRE(&sched_pidtablemutex, false);
-	void *_proc = NULL;
-	hashtable_get(&pidtable, &_proc, &pid, sizeof(pid));
-	proc_t *proc = _proc;
-	if (proc) {
-		PROC_HOLD(proc);
-	}
-	MUTEX_RELEASE(&sched_pidtablemutex);
-
-	return proc;
-}
-
-int sched_signalall(int signal, proc_t *sender) {
-	MUTEX_ACQUIRE(&sched_pidtablemutex, false);
-
-	pid_t senderpgid = sender ? jobctl_getpgid(sender) : 0;
-
-	size_t donecount = 0;
-	HASHTABLE_FOREACH(&pidtable) {
-		proc_t *current = entry->value;
-		// init does not get signaled
-		if (current->pid == 1)
-			continue;
-
-		pid_t currentpgid = jobctl_getpgid(current);
-
-		if (senderpgid == 0 || (signal == SIGCONT && currentpgid == senderpgid) || auth_process_check(&sender->cred, AUTH_ACTIONS_PROCESS_SIGNAL, current) == 0) {
-			++donecount;
-			signal_signalproc(current, signal);
-		}
-	}
-
-	MUTEX_RELEASE(&sched_pidtablemutex);
-	return donecount == 0 ? EPERM : 0;
-}
-
-static void rtdpc(context_t *, dpcarg_t arg) {
-	signal_signalproc(arg, SIGALRM);
-}
-
-static void vtdpc(context_t *, dpcarg_t arg) {
-	signal_signalproc(arg, SIGVTALRM);
-}
-
-static void profdpc(context_t *, dpcarg_t arg) {
-	signal_signalproc(arg, SIGPROF);
-}
-
-proc_t *sched_newproc() {
-	proc_t *proc = slab_allocate(processcache);
-	if (proc == NULL)
-		return NULL;
-
-	memset(proc, 0, sizeof(proc_t));
-
-	// TODO move this to slab
-	proc->state = SCHED_PROC_STATE_NORMAL;
-	proc->runningthreadcount = 1;
-	MUTEX_INIT(&proc->mutex);
-	SPINLOCK_INIT(proc->nodeslock);
-	proc->fdcount = 3;
-	proc->refcount = 1;
-	proc->fdfirst = 3;
-	MUTEX_INIT(&proc->fdmutex);
-	SEMAPHORE_INIT(&proc->waitsem, 0);
-	SPINLOCK_INIT(proc->jobctllock);
-	SPINLOCK_INIT(proc->pgrp.lock);
-	SPINLOCK_INIT(proc->signals.lock);
-	MUTEX_INIT(&proc->timer.mutex);
-	itimer_init(&proc->timer.realtime, rtdpc, proc);
-	itimer_init(&proc->timer.virtualtime, vtdpc, proc);
-	itimer_init(&proc->timer.profiling, profdpc, proc);
-	SPINLOCK_INIT(proc->threadlistlock);
-
-	proc->fd = alloc(sizeof(fd_t) * 3);
-	if (proc->fd == NULL) {
-		slab_free(processcache, proc);
-		return NULL;
-	}
-
-	proc->pid = __atomic_fetch_add(&currpid, 1, __ATOMIC_SEQ_CST);
-	proc->umask = 022; // default umask
-
-	// add to pid table
-	MUTEX_ACQUIRE(&sched_pidtablemutex, false);
-	if (hashtable_set(&pidtable, proc, &proc->pid, sizeof(proc->pid), true)) {
-		MUTEX_RELEASE(&sched_pidtablemutex);
-		free(proc->fd);
-		slab_free(processcache, proc);
-		return NULL;
-	}
-	MUTEX_RELEASE(&sched_pidtablemutex);
-
-	return proc;
-}
 
 thread_t *sched_newthread(void *ip, size_t kstacksize, int priority, proc_t *proc, void *ustack) {
 	thread_t *thread = slab_allocate(threadcache);
@@ -158,7 +54,7 @@ thread_t *sched_newthread(void *ip, size_t kstacksize, int priority, proc_t *pro
 	if (proc) {
 		// each thread holds one reference to proc
 		PROC_HOLD(proc);
-		thread->tid = __atomic_fetch_add(&currpid, 1, __ATOMIC_SEQ_CST);
+		thread->tid = proc_allocate_pid();
 	}
 
 	CTX_INIT(&thread->context, proc != NULL, true);
@@ -175,11 +71,6 @@ thread_t *sched_newthread(void *ip, size_t kstacksize, int priority, proc_t *pro
 void sched_destroythread(thread_t *thread) {
 	vmm_unmap(thread->kernelstack, thread->kernelstacksize, 0);
 	slab_free(threadcache, thread);
-}
-
-void sched_destroyproc(proc_t *proc) {
-	free(proc->fd);
-	slab_free(processcache, proc);
 }
 
 static thread_t *getinrunqueue(rqueue_t *rq) {
@@ -311,7 +202,7 @@ __attribute__((noreturn)) void sched_stopcurrentthread() {
 // called when all threads in a process have exited
 void sched_procexit() {
 	proc_t *proc = current_thread()->proc;
-	__assert(proc != sched_initproc);
+	__assert(proc != init_proc);
 
 	// the process is going to be referenced by the child list, hold it
 	// it only holds it now because it has to have running threads to be in the list
@@ -339,7 +230,7 @@ void sched_procexit() {
 	proc_t *lastchild = proc->child;
 
 
-	MUTEX_ACQUIRE(&sched_initproc->mutex, false);
+	MUTEX_ACQUIRE(&init_proc->mutex, false);
 
 	int belowzombiecount = 0;
 
@@ -347,35 +238,24 @@ void sched_procexit() {
 		if (lastchild->state == SCHED_PROC_STATE_ZOMBIE)
 			++belowzombiecount;
 
-		lastchild->parent = sched_initproc;
+		lastchild->parent = init_proc;
 		lastchild = lastchild->sibling;
 	}
 
 	if (lastchild) {
-		lastchild->sibling = sched_initproc->child;
-		sched_initproc->child = proc->child;
+		lastchild->sibling = init_proc->child;
+		init_proc->child = proc->child;
 	}
 
-	MUTEX_RELEASE(&sched_initproc->mutex);
+	MUTEX_RELEASE(&init_proc->mutex);
 	MUTEX_RELEASE(&proc->mutex);
 
 	signal_signalproc(proc->parent, SIGCHLD);
 	semaphore_signal(&proc->parent->waitsem);
 	// TODO sigaction flag for this
 	for (int i = 0; i < belowzombiecount; ++i) {
-		semaphore_signal(&sched_initproc->waitsem);
+		semaphore_signal(&init_proc->waitsem);
 	}
-}
-
-void sched_inactiveproc(proc_t *proc) {
-	// proc refcount 0, we can free the structure
-	// the pid table lock is already acquired.
-
-	hashtable_remove(&pidtable, &proc->pid, sizeof(proc->pid));
-
-	//arch_e9_puts("\n\ndestroy proc\n\n");
-	//printf("destroy proc\n");
-	sched_destroyproc(proc);
 }
 
 static void threadexit_internal(context_t *, void *) {
@@ -476,51 +356,6 @@ __attribute__((no_caller_saved_registers)) void sched_userspacecheck(context_t *
 	current_cpu()->intstatus = intstatus;
 }
 
-void sched_stopotherthreads() {
-	thread_t *thread = current_thread();
-	proc_t *proc = thread->proc;
-
-	bool intstatus = interrupt_set(false);
-	spinlock_acquire(&proc->threadlistlock);
-
-	proc->nomorethreads = true;
-	thread_t *threadlist = proc->threadlist;
-
-	spinlock_release(&proc->threadlistlock);
-	interrupt_set(intstatus);
-
-	while (threadlist) {
-		if (threadlist == thread) {
-			threadlist = threadlist->procnext;
-			continue;
-		}
-
-		threadlist->shouldexit = true;
-		sched_wakeup(threadlist, SCHED_WAKEUP_REASON_INTERRUPTED);
-		threadlist = threadlist->procnext;
-	}
-
-	while (__atomic_load_n(&proc->runningthreadcount, __ATOMIC_SEQ_CST) > 1) {
-		arch_e9_puts("sched_stopotherthreads\n");
-		sched_yield();
-	}
-
-	proc->nomorethreads = false;
-}
-
-void sched_terminateprogram(int status) {
-	thread_t *thread = current_thread();
-	proc_t *proc = thread->proc;
-	if (spinlock_try(&proc->exiting) == false)
-		sched_threadexit();
-
-	sched_stopotherthreads();
-
-	proc->status = status;
-
-	sched_threadexit();
-}
-
 static void yield(context_t *context, void *) {
 	thread_t *thread = current_thread();
 
@@ -609,49 +444,6 @@ bool sched_wakeup(thread_t *thread, int reason) {
 	interrupt_set(intstate);
 
 	return true;
-}
-
-static vnode_t *getnodeslock(vnode_t **addr) {
-	proc_t *proc = current_thread()->proc;
-	bool intstatus = interrupt_set(false);
-	spinlock_acquire(&proc->nodeslock);
-	vnode_t *vnode = *addr;
-	VOP_HOLD(vnode);
-	spinlock_release(&proc->nodeslock);
-	interrupt_set(intstatus);
-	return vnode;
-}
-
-vnode_t *sched_getcwd() {
-	proc_t *proc = current_thread()->proc;
-	return getnodeslock(&proc->cwd);
-}
-
-vnode_t *sched_getroot() {
-	proc_t *proc = current_thread()->proc;
-	return getnodeslock(&proc->root);
-}
-
-static void setnodeslock(vnode_t **addr, vnode_t *new) {
-	proc_t *proc = current_thread()->proc;
-	vnode_t *oldnode;
-	VOP_HOLD(new);
-	bool intstatus = interrupt_set(false);
-	spinlock_acquire(&proc->nodeslock);
-	oldnode = *addr;
-	*addr = new;
-	spinlock_release(&proc->nodeslock);
-	interrupt_set(intstatus);
-	VOP_RELEASE(oldnode);
-}
-
-void sched_setcwd(vnode_t *new) {
-	proc_t *proc = current_thread()->proc;
-	setnodeslock(&proc->cwd, new);
-}
-void sched_setroot(vnode_t *new) {
-	proc_t *proc = current_thread()->proc;
-	setnodeslock(&proc->root, new);
 }
 
 // once a scheduler dpc gets run, the return context is set to this function using the scheduler stack
@@ -791,13 +583,9 @@ void sched_apentry() {
 }
 
 void sched_init() {
+	proc_init();
 	threadcache = slab_newcache(sizeof(thread_t), 0, NULL, NULL);
 	__assert(threadcache);
-	processcache = slab_newcache(sizeof(proc_t), 0, NULL, NULL);
-	__assert(processcache);
-
-	__assert(hashtable_init(&pidtable, 100) == 0);
-	MUTEX_INIT(&sched_pidtablemutex);
 
 	current_cpu()->schedulerstack = vmm_map(NULL, SCHEDULER_STACK_SIZE, VMM_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, NULL);
 	__assert(current_cpu()->schedulerstack);
@@ -830,10 +618,10 @@ void sched_runinit() {
 	// leave kernel context to load elf
 	vmm_switchcontext(vmmctx);
 
-	proc_t *proc = sched_newproc();
+	proc_t *proc = proc_create();
 	__assert(proc);
 
-	sched_initproc = proc;
+	init_proc = proc;
 
 	vnode_t *initnode;
 	__assert(vfs_open(vfsroot, "/init", 0, &initnode) == 0);

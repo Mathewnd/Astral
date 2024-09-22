@@ -602,7 +602,7 @@ static int localsock_connect(socket_t *socket, sockaddr_t *addr, uintmax_t flags
 	}
 
 	// get the vnode specified in addr
-	refnode = addr->path[0] == '/' ? sched_getroot() : sched_getcwd();
+	refnode = addr->path[0] == '/' ? proc_get_root() : proc_get_cwd();
 	error = vfs_lookup(&result, refnode, addr->path, NULL, 0);
 	if (error)
 		goto leave;
@@ -883,7 +883,7 @@ static int localsock_bind(socket_t *socket, sockaddr_t *addr, cred_t *cred) {
 
 	strcpy(path, addr->path);
 
-	refnode = *path == '/' ? sched_getroot() : sched_getcwd();
+	refnode = *path == '/' ? proc_get_root() : proc_get_cwd();
 	vattr_t attr = {
 		.mode = current_thread()->proc ? UMASK(0777) : 0644,
 		.gid = current_thread()->proc ? current_thread()->proc->cred.gid : 0,

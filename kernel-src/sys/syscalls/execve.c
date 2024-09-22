@@ -171,7 +171,7 @@ static syscallret_t execve(context_t *context, char *upath, char *uargv[], char 
 			goto error;
 	}
 
-	refnode = *path == '/' ? sched_getroot() : sched_getcwd();
+	refnode = *path == '/' ? proc_get_root() : proc_get_cwd();
 
 	ret.errno = vfs_lookup(&node, refnode, path, NULL, 0);
 	if (ret.errno)
@@ -241,7 +241,7 @@ static syscallret_t execve(context_t *context, char *upath, char *uargv[], char 
 
 	if (interp) {
 		vnode_t *interpnode = NULL;
-		vnode_t *interprefnode = *interp == '/' ? sched_getroot() : sched_getcwd();
+		vnode_t *interprefnode = *interp == '/' ? proc_get_root() : proc_get_cwd();
 		ret.errno = vfs_lookup(&interpnode, interprefnode, interp, NULL, 0);
 		if (ret.errno)
 			goto error;
@@ -273,7 +273,7 @@ static syscallret_t execve(context_t *context, char *upath, char *uargv[], char 
 
 	ret.ret = 0;
 
-	sched_stopotherthreads();
+	proc_stop_other_threads();
 
 	// close O_CLOEXEC fds
 

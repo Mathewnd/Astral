@@ -26,7 +26,7 @@ syscallret_t syscall_chdir(context_t *, char *upath) {
 		return ret;
 	}
 
-	vnode_t *ref = path[0] == '/' ? sched_getroot() : sched_getcwd();
+	vnode_t *ref = path[0] == '/' ? proc_get_root() : proc_get_cwd();
 	vnode_t *new = NULL;
 
 	ret.errno = vfs_lookup(&new, ref, path, NULL, 0);
@@ -40,7 +40,7 @@ syscallret_t syscall_chdir(context_t *, char *upath) {
 		goto cleanup;
 	}
 
-	sched_setcwd(new);
+	proc_set_cwd(new);
 	ret.ret = 0;
 
 	cleanup:
@@ -69,7 +69,7 @@ syscallret_t syscall_fchdir(context_t *, int fd) {
 		goto cleanup;
 	}
 
-	sched_setcwd(file->vnode);
+	proc_set_cwd(file->vnode);
 	ret.errno = 0;
 
 	cleanup:

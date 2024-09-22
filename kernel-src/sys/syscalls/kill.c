@@ -20,7 +20,7 @@ syscallret_t syscall_kill(context_t *context, int pid, int signal) {
 	else if (pid < -1)
 		effectivepid = -pid; // target specific process group
 
-	proc_t *target = sched_getprocfrompid(effectivepid);
+	proc_t *target = proc_get_from_pid(effectivepid);
 	if (target == NULL && pid != 0 && pid != -1) {
 		ret.errno = ESRCH;
 		return ret;
@@ -39,7 +39,7 @@ syscallret_t syscall_kill(context_t *context, int pid, int signal) {
 
 		signal_signalproc(target, signal);
 	} else if (pid == -1) {
-		ret.errno = sched_signalall(signal, current_thread()->proc);
+		ret.errno = proc_signal_all(signal, current_thread()->proc);
 	} else {
 		ret.errno = jobctl_signal(target, signal, current_thread()->proc);
 	}

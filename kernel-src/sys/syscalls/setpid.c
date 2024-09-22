@@ -25,7 +25,7 @@ syscallret_t syscall_setpgid(context_t *, pid_t pid, pid_t pgid) {
 		proc = currentproc;
 		PROC_HOLD(proc);
 	} else {
-		proc = sched_getprocfrompid(pid);
+		proc = proc_get_from_pid(pid);
 	}
 
 	if (proc == NULL) {
@@ -44,7 +44,7 @@ syscallret_t syscall_setpgid(context_t *, pid_t pid, pid_t pgid) {
 		pgrp = currentproc;
 		PROC_HOLD(pgrp);
 	} else {
-		pgrp = sched_getprocfrompid(pgid);
+		pgrp = proc_get_from_pid(pgid);
 	}
 
 	if (pgrp == NULL) {

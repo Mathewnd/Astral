@@ -70,8 +70,8 @@ syscallret_t syscall_mount(context_t *context, char *ubacking, char *umountpoint
 
 	vnode_t *backingrefnode = NULL;
 	if (ubacking)
-		backingrefnode = *backing == '/' ? sched_getroot() : sched_getcwd();
-	vnode_t *mountpointrefnode = *mountpoint == '/' ? sched_getroot() : sched_getcwd();
+		backingrefnode = *backing == '/' ? proc_get_root() : proc_get_cwd();
+	vnode_t *mountpointrefnode = *mountpoint == '/' ? proc_get_root() : proc_get_cwd();
 	vnode_t *backingnode = NULL;
 
 	if (ubacking) {

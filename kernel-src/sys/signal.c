@@ -435,7 +435,7 @@ bool signal_check(struct thread_t *thread, context_t *context, bool syscall, uin
 		THREAD_LEAVE(thread);
 		PROCESS_LEAVE(proc);
 		interrupt_set(true);
-		sched_terminateprogram(SIGKILL);
+		proc_terminate(SIGKILL);
 	}
 
 	// find the first pending signal which is unmasked
@@ -492,7 +492,7 @@ bool signal_check(struct thread_t *thread, context_t *context, bool syscall, uin
 				THREAD_LEAVE(thread);
 				PROCESS_LEAVE(proc);
 				interrupt_set(true);
-				sched_terminateprogram(signal);
+				proc_terminate(signal);
 			case ACTION_STOP:
 				// TODO what if a thread unmasks a stop signal?
 				// check if sigcont is not pending for the thread (SIGCONT is always sent to the thread)
@@ -570,7 +570,7 @@ bool signal_check(struct thread_t *thread, context_t *context, bool syscall, uin
 			THREAD_LEAVE(thread);
 			PROCESS_LEAVE(proc);
 			interrupt_set(true);
-			sched_terminateprogram(SIGSEGV);
+			proc_terminate(SIGSEGV);
 		}
 
 		// configure new thread signal mask

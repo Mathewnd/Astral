@@ -356,7 +356,7 @@ int tty_ioctl(tty_t *tty, unsigned long req, void *arg, int *result, cred_t *cre
 			if (e)
 				return e;
 
-			proc_t *proc = sched_getprocfrompid(pgrp);
+			proc_t *proc = proc_get_from_pid(pgrp);
 			if (proc == NULL)
 				return ESRCH;
 

@@ -6,6 +6,6 @@
 #include <semaphore.h>
 
 __attribute__((noreturn)) void syscall_exit(context_t *context, int status) {
-	sched_terminateprogram(status << 8);
+	proc_terminate(status << 8);
 	__builtin_unreachable();
 }

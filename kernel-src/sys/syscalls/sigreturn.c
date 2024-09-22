@@ -9,7 +9,7 @@ __attribute__((noreturn)) void syscall_sigreturn(context_t *context) {
 	int error = usercopy_fromuser(&sigframe, (void *)CTX_SP(context), sizeof(sigframe_t));
 	if (error || ARCH_CONTEXT_ISUSER(&sigframe.context) == false) {
 		printf("syscall_sigreturn: bad return stack or bad return information\n");
-		sched_terminateprogram(SIGSEGV);
+		proc_terminate(SIGSEGV);
 	}
 
 	interrupt_set(false);

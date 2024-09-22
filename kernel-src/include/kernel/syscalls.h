@@ -15,9 +15,9 @@ typedef struct {
 
 static inline int dirfd_enter(char *path, int dirfd, file_t **file, vnode_t **dirnode) {
 	if (*path == '/') {
-		*dirnode = sched_getroot();
+		*dirnode = proc_get_root();
 	} else if (dirfd == AT_FDCWD) {
-		*dirnode = sched_getcwd();
+		*dirnode = proc_get_cwd();
 	} else {
 		*file = fd_get(dirfd);
 		if (file == NULL) {
