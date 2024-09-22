@@ -127,6 +127,32 @@ void semaphore_signal(semaphore_t *sem) {
 	interrupt_set(intstate);
 }
 
+bool semaphore_signal_limit(semaphore_t *sem, int limit) {
+	bool intstate = interrupt_set(false);
+	spinlock_acquire(&sem->lock);
+
+	bool successful = false;
+
+	if (sem->i >= limit)
+		goto leave;
+
+	if (++sem->i <= 0) {
+		thread_t *thread = get(sem);
+		// a thread will always be returned if sem->i <= 0
+		__assert(thread);
+
+		// XXX the current method doesn't respect thread priorities
+		sched_wakeup(thread, 0);
+	}
+
+	successful = true;
+
+	leave:
+	spinlock_release(&sem->lock);
+	interrupt_set(intstate);
+	return successful;
+}
+
 void semaphore_reset(semaphore_t *sem) {
 	bool intstate = spinlock_acquireirqclear(&sem->lock);
 	__assert(sem->head == NULL);

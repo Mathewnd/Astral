@@ -30,5 +30,6 @@ void semaphore_signal(semaphore_t *sem);
 void semaphore_reset(semaphore_t *sem);
 bool semaphore_test(semaphore_t *sem);
 bool semaphore_haswaiters(semaphore_t *sem);
+bool semaphore_signal_limit(semaphore_t *sem, int limit);
 
 #endif
