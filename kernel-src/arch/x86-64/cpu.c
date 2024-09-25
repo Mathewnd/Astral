@@ -3,7 +3,11 @@
 #include <cpuid.h>
 #include <logging.h>
 
+#define CPUID_VENDOR_AMD "AuthenticAMD"
+#define CPUID_VENDOR_INTEL "GenuineIntel"
+
 #define CPUID_SYSCALL (1 << 11)
+#define CPUID_LEAF_1_EDX_HTT (1 << 28)
 #define EFER_SYSCALLENABLE 1
 
 void arch_syscall_entry();
@@ -39,11 +43,144 @@ static void x87isr(isr_t *self, context_t *ctx) {
 	}
 }
 
+static bool cpuid_leaf_0xb_available(void) {
+	if (current_cpu()->cpuid_max < 0xb)
+		return false;
+
+	unsigned int eax = 0, ebx = 0, ecx = 0, edx = 0;
+	__get_cpuid_count(0xb, 0, &eax, &ebx, &ecx, &edx);
+	return ebx != 0;
+}
+
+static bool cpuid_leaf_0x80000008_available(void) {
+	unsigned int eax = 0, ebx = 0, ecx = 0, edx = 0;
+	__get_cpuid(0x80000000, &eax, &ebx, &ecx, &edx);
+
+	if (eax < 0x80000008)
+		return false;
+
+	return true;
+}
+
+static bool cpuid_leaf_0x4_available(void) {
+	if (current_cpu()->cpuid_max < 0x4)
+		return false;
+
+	unsigned int eax = 0, ebx = 0, ecx = 0, edx = 0;
+	__get_cpuid_count(0xb, 0, &eax, &ebx, &ecx, &edx);
+	return eax != 0;
+}
+
+#define TOPOLOGY_TYPE_THREAD 1
+#define TOPOLOGY_TYPE_CORE   2
+#define TOPOLOGY_TYPE_PACKAGE 0xffffffff
+
+static size_t get_topology_depth(void) {
+	bool is_amd = strcmp(current_cpu()->vendor, CPUID_VENDOR_AMD) == 0;
+	bool is_intel = strcmp(current_cpu()->vendor, CPUID_VENDOR_INTEL) == 0;
+	unsigned int eax = 0, ebx = 0, ecx = 0, edx = 0;
+
+	__get_cpuid(1, &eax, &ebx, &ecx, &edx);
+	bool has_package_bits = edx & CPUID_LEAF_1_EDX_HTT;
+
+	if (is_intel && cpuid_leaf_0xb_available()) {
+		int current_type;
+		size_t depth = 0;
+		for (;;) {
+			__get_cpuid_count(0xb, depth, &eax, &ebx, &ecx, &edx);
+			current_type = (ecx >> 8) & 0xff;
+			if (current_type == 0)
+				break;
+			depth += 1;
+		}
+
+		__assert(depth >= 2); // intel guarantees that at least the thread and cpu level will exist
+		return depth + 1; // account for package level
+	} else if ((is_intel || is_amd) && has_package_bits) {
+		return 3; // use the package -> core -> thread topology for this CPU
+	} else {
+		return 1; // it will be a leaf node in the root of the topology tree
+	}
+}
+
+// last value in topology is supposed to be the leaf
+static void get_topology(long *topology_ids, long *topology_types) {
+	bool is_amd = strcmp(current_cpu()->vendor, CPUID_VENDOR_AMD) == 0;
+	bool is_intel = strcmp(current_cpu()->vendor, CPUID_VENDOR_INTEL) == 0;
+	unsigned int eax = 0, ebx = 0, ecx = 0, edx = 0;
+	size_t depth = get_topology_depth();
+
+	__get_cpuid(1, &eax, &ebx, &ecx, &edx);
+	bool has_package_bits = edx & CPUID_LEAF_1_EDX_HTT;
+
+	uint8_t initial_apic_id = (ebx >> 24) & 0xff;
+
+	size_t bits_below_package = 32 - __builtin_clz(((ebx >> 16) & 0xff) - 1);
+
+	if (is_intel && cpuid_leaf_0xb_available()) {
+		uint32_t bits = 0;
+		for (int i = 0; i < depth - 1; ++i) {
+			__get_cpuid_count(0xb, i, &eax, &ebx, &ecx, &edx);
+			initial_apic_id = edx;
+			uint32_t current_bits = eax & 0x1f;
+			topology_ids[depth - 1 - i] = (initial_apic_id >> bits) & ((1 << current_bits) - 1);
+			bits += current_bits;
+		}
+
+		topology_ids[0] = (long)(initial_apic_id >> bits) & ((1l << (32 - bits)) - 1);
+		topology_types[0] = TOPOLOGY_TYPE_PACKAGE;
+	} else if (is_intel && has_package_bits && cpuid_leaf_0x4_available()) {
+		__get_cpuid_count(0x4, 0, &eax, &ebx, &ecx, &edx);
+
+		size_t bits_for_core = 32 - __builtin_clz(((eax >> 26) & 0x3f));
+		size_t bits_for_thread = bits_below_package - bits_for_core;
+		uint32_t core_mask = (1 << bits_for_core) - 1;
+		uint32_t thread_mask = (1 << bits_for_thread) - 1;
+	
+		topology_ids[0] = initial_apic_id >> bits_below_package;
+		topology_types[0] = TOPOLOGY_TYPE_PACKAGE;
+
+		topology_ids[1] = (initial_apic_id >> bits_for_thread) & core_mask;
+		topology_types[1] = TOPOLOGY_TYPE_CORE;
+
+		topology_ids[2] = initial_apic_id & thread_mask;
+		topology_types[2] = TOPOLOGY_TYPE_THREAD;
+	} else if (is_amd && has_package_bits && cpuid_leaf_0x80000008_available()) {
+		__get_cpuid(0x80000008, &eax, &ebx, &ecx, &edx);
+		size_t apic_id_size = (ecx >> 12) & 0xf;
+		size_t bits_for_core = apic_id_size ? apic_id_size : 32 - __builtin_clz(ecx & 0xff);
+		size_t bits_for_thread = bits_below_package - bits_for_core;
+		uint32_t core_mask = (1 << bits_for_core) - 1;
+		uint32_t thread_mask = (1 << bits_for_thread) - 1;
+	
+		topology_ids[0] = initial_apic_id >> bits_below_package;
+		topology_types[0] = TOPOLOGY_TYPE_PACKAGE;
+
+		topology_ids[1] = (initial_apic_id >> bits_for_thread) & core_mask;
+		topology_types[1] = TOPOLOGY_TYPE_CORE;
+
+		topology_ids[2] = initial_apic_id & thread_mask;
+		topology_types[2] = TOPOLOGY_TYPE_THREAD;
+	} else if (has_package_bits) {
+		topology_ids[0] = initial_apic_id >> bits_below_package;
+		topology_types[0] = TOPOLOGY_TYPE_PACKAGE;
+
+		topology_ids[1] = initial_apic_id & ((1 << bits_below_package) - 1);
+		topology_types[1] = TOPOLOGY_TYPE_CORE;
+
+		topology_ids[2] = 0;
+		topology_types[2] = TOPOLOGY_TYPE_THREAD;
+	} else {
+		*topology_ids = initial_apic_id;
+		*topology_types = TOPOLOGY_TYPE_THREAD;
+	}
+}
+
 void cpu_initstate() {
 	arch_apic_initap();
 
 	// syscall instruction
-	unsigned int eax = 0,ebx = 0,ecx = 0,edx = 0;
+	unsigned int eax = 0, ebx = 0, ecx = 0, edx = 0;
 	__get_cpuid(0x80000001, &eax, &ebx, &ecx, &edx);
 
 	__assert(edx & CPUID_SYSCALL);
@@ -80,8 +217,32 @@ void cpu_initstate() {
 		: : : "rax"
 	);
 
+	// register some exception handlers that give out signals
 	interrupt_register(0, div0isr, NULL, IPL_IGNORE);
 	interrupt_register(6, illisr, NULL, IPL_IGNORE);
 	interrupt_register(16, x87isr, NULL, IPL_IGNORE);
 	interrupt_register(19, simdisr, NULL, IPL_IGNORE);
+
+	// get vendor string for cpu and max cpuid eax
+	__get_cpuid(0, &eax, &ebx, &ecx, &edx);
+	int *vendor_ptr = (int *)current_cpu()->vendor;
+	*vendor_ptr++ = ebx;
+	*vendor_ptr++ = edx;
+	*vendor_ptr++ = ecx;
+	current_cpu()->vendor[12] = '\0';
+	current_cpu()->cpuid_max = eax;
+
+	size_t topology_depth = get_topology_depth();
+	long topology_ids[topology_depth];
+	long topology_types[topology_depth];
+	get_topology(topology_ids, topology_types);
+
+	char str_buf[128];
+	size_t done = 0;
+
+	done += snprintf(str_buf, 128, "cpu%d: %s@", current_cpu()->id, current_cpu()->vendor);
+	for (int i = 0; i < topology_depth; ++i)
+		done += snprintf(str_buf + done, 128 - done, "%d%c", topology_ids[i], i == topology_depth - 1 ? 0 : ':');
+	str_buf[done] = '\n';
+	printf("%s\n", str_buf);
 }

@@ -16,28 +16,44 @@
 #define ARCH_EOI arch_apic_eoi
 
 typedef struct cpu_t {
-	thread_t *thread;
-	struct cpu_t *self;
-	vmmcontext_t *vmmctx;
+	// expected to be exposed to the rest of the kernel
+	thread_t *thread; // expected to be here by other code
+
+	struct cpu_t *self; // expected to be here by other code
+
+	vmmcontext_t *vmmctx; // expected to be here by other code
+
 	long id;
-	uint64_t gdt[7];
-	ist_t ist;
+
 	isr_t isr[MAX_ISR_COUNT];
-	int acpiid;
-	timer_t *timer;
 	bool intstatus;
 	long ipl;
-	thread_t *idlethread;
-	timerentry_t schedtimerentry;
-	void *schedulerstack;
-
 	isr_t *isrqueue;
+
+	timer_t *timer;
 
 	isr_t *dpcisr;
 	dpc_t *dpcqueue;
 
+	thread_t *idlethread;
+	timerentry_t schedtimerentry;
+	void *schedulerstack;
+
 	dpc_t  reschedule_dpc;
 	isr_t *reschedule_isr;
+
+	// architecture specific, does not need to be exposed
+
+	uint64_t gdt[7];
+	char vendor[13];
+	ist_t ist;
+	int acpiid;
+
+	uint32_t cpuid_max;
+
+	int topology_thread;
+	int topology_core;
+	int topology_package;
 } cpu_t;
 
 #define CPU_HALT() asm volatile("hlt")
