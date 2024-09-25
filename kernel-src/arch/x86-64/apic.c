@@ -194,7 +194,7 @@ void arch_apic_eoi() {
 	writelapic(APIC_REG_EOI, 0);
 }
 
-static time_t stoptimer() {
+static time_t stoptimer(timer_t *) {
 	time_t remaining = readlapic(APIC_TIMER_COUNT);
 	time_t initial = readlapic(APIC_TIMER_INITIALCOUNT);
 
@@ -203,11 +203,18 @@ static time_t stoptimer() {
 	return initial - remaining;
 }
 
+static time_t time_passed(timer_t *) {
+	time_t remaining = readlapic(APIC_TIMER_COUNT);
+	time_t initial = readlapic(APIC_TIMER_INITIALCOUNT);
+
+	return initial - remaining;
+}
+
 static void timerisr(isr_t *isr, context_t *context) {
 	timer_isr(current_cpu()->timer, context);
 }
 
-static void armtimer(time_t ticks) {
+static void armtimer(timer_t *, time_t ticks) {
 	writelapic(APIC_TIMER_INITIALCOUNT, ticks);
 }
 
@@ -237,7 +244,7 @@ void arch_apic_timerinit() {
 
 	writelapic(APIC_LVT_TIMER, vec);
 
-	current_cpu()->timer = timer_new(ticksperus, armtimer, stoptimer, 0xffffffff);
+	current_cpu()->timer = timer_new(ticksperus, armtimer, stoptimer, time_passed, 0xffffffff);
 	__assert(current_cpu()->timer);
 }
 

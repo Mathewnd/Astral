@@ -45,7 +45,7 @@ static inline void arm_for_next_target(timer_t *timer) {
 		target = timer->tick_limit;
 
 	timer->current_target = timer->tickcurrent + target;
-	timer->arm(target);
+	timer->arm(timer, target);
 }
 
 // expects IPL to be at least IPL_TIMER
@@ -94,6 +94,16 @@ void timer_isr(timer_t *timer, context_t *context) {
 	arm_for_next_target(timer);
 
 	spinlock_release(&timer->lock);
+}
+
+time_t timer_get_ticks(timer_t *timer) {
+	long ipl = spinlock_acquireraiseipl(&timer->lock, IPL_TIMER);
+
+	time_t ticks = timer->tickcurrent + timer->time_passed(timer);
+
+	spinlock_releaseloweripl(&timer->lock, ipl);
+
+	return ticks;
 }
 
 void timer_resume(timer_t *timer) {
@@ -147,7 +157,7 @@ void timer_insert(timer_t *timer, timerentry_t *entry, dpcfn_t fn, dpcarg_t arg,
 	interrupt_loweripl(oldipl);
 }
 
-uintmax_t timer_remove(timer_t *timer, timerentry_t *entry) {
+time_t timer_remove(timer_t *timer, timerentry_t *entry) {
 	long oldipl = interrupt_raiseipl(IPL_TIMER);
 	spinlock_acquire(&timer->lock);
 
@@ -191,7 +201,7 @@ uintmax_t timer_remove(timer_t *timer, timerentry_t *entry) {
 	return timeremaining;
 }
 
-timer_t *timer_new(time_t ticksperus, void (*arm)(time_t), time_t (*stop)(), time_t tick_limit) {
+timer_t *timer_new(time_t ticksperus, void (*arm)(timer_t *, time_t), time_t (*stop)(timer_t *), time_t (*time_passed)(timer_t *), time_t tick_limit) {
 	timer_t *timer = alloc(sizeof(timer_t));
 	if (timer == NULL)
 		return NULL;
@@ -201,6 +211,7 @@ timer_t *timer_new(time_t ticksperus, void (*arm)(time_t), time_t (*stop)(), tim
 	timer->tick_limit = tick_limit;
 	timer->arm = arm;
 	timer->stop = stop;
+	timer->time_passed = time_passed;
 	SPINLOCK_INIT(timer->lock);
 
 	return timer;
