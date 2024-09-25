@@ -615,12 +615,15 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 		}
 	} else if (arch_mmu_iswritable(current_vmm_context()->pagetable, addr) == false) {
 		// page present but not writeable in the page tables
-
 		void *oldphys = arch_mmu_getphysical(current_vmm_context()->pagetable, addr);
-		if ((range->flags & VMM_FLAGS_FILE) && (range->flags & VMM_FLAGS_SHARED)) {
-			// shared file, remap it as writable
+		page_t *oldpage = pmm_getpage(oldphys);
+
+		if (    ((range->flags & VMM_FLAGS_FILE) && (range->flags & VMM_FLAGS_SHARED)) ||
+			((range->flags & VMM_FLAGS_FILE) == 0 && oldpage->refcount == 1)) {
+			// shared file or anon with refcount == 1, remap it as writable
+
 			arch_mmu_remap(current_vmm_context()->pagetable, oldphys, addr, range->mmuflags);
-			if (vfs_iscacheable(range->vnode)) {
+			if ((range->flags & VMM_FLAGS_FILE) && vfs_iscacheable(range->vnode)) {
 				// and if its a cache page, mark it as dirty
 				VOP_LOCK(range->vnode);
 				vmmcache_makedirty(pmm_getpage(oldphys));
