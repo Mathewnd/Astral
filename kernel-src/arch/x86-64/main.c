@@ -61,9 +61,13 @@ void kernel_entry() {
 	acpi_early_init();
 	arch_apic_init();
 	cpu_initstate();
+
 	// XXX fall back to another clock source
-	time_t u = arch_hpet_init();
-	timekeeper_init(arch_hpet_ticks, u);
+	time_t hpet_ticks_per_us = arch_hpet_init();
+	__assert(hpet_ticks_per_us);
+
+	timekeeper_init(arch_hpet_ticks, hpet_ticks_per_us);
+
 	arch_apic_timerinit();
 	sched_init();
 	arch_smp_wakeup();

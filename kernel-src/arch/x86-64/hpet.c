@@ -83,16 +83,22 @@ time_t arch_hpet_init() {
 	uacpi_table tbl;
 	struct acpi_hpet *table;
 
-	__assert(uacpi_table_find_by_signature("HPET", &tbl) == UACPI_STATUS_OK);
+	if (uacpi_table_find_by_signature("HPET", &tbl) != UACPI_STATUS_OK) {
+		printf("hpet: no timers\n");
+		return 0;
+	}
+
 	table = tbl.ptr;
 
 	printf("hpet%lu: %lu bits %lu comparators\n", table->number,
 		(table->block_id & ACPI_HPET_COUNT_SIZE_CAP) ? 64 : 32,
 		(table->block_id >> ACPI_HPET_NUMBER_OF_COMPARATORS_SHIFT) & ACPI_HPET_NUMBER_OF_COMPARATORS_MASK);
 	__assert(table->address.address_space_id == ACPI_AS_ID_SYS_MEM);
-	__assert((table->address.address & PAGE_SIZE) == 0);
-	hpet = vmm_map(NULL, PAGE_SIZE, VMM_FLAGS_PHYSICAL, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, (void *)table->address.address);
+
+	uint64_t page_offset = table->address.address % PAGE_SIZE;
+	hpet = vmm_map(NULL, (PAGE_SIZE + page_offset), VMM_FLAGS_PHYSICAL, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, (void *)(table->address.address - page_offset));
 	__assert(hpet);
+	hpet = (void *)((uintptr_t)hpet + page_offset);
 
 	uint64_t capabilities = read64(HPET_REG_CAPS);
 
