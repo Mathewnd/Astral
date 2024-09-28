@@ -7,17 +7,10 @@
 #include <uacpi/event.h>
 #include <kernel/acpi.h>
 #include <kernel/interrupt.h>
-#include <arch/acpi.h>
 #include <logging.h>
 
 void acpi_early_init(void) {
-	struct uacpi_init_params params = {
-		.rsdp = arch_get_rsdp(),
-		.log_level = UACPI_LOG_INFO,
-	};
-
-	uacpi_status ret = uacpi_initialize(&params);
-	__assert(ret == UACPI_STATUS_OK);
+	__assert(uacpi_initialize(0) == UACPI_STATUS_OK);
 }
 
 void acpi_dopoweroff(uacpi_handle ctx) {
