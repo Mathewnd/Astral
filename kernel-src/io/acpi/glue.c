@@ -518,10 +518,10 @@ void uacpi_kernel_free_spinlock(uacpi_handle lock) {
 	uacpi_kernel_free(lock);
 }
 
-uacpi_cpu_flags uacpi_kernel_spinlock_lock(uacpi_handle lock) {
+uacpi_cpu_flags uacpi_kernel_lock_spinlock(uacpi_handle lock) {
 	return spinlock_acquireirqclear(lock);
 }
 
-void uacpi_kernel_spinlock_unlock(uacpi_handle lock, uacpi_cpu_flags intstate) {
+void uacpi_kernel_unlock_spinlock(uacpi_handle lock, uacpi_cpu_flags intstate) {
 	spinlock_releaseirqrestore(lock, intstate);
 }

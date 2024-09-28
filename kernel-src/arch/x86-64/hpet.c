@@ -138,5 +138,6 @@ time_t arch_hpet_init() {
 
 	write64(HPET_REG_CONFIG, 1 + ((type == TYPE_LEGACY) ? 2 : 0));
 
+	uacpi_table_unref(&tbl);
 	return ticksperus;
 }

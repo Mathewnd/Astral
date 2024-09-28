@@ -102,6 +102,7 @@ static void pci_archinit() {
 			__assert(virt);
 			mcfgentries[i].address = (uintptr_t)virt + pageoffset;
 		}
+		uacpi_table_unref(&tbl);
 	} else {
 		printf("pci: MCFG table not found. Falling back to legacy access mechanism\n");
 		pci_archread32 = legacy_read32;
