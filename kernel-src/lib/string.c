@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <errno.h>
 
-void *memcpy(void *d, void *s, size_t c) {
+void *memcpy(void *d, const void *s, size_t c) {
 #ifdef __x86_64__
 	asm volatile ("rep movsb" : : "S"(s), "D"(d), "c"(c) : "memory");
 #else
