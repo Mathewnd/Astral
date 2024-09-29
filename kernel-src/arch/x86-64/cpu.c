@@ -2,12 +2,8 @@
 #include <arch/apic.h>
 #include <cpuid.h>
 #include <logging.h>
+#include <arch/cpuid.h>
 
-#define CPUID_VENDOR_AMD "AuthenticAMD"
-#define CPUID_VENDOR_INTEL "GenuineIntel"
-
-#define CPUID_SYSCALL (1 << 11)
-#define CPUID_LEAF_1_EDX_HTT (1 << 28)
 #define EFER_SYSCALLENABLE 1
 
 void arch_syscall_entry();
@@ -41,34 +37,6 @@ static void x87isr(isr_t *self, context_t *ctx) {
 	} else {
 		_panic("x87 Floating-Point Exception", ctx);
 	}
-}
-
-static bool cpuid_leaf_0xb_available(void) {
-	if (current_cpu()->cpuid_max < 0xb)
-		return false;
-
-	unsigned int eax = 0, ebx = 0, ecx = 0, edx = 0;
-	__get_cpuid_count(0xb, 0, &eax, &ebx, &ecx, &edx);
-	return ebx != 0;
-}
-
-static bool cpuid_leaf_0x80000008_available(void) {
-	unsigned int eax = 0, ebx = 0, ecx = 0, edx = 0;
-	__get_cpuid(0x80000000, &eax, &ebx, &ecx, &edx);
-
-	if (eax < 0x80000008)
-		return false;
-
-	return true;
-}
-
-static bool cpuid_leaf_0x4_available(void) {
-	if (current_cpu()->cpuid_max < 0x4)
-		return false;
-
-	unsigned int eax = 0, ebx = 0, ecx = 0, edx = 0;
-	__get_cpuid_count(0xb, 0, &eax, &ebx, &ecx, &edx);
-	return eax != 0;
 }
 
 #define TOPOLOGY_TYPE_THREAD 1
@@ -183,7 +151,7 @@ void cpu_initstate() {
 	unsigned int eax = 0, ebx = 0, ecx = 0, edx = 0;
 	__get_cpuid(0x80000001, &eax, &ebx, &ecx, &edx);
 
-	__assert(edx & CPUID_SYSCALL);
+	__assert(edx & CPUID_LEAF_0x80000001_EDX_SYSCALL);
 	uint64_t efer = rdmsr(MSR_EFER);
 	efer |= EFER_SYSCALLENABLE;
 	wrmsr(MSR_EFER, efer);
