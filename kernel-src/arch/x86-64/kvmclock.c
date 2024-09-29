@@ -62,7 +62,6 @@ static timekeeper_source_info_t *kvm_timer_init(void) {
 
 static time_t kvm_timer_ticks(timekeeper_source_info_t *timekeeper_source_info) {
 	volatile kvm_timer_info_t *kvm_timer_info = MAKE_HHDM(timekeeper_source_info->private);
-	wrmsr(MSR_KVM_SYSTEM_TIME_NEW, (uint64_t)timekeeper_source_info->private | KVM_TIMER_SYSTEM_TIME_ENABLE);
 
 	// if version is odd, an update is in progress.
 	// we will wait until one isnt
