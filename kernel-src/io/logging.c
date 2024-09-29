@@ -1,6 +1,6 @@
 #include <mutex.h>
 
-mutex_t printf_mutex;
+MUTEX_DEFINE(printf_mutex);
 
 static void nohook(char c) {
 
@@ -15,8 +15,4 @@ void _putchar(char c) {
 
 void logging_sethook(void (*fun)(char)) {
 	hook = fun;
-}
-
-void logging_init() {
-	MUTEX_INIT(&printf_mutex);
 }

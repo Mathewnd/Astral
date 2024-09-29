@@ -45,7 +45,6 @@ static cpu_t bsp_cpu;
 
 void kernel_entry() {
 	cpu_set(&bsp_cpu);
-	logging_init();
 	logging_sethook(arch_e9_putc);
 
 	arch_gdt_reload();
