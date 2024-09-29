@@ -23,6 +23,11 @@ typedef struct semaphore_t{
 		(x)->head = NULL; \
 	}
 
+#define SEMAPHORE_DEFINE(x, v) semaphore_t x = { \
+	.i = v, \
+	.lock = SPINLOCK_INIT_VALUE \
+	}
+
 
 int semaphore_wait(semaphore_t *sem, bool interruptible);
 int semaphore_timedwait(semaphore_t *sem, time_t timeoutusec, bool interruptible);

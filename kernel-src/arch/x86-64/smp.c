@@ -21,6 +21,8 @@ static void cpuwakeuphalt(struct limine_smp_info *info) {
 	for (;;) CPU_HALT();
 }
 
+static time_t us_offset;
+
 static void cpuwakeup(struct limine_smp_info *info) {
 	cpu_set((cpu_t *)info->extra_argument);
 
@@ -31,11 +33,14 @@ static void cpuwakeup(struct limine_smp_info *info) {
 	arch_mmu_apswitch();
 	vmm_apinit();
 
+	timekeeper_early_init(us_offset);
+
 	cpu_initstate();
 	arch_apic_timerinit();
 
-	__atomic_add_fetch(&arch_smp_cpusawake, 1, __ATOMIC_SEQ_CST);
+	timekeeper_init();
 
+	__atomic_add_fetch(&arch_smp_cpusawake, 1, __ATOMIC_SEQ_CST);
 	sched_ap_entry();
 }
 
@@ -71,6 +76,8 @@ void arch_smp_wakeup() {
 	__assert(smp_cpus);
 
 	void (*wakeupfn)(struct limine_smp_info *) = cmdline_get("nosmp") ? cpuwakeuphalt : cpuwakeup;
+
+	us_offset = timespec_us(timekeeper_timefromboot());
 
 	// make the other processors jump to cpuwakeup()
 	for (int i = 0; i < response->cpu_count; ++i) {

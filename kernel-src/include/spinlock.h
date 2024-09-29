@@ -7,6 +7,7 @@
 typedef int spinlock_t;
 
 #define SPINLOCK_INIT(x) x = 0;
+#define SPINLOCK_INIT_VALUE 0
 
 static inline void spinlock_acquire(spinlock_t *lock){
 	while(!__sync_bool_compare_and_swap(lock, 0, 1)) asm("pause");

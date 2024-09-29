@@ -20,4 +20,6 @@ typedef semaphore_t mutex_t;
 #define MUTEX_TRY(m) \
 	semaphore_test(m)
 
+#define MUTEX_DEFINE(x) SEMAPHORE_DEFINE(x, 1)
+
 #endif

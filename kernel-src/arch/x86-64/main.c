@@ -47,6 +47,7 @@ void kernel_entry() {
 	cpu_set(&bsp_cpu);
 	logging_init();
 	logging_sethook(arch_e9_putc);
+
 	arch_gdt_reload();
 	arch_idt_setup();
 	arch_idt_reload();
@@ -60,16 +61,17 @@ void kernel_entry() {
 	cmdline_parse();
 	acpi_early_init();
 	arch_apic_init();
+
+	timekeeper_early_init(0);
+
 	cpu_initstate();
 
-	// XXX fall back to another clock source
-	time_t hpet_ticks_per_us = arch_hpet_init();
-	__assert(hpet_ticks_per_us);
-
-	timekeeper_init(arch_hpet_ticks, hpet_ticks_per_us);
-
 	arch_apic_timerinit();
+
 	sched_init();
+
+	timekeeper_init();
+
 	arch_smp_wakeup();
 	pci_init();
 

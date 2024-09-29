@@ -26,6 +26,13 @@ SECTIONS
 		*(.rodata .rodata.*);
 	} :rodata
 
+	. = ALIGN(8);
+	.timekeeper_sources : {
+		timekeeper_sources = .;
+		*(.timekeeper_sources);
+		timekeeper_sources_end = .;
+	} :rodata
+
 	. = ALIGN(4K);
 	_rodata_end = .;
 	_data_start = .;
@@ -33,13 +40,13 @@ SECTIONS
 	data : {
 		*(.data .data.*);
 	} :data
-	
+
+	. = ALIGN(8);
 	.bss : {
 		*(COMMON)
 		*(.bss .bss.*)
 	} :data
 	
 	. = ALIGN(4K);
-
 	_data_end = .;
 }

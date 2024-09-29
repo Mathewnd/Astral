@@ -178,8 +178,6 @@ void arch_apic_initap() {
 		}
 	}
 
-	printf("processor id: %lu (APIC) %lu (ACPI)\n", current_cpu()->id, current_cpu()->acpiid);
-
 	isr_t *nmiisr = interrupt_allocate(nmi, NULL, IPL_MAX); // MAX IPL because NMI
 	__assert(nmiisr);
 
@@ -225,16 +223,9 @@ void arch_apic_timerinit() {
 
 	writelapic(APIC_TIMER_DIVIDE, 11);
 
-	void (*uswait)(time_t) = NULL;
-
-	if (arch_hpet_exists())
-		uswait = arch_hpet_waitus;
-
-	__assert(uswait);
-
 	writelapic(APIC_TIMER_INITIALCOUNT, 0xffffffff);
 
-	uswait(50000);
+	timekeeper_wait_us(50000);
 
 	time_t ticksperus = (0xffffffff - readlapic(APIC_TIMER_COUNT)) / 50000;
 

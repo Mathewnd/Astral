@@ -12,6 +12,7 @@
 #include <kernel/scheduler.h>
 #include <kernel/dpc.h>
 #include <arch/apic.h>
+#include <kernel/timekeeper.h>
 
 #define ARCH_EOI arch_apic_eoi
 
@@ -23,7 +24,12 @@ typedef struct cpu_t {
 
 	vmmcontext_t *vmmctx; // expected to be here by other code
 
-	long id;
+	long id; // expected to be here by other code
+
+	timekeeper_source_t *timekeeper_source;
+	timekeeper_source_info_t *timekeeper_source_info;
+	time_t timekeeper_source_base_ticks;
+	time_t timekeeper_source_tick_offset;
 
 	isr_t isr[MAX_ISR_COUNT];
 	bool intstatus;
