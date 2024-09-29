@@ -152,6 +152,7 @@ static timekeeper_source_info_t *hpet_init(void) {
 
 }
 
+// ran in at least IPL_DPC
 time_t hpet_ticks(timekeeper_source_info_t *) {
 	if (hpet_private.type == TYPE_64BIT) {
 		return read64(HPET_REG_COUNTER);

@@ -47,7 +47,7 @@ static inline time_t timespec_us(timespec_t a) {
 static inline timespec_t timespec_from_us(time_t us) {
 	timespec_t ts = {
 		.s = us / 1000000,
-		.ns = (us % 1000000) * 100
+		.ns = (us * 1000) % 1000000000
 	};
 
 	return ts;

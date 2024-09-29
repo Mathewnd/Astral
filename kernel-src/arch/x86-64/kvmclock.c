@@ -60,6 +60,7 @@ static timekeeper_source_info_t *kvm_timer_init(void) {
 	return timekeeper_source_info;
 }
 
+// ran in at least IPL_DPC
 static time_t kvm_timer_ticks(timekeeper_source_info_t *timekeeper_source_info) {
 	volatile kvm_timer_info_t *kvm_timer_info = MAKE_HHDM(timekeeper_source_info->private);
 

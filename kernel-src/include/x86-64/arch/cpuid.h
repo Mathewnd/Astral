@@ -18,6 +18,7 @@ typedef struct {
 #define CPUID_VENDOR_INTEL "GenuineIntel"
 
 #define CPUID_LEAF_0x80000001_EDX_SYSCALL (1 << 11)
+#define CPUID_LEAF_1_EDX_TSC (1 << 4)
 #define CPUID_LEAF_1_EDX_HTT (1 << 28)
 
 static inline void cpuid_with_ecx(uint32_t leaf, uint32_t ecx, cpuid_results_t *cpuid_results) {
@@ -90,9 +91,9 @@ static inline bool cpuid_leaf_0x4_available(void) {
 	if (cpuid_base_max_leaf() < 0x4)
 		return false;
 
-	unsigned int eax = 0, ebx = 0, ecx = 0, edx = 0;
-	__get_cpuid_count(0x4, 0, &eax, &ebx, &ecx, &edx);
-	return eax != 0;
+	cpuid_results_t cpuid_results;
+	cpuid_with_ecx(0x4, 0, &cpuid_results);
+	return cpuid_results.eax != 0;
 }
 
 #endif
