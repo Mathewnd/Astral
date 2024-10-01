@@ -1,0 +1,15 @@
+name=libxml
+revision=1
+from_source=libxml
+imagedeps="base-devel"
+hostdeps="xgcc xbinutils pkgconfig libtool"
+deps="base zlib"
+
+build() {
+	${source_dir}/configure --host=x86_64-astral --prefix=${prefix} --without-python --disable-static --with-threads --disable-ipv6
+	make -j ${parallelism}
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+}

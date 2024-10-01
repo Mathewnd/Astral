@@ -1,0 +1,9 @@
+name=libxml
+version=2.10.0
+source_method=tarball
+tarball_url="https://gitlab.gnome.org/GNOME/libxml2/-/archive/v${version}/libxml2-v${version}.tar.gz"
+tarball_sha512="eb0cef809e189eafb948c313bd82dd49a0871f0b664f5891dd891f46579c48a0929e1d2144f4286e0ac858463e6726e4a7d446678a006f0b299e1f83bb20e98b"
+hostdeps="autoconf automake pkgconfig libtool"
+regenerate() {
+        autoreconf -fvi
+}
