@@ -15,13 +15,20 @@ static bool tsc_probe(void) {
 	return cpuid_results.edx & (1 << 8);
 }
 
+static MUTEX_DEFINE(init_mutex);
+static time_t ticks_per_us;
+
 static timekeeper_source_info_t *tsc_init(void) {
+	MUTEX_ACQUIRE(&init_mutex, false);
 	__assert(tsc_probe());
 
 	timekeeper_source_info_t *timekeeper_source_info = alloc(sizeof(timekeeper_source_info_t));
 	__assert(timekeeper_source_info);
 
 	timekeeper_source_info->private = current_cpu();
+
+	if (ticks_per_us)
+		goto leave;
 
 	bool need_calibration = false;
 	if (cpuid_base_max_leaf() >= 0x15) {
@@ -38,24 +45,18 @@ static timekeeper_source_info_t *tsc_init(void) {
 		uint64_t core_denominator = cpuid_results.eax;
 
 		uint64_t tsc_frequency = core_frequency * core_numerator / core_denominator;
-		timekeeper_source_info->ticks_per_us = tsc_frequency / 1000000;
+		ticks_per_us = tsc_frequency / 1000000;
 	}
 
 	calibrate:
 	if (need_calibration) {
-		for (int i = 0; i < 10; ++i) {
-			long old_ipl = interrupt_raiseipl(IPL_TIMER - 1);
-			time_t ticks_start = rdtsc_serialized();
-
-			timekeeper_wait_us(50000);
-			time_t ticks_end = rdtsc_serialized();
-
-			interrupt_loweripl(old_ipl);
-
-			timekeeper_source_info->ticks_per_us = (ticks_end - ticks_start) / 50000;
-		}
+		ticks_per_us = arch_hpet_calibrate_tsc(200) / 1000;
+		__assert(ticks_per_us);
 	}
 
+	leave:
+	timekeeper_source_info->ticks_per_us = ticks_per_us;
+	MUTEX_RELEASE(&init_mutex);
 	return timekeeper_source_info;
 }
 

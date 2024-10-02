@@ -4,6 +4,7 @@
 #include <arch/hpet.h>
 #include <kernel/vmm.h>
 #include <kernel/interrupt.h>
+#include <arch/tsc.h>
 
 #include <uacpi/acpi.h>
 #include <uacpi/tables.h>
@@ -163,6 +164,28 @@ time_t hpet_ticks(timekeeper_source_info_t *) {
 		} while (ticks < __atomic_load_n(&hpet_private.tickspassed, __ATOMIC_SEQ_CST));
 		return ticks;
 	}
+}
+
+time_t arch_hpet_calibrate_tsc(time_t ms_wait) {
+	if (hpet_private.hpet == NULL)
+		return 0;
+
+	long old_ipl = interrupt_raiseipl(IPL_TIMER - 1);
+
+	uint64_t capabilities = read64(HPET_REG_CAPS);
+
+	time_t ticks_to_wait = ms_wait * 1000000000000lu / HPET_CAP_FSPERTICK(capabilities);
+	time_t tsc_tick_start = rdtsc_serialized();
+	time_t tsc_tick_end;
+
+	time_t ticks_target = hpet_ticks(&timekeeper_source_info) + ticks_to_wait;
+
+	do {
+		tsc_tick_end = rdtsc_serialized();
+	} while (hpet_ticks(&timekeeper_source_info) < ticks_target);
+
+	interrupt_loweripl(old_ipl);
+	return (tsc_tick_end - tsc_tick_start) / ms_wait;
 }
 
 TIMEKEEPER_SOURCE(

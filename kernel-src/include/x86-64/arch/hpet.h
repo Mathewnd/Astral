@@ -4,10 +4,6 @@
 #include <stdbool.h>
 #include <time.h>
 
-time_t arch_hpet_ticks();
-void arch_hpet_waitticks(time_t ticks);
-void arch_hpet_waitus(time_t us);
-bool arch_hpet_exists();
-time_t arch_hpet_init();
+time_t arch_hpet_calibrate_tsc(time_t ms_wait);
 
 #endif
