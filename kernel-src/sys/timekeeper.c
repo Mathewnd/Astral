@@ -1,4 +1,7 @@
 #include <kernel/timekeeper.h>
+#include <arch/smp.h>
+#include <arch/cpu.h>
+#include <mutex.h>
 #include <limine.h>
 #include <logging.h>
 
@@ -29,7 +32,7 @@ timespec_t timekeeper_timefromboot(void) {
 	return ts;
 }
 
-timespec_t timekeeper_time() {
+timespec_t timekeeper_time(void) {
 	timespec_t fromboot = timekeeper_timefromboot();
 	timespec_t unix = {
 		.s = boot_unix,
@@ -37,6 +40,71 @@ timespec_t timekeeper_time() {
 	};
 
 	return timespec_add(unix, fromboot);
+}
+
+static MUTEX_DEFINE(sync_mutex);
+static volatile bool sync_go_ahead;
+static volatile int cpus_waiting;
+static volatile int cpus_done;
+static volatile time_t sync_ticks;
+static volatile time_t sync_ticks_per_us;
+
+static void timekeeper_sync_isr(isr_t *, context_t *) {
+	// taking interrupts here could possibly add an undetermined amount of latency, which is bad
+	interrupt_set(false);
+
+	// try to get the tick code into the cache
+	current_cpu()->timekeeper_source->ticks(current_cpu()->timekeeper_source_info);
+
+	__atomic_fetch_add(&cpus_waiting, 1, __ATOMIC_SEQ_CST);
+
+	while (sync_go_ahead == false) asm("");
+
+	current_cpu()->timekeeper_source_base_ticks = current_cpu()->timekeeper_source->ticks(current_cpu()->timekeeper_source_info);
+	current_cpu()->timekeeper_source_tick_offset = sync_ticks / sync_ticks_per_us * current_cpu()->timekeeper_source_info->ticks_per_us;
+
+	__atomic_fetch_add(&cpus_done, 1, __ATOMIC_SEQ_CST);
+}
+
+// this will synchronize the timekeeper of other CPUs with the one of the calling CPU.
+// all this will do will be to reset the offset and bases of each cpu timekeeper and then set
+// their offsets to the passed microseconds of the calling CPU in ticks. this isn't 100% precise but its not
+// exactly possible to be
+void timekeeper_sync(void) {
+	MUTEX_ACQUIRE(&sync_mutex, false);
+	bool int_status = interrupt_set(false);
+
+	sync_go_ahead = false;
+	cpus_waiting = 0;
+	cpus_done = 0;
+
+	for (int i = 0; i < arch_smp_cpusawake; ++i) {
+		if (smp_cpus[i] == current_cpu())
+			continue;
+
+		arch_smp_sendipi(smp_cpus[i], smp_cpus[i]->timekeeper_sync_isr, ARCH_SMP_IPI_TARGET, false);
+	}
+
+	// try to get things into the cache
+	timekeeper_source_t *timekeeper_source = current_cpu()->timekeeper_source;
+	timekeeper_source_info_t *timekeeper_source_info = current_cpu()->timekeeper_source_info;
+	sync_ticks = timekeeper_source->ticks(timekeeper_source_info) - current_cpu()->timekeeper_source_base_ticks;
+	sync_ticks_per_us = timekeeper_source_info->ticks_per_us;
+
+	while (cpus_waiting != arch_smp_cpusawake - 1) CPU_PAUSE();
+
+	// for real this time
+	sync_ticks = timekeeper_source->ticks(timekeeper_source_info) - current_cpu()->timekeeper_source_base_ticks;
+	sync_go_ahead = true;
+
+	while (cpus_done != arch_smp_cpusawake - 1) CPU_PAUSE();
+
+	interrupt_set(int_status);
+	MUTEX_RELEASE(&sync_mutex);
+
+	for (int i = 0; i < arch_smp_cpusawake; ++i) {
+		printf("cpu %d offset (us) @ %lu\n", smp_cpus[i]->id, smp_cpus[i]->timekeeper_source_tick_offset / smp_cpus[i]->timekeeper_source_info->ticks_per_us);
+	}
 }
 
 extern timekeeper_source_t *timekeeper_sources;
@@ -66,6 +134,9 @@ void timekeeper_wait_us(time_t us) {
 void timekeeper_early_init(time_t us_offset) {
 	__assert(timereq.response);
 	boot_unix = timereq.response->boot_time;
+
+	current_cpu()->timekeeper_sync_isr = interrupt_allocate(timekeeper_sync_isr, ARCH_EOI, IPL_DPC);
+	__assert(current_cpu()->timekeeper_sync_isr);
 
 	timekeeper_source_t *early_source = get_source(-1, true);
 	if (early_source == NULL) {

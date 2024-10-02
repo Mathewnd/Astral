@@ -72,6 +72,9 @@ void kernel_entry() {
 	timekeeper_init();
 
 	arch_smp_wakeup();
+
+	timekeeper_sync();
+
 	pci_init();
 
 	acpi_init();

@@ -29,6 +29,8 @@ void timekeeper_init(void);
 // spins waiting for us to pass
 void timekeeper_wait_us(time_t us);
 
+void timekeeper_sync(void);
+
 timespec_t timekeeper_timefromboot(void);
 timespec_t timekeeper_time(void);
 

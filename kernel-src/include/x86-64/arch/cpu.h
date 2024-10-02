@@ -30,6 +30,7 @@ typedef struct cpu_t {
 	timekeeper_source_info_t *timekeeper_source_info;
 	time_t timekeeper_source_base_ticks;
 	time_t timekeeper_source_tick_offset;
+	isr_t *timekeeper_sync_isr;
 
 	isr_t isr[MAX_ISR_COUNT];
 	bool intstatus;
