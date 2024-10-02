@@ -5,6 +5,7 @@
 #include <kernel/vmm.h>
 #include <kernel/interrupt.h>
 #include <arch/tsc.h>
+#include <kernel/cmdline.h>
 
 #include <uacpi/acpi.h>
 #include <uacpi/tables.h>
@@ -62,6 +63,9 @@ static void counterirq(isr_t *isr, context_t *context) {
 }
 
 static bool hpet_probe(void) {
+	if (cmdline_get("nohpet"))
+		return false;
+
 	bool usable = false;
 	struct acpi_hpet *table;
 	uacpi_table tbl;

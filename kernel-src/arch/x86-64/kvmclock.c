@@ -6,6 +6,7 @@
 #include <arch/cpuid.h>
 #include <kernel/pmm.h>
 #include <arch/tsc.h>
+#include <kernel/cmdline.h>
 
 #define KVM_TIMER_SYSTEM_TIME_ALIGNMENT 4
 #define KVM_TIMER_SYSTEM_TIME_ENABLE 1
@@ -23,6 +24,9 @@ typedef struct {
 } __attribute__((packed)) kvm_timer_info_t;
 
 static bool kvm_timer_probe(void) {
+	if (cmdline_get("nokvmclock"))
+		return false;
+
 	// figure out if we are running in kvm
 	uint32_t base = cpuid_find_hypervisor_base_kvm();
 	if (base == 0)

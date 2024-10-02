@@ -3,8 +3,13 @@
 #include <arch/cpuid.h>
 #include <logging.h>
 #include <kernel/alloc.h>
+#include <arch/hpet.h>
+#include <kernel/cmdline.h>
 
 static bool tsc_probe(void) {
+	if (cmdline_get("notsc"))
+		return false;
+
 	cpuid_results_t cpuid_results;
 
 	uint32_t max_extended_leaf = cpuid_extended_max_leaf();
