@@ -7,7 +7,7 @@
 #define TIMEKEEPER_SOURCE_FLAGS_EARLY 1 // can be used as an early timer
 
 typedef struct {
-	time_t ticks_per_us;
+	time_t hz;
 	void *private;
 } timekeeper_source_info_t;
 

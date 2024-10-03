@@ -89,7 +89,7 @@ static timekeeper_source_info_t *hpet_init(void) {
 	struct acpi_hpet *table;
 
 	MUTEX_ACQUIRE(&init_mutex, false);
-	if (timekeeper_source_info.ticks_per_us) {
+	if (timekeeper_source_info.hz) {
 		// already initialized by someone else
 		goto leave;
 	}
@@ -107,9 +107,9 @@ static timekeeper_source_info_t *hpet_init(void) {
 	hpet_private.hpet = (void *)((uintptr_t)hpet_private.hpet + page_offset);
 
 	uint64_t capabilities = read64(HPET_REG_CAPS);
-	timekeeper_source_info.ticks_per_us = 1000000000 / HPET_CAP_FSPERTICK(capabilities);
-	printf("hpet%lu: %lu ticks per us (%lu fs per tick)\n", table->number, timekeeper_source_info.ticks_per_us, HPET_CAP_FSPERTICK(capabilities));
-	__assert(timekeeper_source_info.ticks_per_us);
+	timekeeper_source_info.hz = 1000000000000000lu / HPET_CAP_FSPERTICK(capabilities);
+	printf("hpet%lu: %lu ticks per us (%lu hz)\n", table->number, timekeeper_source_info.hz, HPET_CAP_FSPERTICK(capabilities));
+	__assert(timekeeper_source_info.hz);
 
 	write64(HPET_REG_CONFIG, 0);
 	write64(HPET_REG_COUNTER, 0);

@@ -21,7 +21,9 @@ static bool tsc_probe(void) {
 }
 
 static MUTEX_DEFINE(init_mutex);
-static time_t ticks_per_us;
+// keeping this here in a multisocket machine could possibly result in completely wrong
+// tsc measurements for the other sokets. disable the tsc in these using the "notsc" commandline option.
+static time_t hz;
 
 static timekeeper_source_info_t *tsc_init(void) {
 	MUTEX_ACQUIRE(&init_mutex, false);
@@ -32,7 +34,7 @@ static timekeeper_source_info_t *tsc_init(void) {
 
 	timekeeper_source_info->private = current_cpu();
 
-	if (ticks_per_us)
+	if (hz)
 		goto leave;
 
 	bool need_calibration = false;
@@ -50,17 +52,17 @@ static timekeeper_source_info_t *tsc_init(void) {
 		uint64_t core_denominator = cpuid_results.eax;
 
 		uint64_t tsc_frequency = core_frequency * core_numerator / core_denominator;
-		ticks_per_us = tsc_frequency / 1000000;
+		hz = tsc_frequency;
 	}
 
 	calibrate:
 	if (need_calibration) {
-		ticks_per_us = arch_hpet_calibrate_tsc(200) / 1000;
-		__assert(ticks_per_us);
+		hz = arch_hpet_calibrate_tsc(200) * 1000;
+		__assert(hz);
 	}
 
 	leave:
-	timekeeper_source_info->ticks_per_us = ticks_per_us;
+	timekeeper_source_info->hz = hz;
 	MUTEX_RELEASE(&init_mutex);
 	return timekeeper_source_info;
 }

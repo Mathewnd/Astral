@@ -47,7 +47,7 @@ static timekeeper_source_info_t *kvm_timer_init(void) {
 	timekeeper_source_info_t *timekeeper_source_info = alloc(sizeof(timekeeper_source_info_t));
 	__assert(timekeeper_source_info);
 
-	timekeeper_source_info->ticks_per_us = 1000; // each tick in the kvm timer system_time field is 1 ns
+	timekeeper_source_info->hz = 1000000000; // each tick in the kvm timer system_time field is 1 ns
 	void *virtual_address = alloc(sizeof(kvm_timer_info_t));
 	__assert(virtual_address);
 	__assert(((uintptr_t)virtual_address % KVM_TIMER_SYSTEM_TIME_ALIGNMENT) == 0);

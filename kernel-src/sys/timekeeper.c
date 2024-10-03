@@ -17,17 +17,16 @@ timespec_t timekeeper_timefromboot(void) {
 
 	time_t ticks = current_cpu()->timekeeper_source->ticks(current_cpu()->timekeeper_source_info);
 	time_t base_ticks = current_cpu()->timekeeper_source_base_ticks;
-	time_t ticks_per_us = current_cpu()->timekeeper_source_info->ticks_per_us;
+	time_t hz = current_cpu()->timekeeper_source_info->hz;
 	time_t tick_offset = current_cpu()->timekeeper_source_tick_offset;
 
 	interrupt_loweripl(old_ipl);
 
 	timespec_t ts;
 	ticks = ticks - base_ticks + tick_offset;
-	time_t us_passed = ticks / ticks_per_us;
 
-	ts.s = us_passed / 1000000;
-	ts.ns = (us_passed * 1000) % 1000000000;
+	ts.s = ticks / hz;
+	ts.ns = (ticks % hz) / (hz / 1000000) * 1000;
 
 	return ts;
 }
@@ -46,8 +45,8 @@ static MUTEX_DEFINE(sync_mutex);
 static volatile bool sync_go_ahead;
 static volatile int cpus_waiting;
 static volatile int cpus_done;
-static volatile time_t sync_ticks;
-static volatile time_t sync_ticks_per_us;
+static volatile time_t sync_sec;
+static volatile time_t sync_usec;
 
 static void timekeeper_sync_isr(isr_t *, context_t *) {
 	// taking interrupts here could possibly add an undetermined amount of latency, which is bad
@@ -55,13 +54,15 @@ static void timekeeper_sync_isr(isr_t *, context_t *) {
 
 	// try to get the tick code into the cache
 	current_cpu()->timekeeper_source->ticks(current_cpu()->timekeeper_source_info);
+	time_t hz = current_cpu()->timekeeper_source_info->hz;
+	time_t mhz = hz / 1000000;
 
 	__atomic_fetch_add(&cpus_waiting, 1, __ATOMIC_SEQ_CST);
 
 	while (sync_go_ahead == false) asm("");
 
 	current_cpu()->timekeeper_source_base_ticks = current_cpu()->timekeeper_source->ticks(current_cpu()->timekeeper_source_info);
-	current_cpu()->timekeeper_source_tick_offset = sync_ticks / sync_ticks_per_us * current_cpu()->timekeeper_source_info->ticks_per_us;
+	current_cpu()->timekeeper_source_tick_offset = sync_sec * hz + sync_usec * mhz;
 
 	__atomic_fetch_add(&cpus_done, 1, __ATOMIC_SEQ_CST);
 }
@@ -88,13 +89,15 @@ void timekeeper_sync(void) {
 	// try to get things into the cache
 	timekeeper_source_t *timekeeper_source = current_cpu()->timekeeper_source;
 	timekeeper_source_info_t *timekeeper_source_info = current_cpu()->timekeeper_source_info;
-	sync_ticks = timekeeper_source->ticks(timekeeper_source_info) - current_cpu()->timekeeper_source_base_ticks;
-	sync_ticks_per_us = timekeeper_source_info->ticks_per_us;
+	time_t hz = timekeeper_source_info->hz;
+	time_t mhz = hz / 1000000;
 
 	while (cpus_waiting != arch_smp_cpusawake - 1) CPU_PAUSE();
 
 	// for real this time
-	sync_ticks = timekeeper_source->ticks(timekeeper_source_info) - current_cpu()->timekeeper_source_base_ticks;
+	time_t ticks = timekeeper_source->ticks(timekeeper_source_info) - current_cpu()->timekeeper_source_base_ticks;
+	sync_sec = ticks / hz;
+	sync_usec = (ticks % hz) / mhz;
 	sync_go_ahead = true;
 
 	while (cpus_done != arch_smp_cpusawake - 1) CPU_PAUSE();
@@ -103,7 +106,7 @@ void timekeeper_sync(void) {
 	MUTEX_RELEASE(&sync_mutex);
 
 	for (int i = 0; i < arch_smp_cpusawake; ++i) {
-		printf("cpu %d offset (us) @ %lu\n", smp_cpus[i]->id, smp_cpus[i]->timekeeper_source_tick_offset / smp_cpus[i]->timekeeper_source_info->ticks_per_us);
+		printf("cpu %d offset (ticks) @ %lu\n", smp_cpus[i]->id, smp_cpus[i]->timekeeper_source_tick_offset);
 	}
 }
 
@@ -154,10 +157,10 @@ void timekeeper_early_init(time_t us_offset) {
 
 	// this tick offset is to account for any possible time before early_init.
 	// for example, on SMP init the early init will have the time passed on the ap as an offset
-	current_cpu()->timekeeper_source_tick_offset = us_offset * early_source_info->ticks_per_us;
+	current_cpu()->timekeeper_source_tick_offset = us_offset * early_source_info->hz / 1000000;
 
-	printf("cpu%d: timekeeper: \"%s\" selected as early source. %lu ticks at early init (%lu ticks per us)\n",
-			current_cpu_id(), early_source->name, current_cpu()->timekeeper_source_base_ticks, early_source_info->ticks_per_us);
+	printf("cpu%d: timekeeper: \"%s\" selected as early source. %lu ticks at early init (%lu hz)\n",
+			current_cpu_id(), early_source->name, current_cpu()->timekeeper_source_base_ticks, early_source_info->hz);
 }
 
 // this will do a re-init per cpu
@@ -190,11 +193,11 @@ void timekeeper_init(void) {
 	// we will calculate how much time passed and have a tick offset
 	time_t old_tick_offset = current_cpu()->timekeeper_source_tick_offset;
 	time_t old_ticks = old_source->ticks(old_source_info);
-	time_t old_us = (old_ticks - old_base + old_tick_offset) / old_source_info->ticks_per_us; // XXX would a division with rounding be better for precision here?
-	current_cpu()->timekeeper_source_tick_offset = old_us * new_source_info->ticks_per_us;
+	time_t old_us = (old_ticks - old_base + old_tick_offset) / (old_source_info->hz / 1000000); // XXX would a division with rounding be better for precision here?
+	current_cpu()->timekeeper_source_tick_offset = old_us * (new_source_info->hz / 1000000);
 
 	interrupt_loweripl(old_ipl);
 
-	printf("cpu%d: timekeeper: \"%s\" selected as main source. %lu ticks at init (%lu ticks per us)\n",
-			current_cpu_id(), new_source->name, current_cpu()->timekeeper_source_base_ticks, new_source_info->ticks_per_us);
+	printf("cpu%d: timekeeper: \"%s\" selected as main source. %lu ticks at init (%lu hz)\n",
+			current_cpu_id(), new_source->name, current_cpu()->timekeeper_source_base_ticks, new_source_info->hz);
 }
