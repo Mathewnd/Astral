@@ -1,0 +1,9 @@
+name=freestnd-cxx-hdrs
+version=34b801a8d6b601bf17b00df36fa82614e5be811d
+source_method=tarball
+tarball_url="https://github.com/osdev0/freestnd-cxx-hdrs/archive/${version}.tar.gz"
+tarball_sha512=39e25168ba5dcfad0b222c82d84d9c01337c989afb3aaaf61be4bef71cde0e7f618e7a6ab475b0b6372ef95b47ab915c4f4c61182a1292f04083fa4b24714569
+
+regenerate() {
+	true
+}

@@ -5,7 +5,7 @@ imagedeps="ninja meson base-devel rsync"
 builddeps="linux-headers"
 
 build() {
-	meson setup --cross-file "${base_dir}/util/crossfile" --prefix="${prefix}"  -Dheaders_only=true "${source_dir}" 
+	meson setup --cross-file "${base_dir}/util/crossfile" --prefix="${prefix}"  -Dheaders_only=true "${source_dir}" -Ddisable_crypt_option=true -Ddisable_iconv_option=true -Ddisable_intl_option=true
 	ninja
 	mkdir linux
 	cp -rp ${base_dir}/sources/linux/* linux

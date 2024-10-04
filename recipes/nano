@@ -2,7 +2,7 @@ name=nano
 revision=1
 from_source=nano
 imagedeps="base-devel"
-hostdeps="xgcc xbinutils"
+hostdeps="xgcc xbinutils pkgconfig libtool"
 deps="base ncurses"
 
 build() {

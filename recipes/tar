@@ -7,8 +7,8 @@ deps="base bzip2 zlib gzip"
 
 build() {
 	cp -rpf ${source_dir}/* .
-	./configure --host=x86_64-astral --prefix=${prefix}
-	make -j ${parallelism} LDFLAGS="-lintl -liconv"
+	LDFLAGS="${LDFLAGS} -lintl -liconv" ./configure --host=x86_64-astral --prefix=${prefix}
+	make -j ${parallelism}
 }
 
 package() {

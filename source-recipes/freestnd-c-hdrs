@@ -1,0 +1,9 @@
+name=freestnd-c-hdrs
+version=2a75fc37ab374e52bd5862adb785169cc26cdb50
+source_method=tarball
+tarball_url="https://github.com/osdev0/freestnd-c-hdrs/archive/${version}.tar.gz"
+tarball_sha512=87f5e1d98539142da216766a269792ae4ee0a02abd02e8af45c33514866a408e01eca03bd6122574b3000b2234ab40f31c846a99d882162c6ecd89d0b08779e8
+
+regenerate() {
+	true
+}

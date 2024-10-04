@@ -2,7 +2,7 @@ name=ncurses
 revision=1
 from_source=ncurses
 imagedeps="base-devel"
-hostdeps="xgcc xbinutils libstdc++-v3"
+hostdeps="xgcc xbinutils libstdc++-v3 pkgconfig libtool"
 deps="base"
 
 build() {

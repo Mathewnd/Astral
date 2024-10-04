@@ -2,12 +2,12 @@ name=mlibc
 from_source=mlibc
 revision=1
 hostdeps="xgcc xbinutils pkgconfig"
-builddeps="cxxshim frigg"
+builddeps="freestnd-c-hdrs freestnd-cxx-hdrs frigg"
 imagedeps="meson ninja git base-devel binutils"
 deps="mlibc-headers"
 
 build() {
-        meson --cross-file ${base_dir}/util/crossfile -Dmlibc_no_headers=true --prefix=${prefix} ${source_dir} -Dlinux_kernel_headers=${sysroot_dir}/${prefix}/include
+        meson --cross-file ${base_dir}/util/crossfile -Dmlibc_no_headers=true --prefix=${prefix} ${source_dir} -Dlinux_kernel_headers=${sysroot_dir}/${prefix}/include -Ddisable_crypt_option=true -Ddisable_iconv_option=true -Ddisable_intl_option=true
         ninja
 }
 

@@ -1,0 +1,12 @@
+name=freestnd-c-hdrs
+from_source=freestnd-c-hdrs
+revision=1
+
+build() {
+	cp -rp "${source_dir}"/. ./
+}
+
+package() {
+        make install DESTDIR="${dest_dir}" PREFIX="${prefix}"
+}
+
