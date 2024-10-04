@@ -1,4 +1,3 @@
-#include <arch/acpi.h>
 #include <time.h>
 #include <logging.h>
 #include <arch/hpet.h>

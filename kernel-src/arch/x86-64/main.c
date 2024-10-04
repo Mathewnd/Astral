@@ -10,7 +10,6 @@
 #include <kernel/vmm.h>
 #include <kernel/slab.h>
 #include <kernel/alloc.h>
-#include <arch/acpi.h>
 #include <arch/apic.h>
 #include <arch/hpet.h>
 #include <kernel/timekeeper.h>
