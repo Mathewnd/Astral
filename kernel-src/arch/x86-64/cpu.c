@@ -3,6 +3,7 @@
 #include <cpuid.h>
 #include <logging.h>
 #include <arch/cpuid.h>
+#include <kernel/topology.h>
 
 #define EFER_SYSCALLENABLE 1
 
@@ -213,4 +214,13 @@ void cpu_initstate() {
 		done += snprintf(str_buf + done, 128 - done, "%d%c", topology_ids[i], i == topology_depth - 1 ? 0 : ':');
 	str_buf[done] = '\n';
 	printf("%s\n", str_buf);
+
+	// insert it into the topology tree
+	topology_node_t *topology_nodes[topology_depth];
+	for (int i = 0; i < topology_depth; ++i) {
+		topology_nodes[i] = topology_create_node();
+		__assert(topology_nodes[i]);
+
+		topology_insert(topology_nodes[i], i == 0 ? topology_get_root() : topology_nodes[i - 1], TOPOLOGY_MAKE_ID(topology_types[i], topology_ids[i]), current_cpu());
+	}
 }
