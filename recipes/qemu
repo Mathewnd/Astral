@@ -8,7 +8,7 @@ allow_network="yes"
 
 build() {
 	cp -rp ${source_dir}/* .
-	./configure --cross-prefix=x86_64-astral- --host=x86_64-astral --prefix=${prefix} --target-list=x86_64-softmmu,i386-softmmu,aarch64-softmmu --with-coroutine=sigaltstack
+	./configure --cross-prefix=x86_64-astral- --host=x86_64-astral --prefix=${prefix} --target-list=x86_64-softmmu,i386-softmmu,aarch64-softmmu --with-coroutine=sigaltstack --disable-pie
 	cd build
 	ninja -j${parallelism}
 }
