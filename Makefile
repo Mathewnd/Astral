@@ -117,7 +117,7 @@ run-gdb:
 	qemu-system-x86_64 $(QEMUFLAGS) $(QEMUISOFLAGS) -S -s
 
 run-kvm:
-	qemu-system-x86_64 $(QEMUFLAGS) $(QEMUISOFLAGS) -enable-kvm -cpu host
+	qemu-system-x86_64 $(QEMUFLAGS) $(QEMUISOFLAGS) -enable-kvm -cpu host,migratable=off
 
 run-disk:
 	qemu-system-x86_64 $(QEMUFLAGS) $(QEMUISOFLAGS) $(QEMUDISKFLAGS)
@@ -126,7 +126,7 @@ run-disk-gdb:
 	qemu-system-x86_64 $(QEMUFLAGS) $(QEMUISOFLAGS) $(QEMUDISKFLAGS) -S -s
 
 run-disk-kvm:
-	qemu-system-x86_64 $(QEMUFLAGS) $(QEMUISOFLAGS) $(QEMUDISKFLAGS) -enable-kvm -cpu host
+	qemu-system-x86_64 $(QEMUFLAGS) $(QEMUISOFLAGS) $(QEMUDISKFLAGS) -enable-kvm -cpu host,migratable=off
 
 run-img:
 	qemu-system-x86_64 $(QEMUFLAGS) $(QEMUIMGFLAGS)
@@ -135,4 +135,4 @@ run-img-gdb:
 	qemu-system-x86_64 $(QEMUFLAGS) $(QEMUIMGFLAGS) -S -s
 
 run-img-kvm:
-	qemu-system-x86_64 $(QEMUFLAGS) $(QEMUIMGFLAGS) -enable-kvm -cpu host
+	qemu-system-x86_64 $(QEMUFLAGS) $(QEMUIMGFLAGS) -enable-kvm -cpu host,migratable=off
