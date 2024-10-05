@@ -104,10 +104,6 @@ void timekeeper_sync(void) {
 
 	interrupt_set(int_status);
 	MUTEX_RELEASE(&sync_mutex);
-
-	for (int i = 0; i < arch_smp_cpusawake; ++i) {
-		printf("cpu %d offset (ticks) @ %lu\n", smp_cpus[i]->id, smp_cpus[i]->timekeeper_source_tick_offset);
-	}
 }
 
 extern timekeeper_source_t *timekeeper_sources;
