@@ -5,6 +5,7 @@
 #include <panic.h>
 #include <mutex.h>
 #include <arch/cpu.h>
+#include <util.h>
 
 void _putchar(char c);
 void logging_sethook(void (*fun)(char));
@@ -16,7 +17,7 @@ extern mutex_t printf_mutex;
 #endif
 
 #define printf(...) { \
-	if (current_thread()) {\
+	if (likely(current_thread())) {\
 		MUTEX_ACQUIRE(&printf_mutex, false); \
 	} else { \
 		while (MUTEX_TRY(&printf_mutex) == false) CPU_PAUSE(); \
@@ -26,7 +27,7 @@ extern mutex_t printf_mutex;
 }
 
 #define __assert(x) \
-	if (!(x)){ \
+	if (unlikely(!(x))){ \
 		printf("\e[91m%s:%s:%d: %s failed\n\e[0m", __FILE__, __func__, __LINE__, #x); \
 		_panic(NULL, NULL); \
 	};
