@@ -1311,7 +1311,7 @@ static int ext2_readlink(vnode_t *vnode, char **link, cred_t *cred) {
 
 	// if the length of a symlink is larger than 60 bytes, its stored normally
 	// otherwise, its stored in the inode strucutre itself
-	if (linksize > 60)
+	if (linksize >= 60)
 		err = rwbytes(fs, node, buf, linksize, 0, false, true);
 	else
 		memcpy(buf, node->inode.directpointer, linksize);
