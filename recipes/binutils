@@ -6,10 +6,10 @@ hostdeps="xgcc xbinutils automake autoconf"
 deps="base"
 
 build() {
-	${source_dir}/configure --host=x86_64-astral --target=x86_64-astral --prefix=${prefix} --disable-werror
-	make -j${parallelism}
+	${source_dir}/configure --host=x86_64-astral --target=x86_64-astral --prefix=${prefix} --program-prefix=x86_64-astral- --disable-werror
+	make -j${parallelism} tooldir=/usr
 }
 
 package() {
-	make install DESTDIR="${dest_dir}"
+	make install DESTDIR="${dest_dir}" tooldir=/usr
 }
