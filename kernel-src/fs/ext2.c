@@ -1549,7 +1549,7 @@ static int ext2_symlink(vnode_t *vnode, char *name, vattr_t *attr, char *path, c
 
 	ext2node_t *newnode = (ext2node_t *)newvnode;
 
-	if (linklen <= 60) {
+	if (linklen < 60) {
 		// store it in the inode
 		memcpy(&newnode->inode.directpointer, path, linklen);
 	} else {
