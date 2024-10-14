@@ -29,10 +29,10 @@ index 5625592..36b42ee 100644
  
  	update_vector();
  	assign_variable(view.sub_string(0, s), string, true);
-diff --git mlibc-clean/options/ansi/generic/string-stubs.cpp mlibc-workdir/options/ansi/generic/string-stubs.cpp
+diff --git mlibc-clean/options/ansi/generic/string.cpp mlibc-workdir/options/ansi/generic/string.cpp
 index 8defd0e..d6cb65b 100644
---- mlibc-clean/options/ansi/generic/string-stubs.cpp
-+++ mlibc-workdir/options/ansi/generic/string-stubs.cpp
+--- mlibc-clean/options/ansi/generic/string.cpp
++++ mlibc-workdir/options/ansi/generic/string.cpp
 @@ -406,7 +406,6 @@ char *strerror(int e) {
  	case ENOPROTOOPT: s = "Protocol not available (ENOPROTOOPT)"; break;
  	case ENOTEMPTY: s = "Directory not empty (ENOTEMPTY)"; break;
@@ -41,10 +41,10 @@ index 8defd0e..d6cb65b 100644
  	case ENOTTY: s = "Inappropriate ioctl for device (ENOTTY)"; break;
  	case EOVERFLOW: s = "Value too large for defined datatype (EOVERFLOW)"; break;
  #if EOPNOTSUPP != ENOTSUP
-diff --git mlibc-clean/options/crypt/generic/crypt-stubs.cpp mlibc-workdir/options/crypt/generic/crypt-stubs.cpp
+diff --git mlibc-clean/options/crypt/generic/crypt.cpp mlibc-workdir/options/crypt/generic/crypt.cpp
 index 65e0d23..95b060c 100644
---- mlibc-clean/options/crypt/generic/crypt-stubs.cpp
-+++ mlibc-workdir/options/crypt/generic/crypt-stubs.cpp
+--- mlibc-clean/options/crypt/generic/crypt.cpp
++++ mlibc-workdir/options/crypt/generic/crypt.cpp
 @@ -1,7 +1,8 @@
  #include <crypt.h>
  #include <bits/ensure.h>
@@ -72,20 +72,20 @@ index 3474615..e034881 100644
  }
  
  char **backtrace_symbols(void *const *, int) {
-diff --git mlibc-clean/options/posix/generic/dlfcn-stubs.cpp mlibc-workdir/options/posix/generic/dlfcn-stubs.cpp
+diff --git mlibc-clean/options/posix/generic/dlfcn.cpp mlibc-workdir/options/posix/generic/dlfcn.cpp
 index fc34a3b..b1a95a9 100644
---- mlibc-clean/options/posix/generic/dlfcn-stubs.cpp
-+++ mlibc-workdir/options/posix/generic/dlfcn-stubs.cpp
+--- mlibc-clean/options/posix/generic/dlfcn.cpp
++++ mlibc-workdir/options/posix/generic/dlfcn.cpp
 @@ -1,4 +1,4 @@
 -
 +#define _GNU_SOURCE
  #include <bits/ensure.h>
  #include <dlfcn.h>
  
-diff --git mlibc-clean/options/posix/generic/unistd-stubs.cpp mlibc-workdir/options/posix/generic/unistd-stubs.cpp
+diff --git mlibc-clean/options/posix/generic/unistd.cpp mlibc-workdir/options/posix/generic/unistd.cpp
 index 444ad22..d1ca86e 100644
---- mlibc-clean/options/posix/generic/unistd-stubs.cpp
-+++ mlibc-workdir/options/posix/generic/unistd-stubs.cpp
+--- mlibc-clean/options/posix/generic/unistd.cpp
++++ mlibc-workdir/options/posix/generic/unistd.cpp
 @@ -484,8 +484,9 @@ int lockf(int fd, int op, off_t size) {
  }
  
