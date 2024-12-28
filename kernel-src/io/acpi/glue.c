@@ -461,8 +461,14 @@ uacpi_status uacpi_kernel_acquire_mutex(
 		return UACPI_STATUS_OK;
 	}
 
-	bool didacquire = MUTEX_ACQUIRE_TIMED(mut, timeout * 1000);
-	return didacquire ? UACPI_STATUS_OK : UACPI_STATUS_TIMEOUT;
+	for (int i = 0; i < timeout; ++i) {
+		if (MUTEX_TRY(mut))
+			return UACPI_STATUS_OK;
+
+		sched_sleep_us(1000);
+	}
+
+	return UACPI_STATUS_TIMEOUT;
 }
 
 void uacpi_kernel_release_mutex(uacpi_handle mut) {

@@ -1,25 +1,22 @@
 #ifndef _MUTEX_H
 #define _MUTEX_H
 
-#include <semaphore.h>
+#include <pushlock.h>
 
-typedef semaphore_t mutex_t;
+typedef pushlock_t mutex_t;
 
 #define MUTEX_INIT(m) \
-	SEMAPHORE_INIT(m, 1);
+	*m = 0;
 
 #define MUTEX_ACQUIRE(m) \
-	semaphore_wait(m, false)
-
-#define MUTEX_ACQUIRE_TIMED(m, t) \
-	semaphore_timedwait(m, t, false)
+	pushlock_acquire_exclusive(m)
 
 #define MUTEX_RELEASE(m) \
-	semaphore_signal(m)
+	pushlock_release(m)
 
 #define MUTEX_TRY(m) \
-	semaphore_test(m)
+	pushlock_try_acquire_exclusive(m)
 
-#define MUTEX_DEFINE(x) SEMAPHORE_DEFINE(x, 1)
+#define MUTEX_DEFINE(x) pushlock_t x = 0;
 
 #endif
