@@ -49,8 +49,8 @@ void *uacpi_kernel_alloc(uacpi_size size) {
 	return alloc(size);
 }
 
-void *uacpi_kernel_calloc(uacpi_size count, uacpi_size size) {
-	return alloc(count * size);
+void *uacpi_kernel_alloc_zeroed(uacpi_size size) {
+	return alloc(size);
 }
 
 void uacpi_kernel_free(void *ptr) {
@@ -207,7 +207,25 @@ uacpi_status uacpi_kernel_io_write(uacpi_handle handle, uacpi_size offset, uacpi
 	return uacpi_kernel_raw_io_write((uacpi_io_addr)handle + offset, width, value);
 }
 
-uacpi_status uacpi_kernel_pci_read(uacpi_pci_address *address, uacpi_size offset, uacpi_u8 width, uacpi_u64 *out) {
+uacpi_status uacpi_kernel_pci_device_open(
+    uacpi_pci_address address, uacpi_handle *out_handle
+) {
+	uacpi_pci_address *p = alloc(sizeof(uacpi_pci_address));
+	if (uacpi_unlikely(p == NULL))
+		return UACPI_STATUS_OUT_OF_MEMORY;
+
+	memcpy(p, &address, sizeof(uacpi_pci_address));
+	*out_handle = (uacpi_handle)p;
+	return UACPI_STATUS_OK;
+}
+
+void uacpi_kernel_pci_device_close(uacpi_handle handle) {
+	free((void *)handle);
+}
+
+uacpi_status uacpi_kernel_pci_read(uacpi_handle handle, uacpi_size offset, uacpi_u8 width, uacpi_u64 *out) {
+	uacpi_pci_address *address = (uacpi_pci_address *)handle;
+
 	if (address->segment != 0) {
 		printf("reading from PCI segment %u is not supported\n", address->segment);
 		return UACPI_STATUS_UNIMPLEMENTED;
@@ -233,7 +251,9 @@ uacpi_status uacpi_kernel_pci_read(uacpi_pci_address *address, uacpi_size offset
 	return UACPI_STATUS_OK;
 }
 
-uacpi_status uacpi_kernel_pci_write(uacpi_pci_address *address, uacpi_size offset, uacpi_u8 width, uacpi_u64 value) {
+uacpi_status uacpi_kernel_pci_write(uacpi_handle handle, uacpi_size offset, uacpi_u8 width, uacpi_u64 value) {
+	uacpi_pci_address *address = (uacpi_pci_address *)handle;
+
 	if (address->segment != 0) {
 		printf("writing to PCI segment %u is not supported\n", address->segment);
 		return UACPI_STATUS_UNIMPLEMENTED;
