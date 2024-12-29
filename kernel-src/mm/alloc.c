@@ -16,7 +16,7 @@
 #define CAPACITY_SIZE(cache) cache->size - sizeof(size_t) * 2 - USE_POISON * sizeof(size_t)
 
 static size_t allocsizes[CACHE_COUNT] = {32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536};
-static scache_t *caches[CACHE_COUNT];
+static scache_t *caches[CACHE_COUNT + 5];
 
 static void initarea(scache_t *cache, void *obj) {
 	size_t *ptr = obj;
@@ -35,15 +35,11 @@ static void dtor(scache_t *cache, void *obj) {
 }
 
 static scache_t *getcachefromsize(size_t size) {
-	scache_t *cache = NULL;
-	for (int i = 0; i < CACHE_COUNT; ++i) {
-		if (size <= allocsizes[i]) {
-			cache = caches[i];
-			break;
-		}
-	}
-	__assert(cache);
-	return cache;
+	if (size == 0)
+		return caches[0];
+
+	size_t i = 64 - __builtin_clzll(size - 1);
+	return caches[i];
 }
 
 void *alloc(size_t size) {
@@ -51,7 +47,9 @@ void *alloc(size_t size) {
 	size_t *ret = slab_allocate(cache);
 	if (ret == NULL)
 		return NULL;
-	__assert(*ret == CAPACITY_SIZE(cache));
+	#if USE_POISON == 1
+		__assert(*ret == CAPACITY_SIZE(cache));
+	#endif
 	*(ret + 1) = size;
 	return ret + 2;
 }
@@ -97,7 +95,10 @@ void *realloc(void *ptr, size_t size) {
 
 void alloc_init() {
 	for (int i = 0; i < CACHE_COUNT; ++i) {
-		caches[i] = slab_newcache(allocsizes[i] + sizeof(size_t) * 2 + sizeof(size_t) * USE_POISON, 0, initarea, dtor);
-		__assert(caches[i]);
+		caches[i + 5] = slab_newcache(allocsizes[i] + sizeof(size_t) * 2 + sizeof(size_t) * USE_POISON, 0, initarea, dtor);
+		__assert(caches[i + 5]);
 	}
+
+	for (int i = 0; i < 5; ++i)
+		caches[i] = caches[5];
 }
