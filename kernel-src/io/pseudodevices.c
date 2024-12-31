@@ -30,7 +30,7 @@ static int maxseek(int minor, size_t *max) {
 
 static long current = 0xdeadbeefbadc0ffe;
 
-static uint8_t getrand8() {
+__attribute__((no_sanitize("undefined"))) static uint8_t getrand8() {
 	current += timekeeper_timefromboot().ns * timekeeper_timefromboot().s - timekeeper_time().ns * timekeeper_time().s + timekeeper_time().s;
 	return current & 0xff;
 }

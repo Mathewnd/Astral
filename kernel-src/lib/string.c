@@ -16,7 +16,7 @@ void *memcpy(void *d, const void *s, size_t c) {
 	return d;
 }
 
-void *memset(void *ptr, unsigned long value, size_t num) {
+void *memset(void *ptr, int value, size_t num) {
 #ifdef __x86_64__
 	asm volatile ("rep stosb" : : "D"(ptr), "a"(value), "c"(num) : "memory");
 #else

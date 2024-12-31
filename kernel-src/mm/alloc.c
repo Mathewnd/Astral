@@ -35,7 +35,7 @@ static void dtor(scache_t *cache, void *obj) {
 }
 
 static scache_t *getcachefromsize(size_t size) {
-	if (size == 0)
+	if (size <= 1)
 		return caches[0];
 
 	size_t i = 64 - __builtin_clzll(size - 1);

@@ -4,12 +4,12 @@
 
 #include <uacpi/kernel_api.h>
 
-static volatile struct limine_rsdp_request rsdpreq = {
+static volatile struct limine_rsdp_request rsdp_request = {
 	.id = LIMINE_RSDP_REQUEST,
 	.revision = 0
 };
 
-uacpi_status uacpi_kernel_get_rsdp(uacpi_phys_addr *outrsdp) {
-	*outrsdp = (uintptr_t)FROM_HHDM(rsdpreq.response->address);
+uacpi_status uacpi_kernel_get_rsdp(uacpi_phys_addr *rsdp_out) {
+	*rsdp_out = (uintptr_t)FROM_HHDM(rsdp_request.response->address);
 	return UACPI_STATUS_OK;
 }

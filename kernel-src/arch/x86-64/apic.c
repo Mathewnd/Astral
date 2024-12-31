@@ -12,7 +12,7 @@
 #include <uacpi/acpi.h>
 
 #define IOAPIC_REG_ID 0
-#define IOAPIC_REG_ENTRYCOUNT 1
+#define IOAPIC_REG_ENTRY_COUNT 1
 #define IOAPIC_REG_PRIORITY 2
 #define IOAPIC_REG_ENTRY 0x10
 
@@ -28,7 +28,7 @@
 #define APIC_LVT_LINT0 0x350
 #define APIC_LVT_LINT1 0x360
 #define APIC_LVT_ERROR 0x370
-#define APIC_TIMER_INITIALCOUNT 0x380
+#define APIC_TIMER_INITIAL_COUNT 0x380
 #define APIC_TIMER_COUNT 0x390
 #define APIC_TIMER_DIVIDE 0x3E0
 
@@ -39,22 +39,22 @@ typedef struct {
 	void *addr;
 	int base;
 	int top;
-} ioapicdesc_t;
+} ioapic_desc_t;
 
-static ioapicdesc_t *ioapics;
+static ioapic_desc_t *ioapics;
 
 static struct acpi_madt *madt;
-static struct acpi_entry_hdr *liststart;
-static struct acpi_entry_hdr *listend;
-static void *lapicaddr;
+static struct acpi_entry_hdr *list_start;
+static struct acpi_entry_hdr *list_end;
+static void *lapic_address;
 
-static size_t overridecount;
-static size_t iocount;
-static size_t lapiccount;
-static size_t lapicnmicount;
+static size_t override_count;
+static size_t io_count;
+static size_t lapic_count;
+static size_t lapic_nmi_count;
 
-static ioapicdesc_t *ioapicfromgsi(int gsi) {
-	for (int i = 0; i < iocount; ++i) {
+static ioapic_desc_t *ioapicfromgsi(int gsi) {
+	for (int i = 0; i < io_count; ++i) {
 		if (ioapics[i].base <= gsi && ioapics[i].top > gsi)
 			return &ioapics[i];
 	}
@@ -67,9 +67,9 @@ static inline struct acpi_entry_hdr *getnext(struct acpi_entry_hdr *header) {
 }
 
 static inline void *getentry(int type, int n) {
-	struct acpi_entry_hdr *entry = liststart;
+	struct acpi_entry_hdr *entry = list_start;
 
-	while (entry < listend) {
+	while (entry < list_end) {
 		if (entry->type == type) {
 			if (n-- == 0)
 				return entry;
@@ -81,10 +81,10 @@ static inline void *getentry(int type, int n) {
 }
 
 static int getcount(int type) {
-	struct acpi_entry_hdr *entry = liststart;
+	struct acpi_entry_hdr *entry = list_start;
 	int count = 0;
 
-	while (entry < listend) {
+	while (entry < list_end) {
 		if (entry->type == type)
 			++count;
 		entry = getnext(entry);
@@ -94,12 +94,12 @@ static int getcount(int type) {
 }
 
 	static inline void writelapic(int reg, uint32_t v) {
-	volatile uint32_t *ptr = (void *)((uintptr_t)lapicaddr + reg);
+	volatile uint32_t *ptr = (void *)((uintptr_t)lapic_address + reg);
 	*ptr = v;
 }
 
 static inline uint32_t readlapic(int reg) {
-	volatile uint32_t *ptr = (void *)((uintptr_t)lapicaddr + reg);
+	volatile uint32_t *ptr = (void *)((uintptr_t)lapic_address + reg);
 	return *ptr;
 }
 
@@ -131,7 +131,7 @@ void arch_ioapic_setirq(uint8_t irq, uint8_t vector, uint8_t proc, bool masked) 
 	// default settings for ISA irqs
 	uint8_t polarity = 1; // active high
 	uint8_t trigger  = 0; // edge triggered
-	for (uintmax_t i = 0; i < overridecount; ++i) {
+	for (uintmax_t i = 0; i < override_count; ++i) {
 		struct acpi_madt_interrupt_source_override *override = getentry(ACPI_MADT_ENTRY_TYPE_INTERRUPT_SOURCE_OVERRIDE, i);
 		if (override->source != irq)
 			continue;
@@ -142,7 +142,7 @@ void arch_ioapic_setirq(uint8_t irq, uint8_t vector, uint8_t proc, bool masked) 
 		break;
 	}
 
-	ioapicdesc_t* ioapic = ioapicfromgsi(irq);
+	ioapic_desc_t* ioapic = ioapicfromgsi(irq);
 	__assert(ioapic);
 	irq = irq - ioapic->base;
 	writeiored(ioapic->addr, irq, vector, 0, 0, polarity, trigger, masked ? 1 : 0, proc);
@@ -170,7 +170,7 @@ void arch_apic_initap() {
 
 	// get the acpi id for the local nmi sources
 
-	for (size_t i = 0; i < lapiccount; ++i) {
+	for (size_t i = 0; i < lapic_count; ++i) {
 		struct acpi_madt_lapic *current = getentry(ACPI_MADT_ENTRY_TYPE_LAPIC, i);
 		if (current_cpu()->id == current->id) {
 			current_cpu()->acpiid = current->uid;
@@ -181,7 +181,7 @@ void arch_apic_initap() {
 	isr_t *nmiisr = interrupt_allocate(nmi, NULL, IPL_MAX); // MAX IPL because NMI
 	__assert(nmiisr);
 
-	for (size_t i = 0; i < lapicnmicount; ++i) {
+	for (size_t i = 0; i < lapic_nmi_count; ++i) {
 		struct acpi_madt_lapic_nmi* current = getentry(ACPI_MADT_ENTRY_TYPE_LAPIC_NMI, i);
 		if (current->uid == current_cpu()->acpiid || current->uid == 0xff)
 			writelapic(APIC_LVT_LINT0 + 0x10 * current->lint, (nmiisr->id & 0xff) | LVT_DELIVERY_NMI | (current->flags << 12));
@@ -194,16 +194,16 @@ void arch_apic_eoi() {
 
 static time_t stoptimer(timer_t *) {
 	time_t remaining = readlapic(APIC_TIMER_COUNT);
-	time_t initial = readlapic(APIC_TIMER_INITIALCOUNT);
+	time_t initial = readlapic(APIC_TIMER_INITIAL_COUNT);
 
-	writelapic(APIC_TIMER_INITIALCOUNT, 0);
+	writelapic(APIC_TIMER_INITIAL_COUNT, 0);
 
 	return initial - remaining;
 }
 
 static time_t time_passed(timer_t *) {
 	time_t remaining = readlapic(APIC_TIMER_COUNT);
-	time_t initial = readlapic(APIC_TIMER_INITIALCOUNT);
+	time_t initial = readlapic(APIC_TIMER_INITIAL_COUNT);
 
 	return initial - remaining;
 }
@@ -213,7 +213,7 @@ static void timerisr(isr_t *isr, context_t *context) {
 }
 
 static void armtimer(timer_t *, time_t ticks) {
-	writelapic(APIC_TIMER_INITIALCOUNT, ticks);
+	writelapic(APIC_TIMER_INITIAL_COUNT, ticks);
 }
 
 void arch_apic_timerinit() {
@@ -223,13 +223,13 @@ void arch_apic_timerinit() {
 
 	writelapic(APIC_TIMER_DIVIDE, 11);
 
-	writelapic(APIC_TIMER_INITIALCOUNT, 0xffffffff);
+	writelapic(APIC_TIMER_INITIAL_COUNT, 0xffffffff);
 
 	timekeeper_wait_us(50000);
 
 	time_t ticksperus = (0xffffffff - readlapic(APIC_TIMER_COUNT)) / 50000;
 
-	writelapic(APIC_TIMER_INITIALCOUNT, 0);
+	writelapic(APIC_TIMER_INITIAL_COUNT, 0);
 
 	printf("cpu%lu: local apic timer calibrated at %lu ticks per us. ISR vector %lu\n", current_cpu()->id, ticksperus, vec);
 
@@ -252,13 +252,13 @@ void arch_apic_init() {
 	__assert(ret == UACPI_STATUS_OK);
 
 	madt = tbl.ptr;
-	liststart = (void *)((uintptr_t)madt + sizeof(struct acpi_madt));
-	listend   = (void *)((uintptr_t)madt + madt->hdr.length);
+	list_start = (void *)((uintptr_t)madt + sizeof(struct acpi_madt));
+	list_end   = (void *)((uintptr_t)madt + madt->hdr.length);
 
-	overridecount = getcount(ACPI_MADT_ENTRY_TYPE_INTERRUPT_SOURCE_OVERRIDE);
-	iocount = getcount(ACPI_MADT_ENTRY_TYPE_IOAPIC);
-	lapiccount = getcount(ACPI_MADT_ENTRY_TYPE_LAPIC);
-	lapicnmicount = getcount(ACPI_MADT_ENTRY_TYPE_LAPIC_NMI);
+	override_count = getcount(ACPI_MADT_ENTRY_TYPE_INTERRUPT_SOURCE_OVERRIDE);
+	io_count = getcount(ACPI_MADT_ENTRY_TYPE_IOAPIC);
+	lapic_count = getcount(ACPI_MADT_ENTRY_TYPE_LAPIC);
+	lapic_nmi_count = getcount(ACPI_MADT_ENTRY_TYPE_LAPIC_NMI);
 
 	// map LAPIC to virtual memory
 
@@ -269,22 +269,22 @@ void arch_apic_init() {
 	if (lapic64)
 		printf("\e[94mUsing 64 bit override for the local APIC address\n\e[0m");
 
-	lapicaddr = vmm_map(NULL, PAGE_SIZE, VMM_FLAGS_PHYSICAL, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, paddr);
-	__assert(lapicaddr);
+	lapic_address = vmm_map(NULL, PAGE_SIZE, VMM_FLAGS_PHYSICAL, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, paddr);
+	__assert(lapic_address);
 
 	// map I/O apics to memory
 
-	ioapics = alloc(sizeof(ioapicdesc_t) * iocount);
+	ioapics = alloc(sizeof(ioapic_desc_t) * io_count);
 	__assert(ioapics);
 
-	for (int i = 0; i < iocount; ++i) {
+	for (int i = 0; i < io_count; ++i) {
 		struct acpi_madt_ioapic *entry = getentry(ACPI_MADT_ENTRY_TYPE_IOAPIC, i);
 
 		__assert((entry->address % PAGE_SIZE) == 0);
 		ioapics[i].addr = vmm_map(NULL, PAGE_SIZE, VMM_FLAGS_PHYSICAL, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, (void *)(uint64_t)entry->address);
 		__assert(ioapics[i].addr);
 		ioapics[i].base = entry->gsi_base;
-		ioapics[i].top = ioapics[i].base + ((readioapic(ioapics[i].addr, IOAPIC_REG_ENTRYCOUNT) >> 16) & 0xff) + 1;
+		ioapics[i].top = ioapics[i].base + ((readioapic(ioapics[i].addr, IOAPIC_REG_ENTRY_COUNT) >> 16) & 0xff) + 1;
 		printf("ioapic%lu: addr %p base %lu top %lu\n", i, entry->address, entry->gsi_base, ioapics[i].top);
 		for (int j = ioapics[i].base; j < ioapics[i].top; ++j)
 			writeiored(ioapics[i].addr, j - ioapics[i].base, 0xfe, 0, 0, 0, 0, 1, 0);

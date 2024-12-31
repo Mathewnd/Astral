@@ -422,6 +422,11 @@ void signal_signalproc(struct proc_t *proc, int signal) {
 	}
 }
 
+__attribute__((no_sanitize("undefined"))) static inline void set_siginfo_ucontext(context_t *context, void *stack) {
+		CTX_ARG1(context) = (uint64_t)&((sigframe_t *)stack)->siginfo;
+		CTX_ARG2(context) = (uint64_t)ARCH_SIGFRAME_GET_UCONTEXT_POINTER((sigframe_t *)stack);
+}
+
 // returns true if should retry check
 bool signal_check(struct thread_t *thread, context_t *context, bool syscall, uint64_t syscallret, uint64_t syscallerrno, bool *need_context_switch) {
 	bool retry = false;
@@ -593,8 +598,7 @@ bool signal_check(struct thread_t *thread, context_t *context, bool syscall, uin
 		CTX_IP(context) = (uint64_t)action->address;
 		CTX_SP(context) = (uint64_t)stack;
 		CTX_ARG0(context) = signal;
-		CTX_ARG1(context) = (uint64_t)&((sigframe_t *)stack)->siginfo;
-		CTX_ARG2(context) = (uint64_t)ARCH_SIGFRAME_GET_UCONTEXT_POINTER((sigframe_t *)stack);
+		set_siginfo_ucontext(context, stack);
 
 		// reset handler if asked for
 		if (action->flags & SA_RESETHAND)

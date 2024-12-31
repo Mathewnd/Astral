@@ -12,6 +12,11 @@ uint16_t pci_read16(int bus, int device, int function, uint32_t offset) {
 	return (pci_archread32(bus, device, function, offset) >> ((offset & 0b11) * 8)) & 0xffff;
 }
 
+uint32_t pci_read32(int bus, int device, int function, uint32_t offset) {
+	return pci_archread32(bus, device, function, offset);
+}
+
+
 void pci_write8(int bus, int device, int function, uint32_t offset, uint8_t v) {
 	uint32_t old = pci_archread32(bus, device, function, offset);
 	int bitoffset = 8 * (offset & 0b11);
@@ -23,18 +28,15 @@ void pci_write8(int bus, int device, int function, uint32_t offset, uint8_t v) {
 void pci_write16(int bus, int device, int function, uint32_t offset, uint16_t v) {
 	uint32_t old = pci_archread32(bus, device, function, offset);
 	int bitoffset = 8 * (offset & 0b11);
-	old &= ~(0xffff << bitoffset);
-	old |= v << bitoffset;
+	old &= ~(0xfffflu << bitoffset);
+	old |= (uint32_t)v << bitoffset;
 	pci_archwrite32(bus, device, function, offset, old);
-}
-
-uint32_t pci_read32(int bus, int device, int function, uint32_t offset) {
-	return pci_archread32(bus, device, function, offset);
 }
 
 void pci_write32(int bus, int device, int function, uint32_t offset, uint32_t value) {
 	pci_archwrite32(bus, device, function, offset, value);
 }
+
 
 int pci_getcapoffset(pcienum_t *e, int cap, int n) {
 	if ((PCI_READ16(e, PCI_CONFIG_STATUS) & PCI_STATUS_HASCAP) == 0)

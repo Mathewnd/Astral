@@ -1,7 +1,7 @@
 #ifndef _TOPOLOGY_H
 #define _TOPOLOGY_H
 
-#define TOPOLOGY_MAKE_ID(depth, id) ((depth << 16) | id)
+#define TOPOLOGY_MAKE_ID(depth, id) (((depth & 0xfffflu) << 16) | id)
 
 #include <arch/cpu.h>
 

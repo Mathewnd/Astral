@@ -4,48 +4,48 @@
 #include <limine.h>
 #include <logging.h>
 
-static volatile struct limine_kernel_file_request kfreq = {
+static volatile struct limine_kernel_file_request kernel_file_request = {
 	.id = LIMINE_KERNEL_FILE_REQUEST,
 	.revision = 0
 };
 
-static hashtable_t pairtable;
+static hashtable_t pair_table;
 
 char *cmdline_get(char *key) {
 	void *v;
-	return hashtable_get(&pairtable, &v, key, strlen(key)) == 0 ? v : NULL;
+	return hashtable_get(&pair_table, &v, key, strlen(key)) == 0 ? v : NULL;
 }
 
 void cmdline_parse() {
-	__assert(hashtable_init(&pairtable, 16) == 0);
-	__assert(kfreq.response);
-	struct limine_file *kernelfile = kfreq.response->kernel_file;
-	__assert(kernelfile);
-	char *cmdline = kernelfile->cmdline;
+	__assert(hashtable_init(&pair_table, 16) == 0);
+	__assert(kernel_file_request.response);
+	struct limine_file *kernel_file = kernel_file_request.response->kernel_file;
+	__assert(kernel_file);
+	char *cmdline = kernel_file->cmdline;
 	__assert(cmdline);
 
-	size_t bufferlen = strlen(cmdline) + 1;
-	char buffer[bufferlen];
-	memset(buffer, 0, bufferlen);
-	char *cmdp = cmdline;
-	char *buffp = buffer;
+	size_t buffer_len = strlen(cmdline) + 1;
+	char buffer[buffer_len];
+	memset(buffer, 0, buffer_len);
+	char *cmdline_ptr = cmdline;
+	char *buffer_ptr = buffer;
 
-	bool doconvert = true;
+	bool do_convert = true;
 
-	while (*cmdp) {
-		char cmdchar = *cmdp++;
-		if (cmdchar == ' ' && doconvert)
-			*buffp++ = '\0';
-		else if (cmdchar == '"') {
-			doconvert = !doconvert;
-			--bufferlen;
+	while (*cmdline_ptr) {
+		char cmd_char = *cmdline_ptr++;
+		if (cmd_char == ' ' && do_convert)
+			*buffer_ptr++ = '\0';
+		else if (cmd_char == '"') {
+			do_convert = !do_convert;
+			--buffer_len;
 		} else
-			*buffp++ = cmdchar;
+			*buffer_ptr++ = cmd_char;
 	}
-	buffer[bufferlen] = '\0';
+	buffer[buffer_len - 1] = '\0';
 
 	int i = 0;
-	while (i < bufferlen) {
+	while (i < buffer_len) {
 		char *iterator = &buffer[i];
 		bool pair = false;
 		while (*iterator) {
@@ -56,22 +56,22 @@ void cmdline_parse() {
 			++iterator;
 		}
 
-		size_t keylen = strlen(&buffer[i]);
+		size_t key_len = strlen(&buffer[i]);
 		if (pair) {
-			char *valuep = &buffer[i + keylen + 1];
-			size_t valuelen = strlen(valuep);
+			char *value_ptr = &buffer[i + key_len + 1];
+			size_t value_len = strlen(value_ptr);
 
-			char *value = alloc(valuelen) + 1;
+			char *value = alloc(value_len) + 1;
 			__assert(value);
-			strcpy(value, valuep);
-			__assert(hashtable_set(&pairtable, value, &buffer[i], keylen, true) == 0);
-			i += valuelen + 1;
+			strcpy(value, value_ptr);
+			__assert(hashtable_set(&pair_table, value, &buffer[i], key_len, true) == 0);
+			i += value_len + 1;
 		} else {
-			char *value = alloc(keylen + 1);
+			char *value = alloc(key_len + 1);
 			__assert(value);
 			strcpy(value, &buffer[i]);
-			__assert(hashtable_set(&pairtable, value, &buffer[i], keylen, true) == 0);
+			__assert(hashtable_set(&pair_table, value, &buffer[i], key_len, true) == 0);
 		}
-		i += keylen + 1;
+		i += key_len + 1;
 	}
 }
