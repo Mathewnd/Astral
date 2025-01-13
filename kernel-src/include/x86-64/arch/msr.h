@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 
+#define MSR_IA32APICBASE 0x1B
 #define MSR_EFER 0xC0000080
 #define MSR_STAR 0xC0000081
 #define MSR_LSTAR 0xC0000082

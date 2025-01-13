@@ -5,6 +5,7 @@
 #include <kernel/interrupt.h>
 #include <arch/cpu.h>
 #include <arch/hpet.h>
+#include <arch/msr.h>
 #include <kernel/timer.h>
 #include <kernel/timekeeper.h>
 
@@ -262,12 +263,7 @@ void arch_apic_init() {
 
 	// map LAPIC to virtual memory
 
-	struct acpi_madt_lapic_address_override *lapic64 = getentry(ACPI_MADT_ENTRY_TYPE_LAPIC_ADDRESS_OVERRIDE, 0);
-
-	void *paddr = lapic64 ? (void *)lapic64->address : (void *)(uint64_t)madt->local_interrupt_controller_address;
-
-	if (lapic64)
-		printf("\e[94mUsing 64 bit override for the local APIC address\n\e[0m");
+    void *paddr = (void *) rdmsr(MSR_IA32APICBASE);
 
 	lapic_address = vmm_map(NULL, PAGE_SIZE, VMM_FLAGS_PHYSICAL, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, paddr);
 	__assert(lapic_address);
