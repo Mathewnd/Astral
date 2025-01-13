@@ -1,0 +1,35 @@
+diff --git alsa-lib-clean/src/conf.c alsa-lib-workdir/src/conf.c
+index 468d41f..97e6f0f 100644
+--- alsa-lib-clean/src/conf.c
++++ alsa-lib-workdir/src/conf.c
+@@ -435,6 +435,13 @@ beginning:</P>
+ #include <pthread.h>
+ #endif
+ 
++#ifdef __astral__
++#define versionsort64 versionsort
++#define scandir64 scandir
++#define dirent64 dirent
++#define ino64_t ino_t
++#endif
++
+ #ifndef DOC_HIDDEN
+ 
+ #ifdef HAVE_LIBPTHREAD
+diff --git alsa-lib-clean/src/ucm/parser.c alsa-lib-workdir/src/ucm/parser.c
+index 488a5c6..7a6d1db 100644
+--- alsa-lib-clean/src/ucm/parser.c
++++ alsa-lib-workdir/src/ucm/parser.c
+@@ -36,6 +36,12 @@
+ #include <dirent.h>
+ #include <limits.h>
+ 
++#ifdef __astral__
++#define scandir64 scandir
++#define versionsort64 versionsort
++#define dirent64 dirent
++#endif
++
+ static int filename_filter(const struct dirent64 *dirent);
+ 
+ static int parse_sequence(snd_use_case_mgr_t *uc_mgr,

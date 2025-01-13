@@ -1,0 +1,9 @@
+name=alsa-lib
+version=1.2.13
+source_method=tarball
+tarball_url="https://github.com/alsa-project/alsa-lib/archive/refs/tags/v${version}.tar.gz"
+tarball_sha512=ae21380c75ab2f318b14d42b1f06e35d2a80b377fe0a12177e7f5c926b189bb242037891e3e7d780d77376e57d6f074abe5701eecd55035ff0498bdbca55e42a
+hostdeps="autoconf automake util-macros pkgconfig libtool"
+prepare() {
+        autoreconf -fvi
+}

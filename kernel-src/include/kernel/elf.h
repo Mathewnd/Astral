@@ -28,6 +28,7 @@
 #define AT_PHENT 4
 #define AT_PHNUM 5
 #define AT_ENTRY 9
+#define AT_EXECFN 31
 
 typedef struct {
 	uint64_t type;
@@ -39,6 +40,7 @@ typedef struct {
 	auxv64_t phnum;
 	auxv64_t phent;
 	auxv64_t entry;
+	auxv64_t execfn;
 	auxv64_t null;
 } auxv64list_t;
 
@@ -83,6 +85,6 @@ typedef struct{
 } __attribute__((packed)) elfph64_t;
 
 int elf_load(vnode_t *vnode, void *base, void **entry, char **interpreter, auxv64list_t *auxv64);
-void *elf_preparestack(void *top, auxv64list_t *auxv64, char **argv, char **envp);
+void *elf_preparestack(void *top, auxv64list_t *auxv64, char **argv, char **envp, char *path);
 
 #endif

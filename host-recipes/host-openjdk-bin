@@ -1,0 +1,7 @@
+name=host-openjdk-bin
+revision=1
+from_source=host-openjdk-bin
+
+package() {
+	cp -r "${source_dir}/." "${dest_dir}/${prefix}"
+}

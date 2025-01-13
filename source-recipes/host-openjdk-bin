@@ -1,0 +1,5 @@
+name=host-openjdk-bin
+version=17.0.9.9
+source_method=tarball
+tarball_url="https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.9%2B9/OpenJDK17U-jdk_x64_linux_hotspot_17.0.9_9.tar.gz"
+tarball_blake2b=0bf5a6583f27a2d961fc72de11154e2fc6ba6383ebaf58fb328ea7ef40994188d1aee6fbdef5784f5629f552d6942c43e29fa3f7b99af250e4179da9bd7fcbe4

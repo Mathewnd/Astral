@@ -153,6 +153,10 @@ int elf_load(vnode_t *vnode, void *base, void **entry, char **interpreter, auxv6
 	if (headerok(&header) == false)
 		return ENOEXEC;
 
+	if (!base && header.type == ELF_SHARED) {
+		base = (void *)0x400000;
+	}
+
 	auxv64->null.type = AT_NULL;
 	auxv64->phdr.type = AT_PHDR;
 	auxv64->phnum.type = AT_PHNUM;
@@ -161,7 +165,7 @@ int elf_load(vnode_t *vnode, void *base, void **entry, char **interpreter, auxv6
 	
 	auxv64->phnum.val = header.phcount;
 	auxv64->phent.val = header.phsize;
-	auxv64->entry.val = header.entry;
+	auxv64->entry.val = header.entry + (uintptr_t)base;
 	*entry = (void *)(header.entry + (uintptr_t)base);
 
 	__assert(header.phsize == sizeof(elfph64_t));
@@ -215,11 +219,12 @@ int elf_load(vnode_t *vnode, void *base, void **entry, char **interpreter, auxv6
 #define STACK_SIZE (1024 * 1024 * 4)
 #define STACK_TOP_BUFFER 8
 
-void *elf_preparestack(void *top, auxv64list_t *auxv64, char **argv, char **envp) {
+void *elf_preparestack(void *top, auxv64list_t *auxv64, char **argv, char **envp, char *path) {
 	size_t argc;
 	size_t envc;
 	size_t argdatasize = 0;
 	size_t envdatasize = 0;
+	size_t pathsize = strlen(path) + 1;
 
 	for (argc = 0; argv[argc]; ++argc)
 		argdatasize += strlen(argv[argc]) + 1;
@@ -231,7 +236,7 @@ void *elf_preparestack(void *top, auxv64list_t *auxv64, char **argv, char **envp
 	int alignment = ((argc + 1) + (envc + 1) + 1) & 1 ? 8 : 0;
 
 	// env data + arg data + pointers to arg and env data + argc + buffer at the top
-	size_t initialsize = argdatasize + envdatasize + (argc + envc) * sizeof(char *) + sizeof(size_t) + sizeof(auxv64list_t) + alignment + STACK_TOP_BUFFER;
+	size_t initialsize = argdatasize + envdatasize + pathsize + (argc + envc) * sizeof(char *) + sizeof(size_t) + sizeof(auxv64list_t) + alignment + STACK_TOP_BUFFER;
 
 	size_t initialsizeround = ROUND_UP(initialsize, PAGE_SIZE);
 	void *initialpagebase = (void *)((uintptr_t)top - initialsizeround);
@@ -247,7 +252,8 @@ void *elf_preparestack(void *top, auxv64list_t *auxv64, char **argv, char **envp
 
 	char *argdatastart = (char *)((uintptr_t)top - argdatasize);
 	char *envdatastart = (char *)((uintptr_t)argdatastart - envdatasize);
-	auxv64list_t *auxvstart = (auxv64list_t *)envdatastart - 1;
+	char *pathdatastart = (char *)((uintptr_t)envdatastart - pathsize);
+	auxv64list_t *auxvstart = (auxv64list_t *)pathdatastart - 1;
 
 	auxvstart = (auxv64list_t *)(((uintptr_t)auxvstart & ~(uintptr_t)0xf) - alignment);
 
@@ -255,6 +261,11 @@ void *elf_preparestack(void *top, auxv64list_t *auxv64, char **argv, char **envp
 	char **envstart = (char **)auxvstart - envc - 1;
 	char **argstart = (char **)envstart - argc - 1;
 	size_t *argcptr = (size_t *)argstart - 1;
+
+	auxv64->execfn.type = AT_EXECFN;
+	auxv64->execfn.val = (uint64_t)pathdatastart;
+
+	memcpy(pathdatastart, path, pathsize);
 
 	memcpy(auxvstart, auxv64, sizeof(auxv64list_t));
 

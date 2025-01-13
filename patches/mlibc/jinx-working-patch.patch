@@ -111,3 +111,53 @@ index 9219ef0..1ff679c 100644
  #if __MLIBC_POSIX_OPTION
  #include <dlfcn.h>
  #endif
+diff --git mlibc-clean/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
+index 2a504ab..61c3bf0 100644
+--- mlibc-clean/sysdeps/astral/generic/generic.cpp
++++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
+@@ -31,6 +31,12 @@ namespace mlibc {
+ 		return 0;
+ 	}
+ 
++	int sys_getcpu(int *cpu) {
++		*cpu = 0;
++		// TODO unstub
++		return 0;
++	}
++
+ 	int sys_getsockopt(int fd, int layer, int number,
+ 		void *__restrict buffer, socklen_t *__restrict size) {
+ 		(void)size;
+@@ -161,7 +167,18 @@ namespace mlibc {
+ 		*bytes_written = writec;
+ 		return error;
+ 	}
+-	
++
++	int sys_getrlimit(int resource, struct rlimit *limit) {
++		switch(resource) {
++		case RLIMIT_NOFILE:
++			limit->rlim_cur = RLIM_INFINITY;
++			limit->rlim_max = RLIM_INFINITY;
++			return 0;
++		default:
++			return EINVAL;
++		}
++	}
++
+ 	#ifndef MLIBC_BUILDING_RTLD
+ 
+ 	typedef struct {
+@@ -487,6 +504,12 @@ namespace mlibc {
+ 		return ret;
+ 	}
+ 
++	pid_t sys_gettid() {
++		long ret;
++		syscall(SYSCALL_GETTID, &ret);
++		return ret;
++	}
++
+ 	#ifndef MLIBC_BUILDING_RTLD
+ 
+ 	[[noreturn]] void sys_thread_exit() {

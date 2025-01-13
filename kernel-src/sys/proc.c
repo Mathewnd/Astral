@@ -361,7 +361,7 @@ void proc_run_init() {
 	char *argv[] = {"/init", cmdline_get("initarg"), NULL};
 	char *envp[] = {NULL};
 
-	void *stack = elf_preparestack(STACK_TOP, &auxv64, argv, envp);
+	void *stack = elf_preparestack(STACK_TOP, &auxv64, argv, envp, "/init");
 	__assert(stack);
 
 	// reenter kernel context

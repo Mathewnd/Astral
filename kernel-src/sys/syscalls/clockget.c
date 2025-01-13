@@ -5,6 +5,7 @@
 #include <kernel/vmm.h>
 
 #define CLOCK_REALTIME 0
+#define CLOCK_MONOTONIC 1
 #define CLOCK_BOOTTIME 7
 
 syscallret_t syscall_clockget(context_t *, int clockid, timespec_t *tp) {
@@ -19,6 +20,7 @@ syscallret_t syscall_clockget(context_t *, int clockid, timespec_t *tp) {
 			ret.errno = 0;
 			break;
 		}
+		case CLOCK_MONOTONIC:
 		case CLOCK_BOOTTIME: {
 			timespec_t ts = timekeeper_timefromboot();
 			usercopy_touser(tp, &ts, sizeof(timespec_t));

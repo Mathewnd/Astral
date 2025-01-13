@@ -1,0 +1,35 @@
+name=openjdk17
+revision=1
+from_source=openjdk17
+imagedeps="build-essential zip unzip file"
+hostdeps="xgcc xbinutils libstdc++-v3 pkgconfig autoconf host-openjdk-bin"
+deps="base alsa-lib cups freetype fontconfig libpng libjpeg-turbo zlib libx11 libxext libxi libxrandr libxrender libxt libxtst xorgproto libiconv libffi"
+allow_network="yes"
+
+configure() {
+	# TODO: figure out why zlib.h is not found on system zlib
+	${source_dir}/configure \
+		--prefix=${prefix} \
+		--openjdk-target=x86_64-astral \
+		--disable-ccache \
+		--disable-precompiled-headers \
+		--disable-warnings-as-errors \
+		--enable-full-docs=no \
+		--with-boot-jdk="/usr/local" \
+		--with-freetype=system \
+		--with-libjpeg=system \
+		--with-libpng=system \
+		--with-zlib=bundled
+}
+
+build() {
+	make JOBS=${parallelism} product-images
+}
+
+package() {
+	mkdir -p images/jdk/.systemPrefs
+	touch images/jdk/.systemPrefs/.system.lock
+	touch images/jdk/.systemPrefs/.systemRootModFile
+	mkdir -p "${dest_dir}/usr/lib/jvm"
+	cp -pPr images/jdk "${dest_dir}/usr/lib/jvm/java-17"
+}

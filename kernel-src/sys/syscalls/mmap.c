@@ -13,9 +13,10 @@
 #define MAP_FIXED     0x10
 #define MAP_ANON      0x20
 #define MAP_ANONYMOUS MAP_ANON
+#define MAP_NORESERVE 0x4000
 
 #define KNOWN_PROT (PROT_READ | PROT_WRITE | PROT_EXEC)
-#define KNOWN_FLAGS (MAP_SHARED | MAP_PRIVATE | MAP_FIXED | MAP_ANONYMOUS)
+#define KNOWN_FLAGS (MAP_SHARED | MAP_PRIVATE | MAP_FIXED | MAP_ANONYMOUS | MAP_NORESERVE)
 
 syscallret_t syscall_mmap(context_t *context, void *hint, size_t len, int prot, int flags, int fd, off_t offset) {
 	syscallret_t ret = {

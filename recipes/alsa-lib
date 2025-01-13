@@ -1,0 +1,19 @@
+name=alsa-lib
+revision=1
+from_source=alsa-lib
+imagedeps="build-essential"
+hostdeps="xgcc xbinutils pkgconfig autoconf automake"
+deps="base"
+
+configure() {
+	cp -r "${source_dir}/." "."
+	./configure --prefix=${prefix} --host=x86_64-astral
+}
+
+build() {
+	make -j${parallelism}
+}
+
+package() {
+	make DESTDIR=${dest_dir} install
+}

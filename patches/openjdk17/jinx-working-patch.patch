@@ -1,0 +1,470 @@
+diff --git openjdk17-clean/make/autoconf/platform.m4 openjdk17-workdir/make/autoconf/platform.m4
+index 2dd13d0..1aca7f7 100644
+--- openjdk17-clean/make/autoconf/platform.m4
++++ openjdk17-workdir/make/autoconf/platform.m4
+@@ -214,6 +214,10 @@ AC_DEFUN([PLATFORM_EXTRACT_VARS_FROM_OS],
+       VAR_OS=aix
+       VAR_OS_TYPE=unix
+       ;;
++    *astral*)
++      VAR_OS=linux
++      VAR_OS_TYPE=unix
++      ;;
+     *)
+       AC_MSG_ERROR([unsupported operating system $1])
+       ;;
+diff --git openjdk17-clean/make/modules/java.desktop/lib/Awt2dLibraries.gmk openjdk17-workdir/make/modules/java.desktop/lib/Awt2dLibraries.gmk
+index 4d0c0c0..0a95a24 100644
+--- openjdk17-clean/make/modules/java.desktop/lib/Awt2dLibraries.gmk
++++ openjdk17-workdir/make/modules/java.desktop/lib/Awt2dLibraries.gmk
+@@ -751,6 +751,7 @@ ifeq ($(ENABLE_HEADLESS_ONLY), false)
+       LIBS := $(JDKLIB_LIBS) $(LIBSPLASHSCREEN_LIBS) $(LIBZ_LIBS) \
+           $(GIFLIB_LIBS) $(LIBJPEG_LIBS) $(PNG_LIBS), \
+       LIBS_aix := -liconv, \
++      LIBS_linux := -liconv, \
+   ))
+ 
+   TARGETS += $(BUILD_LIBSPLASHSCREEN)
+diff --git openjdk17-clean/make/modules/java.instrument/Lib.gmk openjdk17-workdir/make/modules/java.instrument/Lib.gmk
+index 3996ad2..727f312 100644
+--- openjdk17-clean/make/modules/java.instrument/Lib.gmk
++++ openjdk17-workdir/make/modules/java.instrument/Lib.gmk
+@@ -49,7 +49,7 @@ $(eval $(call SetupJdkLibrary, BUILD_LIBINSTRUMENT, \
+     LDFLAGS_aix := -L$(SUPPORT_OUTPUTDIR)/native/java.base, \
+     LIBS := $(JDKLIB_LIBS), \
+     LIBS_unix := -ljava -ljvm $(LIBZ_LIBS), \
+-    LIBS_linux := -ljli $(LIBDL), \
++    LIBS_linux := -ljli -liconv $(LIBDL), \
+     LIBS_aix := -liconv -ljli_static $(LIBDL), \
+     LIBS_macosx := -ljli -liconv -framework Cocoa -framework Security \
+         -framework ApplicationServices, \
+diff --git openjdk17-clean/make/modules/jdk.jdwp.agent/Lib.gmk openjdk17-workdir/make/modules/jdk.jdwp.agent/Lib.gmk
+index aef358c..fbc1750 100644
+--- openjdk17-clean/make/modules/jdk.jdwp.agent/Lib.gmk
++++ openjdk17-workdir/make/modules/jdk.jdwp.agent/Lib.gmk
+@@ -61,7 +61,7 @@ $(eval $(call SetupJdkLibrary, BUILD_LIBJDWP, \
+     LDFLAGS := $(LDFLAGS_JDKLIB) \
+         $(call SET_SHARED_LIBRARY_ORIGIN), \
+     LIBS := $(JDKLIB_LIBS), \
+-    LIBS_linux := $(LIBDL), \
++    LIBS_linux := -liconv $(LIBDL), \
+     LIBS_macosx := -liconv, \
+     LIBS_aix := -liconv, \
+ ))
+diff --git openjdk17-clean/src/hotspot/os/linux/gc/z/zSyscall_linux.cpp openjdk17-workdir/src/hotspot/os/linux/gc/z/zSyscall_linux.cpp
+index ba26cbf..e72a9ea 100644
+--- openjdk17-clean/src/hotspot/os/linux/gc/z/zSyscall_linux.cpp
++++ openjdk17-workdir/src/hotspot/os/linux/gc/z/zSyscall_linux.cpp
+@@ -27,14 +27,31 @@
+ 
+ #include <unistd.h>
+ 
++#ifdef __astral__
++#include <sys/mman.h>
++#include <fcntl.h>
++#endif
++
+ int ZSyscall::memfd_create(const char *name, unsigned int flags) {
++#ifdef __astral__
++  return ::memfd_create(name, flags);
++#else
+   return syscall(SYS_memfd_create, name, flags);
++#endif
+ }
+ 
+ int ZSyscall::fallocate(int fd, int mode, size_t offset, size_t length) {
++#ifdef __astral__
++  return ::fallocate(fd, mode, offset, length);
++#else
+   return syscall(SYS_fallocate, fd, mode, offset, length);
++#endif
+ }
+ 
+ long ZSyscall::get_mempolicy(int* mode, unsigned long* nodemask, unsigned long maxnode, void* addr, unsigned long flags) {
++#ifdef __astral__
++  return 0;
++#else
+   return syscall(SYS_get_mempolicy, mode, nodemask, maxnode, addr, flags);
++#endif
+ }
+diff --git openjdk17-clean/src/hotspot/os/linux/os_linux.cpp openjdk17-workdir/src/hotspot/os/linux/os_linux.cpp
+index 239cd0d..8090c53 100644
+--- openjdk17-clean/src/hotspot/os/linux/os_linux.cpp
++++ openjdk17-workdir/src/hotspot/os/linux/os_linux.cpp
+@@ -98,7 +98,11 @@
+ # include <poll.h>
+ # include <fcntl.h>
+ # include <string.h>
++
++#ifndef __astral__
+ # include <syscall.h>
++#endif
++
+ # include <sys/sysinfo.h>
+ # include <sys/ipc.h>
+ # include <sys/shm.h>
+@@ -348,9 +352,13 @@ bool os::have_special_privileges() {
+ // Returns the kernel thread id of the currently running thread. Kernel
+ // thread id is used to access /proc.
+ pid_t os::Linux::gettid() {
++#ifdef __astral__
++  return ::gettid();
++#else
+   int rslt = syscall(SYS_gettid);
+   assert(rslt != -1, "must be."); // old linuxthreads implementation?
+   return (pid_t)rslt;
++#endif
+ }
+ 
+ // Most versions of linux have a bug where the number of processors are
+diff --git openjdk17-clean/src/hotspot/os/linux/waitBarrier_linux.cpp openjdk17-workdir/src/hotspot/os/linux/waitBarrier_linux.cpp
+index 491f9e6..e9530f0 100644
+--- openjdk17-clean/src/hotspot/os/linux/waitBarrier_linux.cpp
++++ openjdk17-workdir/src/hotspot/os/linux/waitBarrier_linux.cpp
+@@ -26,7 +26,11 @@
+ #include "runtime/orderAccess.hpp"
+ #include "runtime/os.hpp"
+ #include "waitBarrier_linux.hpp"
++
++#ifndef __astral__
+ #include <sys/syscall.h>
++#endif
++
+ #include <linux/futex.h>
+ 
+ #define check_with_errno(check_type, cond, msg)                             \
+@@ -38,8 +42,36 @@
+ 
+ #define guarantee_with_errno(cond, msg) check_with_errno(guarantee, cond, msg)
+ 
++#ifdef __astral__
++#define SYSCALL_FUTEX 51
++static long syscall(long func, long* ret, uint64_t p1 = 0, uint64_t p2 = 0, uint64_t p3 = 0, uint64_t p4 = 0, uint64_t p5 = 0, uint64_t p6 = 0) {
++	volatile long err;
++
++	register uint64_t r4 asm("r10") = p4;
++	register uint64_t r5 asm("r8") = p5;
++	register uint64_t r6 asm("r9") = p6;
++
++	asm volatile("syscall"
++		: "=a"(*ret), "=d"(err)
++		: "a"(func), "D"(p1), "S"(p2), "d"(p3), "r"(r4),
++		"r"(r5), "r"(r6)
++		: "memory", "rcx", "r11");
++    return err;
++}
++#endif
++
+ static int futex(volatile int *addr, int futex_op, int op_arg) {
++#ifdef __astral__
++  long ret;
++  long err = syscall(SYSCALL_FUTEX, &ret, (uint64_t)addr, futex_op & 1, op_arg, NULL);
++  if (err) {
++    errno = err;
++    return -1;
++  }
++  return 0;
++#else
+   return syscall(SYS_futex, addr, futex_op, op_arg, NULL, NULL, 0);
++#endif
+ }
+ 
+ void LinuxWaitBarrier::arm(int barrier_tag) {
+diff --git openjdk17-clean/src/hotspot/os/posix/vmError_posix.cpp openjdk17-workdir/src/hotspot/os/posix/vmError_posix.cpp
+index 845dda6..ca61d72 100644
+--- openjdk17-clean/src/hotspot/os/posix/vmError_posix.cpp
++++ openjdk17-workdir/src/hotspot/os/posix/vmError_posix.cpp
+@@ -35,7 +35,7 @@
+ #include <sys/types.h>
+ #include <sys/wait.h>
+ 
+-#ifdef LINUX
++#if defined(LINUX) && !defined(__astral__)
+ #include <sys/syscall.h>
+ #include <unistd.h>
+ #endif
+@@ -46,7 +46,9 @@
+ #include <sys/syscall.h>
+ #include <unistd.h>
+ #endif
+-
++#ifdef __astral__
++#include <unistd.h>
++#endif
+ 
+ // Needed for cancelable steps.
+ static volatile pthread_t reporter_thread_id;
+diff --git openjdk17-clean/src/hotspot/os_cpu/linux_x86/gc/z/zSyscall_linux_x86.hpp openjdk17-workdir/src/hotspot/os_cpu/linux_x86/gc/z/zSyscall_linux_x86.hpp
+index 8b578ab..9bd6978 100644
+--- openjdk17-clean/src/hotspot/os_cpu/linux_x86/gc/z/zSyscall_linux_x86.hpp
++++ openjdk17-workdir/src/hotspot/os_cpu/linux_x86/gc/z/zSyscall_linux_x86.hpp
+@@ -24,7 +24,9 @@
+ #ifndef OS_CPU_LINUX_X86_GC_Z_ZSYSCALL_LINUX_X86_HPP
+ #define OS_CPU_LINUX_X86_GC_Z_ZSYSCALL_LINUX_X86_HPP
+ 
++#ifndef __astral__
+ #include <sys/syscall.h>
++#endif
+ 
+ //
+ // Support for building on older Linux systems
+diff --git openjdk17-clean/src/java.base/linux/classes/sun/nio/ch/DefaultSelectorProvider.java openjdk17-workdir/src/java.base/linux/classes/sun/nio/ch/DefaultSelectorProvider.java
+index fa925f5..df152da 100644
+--- openjdk17-clean/src/java.base/linux/classes/sun/nio/ch/DefaultSelectorProvider.java
++++ openjdk17-workdir/src/java.base/linux/classes/sun/nio/ch/DefaultSelectorProvider.java
+@@ -36,7 +36,7 @@ import java.security.PrivilegedAction;
+ public class DefaultSelectorProvider {
+     private static final SelectorProviderImpl INSTANCE;
+     static {
+-        PrivilegedAction<SelectorProviderImpl> pa = EPollSelectorProvider::new;
++        PrivilegedAction<SelectorProviderImpl> pa = PollSelectorProvider::new;
+         INSTANCE = AccessController.doPrivileged(pa);
+     }
+ 
+diff --git openjdk17-clean/src/java.base/share/native/libjli/jli_util.h openjdk17-workdir/src/java.base/share/native/libjli/jli_util.h
+index 3512b1e..727be0d 100644
+--- openjdk17-clean/src/java.base/share/native/libjli/jli_util.h
++++ openjdk17-workdir/src/java.base/share/native/libjli/jli_util.h
+@@ -115,6 +115,9 @@ JLI_CmdToArgs(char *cmdline);
+ #define JLI_Lseek                       lseek
+ #endif
+ #endif /* _WIN32 */
++#ifdef __astral__
++#define JLI_Lseek                       lseek
++#endif
+ 
+ /*
+  * Make launcher spit debug output.
+diff --git openjdk17-clean/src/java.base/unix/native/jspawnhelper/jspawnhelper.c openjdk17-workdir/src/java.base/unix/native/jspawnhelper/jspawnhelper.c
+index 1388201..db47119 100644
+--- openjdk17-clean/src/java.base/unix/native/jspawnhelper/jspawnhelper.c
++++ openjdk17-workdir/src/java.base/unix/native/jspawnhelper/jspawnhelper.c
+@@ -33,8 +33,6 @@
+ 
+ #include "childproc.h"
+ 
+-extern int errno;
+-
+ #define ALLOC(X,Y) { \
+     void *mptr; \
+     mptr = malloc (Y); \
+diff --git openjdk17-clean/src/java.base/unix/native/libjava/ProcessHandleImpl_unix.c openjdk17-workdir/src/java.base/unix/native/libjava/ProcessHandleImpl_unix.c
+index d53e887..35d1121 100644
+--- openjdk17-clean/src/java.base/unix/native/libjava/ProcessHandleImpl_unix.c
++++ openjdk17-workdir/src/java.base/unix/native/libjava/ProcessHandleImpl_unix.c
+@@ -485,10 +485,10 @@ void unix_getUserInfo(JNIEnv* env, jobject jinfo, uid_t uid) {
+ }
+ 
+ /*
+- * The following functions are common on Solaris, Linux and AIX.
++ * The following functions are common on Solaris, Linux, AIX and Astral.
+  */
+ 
+-#if defined (__linux__) || defined(_AIX)
++#if defined (__linux__) || defined(_AIX) || defined(__astral__)
+ 
+ /*
+  * Returns the children of the requested pid and optionally each parent and
+@@ -607,7 +607,7 @@ jint unix_getChildren(JNIEnv *env, jlong jpid, jlongArray jarray,
+     return count;
+ }
+ 
+-#endif // defined (__linux__) || defined(_AIX)
++#endif // defined (__linux__) || defined(_AIX) || defined(__astral__)
+ 
+ /*
+  * The following functions are for AIX.
+diff --git openjdk17-clean/src/java.base/unix/native/libjava/TimeZone_md.c openjdk17-workdir/src/java.base/unix/native/libjava/TimeZone_md.c
+index 94dfc20..af060ac 100644
+--- openjdk17-clean/src/java.base/unix/native/libjava/TimeZone_md.c
++++ openjdk17-workdir/src/java.base/unix/native/libjava/TimeZone_md.c
+@@ -59,7 +59,7 @@ static char *isFileIdentical(char* buf, size_t size, char *pathname);
+ #define fstat64 fstat
+ #endif
+ 
+-#if defined(__linux__) || defined(_ALLBSD_SOURCE)
++#if defined(__linux__) || defined(_ALLBSD_SOURCE) || defined(__astral__)
+ static const char *ETC_TIMEZONE_FILE = "/etc/timezone";
+ static const char *ZONEINFO_DIR = "/usr/share/zoneinfo";
+ static const char *DEFAULT_ZONEINFO_FILE = "/etc/localtime";
+@@ -75,7 +75,7 @@ static const char popularZones[][4] = {"UTC", "GMT"};
+ static const char *ETC_ENVIRONMENT_FILE = "/etc/environment";
+ #endif
+ 
+-#if defined(__linux__) || defined(MACOSX)
++#if defined(__linux__) || defined(MACOSX) || defined(__astral__)
+ 
+ /*
+  * Returns a pointer to the zone ID portion of the given zoneinfo file
+diff --git openjdk17-clean/src/java.base/unix/native/libjava/io_util_md.c openjdk17-workdir/src/java.base/unix/native/libjava/io_util_md.c
+index e207c57..4311740 100644
+--- openjdk17-clean/src/java.base/unix/native/libjava/io_util_md.c
++++ openjdk17-workdir/src/java.base/unix/native/libjava/io_util_md.c
+@@ -30,7 +30,7 @@
+ #include <string.h>
+ #include <unistd.h>
+ 
+-#if defined(__linux__) || defined(_ALLBSD_SOURCE) || defined(_AIX)
++#if defined(__linux__) || defined(_ALLBSD_SOURCE) || defined(_AIX) || defined(__astral__)
+ #include <sys/ioctl.h>
+ #endif
+ 
+diff --git openjdk17-clean/src/java.base/unix/native/libjava/jni_util_md.c openjdk17-workdir/src/java.base/unix/native/libjava/jni_util_md.c
+index 460503c..47a0236 100644
+--- openjdk17-clean/src/java.base/unix/native/libjava/jni_util_md.c
++++ openjdk17-workdir/src/java.base/unix/native/libjava/jni_util_md.c
+@@ -31,7 +31,7 @@
+ #include "jni_util.h"
+ #include "dlfcn.h"
+ 
+-#if defined(LINUX) && (defined(_GNU_SOURCE) || \
++#if defined(__linux__) && (defined(_GNU_SOURCE) || \
+          (defined(_POSIX_C_SOURCE) && _POSIX_C_SOURCE < 200112L \
+              && defined(_XOPEN_SOURCE) && _XOPEN_SOURCE < 600))
+ extern int __xpg_strerror_r(int, char *, size_t);
+diff --git openjdk17-clean/src/java.base/unix/native/libnet/Inet6AddressImpl.c openjdk17-workdir/src/java.base/unix/native/libnet/Inet6AddressImpl.c
+index 058f3d3..bcfd46f 100644
+--- openjdk17-clean/src/java.base/unix/native/libnet/Inet6AddressImpl.c
++++ openjdk17-workdir/src/java.base/unix/native/libnet/Inet6AddressImpl.c
+@@ -29,6 +29,7 @@
+ #include <sys/time.h>
+ #include <sys/types.h>
+ #include <netinet/in.h>
++#include <netinet/ip.h>
+ #include <netinet/icmp6.h>
+ 
+ #if defined(_ALLBSD_SOURCE)
+diff --git openjdk17-clean/src/java.base/unix/native/libnet/NetworkInterface.c openjdk17-workdir/src/java.base/unix/native/libnet/NetworkInterface.c
+index 990bc1b..b231b8b 100644
+--- openjdk17-clean/src/java.base/unix/native/libnet/NetworkInterface.c
++++ openjdk17-workdir/src/java.base/unix/native/libnet/NetworkInterface.c
+@@ -47,7 +47,7 @@
+ 
+ #include "java_net_InetAddress.h"
+ 
+-#if defined(__linux__)
++#if defined(__linux__) || defined(__astral__)
+     #define _PATH_PROCNET_IFINET6 "/proc/net/if_inet6"
+ #endif
+ 
+@@ -1144,7 +1144,7 @@ static int openSocket(JNIEnv *env, int proto) {
+ }
+ 
+ /** Linux **/
+-#if defined(__linux__)
++#if defined(__linux__) || defined(__astral__)
+ 
+ /*
+  * Opens a socket for further ioctl calls. Tries AF_INET socket first and
+diff --git openjdk17-clean/src/java.base/unix/native/libnet/net_util_md.h openjdk17-workdir/src/java.base/unix/native/libnet/net_util_md.h
+index 6883598..8a17572 100644
+--- openjdk17-clean/src/java.base/unix/native/libnet/net_util_md.h
++++ openjdk17-workdir/src/java.base/unix/native/libnet/net_util_md.h
+@@ -29,6 +29,7 @@
+ #include <netdb.h>
+ #include <poll.h>
+ #include <sys/socket.h>
++#include <netinet/in.h>
+ 
+ /************************************************************************
+  * Macros and constants
+diff --git openjdk17-clean/src/java.base/unix/native/libnio/ch/FileChannelImpl.c openjdk17-workdir/src/java.base/unix/native/libnio/ch/FileChannelImpl.c
+index e0debb0..cdb7435 100644
+--- openjdk17-clean/src/java.base/unix/native/libnio/ch/FileChannelImpl.c
++++ openjdk17-workdir/src/java.base/unix/native/libnio/ch/FileChannelImpl.c
+@@ -29,7 +29,7 @@
+ #include <sys/types.h>
+ #include <unistd.h>
+ 
+-#if defined(__linux__)
++#if defined(__linux__) || defined(__astral__)
+ #include <sys/sendfile.h>
+ #elif defined(_AIX)
+ #include <string.h>
+diff --git openjdk17-clean/src/java.base/unix/native/libnio/ch/FileDispatcherImpl.c openjdk17-workdir/src/java.base/unix/native/libnio/ch/FileDispatcherImpl.c
+index 8821461..f97ccda 100644
+--- openjdk17-clean/src/java.base/unix/native/libnio/ch/FileDispatcherImpl.c
++++ openjdk17-workdir/src/java.base/unix/native/libnio/ch/FileDispatcherImpl.c
+@@ -40,6 +40,10 @@
+ #include <sys/ioctl.h>
+ #endif
+ 
++#ifdef __astral__
++#include <sys/ioctl.h>
++#endif
++
+ #if defined(_ALLBSD_SOURCE)
+ #define lseek64 lseek
+ #define stat64 stat
+diff --git openjdk17-clean/src/java.base/unix/native/libnio/ch/NativeThread.c openjdk17-workdir/src/java.base/unix/native/libnio/ch/NativeThread.c
+index 92dcb9e..15f3438 100644
+--- openjdk17-clean/src/java.base/unix/native/libnio/ch/NativeThread.c
++++ openjdk17-workdir/src/java.base/unix/native/libnio/ch/NativeThread.c
+@@ -34,7 +34,7 @@
+ #include <signal.h>
+ #include <pthread.h>
+ 
+-#ifdef __linux__
++#if defined(__linux__) || defined(__astral__)
+   /* Also defined in net/linux_close.c */
+   #define INTERRUPT_SIGNAL (SIGRTMAX - 2)
+ #elif defined(_AIX)
+diff --git openjdk17-clean/src/java.base/unix/native/libnio/fs/UnixNativeDispatcher.c openjdk17-workdir/src/java.base/unix/native/libnio/fs/UnixNativeDispatcher.c
+index 9df8be1..be0aa40 100644
+--- openjdk17-clean/src/java.base/unix/native/libnio/fs/UnixNativeDispatcher.c
++++ openjdk17-workdir/src/java.base/unix/native/libnio/fs/UnixNativeDispatcher.c
+@@ -41,7 +41,7 @@
+ #endif
+ #include <sys/time.h>
+ 
+-#if defined(__linux__) || defined(_ALLBSD_SOURCE)
++#if defined(__linux__) || defined(_ALLBSD_SOURCE) || defined(__astral__)
+ #include <sys/xattr.h>
+ #endif
+ 
+diff --git openjdk17-clean/src/java.prefs/unix/native/libprefs/FileSystemPreferences.c openjdk17-workdir/src/java.prefs/unix/native/libprefs/FileSystemPreferences.c
+index c591f04..a79b0a8 100644
+--- openjdk17-clean/src/java.prefs/unix/native/libprefs/FileSystemPreferences.c
++++ openjdk17-workdir/src/java.prefs/unix/native/libprefs/FileSystemPreferences.c
+@@ -55,8 +55,9 @@ Java_java_util_prefs_FileSystemPreferences_chmod(JNIEnv *env,
+     return (jint) result;
+ }
+ 
+-#if defined(_ALLBSD_SOURCE)
++#if defined(_ALLBSD_SOURCE) || defined(__astral__)
+ typedef struct flock FLOCK;
++#define F_SETLK64 F_SETLK
+ #else
+ typedef struct flock64 FLOCK;
+ #endif
+diff --git openjdk17-clean/src/jdk.management/unix/native/libmanagement_ext/OperatingSystemImpl.c openjdk17-workdir/src/jdk.management/unix/native/libmanagement_ext/OperatingSystemImpl.c
+index e33d9b4..39f784f 100644
+--- openjdk17-clean/src/jdk.management/unix/native/libmanagement_ext/OperatingSystemImpl.c
++++ openjdk17-workdir/src/jdk.management/unix/native/libmanagement_ext/OperatingSystemImpl.c
+@@ -63,7 +63,7 @@
+ 
+ static jlong page_size = 0;
+ 
+-#if defined(_ALLBSD_SOURCE) || defined(_AIX)
++#if defined(_ALLBSD_SOURCE) || defined(_AIX) || defined(__astral__)
+ #define MB      (1024UL * 1024UL)
+ #else
+ 
+@@ -235,7 +235,7 @@ Java_com_sun_management_internal_OperatingSystemImpl_getFreeMemorySize0
+         return -1;
+     }
+     return (jlong)vm_stats.free_count * page_size;
+-#elif defined(_ALLBSD_SOURCE)
++#elif defined(_ALLBSD_SOURCE) || defined(__astral__)
+     /*
+      * XXBSDL no way to do it in FreeBSD
+      */
+@@ -276,6 +276,8 @@ Java_com_sun_management_internal_OperatingSystemImpl_getTotalMemorySize0
+         return (jlong)(memory_info.real_total * 4L * 1024L);
+     }
+     return -1;
++#elif defined(__astral__)
++    return (128 * MB);
+ #else // solaris / linux
+     jlong num_physical_pages = sysconf(_SC_PHYS_PAGES);
+     return (num_physical_pages * page_size);

@@ -258,7 +258,7 @@ static syscallret_t execve(context_t *context, char *upath, char *uargv[], char 
 		VOP_RELEASE(interpnode);
 	}
 
-	stack = elf_preparestack(STACK_TOP, &auxv64, argv, envp);
+	stack = elf_preparestack(STACK_TOP, &auxv64, argv, envp, path);
 	if (stack == NULL) {
 		ret.errno = ENOMEM;
 		goto error;

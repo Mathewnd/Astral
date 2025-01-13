@@ -67,7 +67,7 @@ syscallret_t syscall_seek(context_t *context, int fd, off_t offset, int whence) 
 			}
 			break;
 		case SEEK_END:
-			newoffset = size;
+			newoffset = size + offset;
 			break;
 	}
 

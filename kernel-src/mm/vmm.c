@@ -169,6 +169,9 @@ static void insertrange(vmmspace_t *space, vmmrange_t *newrange) {
 	while (range->next) {
 		if (newrange->start >= RANGE_TOP(range) && newrange->start < range->next->start) { // space inbetween two other ranges
 			newrange->next = range->next;
+			if (newrange->next)
+				newrange->next->prev = newrange;
+
 			newrange->prev = range;
 			range->next = newrange;
 			goto fragcheck;
@@ -659,21 +662,21 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 }
 
 void *vmm_getphysical(void *addr, bool hold) {
-	addr = (void *)ROUND_DOWN((uintptr_t)addr, PAGE_SIZE);
+	void *aligned_addr = (void *)ROUND_DOWN((uintptr_t)addr, PAGE_SIZE);
 
-	vmmspace_t *space = getspace(addr);
+	vmmspace_t *space = getspace(aligned_addr);
 	if (space == NULL)
 		return NULL;
 
 	MUTEX_ACQUIRE(&space->lock);
 
-	void *physical = arch_mmu_getphysical(current_vmm_context()->pagetable, addr);
+	void *physical = arch_mmu_getphysical(current_vmm_context()->pagetable, aligned_addr);
 
 	if (hold)
 		pmm_hold(physical);
 
 	MUTEX_RELEASE(&space->lock);
-	return physical + ((uintptr_t)addr - ROUND_DOWN((uintptr_t)addr, PAGE_SIZE));
+	return physical + ((uintptr_t)addr - (uintptr_t)aligned_addr);
 }
 
 

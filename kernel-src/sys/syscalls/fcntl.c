@@ -9,6 +9,8 @@
 #define F_SETFD  2
 #define F_GETFL  3
 #define F_SETFL  4
+#define F_SETLK64 6
+#define F_SETLKW64 7
 
 #define FD_CLOEXEC 1
 
@@ -51,6 +53,11 @@ syscallret_t syscall_fcntl(context_t *, int fd, int cmd, uint64_t arg) {
 			int flg;
 			ret.errno = fd_getflags(fd, &flg);
 			ret.ret = flg ? FD_CLOEXEC : 0;
+			break;
+		case F_SETLK64:
+		case F_SETLKW64:
+			ret.errno = 0;
+			ret.ret = 0;
 			break;
 		default:
 			ret.errno = EINVAL;

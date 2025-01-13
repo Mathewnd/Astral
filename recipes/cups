@@ -1,0 +1,30 @@
+name=cups
+revision=1
+from_source=cups
+imagedeps="build-essential xdg-utils"
+hostdeps="xgcc xbinutils pkgconfig"
+deps="base libiconv zlib"
+
+configure() {
+	cp -r "${source_dir}/." "."
+	./configure \
+		--prefix=${prefix} \
+		--host=x86_64-astral \
+		--with-rcdir=/tmp/cupsinit \
+		--with-docdir=/usr/share/cups/doc \
+		--disable-dbus \
+		--disable-gssapi \
+		--disable-pam \
+		--disable-browsing \
+		--with-tls=no \
+		--with-components=libcups
+	sed -i s/-Werror//g Makedefs
+}
+
+build() {
+	make -j${parallelism}
+}
+
+package() {
+	make DESTDIR=${dest_dir} install -j${parallelism}
+}

@@ -1,0 +1,10 @@
+name=openjdk17
+version=17.0.35
+source_method=tarball
+tarball_url="https://github.com/openjdk/jdk17/archive/refs/tags/jdk-17+35.tar.gz"
+tarball_sha512=c43fea864059ec2e5ca8c9ac96253cf429359774105842353c413a3bf0f4a348d6a2a4948f3a5a9af83667b0312b066002d5d5efa8234a37e2370b14ed6733df
+hostdeps="autoconf automake pkgconfig libtool"
+prepare() {
+        cp -v $(find /usr/local/share/automake* -name config.sub) make/autoconf/build-aux/
+        chmod +x configure
+}
