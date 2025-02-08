@@ -22,6 +22,8 @@
 #define ARCH_MMU_FLAGS_WT (1 << 3)
 #define ARCH_MMU_FLAGS_UC (1 << 4)
 
+#define ARCH_MMU_REQUIRED_FLAGS ARCH_MMU_FLAGS_READ
+
 typedef uint64_t mmuflags_t;
 typedef uint64_t * pagetableptr_t; // physical address
 

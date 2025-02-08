@@ -12,17 +12,21 @@
 #define MAP_PRIVATE   0x02
 #define MAP_FIXED     0x10
 #define MAP_ANON      0x20
+#define MAP_FIXED_NOREPLACE 0x100000
 #define MAP_ANONYMOUS MAP_ANON
 #define MAP_NORESERVE 0x4000
 
 #define KNOWN_PROT (PROT_READ | PROT_WRITE | PROT_EXEC)
-#define KNOWN_FLAGS (MAP_SHARED | MAP_PRIVATE | MAP_FIXED | MAP_ANONYMOUS | MAP_NORESERVE)
+#define KNOWN_FLAGS (MAP_SHARED | MAP_PRIVATE | MAP_FIXED | MAP_ANONYMOUS | MAP_NORESERVE | MAP_FIXED_NOREPLACE)
 
 syscallret_t syscall_mmap(context_t *context, void *hint, size_t len, int prot, int flags, int fd, off_t offset) {
 	syscallret_t ret = {
 		.errno = 0,
 		.ret = -1
 	};
+
+	if ((~KNOWN_FLAGS & flags))
+		printf("%x\n", flags);
 
 	__assert((~KNOWN_FLAGS & flags) == 0);
 	__assert((~KNOWN_PROT & prot) == 0);
@@ -34,7 +38,7 @@ syscallret_t syscall_mmap(context_t *context, void *hint, size_t len, int prot, 
 		return ret;
 	}
 
-	mmuflags_t mmuflags = ARCH_MMU_FLAGS_USER;
+	mmuflags_t mmuflags = ARCH_MMU_FLAGS_USER | ARCH_MMU_REQUIRED_FLAGS;
 	if (prot & PROT_READ)
 		mmuflags |= ARCH_MMU_FLAGS_READ;
 	if (prot & PROT_WRITE)
@@ -47,6 +51,9 @@ syscallret_t syscall_mmap(context_t *context, void *hint, size_t len, int prot, 
 
 	if (flags & MAP_FIXED)
 		vmmflags |= VMM_FLAGS_REPLACE;
+
+	if (flags & MAP_FIXED_NOREPLACE)
+		vmmflags |= VMM_FLAGS_EXACT;
 
 	if ((flags & MAP_ANONYMOUS) == 0)
 		vmmflags |= VMM_FLAGS_FILE;
