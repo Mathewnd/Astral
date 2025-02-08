@@ -1,7 +1,7 @@
 #include <kernel/syscalls.h>
 #include <mutex.h>
 
-syscallret_t syscall_ftruncate(int fd, size_t size) {
+syscallret_t syscall_ftruncate(context_t *, int fd, size_t size) {
 	syscallret_t ret = {
 		.ret = -1
 	};
