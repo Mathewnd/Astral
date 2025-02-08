@@ -89,6 +89,7 @@ typedef struct {
 #define SOCK_DGRAM 2
 #define SOCK_RAW 3
 
+#define MSG_CMSG_CLOEXEC 0x40000000
 #define MSG_CTRUNC 0x8
 #define MSG_PEEK 2
 #define MSG_WAITALL 0x100

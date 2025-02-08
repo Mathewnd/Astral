@@ -6,7 +6,7 @@
 #include <kernel/file.h>
 #include <kernel/alloc.h>
 
-#define KNOWN_FLAGS (MSG_PEEK | MSG_WAITALL)
+#define KNOWN_FLAGS (MSG_PEEK | MSG_WAITALL | MSG_CMSG_CLOEXEC)
 
 syscallret_t syscall_recvmsg(context_t *, int fd, msghdr_t *umsghdr, int flags) {
 	__assert((flags & ~KNOWN_FLAGS) == 0);
@@ -54,6 +54,9 @@ syscallret_t syscall_recvmsg(context_t *, int fd, msghdr_t *umsghdr, int flags) 
 
 	if (flags & MSG_WAITALL)
 		recvflags |= SOCKET_RECV_FLAGS_WAITALL;
+
+	if (flags & MSG_CMSG_CLOEXEC)
+		recvflags |= SOCKET_RECV_FLAGS_CLOEXEC_CTRL;
 
 	iovec_iterator_t iovec_iterator;
 	sockdesc_t desc = {

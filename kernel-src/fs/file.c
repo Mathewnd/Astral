@@ -196,7 +196,7 @@ int fd_clone(proc_t *targproc) {
 	return error;
 }
 
-int fd_insert(file_t *file, int *fdp) {
+int fd_insert(file_t *file, int *fdp, int flags) {
 	proc_t *proc = current_thread()->proc;
 	int err = 0;
 	MUTEX_ACQUIRE(&proc->fdmutex);
@@ -210,7 +210,7 @@ int fd_insert(file_t *file, int *fdp) {
 	}
 
 	proc->fd[fd].file = file;
-	proc->fd[fd].flags = 0;
+	proc->fd[fd].flags = flags;
 	FILE_HOLD(file);
 	*fdp = fd;
 
