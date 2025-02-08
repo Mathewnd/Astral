@@ -28,6 +28,7 @@ typedef struct {
 	uint64_t r15;
 	uint64_t rdi;
 	uint64_t rsi;
+	uint64_t irq;
 	uint64_t rbp;
 	uint64_t error;
 	uint64_t rip;
@@ -67,6 +68,7 @@ typedef struct {
 #define CTX_IP(x) (x)->rip
 #define CTX_RET(x) (x)->rax
 #define CTX_ERRNO(x) (x)->rdx
+#define CTX_TRAP_ADDR(x) (x)->cr2
 #define CTX_ARG0(x) (x)->rdi
 #define CTX_ARG1(x) (x)->rsi
 #define CTX_ARG2(x) (x)->rdx

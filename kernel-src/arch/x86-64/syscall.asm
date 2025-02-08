@@ -221,6 +221,7 @@ arch_syscall_entry:
 	push qword rcx ; save return RIP
 	push qword 0 ; error
 	push rbp
+	push qword 0 ; irq
 	push rsi
 	push rdi
 	push r15
@@ -315,6 +316,7 @@ arch_syscall_entry:
 	pop r15
 	pop rdi
 	pop rsi
+	add rsp, 8 ; remove irq
 	pop rbp
 	add rsp, 8 ; remove error code
 	pop rcx

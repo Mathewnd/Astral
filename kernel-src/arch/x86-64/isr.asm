@@ -10,6 +10,7 @@ isr_%+ i:
 
 	push rbp ; this push is here to free a register
 	mov rbp, i
+
 	jmp isr_common
 %assign i i + 1
 %endrep
@@ -21,6 +22,7 @@ isr_common:
 	swapgs
 	.notneeded1:
 	; push context
+	push rbp ; push irq num
 	push rsi
 	push rdi
 	push r15
@@ -80,6 +82,7 @@ isr_common:
 	pop r15
 	pop rdi
 	pop rsi
+	add rsp,8 ; remove irq
 	pop rbp
 	add rsp,8 ; remove error code
 

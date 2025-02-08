@@ -27,6 +27,7 @@ arch_context_switch:
 	pop r15
 	pop rdi
 	pop rsi
+	add rsp,8 ; remove irq
 	pop rbp
 	add rsp,8 ; remove error code
 
@@ -60,6 +61,7 @@ arch_context_saveandcall:
 	push r11 	; return address
 	sub rsp, 8 	; error code
 	push rbp
+	sub rsp, 8 	; irq
 	push rsi
 	push rdi
 	push r15
