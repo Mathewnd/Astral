@@ -36,7 +36,7 @@
 
 typedef struct {
 	unsigned long gregs[MCONTEXT_NGREG];
-	uint8_t fpu_state[512];
+	uint8_t *fpu_state_p;
 	unsigned long __reserved1[8];
 } mcontext_t;
 
@@ -60,11 +60,10 @@ typedef struct {
 
 #define ARCH_SIGFRAME_GET_UCONTEXT_POINTER(x) (&(x)->uc_flags)
 
-static inline void arch_sigframe_prepare_mcontext(sigframe_t *sigframe) {
+static inline void arch_sigframe_prepare_mcontext(void *stack, sigframe_t *sigframe) {
 	context_t *context = &sigframe->context;
 	extracontext_t *extracontext = &sigframe->extracontext;
 	unsigned long *gregs = sigframe->mcontext.gregs;
-	uint8_t *fpu_state = sigframe->mcontext.fpu_state;
 
 	gregs[MCONTEXT_REG_R8] = context->r8;
 	gregs[MCONTEXT_REG_R9] = context->r9;
@@ -86,18 +85,17 @@ static inline void arch_sigframe_prepare_mcontext(sigframe_t *sigframe) {
 	gregs[MCONTEXT_REG_EFL] = context->rflags;
 	gregs[MCONTEXT_REG_CSGSFS] = 0;
 	gregs[MCONTEXT_REG_ERR] = context->error;
-	gregs[MCONTEXT_REG_TRAPNO] = 0;
+	gregs[MCONTEXT_REG_TRAPNO] = context->irq;
 	gregs[MCONTEXT_REG_OLDMASK] = 0;
 	gregs[MCONTEXT_REG_CR2] = context->cr2;
 
-	memcpy(fpu_state, extracontext->fx, 512);
+	sigframe->mcontext.fpu_state_p = &((sigframe_t *)stack)->extracontext.fx;
 }
 
 static inline void arch_sigframe_get_context_from_mcontext(sigframe_t *sigframe) {
 	context_t *context = &sigframe->context;
 	extracontext_t *extracontext = &sigframe->extracontext;
 	unsigned long *gregs = sigframe->mcontext.gregs;
-	uint8_t *fpu_state = sigframe->mcontext.fpu_state;
 
 	context->r8 = gregs[MCONTEXT_REG_R8];
 	context->r9 = gregs[MCONTEXT_REG_R9];
@@ -119,8 +117,6 @@ static inline void arch_sigframe_get_context_from_mcontext(sigframe_t *sigframe)
 	context->rflags = gregs[MCONTEXT_REG_EFL];
 	context->error = gregs[MCONTEXT_REG_ERR];
 	context->cr2 = gregs[MCONTEXT_REG_CR2];
-
-	memcpy(extracontext->fx, fpu_state, 512);
 }
 
 

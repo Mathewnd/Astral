@@ -569,12 +569,14 @@ bool signal_check(struct thread_t *thread, context_t *context, bool syscall, uin
 		memcpy(&sigframe.context, context, sizeof(context_t));
 		memcpy(&sigframe.extracontext, &thread->extracontext, sizeof(extracontext_t));
 
-		arch_sigframe_prepare_mcontext(&sigframe);
+		arch_sigframe_prepare_mcontext(stack, &sigframe);
 
 		memset(&sigframe.siginfo, 0, sizeof(siginfo_t));
+		if (signal == SIGSEGV)
+			sigframe.siginfo.__si_fields.__sigfault.si_addr = CTX_TRAP_ADDR(context);
 
 		if (usercopy_touser(stack, &sigframe, sizeof(sigframe_t))) {
-			printf("signal: bad user stack %p\n", stack);
+			printf("signal: bad user stack %p (altstack %p) handling signal %d trapno %lu\n", stack, altstack, signal, sigframe.mcontext.gregs[MCONTEXT_REG_TRAPNO]);
 			THREAD_LEAVE(thread);
 			PROCESS_LEAVE(proc);
 			interrupt_set(true);
