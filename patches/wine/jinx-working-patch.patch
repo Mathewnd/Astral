@@ -1,0 +1,146 @@
+diff --git wine-clean/configure wine-workdir/configure
+index fe7464a..02f7a89 100755
+--- wine-clean/configure
++++ wine-workdir/configure
+@@ -7891,12 +7891,14 @@ then :
+   printf "%s\n" "#define HAVE_SYS_CDIO_H 1" >>confdefs.h
+ 
+ fi
+-ac_fn_c_check_header_compile "$LINENO" "sys/epoll.h" "ac_cv_header_sys_epoll_h" "$ac_includes_default"
+-if test "x$ac_cv_header_sys_epoll_h" = xyes
+-then :
+-  printf "%s\n" "#define HAVE_SYS_EPOLL_H 1" >>confdefs.h
+ 
+-fi
++#ac_fn_c_check_header_compile "$LINENO" "sys/epoll.h" "ac_cv_header_sys_epoll_h" "$ac_includes_default"
++#if test "x$ac_cv_header_sys_epoll_h" = xyes
++#then :
++# printf "%s\n" "#define HAVE_SYS_EPOLL_H 1" >>confdefs.h
++#
++#fi
++
+ ac_fn_c_check_header_compile "$LINENO" "sys/event.h" "ac_cv_header_sys_event_h" "$ac_includes_default"
+ if test "x$ac_cv_header_sys_event_h" = xyes
+ then :
+@@ -8059,12 +8061,12 @@ then :
+   printf "%s\n" "#define HAVE_SYS_VNODE_H 1" >>confdefs.h
+ 
+ fi
+-ac_fn_c_check_header_compile "$LINENO" "sys/xattr.h" "ac_cv_header_sys_xattr_h" "$ac_includes_default"
+-if test "x$ac_cv_header_sys_xattr_h" = xyes
+-then :
+-  printf "%s\n" "#define HAVE_SYS_XATTR_H 1" >>confdefs.h
++#ac_fn_c_check_header_compile "$LINENO" "sys/xattr.h" "ac_cv_header_sys_xattr_h" "$ac_includes_default"
++#if test "x$ac_cv_header_sys_xattr_h" = xyes
++#then :
++#  printf "%s\n" "#define HAVE_SYS_XATTR_H 1" >>confdefs.h
+ 
+-fi
++#fi
+ ac_fn_c_check_header_compile "$LINENO" "syscall.h" "ac_cv_header_syscall_h" "$ac_includes_default"
+ if test "x$ac_cv_header_syscall_h" = xyes
+ then :
+@@ -21003,12 +21005,12 @@ then :
+   printf "%s\n" "#define HAVE_DLINFO 1" >>confdefs.h
+ 
+ fi
+-ac_fn_c_check_func "$LINENO" "epoll_create" "ac_cv_func_epoll_create"
+-if test "x$ac_cv_func_epoll_create" = xyes
+-then :
+-  printf "%s\n" "#define HAVE_EPOLL_CREATE 1" >>confdefs.h
+-
+-fi
++#ac_fn_c_check_func "$LINENO" "epoll_create" "ac_cv_func_epoll_create"
++#if test "x$ac_cv_func_epoll_create" = xyes
++#then :
++#  printf "%s\n" "#define HAVE_EPOLL_CREATE 1" >>confdefs.h
++#
++#fi
+ ac_fn_c_check_func "$LINENO" "fstatfs" "ac_cv_func_fstatfs"
+ if test "x$ac_cv_func_fstatfs" = xyes
+ then :
+diff --git wine-clean/dlls/ntdll/unix/signal_x86_64.c wine-workdir/dlls/ntdll/unix/signal_x86_64.c
+index caa8524..9f4448d 100644
+--- wine-clean/dlls/ntdll/unix/signal_x86_64.c
++++ wine-workdir/dlls/ntdll/unix/signal_x86_64.c
+@@ -75,6 +75,10 @@
+ #include "unix_private.h"
+ #include "wine/debug.h"
+ 
++#ifdef __astral__
++#include <astral/archctl.h>
++#endif
++
+ WINE_DEFAULT_DEBUG_CHANNEL(unwind);
+ WINE_DECLARE_DEBUG_CHANNEL(seh);
+ 
+@@ -292,6 +296,38 @@ static inline XMM_SAVE_AREA32 *FPU_sig( const ucontext_t *context )
+ 
+ #define XState_sig(context)  NULL
+ 
++#elif defined(__astral__)
++
++#ifndef FP_XSTATE_MAGIC1
++#define FP_XSTATE_MAGIC1 0x46505853
++#endif
++
++#define RAX_sig(context)     ((context)->uc_mcontext.gregs[REG_RAX])
++#define RBX_sig(context)     ((context)->uc_mcontext.gregs[REG_RBX])
++#define RCX_sig(context)     ((context)->uc_mcontext.gregs[REG_RCX])
++#define RDX_sig(context)     ((context)->uc_mcontext.gregs[REG_RDX])
++#define RSI_sig(context)     ((context)->uc_mcontext.gregs[REG_RSI])
++#define RDI_sig(context)     ((context)->uc_mcontext.gregs[REG_RDI])
++#define RBP_sig(context)     ((context)->uc_mcontext.gregs[REG_RBP])
++#define R8_sig(context)      ((context)->uc_mcontext.gregs[REG_R8])
++#define R9_sig(context)      ((context)->uc_mcontext.gregs[REG_R9])
++#define R10_sig(context)     ((context)->uc_mcontext.gregs[REG_R10])
++#define R11_sig(context)     ((context)->uc_mcontext.gregs[REG_R11])
++#define R12_sig(context)     ((context)->uc_mcontext.gregs[REG_R12])
++#define R13_sig(context)     ((context)->uc_mcontext.gregs[REG_R13])
++#define R14_sig(context)     ((context)->uc_mcontext.gregs[REG_R14])
++#define R15_sig(context)     ((context)->uc_mcontext.gregs[REG_R15])
++#define CS_sig(context)      (*((WORD *)&(context)->uc_mcontext.gregs[REG_CSGSFS] + 0))
++#define GS_sig(context)      (*((WORD *)&(context)->uc_mcontext.gregs[REG_CSGSFS] + 1))
++#define FS_sig(context)      (*((WORD *)&(context)->uc_mcontext.gregs[REG_CSGSFS] + 2))
++#define RSP_sig(context)     ((context)->uc_mcontext.gregs[REG_RSP])
++#define RIP_sig(context)     ((context)->uc_mcontext.gregs[REG_RIP])
++#define EFL_sig(context)     ((context)->uc_mcontext.gregs[REG_EFL])
++#define TRAP_sig(context)    ((context)->uc_mcontext.gregs[REG_TRAPNO])
++#define ERROR_sig(context)   ((context)->uc_mcontext.gregs[REG_ERR])
++#define FPU_sig(context)     ((XMM_SAVE_AREA32 *)((context)->uc_mcontext.fpregs))
++#define XState_sig(fpu)      (((unsigned int *)fpu->Reserved4)[12] == FP_XSTATE_MAGIC1 ? (XSAVE_AREA_HEADER *)(fpu + 1) : NULL)
++	
+ #else
+ #error You must define the signal context functions for your platform
+ #endif
+@@ -2604,6 +2640,11 @@ void call_init_thunk( LPTHREAD_START_ROUTINE entry, void *arg, BOOL suspend, TEB
+        thread's gsbase.  Have each thread record its gsbase pointer into its
+        TEB so alloc_tls_slot() can find it. */
+     teb->Instrumentation[0] = thread_data->pthread_teb;
++
++#elif defined(__astral__)
++    arch_ctl(ARCH_CTL_SET_GSBASE, teb);
++    arch_ctl(ARCH_CTL_GET_FSBASE, &thread_data->pthread_teb);
++    if (fs32_sel) alloc_fs_sel( fs32_sel >> 3, get_wow_teb( teb ));
+ #else
+ # error Please define setting %gs for your architecture
+ #endif
+diff --git wine-clean/server/sock.c wine-workdir/server/sock.c
+index 32d622a..539d5e3 100644
+--- wine-clean/server/sock.c
++++ wine-workdir/server/sock.c
+@@ -4174,12 +4174,12 @@ static MIB_TCP_STATE get_tcp_socket_state( int fd )
+     #define TCP_INFO TCP_CONNECTION_INFO
+     #define tcp_info tcp_connection_info
+ #endif
+-
++/*
+     struct tcp_info info;
+     socklen_t info_len = sizeof(info);
+     if (getsockopt( fd, IPPROTO_TCP, TCP_INFO, &info, &info_len ) == 0)
+         return tcp_state_to_mib_state( info.tcpi_state );
+-
++*/
+     if (debug_level)
+         fprintf( stderr, "getsockopt TCP_INFO failed: %s\n", strerror( errno ) );
+ 

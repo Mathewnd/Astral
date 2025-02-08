@@ -1,0 +1,11 @@
+name=wine
+version=10.0
+source_method=tarball
+tarball_url="https://dl.winehq.org/wine/source/${version}/wine-${version}.tar.xz"
+tarball_sha512="effb41c5641993e2e52eaa825cc19b7d9846e084992c5a5b066ead2339b24384d320898a9cee347a9a87106bcb3b0f54c8cd2c8d4de3a887a658052ddd5168d6"
+hostdeps="autoconf automake pkgconfig libtool autoconf-archive"
+prepare() {
+        cp -v $(find /usr/local/share/automake* -name config.sub) tools/
+        cp -v $(find /usr/local/share/automake* -name config.guess) tools/
+        chmod +x configure
+}

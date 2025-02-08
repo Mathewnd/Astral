@@ -1,0 +1,47 @@
+name=wine
+revision=1
+from_source=wine
+imagedeps="build-essential"
+hostdeps="xgcc xbinutils pkgconfig wine freetype"
+deps="base libxcursor libxfixes libxi libxrandr libxrender libxxf86vm libx11 libxext mesa fontconfig sdl2 freetype glib xorgproto openssl"
+
+configure() {
+        ${source_dir}/configure \
+        --host=x86_64-astral \
+        --prefix=/usr \
+        --disable-tests \
+        --enable-win64 \
+        --disable-win16 \
+        --without-alsa \
+        --without-capi \
+        --without-cups \
+        --without-dbus \
+        --without-gettext \
+        --without-gphoto \
+        --without-gssapi \
+        --without-krb5 \
+        --without-mingw \
+        --without-netapi \
+        --without-opencl \
+        --without-osmesa \
+        --without-oss \
+        --without-pcap \
+        --without-pulse \
+        --without-sane \
+        --without-unwind \
+        --without-usb \
+        --without-v4l2 \
+        --without-vulkan \
+        --without-xcomposite \
+        --without-xinerama \
+        --with-x \
+	--with-wine-tools="${base_dir}/host-builds/wine/"
+}
+
+build() {
+	make -j ${parallelism}
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+}

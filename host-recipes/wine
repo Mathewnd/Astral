@@ -1,0 +1,22 @@
+name=wine
+revision=1
+from_source=wine
+imagedeps="build-essential"
+hostdeps="freetype pkgconfig"
+
+configure() {
+        ${source_dir}/configure \
+        --prefix=/usr \
+        --disable-tests \
+        --enable-win64 \
+        --disable-win16 \
+	--without-x
+}
+
+build() {
+	make -j ${parallelism}
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+}
