@@ -1832,6 +1832,11 @@ static int tcp_setopt(socket_t *socket, int optname, void *buffer, size_t len, c
 	return 0;
 }
 
+static int tcp_shutdown(socket_t *socket, int how) {
+	printf("tcp: shutdown is not implemented\n");
+	return ENOSYS;
+}
+
 static socketops_t socketops = {
 	.bind = tcp_bind,
 	.send = tcp_send,
@@ -1844,7 +1849,8 @@ static socketops_t socketops = {
 	.destroy = tcp_destroy,
 	.getname = tcp_getname,
 	.getpeername = tcp_getpeername,
-	.setopt = tcp_setopt
+	.setopt = tcp_setopt,
+	.shutdown = tcp_shutdown
 };
 
 socket_t *tcp_createsocket() {

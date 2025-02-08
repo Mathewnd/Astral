@@ -13,7 +13,7 @@
 struct localpair_t;
 struct binding_t;
 typedef struct {
-	socket_t socket;
+	socket_t socket; // shutdown state is shared with pair
 	ringbuffer_t ringbuffer; // shared with pair
 	// client/connected server
 	struct localpair_t *pair;
@@ -1003,6 +1003,47 @@ static int localsock_getpeername(socket_t *socket, sockaddr_t *addr) {
 	return 0;
 }
 
+static int localsock_shutdown(socket_t *socket, int how) {
+	localsocket_t *localsocket = (localsocket_t *)socket;
+	MUTEX_ACQUIRE(&socket->mutex);
+	int error;
+
+	localpair_t *pair = localsocket->pair;
+	// socket not connected
+	if (pair == NULL) {
+		error = ENOTCONN;
+		goto leave;
+	}
+
+	MUTEX_ACQUIRE(&pair->mutex);
+
+	localsocket_t *peer = localsocket->pair->client == localsocket ? localsocket->pair->server : localsocket->pair->client;
+
+	socket->shutdown |= how;
+
+	int poll_events = 0;
+
+	// XXX is this the correct behaviour?
+	if (how & SOCKET_SHUTDOWN_READ)
+		poll_events |= POLLHUP;
+
+	if (how & SOCKET_SHUTDOWN_WRITE)
+		poll_events |= POLLIN;
+
+	if (peer)
+		poll_event(&peer->socket.pollheader, poll_events);
+
+	error = 0;
+
+	leave:
+	if (pair)
+		MUTEX_RELEASE(&pair->mutex);
+
+	MUTEX_RELEASE(&socket->mutex);
+	return error;
+
+}
+
 static socketops_t socketops = {
 	.bind = localsock_bind,
 	.listen = localsock_listen,
@@ -1014,7 +1055,8 @@ static socketops_t socketops = {
 	.poll = localsock_poll,
 	.datacount = localsocket_datacount,
 	.getname = localsock_getname,
-	.getpeername = localsock_getpeername
+	.getpeername = localsock_getpeername,
+	.shutdown = localsock_shutdown
 };
 
 socket_t *localsock_createsocket() {

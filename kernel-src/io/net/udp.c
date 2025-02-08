@@ -109,7 +109,7 @@ void udp_process(netdev_t *netdev, void *buffer, uint32_t peer) {
 
 	spinlock_release(&portlock);
 
-	if (socket == NULL) // drop packet if no socket listening on port
+	if (socket == NULL || (socket->socket.shutdown & SOCKET_SHUTDOWN_READ)) // drop packet if no socket listening on port or its not accepting incoming data
 		return;
 
 	dataheader_t header = {
@@ -185,7 +185,14 @@ static int udp_send(socket_t *socket, sockdesc_t *sockdesc) {
 	int e;
 	MUTEX_ACQUIRE(&socket->mutex);
 
-	if (sockdesc->addr == NULL && socket->state != SOCKET_STATE_CONNECTED) {
+	if (socket->shutdown & SOCKET_SHUTDOWN_WRITE) {
+		// XXX should SIGPIPE be sent in this case?
+		e = 0;
+		sockdesc->donecount = 0;
+		return 0;
+	}
+
+	if (sockdesc->addr == NULL) {
 		e = ENOTCONN;
 		goto cleanup;
 	}
@@ -337,6 +344,18 @@ static int udp_poll(socket_t *socket, polldata_t *data, int events) {
 	return revents;
 }
 
+static int udp_shutdown(socket_t *socket, int how) {
+	if (how > SOCKET_SHUTDOWN_RW)
+		return EINVAL;
+
+	MUTEX_ACQUIRE(&socket->mutex);
+
+	socket->shutdown |= how;
+
+	MUTEX_RELEASE(&socket->mutex);
+	return 0;
+}
+
 static socketops_t socketops = {
 	.bind = udp_bind,
 	.send = udp_send,
@@ -344,7 +363,8 @@ static socketops_t socketops = {
 	.destroy = udp_destroy,
 	.poll = udp_poll,
 	.getname = udp_getname,
-	.getpeername = udp_getpeername
+	.getpeername = udp_getpeername,
+	.shutdown = udp_shutdown
 };
 
 socket_t *udp_createsocket() {

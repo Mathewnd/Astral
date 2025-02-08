@@ -13,6 +13,10 @@
 #define SOCKET_STATE_CONNECTED 2
 #define SOCKET_STATE_LISTENING 3
 
+#define SOCKET_SHUTDOWN_READ 1
+#define SOCKET_SHUTDOWN_WRITE 2
+#define SOCKET_SHUTDOWN_RW 3
+
 typedef struct {
 	struct socketops_t *ops;
 	mutex_t mutex;
@@ -21,6 +25,7 @@ typedef struct {
 	netdev_t *netdev;
 	pollheader_t pollheader;
 	int type;
+	int shutdown;
 } socket_t;
 
 typedef struct {
@@ -67,6 +72,7 @@ typedef struct socketops_t {
 	size_t (*datacount)(socket_t *socket);
 	void (*destroy)(socket_t *socket);
 	int (*setopt)(socket_t *socket, int optname, void *buffer, size_t len, cred_t *cred);
+	int (*shutdown)(socket_t *socket, int how);
 } socketops_t;
 
 typedef struct {

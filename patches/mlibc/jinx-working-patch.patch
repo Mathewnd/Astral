@@ -12,6 +12,18 @@ index 87bc25f..d7370d0 100644
  #define IPPROTO_IP       0
  #define IPPROTO_HOPOPTS  0
  #define IPPROTO_ICMP     1
+diff --git mlibc-clean/meson.build mlibc-workdir/meson.build
+index 39796b5..7d671fc 100644
+--- mlibc-clean/meson.build
++++ mlibc-workdir/meson.build
+@@ -268,6 +268,7 @@ elif host_machine.system() == 'astral'
+ 	libc_include_dirs += include_directories('sysdeps/astral/include')
+ 	internal_conf.set10('MLIBC_MAP_DSO_SEGMENTS', true)
+ 	internal_conf.set10('MLIBC_MAP_FILE_WINDOWS', true)
++	internal_conf.set10('MLIBC_MMAP_ALLOCATE_DSO', true)
+ 	subdir('sysdeps/astral')
+ else
+ 	error('No sysdeps defined for OS: ' + host_machine.system())
 diff --git mlibc-clean/options/ansi/generic/environment.cpp mlibc-workdir/options/ansi/generic/environment.cpp
 index 5625592..36b42ee 100644
 --- mlibc-clean/options/ansi/generic/environment.cpp
@@ -111,8 +123,21 @@ index 9219ef0..1ff679c 100644
  #if __MLIBC_POSIX_OPTION
  #include <dlfcn.h>
  #endif
+diff --git mlibc-clean/sysdeps/astral/generic/astral.cpp mlibc-workdir/sysdeps/astral/generic/astral.cpp
+index d5ba7b2..a86353f 100644
+--- mlibc-clean/sysdeps/astral/generic/astral.cpp
++++ mlibc-workdir/sysdeps/astral/generic/astral.cpp
+@@ -4,7 +4,7 @@
+ 
+ #ifndef MLIBC_BUILDING_RTLD
+ 
+-int syscall_archctl(int func, void *arg) {
++int arch_ctl(int func, void *arg) {
+ 	long ret;
+ 	long error = syscall(SYSCALL_ARCHCTL, &ret, func, (uint64_t)arg);
+ 	if(error)
 diff --git mlibc-clean/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
-index 2a504ab..61c3bf0 100644
+index 2a504ab..3c46318 100644
 --- mlibc-clean/sysdeps/astral/generic/generic.cpp
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
 @@ -31,6 +31,12 @@ namespace mlibc {
@@ -128,7 +153,19 @@ index 2a504ab..61c3bf0 100644
  	int sys_getsockopt(int fd, int layer, int number,
  		void *__restrict buffer, socklen_t *__restrict size) {
  		(void)size;
-@@ -161,7 +167,18 @@ namespace mlibc {
+@@ -40,6 +46,11 @@ namespace mlibc {
+ 		return 0;
+ 	}
+ 
++	int sys_shutdown(int sockfd, int how) {
++		long ret;
++		return syscall(SYSCALL_SHUTDOWN, &ret, sockfd, how);
++	}
++
+ 	int sys_tgkill(int pid, int tid, int sig) {
+ 		long ret;
+ 		return syscall(SYSCALL_KILLTHREAD, &ret, pid, tid, sig);
+@@ -161,7 +172,18 @@ namespace mlibc {
  		*bytes_written = writec;
  		return error;
  	}
@@ -148,7 +185,7 @@ index 2a504ab..61c3bf0 100644
  	#ifndef MLIBC_BUILDING_RTLD
  
  	typedef struct {
-@@ -487,6 +504,12 @@ namespace mlibc {
+@@ -487,6 +509,12 @@ namespace mlibc {
  		return ret;
  	}
  
@@ -161,3 +198,58 @@ index 2a504ab..61c3bf0 100644
  	#ifndef MLIBC_BUILDING_RTLD
  
  	[[noreturn]] void sys_thread_exit() {
+@@ -882,7 +910,7 @@ namespace mlibc {
+ 
+ 	int sys_tcb_set(void *pointer) {
+ 		long r;
+-		return syscall(SYSCALL_ARCHCTL, &r, ARCH_CTL_FSBASE, (uint64_t)pointer);
++		return syscall(SYSCALL_ARCHCTL, &r, ARCH_CTL_SET_FSBASE, (uint64_t)pointer);
+ 	}
+ 
+ 	#define FUTEX_WAIT 0
+diff --git mlibc-clean/sysdeps/astral/include/astral/archctl.h mlibc-workdir/sysdeps/astral/include/astral/archctl.h
+index d738e02..7e4f2a1 100644
+--- mlibc-clean/sysdeps/astral/include/astral/archctl.h
++++ mlibc-workdir/sysdeps/astral/include/astral/archctl.h
+@@ -1,8 +1,10 @@
+ #ifndef _ASTRAL_ARCHCTL_H
+ #define _ASTRAL_ARCHCTL_H
+ 
+-#define ARCH_CTL_GSBASE 0
+-#define ARCH_CTL_FSBASE 1
++#define ARCH_CTL_SET_GSBASE 0
++#define ARCH_CTL_SET_FSBASE 1
++#define ARCH_CTL_GET_GSBASE 2
++#define ARCH_CTL_GET_FSBASE 3
+ 
+ #ifdef __cplusplus
+ extern "C" {
+diff --git mlibc-clean/sysdeps/astral/include/astral/syscall.h mlibc-workdir/sysdeps/astral/include/astral/syscall.h
+index 5f42d62..852f9ff 100644
+--- mlibc-clean/sysdeps/astral/include/astral/syscall.h
++++ mlibc-workdir/sysdeps/astral/include/astral/syscall.h
+@@ -96,6 +96,7 @@
+ #define SYSCALL_SIGTIMEDWAIT 89
+ #define SYSCALL_SIGPENDING 90
+ #define SYSCALL_KILLTHREAD 91
++#define SYSCALL_SHUTDOWN 92
+ 
+ #ifndef __MLIBC_ABI_ONLY
+ 
+diff --git mlibc-clean/sysdeps/astral/meson.build mlibc-workdir/sysdeps/astral/meson.build
+index a5ede46..e198d2e 100644
+--- mlibc-clean/sysdeps/astral/meson.build
++++ mlibc-workdir/sysdeps/astral/meson.build
+@@ -63,6 +63,12 @@ if not no_headers
+ 		subdir: 'abi-bits',
+ 		follow_symlinks: true,
+ 	)
++        install_headers(
++                'include/astral/syscall.h',
++                'include/astral/archctl.h',
++                subdir: 'astral',
++                follow_symlinks: true,
++        )
+ endif
+ 
+ if not headers_only
