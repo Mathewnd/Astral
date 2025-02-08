@@ -6,5 +6,6 @@ tarball_sha512=c43fea864059ec2e5ca8c9ac96253cf429359774105842353c413a3bf0f4a348d
 hostdeps="autoconf automake pkgconfig libtool"
 prepare() {
         cp -v $(find /usr/local/share/automake* -name config.sub) make/autoconf/build-aux/
+        cp -v $(find /usr/local/share/automake* -name config.guess) make/autoconf/build-aux/
         chmod +x configure
 }
