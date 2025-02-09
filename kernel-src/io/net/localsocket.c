@@ -274,6 +274,7 @@ static int recvctrl(socket_t *socket, sockctrl_t *ctrl, size_t len, bool *trunca
 			file_t *file;
 			__assert(ringbuffer_read(&localsocket->fds, &file, sizeof(file_t *)) == sizeof(file_t *));
 			if (fd_insert(file, &fds[donecount], (flags & SOCKET_RECV_FLAGS_CLOEXEC_CTRL) ? O_CLOEXEC : 0)) {
+				++donecount;
 				fd_release(file);
 				break;
 			}
