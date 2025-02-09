@@ -204,7 +204,7 @@ int fd_insert(file_t *file, int *fdp, int flags) {
 
 	if (fd == -1) {
 		fd = proc->fdcount;
-		err = growtable(proc->fdcount);
+		err = growtable(proc->fdcount + 1);
 		if (err)
 			goto cleanup;
 	}
