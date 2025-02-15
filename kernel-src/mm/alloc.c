@@ -18,24 +18,18 @@
 static size_t allocsizes[CACHE_COUNT] = {32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536};
 static scache_t *caches[CACHE_COUNT + 5];
 
-static void initarea(scache_t *cache, void *obj) {
+static void initarea(scache_t *cache, void *obj, size_t size) {
 	size_t *ptr = obj;
 	*ptr = CAPACITY_SIZE(cache);
+	*(ptr + 1) = size;
 	memset(ptr + 2, 0, *ptr);
 	#if USE_POISON == 1
 	*((size_t *)((uintptr_t)obj + cache->size - sizeof(size_t))) = POISON_VALUE;
 	#endif
 }
 
-static void dtor(scache_t *cache, void *obj) {
-#if USE_POISON == 1
-	__assert(*(size_t *)((uintptr_t)obj + cache->size - sizeof(size_t)) == POISON_VALUE);
-#endif
-	initarea(cache, obj);
-}
-
 static scache_t *getcachefromsize(size_t size) {
-	if (size <= 1)
+	if (unlikely(size <= 1))
 		return caches[0];
 
 	size_t i = 64 - __builtin_clzll(size - 1);
@@ -45,21 +39,18 @@ static scache_t *getcachefromsize(size_t size) {
 void *alloc(size_t size) {
 	scache_t *cache = getcachefromsize(size);
 	size_t *ret = slab_allocate(cache);
-	if (ret == NULL)
+	if (unlikely(ret == NULL))
 		return NULL;
+
+	initarea(cache, ret, size);
 	#if USE_POISON == 1
 		__assert(*ret == CAPACITY_SIZE(cache));
 	#endif
-	*(ret + 1) = size;
 	return ret + 2;
 }
 
 void free(void *ptr) {
-	size_t *start = ptr;
-	start -= 2;
-	size_t size = *start;
-	scache_t *cache = getcachefromsize(size);
-	slab_free(cache, start);
+	slab_free(getcachefromsize(*((size_t *)ptr - 2)), (size_t *)ptr - 2);
 }
 
 void *realloc(void *ptr, size_t size) {
@@ -87,7 +78,7 @@ void *realloc(void *ptr, size_t size) {
 	size_t *new = slab_allocate(newcache);
 	if (new == NULL)
 		return NULL;
-	*(new + 1) = size;
+	initarea(newcache, new, size);
 	memcpy((new + 2), ptr, currentsize);
 	slab_free(oldcache, start);
 	return new + 2;
@@ -95,8 +86,11 @@ void *realloc(void *ptr, size_t size) {
 
 void alloc_init() {
 	for (int i = 0; i < CACHE_COUNT; ++i) {
-		caches[i + 5] = slab_newcache(allocsizes[i] + sizeof(size_t) * 2 + sizeof(size_t) * USE_POISON, 0, initarea, dtor);
+		caches[i + 5] = slab_newcache(allocsizes[i] + sizeof(size_t) * 2 + sizeof(size_t) * USE_POISON, 0, NULL, NULL);
 		__assert(caches[i + 5]);
+		void *p = slab_allocate(caches[i + 5]);
+		__assert(p);
+		slab_free(caches[i + 5], p);
 	}
 
 	for (int i = 0; i < 5; ++i)

@@ -1,5 +1,6 @@
 #include <kernel/slab.h>
 #include <kernel/vmm.h>
+#include <kernel/pmm.h>
 #include <logging.h>
 #include <util.h>
 
@@ -53,20 +54,21 @@ static void initindirect(scache_t *cache, slab_t *slab, void **base, void *objba
 }
 
 static bool growcache(scache_t *cache) {
-	void *_slab = vmm_map(NULL, PAGE_SIZE, VMM_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, NULL);
+	void *_slab = pmm_allocpage(PMM_SECTION_DEFAULT);
 	if (_slab == NULL)
 		return false;
-	slab_t *slab = GET_SLAB(_slab);
+
+	slab_t *slab = MAKE_HHDM(GET_SLAB(_slab));
 
 	if (cache->size < SLAB_INDIRECT_CUTOFF) {
-		initdirect(cache, slab, _slab);
+		initdirect(cache, slab, MAKE_HHDM(_slab));
 	} else {
 		void *base = vmm_map(NULL, cache->slabobjcount * cache->truesize, VMM_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, NULL);
 		if (base == NULL) {
-			vmm_unmap(_slab, PAGE_SIZE, 0);
+			pmm_release(_slab);
 			return false;
 		}
-		initindirect(cache, slab, _slab, base);
+		initindirect(cache, slab, MAKE_HHDM(_slab), base);
 	}
 
 
@@ -144,22 +146,20 @@ static slab_t *returnobject(scache_t *cache, void *obj) {
 
 void *slab_allocate(scache_t *cache) {
 	MUTEX_ACQUIRE(&cache->mutex);
-	slab_t *slab = NULL;
-	if (cache->partial != NULL)
-		slab = cache->partial;
-	else if (cache->empty != NULL)
+	slab_t *slab = cache->partial;
+	if (slab == NULL)
 		slab = cache->empty;
 
-	void *ret = NULL;
-
 	if (slab == NULL) {
-		if (growcache(cache))
+		if (growcache(cache)) {
 			slab = cache->empty;
-		else
-			goto cleanup;
+		} else {
+			MUTEX_RELEASE(&cache->mutex);
+			return NULL;
+		}
 	}
 
-	ret = takeobject(cache, slab);
+	void *ret = takeobject(cache, slab);
 
 	if (slab == cache->empty) {
 		cache->empty = slab->next;
@@ -186,7 +186,6 @@ void *slab_allocate(scache_t *cache) {
 		cache->full = slab;
 	}
 
-	cleanup:
 	MUTEX_RELEASE(&cache->mutex);
 	return ret;
 }
@@ -211,9 +210,7 @@ void slab_free(scache_t *cache, void *addr) {
 		if (slab->next)
 			slab->next->prev = slab;
 		cache->empty = slab;
-	}
-	
-	if (slab->used == cache->slabobjcount - 1) {
+	} else if (slab->used == cache->slabobjcount - 1) {
 		if (slab->prev == NULL)
 			cache->full = slab->next;
 		else
@@ -274,7 +271,7 @@ static size_t purge(scache_t *cache, size_t maxcount){
 		if (cache->size >= SLAB_INDIRECT_CUTOFF)
 			vmm_unmap(slab->base, cache->slabobjcount * cache->truesize, 0);
 
-		vmm_unmap(slab, PAGE_SIZE, 0);
+		pmm_release(FROM_HHDM((void *)ROUND_DOWN((uintptr_t)slab, PAGE_SIZE)));
 
 		slab = cache->empty;
 		cache->empty = next;
