@@ -128,39 +128,33 @@ uacpi_status uacpi_kernel_raw_memory_write(uacpi_phys_addr address, uacpi_u8 wid
 }
 
 #ifdef __x86_64__
-uacpi_status uacpi_kernel_raw_io_write(uacpi_io_addr addr, uacpi_u8 width, uacpi_u64 value) {
-	switch (width) {
-		case 1:
-			outb(addr, value);
-			break;
-		case 2:
-			outw(addr, value);
-			break;
-		case 4:
-			outd(addr, value);
-			break;
-		default:
-			return UACPI_STATUS_INVALID_ARGUMENT;
-	}
-
+uacpi_status uacpi_kernel_io_read8(uacpi_handle handle, uacpi_size offset, uacpi_u8 *out) {
+	*out = inb((uacpi_io_addr)handle + offset);
 	return UACPI_STATUS_OK;
 }
 
-uacpi_status uacpi_kernel_raw_io_read(uacpi_io_addr addr, uacpi_u8 width, uacpi_u64 *out) {
-	switch (width) {
-		case 1:
-			*out = inb(addr);
-			break;
-		case 2:
-			*out = inw(addr);
-			break;
-		case 4:
-			*out = ind(addr);
-			break;
-		default:
-			return UACPI_STATUS_INVALID_ARGUMENT;
-	}
+uacpi_status uacpi_kernel_io_read16(uacpi_handle handle, uacpi_size offset, uacpi_u16 *out) {
+	*out = inw((uacpi_io_addr)handle + offset);
+	return UACPI_STATUS_OK;
+}
 
+uacpi_status uacpi_kernel_io_read32(uacpi_handle handle, uacpi_size offset, uacpi_u32 *out) {
+	*out = ind((uacpi_io_addr)handle + offset);
+	return UACPI_STATUS_OK;
+}
+
+uacpi_status uacpi_kernel_io_write8(uacpi_handle handle, uacpi_size offset, uacpi_u8 v) {
+	outb((uacpi_io_addr)handle + offset, v);
+	return UACPI_STATUS_OK;
+}
+
+uacpi_status uacpi_kernel_io_write16(uacpi_handle handle, uacpi_size offset, uacpi_u16 v) {
+	outw((uacpi_io_addr)handle + offset, v);
+	return UACPI_STATUS_OK;
+}
+
+uacpi_status uacpi_kernel_io_write32(uacpi_handle handle, uacpi_size offset, uacpi_u32 v) {
+	outd((uacpi_io_addr)handle + offset, v);
 	return UACPI_STATUS_OK;
 }
 
@@ -199,83 +193,111 @@ void uacpi_kernel_io_unmap(uacpi_handle handle) {
 	(void)handle;
 }
 
-uacpi_status uacpi_kernel_io_read(uacpi_handle handle, uacpi_size offset, uacpi_u8 width, uacpi_u64 *out) {
-	return uacpi_kernel_raw_io_read((uacpi_io_addr)handle + offset, width, out);
-}
-
-uacpi_status uacpi_kernel_io_write(uacpi_handle handle, uacpi_size offset, uacpi_u8 width, uacpi_u64 value) {
-	return uacpi_kernel_raw_io_write((uacpi_io_addr)handle + offset, width, value);
-}
-
 uacpi_status uacpi_kernel_pci_device_open(
     uacpi_pci_address address, uacpi_handle *out_handle
 ) {
-	uacpi_pci_address *p = alloc(sizeof(uacpi_pci_address));
-	if (uacpi_unlikely(p == NULL))
-		return UACPI_STATUS_OUT_OF_MEMORY;
-
-	memcpy(p, &address, sizeof(uacpi_pci_address));
-	*out_handle = (uacpi_handle)p;
+	uint64_t v = ((uint64_t)address.segment << 48) | ((uint64_t)address.bus << 32) | ((uint64_t)address.device << 16) | ((uint64_t)address.function);
+	*out_handle = (uacpi_handle)v;
 	return UACPI_STATUS_OK;
 }
 
 void uacpi_kernel_pci_device_close(uacpi_handle handle) {
-	free((void *)handle);
+	(void)handle;
 }
 
-uacpi_status uacpi_kernel_pci_read(uacpi_handle handle, uacpi_size offset, uacpi_u8 width, uacpi_u64 *out) {
-	uacpi_pci_address *address = (uacpi_pci_address *)handle;
+uacpi_status uacpi_kernel_pci_read32(uacpi_handle _handle, uacpi_size offset, uacpi_u32 *value) {
+	uint64_t handle = (uint64_t)_handle;
+	int segment = (handle >> 48) & 0xffff;
+	int bus = handle >> 32;
+	int device = (handle >> 16) & 0xffff;
+	int function = handle & 0xffff;
 
-	if (address->segment != 0) {
-		printf("reading from PCI segment %u is not supported\n", address->segment);
+	if (segment != 0) {
+		printf("reading from PCI segment %u is not supported\n", segment);
 		return UACPI_STATUS_UNIMPLEMENTED;
 	}
 
-	switch (width) {
-		case 1: {
-			*out = pci_read8(address->bus, address->device, address->function, offset);
-			break;
-		}
-		case 2: {
-			*out = pci_read16(address->bus, address->device, address->function, offset);
-			break;
-		}
-		case 4: {
-			*out = pci_read32(address->bus, address->device, address->function, offset);
-			break;
-		}
-		default:
-			return UACPI_STATUS_INVALID_ARGUMENT;
-	}
-
+	*value = pci_read32(bus, device, function, offset);
 	return UACPI_STATUS_OK;
 }
 
-uacpi_status uacpi_kernel_pci_write(uacpi_handle handle, uacpi_size offset, uacpi_u8 width, uacpi_u64 value) {
-	uacpi_pci_address *address = (uacpi_pci_address *)handle;
+uacpi_status uacpi_kernel_pci_read16(uacpi_handle _handle, uacpi_size offset, uacpi_u16 *value) {
+	uint64_t handle = (uint64_t)_handle;
+	int segment = (handle >> 48) & 0xffff;
+	int bus = handle >> 32;
+	int device = (handle >> 16) & 0xffff;
+	int function = handle & 0xffff;
 
-	if (address->segment != 0) {
-		printf("writing to PCI segment %u is not supported\n", address->segment);
+	if (segment != 0) {
+		printf("reading from PCI segment %u is not supported\n", segment);
 		return UACPI_STATUS_UNIMPLEMENTED;
 	}
 
-	switch (width) {
-		case 1: {
-			pci_write8(address->bus, address->device, address->function, offset, value);
-			break;
-		}
-		case 2: {
-			pci_write16(address->bus, address->device, address->function, offset, value);
-			break;
-		}
-		case 4: {
-			pci_write32(address->bus, address->device, address->function, offset, value);
-			break;
-		}
-		default:
-			return UACPI_STATUS_INVALID_ARGUMENT;
+	*value = pci_read16(bus, device, function, offset);
+	return UACPI_STATUS_OK;
+}
+
+uacpi_status uacpi_kernel_pci_read8(uacpi_handle _handle, uacpi_size offset, uacpi_u8 *value) {
+	uint64_t handle = (uint64_t)_handle;
+	int segment = (handle >> 48) & 0xffff;
+	int bus = handle >> 32;
+	int device = (handle >> 16) & 0xffff;
+	int function = handle & 0xffff;
+
+	if (segment != 0) {
+		printf("reading from PCI segment %u is not supported\n", segment);
+		return UACPI_STATUS_UNIMPLEMENTED;
 	}
 
+	*value = pci_read8(bus, device, function, offset);
+	return UACPI_STATUS_OK;
+}
+
+uacpi_status uacpi_kernel_pci_write32(uacpi_handle _handle, uacpi_size offset, uacpi_u32 value) {
+	uint64_t handle = (uint64_t)_handle;
+	int segment = (handle >> 48) & 0xffff;
+	int bus = handle >> 32;
+	int device = (handle >> 16) & 0xffff;
+	int function = handle & 0xffff;
+
+	if (segment != 0) {
+		printf("reading from PCI segment %u is not supported\n", segment);
+		return UACPI_STATUS_UNIMPLEMENTED;
+	}
+
+	pci_write32(bus, device, function, offset, value);
+	return UACPI_STATUS_OK;
+}
+
+uacpi_status uacpi_kernel_pci_write16(uacpi_handle _handle, uacpi_size offset, uacpi_u16 value) {
+	uint64_t handle = (uint64_t)_handle;
+	int segment = (handle >> 48) & 0xffff;
+	int bus = handle >> 32;
+	int device = (handle >> 16) & 0xffff;
+	int function = handle & 0xffff;
+
+	if (segment != 0) {
+		printf("reading from PCI segment %u is not supported\n", segment);
+		return UACPI_STATUS_UNIMPLEMENTED;
+	}
+
+	pci_write16(bus, device, function, offset, value);
+	return UACPI_STATUS_OK;
+}
+
+uacpi_status uacpi_kernel_pci_write8(uacpi_handle _handle, uacpi_size offset, uacpi_u8 value) {
+	uint64_t handle = (uint64_t)_handle;
+	int segment = (handle >> 48) & 0xffff;
+	int bus = handle >> 32;
+	int device = (handle >> 16) & 0xffff;
+	int function = handle & 0xffff;
+
+	if (segment != 0) {
+		printf("reading from PCI segment %u is not supported\n", segment);
+		return UACPI_STATUS_UNIMPLEMENTED;
+	}
+
+	pci_write8(bus, device, function, offset, value);
 	return UACPI_STATUS_OK;
 }
 
