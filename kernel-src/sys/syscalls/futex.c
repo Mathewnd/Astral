@@ -40,6 +40,7 @@ static void ctor(scache_t *cache, void *obj) {
 	futex_t *futex = obj;
 	POLL_INITHEADER(&futex->pollheader);
 	futex->waiting = 0;
+	futex->waking = 0;
 }
 
 syscallret_t syscall_futex(context_t *, uint32_t *futexp, int op, uint32_t value, timespec_t *tm) {

@@ -19,6 +19,8 @@ static void ctor(scache_t *cache, void *obj) {
 	MUTEX_INIT(&file->mutex);
 	file->refcount = 1;
 	file->offset = 0;
+	file->flags = 0;
+	file->mode = 0;
 }
 
 static file_t* newfile() {
