@@ -166,7 +166,8 @@ typedef struct vops_t {
 	(vn)->flags = f; \
 	(vn)->type = t; \
 	(vn)->vfs = v; \
-	(vn)->vfsmounted = NULL; 
+	(vn)->vfsmounted = NULL; \
+        (vn)->pages = NULL;
 
 #define VOP_LOCK(v) (v)->ops->lock(v)
 #define VOP_UNLOCK(v) (v)->ops->unlock(v)
