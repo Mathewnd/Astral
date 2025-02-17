@@ -40,12 +40,12 @@ syscallret_t syscall_openat(context_t *context, int dirfd, char *path, int flags
 
 	retry_open:
 	file_t *newfile = NULL;
+	vnode_t *vnode = NULL;
 	int newfd;
 	ret.errno = fd_new(flags & O_CLOEXEC, &newfile, &newfd);
 	if (ret.errno)
 		goto cleanup;
 
-	vnode_t *vnode = NULL;
 	ret.errno = vfs_open(dirnode, pathbuf, fileflagstovnodeflags(flags), &vnode);
 	if (ret.errno == 0 && (flags & O_CREAT) && (flags & O_EXCL)) {
 		// exclusive and file already exists
