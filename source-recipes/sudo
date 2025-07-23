@@ -1,8 +1,8 @@
 name=sudo
-version=1.9.15p5
+version=1.9.17p1
 source_method=tarball
-tarball_url="https://github.com/sudo-project/sudo/releases/download/SUDO_1_9_15p5/sudo-1.9.15p5.tar.gz"
-tarball_sha512="ebac69719de2fe7bd587924701bdd24149bf376a68b17ec02f69b2b96d4bb6fa5eb8260a073ec5ea046d3ac69bb5b1c0b9d61709fe6a56f1f66e40817a70b15a"
+tarball_url="https://github.com/sudo-project/sudo/archive/refs/tags/v1.9.17p1.tar.gz"
+tarball_sha512="1cbd7151c066ab7356d499e75d205c5839867e5215994e8c4d49bf74fd4de1e10f4344db5003811fed70f7c2c02fd13f26112acd20c9e7b8c040521420be2644"
 hostdeps="autoconf automake pkgconfig libtool"
 prepare() {
         autoreconf -fvi
