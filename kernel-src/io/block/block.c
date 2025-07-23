@@ -52,9 +52,11 @@ typedef struct {
 #define MBR_TYPE_FREE 0
 #define MBR_TYPE_GPT 0xee
 
-static mutex_t tablemutex;
 static int currentid = 1;
-static hashtable_t blocktable;
+
+static MUTEX_DEFINE(tablemutex);
+HASHTABLE_DEFINE_STATIC(blocktable, 10);
+
 
 static blockdesc_t *getdesc(int id) {
 	void *ret;
@@ -306,9 +308,4 @@ void block_register(blockdesc_t *desc, char *name) {
 		dombr(permdesc, name);
 
 	__assert(registerdesc(permdesc, name) == 0);
-}
-
-void block_init() {
-	hashtable_init(&blocktable, 100);
-	MUTEX_INIT(&tablemutex);
 }

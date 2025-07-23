@@ -30,7 +30,7 @@ typedef struct {
 #define ALLOC_RANGE_START 50000
 #define ALLOC_RANGE_END   60000
 static socket_t *ports[65536];
-static spinlock_t portlock;
+static SPINLOCK_DEFINE(portlock);
 
 int udp_sendpacket(iovec_iterator_t *iovec_iterator, size_t size, uint32_t ip, uint16_t srcport, uint16_t dstport, netdev_t *broadcastnetdev) {
 	void *newbuff = alloc(size + sizeof(udpframe_t));
@@ -54,10 +54,6 @@ int udp_sendpacket(iovec_iterator_t *iovec_iterator, size_t size, uint32_t ip, u
 	leave:
 	free(newbuff);
 	return error;
-}
-
-void udp_init() {
-	SPINLOCK_INIT(portlock);
 }
 
 int udp_allocport(socket_t *socket, uint16_t *port) {

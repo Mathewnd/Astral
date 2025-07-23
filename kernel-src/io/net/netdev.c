@@ -5,8 +5,8 @@
 #include <string.h>
 #include <logging.h>
 
-static hashtable_t nametable;
-static mutex_t tablelock;
+HASHTABLE_DEFINE_STATIC(nametable, 10);
+static MUTEX_DEFINE(tablelock);
 
 static devops_t devops = {0};
 
@@ -36,9 +36,4 @@ netdev_t *netdev_getdev(char *name) {
 
 	MUTEX_RELEASE(&tablelock);
 	return netdev;
-}
-
-void netdev_init() {
-	__assert(hashtable_init(&nametable, 10) == 0);
-	MUTEX_INIT(&tablelock);
 }

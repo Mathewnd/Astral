@@ -44,8 +44,8 @@ void mouse_packet(mouse_t *mouse, mousepacket_t *packet) {
 	interrupt_loweripl(oldipl);
 }
 
-static hashtable_t mousetable;
-static mutex_t tablelock;
+HASHTABLE_DEFINE_STATIC(mousetable, 10);
+static MUTEX_DEFINE(tablelock);
 
 static mouse_t* getmouse(int mouse) {
 	void *mousep = NULL;
@@ -181,9 +181,3 @@ mouse_t *mouse_new() {
 	++currentnum;
 	return mouse;
 }
-
-void mouse_init() {
-	MUTEX_INIT(&tablelock);
-	__assert(hashtable_init(&mousetable, 20) == 0);
-}
-

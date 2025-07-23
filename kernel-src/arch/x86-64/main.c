@@ -92,18 +92,14 @@ void kernel_entry() {
 	tty_init();
 	pty_init();
 
-	netdev_init();
 	loopback_init();
 	arp_init();
 	ipv4_init();
-	udp_init();
 	tcp_init();
 
-	block_init();
 	pseudodevices_init();
 	arch_e9_initdev();
 	keyboard_init();
-	mouse_init();
 	arch_ps2_init();
 	fb_init();
 	nvme_init();
