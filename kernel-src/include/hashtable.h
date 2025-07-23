@@ -15,7 +15,7 @@ typedef struct hashentry_t {
 } hashentry_t;
 
 typedef struct {
-	size_t entrycount;
+	size_t entrycount; // for bookkeeping
 	size_t capacity;
 	hashentry_t **entries;
 } hashtable_t;
@@ -29,5 +29,13 @@ int hashtable_destroy(hashtable_t *table);
 #define HASHTABLE_FOREACH(table) \
 	for (uintmax_t toffset = 0; toffset < (table)->capacity; ++toffset) \
 		for (hashentry_t *entry = (table)->entries[toffset]; entry != NULL; entry = entry->next)
+
+#define HASHTABLE_DEFINE_STATIC(name, size) \
+	static hashentry_t *entries_ht_##name[size]; \
+	static hashtable_t name = { \
+		.entrycount = 0, \
+		.capacity = size, \
+		.entries = entries_ht_##name \
+	}
 
 #endif
