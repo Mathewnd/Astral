@@ -179,6 +179,10 @@ static void handlerthreadfn() {
 
 // executed in dpc context
 void arp_process(netdev_t *netdev, void *buffer) {
+	// not initialized yet
+	if (handlerthread == NULL)
+		return;
+
 	arpframe_t *frame = buffer;
 	if (frame->hwtype != cpu_to_be_w(1)) // ethernet
 		return;
