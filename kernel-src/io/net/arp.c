@@ -7,6 +7,7 @@
 #include <kernel/eth.h>
 #include <ringbuffer.h>
 #include <kernel/event.h>
+#include <kernel/init.h>
 
 #define CACHE_TIMEOUT_SEC 300
 #define CACHE_TIMEOUT_MS  (CACHE_TIMEOUT_SEC * 1000)
@@ -315,3 +316,5 @@ void arp_init() {
 	sched_queue(handlerthread);
 	sched_queue(cleanupthread);
 }
+
+INIT_ROUTINE_DEFINE(arp, INIT_ROUTINE_FLAGS_NONE, arp_init, scheduler);

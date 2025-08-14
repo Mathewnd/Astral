@@ -7,6 +7,7 @@
 #include <string.h>
 #include <kernel/slab.h>
 #include <kernel/vmmcache.h>
+#include <kernel/init.h>
 
 #define RANGE_TOP(x) (void *)((uintptr_t)x->start + x->size)
 
@@ -961,6 +962,8 @@ void vmm_init() {
 
 	printspace(&kernelspace);
 }
+
+INIT_ROUTINE_DEFINE(vmm, INIT_ROUTINE_FLAGS_NONE, vmm_init, mmu);
 
 void vmm_apinit() {
 	vmm_switchcontext(&vmm_kernelctx);

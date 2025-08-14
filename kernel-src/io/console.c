@@ -9,6 +9,7 @@
 #include <termios.h>
 #include <kernel/poll.h>
 #include <kernel/tty.h>
+#include <kernel/init.h>
 
 static mutex_t writemutex;
 static thread_t *thread;
@@ -124,3 +125,5 @@ void console_init() {
 	tty->winsize.ws_xpixel = fbx;
 	tty->winsize.ws_ypixel = fby;
 }
+
+INIT_ROUTINE_DEFINE(console, INIT_ROUTINE_FLAGS_NONE, console_init, scheduler, keyboard);

@@ -4,6 +4,7 @@
 #include <mutex.h>
 #include <limine.h>
 #include <logging.h>
+#include <kernel/init.h>
 
 static volatile struct limine_boot_time_request timereq = {
 	.id = LIMINE_BOOT_TIME_REQUEST,
@@ -106,6 +107,8 @@ void timekeeper_sync(void) {
 	MUTEX_RELEASE(&sync_mutex);
 }
 
+INIT_ROUTINE_DEFINE(sync_cpu_time, INIT_ROUTINE_FLAGS_NONE, timekeeper_sync, smp, timekeeper);
+
 extern timekeeper_source_t *timekeeper_sources;
 extern timekeeper_source_t *timekeeper_sources_end;
 
@@ -130,7 +133,7 @@ void timekeeper_wait_us(time_t us) {
 		CPU_PAUSE();
 }
 
-void timekeeper_early_init(time_t us_offset) {
+void timekeeper_early_init(void) {
 	__assert(timereq.response);
 	boot_unix = timereq.response->boot_time;
 
@@ -151,13 +154,11 @@ void timekeeper_early_init(time_t us_offset) {
 	current_cpu()->timekeeper_source_info = early_source_info;
 	current_cpu()->timekeeper_source = early_source;
 
-	// this tick offset is to account for any possible time before early_init.
-	// for example, on SMP init the early init will have the time passed on the ap as an offset
-	current_cpu()->timekeeper_source_tick_offset = us_offset * early_source_info->hz / 1000000;
-
 	printf("cpu%d: timekeeper: \"%s\" selected as early source. %lu ticks at early init (%lu hz)\n",
 			current_cpu_id(), early_source->name, current_cpu()->timekeeper_source_base_ticks, early_source_info->hz);
 }
+
+INIT_ROUTINE_DEFINE(timekeeper_early, INIT_ROUTINE_FLAGS_NONE, timekeeper_early_init, arch_irq);
 
 // this will do a re-init per cpu
 // the initialization threads will not switch cpus so we dont have to worry about it here
@@ -197,3 +198,5 @@ void timekeeper_init(void) {
 	printf("cpu%d: timekeeper: \"%s\" selected as main source. %lu ticks at init (%lu hz)\n",
 			current_cpu_id(), new_source->name, current_cpu()->timekeeper_source_base_ticks, new_source_info->hz);
 }
+
+INIT_ROUTINE_DEFINE(timekeeper, INIT_ROUTINE_FLAGS_NONE, timekeeper_init, scheduler);

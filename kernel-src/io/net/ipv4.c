@@ -5,6 +5,7 @@
 #include <mutex.h>
 #include <kernel/alloc.h>
 #include <kernel/abi.h>
+#include <kernel/init.h>
 
 typedef struct {
 	netdev_t *netdev;
@@ -229,3 +230,5 @@ void ipv4_init() {
 	__assert(routingtable);
 	__assert(ipv4_addroute(loopback_device(), 0x7f000001, 0, 0xff000000, 10000) == 0);
 }
+
+INIT_ROUTINE_DEFINE(ipv4, INIT_ROUTINE_FLAGS_NONE, ipv4_init, devfs)

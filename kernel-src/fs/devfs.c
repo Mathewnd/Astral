@@ -9,6 +9,7 @@
 #include <kernel/pmm.h>
 #include <kernel/vmmcache.h>
 #include <kernel/auth.h>
+#include <kernel/init.h>
 
 static devnode_t *devfsroot;
 
@@ -497,6 +498,8 @@ void devfs_init() {
 	__assert(vfs_register(&vfsops, "devfs") == 0);
 	__assert(hashtable_set(&devfsroot->children, devfsroot, ".", 1, true) == 0);
 }
+
+INIT_ROUTINE_DEFINE(devfs, INIT_ROUTINE_FLAGS_NONE, devfs_init, vfs);
 
 int devfs_getbyname(char *name, vnode_t **ret) {
 	int error = vfs_lookup(ret, (vnode_t *)devfsroot, name, NULL, 0);

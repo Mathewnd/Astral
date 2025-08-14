@@ -2,12 +2,18 @@
 #include <kernel/devfs.h>
 #include <logging.h>
 #include <kernel/usercopy.h>
+#include <kernel/init.h>
 
 void arch_e9_putc(char c) {
 #ifdef X86_64_ENABLE_E9
 	outb(0xe9, c);
 #endif
 }
+
+void arch_early_log(char c) {
+	arch_e9_putc(c);
+}
+
 
 void arch_e9_puts(char *c) {
 #ifdef X86_64_ENABLE_E9
@@ -35,10 +41,10 @@ static int devwrite(int minor, iovec_iterator_t *iovec_iterator, size_t count, u
 static devops_t devops = {
 	.write = devwrite
 };
-#endif
 
 void arch_e9_initdev() {
-#ifdef X86_64_ENABLE_E9
 	__assert(devfs_register(&devops, "e9", V_TYPE_CHDEV, DEV_MAJOR_E9, 0, 0666, NULL) == 0);
-#endif
 }
+
+INIT_ROUTINE_DEFINE(e9, INIT_ROUTINE_FLAGS_NONE, arch_e9_initdev, devfs);
+#endif

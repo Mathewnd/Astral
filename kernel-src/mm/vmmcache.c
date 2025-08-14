@@ -4,6 +4,7 @@
 #include <logging.h>
 #include <kernel/timekeeper.h>
 #include <kernel/event.h>
+#include <kernel/init.h>
 
 #define TABLE_SIZE 4096
 #define WRITER_TICK_SECONDS 15
@@ -475,3 +476,5 @@ void vmmcache_init() {
 	EVENT_INITHEADER(&syncevent);
 	EVENT_INITHEADER(&pagereadyevent);
 }
+
+INIT_ROUTINE_DEFINE(vmm_cache, INIT_ROUTINE_FLAGS_NONE, vmmcache_init, scheduler);

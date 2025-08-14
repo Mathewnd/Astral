@@ -15,6 +15,7 @@
 #include <kernel/vmmcache.h>
 #include <kernel/pipefs.h>
 #include <kernel/auth.h>
+#include <kernel/init.h>
 
 static scache_t *nodecache;
 static tmpfsnode_t *newnode(vfs_t *vfs, int type);
@@ -598,3 +599,5 @@ void tmpfs_init() {
 	nodecache = slab_newcache(sizeof(tmpfsnode_t), 0, NULL, NULL);
 	__assert(nodecache);
 }
+
+INIT_ROUTINE_DEFINE(tmpfs, INIT_ROUTINE_FLAGS_NONE, tmpfs_init, vfs);

@@ -117,6 +117,6 @@ static inline void cpu_set(cpu_t *ptr) {
 	wrmsr(MSR_GSBASE, (uint64_t)ptr);
 }
 
-void cpu_initstate();
+void arch_cpu_init();
 
 #endif

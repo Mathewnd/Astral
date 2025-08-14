@@ -1,5 +1,6 @@
 #include <kernel/auth.h>
 #include <logging.h>
+#include <kernel/init.h>
 
 // default listeners for auth
 
@@ -285,3 +286,5 @@ void defaultauth_init() {
 	auth_registerlistener(AUTH_SCOPE_PROCESS, process);
 	auth_registerlistener(AUTH_SCOPE_NETWORK, network);
 }
+
+INIT_ROUTINE_DEFINE(default_auth, INIT_ROUTINE_FLAGS_NONE, defaultauth_init, bsp_early);

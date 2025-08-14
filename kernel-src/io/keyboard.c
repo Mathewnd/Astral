@@ -6,6 +6,7 @@
 #include <hashtable.h>
 #include <kernel/poll.h>
 #include <kernel/usercopy.h>
+#include <kernel/init.h>
 
 #define BUFFER_PACKET_CAPACITY 100
 #define BUFFER_SIZE (BUFFER_PACKET_CAPACITY * sizeof(kbpacket_t))
@@ -252,3 +253,5 @@ void keyboard_init() {
 	__assert(keyboard_console);
 	__assert(hashtable_init(&kbtable, 20) == 0);
 }
+
+INIT_ROUTINE_DEFINE(keyboard, INIT_ROUTINE_FLAGS_NONE, keyboard_init, bsp_early);

@@ -8,6 +8,7 @@
 #include <arch/msr.h>
 #include <kernel/timer.h>
 #include <kernel/timekeeper.h>
+#include <kernel/init.h>
 
 #include <uacpi/tables.h>
 #include <uacpi/acpi.h>
@@ -240,6 +241,8 @@ void arch_apic_timerinit() {
 	__assert(current_cpu()->timer);
 }
 
+INIT_ROUTINE_DEFINE(arch_timer, INIT_ROUTINE_FLAGS_NONE, arch_apic_timerinit, timekeeper_early);
+
 void arch_apic_sendipi(uint8_t cpu, uint8_t vec, uint8_t dest, uint8_t mode, uint8_t level) {
 	writelapic(APIC_REG_ICR_HI, (uint32_t)cpu << 24);
 	writelapic(APIC_REG_ICR_LO, vec | (level << 8) | (mode << 11) | (dest << 18) | (1 << 14));
@@ -263,7 +266,7 @@ void arch_apic_init() {
 
 	// map LAPIC to virtual memory
 
-    void *paddr = (void *) rdmsr(MSR_IA32APICBASE);
+	void *paddr = (void *) rdmsr(MSR_IA32APICBASE);
 
 	lapic_address = vmm_map(NULL, PAGE_SIZE, VMM_FLAGS_PHYSICAL, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, paddr);
 	__assert(lapic_address);
@@ -289,3 +292,5 @@ void arch_apic_init() {
 
 	// FIXME limine does this already but just in case the PIC should be masked
 }
+
+INIT_ROUTINE_DEFINE(arch_irq, INIT_ROUTINE_FLAGS_NONE, arch_apic_init, acpi_early);

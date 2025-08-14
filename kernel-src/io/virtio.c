@@ -3,6 +3,7 @@
 #include <logging.h>
 #include <kernel/alloc.h>
 #include <kernel/pmm.h>
+#include <kernel/init.h>
 
 #define VIRTIO_VENDOR 0x1af4
 #define VIRTIO_DEVICE_MIN 0x1000
@@ -176,3 +177,5 @@ void virtio_init() {
 		}
 	}
 }
+
+INIT_ROUTINE_DEFINE(virtio, INIT_ROUTINE_FLAGS_NONE, virtio_init, acpi);

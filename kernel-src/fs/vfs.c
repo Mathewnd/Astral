@@ -11,6 +11,7 @@
 #include <kernel/block.h>
 #include <kernel/pipefs.h>
 #include <kernel/auth.h>
+#include <kernel/init.h>
 
 #define PATHNAME_MAX 512
 #define MAXLINKDEPTH 64
@@ -18,7 +19,7 @@
 static hashtable_t fstable;
 vnode_t *vfsroot;
 
-static spinlock_t listlock;
+static mutex_t listlock;
 static vfs_t *vfslist;
 
 static cred_t *getcred() {
@@ -53,11 +54,13 @@ void vfs_init() {
 	__assert(hashtable_init(&fstable, 20) == 0);
 	vfsroot = alloc(sizeof(vnode_t));
 	__assert(vfsroot);
-	SPINLOCK_INIT(listlock);
+	MUTEX_INIT(&listlock);
 	vfsroot->type = V_TYPE_DIR;
 	vfsroot->refcount = 1;
 	vfsroot->ops = &vnops;
 }
+
+INIT_ROUTINE_DEFINE(vfs, INIT_ROUTINE_FLAGS_NONE, vfs_init, bsp_early);
 
 int vfs_register(vfsops_t *ops, char *name) {
 	return hashtable_set(&fstable, ops, name, strlen(name), true);
@@ -111,12 +114,12 @@ int vfs_mount(vnode_t *backing, vnode_t *pathref, char *path, char *name, void *
 		return err;
 	}
 
-	spinlock_acquire(&listlock);
+	MUTEX_ACQUIRE(&listlock);
 
 	vfs->next = vfslist;
 	vfslist = vfs;
 
-	spinlock_release(&listlock);
+	MUTEX_RELEASE(&listlock);
 
 	mounton->vfsmounted = vfs;
 	vfs->nodecovered = mounton;

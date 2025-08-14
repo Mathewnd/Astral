@@ -10,6 +10,7 @@
 #include <arch/cpu.h>
 #include <errno.h>
 #include <kernel/block.h>
+#include <kernel/init.h>
 
 #define CC_ENABLE(cc) cc = (cc) | 1
 #define CC_DISABLE(cc) cc = (cc) & ~1
@@ -788,3 +789,5 @@ void nvme_init() {
 		initcontroller(e);
 	}
 }
+
+INIT_ROUTINE_DEFINE(nvme, INIT_ROUTINE_FLAGS_NONE, nvme_init, acpi);

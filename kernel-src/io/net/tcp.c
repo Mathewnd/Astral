@@ -5,6 +5,7 @@
 #include <kernel/timekeeper.h>
 #include <kernel/interrupt.h>
 #include <kernel/auth.h>
+#include <kernel/init.h>
 
 #define WORKER_COUNT 12
 #define WORKER_BUFFER_SIZE (64 * 1024)
@@ -1879,3 +1880,5 @@ void tcp_init() {
 		sched_queue(thread);
 	}
 }
+
+INIT_ROUTINE_DEFINE(tcp, INIT_ROUTINE_FLAGS_NONE, tcp_init, ipv4, scheduler);

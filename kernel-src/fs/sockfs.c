@@ -9,6 +9,7 @@
 #include <kernel/poll.h>
 #include <kernel/sock.h>
 #include <kernel/auth.h>
+#include <kernel/init.h>
 
 static scache_t *nodecache;
 static uintmax_t currentinode;
@@ -266,6 +267,8 @@ void sockfs_init() {
 	nodecache = slab_newcache(sizeof(socketnode_t), 0, ctor, ctor);
 	__assert(nodecache);
 }
+
+INIT_ROUTINE_DEFINE(sockfs, INIT_ROUTINE_FLAGS_NONE, sockfs_init, bsp_early);
 
 int sockfs_newsocket(vnode_t **nodep, socket_t *socket) {
 	vnode_t *vnode = slab_allocate(nodecache);

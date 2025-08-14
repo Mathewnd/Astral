@@ -13,6 +13,7 @@
 #include <kernel/cmdline.h>
 #include <kernel/auth.h>
 #include <arch/smp.h>
+#include <kernel/init.h>
 
 #define QUANTUM_US 100000
 #define SCHEDULER_STACK_SIZE PAGE_SIZE * 16
@@ -458,7 +459,11 @@ void sched_init() {
 	current_cpu()->reschedule_isr = interrupt_allocate(reschedule_ipi, ARCH_EOI, IPL_MAX);
 	__assert(current_cpu()->reschedule_isr);
 
+	sched_target_cpu(current_cpu());
+
 	timer_insert(current_cpu()->timer, &current_cpu()->schedtimerentry, reschedule_timer_dpc, NULL, QUANTUM_US, true);
 	// XXX move this resume to a more appropriate place
 	timer_resume(current_cpu()->timer);
 }
+
+INIT_ROUTINE_DEFINE(scheduler, INIT_ROUTINE_FLAGS_NONE, sched_init, arch_timer);

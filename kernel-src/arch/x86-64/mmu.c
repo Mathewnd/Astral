@@ -7,6 +7,7 @@
 #include <kernel/vmm.h>
 #include <arch/cpu.h>
 #include <arch/smp.h>
+#include <kernel/init.h>
 
 #define ADDRMASK (uint64_t)0x7ffffffffffff000
 #define   PTMASK (uint64_t)0b111111111000000000000
@@ -380,6 +381,8 @@ void arch_mmu_init() {
 
 	arch_mmu_apswitch();
 }
+
+INIT_ROUTINE_DEFINE(mmu, INIT_ROUTINE_FLAGS_NONE, arch_mmu_init, pmm);
 
 void arch_mmu_apswitch() {
 	arch_mmu_switch(FROM_HHDM(template));

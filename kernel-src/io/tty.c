@@ -4,6 +4,7 @@
 #include <kernel/alloc.h>
 #include <kernel/jobctl.h>
 #include <kernel/usercopy.h>
+#include <kernel/init.h>
 
 #define TTY_MAX_COUNT 4096
 #define CONTROLLING_TTY_MINOR TTY_MAX_COUNT
@@ -552,3 +553,5 @@ void tty_init() {
 	__assert(devfs_register(&devops, "tty", V_TYPE_CHDEV, DEV_MAJOR_TTY, CONTROLLING_TTY_MINOR, 0666, NULL) == 0);
 	MUTEX_INIT(&listmutex);
 }
+
+INIT_ROUTINE_DEFINE(tty, INIT_ROUTINE_FLAGS_NONE, tty_init, devfs);

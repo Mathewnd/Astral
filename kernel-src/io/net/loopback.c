@@ -5,6 +5,7 @@
 #include <kernel/net.h>
 #include <hashtable.h>
 #include <arch/cpu.h>
+#include <kernel/init.h>
 
 static netdev_t loopbacknetdev;
 
@@ -64,3 +65,5 @@ void loopback_init() {
 
 	__assert(netdev_register(&loopbacknetdev, "lo") == 0);
 }
+
+INIT_ROUTINE_DEFINE(loopback, INIT_ROUTINE_FLAGS_NONE, loopback_init, devfs);

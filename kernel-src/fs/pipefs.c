@@ -8,6 +8,7 @@
 #include <errno.h>
 #include <kernel/abi.h>
 #include <kernel/poll.h>
+#include <kernel/init.h>
 
 #define BUFFER_SIZE 16 * PAGE_SIZE
 #define PIPE_ATOMIC_SIZE 4096
@@ -402,6 +403,8 @@ void pipefs_init() {
 	nodecache = slab_newcache(sizeof(pipenode_t), 0, ctor, ctor);
 	__assert(nodecache);
 }
+
+INIT_ROUTINE_DEFINE(pipefs, INIT_ROUTINE_FLAGS_NONE, pipefs_init, bsp_early);
 
 int pipefs_newpipe(vnode_t **nodep) {
 	vnode_t *vnode = slab_allocate(nodecache);

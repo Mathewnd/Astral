@@ -7,6 +7,7 @@
 #include <kernel/cmdline.h>
 #include <arch/smp.h>
 #include <kernel/alloc.h>
+#include <kernel/init.h>
 
 static volatile struct limine_smp_request smprequest = {
 	.id = LIMINE_SMP_REQUEST
@@ -21,8 +22,6 @@ static void cpuwakeuphalt(struct limine_smp_info *info) {
 	for (;;) CPU_HALT();
 }
 
-static time_t us_offset;
-
 static void cpuwakeup(struct limine_smp_info *info) {
 	cpu_set((cpu_t *)info->extra_argument);
 
@@ -33,11 +32,13 @@ static void cpuwakeup(struct limine_smp_info *info) {
 	arch_mmu_apswitch();
 	vmm_apinit();
 
-	timekeeper_early_init(us_offset);
+	arch_apic_initap();
 
-	cpu_initstate();
+	timekeeper_early_init();
+
+	arch_cpu_init();
 	arch_apic_timerinit();
-
+	
 	timekeeper_init();
 
 	__atomic_add_fetch(&arch_smp_cpusawake, 1, __ATOMIC_SEQ_CST);
@@ -55,7 +56,6 @@ void arch_smp_haltallothers() {
 cpu_t **smp_cpus;
 
 void arch_smp_wakeup() {
-	interrupt_register(0xfd, (void *)cpuwakeuphalt, NULL, IPL_IGNORE);
 	struct limine_smp_response *response = smprequest.response;
 	if (response == NULL) {
 		// TODO try to detect the other processors manually
@@ -77,8 +77,6 @@ void arch_smp_wakeup() {
 
 	void (*wakeupfn)(struct limine_smp_info *) = cmdline_get("nosmp") ? cpuwakeuphalt : cpuwakeup;
 
-	us_offset = timespec_us(timekeeper_timefromboot());
-
 	// make the other processors jump to cpuwakeup()
 	for (int i = 0; i < response->cpu_count; ++i) {
 		// skip the bootstrap processor
@@ -99,3 +97,5 @@ void arch_smp_wakeup() {
 
 	printf("smp: awoke other processors\n");
 }
+
+INIT_ROUTINE_DEFINE(smp, INIT_ROUTINE_FLAGS_NONE, arch_smp_wakeup, scheduler);

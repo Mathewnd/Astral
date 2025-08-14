@@ -4,6 +4,10 @@
 #include <logging.h>
 #include <arch/cpuid.h>
 #include <kernel/topology.h>
+#include <kernel/init.h>
+#include <arch/idt.h>
+#include <arch/gdt.h>
+#include <kernel/dpc.h>
 
 #define EFER_SYSCALLENABLE 1
 
@@ -145,9 +149,7 @@ static void get_topology(long *topology_ids, long *topology_types) {
 	}
 }
 
-void cpu_initstate() {
-	arch_apic_initap();
-
+void arch_cpu_init() {
 	// syscall instruction
 	unsigned int eax = 0, ebx = 0, ecx = 0, edx = 0;
 	__get_cpuid(0x80000001, &eax, &ebx, &ecx, &edx);
@@ -224,3 +226,20 @@ void cpu_initstate() {
 		topology_insert(topology_nodes[i], i == 0 ? topology_get_root() : topology_nodes[i - 1], TOPOLOGY_MAKE_ID(topology_types[i], topology_ids[i]), current_cpu());
 	}
 }
+
+INIT_ROUTINE_DEFINE(cpu, INIT_ROUTINE_FLAGS_NONE, arch_cpu_init, acpi_early);
+
+static void infinite_loop(void) {
+	asm volatile("cli");
+	for (;;) asm volatile("");
+}
+
+static void arch_early(void) {
+	arch_gdt_reload();
+	arch_idt_setup();
+	arch_idt_reload();
+	interrupt_register(0xfd, (void *)infinite_loop, NULL, IPL_IGNORE);
+	dpc_init();
+}
+
+INIT_ROUTINE_DEFINE(arch_early, INIT_ROUTINE_FLAGS_NONE, arch_early)

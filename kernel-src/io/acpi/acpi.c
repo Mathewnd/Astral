@@ -7,11 +7,14 @@
 #include <uacpi/event.h>
 #include <kernel/acpi.h>
 #include <kernel/interrupt.h>
+#include <kernel/init.h>
 #include <logging.h>
 
 void acpi_early_init(void) {
 	__assert(uacpi_initialize(0) == UACPI_STATUS_OK);
 }
+
+INIT_ROUTINE_DEFINE(acpi_early, INIT_ROUTINE_FLAGS_NONE, acpi_early_init, alloc);
 
 void acpi_dopoweroff(uacpi_handle ctx) {
 	(void)ctx;
@@ -36,6 +39,8 @@ void acpi_init(void) {
 
 	uacpi_install_fixed_event_handler(UACPI_FIXED_EVENT_POWER_BUTTON, handle_pwrbtn, UACPI_NULL);
 }
+
+INIT_ROUTINE_DEFINE(acpi, INIT_ROUTINE_FLAGS_NONE, acpi_init, pci, devfs, scheduler);
 
 int acpi_poweroff(void) {
 	uacpi_status ret = uacpi_prepare_for_sleep_state(UACPI_SLEEP_STATE_S5);

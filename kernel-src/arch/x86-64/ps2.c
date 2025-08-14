@@ -2,6 +2,7 @@
 #include <logging.h>
 #include <arch/ps2kbd.h>
 #include <arch/ps2mouse.h>
+#include <kernel/init.h>
 
 static void ps2_disablescanning(int port) {
 	ps2_device_command(port, PS2_DEVICE_CMD_DISABLESCANNING);
@@ -275,3 +276,5 @@ void arch_ps2_init() {
 	ps2_write_command(PS2_CTLR_CMD_WRITECFG);
 	ps2_write_data(control);
 }
+
+INIT_ROUTINE_DEFINE(ps2, INIT_ROUTINE_FLAGS_NONE, arch_ps2_init, acpi, keyboard);

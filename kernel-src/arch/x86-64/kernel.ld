@@ -32,6 +32,13 @@ SECTIONS
 		*(.timekeeper_sources);
 		timekeeper_sources_end = .;
 	} :rodata
+	
+	. = ALIGN(8);
+	.init_routines : {
+		init_routines = .;
+		*(.init_routines);
+		init_routines_end = .;
+	} :rodata
 
 	. = ALIGN(4K);
 	_rodata_end = .;

@@ -12,6 +12,7 @@
 #include <kernel/vmmcache.h>
 #include <kernel/pipefs.h>
 #include <kernel/auth.h>
+#include <kernel/init.h>
 
 #define INODE_ROOT 2
 
@@ -2010,3 +2011,5 @@ void ext2_init() {
 	nodecache = slab_newcache(sizeof(ext2node_t), 0, NULL, NULL);
 	__assert(nodecache);
 }
+
+INIT_ROUTINE_DEFINE(ext2, INIT_ROUTINE_FLAGS_NONE, ext2_init, vfs);

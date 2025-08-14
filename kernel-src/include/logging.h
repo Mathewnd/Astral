@@ -7,6 +7,7 @@
 #include <arch/cpu.h>
 #include <util.h>
 
+void arch_early_log(char c);
 void _putchar(char c);
 void logging_sethook(void (*fun)(char));
 void logging_init();

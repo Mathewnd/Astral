@@ -3,6 +3,7 @@
 #include <kernel/pci.h>
 #include <kernel/alloc.h>
 #include <kernel/vmm.h>
+#include <kernel/init.h>
 
 uint8_t pci_read8(int bus, int device, int function, uint32_t offset) {
 	return (pci_archread32(bus, device, function, offset) >> ((offset & 0b11) * 8)) & 0xff;
@@ -279,3 +280,5 @@ void pci_init() {
 		}
 	}
 }
+
+INIT_ROUTINE_DEFINE(pci, INIT_ROUTINE_FLAGS_NONE, pci_init, scheduler);

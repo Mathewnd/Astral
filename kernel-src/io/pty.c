@@ -4,6 +4,7 @@
 #include <logging.h>
 #include <kernel/alloc.h>
 #include <kernel/usercopy.h>
+#include <kernel/init.h>
 
 #define PTY_BUFFER 4096
 #define PTY_MAX 1024
@@ -285,3 +286,5 @@ void pty_init() {
 	__assert(devfs_createdir("pts") == 0);
 	SPINLOCK_INIT(listlock);
 }
+
+INIT_ROUTINE_DEFINE(pty, INIT_ROUTINE_FLAGS_NONE, pty_init, tty);

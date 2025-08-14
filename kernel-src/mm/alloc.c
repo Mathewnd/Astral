@@ -2,6 +2,7 @@
 #include <kernel/slab.h>
 #include <logging.h>
 #include <string.h>
+#include <kernel/init.h>
 
 // each allocation has the following structure:
 // ptr: data capacity (allocsizes size)
@@ -96,3 +97,5 @@ void alloc_init() {
 	for (int i = 0; i < 5; ++i)
 		caches[i] = caches[5];
 }
+
+INIT_ROUTINE_DEFINE(alloc, INIT_ROUTINE_FLAGS_NONE, alloc_init, vmm);

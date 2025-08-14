@@ -21,7 +21,7 @@ typedef struct {
 } timekeeper_source_t;
 
 // initializes the highest priority source that can be used as an early timer and switches the cpu to use it
-void timekeeper_early_init(time_t us_offset);
+void timekeeper_early_init(void);
 
 // initializes the highest priority source and switches the cpu to use it. uses the early timer for calibration if nescessary
 void timekeeper_init(void);

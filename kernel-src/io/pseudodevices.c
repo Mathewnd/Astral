@@ -3,6 +3,7 @@
 #include <string.h>
 #include <logging.h>
 #include <kernel/timekeeper.h>
+#include <kernel/init.h>
 
 static int null_write(int minor, iovec_iterator_t *iovec_iterator, size_t count, uintmax_t offset, int flags, size_t *wcount) {
 	*wcount = count;
@@ -77,3 +78,5 @@ void pseudodevices_init() {
 	__assert(devfs_register(&zeroops, "zero", V_TYPE_CHDEV, DEV_MAJOR_ZERO, 0, 0666, NULL) == 0);
 	__assert(devfs_register(&urandomops, "urandom", V_TYPE_CHDEV, DEV_MAJOR_URANDOM, 0, 0666, NULL) == 0);
 }
+
+INIT_ROUTINE_DEFINE(pseudo_devices, INIT_ROUTINE_FLAGS_NONE, pseudodevices_init, devfs);

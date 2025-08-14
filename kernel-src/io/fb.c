@@ -7,6 +7,7 @@
 #include <arch/cpu.h>
 #include <kernel/pmm.h>
 #include <kernel/usercopy.h>
+#include <kernel/init.h>
 
 typedef struct bitfield_t {
 	uint32_t offset;
@@ -256,3 +257,5 @@ void fb_init() {
 		printf("%s: %dx%d %d bpp\n", name, fb->width, fb->height, fb->bpp);
 	}
 }
+
+INIT_ROUTINE_DEFINE(fb, INIT_ROUTINE_FLAGS_NONE, fb_init, devfs);
