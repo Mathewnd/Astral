@@ -1,5 +1,5 @@
-CSOURCES= $(shell find -name *.c)
-ASMSOURCES= $(shell find -name *.asm)
+CSOURCES= $(shell find -name "*.c")
+ASMSOURCES= $(shell find -name "*.asm")
 OBJS=$(CSOURCES:.c=.o) $(ASMSOURCES:.asm=.asmo)
 TARGET=x86-64
 INCDIR=$(shell pwd)/include
