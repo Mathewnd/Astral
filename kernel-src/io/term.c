@@ -9,6 +9,7 @@
 #include <kernel/pmm.h>
 #include <arch/mmu.h>
 #include <kernel/init.h>
+#include <logging.h>
 
 extern volatile struct limine_framebuffer_request fb_liminereq;
 static size_t xs, ys, fbxs, fbys;
@@ -66,6 +67,8 @@ void term_init() {
 	fbys = fb->height;
 
 	MUTEX_INIT(&term_mutex);
+
+	logging_sethook(term_putchar);
 }
 
 INIT_ROUTINE_DEFINE(term, INIT_ROUTINE_FLAGS_NONE, term_init, pmm);
