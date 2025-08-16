@@ -37,6 +37,8 @@ void acpi_init(void) {
 	ret = uacpi_namespace_initialize();
 	__assert(ret == UACPI_STATUS_OK);
 
+	acpi_initdevice();
+
 	uacpi_install_fixed_event_handler(UACPI_FIXED_EVENT_POWER_BUTTON, handle_pwrbtn, UACPI_NULL);
 }
 
