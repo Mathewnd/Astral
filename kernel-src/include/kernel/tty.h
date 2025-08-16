@@ -12,6 +12,7 @@
 
 typedef size_t (*ttydevicewritefn_t)(void *internal, char *str, size_t size);
 typedef void (*ttyinactivefn_t)(void *internal);
+typedef void (*tty_termios_callback_t)(void *internal, termios_t *termios);
 
 typedef struct {
 	pollheader_t pollheader;
@@ -25,6 +26,7 @@ typedef struct {
 	int devicepos;
 	ttydevicewritefn_t writetodevice;
 	ttyinactivefn_t inactivedevice;
+	tty_termios_callback_t termios_callback;
 	int minor;
 	winsize_t winsize;
 	vnode_t *mastervnode;
@@ -33,7 +35,7 @@ typedef struct {
 } tty_t;
 
 void tty_init();
-tty_t *tty_create(char *name, ttydevicewritefn_t writefn, ttyinactivefn_t inactivefn, void *internal);
+tty_t *tty_create(char *name, ttydevicewritefn_t writefn, ttyinactivefn_t inactivefn, tty_termios_callback_t termios_callback, void *internal);
 void tty_process(tty_t *tty, char c);
 void tty_unregister(tty_t *tty);
 int tty_ioctl(tty_t *tty, unsigned long req, void *arg, int *result, cred_t *cred);

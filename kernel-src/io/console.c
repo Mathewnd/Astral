@@ -115,7 +115,7 @@ void console_init() {
 	__assert(thread);
 	sched_queue(thread);
 
-	tty = tty_create("console", console_ttywrite, NULL, NULL);
+	tty = tty_create("console", console_ttywrite, NULL, NULL, NULL);
 	__assert(tty);
 
 	size_t x, y, fbx, fby;
@@ -124,6 +124,8 @@ void console_init() {
 	tty->winsize.ws_row = y;
 	tty->winsize.ws_xpixel = fbx;
 	tty->winsize.ws_ypixel = fby;
+	
+	logging_sethook(console_putc);
 }
 
 INIT_ROUTINE_DEFINE(console, INIT_ROUTINE_FLAGS_NONE, console_init, scheduler, keyboard);

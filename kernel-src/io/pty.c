@@ -266,7 +266,7 @@ static int open(int oldminor, vnode_t **vnode, int flags) {
 	// create a pairing slave device
 
 	snprintf(tmpname, 20, "pts/%d", newminor);
-	pty->tty = tty_create(tmpname, writetopty, inactivepty, pty);
+	pty->tty = tty_create(tmpname, writetopty, inactivepty, NULL, pty);
 	if (pty->tty == NULL) {
 		VOP_RELEASE(pty->mastervnode);
 		return ENOMEM;

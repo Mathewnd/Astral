@@ -43,6 +43,14 @@ static int setforeground(tty_t *tty, proc_t *proc) {
 	return ENOTTY;
 }
 
+// TODO: make this interrupt safe
+// this would mean:
+// - preventing the leaders from reaching refcnt = 1 during the getforeground() call until it is done
+// - list mutex -> list spinlock
+//
+// however, for it to truly be interrupt safe, the tty->writetodevice callback would also need to be interrupt safe,
+// which means that any drivers expecting to call this from an interrupt context would REQUIRE to have the callback to also be interrupt safe
+// the main console is an example of a driver which would not be able to do so.
 void tty_process(tty_t *tty, char c) {
 	if (c == '\r' && (tty->termios.c_iflag & IGNCR))
 		return;
@@ -337,8 +345,14 @@ int tty_ioctl(tty_t *tty, unsigned long req, void *arg, int *result, cred_t *cre
 		}
 		case TCGETS:
 			return USERCOPY_POSSIBLY_TO_USER(arg, &tty->termios, sizeof(termios_t));
-		case TCSETS:
-			return USERCOPY_POSSIBLY_FROM_USER(&tty->termios, arg, sizeof(termios_t));
+		case TCSETS: {
+			int e = USERCOPY_POSSIBLY_FROM_USER(&tty->termios, arg, sizeof(termios_t));
+
+			if (e == 0 && tty->termios_callback)
+				tty->termios_callback(tty->deviceinternal, &tty->termios);
+	
+			return e;
+		}
 		case TIOCSCTTY: {
 			// set as controlling tty
 			return jobctl_setctty(current_thread()->proc, tty, (uintptr_t)arg == 1);
@@ -464,7 +478,7 @@ static devops_t devops = {
 	.inactive = inactive
 };
 
-tty_t *tty_create(char *name, ttydevicewritefn_t writefn, ttyinactivefn_t inactivefn, void *internal) {
+tty_t *tty_create(char *name, ttydevicewritefn_t writefn, ttyinactivefn_t inactivefn, tty_termios_callback_t termios_callback, void *internal) {
 	tty_t *tty = alloc(sizeof(tty_t));
 	if (tty == NULL)
 		return NULL;
@@ -501,9 +515,7 @@ tty_t *tty_create(char *name, ttydevicewritefn_t writefn, ttyinactivefn_t inacti
 	tty->termios.c_iflag = ICRNL;
 	tty->termios.c_oflag = ONLCR;
 	tty->termios.c_lflag = ECHO | ICANON | ISIG | ECHOCTL;
-	tty->termios.c_cflag = 0;
-	tty->termios.ibaud = 38400;
-	tty->termios.obaud = 38400;
+	tty->termios.c_cflag = CS8 | B38400;
 	tty->termios.c_cc[VMIN] = 1;
 	tty->termios.c_cc[VINTR] = 0x03;
 	tty->termios.c_cc[VQUIT] = 0x1c;
@@ -518,6 +530,7 @@ tty_t *tty_create(char *name, ttydevicewritefn_t writefn, ttyinactivefn_t inacti
 	tty->inactivedevice = inactivefn;
 	tty->minor = minor;
 	tty->deviceinternal = internal;
+	tty->termios_callback = termios_callback;
 
 	vnode_t *newnode;
 	__assert(devfs_getnode(NULL, DEV_MAJOR_TTY, minor, &newnode) == 0);
@@ -525,6 +538,10 @@ tty_t *tty_create(char *name, ttydevicewritefn_t writefn, ttyinactivefn_t inacti
 	tty->mastervnode = (vnode_t *)((devnode_t *)newnode)->master;
 
 	VOP_RELEASE(newnode);
+
+	// set up basic state for the tty
+	if (termios_callback)
+		termios_callback(internal, &tty->termios);
 
 	return tty;
 	error:
