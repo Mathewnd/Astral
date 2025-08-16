@@ -61,11 +61,7 @@ typedef struct {
 	int io_base;
 	uacpi_resource_irq irq;
 
-	ringbuffer_t tx_ringbuffer;
-	spinlock_t tx_spinlock; // locked in IPL_SERIAL
-
 	ringbuffer_t rx_ringbuffer;
-
 	thread_t *handler_thread;
 	semaphore_t rx_semaphore;
 
@@ -100,12 +96,6 @@ static void process_data(pc_com_t *pc_com) {
 
 static bool can_transmit(pc_com_t *pc_com) {
 	return read_port(pc_com, PORT_LINE_STATUS) & LINE_STATUS_TX_BUFFER_EMPTY;
-}
-
-static void transmit_data(pc_com_t *pc_com) {
-	char c;
-	ringbuffer_read(&pc_com->tx_ringbuffer, &c, 1);
-	write_port(pc_com, PORT_TX, c);
 }
 
 static void set_irqs(pc_com_t *pc_com, int irqs) {
@@ -185,33 +175,20 @@ static void handler_thread(void) {
 static size_t write_tty(void *internal, char *str, size_t size) {
 	pc_com_t *pc_com = internal;
 
-	long ipl = spinlock_acquire_raise_ipl(&pc_com->tx_spinlock, IPL_SERIAL);
+	for (int i = 0; i < size; ++i) {
+		while (!can_transmit(pc_com));
+		write_port(pc_com, PORT_TX, str[i]);
+	}
 
-	size_t written = ringbuffer_write(&pc_com->tx_ringbuffer, str, size);
-	if (can_transmit(pc_com))
-		transmit_data(pc_com);
-
-	spinlock_release_lower_ipl(&pc_com->tx_spinlock, ipl);
-
-	return written;
+	return size;
 }
 
 // TODO enqueue dpc and call tty_process directly from it once it is safe to be called from an interrupt context
 static void irq(isr_t *self, context_t *) {
 	pc_com_t *pc_com = self->priv;
 
-	int interrupt_status = read_port(pc_com, PORT_INTERRUPT_ID) & 0x0e;
-
 	// check if there is data to be received
 	process_data(pc_com);
-
-	// check if there is data to be transmitted and tx buffer is empty
-	spinlock_acquire(&pc_com->tx_spinlock);
-
-	if (((interrupt_status == INTERRUPT_STATUS_TX_EMPTY) || can_transmit(pc_com)) && RINGBUFFER_DATACOUNT(&pc_com->tx_ringbuffer))
-		transmit_data(pc_com);
-
-	spinlock_release(&pc_com->tx_spinlock);
 }
 
 static uacpi_iteration_decision set_com_resource(void *user, uacpi_resource *res) {
@@ -237,12 +214,10 @@ static uacpi_iteration_decision init_com(void *, uacpi_namespace_node *node, uns
 
 	pc_com_t *pc_com = alloc(sizeof(pc_com_t));
 	__assert(pc_com);
-	__assert(ringbuffer_init(&pc_com->tx_ringbuffer, 1000) == 0);
 	__assert(ringbuffer_init(&pc_com->rx_ringbuffer, 1000) == 0);
 
 	pc_com->id = pc_com_id++;
 	SEMAPHORE_INIT(&pc_com->rx_semaphore, 0);
-	SPINLOCK_INIT(pc_com->tx_spinlock);
 
 	// get io port and gsi
 	uacpi_status ret = uacpi_get_current_resources(node, &res);
@@ -268,7 +243,7 @@ static uacpi_iteration_decision init_com(void *, uacpi_namespace_node *node, uns
 	set_irqs(pc_com, INTERRUPT_ENABLE_NONE);
 	set_baud_divisor(pc_com, 3);
 	write_port(pc_com, PORT_LINE_CONTROL, LINE_CONTROL_WORD_LENGTH_8_BITS);
-	set_irqs(pc_com, INTERRUPT_ENABLE_DATA_AVAILABLE | INTERRUPT_ENABLE_TX_EMPTY);
+	set_irqs(pc_com, INTERRUPT_ENABLE_DATA_AVAILABLE);
 	write_port(pc_com, PORT_MODEM_CONTROL, 
 			MODEM_CONTROL_DATA_TERMINAL_READY | MODEM_CONTROL_REQUEST_TO_SEND | MODEM_CONTROL_AUX_1 | MODEM_CONTROL_AUX_2);
 	
