@@ -271,9 +271,9 @@ static int udp_recv(socket_t *socket, sockdesc_t *sockdesc) {
 	size_t copycount;
 	dataheader_t header;
 
-	long ipl = spinlock_acquireraiseipl(&udpsocket->ringbufferlock, IPL_DPC);
+	long ipl = spinlock_acquire_raise_ipl(&udpsocket->ringbufferlock, IPL_DPC);
 	__assert(ringbuffer_peek(&udpsocket->ringbuffer, &header, 0, sizeof(header)) == sizeof(header));
-	spinlock_releaseloweripl(&udpsocket->ringbufferlock, ipl);
+	spinlock_release_lower_ipl(&udpsocket->ringbufferlock, ipl);
 
 	copycount = min(header.length, sockdesc->count);
 

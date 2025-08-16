@@ -23,7 +23,7 @@ topology_node_t *topology_create_node(void) {
 }
 
 void topology_insert(topology_node_t *node, topology_node_t *parent, int id, cpu_t *cpu) {
-	long old_ipl = spinlock_acquireraiseipl(&tree_lock, IPL_MAX);
+	long old_ipl = spinlock_acquire_raise_ipl(&tree_lock, IPL_MAX);
 
 	node->id = id;
 	node->cpu = cpu;
@@ -32,5 +32,5 @@ void topology_insert(topology_node_t *node, topology_node_t *parent, int id, cpu
 	node->sibling = node->parent->children;
 	node->parent->children = node;
 
-	spinlock_releaseloweripl(&tree_lock, old_ipl);
+	spinlock_release_lower_ipl(&tree_lock, old_ipl);
 }

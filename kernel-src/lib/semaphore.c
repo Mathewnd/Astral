@@ -154,10 +154,10 @@ bool semaphore_signal_limit(semaphore_t *sem, int limit) {
 }
 
 void semaphore_reset(semaphore_t *sem) {
-	bool intstate = spinlock_acquireirqclear(&sem->lock);
+	bool intstate = spinlock_acquire_irq_clear(&sem->lock);
 	__assert(sem->head == NULL);
 	sem->i = 0;
-	spinlock_releaseirqrestore(&sem->lock, intstate);
+	spinlock_release_irq_restore(&sem->lock, intstate);
 }
 
 bool semaphore_haswaiters(semaphore_t *sem) {

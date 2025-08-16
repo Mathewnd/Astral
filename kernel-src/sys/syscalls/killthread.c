@@ -29,7 +29,7 @@ syscallret_t syscall_killthread(context_t *context, int pid, int tid, int signal
 	}
 
 	bool ok = false;
-	bool intstatus = spinlock_acquireirqclear(&target->threadlistlock);
+	bool intstatus = spinlock_acquire_irq_clear(&target->threadlistlock);
 
 	thread_t *thread = target->threadlist;
 	while (thread) {
@@ -42,7 +42,7 @@ syscallret_t syscall_killthread(context_t *context, int pid, int tid, int signal
 		thread = thread->procnext;
 	}
 
-	spinlock_releaseirqrestore(&target->threadlistlock, intstatus);
+	spinlock_release_irq_restore(&target->threadlistlock, intstatus);
 
 	if (ok == false) {
 		ret.errno = ESRCH;

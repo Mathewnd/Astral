@@ -379,12 +379,12 @@ static void acpi_dowork(struct acpi_workctx *ctx) {
 
 		struct acpi_work *work = NULL;
 
-		bool irqstate = spinlock_acquireirqclear(&ctx->queuelock);
+		bool irqstate = spinlock_acquire_irq_clear(&ctx->queuelock);
 		if (ctx->head) {
 			work = ctx->head;
 			ctx->head = work->next;
 		}
-		spinlock_releaseirqrestore(&ctx->queuelock, irqstate);
+		spinlock_release_irq_restore(&ctx->queuelock, irqstate);
 
 		if (work == NULL)
 			continue;
@@ -439,10 +439,10 @@ uacpi_status uacpi_kernel_schedule_work(
 			break;
 	}
 
-	bool irqstate = spinlock_acquireirqclear(&workctx->queuelock);
+	bool irqstate = spinlock_acquire_irq_clear(&workctx->queuelock);
 	work->next = workctx->head;
 	workctx->head = work;
-	spinlock_releaseirqrestore(&workctx->queuelock, irqstate);
+	spinlock_release_irq_restore(&workctx->queuelock, irqstate);
 
 	semaphore_signal(&workctx->sem);
 	return UACPI_STATUS_OK;
@@ -452,9 +452,9 @@ static void work_await(struct acpi_workctx *ctx) {
 	for (;;) {
 		bool empty;
 
-		bool irqstate = spinlock_acquireirqclear(&ctx->queuelock);
+		bool irqstate = spinlock_acquire_irq_clear(&ctx->queuelock);
 		empty = ctx->head == NULL;
-		spinlock_releaseirqrestore(&ctx->queuelock, irqstate);
+		spinlock_release_irq_restore(&ctx->queuelock, irqstate);
 
 		if (empty)
 			return;
@@ -567,9 +567,9 @@ void uacpi_kernel_free_spinlock(uacpi_handle lock) {
 }
 
 uacpi_cpu_flags uacpi_kernel_lock_spinlock(uacpi_handle lock) {
-	return spinlock_acquireirqclear(lock);
+	return spinlock_acquire_irq_clear(lock);
 }
 
 void uacpi_kernel_unlock_spinlock(uacpi_handle lock, uacpi_cpu_flags intstate) {
-	spinlock_releaseirqrestore(lock, intstate);
+	spinlock_release_irq_restore(lock, intstate);
 }

@@ -97,11 +97,11 @@ void timer_isr(timer_t *timer, context_t *context) {
 }
 
 time_t timer_get_ticks(timer_t *timer) {
-	long ipl = spinlock_acquireraiseipl(&timer->lock, IPL_TIMER);
+	long ipl = spinlock_acquire_raise_ipl(&timer->lock, IPL_TIMER);
 
 	time_t ticks = timer->tickcurrent + timer->time_passed(timer);
 
-	spinlock_releaseloweripl(&timer->lock, ipl);
+	spinlock_release_lower_ipl(&timer->lock, ipl);
 
 	return ticks;
 }
