@@ -17,6 +17,7 @@
 #define IPL_TIMER 1
 #define IPL_NET 400
 #define IPL_DISK 500
+#define IPL_SERIAL 550
 #define IPL_KEYBOARD 600
 #define IPL_MOUSE 650
 #define IPL_ACPI 700

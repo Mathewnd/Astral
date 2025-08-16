@@ -152,9 +152,9 @@ static void reap(int signum) {
 	}
 }
 
-static void snatchconsole(void) {
-	int rfd = open("/dev/console", O_RDONLY);
-	int wfd = open("/dev/console", O_WRONLY);
+static void snatchconsole(const char *console) {
+	int rfd = open(console, O_RDONLY);
+	int wfd = open(console, O_WRONLY);
 	close(0);
 	close(1);
 	close(2);
@@ -213,7 +213,7 @@ static void dorootshell(void) {
 	handlecommands();
 }
 
-static void dologinprompt(void) {
+static void spawn_login_prompt(const char *console) {
 	pid_t pid = fork();
 	if (pid == -1) {
 		perror("init: fork failed");
@@ -222,13 +222,16 @@ static void dologinprompt(void) {
 
 	if (pid == 0) {
 		setsid();
-		snatchconsole();
+		snatchconsole(console);
 		unblocksignals();
 		execl("/bin/login", NULL);
 		perror("init: exec /bin/login failed");
 		exit(EXIT_FAILURE);
 	}
+}
 
+static void dologinprompt(const char *console) {
+	spawn_login_prompt(console);
 	handlecommands();
 }
 
@@ -340,12 +343,16 @@ int main(int argc, char *argv[]) {
 		return EXIT_FAILURE;
 	}
 
+	// start a login shell in /dev/com0 if it exists
+	if (access("/dev/com0", F_OK) == 0)
+		spawn_login_prompt("/dev/com0");
+
 	if (argc >1 && strcmp(argv[1], "withlogin") == 0)
-		dologinprompt();
+		dologinprompt("/dev/console");
 
 	// open /dev/console as the controlling terminal if we're not doing login
 	printf("init: reopening /dev/console as the controlling terminal\n");
-	snatchconsole();
+	snatchconsole("/dev/console");
 
 	if (argc > 1 && strcmp(argv[1], "withx") == 0)
 		dostartwm();
