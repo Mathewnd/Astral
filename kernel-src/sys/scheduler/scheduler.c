@@ -80,6 +80,8 @@ static thread_t *runqueuenext(int minprio) {
 static __attribute__((noreturn)) void switch_thread(thread_t *thread) {
 	interrupt_set(false);
 	thread_t* current = current_thread();
+
+	sched_thread_running_callback(thread);
 	
 	current_cpu()->thread = thread;
 
@@ -139,6 +141,7 @@ void sched_queue(thread_t *thread) {
 	// TODO yield if higher priority than current thread (or send another CPU an IPI)
 }
 
+// no metrics callback here as this will be called from things like threads stopping
 __attribute__((noreturn)) void sched_stop_current_thread() {
 	interrupt_set(false);
 
@@ -256,6 +259,7 @@ static void yield(context_t *context, void *) {
 		ARCH_CONTEXT_THREADSAVE(thread, context);
 
 		thread->flags &= ~THREAD_FLAGS_RUNNING;
+
 		if (sleeping == false)
 			runqueueinsert(thread);
 
@@ -267,12 +271,16 @@ static void yield(context_t *context, void *) {
 	}
 
 	spinlock_release(&runqueuelock);
+	sched_thread_running_callback(current_thread());
 }
 
 int sched_yield() {
 	bool sleeping = current_thread()->flags & THREAD_FLAGS_SLEEP;
 	bool old = sleeping ? current_thread()->sleepintstatus : interrupt_set(false);
+
+	sched_thread_stopping_callback(current_thread(), sleeping);
 	arch_context_saveandcall(yield, current_cpu()->schedulerstack, NULL);
+
 	__assert(current_cpu()->ipl == IPL_NORMAL);
 	interrupt_set(old);
 	return sleeping ? current_thread()->wakeupreason : 0;
@@ -297,6 +305,8 @@ bool sched_wakeup(thread_t *thread, int reason) {
 
 	thread->flags &= ~(THREAD_FLAGS_SLEEP | THREAD_FLAGS_INTERRUPTIBLE);
 	thread->wakeupreason = reason;
+
+	sched_thread_wakeup_callback(thread);
 
 	// TODO send IPI to idle cores
 	sched_queue(thread);
@@ -323,6 +333,7 @@ static void dopreempt() {
 	}
 
 	spinlock_release(&runqueuelock);
+
 	switch_thread(next);
 }
 
@@ -333,6 +344,8 @@ static void preempt_dpc(context_t *context, dpcarg_t arg) {
 	// no need to preempt it again
 	if (current->flags & THREAD_FLAGS_PREEMPTED)
 		return;
+
+	sched_thread_stopping_callback(current, false);
 
 	current->flags |= THREAD_FLAGS_PREEMPTED;
 	ARCH_CONTEXT_THREADSAVE(current, context);
@@ -390,6 +403,7 @@ static void reschedule_yield(context_t *context, void *_cpu) {
 	switch_thread(next);
 }
 
+// TODO verify if something like this is really needed
 void sched_reschedule_on_cpu(cpu_t *cpu, bool target) {
 	cpu_t *old_target = current_thread()->cputarget;
 	current_thread()->cputarget = cpu;
@@ -402,6 +416,8 @@ void sched_reschedule_on_cpu(cpu_t *cpu, bool target) {
 
 	long old_priority = current_thread()->priority;
 	current_thread()->priority = 0;
+
+	sched_thread_stopping_callback(current_thread(), false);
 
 	arch_context_saveandcall(reschedule_yield, current_cpu()->schedulerstack, cpu);
 
@@ -460,6 +476,8 @@ void sched_init() {
 	__assert(current_cpu()->reschedule_isr);
 
 	sched_target_cpu(current_cpu());
+
+	sched_thread_running_callback(current_thread());
 
 	timer_insert(current_cpu()->timer, &current_cpu()->schedtimerentry, reschedule_timer_dpc, NULL, QUANTUM_US, true);
 	// XXX move this resume to a more appropriate place

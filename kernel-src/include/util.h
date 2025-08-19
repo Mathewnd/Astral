@@ -24,6 +24,10 @@ static inline long min(long x, long y) {
 	return x > y ? y : x;
 }
 
+static inline long max(long x, long y) {
+	return x < y ? y : x;
+}
+
 #define FNV1PRIME  0x100000001b3ull
 #define FNV1OFFSET 0xcbf29ce484222325ull
 

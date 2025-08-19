@@ -52,6 +52,13 @@ typedef struct thread_t {
 		bool hasreturnmask;
 		bool stopped;
 	} signals;
+	struct {
+		int interactivity_score;
+		time_t sleep_time_avg_us;
+		time_t run_time_avg_us;
+		timespec_t sleep_start;
+		timespec_t run_start;
+	} metrics;
 } thread_t;
 
 __attribute__((noreturn)) void sched_threadexit();

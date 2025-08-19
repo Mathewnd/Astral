@@ -43,6 +43,8 @@ thread_t *sched_newthread(void *ip, size_t kstacksize, int priority, proc_t *pro
 	SPINLOCK_INIT(thread->sleeplock);
 	SPINLOCK_INIT(thread->signals.lock);
 	EVENT_INITHEADER(&thread->signals.waitpendingevent);
+	memset(&thread->metrics, 0, sizeof(thread->metrics));
+	thread->metrics.sleep_time_avg_us = 1; // to prevent a division by 0 when the thread first gets scheduled
 
 	return thread;
 }

@@ -4,6 +4,7 @@
 #include <kernel/file.h>
 #include <kernel/interrupt.h>
 #include <kernel/jobctl.h>
+#include <kernel/interrupt.h>
 
 syscallret_t syscall_fork(context_t *ctx) {
 	syscallret_t ret = {
@@ -61,6 +62,12 @@ syscallret_t syscall_fork(context_t *ctx) {
 	memcpy(&nthread->signals.stack, &current_thread()->signals.stack, sizeof(stack_t));
 	memcpy(&nproc->signals.pending, &proc->signals.pending, sizeof(sigset_t));
 	memcpy(&nproc->signals.actions, &proc->signals.actions[0], sizeof(sigaction_t) * NSIG);
+
+	// copy thread scheduling metrics over
+	// raised to IPL_DPC to prevent scheduling
+	long ipl = interrupt_raiseipl(IPL_DPC);
+	memcpy(&nthread->metrics, &current_thread()->metrics, sizeof(nthread->metrics));
+	interrupt_loweripl(ipl);
 
 	ret.ret = nproc->pid;
 

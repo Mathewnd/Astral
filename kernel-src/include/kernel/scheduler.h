@@ -23,4 +23,8 @@ void sched_reschedule_on_cpu(struct cpu_t *cpu, bool target);
 void sched_sleep_us(size_t us);
 int sched_yield();
 
+void sched_thread_running_callback(thread_t *thread);
+void sched_thread_stopping_callback(thread_t *thread, bool sleeping);
+void sched_thread_wakeup_callback(thread_t *thread);
+
 #endif
