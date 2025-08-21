@@ -310,14 +310,9 @@ void sched_reschedule_on_cpu(cpu_t *cpu, bool target) {
 	if (cpu == current_cpu())
 		goto leave;
 
-	long old_priority = current_thread()->priority;
-	current_thread()->priority = 0;
-
 	sched_thread_stopping_callback(current_thread(), false);
 
 	arch_context_saveandcall(reschedule_yield, current_cpu()->schedulerstack, cpu);
-
-	current_thread()->priority = old_priority;
 
 	leave:
 	interrupt_set(status);
@@ -354,7 +349,7 @@ void sched_ap_entry() {
 	__assert(current_cpu()->schedulerstack);
 	current_cpu()->schedulerstack = (void *)((uintptr_t)current_cpu()->schedulerstack + SCHEDULER_STACK_SIZE);
 
-	current_cpu()->idlethread = sched_newthread(cpuidlethread, PAGE_SIZE * 4, 3, NULL, NULL);
+	current_cpu()->idlethread = sched_newthread(cpuidlethread, PAGE_SIZE * 4, 100, NULL, NULL);
 	__assert(current_cpu()->idlethread);
 	current_cpu()->idlethread->class = THREAD_CLASS_IDLE;
 	sched_queue(current_cpu()->idlethread);
@@ -382,7 +377,7 @@ void sched_init() {
 	__assert(current_cpu()->schedulerstack);
 	current_cpu()->schedulerstack = (void *)((uintptr_t)current_cpu()->schedulerstack + SCHEDULER_STACK_SIZE);
 
-	current_cpu()->idlethread = sched_newthread(cpuidlethread, PAGE_SIZE * 4, 3, NULL, NULL);
+	current_cpu()->idlethread = sched_newthread(cpuidlethread, PAGE_SIZE * 4, 100, NULL, NULL);
 	__assert(current_cpu()->idlethread);
 	current_cpu()->idlethread->class = THREAD_CLASS_IDLE;
 	current_cpu()->thread = sched_newthread(NULL, PAGE_SIZE * 32, 0, NULL, NULL);

@@ -5,7 +5,7 @@
 
 static scache_t *thread_cache;
 
-thread_t *sched_newthread(void *ip, size_t kstacksize, int priority, proc_t *proc, void *ustack) {
+thread_t *sched_newthread(void *ip, size_t kstacksize, int nice, proc_t *proc, void *ustack) {
 	if (thread_cache == NULL) {
 		thread_cache = slab_newcache(sizeof(thread_t), 0, NULL, NULL);
 		__assert(thread_cache);
@@ -28,8 +28,8 @@ thread_t *sched_newthread(void *ip, size_t kstacksize, int priority, proc_t *pro
 	// non kernel thread vmm contexts are handled by the caller
 	thread->vmmctx = proc ? NULL : &vmm_kernelctx;
 	thread->proc = proc;
-	thread->priority = priority;
 	thread->kernelstacksize = kstacksize;
+	thread->nice = nice;
 	if (proc) {
 		// each thread holds one reference to proc
 		PROC_HOLD(proc);

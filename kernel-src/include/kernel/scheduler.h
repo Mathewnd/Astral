@@ -13,6 +13,8 @@
 
 #define SCHED_RUN_QUEUE_SIZE 32
 #define SCHED_MAX_INTERACTIVITY 100
+#define SCHED_NICE_MAX  19
+#define SCHED_NICE_MIN -20
 
 typedef struct {
 	 struct {

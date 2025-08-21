@@ -5,7 +5,7 @@
 
 #ifdef SYSCALL_LOGGING
 
-#define SYSCALL_COUNT 93
+#define SYSCALL_COUNT 94
 #define LOGSTR(x) arch_e9_puts(x)
 
 static char *name[] = {
@@ -101,7 +101,8 @@ static char *name[] = {
 	"sigtimedwait",
 	"sigpending",
 	"killthread",
-	"shutdown"
+	"shutdown",
+	"nice"
 };
 
 static char *args[] = {
@@ -195,9 +196,10 @@ static char *args[] = {
 	"egid %d", // setegid
 	"sigset %p", // sigsuspend
 	"sigset %p info %p, timespec %p", // sigtimedwait
-	"sigset %p\n", // sigpending
+	"sigset %p", // sigpending
 	"pid %d tid %d signal %d", // killthread
-	"how %d" // shutdown
+	"how %d", // shutdown
+	"off %d" // nice
 };
 
 #endif

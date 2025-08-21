@@ -41,6 +41,7 @@ typedef struct proc_t {
 	spinlock_t nodeslock;
 	semaphore_t waitsem;
 	spinlock_t exiting;
+	int nice;
 
 	spinlock_t jobctllock;
 	struct {

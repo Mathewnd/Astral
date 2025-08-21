@@ -264,6 +264,13 @@ static int process(cred_t *cred, int actions, void *arg0, void *arg1, void *arg2
 		DONE_CHECK(actions);
 	}
 
+	if (actions & AUTH_ACTIONS_PROCESS_NICE) {
+		if (CRED_IS_ESU(cred))
+			weight += 1;
+
+		DONE_CHECK(actions);
+	}
+
 	done:
 	return weight ? AUTH_DECISION_ALLOW : AUTH_DECISION_DEFER;
 }

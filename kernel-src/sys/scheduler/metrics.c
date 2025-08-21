@@ -11,11 +11,12 @@ static void update_interactivity(thread_t *thread) {
 	time_t run_time = thread->metrics.run_time_avg_us;
 
 	if (sleep_time > run_time)
-		thread->metrics.interactivity_score = min((SCALING_FACTOR * run_time) / sleep_time, SCHED_MAX_INTERACTIVITY);
+		thread->metrics.interactivity_score = (SCALING_FACTOR * run_time) / sleep_time;
 	else
-		thread->metrics.interactivity_score = min((SCALING_FACTOR * sleep_time) / run_time + SCALING_FACTOR, SCHED_MAX_INTERACTIVITY);
+		thread->metrics.interactivity_score = (SCALING_FACTOR * sleep_time) / run_time + SCALING_FACTOR;
 
-	// TODO nice value impacting this 
+	thread->metrics.interactivity_score += thread->nice + (thread->proc ? thread->proc->nice : 0);
+	thread->metrics.interactivity_score = min(thread->metrics.interactivity_score, SCHED_MAX_INTERACTIVITY);
 }
 
 static void offset_times(thread_t *thread, time_t run_us, time_t sleep_us) {

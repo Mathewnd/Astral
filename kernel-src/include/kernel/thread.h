@@ -37,7 +37,6 @@ typedef struct thread_t {
 	vmmcontext_t *vmmctx;
 	tid_t tid;
 	int flags;
-	long priority;
 	bool sleepintstatus;
 	spinlock_t sleeplock;
 	int wakeupreason;
@@ -45,6 +44,7 @@ typedef struct thread_t {
 	void *kernelarg;
 	context_t *usercopyctx;
 	int class;
+	int nice;
 	struct {
 		spinlock_t lock;
 		eventheader_t waitpendingevent;
@@ -67,7 +67,7 @@ typedef struct thread_t {
 } thread_t;
 
 __attribute__((noreturn)) void sched_threadexit();
-thread_t *sched_newthread(void *ip, size_t kstacksize, int priority, struct proc_t *proc, void *ustack);
+thread_t *sched_newthread(void *ip, size_t kstacksize, int nice, struct proc_t *proc, void *ustack);
 void sched_destroythread(thread_t *);
 
 #endif
