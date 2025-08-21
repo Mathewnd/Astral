@@ -10,7 +10,7 @@ typedef struct {
 
 int bitmap_init(bitmap_t *bitmap, size_t size);
 void bitmap_set(bitmap_t *bitmap, long idx, int v);
-long bitmap_find_first_set(bitmap_t *bitmap, long start_offset);
+long bitmap_find_first_set(bitmap_t *bitmap);
 
 
 #endif

@@ -55,7 +55,6 @@ typedef struct cpu_t {
 	sched_run_queue_t idle_queue;
 	spinlock_t sched_lock;
 
-	long calendar_ticks;
 	timerentry_t calendar_tick_timer_entry;
 
 	// architecture specific, does not need to be exposed

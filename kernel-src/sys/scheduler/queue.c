@@ -32,7 +32,7 @@ static void insert_in_run_queue(sched_run_queue_t *run_queue, thread_t *thread) 
 }
 
 static thread_t *pop_from_run_queue(sched_run_queue_t *run_queue) {
-	long idx = bitmap_find_first_set(&run_queue->thread_bitmap, 0);
+	long idx = bitmap_find_first_set(&run_queue->thread_bitmap);
 	if (idx == -1)
 		return NULL;
 

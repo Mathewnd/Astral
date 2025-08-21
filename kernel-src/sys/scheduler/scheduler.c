@@ -363,7 +363,7 @@ void sched_ap_entry() {
 	__assert(current_cpu()->reschedule_isr);
 
 	timer_insert(current_cpu()->timer, &current_cpu()->schedtimerentry, reschedule_timer_dpc, NULL, QUANTUM_US, true);
-	timer_insert(current_cpu()->timer, &current_cpu()->calendar_tick_timer_entry, sched_calendar_tick, NULL, 1000, true);
+	timer_insert(current_cpu()->timer, &current_cpu()->calendar_tick_timer_entry, sched_calendar_tick, NULL, 10000, true);
 	timer_resume(current_cpu()->timer);
 	sched_stop_current_thread();
 }

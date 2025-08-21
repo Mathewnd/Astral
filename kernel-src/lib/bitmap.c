@@ -22,13 +22,12 @@ void bitmap_set(bitmap_t *bitmap, long idx, int v) {
 		bitmap->data[idx / sizeof(*bitmap->data)] &= ~bit;
 }
 
-// TODO fix start offset search
-long bitmap_find_first_set(bitmap_t *bitmap, long start_offset) {
+long bitmap_find_first_set(bitmap_t *bitmap) {
 	size_t loop_size = ROUND_UP(bitmap->size, sizeof(*bitmap->data)) / sizeof(*bitmap->data);
 
 	long offset = -1;
 
-	for (size_t i = start_offset; i < loop_size; ++i) {
+	for (size_t i = 0; i < loop_size; ++i) {
 		if (bitmap->data[i] == 0)
 			continue;
 
