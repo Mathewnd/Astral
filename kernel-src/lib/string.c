@@ -85,6 +85,20 @@ int memcmp(const void *_a, const void *_b, size_t s) {
 	return diff;
 }
 
+void *memmove(void *_d, const void *_s, size_t c) {
+	uint8_t *d = _d;
+	const uint8_t *s = _s;
+
+	if (s > d) {
+		return memcpy(d, s, c);
+	} else while (c) {
+		d[c] = s[c];
+		--c;
+	}
+
+	return _d;
+}
+
 #define DO_NAME(e) \
 	case e: \
 		return #e;

@@ -11,6 +11,7 @@ void *memset(void *dest, int what, size_t size);
 int strcmp(const char *a, const char *b);
 int strncmp(const char *a, const char *b, size_t c);
 int memcmp(const void *a, const void *b, size_t s);
+void *memmove(void *_d, const void *_s, size_t c);
 char *strerror(int errno);
 
 #endif
