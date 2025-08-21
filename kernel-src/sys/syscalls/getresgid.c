@@ -1,6 +1,7 @@
 #include <kernel/abi.h>
 #include <kernel/syscalls.h>
 #include <kernel/cred.h>
+#include <arch/cpu.h>
 
 syscallret_t syscall_getresgid(context_t *, gid_t *gidp, gid_t *egidp, gid_t *sgidp) {
 	syscallret_t ret = {

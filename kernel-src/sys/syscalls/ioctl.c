@@ -1,6 +1,7 @@
 #include <kernel/syscalls.h>
 #include <kernel/file.h>
 #include <kernel/vfs.h>
+#include <arch/cpu.h>
 
 syscallret_t syscall_ioctl(context_t *, int fd, unsigned long request, void *arg) {
 	syscallret_t ret = {

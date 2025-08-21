@@ -1,6 +1,7 @@
 #include <kernel/abi.h>
 #include <kernel/syscalls.h>
 #include <kernel/cred.h>
+#include <arch/cpu.h>
 
 syscallret_t syscall_getresuid(context_t *, uid_t *uidp, uid_t *euidp, uid_t *suidp) {
 	syscallret_t ret = {

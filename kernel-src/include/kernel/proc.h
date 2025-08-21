@@ -79,7 +79,6 @@ typedef struct proc_t {
 	} timer;
 } proc_t;
 
-#include <arch/cpu.h>
 
 #define UMASK(mode) ((mode) & ~current_thread()->proc->umask)
 #define PROC_HOLD(v) __atomic_add_fetch(&(v)->refcount, 1, __ATOMIC_SEQ_CST)

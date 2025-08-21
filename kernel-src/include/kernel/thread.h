@@ -16,6 +16,10 @@
 
 struct proc_t;
 
+#define THREAD_CLASS_TIMESHARE 0
+#define THREAD_CLASS_REAL_TIME 1
+#define THREAD_CLASS_IDLE 2
+
 typedef struct thread_t {
 	void *kernelstacktop;
 	struct thread_t *next;
@@ -40,6 +44,7 @@ typedef struct thread_t {
 	bool shouldexit;
 	void *kernelarg;
 	context_t *usercopyctx;
+	int class;
 	struct {
 		spinlock_t lock;
 		eventheader_t waitpendingevent;

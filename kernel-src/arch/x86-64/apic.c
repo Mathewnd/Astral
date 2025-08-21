@@ -168,13 +168,13 @@ void arch_apic_initap() {
 	interrupt_register(0xff, spurious, NULL, IPL_IGNORE);
 	writelapic(APIC_REG_SPURIOUS, 0x1FF);
 
-	current_cpu()->id = readlapic(APIC_REG_ID) >> 24;
+	current_cpu()->hardware_id = readlapic(APIC_REG_ID) >> 24;
 
 	// get the acpi id for the local nmi sources
 
 	for (size_t i = 0; i < lapic_count; ++i) {
 		struct acpi_madt_lapic *current = getentry(ACPI_MADT_ENTRY_TYPE_LAPIC, i);
-		if (current_cpu()->id == current->id) {
+		if (current_cpu()->hardware_id == current->id) {
 			current_cpu()->acpiid = current->uid;
 			break;
 		}
@@ -233,7 +233,7 @@ void arch_apic_timerinit() {
 
 	writelapic(APIC_TIMER_INITIAL_COUNT, 0);
 
-	printf("cpu%lu: local apic timer calibrated at %lu ticks per us. ISR vector %lu\n", current_cpu()->id, ticksperus, vec);
+	printf("cpu%lu: local apic timer calibrated at %lu ticks per us. ISR vector %lu\n", current_cpu()->internal_id, ticksperus, vec);
 
 	writelapic(APIC_LVT_TIMER, vec);
 

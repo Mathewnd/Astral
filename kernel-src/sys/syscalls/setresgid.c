@@ -1,6 +1,7 @@
 #include <kernel/abi.h>
 #include <kernel/syscalls.h>
 #include <kernel/cred.h>
+#include <arch/cpu.h>
 
 syscallret_t syscall_setresgid(context_t *, gid_t gid, gid_t egid, gid_t sgid) {
 	syscallret_t ret;

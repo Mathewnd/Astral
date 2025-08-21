@@ -1,6 +1,7 @@
 #include <kernel/syscalls.h>
 #include <kernel/file.h>
 #include <kernel/vfs.h>
+#include <arch/cpu.h>
 #include <errno.h>
 
 #define SEEK_SET 0

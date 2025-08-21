@@ -22,8 +22,12 @@ static void cpuwakeuphalt(struct limine_smp_info *info) {
 	for (;;) CPU_HALT();
 }
 
+static long next_id = 1;
+
 static void cpuwakeup(struct limine_smp_info *info) {
 	cpu_set((cpu_t *)info->extra_argument);
+
+	current_cpu()->internal_id = __atomic_fetch_add(&next_id, 1, __ATOMIC_SEQ_CST);
 
 	arch_gdt_reload();
 	arch_idt_reload();
@@ -46,16 +50,32 @@ static void cpuwakeup(struct limine_smp_info *info) {
 }
 
 void arch_smp_sendipi(cpu_t *targcpu, isr_t *isr, int target, bool nmi) {
-	arch_apic_sendipi(targcpu ? targcpu->id : 0, INTERRUPT_IDTOVECTOR(isr->id), target, nmi ? APIC_MODE_NMI : 0, 0);
+	arch_apic_sendipi(targcpu ? targcpu->hardware_id : 0, INTERRUPT_IDTOVECTOR(isr->id), target, nmi ? APIC_MODE_NMI : 0, 0);
 }
 
-void arch_smp_haltallothers() {
+void arch_smp_haltallothers(void) {
 	arch_smp_sendipi(NULL, &current_cpu()->isr[0xfd], ARCH_SMP_IPI_OTHERCPUS, true);
+}
+
+size_t arch_smp_get_cpu_count(void) {
+	if (cmdline_get("nosmp"))
+		return 1;
+
+	struct limine_smp_response *response = smprequest.response;
+	if (response == NULL)
+		return 1;
+
+	return response->cpu_count;
 }
 
 cpu_t **smp_cpus;
 
-void arch_smp_wakeup() {
+cpu_t *arch_smp_get_cpu_by_internal_id(long id) {
+	__assert(smp_cpus && id < arch_smp_get_cpu_count());
+	return smp_cpus[id];
+}
+
+void arch_smp_wakeup(void) {
 	struct limine_smp_response *response = smprequest.response;
 	if (response == NULL) {
 		// TODO try to detect the other processors manually

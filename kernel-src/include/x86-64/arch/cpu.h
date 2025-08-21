@@ -24,7 +24,8 @@ typedef struct cpu_t {
 
 	vmmcontext_t *vmmctx; // expected to be here by other code
 
-	long id; // expected to be here by other code
+	long hardware_id; // expected to be here by other code
+	long internal_id;
 
 	timekeeper_source_t *timekeeper_source;
 	timekeeper_source_info_t *timekeeper_source_info;
@@ -48,6 +49,14 @@ typedef struct cpu_t {
 
 	dpc_t  reschedule_dpc;
 	isr_t *reschedule_isr;
+
+	sched_run_queue_t rt_queue;
+	sched_calendar_queue_t ts_queue;
+	sched_run_queue_t idle_queue;
+	spinlock_t sched_lock;
+
+	long calendar_ticks;
+	timerentry_t calendar_tick_timer_entry;
 
 	// architecture specific, does not need to be exposed
 

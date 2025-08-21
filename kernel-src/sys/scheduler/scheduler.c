@@ -18,65 +18,6 @@
 #define QUANTUM_US 100000
 #define SCHEDULER_STACK_SIZE PAGE_SIZE * 16
 
-#define RUNQUEUE_COUNT 64
-
-typedef struct {
-	thread_t *list;
-	thread_t *last;
-} rqueue_t;
-
-static rqueue_t runqueue[RUNQUEUE_COUNT];
-static uint64_t runqueuebitmap;
-static spinlock_t runqueuelock;
-
-static thread_t *getinrunqueue(rqueue_t *rq) {
-	thread_t *thread = rq->list;
-
-	while (thread) {
-		if (thread->cputarget == NULL || thread->cputarget == current_cpu())
-			break;
-
-		thread = thread->next;
-	}
-
-	if (thread) {
-		if (thread->prev)
-			thread->prev->next = thread->next;
-		else
-			rq->list = thread->next;
-
-		if (thread->next)
-			thread->next->prev = thread->prev;
-		else
-			rq->last = thread->prev;
-	}
-
-	return thread;
-}
-
-static thread_t *runqueuenext(int minprio) {
-	bool intstate = interrupt_set(false);
-
-	thread_t *thread = NULL;
-
-	if (runqueuebitmap == 0)
-		goto leave;
-
-	// TODO use the bitmap for this
-	for (int i = 0; i < RUNQUEUE_COUNT && i <= minprio && thread == NULL; ++i) {
-		thread = getinrunqueue(&runqueue[i]);
-		if (thread && runqueue[i].list == NULL)
-			runqueuebitmap &= ~((uint64_t)1 << i);
-	}
-
-	if (thread)
-		thread->flags &= ~THREAD_FLAGS_QUEUED;
-
-	leave:
-	interrupt_set(intstate);
-	return thread;
-}
-
 static __attribute__((noreturn)) void switch_thread(thread_t *thread) {
 	interrupt_set(false);
 	thread_t* current = current_thread();
@@ -90,8 +31,6 @@ static __attribute__((noreturn)) void switch_thread(thread_t *thread) {
 
 	current_cpu()->intstatus = ARCH_CONTEXT_INTSTATUS(&thread->context);
 	thread->cpu = current_cpu();
-	// XXX make the locking of the flags field better, candidate for a r/w lock
-	spinlock_acquire(&runqueuelock);
 	if (current)
 		current->flags &= ~THREAD_FLAGS_RUNNING;
 
@@ -102,7 +41,6 @@ static __attribute__((noreturn)) void switch_thread(thread_t *thread) {
 
 	thread->flags |= THREAD_FLAGS_RUNNING;
 	__assert((thread->flags & THREAD_FLAGS_QUEUED) == 0);
-	spinlock_release(&runqueuelock);
 
 	void *schedulerstack = current_cpu()->schedulerstack;
 	__assert(!((void *)thread->context.rsp < schedulerstack && (void *)thread->context.rsp >= (schedulerstack - SCHEDULER_STACK_SIZE)));
@@ -111,49 +49,18 @@ static __attribute__((noreturn)) void switch_thread(thread_t *thread) {
 	__builtin_unreachable();
 }
 
-static void runqueueinsert(thread_t *thread) {
-	__assert((thread->flags & THREAD_FLAGS_RUNNING) == 0);
-	thread->flags |= THREAD_FLAGS_QUEUED;
-
-	runqueuebitmap |= ((uint64_t)1 << thread->priority);
-
-	thread->prev = runqueue[thread->priority].last;
-	if (thread->prev)
-		thread->prev->next = thread;
-	else
-		runqueue[thread->priority].list = thread;
-
-	thread->next = NULL;
-	runqueue[thread->priority].last = thread;
-}
-
-void sched_queue(thread_t *thread) {
-	bool intstate = interrupt_set(false);
-	spinlock_acquire(&runqueuelock);
-
-	// maybe instead of an assert, a simple return would suffice as the thread would already be queued anyways
-	__assert((thread->flags & THREAD_FLAGS_QUEUED) == 0 && (thread->flags & THREAD_FLAGS_RUNNING) == 0);
-
-	runqueueinsert(thread);
-
-	spinlock_release(&runqueuelock);
-	interrupt_set(intstate);
-	// TODO yield if higher priority than current thread (or send another CPU an IPI)
-}
-
 // no metrics callback here as this will be called from things like threads stopping
 __attribute__((noreturn)) void sched_stop_current_thread() {
 	interrupt_set(false);
 
-	spinlock_acquire(&runqueuelock);
 	if (current_thread())
 		current_thread()->flags &= ~THREAD_FLAGS_RUNNING;
 
-	thread_t *next = runqueuenext(0x0fffffff);
-	if (next == NULL)
-		next = current_cpu()->idlethread;
+	spinlock_acquire(&current_cpu()->sched_lock);
+	thread_t *next = sched_select_next_thread();
+	spinlock_release(&current_cpu()->sched_lock);
 
-	spinlock_release(&runqueuelock);
+	__assert(next);
 
 	switch_thread(next);
 }
@@ -222,11 +129,8 @@ __attribute__((no_caller_saved_registers)) void sched_userspacecheck(context_t *
 static void yield(context_t *context, void *) {
 	thread_t *thread = current_thread();
 
-	spinlock_acquire(&runqueuelock);
-
 	bool sleeping = thread->flags & THREAD_FLAGS_SLEEP;
 
-	thread_t *next = runqueuenext(sleeping ? 0x0fffffff : thread->priority);
 	bool gotsignal = false;
 	for (int i = 1; i < NSIG && thread->proc; ++i) {
 		void *action = thread->proc->signals.actions[i].address;
@@ -245,32 +149,31 @@ static void yield(context_t *context, void *) {
 
 	if (sleeping && (thread->shouldexit || gotsignal) && (thread->flags & THREAD_FLAGS_INTERRUPTIBLE)) {
 		sleeping = false;
-
-		if (next)
-			runqueueinsert(next);
-		next = NULL;
-
 		thread->flags &= ~(THREAD_FLAGS_SLEEP | THREAD_FLAGS_INTERRUPTIBLE);
 		thread->wakeupreason = SCHED_WAKEUP_REASON_INTERRUPTED;
 		spinlock_release(&thread->sleeplock);
 	}
 
-	if (next || sleeping) {
+	spinlock_acquire(&current_cpu()->sched_lock);
+
+	thread->flags &= ~THREAD_FLAGS_RUNNING;
+
+	if (sleeping == false) {
+		sched_insert_in_cpu_queue(current_cpu(), thread);
+	}
+
+	thread_t *next = sched_select_next_thread();
+
+	thread->flags |= THREAD_FLAGS_RUNNING;
+
+	spinlock_release(&current_cpu()->sched_lock);
+
+	if (next != thread || sleeping) {
 		ARCH_CONTEXT_THREADSAVE(thread, context);
 
-		thread->flags &= ~THREAD_FLAGS_RUNNING;
-
-		if (sleeping == false)
-			runqueueinsert(thread);
-
-		if (next == NULL)
-			next = current_cpu()->idlethread;
-
-		spinlock_release(&runqueuelock);
 		switch_thread(next);
 	}
 
-	spinlock_release(&runqueuelock);
 	sched_thread_running_callback(current_thread());
 }
 
@@ -319,20 +222,16 @@ bool sched_wakeup(thread_t *thread, int reason) {
 // once a scheduler dpc gets run, the return context is set to this function using the scheduler stack
 static void dopreempt() {
 	// interrupts are disabled, the thread context is already saved
-	spinlock_acquire(&runqueuelock);
-
 	thread_t *current = current_thread();
-	thread_t *next = runqueuenext(current->priority);
-
 	current->flags &= ~THREAD_FLAGS_PREEMPTED;
-	if (next) {
-		current->flags &= ~THREAD_FLAGS_RUNNING;
-		runqueueinsert(current);
-	} else {
-		next = current;
-	}
 
-	spinlock_release(&runqueuelock);
+	spinlock_acquire(&current_cpu()->sched_lock);
+
+	current->flags &= ~THREAD_FLAGS_RUNNING;
+	sched_insert_in_cpu_queue(current_cpu(), current);
+	thread_t *next = sched_select_next_thread();
+
+	spinlock_release(&current_cpu()->sched_lock);
 
 	switch_thread(next);
 }
@@ -385,21 +284,18 @@ static void reschedule_yield(context_t *context, void *_cpu) {
 	thread_t *thread = current_thread();
 	cpu_t *cpu = _cpu;
 
-	spinlock_acquire(&runqueuelock);
-
-	thread_t *next = runqueuenext(0x0fffffff);
-
 	ARCH_CONTEXT_THREADSAVE(thread, context);
 
+	spinlock_acquire(&cpu->sched_lock);
 	thread->flags &= ~THREAD_FLAGS_RUNNING;
-	runqueueinsert(thread);
+	sched_insert_in_cpu_queue(cpu, thread);
+	spinlock_release(&cpu->sched_lock);
 
-	if (next == NULL)
-		next = current_cpu()->idlethread;
+	spinlock_acquire(&current_cpu()->sched_lock);
+	thread_t *next = sched_select_next_thread();
+	spinlock_release(&current_cpu()->sched_lock);
 
 	arch_smp_sendipi(cpu, cpu->reschedule_isr, ARCH_SMP_IPI_TARGET, false);
-
-	spinlock_release(&runqueuelock);
 	switch_thread(next);
 }
 
@@ -442,18 +338,32 @@ void sched_sleep_us(size_t us) {
 	sched_yield();
 }
 
+static void set_up_bitmaps(void) {
+	__assert(bitmap_init(&current_cpu()->rt_queue.thread_bitmap, SCHED_RUN_QUEUE_SIZE) == 0);
+	__assert(bitmap_init(&current_cpu()->idle_queue.thread_bitmap, SCHED_RUN_QUEUE_SIZE) == 0);
+}
+
+void sched_calendar_tick(context_t *, dpcarg_t);
+
 void sched_ap_entry() {
+	SPINLOCK_INIT(current_cpu()->sched_lock);
+
+	set_up_bitmaps();
+
 	current_cpu()->schedulerstack = vmm_map(NULL, SCHEDULER_STACK_SIZE, VMM_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, NULL);
 	__assert(current_cpu()->schedulerstack);
 	current_cpu()->schedulerstack = (void *)((uintptr_t)current_cpu()->schedulerstack + SCHEDULER_STACK_SIZE);
 
 	current_cpu()->idlethread = sched_newthread(cpuidlethread, PAGE_SIZE * 4, 3, NULL, NULL);
 	__assert(current_cpu()->idlethread);
+	current_cpu()->idlethread->class = THREAD_CLASS_IDLE;
+	sched_queue(current_cpu()->idlethread);
 
 	current_cpu()->reschedule_isr = interrupt_allocate(reschedule_ipi, ARCH_EOI, IPL_MAX);
 	__assert(current_cpu()->reschedule_isr);
 
 	timer_insert(current_cpu()->timer, &current_cpu()->schedtimerentry, reschedule_timer_dpc, NULL, QUANTUM_US, true);
+	timer_insert(current_cpu()->timer, &current_cpu()->calendar_tick_timer_entry, sched_calendar_tick, NULL, 1000, true);
 	timer_resume(current_cpu()->timer);
 	sched_stop_current_thread();
 }
@@ -461,16 +371,24 @@ void sched_ap_entry() {
 void sched_init() {
 	proc_init();
 
+	SPINLOCK_INIT(current_cpu()->sched_lock);
+	SPINLOCK_INIT(sched_idle_cpu_bitmap_lock);
+	
+	set_up_bitmaps();
+
+	__assert(bitmap_init(&sched_idle_cpu_bitmap, arch_smp_get_cpu_count()) == 0);
+
 	current_cpu()->schedulerstack = vmm_map(NULL, SCHEDULER_STACK_SIZE, VMM_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, NULL);
 	__assert(current_cpu()->schedulerstack);
 	current_cpu()->schedulerstack = (void *)((uintptr_t)current_cpu()->schedulerstack + SCHEDULER_STACK_SIZE);
 
-	SPINLOCK_INIT(runqueuelock);
-
 	current_cpu()->idlethread = sched_newthread(cpuidlethread, PAGE_SIZE * 4, 3, NULL, NULL);
 	__assert(current_cpu()->idlethread);
+	current_cpu()->idlethread->class = THREAD_CLASS_IDLE;
 	current_cpu()->thread = sched_newthread(NULL, PAGE_SIZE * 32, 0, NULL, NULL);
 	__assert(current_thread());
+
+	sched_queue(current_cpu()->idlethread);
 
 	current_cpu()->reschedule_isr = interrupt_allocate(reschedule_ipi, ARCH_EOI, IPL_MAX);
 	__assert(current_cpu()->reschedule_isr);
@@ -480,6 +398,7 @@ void sched_init() {
 	sched_thread_running_callback(current_thread());
 
 	timer_insert(current_cpu()->timer, &current_cpu()->schedtimerentry, reschedule_timer_dpc, NULL, QUANTUM_US, true);
+	timer_insert(current_cpu()->timer, &current_cpu()->calendar_tick_timer_entry, sched_calendar_tick, NULL, 10000, true);
 	// XXX move this resume to a more appropriate place
 	timer_resume(current_cpu()->timer);
 }

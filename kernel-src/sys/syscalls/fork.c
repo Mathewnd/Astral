@@ -5,6 +5,7 @@
 #include <kernel/interrupt.h>
 #include <kernel/jobctl.h>
 #include <kernel/interrupt.h>
+#include <arch/cpu.h>
 
 syscallret_t syscall_fork(context_t *ctx) {
 	syscallret_t ret = {

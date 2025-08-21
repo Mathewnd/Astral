@@ -45,6 +45,7 @@ thread_t *sched_newthread(void *ip, size_t kstacksize, int priority, proc_t *pro
 	EVENT_INITHEADER(&thread->signals.waitpendingevent);
 	memset(&thread->metrics, 0, sizeof(thread->metrics));
 	thread->metrics.sleep_time_avg_us = 1; // to prevent a division by 0 when the thread first gets scheduled
+	thread->class = THREAD_CLASS_TIMESHARE;
 
 	return thread;
 }

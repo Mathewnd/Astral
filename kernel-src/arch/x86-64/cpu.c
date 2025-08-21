@@ -211,7 +211,7 @@ void arch_cpu_init() {
 	char str_buf[128];
 	size_t done = 0;
 
-	done += snprintf(str_buf, 128, "cpu%d: %s@", current_cpu()->id, current_cpu()->vendor);
+	done += snprintf(str_buf, 128, "cpu%d: %s@", current_cpu()->internal_id, current_cpu()->vendor);
 	for (int i = 0; i < topology_depth; ++i)
 		done += snprintf(str_buf + done, 128 - done, "%d%c", topology_ids[i], i == topology_depth - 1 ? 0 : ':');
 	str_buf[done] = '\n';

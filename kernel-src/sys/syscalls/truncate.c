@@ -1,5 +1,6 @@
 #include <kernel/syscalls.h>
 #include <mutex.h>
+#include <arch/cpu.h>
 
 syscallret_t syscall_ftruncate(context_t *, int fd, size_t size) {
 	syscallret_t ret = {

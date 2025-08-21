@@ -1,8 +1,8 @@
 #include <kernel/scheduler.h>
+#include <kernel/timekeeper.h>
 #include <util.h>
 
-#define MAX_INTERACTIVITY 100
-#define SCALING_FACTOR (MAX_INTERACTIVITY / 2)
+#define SCALING_FACTOR (SCHED_MAX_INTERACTIVITY / 2)
 
 #define HISTORY_LIMIT_USEC 5000000
 
@@ -11,9 +11,9 @@ static void update_interactivity(thread_t *thread) {
 	time_t run_time = thread->metrics.run_time_avg_us;
 
 	if (sleep_time > run_time)
-		thread->metrics.interactivity_score = min((SCALING_FACTOR * run_time) / sleep_time, MAX_INTERACTIVITY);
+		thread->metrics.interactivity_score = min((SCALING_FACTOR * run_time) / sleep_time, SCHED_MAX_INTERACTIVITY);
 	else
-		thread->metrics.interactivity_score = min((SCALING_FACTOR * sleep_time) / run_time + SCALING_FACTOR, MAX_INTERACTIVITY);
+		thread->metrics.interactivity_score = min((SCALING_FACTOR * sleep_time) / run_time + SCALING_FACTOR, SCHED_MAX_INTERACTIVITY);
 
 	// TODO nice value impacting this 
 }

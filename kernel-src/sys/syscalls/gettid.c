@@ -1,5 +1,6 @@
 #include <kernel/syscalls.h>
 #include <kernel/scheduler.h>
+#include <arch/cpu.h>
 
 syscallret_t syscall_gettid(context_t *) {
 	syscallret_t ret = {

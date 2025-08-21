@@ -2,6 +2,7 @@
 #include <kernel/vfs.h>
 #include <kernel/file.h>
 #include <errno.h>
+#include <arch/cpu.h>
 
 syscallret_t syscall_write(context_t *context, int fd, void *buffer, size_t size) {
 	syscallret_t ret = {

@@ -1,6 +1,6 @@
 #include <kernel/syscalls.h>
 #include <kernel/alloc.h>
-
+#include <arch/cpu.h>
 
 syscallret_t syscall_linkat(context_t *, int olddirfd, char *uoldpath, int newdirfd, char *unewpath, int flags, int type) {
 	syscallret_t ret = {

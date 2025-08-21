@@ -2,6 +2,7 @@
 #include <kernel/scheduler.h>
 #include <kernel/cmdline.h>
 #include <kernel/alloc.h>
+#include <arch/cpu.h>
 
 syscallret_t syscall_newthread(context_t *, void *entry, void *stack) {
 	syscallret_t ret = {
