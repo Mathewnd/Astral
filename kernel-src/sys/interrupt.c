@@ -189,13 +189,14 @@ long interrupt_raiseipl(long ipl) {
 bool interrupt_set(bool status) {
 	arch_interrupt_disable();
 	bool old = current_cpu()->intstatus;
-	current_cpu()->intstatus = status;
 
-	if (status) {
-		if (current_cpu()->isrqueue)
-			DOPENDING_SAVE();
-		arch_interrupt_enable();
+	if (status && current_cpu()->isrqueue) {
+		DOPENDING_SAVE();
 	}
+
+	current_cpu()->intstatus = status;
+	if (status)
+		arch_interrupt_enable();
 
 	return old;
 }

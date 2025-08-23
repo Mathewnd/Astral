@@ -117,10 +117,7 @@ __attribute__((no_caller_saved_registers)) void sched_userspacecheck(context_t *
 	if (&args < (checkargs_t *)current_cpu()->schedulerstack && &args >= (checkargs_t *)((uintptr_t)current_cpu()->schedulerstack - SCHEDULER_STACK_SIZE)) {
 		arch_context_saveandcall(checktrampoline, current_thread()->kernelstacktop, &args);
 	} else {
-		if (userspacecheck(&args)) {
-			// need context switch
-			arch_context_switch(context);
-		}
+		userspacecheck(&args);
 	}
 
 	current_cpu()->intstatus = intstatus;
