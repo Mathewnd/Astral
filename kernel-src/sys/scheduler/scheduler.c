@@ -192,7 +192,6 @@ int sched_yield() {
 void sched_prepare_sleep(bool interruptible) {
 	current_thread()->sleepintstatus = interrupt_set(false);
 	spinlock_acquire(&current_thread()->sleeplock);
-	// no locking needed as only we will be accessing it
 	current_thread()->flags |= THREAD_FLAGS_SLEEP | (interruptible ? THREAD_FLAGS_INTERRUPTIBLE : 0);
 }
 
@@ -211,7 +210,6 @@ bool sched_wakeup(thread_t *thread, int reason) {
 
 	sched_thread_wakeup_callback(thread);
 
-	// TODO send IPI to idle cores
 	sched_queue(thread);
 	spinlock_release(&thread->sleeplock);
 	interrupt_set(intstate);
@@ -264,13 +262,20 @@ static void reschedule_ipi(isr_t *, context_t *) {
 	dpc_enqueue(&current_cpu()->reschedule_dpc, preempt_dpc, NULL);
 }
 
-static void cpuidlethread() {
-	sched_target_cpu(current_cpu());
-	interrupt_set(true);
-	while (1) {
-		CPU_HALT();
-		sched_yield();
+void sched_preempt_cpu(cpu_t *cpu) {
+	long ipl = interrupt_raiseipl(IPL_DPC);
+	if (cpu == current_cpu()) {
+		dpc_enqueue(&cpu->reschedule_dpc, preempt_dpc, NULL);
+	} else {
+		arch_smp_send_ipi(cpu, cpu->reschedule_isr, ARCH_SMP_IPI_TARGET, false);
 	}
+	interrupt_loweripl(ipl);
+}
+
+static void idle_thread(void) {
+	interrupt_set(true);
+	while (1)
+		CPU_HALT();
 }
 
 void sched_target_cpu(cpu_t *cpu) {
@@ -295,7 +300,7 @@ static void reschedule_yield(context_t *context, void *_cpu) {
 	thread_t *next = sched_select_next_thread();
 	spinlock_release(&current_cpu()->sched_lock);
 
-	arch_smp_sendipi(cpu, cpu->reschedule_isr, ARCH_SMP_IPI_TARGET, false);
+	arch_smp_send_ipi(cpu, cpu->reschedule_isr, ARCH_SMP_IPI_TARGET, false);
 	switch_thread(next);
 }
 
@@ -349,8 +354,9 @@ void sched_ap_entry() {
 	__assert(current_cpu()->schedulerstack);
 	current_cpu()->schedulerstack = (void *)((uintptr_t)current_cpu()->schedulerstack + SCHEDULER_STACK_SIZE);
 
-	current_cpu()->idlethread = sched_newthread(cpuidlethread, PAGE_SIZE * 4, 100, NULL, NULL);
+	current_cpu()->idlethread = sched_newthread(idle_thread, PAGE_SIZE * 4, 100, NULL, NULL);
 	__assert(current_cpu()->idlethread);
+	current_cpu()->idlethread->cputarget = current_cpu();
 	current_cpu()->idlethread->class = THREAD_CLASS_IDLE;
 	sched_queue(current_cpu()->idlethread);
 
@@ -377,9 +383,11 @@ void sched_init() {
 	__assert(current_cpu()->schedulerstack);
 	current_cpu()->schedulerstack = (void *)((uintptr_t)current_cpu()->schedulerstack + SCHEDULER_STACK_SIZE);
 
-	current_cpu()->idlethread = sched_newthread(cpuidlethread, PAGE_SIZE * 4, 100, NULL, NULL);
+	current_cpu()->idlethread = sched_newthread(idle_thread, PAGE_SIZE * 4, 100, NULL, NULL);
 	__assert(current_cpu()->idlethread);
+	current_cpu()->idlethread->cputarget = current_cpu();
 	current_cpu()->idlethread->class = THREAD_CLASS_IDLE;
+
 	current_cpu()->thread = sched_newthread(NULL, PAGE_SIZE * 32, 0, NULL, NULL);
 	__assert(current_thread());
 

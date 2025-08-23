@@ -49,12 +49,12 @@ static void cpuwakeup(struct limine_smp_info *info) {
 	sched_ap_entry();
 }
 
-void arch_smp_sendipi(cpu_t *targcpu, isr_t *isr, int target, bool nmi) {
+void arch_smp_send_ipi(cpu_t *targcpu, isr_t *isr, int target, bool nmi) {
 	arch_apic_sendipi(targcpu ? targcpu->hardware_id : 0, INTERRUPT_IDTOVECTOR(isr->id), target, nmi ? APIC_MODE_NMI : 0, 0);
 }
 
 void arch_smp_haltallothers(void) {
-	arch_smp_sendipi(NULL, &current_cpu()->isr[0xfd], ARCH_SMP_IPI_OTHERCPUS, true);
+	arch_smp_send_ipi(NULL, &current_cpu()->isr[0xfd], ARCH_SMP_IPI_OTHERCPUS, true);
 }
 
 size_t arch_smp_get_cpu_count(void) {

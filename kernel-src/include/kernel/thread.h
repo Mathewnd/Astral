@@ -30,6 +30,7 @@ typedef struct thread_t {
 	struct proc_t *proc;
 	struct cpu_t *cpu;
 	struct cpu_t *cputarget;
+	struct cpu_t *last_cpu;
 	context_t context;
 	extracontext_t extracontext;
 	void *kernelstack;
@@ -63,6 +64,7 @@ typedef struct thread_t {
 		time_t run_time_avg_us;
 		timespec_t sleep_start;
 		timespec_t run_start;
+		time_t last_sleep_duration_us;
 	} metrics;
 } thread_t;
 

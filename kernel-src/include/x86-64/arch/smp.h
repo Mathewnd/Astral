@@ -12,7 +12,7 @@ extern size_t arch_smp_cpusawake;
 extern cpu_t **smp_cpus;
 
 void arch_smp_wakeup(void);
-void arch_smp_sendipi(cpu_t *targcpu, isr_t *isr, int target, bool nmi);
+void arch_smp_send_ipi(cpu_t *targcpu, isr_t *isr, int target, bool nmi);
 void arch_smp_haltallothers(void);
 size_t arch_smp_get_cpu_count(void);
 

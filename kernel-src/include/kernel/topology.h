@@ -17,6 +17,8 @@ extern topology_node_t topology_root;
 
 topology_node_t *topology_create_node(void);
 void topology_insert(topology_node_t *node, topology_node_t *parent, int id, cpu_t *cpu);
+cpu_t *topology_find_next_cpu_to_run(topology_node_t *last_cpu, thread_t *thread, time_t sleep_time);
+topology_node_t *topology_find_child_by_id(topology_node_t *node, int id);
 
 static inline topology_node_t *topology_get_root(void) {
 	return &topology_root;

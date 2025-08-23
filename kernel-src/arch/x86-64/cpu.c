@@ -220,11 +220,20 @@ void arch_cpu_init() {
 	// insert it into the topology tree
 	topology_node_t *topology_nodes[topology_depth];
 	for (int i = 0; i < topology_depth; ++i) {
-		topology_nodes[i] = topology_create_node();
-		__assert(topology_nodes[i]);
+		int id = TOPOLOGY_MAKE_ID(topology_types[i], topology_ids[i]);
+		topology_node_t *parent = i == 0 ? topology_get_root() : topology_nodes[i - 1];
 
-		topology_insert(topology_nodes[i], i == 0 ? topology_get_root() : topology_nodes[i - 1], TOPOLOGY_MAKE_ID(topology_types[i], topology_ids[i]), current_cpu());
+		topology_nodes[i] = topology_find_child_by_id(parent, id);
+		if (topology_nodes[i] == NULL) {
+			topology_nodes[i] = topology_create_node();
+			__assert(topology_nodes[i]);
+
+			topology_insert(topology_nodes[i], i == 0 ? topology_get_root() : topology_nodes[i - 1],
+				       	TOPOLOGY_MAKE_ID(topology_types[i], topology_ids[i]), (i == topology_depth - 1) ? current_cpu() : NULL);
+		}
 	}
+
+	current_cpu()->topology_node = topology_nodes[topology_depth - 1];
 }
 
 INIT_ROUTINE_DEFINE(cpu, INIT_ROUTINE_FLAGS_NONE, arch_cpu_init, acpi_early);

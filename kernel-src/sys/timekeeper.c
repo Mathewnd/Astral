@@ -84,7 +84,7 @@ void timekeeper_sync(void) {
 		if (smp_cpus[i] == current_cpu())
 			continue;
 
-		arch_smp_sendipi(smp_cpus[i], smp_cpus[i]->timekeeper_sync_isr, ARCH_SMP_IPI_TARGET, false);
+		arch_smp_send_ipi(smp_cpus[i], smp_cpus[i]->timekeeper_sync_isr, ARCH_SMP_IPI_TARGET, false);
 	}
 
 	// try to get things into the cache

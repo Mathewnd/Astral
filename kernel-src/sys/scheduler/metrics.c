@@ -52,5 +52,6 @@ void sched_thread_stopping_callback(thread_t *thread, bool sleeping) {
 
 // called right before the specified thread gets enqueued after sleeping
 void sched_thread_wakeup_callback(thread_t *thread) {
-	offset_times(thread, 0, timespec_diffus(thread->metrics.sleep_start, timekeeper_time()));
+	thread->metrics.last_sleep_duration_us = timespec_diffus(thread->metrics.sleep_start, timekeeper_time());
+	offset_times(thread, 0, thread->metrics.last_sleep_duration_us);
 }

@@ -53,9 +53,14 @@ typedef struct cpu_t {
 	sched_run_queue_t rt_queue;
 	sched_calendar_queue_t ts_queue;
 	sched_run_queue_t idle_queue;
+	int last_interactivity;
+	int last_queue;
+	size_t thread_count;
 	spinlock_t sched_lock;
 
 	timerentry_t calendar_tick_timer_entry;
+
+	void *topology_node;
 
 	// architecture specific, does not need to be exposed
 

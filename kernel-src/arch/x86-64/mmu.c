@@ -210,7 +210,7 @@ static int shootdown_remaining = 0;
 
 static inline void do_invalidate(void *page, size_t size) {
 	// if a full reload was requested or we are doing a big release on 
-	if (page == NULL || size >= 128 * PAGE_SIZE) {
+	if (page == NULL || size >= 32 * PAGE_SIZE) {
 		// TODO if global pages are ever supported, we should disable them in CR4, flush, and then reenable them
 		asm volatile("mov %%cr3, %%rax; mov %%rax, %%cr3;" : : : "rax", "memory");
 	} else {
@@ -251,7 +251,7 @@ void arch_mmu_invalidate_range(void *page, size_t size) {
 			if (smp_cpus[i] == current_cpu())
 				continue;
 
-			arch_smp_sendipi(smp_cpus[i], &smp_cpus[i]->isr[0xfe], ARCH_SMP_IPI_TARGET, false);
+			arch_smp_send_ipi(smp_cpus[i], &smp_cpus[i]->isr[0xfe], ARCH_SMP_IPI_TARGET, false);
 		}
 	}
 
@@ -326,7 +326,7 @@ static void pfisr(isr_t *self, context_t *ctx) {
 
 static void gpfisr(isr_t *self, context_t *ctx) {
 	thread_t *thread = current_thread();
-	if (thread->usercopyctx) {
+	if (thread && thread->usercopyctx) {
 		memcpy(ctx, thread->usercopyctx, sizeof(context_t));
 		thread->usercopyctx = NULL;
 		CTX_RET(ctx) = EFAULT;
