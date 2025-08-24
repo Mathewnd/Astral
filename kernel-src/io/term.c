@@ -71,4 +71,8 @@ void term_init() {
 	logging_sethook(term_putchar);
 }
 
-INIT_ROUTINE_DEFINE(term, INIT_ROUTINE_FLAGS_NONE, term_init, pmm);
+void term_update_framebuffer(void *fb) {
+	((struct flanterm_fb_context *)fb)->framebuffer = fb;
+}
+
+INIT_ROUTINE_DEFINE(term, INIT_ROUTINE_FLAGS_NONE, term_init, vmm);

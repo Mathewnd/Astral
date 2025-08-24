@@ -7,6 +7,7 @@
 #include <arch/cpu.h>
 #include <kernel/pmm.h>
 #include <kernel/usercopy.h>
+#include <kernel/term.h>
 #include <kernel/init.h>
 
 typedef struct bitfield_t {
@@ -256,6 +257,11 @@ void fb_init() {
 
 		printf("%s: %dx%d %d bpp\n", name, fb->width, fb->height, fb->bpp);
 	}
+
+
+	void *fb_map = vmm_map(NULL, fbs[0]->pitch * fbs[0]->height, VMM_FLAGS_PHYSICAL, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC | ARCH_MMU_FLAGS_WC, FROM_HHDM(fbs[0]->address));
+	__assert(fb_map);
+	term_update_framebuffer(fb_map);
 }
 
 INIT_ROUTINE_DEFINE(fb, INIT_ROUTINE_FLAGS_NONE, fb_init, devfs);
