@@ -190,7 +190,6 @@ int vmmcache_getpage(vnode_t *vnode, uintmax_t offset, page_t **res) {
 		*res = newpage;
 	}
 
-	RELEASE_LOCK();
 	return 0;
 }
 
