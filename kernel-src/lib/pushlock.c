@@ -1,11 +1,11 @@
 #include <pushlock.h>
-
+#include <logging.h>
 #define DO_CAS(ptr, saved, new) \
 	__atomic_compare_exchange_n(ptr, &saved, new, false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)
 
 bool pushlock_try_acquire_exclusive(pushlock_t *pushlock) {
-	pushlock_t saved_value = *pushlock;
 	for (;;) {
+		pushlock_t saved_value = *pushlock;
 		if ((PUSHLOCK_FLAGS_ACQUIRED & saved_value) == 0) {
 			if (DO_CAS(pushlock, saved_value, saved_value | PUSHLOCK_FLAGS_ACQUIRED | PUSHLOCK_FLAGS_EXCLUSIVE))
 				return true;
@@ -18,15 +18,14 @@ bool pushlock_try_acquire_exclusive(pushlock_t *pushlock) {
 }
 
 void pushlock_acquire_exclusive(pushlock_t *pushlock) {
-	pushlock_t saved_value = *pushlock;
 	for (;;) {
+		pushlock_t saved_value = *pushlock;
 		if ((PUSHLOCK_FLAGS_ACQUIRED & saved_value) == 0) {
 			if (DO_CAS(pushlock, saved_value, saved_value | PUSHLOCK_FLAGS_ACQUIRED | PUSHLOCK_FLAGS_EXCLUSIVE))
 				return;
 
 			continue;
 		}
-
 
 		pushlock_wait_block_t wait_block;
 		SEMAPHORE_INIT(&wait_block.semaphore, 0);
@@ -45,8 +44,8 @@ void pushlock_acquire_exclusive(pushlock_t *pushlock) {
 }
 
 bool pushlock_try_acquire_shared(pushlock_t *pushlock) {
-	pushlock_t saved_value = *pushlock;
 	for (;;) {
+		pushlock_t saved_value = *pushlock;
 		if ((saved_value & PUSHLOCK_FLAGS_ACQUIRED) == 0 || (saved_value & PUSHLOCK_FLAGS_EXCLUSIVE) == 0) {
 			if (saved_value & PUSHLOCK_FLAGS_CONTENDED) {
 				// if its contended, we will try to acquire it as an exclusive lock
@@ -68,8 +67,8 @@ bool pushlock_try_acquire_shared(pushlock_t *pushlock) {
 }
 
 void pushlock_acquire_shared(pushlock_t *pushlock) {
-	pushlock_t saved_value = *pushlock;
 	for (;;) {
+		pushlock_t saved_value = *pushlock;
 		if ((saved_value & PUSHLOCK_FLAGS_ACQUIRED) == 0 || (saved_value & PUSHLOCK_FLAGS_EXCLUSIVE) == 0) {
 			if (saved_value & PUSHLOCK_FLAGS_CONTENDED) {
 				// if its contended, we will try to acquire it as an exclusive lock
@@ -100,8 +99,12 @@ void pushlock_acquire_shared(pushlock_t *pushlock) {
 }
 
 void pushlock_release(pushlock_t *pushlock) {
-	pushlock_t saved_value = *pushlock;
+	pushlock_t saved_value;
 	for (;;) {
+		saved_value = *pushlock;
+#ifdef DEBUG_LOCKS
+		__assert(saved_value & PUSHLOCK_FLAGS_ACQUIRED);
+#endif
 		if ((saved_value & PUSHLOCK_FLAGS_CONTENDED) == 0) {
 			if ((saved_value & PUSHLOCK_FLAGS_EXCLUSIVE) == 0 && PUSHLOCK_GET_SHARED_COUNT(saved_value) > 1) {
 				// shared lock with 2 or more holders, decrement shared count
@@ -123,7 +126,11 @@ void pushlock_release(pushlock_t *pushlock) {
 	// last and penultimate ones
 	bool skip_check = false;
 	for (;;) {
+		saved_value = *pushlock;
 		pushlock_wait_block_t *prev = NULL, *last = PUSHLOCK_GET_POINTER(saved_value);
+#ifdef DEBUG_LOCKS
+		__assert(last);
+#endif
 		while (last->next != NULL) {
 			prev = last;
 			last = last->next;
@@ -147,6 +154,7 @@ void pushlock_release(pushlock_t *pushlock) {
 			for (;;) {
 				if (DO_CAS(pushlock, saved_value, (uintptr_t)PUSHLOCK_GET_POINTER(saved_value) | PUSHLOCK_FLAGS_CONTENDED))
 					break;
+				saved_value = *pushlock;
 			}
 		}
 
