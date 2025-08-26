@@ -95,7 +95,7 @@ static int getcount(int type) {
 	return count;
 }
 
-	static inline void writelapic(int reg, uint32_t v) {
+static inline void writelapic(int reg, uint32_t v) {
 	volatile uint32_t *ptr = (void *)((uintptr_t)lapic_address + reg);
 	*ptr = v;
 }
