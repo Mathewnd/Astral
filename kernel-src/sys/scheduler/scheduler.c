@@ -295,9 +295,11 @@ static void reschedule_yield(context_t *context, void *_cpu) {
 
 	spinlock_acquire(&current_cpu()->sched_lock);
 	thread_t *next = sched_select_next_thread();
-	spinlock_release(&current_cpu()->sched_lock);
 
-	arch_smp_send_ipi(cpu, cpu->reschedule_isr, ARCH_SMP_IPI_TARGET, false);
+	if (sched_thread_can_run_in_cpu(thread, cpu->last_queue, cpu->last_interactivity))
+		arch_smp_send_ipi(cpu, cpu->reschedule_isr, ARCH_SMP_IPI_TARGET, false);
+
+	spinlock_release(&current_cpu()->sched_lock);
 	switch_thread(next);
 }
 
@@ -341,6 +343,7 @@ static void set_up_bitmaps(void) {
 }
 
 void sched_calendar_tick(context_t *, dpcarg_t);
+void sched_load_balancer(context_t *, dpcarg_t);
 
 void sched_ap_entry() {
 	SPINLOCK_INIT(current_cpu()->sched_lock);
@@ -367,6 +370,7 @@ void sched_ap_entry() {
 }
 
 void sched_init() {
+	static timerentry_t sched_load_balancer_entry;
 	proc_init();
 
 	SPINLOCK_INIT(current_cpu()->sched_lock);
@@ -399,6 +403,8 @@ void sched_init() {
 
 	timer_insert(current_cpu()->timer, &current_cpu()->schedtimerentry, reschedule_timer_dpc, NULL, QUANTUM_US, true);
 	timer_insert(current_cpu()->timer, &current_cpu()->calendar_tick_timer_entry, sched_calendar_tick, NULL, 10000, true);
+	// TODO randomize interval
+	timer_insert(current_cpu()->timer, &sched_load_balancer_entry, sched_load_balancer, NULL, 1000000, true);
 	// XXX move this resume to a more appropriate place
 	timer_resume(current_cpu()->timer);
 }

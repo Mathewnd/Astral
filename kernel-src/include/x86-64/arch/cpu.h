@@ -56,6 +56,7 @@ typedef struct cpu_t {
 	int last_interactivity;
 	int last_queue;
 	size_t thread_count;
+	size_t stealable_thread_count;
 	spinlock_t sched_lock;
 
 	timerentry_t calendar_tick_timer_entry;

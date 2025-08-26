@@ -57,6 +57,7 @@ void sched_thread_wakeup_callback(thread_t *thread);
 thread_t *sched_select_next_thread(void);
 void sched_insert_in_cpu_queue(struct cpu_t *cpu, thread_t *thread);
 void sched_preempt_cpu(struct cpu_t *cpu);
+thread_t *sched_steal_work_from_cpu(struct cpu_t *cpu);
 
 static inline int sched_thread_run_queue_index(int interactivity) {
 	return min(interactivity * SCHED_RUN_QUEUE_SIZE / SCHED_MAX_INTERACTIVITY, SCHED_RUN_QUEUE_SIZE - 1);
