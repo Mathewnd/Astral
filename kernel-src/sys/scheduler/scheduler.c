@@ -161,7 +161,8 @@ static void yield(context_t *context, void *) {
 
 	thread_t *next = sched_select_next_thread();
 
-	thread->flags |= THREAD_FLAGS_RUNNING;
+	if (thread == next)
+		thread->flags |= THREAD_FLAGS_RUNNING;
 
 	spinlock_release(&current_cpu()->sched_lock);
 
