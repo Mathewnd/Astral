@@ -238,13 +238,11 @@ int vfs_write_iovec(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size
 		*written = 0;
 		// can't write a size 0 buffer
 		if (size == 0)
-			goto leave;
+			return 0;
 
 		// overflow
-		if (size + offset < offset) {
-			err = EINVAL;
-			goto leave;
-		}
+		if (size + offset < offset)
+			return EINVAL;
 
 		MUTEX_ACQUIRE(&node->size_lock);
 
@@ -260,7 +258,7 @@ int vfs_write_iovec(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size
 		if (node->type == V_TYPE_REGULAR && newsize) {
 			// do resize stuff if regular and applicable
 			VOP_LOCK(node);
-			err = VOP_RESIZE(node, newsize, &current_thread()->proc->cred);
+			err = VOP_RESIZE(node, newsize, getcred());
 			VOP_UNLOCK(node);
 			if (err)
 				goto leave;
@@ -358,13 +356,11 @@ int vfs_read_iovec(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size,
 		*bytesread = 0;
 		// can't read 0 bytes from the cache
 		if (size == 0)
-			goto leave;
+			return 0;
 
 		// overflow
-		if (size + offset < offset) {
-			err = EINVAL;
-			goto leave;
-		}
+		if (size + offset < offset)
+			return EINVAL;
 
 		size_t nodesize = 0;
 
