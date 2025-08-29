@@ -60,7 +60,7 @@ size_t iovec_iterator_skip(iovec_iterator_t *iovec_iterator, size_t skip_count) 
 }
 
 size_t iovec_iterator_set(iovec_iterator_t *iovec_iterator, size_t offset) {
-	iovec_iterator->current = iovec_iterator->current;
+	iovec_iterator->current = iovec_iterator->iovec;
 	iovec_iterator->current_offset = 0;
 	iovec_iterator->total_offset = 0;
 
