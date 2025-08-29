@@ -152,7 +152,7 @@ void pci_msisetbase(pcienum_t *e, int base, int edgetrigger, int deassert) {
 
 	// address high
 	if (is64bit)
-		PCI_WRITE32(e, e->msi.offset + 8, (address > 32) & 0xffffffff);
+		PCI_WRITE32(e, e->msi.offset + 8, (address >> 32) & 0xffffffff);
 
 	// data
 	PCI_WRITE16(e, e->msi.offset + dataoffset, data);
