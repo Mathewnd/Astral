@@ -114,17 +114,18 @@ void semaphore_signal(semaphore_t *sem) {
 	bool intstate = interrupt_set(false);
 	spinlock_acquire(&sem->lock);
 
+	thread_t *thread = NULL;
 	if (++sem->i <= 0) {
-		thread_t *thread = get(sem);
+		thread = get(sem);
 		// a thread will always be returned if sem->i <= 0
 		__assert(thread);
-
-		// XXX the current method doesn't respect thread priorities
-		sched_wakeup(thread, 0);
 	}
 
 	spinlock_release(&sem->lock);
 	interrupt_set(intstate);
+
+	if (thread)
+		sched_wakeup(thread, 0);
 }
 
 bool semaphore_signal_limit(semaphore_t *sem, int limit) {
@@ -132,17 +133,15 @@ bool semaphore_signal_limit(semaphore_t *sem, int limit) {
 	spinlock_acquire(&sem->lock);
 
 	bool successful = false;
+	thread_t *thread = NULL;
 
 	if (sem->i >= limit)
 		goto leave;
 
 	if (++sem->i <= 0) {
-		thread_t *thread = get(sem);
+		thread = get(sem);
 		// a thread will always be returned if sem->i <= 0
 		__assert(thread);
-
-		// XXX the current method doesn't respect thread priorities
-		sched_wakeup(thread, 0);
 	}
 
 	successful = true;
@@ -150,6 +149,8 @@ bool semaphore_signal_limit(semaphore_t *sem, int limit) {
 	leave:
 	spinlock_release(&sem->lock);
 	interrupt_set(intstate);
+	if (thread)
+		sched_wakeup(thread, 0);
 	return successful;
 }
 
