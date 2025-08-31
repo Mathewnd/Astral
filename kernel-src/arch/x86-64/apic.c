@@ -244,9 +244,11 @@ void arch_apic_timerinit() {
 INIT_ROUTINE_DEFINE(arch_timer, INIT_ROUTINE_FLAGS_NONE, arch_apic_timerinit, timekeeper_early);
 
 void arch_apic_sendipi(uint8_t cpu, uint8_t vec, uint8_t dest, uint8_t mode, uint8_t level) {
+	bool status = interrupt_set(false);
 	writelapic(APIC_REG_ICR_HI, (uint32_t)cpu << 24);
 	writelapic(APIC_REG_ICR_LO, vec | (level << 8) | (mode << 11) | (dest << 18) | (1 << 14));
 	while (readlapic(APIC_REG_ICR_LO) & APIC_REG_ICR_LO_STATUS) CPU_PAUSE();
+	interrupt_set(status);
 }
 
 void arch_apic_init() {
