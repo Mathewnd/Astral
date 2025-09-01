@@ -63,6 +63,11 @@ typedef struct cpu_t {
 
 	void *topology_node;
 
+	void *shootdown_page;
+	size_t shootdown_size;
+	spinlock_t shootdown_lock;
+	int *shootdown_done;
+
 	// architecture specific, does not need to be exposed
 
 	uint64_t gdt[7];

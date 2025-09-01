@@ -203,11 +203,6 @@ pagetableptr_t arch_mmu_newtable() {
 	return table;
 }
 
-static void *shootdown_page;
-static size_t shootdown_size;
-static spinlock_t shootdown_lock;
-static int shootdown_remaining = 0;
-
 static inline void do_invalidate(void *page, size_t size) {
 	// if a full reload was requested or we are doing a big release on 
 	if (page == NULL || size >= 32 * PAGE_SIZE) {
@@ -222,8 +217,10 @@ static inline void do_invalidate(void *page, size_t size) {
 }
 
 void arch_mmu_tlbipi(isr_t *isr, context_t *context) {
-	do_invalidate(shootdown_page, shootdown_size);
-	__atomic_sub_fetch(&shootdown_remaining, 1, __ATOMIC_SEQ_CST);
+	do_invalidate(current_cpu()->shootdown_page, current_cpu()->shootdown_size);
+	__assert(current_cpu()->shootdown_lock);
+	__atomic_add_fetch(current_cpu()->shootdown_done, 1, __ATOMIC_SEQ_CST);
+	spinlock_release(&current_cpu()->shootdown_lock);
 }
 
 // if page == NULL, this will do a userspace shootdown that flushes the whole tlb
@@ -238,30 +235,33 @@ void arch_mmu_invalidate_range(void *page, size_t size) {
 		|| ((page == NULL || (page >= USERSPACE_START && page < USERSPACE_END)) // or in userspace...
 			&& thread->proc && thread->proc->runningthreadcount > 1)); // in a process which has multiple threads running
 
+	int shootdown_done = 0;
+	int shootdown_total = 0;
 	int old_ipl;
 	if (do_shootdown) {
 		old_ipl = interrupt_raiseipl(IPL_DPC);
-		spinlock_acquire(&shootdown_lock);
-
-		shootdown_page = page;
-		shootdown_size = size;
-		shootdown_remaining = arch_smp_cpusawake - 1;
 
 		for (int i = 0; i < arch_smp_cpusawake; ++i) {
 			if (smp_cpus[i] == current_cpu())
 				continue;
 
+			spinlock_acquire(&smp_cpus[i]->shootdown_lock);
+			smp_cpus[i]->shootdown_page = page;
+			smp_cpus[i]->shootdown_size = size;
+			smp_cpus[i]->shootdown_done = &shootdown_done;
+
+			++shootdown_total;
 			arch_smp_send_ipi(smp_cpus[i], &smp_cpus[i]->isr[0xfe], ARCH_SMP_IPI_TARGET, false);
 		}
+
+		// we can lower ipl while waiting for the other cpus to shoot down because the spinlocks are now owned by the other cpus
+		interrupt_loweripl(old_ipl);
 	}
 
 	do_invalidate(page, size);
 
 	if (do_shootdown) {
-		while (__atomic_load_n(&shootdown_remaining, __ATOMIC_SEQ_CST)) CPU_PAUSE();
-
-		spinlock_release(&shootdown_lock);
-		interrupt_loweripl(old_ipl);
+		while (__atomic_load_n(&shootdown_done, __ATOMIC_SEQ_CST) != shootdown_total) CPU_PAUSE();
 	}
 }
 
