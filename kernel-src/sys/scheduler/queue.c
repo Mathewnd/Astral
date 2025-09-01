@@ -170,8 +170,9 @@ static thread_t *pop_from_calendar_queue(sched_calendar_queue_t *calendar_queue)
 		thread = calendar_queue->queues[calendar_queue->run];
 		if (thread)
 			calendar_queue->queues[calendar_queue->run] = thread->next;
+		else
+			calendar_queue->run = (calendar_queue->run + 1) % SCHED_RUN_QUEUE_SIZE;
 
-		calendar_queue->run = (calendar_queue->run + 1) % SCHED_RUN_QUEUE_SIZE;
 		if (calendar_queue->run == calendar_queue->ins)
 			calendar_queue->ins = (calendar_queue->ins + 1) % SCHED_RUN_QUEUE_SIZE;
 	} while (thread == NULL);
@@ -320,7 +321,7 @@ void sched_load_balancer(context_t *, dpcarg_t) {
 		if (old_least_loaded && old_least_loaded != most_loaded && old_least_loaded != old_most_loaded)
 			spinlock_release(&old_least_loaded->sched_lock);
 
-		if (old_least_loaded == NULL && old_most_loaded == NULL)
+		if (least_loaded != smp_cpus[i] && most_loaded != smp_cpus[i])
 			spinlock_release(&smp_cpus[i]->sched_lock);
 	}
 
