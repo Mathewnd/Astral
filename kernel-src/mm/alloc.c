@@ -12,11 +12,11 @@
 
 #define USE_POISON 0
 #define POISON_VALUE 0xdeadbeefbadc0ffel
-#define CACHE_COUNT 12
+#define CACHE_COUNT 14
 
 #define CAPACITY_SIZE(cache) cache->size - sizeof(size_t) * 2 - USE_POISON * sizeof(size_t)
 
-static size_t allocsizes[CACHE_COUNT] = {32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536};
+static size_t allocsizes[CACHE_COUNT] = {32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144};
 static scache_t *caches[CACHE_COUNT + 5];
 
 static void initarea(scache_t *cache, void *obj, size_t size) {
