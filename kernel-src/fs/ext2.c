@@ -879,36 +879,41 @@ static int rwbytes(ext2fs_t *fs, ext2node_t *node, void *buffer, size_t count, u
 
 #define BUFFER_MAP_FLAGS (ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC)
 
+// returns the inode in inode
+// if switchnode is non null, switches the found dent to point to that inode (such as on a rename)
 static int findindir(ext2fs_t *fs, ext2node_t *node, char *name, int *inode, ext2node_t *switchnode) {
-	// XXX loading the whole dir into memory at once isn't the best idea but works for now
-	void *dirbuffer = vmm_map(NULL, INODE_SIZE(&node->inode) + 1, VMM_FLAGS_ALLOCATE, BUFFER_MAP_FLAGS, NULL); // + 1 to make sure there is at least one page mapped
+	void *dirbuffer = alloc(fs->blocksize);
 	if (dirbuffer == NULL)
 		return ENOMEM;
 
-	int err = rwbytes(fs, node, dirbuffer, INODE_SIZE(&node->inode), 0, false, true);
-	if (err)
-		goto cleanup;
-
-	uintmax_t offset = 0;
+	int err;
+	size_t size = INODE_SIZE(&node->inode);
+	size_t bytes_done = 0;
 	int inodefound = 0;
 	size_t namelen = strlen(name);
 
-	// iterate through directory to find the inode number
-	while (offset < INODE_SIZE(&node->inode)) {
-		ext2dent_t *dent = (ext2dent_t *)((uintptr_t)dirbuffer + offset);
+	while (bytes_done < size) {
+		size_t block_offset = bytes_done % fs->blocksize;
+		if (block_offset == 0) {
+			err = rwbytes(fs, node, dirbuffer, fs->blocksize, bytes_done, false, true);
+			if (err)
+				goto cleanup;
+		}
+
+		ext2dent_t *dent = (ext2dent_t *)((uintptr_t)dirbuffer + block_offset);
 
 		if (namelen == dent->namelen && dent->inode && strncmp(name, dent->name, dent->namelen) == 0) {
 			inodefound = dent->inode;
 			if (switchnode) {
 				dent->inode = switchnode->id;
 				dent->type = vfstoext2denttypetable[switchnode->vnode.type];
-				err = rwbytes(fs, node, dent, dent->size, offset, true, true);
+				err = rwbytes(fs, node, dent, dent->size, bytes_done, true, true);
 			}
 			break;
 		}
 
 		__assert(dent->size);
-		offset += dent->size;
+		bytes_done += dent->size;
 	}
 
 	if (inodefound == 0)
@@ -917,9 +922,7 @@ static int findindir(ext2fs_t *fs, ext2node_t *node, char *name, int *inode, ext
 		*inode = inodefound;
 
 	cleanup:
-	if (dirbuffer)
-		vmm_unmap(dirbuffer, INODE_SIZE(&node->inode) + 1, 0);
-
+	free(dirbuffer);
 	return err;
 }
 
@@ -936,13 +939,8 @@ static int insertdent(ext2fs_t *fs, ext2node_t *node, char *name, int inode, int
 	memcpy(dentbuffer->name, name, namelen);
 
 	size_t inodesize = INODE_SIZE(&node->inode);
-	// XXX loading the whole dir into memory isn't the best idea
-	void *dirbuffer = vmm_map(NULL, inodesize + 1, VMM_FLAGS_ALLOCATE, BUFFER_MAP_FLAGS, NULL); // + 1 to make sure there is at least one page mapped
+	void *dirbuffer = alloc(fs->blocksize);
 	int err = dirbuffer ? 0 : ENOMEM;
-	if (err)
-		goto cleanup;
-
-	err = rwbytes(fs, node, dirbuffer, inodesize, 0, false, true);
 	if (err)
 		goto cleanup;
 
@@ -950,7 +948,14 @@ static int insertdent(ext2fs_t *fs, ext2node_t *node, char *name, int inode, int
 	uintmax_t offset = 0;
 	size_t truesize, freesize;
 	while (offset < inodesize) {
-		splitdent = (ext2dent_t *)((uintptr_t)dirbuffer + offset);
+		size_t block_offset = offset % fs->blocksize;
+		if (block_offset == 0) {
+			err = rwbytes(fs, node, dirbuffer, fs->blocksize, offset, false, true);
+			if (err)
+				goto cleanup;
+		}
+
+		splitdent = (ext2dent_t *)((uintptr_t)dirbuffer + block_offset);
 		truesize = splitdent->inode == 0 ? 0 : ROUND_UP(sizeof(ext2dent_t) + splitdent->namelen, 4);
 		freesize = splitdent->size - truesize;
 
@@ -980,30 +985,34 @@ static int insertdent(ext2fs_t *fs, ext2node_t *node, char *name, int inode, int
 
 	cleanup:
 	if (dirbuffer)
-		vmm_unmap(dirbuffer, inodesize + 1, 0);
+		free(dirbuffer);
 	free(dentbuffer);
 	return err;
 }
 
+// TODO defrag dents in block
 static int removedent(ext2fs_t *fs, ext2node_t *node, char *name, int *inode) {
-	// XXX loading the whole dir into memory at once isn't the best idea but works for now
-	void *dirbuffer = vmm_map(NULL, INODE_SIZE(&node->inode) + 1, VMM_FLAGS_ALLOCATE, BUFFER_MAP_FLAGS, NULL); // + 1 to make sure there is at least one page mapped
+	void *dirbuffer = alloc(fs->blocksize);
 	if (dirbuffer == NULL)
 		return ENOMEM;
-
-	int err = rwbytes(fs, node, dirbuffer, INODE_SIZE(&node->inode), 0, false, true);
-	if (err)
-		goto cleanup;
 
 	uintmax_t offset = 0;
 	int inodefound = 0;
 	size_t namelen = strlen(name);
 	uintmax_t lastsize = 0;
 	ext2dent_t *dent = NULL;
+	int err;
 
 	// iterate through directory to find the inode number and dent offset
 	while (offset < INODE_SIZE(&node->inode)) {
-		dent = (ext2dent_t *)((uintptr_t)dirbuffer + offset);
+		size_t block_offset = offset % fs->blocksize;
+		if (block_offset == 0) {
+			err = rwbytes(fs, node, dirbuffer, fs->blocksize, offset, false, true);
+			if (err)
+				goto cleanup;
+		}
+
+		dent = (ext2dent_t *)((uintptr_t)dirbuffer + block_offset);
 
 		if (namelen == dent->namelen && dent->inode && strncmp(name, dent->name, dent->namelen) == 0) {
 			inodefound = dent->inode;
@@ -1033,8 +1042,7 @@ static int removedent(ext2fs_t *fs, ext2node_t *node, char *name, int *inode) {
 	}
 
 	cleanup:
-	if (dirbuffer)
-		vmm_unmap(dirbuffer, INODE_SIZE(&node->inode) + 1, 0);
+	free(dirbuffer);
 
 	return err;
 }
@@ -1255,15 +1263,9 @@ static int ext2_getdents(vnode_t *vnode, dent_t *buffer, size_t count, uintmax_t
 
 	int err = 0;
 	// XXX loading the whole dir into memory at once isn't the best idea but works for now
-	void *dirbuffer = vmm_map(NULL, INODE_SIZE(&node->inode) + 1, VMM_FLAGS_ALLOCATE, BUFFER_MAP_FLAGS, NULL); // + 1 to make sure there is at least one page mapped
-	if (dirbuffer == NULL) {
-		err = ENOMEM;
-		goto cleanup;
-	}
-
-	err = rwbytes(fs, node, dirbuffer, INODE_SIZE(&node->inode), 0, false, true);
-	if (err)
-		goto cleanup;
+	void *dirbuffer = alloc(fs->blocksize); 
+	if (dirbuffer == NULL)
+		return ENOMEM;
 
 	uintmax_t currdiroffset = 0;
 	uintmax_t offset = 0;
@@ -1271,7 +1273,14 @@ static int ext2_getdents(vnode_t *vnode, dent_t *buffer, size_t count, uintmax_t
 
 	// iterate through directory and build dent entries
 	while (offset < INODE_SIZE(&node->inode) && i < count) {
-		ext2dent_t *dent = (ext2dent_t *)((uintptr_t)dirbuffer + offset);
+		size_t block_offset = offset % fs->blocksize;
+		if (block_offset == 0) {
+			err = rwbytes(fs, node, dirbuffer, fs->blocksize, offset, false, true);
+			if (err)
+				goto cleanup;
+		}
+
+		ext2dent_t *dent = (ext2dent_t *)((uintptr_t)dirbuffer + block_offset);
 
 		if (dent->inode && currdiroffset++ >= diroffset) {
 			buffer[i].d_ino = dent->inode;
@@ -1289,8 +1298,7 @@ static int ext2_getdents(vnode_t *vnode, dent_t *buffer, size_t count, uintmax_t
 	*readcount = i;
 
 	cleanup:
-	if (dirbuffer)
-		vmm_unmap(dirbuffer, INODE_SIZE(&node->inode) + 1, 0);
+	free(dirbuffer);
 
 	return err;
 }
