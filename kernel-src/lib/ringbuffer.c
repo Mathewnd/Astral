@@ -1,12 +1,12 @@
 #include <ringbuffer.h>
-#include <kernel/vmm.h>
+#include <kernel/alloc.h>
 #include <util.h>
 #include <errno.h>
 #include <string.h>
 #include <kernel/usercopy.h>
 
 int ringbuffer_init(ringbuffer_t *ringbuffer, size_t size) {
-	ringbuffer->data = vmm_map(NULL, ROUND_UP(size, PAGE_SIZE), VMM_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_NOEXEC, NULL);
+	ringbuffer->data = alloc(size);
 	if (ringbuffer->data == NULL)
 		return ENOMEM;
 
@@ -17,7 +17,7 @@ int ringbuffer_init(ringbuffer_t *ringbuffer, size_t size) {
 }
 
 void ringbuffer_destroy(ringbuffer_t *ringbuffer) {
-	vmm_unmap(ringbuffer->data, ROUND_UP(ringbuffer->size, PAGE_SIZE), 0);
+	free(ringbuffer->data);
 }
 
 size_t ringbuffer_truncate(ringbuffer_t *ringbuffer, size_t count) {
