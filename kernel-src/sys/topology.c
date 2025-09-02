@@ -90,10 +90,7 @@ cpu_t *topology_find_next_cpu_to_run(topology_node_t *last_cpu, thread_t *thread
 	if (sleep_time <= SCHED_SLEEP_TIME_LIMIT_CPU_US && sched_thread_can_run_in_cpu(thread, last_cpu->cpu->last_queue, last_cpu->cpu->last_interactivity))
 		return last_cpu->cpu;
 
-	bool status = spinlock_acquire_irq_clear(&tree_lock);
-
 	cpu_t *cpu = search_internal_recursive_up(last_cpu->parent, last_cpu, thread, sleep_time, 2);
 
-	spinlock_release_irq_restore(&tree_lock, status);
 	return cpu;
 }
