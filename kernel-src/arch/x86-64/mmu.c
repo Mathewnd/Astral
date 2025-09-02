@@ -228,11 +228,12 @@ void arch_mmu_invalidate_range(void *page, size_t size) {
 	__assert(((uintptr_t)page % PAGE_SIZE) == 0);
 	thread_t *thread = current_thread();
 
+	bool user_shootdown = (page >= USERSPACE_START && page < USERSPACE_END);
 	bool do_shootdown = // do shootdown if
 		current_thread() // scheduler is up
 		&& arch_smp_cpusawake >= 2 // and there are multiple cpus in the system
 		&& (page >= KERNELSPACE_START // and its either in the kernel
-		|| ((page == NULL || (page >= USERSPACE_START && page < USERSPACE_END)) // or in userspace...
+		|| ((page == NULL || user_shootdown) // or in userspace...
 			&& thread->proc && thread->proc->runningthreadcount > 1)); // in a process which has multiple threads running
 
 	int shootdown_done = 0;
@@ -242,7 +243,10 @@ void arch_mmu_invalidate_range(void *page, size_t size) {
 		old_ipl = interrupt_raiseipl(IPL_DPC);
 
 		for (int i = 0; i < arch_smp_cpusawake; ++i) {
-			if (smp_cpus[i] == current_cpu())
+			// reading the vmm context like this is racey but there are no ill side effects other than spurious shootdowns
+			// if a cpu changes to this vmmctx, they will already have done a tlb invalidation.
+			// if it changes out of it, same thing
+			if (smp_cpus[i] == current_cpu() || (user_shootdown && smp_cpus[i]->vmmctx != current_thread()->vmmctx))
 				continue;
 
 			spinlock_acquire(&smp_cpus[i]->shootdown_lock);
