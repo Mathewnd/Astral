@@ -10,25 +10,27 @@ typedef int spinlock_t;
 #define SPINLOCK_INIT(x) x = SPINLOCK_INIT_VALUE
 #define SPINLOCK_DEFINE(x) spinlock_t x = SPINLOCK_INIT_VALUE
 
-static inline void spinlock_acquire(spinlock_t *lock){
-	while(!__sync_bool_compare_and_swap(lock, 0, 1)) asm("pause");
+static inline bool spinlock_try(spinlock_t *lock) {
+	return __sync_bool_compare_and_swap(lock, 0, 1);
 }
 
-static inline bool spinlock_acquire_irq_clear(spinlock_t *lock){
+static inline void spinlock_acquire(spinlock_t *lock) {
+	while (!__sync_bool_compare_and_swap(lock, 0, 1)) {
+		while (*lock) asm volatile ("pause" : : : "memory");
+	}
+}
+
+static inline bool spinlock_acquire_irq_clear(spinlock_t *lock) {
 	bool ret = interrupt_set(false);
 	spinlock_acquire(lock);
 	return ret;
 }
 
-static inline bool spinlock_try(spinlock_t *lock){
-	return __sync_bool_compare_and_swap(lock, 0, 1);
-}
-
-static inline void spinlock_release(spinlock_t *lock){
+static inline void spinlock_release(spinlock_t *lock) {
 	*lock = 0;
 }
 
-static inline void spinlock_release_irq_restore(spinlock_t *lock, bool irqstate){
+static inline void spinlock_release_irq_restore(spinlock_t *lock, bool irqstate) {
 	spinlock_release(lock);
 	interrupt_set(irqstate);
 }
