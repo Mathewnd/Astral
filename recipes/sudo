@@ -6,7 +6,8 @@ hostdeps="xgcc xbinutils"
 deps="base libxcrypt"
 
 configure() {
-	${source_dir}/configure --host=x86_64-astral --prefix=${prefix} --with-secure-path --with-env-editor --with-passprompt="[sudo] password for %p: " --disable-nls
+	cp -rp ${source_dir}/* .
+	./configure --host=x86_64-astral --prefix=${prefix} --with-secure-path --with-env-editor --with-passprompt="[sudo] password for %p: " --disable-nls
 }
 
 build() {
