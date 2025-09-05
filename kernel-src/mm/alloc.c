@@ -98,4 +98,4 @@ void alloc_init() {
 		caches[i] = caches[5];
 }
 
-INIT_ROUTINE_DEFINE(alloc, INIT_ROUTINE_FLAGS_NONE, alloc_init, vmm);
+INIT_ROUTINE_DEFINE(alloc, INIT_ROUTINE_FLAGS_NONE, alloc_init, slab);

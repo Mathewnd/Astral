@@ -58,8 +58,8 @@ void arch_smp_haltallothers(void) {
 }
 
 size_t arch_smp_get_cpu_count(void) {
-	if (cmdline_get("nosmp"))
-		return 1;
+	//if (cmdline_get("nosmp"))
+	//	return 1;
 
 	struct limine_smp_response *response = smprequest.response;
 	if (response == NULL)
@@ -95,7 +95,7 @@ void arch_smp_wakeup(void) {
 	smp_cpus = alloc(response->cpu_count * sizeof(cpu_t *));
 	__assert(smp_cpus);
 
-	void (*wakeupfn)(struct limine_smp_info *) = cmdline_get("nosmp") ? cpuwakeuphalt : cpuwakeup;
+	void (*wakeupfn)(struct limine_smp_info *) = cpuwakeup;//cmdline_get("nosmp") ? cpuwakeuphalt : cpuwakeup;
 
 	// make the other processors jump to cpuwakeup()
 	for (int i = 0; i < response->cpu_count; ++i) {

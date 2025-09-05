@@ -204,10 +204,16 @@ int sockfs_ioctl(vnode_t *node, unsigned long request, void *arg, int *result, c
 	return 0;
 }
 
+static vops_t vnops;
+
 int sockfs_inactive(vnode_t *node) {
 	socket_t *socket = SOCKFS_SOCKET_FROM_NODE(node);
+	socketnode_t *socketnode = (socketnode_t *)node;
 	INTERNAL_LOCK(node);
 	socket->ops->destroy(socket);
+	memset(node, 0, sizeof(socketnode_t));
+	VOP_INIT(&socketnode->vnode, &vnops, 0, V_TYPE_SOCKET, NULL);
+	//socketnode->attr.inode = ++currentinode;
 	slab_free(nodecache, node);
 	return 0;
 }
@@ -256,15 +262,16 @@ static vops_t vnops = {
 	.unlock = sockfs_unlock
 };
 
-static void ctor(scache_t *cache, void *obj) {
+static bool ctor(scache_t *cache, void *obj) {
 	socketnode_t *node = obj;
 	memset(node, 0, sizeof(socketnode_t));
 	VOP_INIT(&node->vnode, &vnops, 0, V_TYPE_SOCKET, NULL);
 	node->attr.inode = ++currentinode;
+	return true;
 }
 
 void sockfs_init() {
-	nodecache = slab_newcache(sizeof(socketnode_t), 0, ctor, ctor);
+	nodecache = slab_newcache(sizeof(socketnode_t), 0, ctor, NULL);
 	__assert(nodecache);
 }
 

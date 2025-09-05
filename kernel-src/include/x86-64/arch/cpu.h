@@ -25,7 +25,7 @@ typedef struct cpu_t {
 	vmmcontext_t *vmmctx; // expected to be here by other code
 
 	long hardware_id; // expected to be here by other code
-	long internal_id;
+	long internal_id; // expected to be here by other code
 
 	timekeeper_source_t *timekeeper_source;
 	timekeeper_source_info_t *timekeeper_source_info;
@@ -123,6 +123,12 @@ static inline vmmcontext_t *current_vmm_context(void) {
 
 static inline void set_current_vmm_context(vmmcontext_t *context) {
 	asm volatile ("mov %%rax, %%gs:16" : : "a"(context) : "memory");
+}
+
+static inline long current_cpu_internal_id(void) {
+	long id;
+	asm volatile ("mov %%gs:32, %%rax" : "=a"(id) : : "memory");
+	return id;
 }
 
 static inline long current_cpu_id(void) {

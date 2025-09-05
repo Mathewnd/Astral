@@ -6,7 +6,6 @@
 #include <kernel/poll.h>
 #include <kernel/alloc.h>
 
-static scache_t *futexcache;
 static mutex_t futexmutex;
 static hashtable_t hashtable;
 static bool hashtableinit;
@@ -36,29 +35,13 @@ static void removefutex(void *physical) {
 	hashtable_remove(&hashtable, &physical, sizeof(physical));
 }
 
-static void ctor(scache_t *cache, void *obj) {
-	futex_t *futex = obj;
-	POLL_INITHEADER(&futex->pollheader);
-	futex->waiting = 0;
-	futex->waking = 0;
-}
-
 syscallret_t syscall_futex(context_t *, uint32_t *futexp, int op, uint32_t value, timespec_t *tm) {
 	syscallret_t ret = {
 		.ret = -1
 	};
 
-	if (futexcache == NULL) {
-		futexcache = slab_newcache(sizeof(thread_t), 0, ctor, ctor);
-
-		if (futexcache == NULL) {
-			ret.errno = ENOMEM;
-			return ret;
-		}
-	}
-
-	if (hashtableinit == false) {
-		if (hashtable_init(&hashtable, 256)) {
+	if (unlikely(hashtableinit == false)) {
+		if (unlikely(hashtable_init(&hashtable, 256))) {
 			ret.errno = ENOMEM;
 			return ret;
 		}
@@ -70,7 +53,7 @@ syscallret_t syscall_futex(context_t *, uint32_t *futexp, int op, uint32_t value
 	timespec_t timespec = tm ? *tm : (timespec_t){0};
 	polldesc_t desc = {0};
 	ret.errno = poll_initdesc(&desc, 1);
-	if (ret.errno)
+	if (unlikely(ret.errno))
 		return ret;
 
 	MUTEX_ACQUIRE(&futexmutex);
@@ -78,7 +61,7 @@ syscallret_t syscall_futex(context_t *, uint32_t *futexp, int op, uint32_t value
 	bool doleave = true;
 	uint32_t word;
 	ret.errno = usercopy_fromuseratomic32(futexp, &word);
-	if (ret.errno)
+	if (unlikely(ret.errno))
 		goto cleanup;
 
 	uint32_t *physical = vmm_getphysical(futexp, false);

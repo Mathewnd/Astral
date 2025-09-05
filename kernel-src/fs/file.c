@@ -13,19 +13,20 @@ static scache_t *filecache;
 			cleanfile(f); \
 		}
 
-static void ctor(scache_t *cache, void *obj) {
+static bool ctor(scache_t *cache, void *obj) {
 	file_t *file = obj;
 	file->vnode = NULL;
 	MUTEX_INIT(&file->mutex);
-	file->refcount = 1;
 	file->offset = 0;
 	file->flags = 0;
 	file->mode = 0;
+	file->refcount = 1;
+	return true;
 }
 
 static file_t* newfile() {
 	if (filecache == NULL) {
-		filecache = slab_newcache(sizeof(file_t), 0, ctor, ctor);
+		filecache = slab_newcache(sizeof(file_t), 0, ctor, NULL);
 		__assert(filecache);
 	}
 
@@ -37,6 +38,13 @@ static void cleanfile(file_t *file) {
 		vfs_close(file->vnode, fileflagstovnodeflags(file->flags));
 		VOP_RELEASE(file->vnode);
 	}
+
+	file->vnode = NULL;
+	file->refcount = 1;
+	file->offset = 0;
+	file->flags = 0;
+	file->mode = 0;
+	MUTEX_INIT(&file->mutex);
 	slab_free(filecache, file);
 }
 

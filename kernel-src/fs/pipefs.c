@@ -342,6 +342,13 @@ int pipefs_inactive(vnode_t *node) {
 	pipenode_t *pipenode = (pipenode_t *)node;
 	INTERNAL_LOCK(node);
 	ringbuffer_destroy(&pipenode->data);
+	// TODO write this properly using cache ctor and dtor
+	memset(node, 0, sizeof(pipenode_t));
+	VOP_INIT(node, &vnops, 0, V_TYPE_FIFO, NULL);
+	pipenode->attr.inode = ++currentinode;
+	POLL_INITHEADER(&pipenode->pollheader);
+	EVENT_INITHEADER(&pipenode->writeopenevent);
+	EVENT_INITHEADER(&pipenode->readopenevent);
 	slab_free(nodecache, node);
 	return 0;
 }
@@ -389,7 +396,7 @@ static vops_t vnops = {
 	.unlock = pipefs_unlock
 };
 
-static void ctor(scache_t *cache, void *obj) {
+static bool ctor(scache_t *cache, void *obj) {
 	pipenode_t *node = obj;
 	memset(node, 0, sizeof(pipenode_t));
 	VOP_INIT(&node->vnode, &vnops, 0, V_TYPE_FIFO, NULL);
@@ -397,10 +404,11 @@ static void ctor(scache_t *cache, void *obj) {
 	POLL_INITHEADER(&node->pollheader);
 	EVENT_INITHEADER(&node->writeopenevent);
 	EVENT_INITHEADER(&node->readopenevent);
+	return true;
 }
 
 void pipefs_init() {
-	nodecache = slab_newcache(sizeof(pipenode_t), 0, ctor, ctor);
+	nodecache = slab_newcache(sizeof(pipenode_t), 0, ctor, NULL);
 	__assert(nodecache);
 }
 

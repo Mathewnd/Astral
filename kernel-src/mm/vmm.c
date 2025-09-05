@@ -821,17 +821,18 @@ void vmm_unmap(void *addr, size_t size, int flags) {
 
 static scache_t *ctxcache;
 
-static void ctxctor(scache_t *cache, void *obj) {
+static bool ctxctor(scache_t *cache, void *obj) {
 	vmmcontext_t *ctx = obj;
 	ctx->space.start = USERSPACE_START;
 	ctx->space.end = USERSPACE_END;
 	MUTEX_INIT(&ctx->space.lock);
 	ctx->space.ranges = NULL;
+	return true;
 }
 
 vmmcontext_t *vmm_newcontext() {
 	if (ctxcache == NULL) {
-		ctxcache = slab_newcache(sizeof(vmmcontext_t), 0, ctxctor, ctxctor);
+		ctxcache = slab_newcache(sizeof(vmmcontext_t), 0, ctxctor, NULL);
 		__assert(ctxcache);
 	}
 
@@ -854,6 +855,8 @@ void vmm_destroycontext(vmmcontext_t *context) {
 	vmm_unmap(context->space.start, context->space.end - context->space.start, 0);
 	vmm_switchcontext(oldctx);
 	arch_mmu_destroytable(context->pagetable);
+
+	context->space.ranges = NULL;
 	slab_free(ctxcache, context);
 }
 

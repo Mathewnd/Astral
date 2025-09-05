@@ -254,6 +254,13 @@ int devfs_maxseek(vnode_t *node, size_t *max) {
 	return devnode->devops->maxseek ? devnode->devops->maxseek(devnode->attr.rdevminor, max) : ENOTTY;
 }
 
+static void destroy_node(devnode_t *node) {
+	memset(node, 0, sizeof(devnode_t));
+	VOP_INIT(&node->vnode, &vnops, 0, 0, NULL)
+	node->attr.inode = ++currentinode;
+	slab_free(nodecache, node);
+}
+
 int devfs_inactive(vnode_t *node) {
 	INTERNAL_LOCK(node);
 	devnode_t *devnode = (devnode_t *)node;
@@ -267,7 +274,7 @@ int devfs_inactive(vnode_t *node) {
 	if (devnode->devops && devnode->devops->inactive)
 		devnode->devops->inactive(devnode->attr.rdevminor);
 
-	slab_free(nodecache, node);
+	destroy_node(devnode);
 	return 0;
 }
 
@@ -311,13 +318,13 @@ int devfs_create(vnode_t *parent, char *name, vattr_t *attr, int type, vnode_t *
 	if (type == V_TYPE_DIR) {
 		int error = hashtable_init(&node->children, 100);
 		if (error) {
-			slab_free(nodecache, node);
+			destroy_node(node);
 			INTERNAL_UNLOCK(parent);
 			return error;
 		}
 		if (hashtable_set(&node->children, node, ".", 1, true) || hashtable_set(&node->children, parent, "..", 2, true)) {
 			hashtable_destroy(&node->children);
-			slab_free(nodecache, node);
+			destroy_node(node);
 			INTERNAL_UNLOCK(parent);
 			return error;
 		}
@@ -328,7 +335,7 @@ int devfs_create(vnode_t *parent, char *name, vattr_t *attr, int type, vnode_t *
 		if (type == V_TYPE_DIR)
 			hashtable_destroy(&node->children);
 		INTERNAL_UNLOCK(parent);
-		slab_free(nodecache, node);
+		destroy_node(node);
 		return error;
 	}
 
@@ -476,16 +483,17 @@ static vops_t vnops = {
 	.unlock = devfs_unlock
 };
 
-static void ctor(scache_t *cache, void *obj) {
+static bool ctor(scache_t *cache, void *obj) {
 	devnode_t *node = obj;
 	memset(node, 0, sizeof(devnode_t));
 	VOP_INIT(&node->vnode, &vnops, 0, 0, NULL)
 	node->attr.inode = ++currentinode;
+	return true;
 }
 
 void devfs_init() {
 	__assert(hashtable_init(&devtable, 50) == 0);
-	nodecache = slab_newcache(sizeof(devnode_t), 0, ctor, ctor);
+	nodecache = slab_newcache(sizeof(devnode_t), 0, ctor, NULL);
 	MUTEX_INIT(&tablelock);
 	__assert(nodecache);
 
@@ -525,7 +533,7 @@ int devfs_register(devops_t *devops, char *name, int type, int major, int minor,
 	int error = hashtable_set(&devtable, master, key, sizeof(key), true);
 	MUTEX_RELEASE(&tablelock);
 	if (error) {
-		slab_free(nodecache, master);
+		destroy_node(master);
 		return error;
 	}
 
@@ -540,7 +548,7 @@ int devfs_register(devops_t *devops, char *name, int type, int major, int minor,
 	char lastcomp[strlen(name) + 1];
 	error = vfs_lookup(&dir, (vnode_t *)devfsroot, name, lastcomp, VFS_LOOKUP_PARENT);
 	if (error) {
-		slab_free(nodecache, master);
+		destroy_node(master);
 		return error;
 	}
 
@@ -556,7 +564,7 @@ int devfs_register(devops_t *devops, char *name, int type, int major, int minor,
 		MUTEX_ACQUIRE(&tablelock);
 		__assert(hashtable_remove(&devtable, key, sizeof(key) == 0));
 		MUTEX_RELEASE(&tablelock);
-		slab_free(nodecache, master);
+		destroy_node(master);
 		return error;
 	}
 
