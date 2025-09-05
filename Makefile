@@ -30,7 +30,7 @@ all: jinx
 	@echo
 
 jinx:
-	curl https://raw.githubusercontent.com/mintsuki/jinx/f459adb138abff6afc7936f5fd4bc9e24023a495/jinx > jinx
+	curl https://astral-os.org/jinx > jinx
 	chmod +x jinx
 
 iso: $(ISO)
