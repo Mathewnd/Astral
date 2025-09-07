@@ -103,6 +103,7 @@ typedef struct vnode_t {
 		void *fifobinding;
 	};
 
+	mutex_t pages_mutex;
 	struct page_t *pages;
 } vnode_t;
 
@@ -162,6 +163,7 @@ typedef struct vops_t {
 	(vn)->ops = o; \
 	MUTEX_INIT(&(vn)->lock); \
 	MUTEX_INIT(&(vn)->size_lock); \
+	MUTEX_INIT(&(vn)->pages_mutex); \
 	(vn)->refcount = 1; \
 	(vn)->flags = f; \
 	(vn)->type = t; \
