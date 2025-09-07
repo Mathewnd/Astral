@@ -295,6 +295,9 @@ void sched_calendar_tick(context_t *, dpcarg_t) {
 // note that there has to be a migrateable thread for this to be possible. 
 // (so if a thread targets the cpu it is ignored in the count)
 void sched_load_balancer(context_t *, dpcarg_t) {
+	if (!smp_cpus)
+		return;
+
 	interrupt_set(false);
 	cpu_t *most_loaded = NULL;
 	cpu_t *least_loaded = NULL;
