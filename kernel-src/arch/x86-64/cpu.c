@@ -188,6 +188,8 @@ void arch_cpu_init() {
 		: : : "rax"
 	);
 
+	x86_64_mmu_enable_global_pages();
+
 	// register some exception handlers that give out signals
 	interrupt_register(0, div0isr, NULL, IPL_IGNORE);
 	interrupt_register(6, illisr, NULL, IPL_IGNORE);

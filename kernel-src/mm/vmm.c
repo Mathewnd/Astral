@@ -505,6 +505,9 @@ int vmm_changemmuflags(void *base, size_t size, mmuflags_t mmuflags, int flags) 
 	if (space == NULL)
 		return ENOMEM;
 
+	if (space == &kernelspace)
+		mmuflags |= ARCH_MMU_FLAGS_GLOBAL;
+
 	MUTEX_ACQUIRE(&space->lock);
 
 	int error = changemap(space, base, size, false, flags, mmuflags);
@@ -698,6 +701,9 @@ void *vmm_map(void *addr, volatile size_t size, int flags, mmuflags_t mmuflags, 
 	vmmspace_t *space = getspace(addr);
 	if (space == NULL)
 		return NULL;
+
+	if (space == &kernelspace)
+		mmuflags |= ARCH_MMU_FLAGS_GLOBAL;
 
 	MUTEX_ACQUIRE(&space->lock);
 	vmmrange_t *range = NULL;
@@ -947,14 +953,14 @@ void vmm_init() {
 		if (e->type != LIMINE_MEMMAP_USABLE && e->type != LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE && e->type != LIMINE_MEMMAP_KERNEL_AND_MODULES && e->type != LIMINE_MEMMAP_FRAMEBUFFER)
 			continue;
 
-		mmuflags_t mmuflags = ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC;
+		mmuflags_t mmuflags = ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC | ARCH_MMU_FLAGS_GLOBAL;
 		__assert(vmm_map(MAKE_HHDM(e->base), e->length, VMM_FLAGS_EXACT, mmuflags, NULL));
 	}
 
 	// map kernel
-	__assert(vmm_map(&_text_start, (uintptr_t)&_text_end - (uintptr_t)&_text_start, VMM_FLAGS_EXACT, ARCH_MMU_FLAGS_READ, NULL));
-	__assert(vmm_map(&_rodata_start, (uintptr_t)&_rodata_end - (uintptr_t)&_rodata_start, VMM_FLAGS_EXACT, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_NOEXEC, NULL));
-	__assert(vmm_map(&_data_start, (uintptr_t)&_data_end - (uintptr_t)&_data_start, VMM_FLAGS_EXACT, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, NULL));
+	__assert(vmm_map(&_text_start, (uintptr_t)&_text_end - (uintptr_t)&_text_start, VMM_FLAGS_EXACT, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_GLOBAL, NULL));
+	__assert(vmm_map(&_rodata_start, (uintptr_t)&_rodata_end - (uintptr_t)&_rodata_start, VMM_FLAGS_EXACT, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_NOEXEC | ARCH_MMU_FLAGS_GLOBAL, NULL));
+	__assert(vmm_map(&_data_start, (uintptr_t)&_data_end - (uintptr_t)&_data_start, VMM_FLAGS_EXACT, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC | ARCH_MMU_FLAGS_GLOBAL, NULL));
 
 	// null page
 	vmm_map(MAKE_HHDM(NULL), PAGE_SIZE, VMM_FLAGS_EXACT, ARCH_MMU_FLAGS_NOEXEC, NULL);

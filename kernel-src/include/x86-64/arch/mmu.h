@@ -17,6 +17,7 @@
 #define ARCH_MMU_FLAGS_WRITE (uint64_t)2
 #define ARCH_MMU_FLAGS_USER (uint64_t)4
 #define ARCH_MMU_FLAGS_NOEXEC ((uint64_t)1 << 63)
+#define ARCH_MMU_FLAGS_GLOBAL ((uint64_t)1 << 8)
 
 #define ARCH_MMU_FLAGS_WB 0
 #define ARCH_MMU_FLAGS_WT (1 << 3)
@@ -42,5 +43,9 @@ void arch_mmu_init();
 void arch_mmu_apswitch();
 void arch_mmu_invalidate_range(void *page, size_t size);
 bool arch_mmu_getflags(pagetableptr_t table, void *vaddr, mmuflags_t *mmuflagsp);
+
+
+void x86_64_mmu_enable_global_pages(void);
+void x86_64_mmu_disable_global_pages(void);
 
 #endif

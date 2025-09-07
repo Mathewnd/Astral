@@ -192,6 +192,22 @@ void arch_mmu_switch(pagetableptr_t table) {
 	asm volatile("mov %%rax, %%cr3" : : "a"(table));
 }
 
+void x86_64_mmu_enable_global_pages(void) {
+	asm volatile(
+	"mov %%cr4, %%rax;"
+	"or  $0x80,  %%rax;"
+	"mov %%rax, %%cr4;"
+	: : : "rax", "memory");
+}
+
+void x86_64_mmu_disable_global_pages(void) {
+	asm volatile(
+	"mov %%cr4, %%rax;"
+	"and $0xffffffffffffff7f, %%rax;"
+	"mov %%rax, %%cr4;"
+	: : : "rax", "memory");
+}
+
 // hhdm pointer to template to be used for new mappings and smp bootup
 static pagetableptr_t template;
 
@@ -206,8 +222,13 @@ pagetableptr_t arch_mmu_newtable() {
 static inline void do_invalidate(void *page, size_t size) {
 	// if a full reload was requested or we are doing a big release on 
 	if (page == NULL || size >= 32 * PAGE_SIZE) {
-		// TODO if global pages are ever supported, we should disable them in CR4, flush, and then reenable them
+		if (page != NULL && IS_USER_ADDRESS(page))
+			x86_64_mmu_disable_global_pages();
+
 		asm volatile("mov %%cr3, %%rax; mov %%rax, %%cr3;" : : : "rax", "memory");
+
+		if (page != NULL && IS_USER_ADDRESS(page))
+			x86_64_mmu_enable_global_pages();
 	} else {
 		for (uintptr_t i = 0; i < size; i += PAGE_SIZE) {
 			uintptr_t ptr = (uintptr_t)page + i;
@@ -265,7 +286,7 @@ void arch_mmu_invalidate_range(void *page, size_t size) {
 	do_invalidate(page, size);
 
 	if (do_shootdown) {
-		while (__atomic_load_n(&shootdown_done, __ATOMIC_SEQ_CST) != shootdown_total) CPU_PAUSE();
+		while (__atomic_load_n(&shootdown_done, __ATOMIC_RELAXED) != shootdown_total) CPU_PAUSE();
 	}
 }
 
@@ -286,9 +307,9 @@ static void *kerneladdr[6] = {
 };
 
 static mmuflags_t kernelflags[3] = {
-	ARCH_MMU_FLAGS_READ,
-	ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC,
-	ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_NOEXEC
+	ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_GLOBAL,
+	ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC | ARCH_MMU_FLAGS_GLOBAL,
+	ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_NOEXEC | ARCH_MMU_FLAGS_GLOBAL
 };
 
 extern volatile struct limine_memmap_request pmm_liminemap;
@@ -363,7 +384,7 @@ void arch_mmu_init() {
 			continue;
 
 		for (uint64_t i = 0; i < e->length; i += PAGE_SIZE) {
-			uint64_t entry = ((e->base + i) & ADDRMASK) | ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC;
+			uint64_t entry = ((e->base + i) & ADDRMASK) | ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC | ARCH_MMU_FLAGS_GLOBAL;
 			__assert(add_page(FROM_HHDM(template), MAKE_HHDM((void *)(e->base + i)), entry, 0));
 		}
 	}
