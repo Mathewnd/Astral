@@ -350,9 +350,9 @@ void signal_signalproc(struct proc_t *proc, int signal) {
 			// XXX possible race condition where a thread will change the process mask or the action of stopping signals
 			// after it was sent to everyone
 			if ((shouldstop || signal == SIGCONT) == false) {
+				spinlock_release(&proc->threadlistlock);
 				THREAD_LEAVE(thread);
 				PROCESS_LEAVE(proc);
-				spinlock_release(&proc->threadlistlock);
 				return;
 			}
 		}
