@@ -1,4 +1,4 @@
-CSOURCES= $(shell find -name "*.c")
+CSOURCES= $(shell find -name "*.c" -not -path "*/uacpi/tests/*")
 ASMSOURCES= $(shell find -name "*.asm")
 OBJS=$(CSOURCES:.c=.o) $(ASMSOURCES:.asm=.asmo)
 TARGET=x86-64
