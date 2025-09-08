@@ -99,6 +99,19 @@ void *memmove(void *_d, const void *_s, size_t c) {
 	return _d;
 }
 
+long long atoll(const char *c) {
+	char first = *c;
+	if (first == '-')
+		++c;
+
+	int v = 0;
+
+	while (*c)
+		v = v * 10 + (*c++) - '0';
+
+	return first == '-' ? -v : v;
+}
+
 #define DO_NAME(e) \
 	case e: \
 		return #e;

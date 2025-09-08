@@ -8,7 +8,7 @@
 #include <kernel/scheduler.h>
 #include <kernel/elf.h>
 #include <kernel/devfs.h>
-#include <kernel/cmdline.h>
+#include <kernel/kernel_args.h>
 
 static hashtable_t pid_table;
 static scache_t *processcache;
@@ -292,6 +292,8 @@ void proc_exit(void) {
 	}
 }
 
+DEFINE_KERNEL_ARGUMENT(initarg, char *);
+
 void proc_run_init() {
 	printf("proc: loading /init\n");
 
@@ -358,7 +360,7 @@ void proc_run_init() {
 	proc->root = vfsroot;
 	VOP_HOLD(vfsroot);
 
-	char *argv[] = {"/init", cmdline_get("initarg"), NULL};
+	char *argv[] = {"/init", GET_KERNEL_ARGUMENT(initarg, char *), NULL};
 	char *envp[] = {NULL};
 
 	void *stack = elf_preparestack(STACK_TOP, &auxv64, argv, envp, "/init");

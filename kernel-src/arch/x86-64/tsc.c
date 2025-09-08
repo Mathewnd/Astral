@@ -4,10 +4,12 @@
 #include <logging.h>
 #include <kernel/alloc.h>
 #include <arch/hpet.h>
-#include <kernel/cmdline.h>
+#include <kernel/kernel_args.h>
+
+DEFINE_KERNEL_ARGUMENT(notsc, bool);
 
 static bool tsc_probe(void) {
-	if (cmdline_get("notsc"))
+	if (GET_KERNEL_ARGUMENT(notsc, bool))
 		return false;
 
 	cpuid_results_t cpuid_results;

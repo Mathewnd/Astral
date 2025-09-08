@@ -49,6 +49,13 @@ SECTIONS
 	} :data
 
 	. = ALIGN(8);
+	.kernel_arguments : {
+		kernel_arguments = .;
+		*(.kernel_arguments);
+		kernel_arguments_end = .;
+	} :data
+
+	. = ALIGN(8);
 	.bss : {
 		*(COMMON)
 		*(.bss .bss.*)

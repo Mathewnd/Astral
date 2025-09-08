@@ -13,5 +13,6 @@ int strncmp(const char *a, const char *b, size_t c);
 int memcmp(const void *a, const void *b, size_t s);
 void *memmove(void *_d, const void *_s, size_t c);
 char *strerror(int errno);
+long long atoll(const char *c);
 
 #endif

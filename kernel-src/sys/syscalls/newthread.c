@@ -1,8 +1,10 @@
 #include <kernel/syscalls.h>
 #include <kernel/scheduler.h>
-#include <kernel/cmdline.h>
+#include <kernel/kernel_args.h>
 #include <kernel/alloc.h>
 #include <arch/cpu.h>
+
+DEFINE_KERNEL_ARGUMENT(nomultithread, bool);
 
 syscallret_t syscall_newthread(context_t *, void *entry, void *stack) {
 	syscallret_t ret = {
@@ -11,7 +13,7 @@ syscallret_t syscall_newthread(context_t *, void *entry, void *stack) {
 
 	// TODO perhaps clean up threads here as well
 	// if the kernel was specified to have no user threading in the cmdline
-	if (cmdline_get("nomultithread")) {
+	if (GET_KERNEL_ARGUMENT(nomultithread, bool)) {
 		ret.errno = ENOSYS;
 		return ret;
 	}

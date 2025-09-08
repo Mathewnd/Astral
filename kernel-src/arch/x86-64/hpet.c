@@ -4,7 +4,7 @@
 #include <kernel/vmm.h>
 #include <kernel/interrupt.h>
 #include <arch/tsc.h>
-#include <kernel/cmdline.h>
+#include <kernel/kernel_args.h>
 
 #include <uacpi/acpi.h>
 #include <uacpi/tables.h>
@@ -61,8 +61,10 @@ static void counterirq(isr_t *isr, context_t *context) {
 	write64(HPET_REG_CONFIG, 1 + ((hpet_private.type == TYPE_LEGACY) ? 2 : 0));
 }
 
+DEFINE_KERNEL_ARGUMENT(nohpet, bool);
+
 static bool hpet_probe(void) {
-	if (cmdline_get("nohpet"))
+	if (GET_KERNEL_ARGUMENT(nohpet, bool))
 		return false;
 
 	bool usable = false;

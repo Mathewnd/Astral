@@ -4,10 +4,12 @@
 #include <arch/cpu.h>
 #include <arch/gdt.h>
 #include <arch/idt.h>
-#include <kernel/cmdline.h>
+#include <kernel/kernel_args.h>
 #include <arch/smp.h>
 #include <kernel/alloc.h>
 #include <kernel/init.h>
+
+DEFINE_KERNEL_ARGUMENT(nosmp, bool);
 
 static volatile struct limine_smp_request smprequest = {
 	.id = LIMINE_SMP_REQUEST
@@ -58,8 +60,8 @@ void arch_smp_haltallothers(void) {
 }
 
 size_t arch_smp_get_cpu_count(void) {
-	//if (cmdline_get("nosmp"))
-	//	return 1;
+	if (GET_KERNEL_ARGUMENT(nosmp, bool))
+		return 1;
 
 	struct limine_smp_response *response = smprequest.response;
 	if (response == NULL)
@@ -95,7 +97,7 @@ void arch_smp_wakeup(void) {
 	smp_cpus = alloc(response->cpu_count * sizeof(cpu_t *));
 	__assert(smp_cpus);
 
-	void (*wakeupfn)(struct limine_smp_info *) = cpuwakeup;//cmdline_get("nosmp") ? cpuwakeuphalt : cpuwakeup;
+	void (*wakeupfn)(struct limine_smp_info *) = GET_KERNEL_ARGUMENT(nosmp, bool) ? cpuwakeuphalt : cpuwakeup;
 
 	// make the other processors jump to cpuwakeup()
 	for (int i = 0; i < response->cpu_count; ++i) {

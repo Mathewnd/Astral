@@ -10,7 +10,6 @@
 #include <semaphore.h>
 #include <kernel/devfs.h>
 #include <kernel/jobctl.h>
-#include <kernel/cmdline.h>
 #include <kernel/auth.h>
 #include <arch/smp.h>
 #include <kernel/init.h>
