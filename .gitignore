@@ -31,3 +31,4 @@ tools/init/acpid.o
 initrds
 hdd.img
 netdump.dat
+build-*

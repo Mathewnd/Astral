@@ -1,0 +1,21 @@
+name=brogue
+revision=1
+from_source=brogue
+imagedeps="build-essential"
+hostdeps="xgcc xbinutils pkgconfig"
+deps="readline base ncurses"
+
+configure() {
+	cp -rp ${source_dir}/* .
+}
+
+build() {
+	make CC=x86_64-astral-gcc TERMINAL=YES DATADIR="/usr/share/games/brogue" RELEASE=YES GRAPHICS=NO LDLIBS=-ltinfow
+}
+
+package() {
+	mkdir -p ${dest_dir}/usr/bin
+	mkdir -p ${dest_dir}/usr/share/games
+	cp bin/brogue ${dest_dir}/usr/bin/brogue
+	cp -r bin ${dest_dir}/usr/share/games/brogue
+}

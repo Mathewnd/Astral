@@ -1,7 +1,7 @@
 name=python
 revision=1
 from_source=python
-imagedeps="build-essential"
+imagedeps="build-essential zlib1g-dev"
 hostdeps="xgcc xbinutils pkgconfig python"
 deps="base"
 

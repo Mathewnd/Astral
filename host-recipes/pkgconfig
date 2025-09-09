@@ -1,7 +1,8 @@
 name=pkgconfig
 revision=1
 from_source=pkgconfig
-imagedeps="gcc build-essential automake autoconf libtool"
+imagedeps="gcc build-essential autoconf automake"
+hostdeps="libtool"
 
 configure() {
 	${source_dir}/configure --prefix=${prefix}

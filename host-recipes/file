@@ -2,12 +2,10 @@ name=file
 revision=1
 from_source=file
 imagedeps="build-essential"
-hostdeps="xgcc xbinutils file"
-deps="base"
 
 configure() {
 	cp -rp ${source_dir}/* .
-	./configure --host=x86_64-astral --prefix=${prefix}
+	./configure --prefix=${prefix}
 }
 
 build() {

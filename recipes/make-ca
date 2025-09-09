@@ -13,4 +13,6 @@ package() {
 
 	# install certificate data
 	MOZILLA_CERT_SYSROOT=${dest_dir} ${dest_dir}/usr/sbin/make-ca -g -D ${dest_dir}
+
+	chmod -v 0755 "${dest_dir}/etc/ssl/certs"
 }

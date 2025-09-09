@@ -6,7 +6,7 @@ hostdeps="xgcc xbinutils pkgconfig autoconf automake libtool pkgconfig util-macr
 deps="base libxcvt pixman xorgproto xtrans xkbfile libxfont2 fontutil libgcrypt freetype xkeyboardconfig xkbcomp libxi libxrender libxcb libxext pixman libxdamage"
 
 configure() {
-	 ${source_dir}/configure --prefix=${prefix} --host=x86_64-astral --disable-pciaccess --disable-libdrm --disable-glx --disable-int10-module --disable-glamor --disable-vgahw --disable-dri3 --disable-dri2 --disable-dri --disable-xephyr --disable-xwayland --disable-xnest --disable-dmx --with-fontrootdir=${prefix}/share/fonts/X11
+	 ${source_dir}/configure --prefix=/usr --localstatedir=/var --host=x86_64-astral --disable-pciaccess --disable-libdrm --disable-glx --disable-int10-module --disable-glamor --disable-vgahw --disable-dri3 --disable-dri2 --disable-dri --disable-xephyr --disable-xwayland --disable-xnest --disable-dmx --with-fontrootdir=${prefix}/share/fonts/X11
 }
 
 build() {

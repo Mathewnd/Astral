@@ -1,0 +1,9 @@
+name=brogue
+version=1.14.1
+source_method=tarball
+tarball_url="https://github.com/tmewett/BrogueCE/archive/refs/tags/v${version}.tar.gz"
+tarball_sha512=7af6cc97e3903fd4985051aaf7ec425e4751489ac6a0d83b12822edf74d6440b17720f6d0e145cac9d19400a3f70911ee0af9bcaaf754cdc55d287bd9fa934f6
+
+prepare() {
+	true
+}

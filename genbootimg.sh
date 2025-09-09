@@ -2,7 +2,7 @@
 
 if [ $# != 3 ]
 then
-	echo "usage: $0 size diskname"
+	echo "usage: $0 size diskname imgdir"
 	exit 1
 fi
 

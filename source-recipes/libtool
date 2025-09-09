@@ -1,17 +1,18 @@
 name=libtool
-version=2.4.7
+version=2.5.4
 source_method=tarball
-tarball_url="https://ftp.gnu.org/gnu/libtool/libtool-${version}.tar.gz"
-tarball_sha512="27acef46d9eb67203d708b57d80b853f76fa4b9c2720ff36ec161e6cdf702249e7982214ddf60bae75511aa79bc7d92aa27e3eab7ef9c0f5c040e8e42e76a385"
+tarball_url="https://ftpmirror.gnu.org/gnu/libtool/libtool-${version}.tar.gz"
+tarball_sha512="60599f5c3168a287fe3a35062fd2e32e0b73433fce820bfd18d28b0e3bd7a8fefde6d6f0505fbbc2d664119ab7c539269184993843289932c895847ea1ab9f04"
 hostdeps="autoconf automake"
 imagedeps="build-essential help2man wget git"
 allow_network="yes"
 
 prepare() {
-	git clone https://git.savannah.gnu.org/git/gnulib.git
-	cd gnulib
-	git checkout 4b17a1ae49e69df1ac5dc35a4f60b20ab958baf2
-	rm -rf .git
-	cd ..
-	./bootstrap --force --skip-git --skip-po --gnulib-srcdir=gnulib
+	#git clone https://git.savannah.gnu.org/git/gnulib.git
+	#cd gnulib
+	#git checkout 4b17a1ae49e69df1ac5dc35a4f60b20ab958baf2
+	#rm -rf .git
+	#cd ..
+	#./bootstrap --force --skip-git --skip-po --gnulib-srcdir=gnulib
+	true
 }

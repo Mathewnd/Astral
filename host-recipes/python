@@ -1,7 +1,7 @@
 name=python
 from_source=python
 revision=1
-imagedeps="build-essential"
+imagedeps="build-essential zlib1g-dev"
 
 configure() {
 	"${source_dir}/configure" --prefix=${prefix}

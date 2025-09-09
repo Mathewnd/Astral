@@ -1,7 +1,6 @@
 CSOURCES= $(shell find -name "*.c" -not -path "*/uacpi/tests/*")
 ASMSOURCES= $(shell find -name "*.asm")
 OBJS=$(CSOURCES:.c=.o) $(ASMSOURCES:.asm=.asmo)
-TARGET=x86-64
 INCDIR=$(shell pwd)/include
 ARCHINCDIR=$(shell pwd)/include/$(TARGET)/
 ARCHDIR=$(shell pwd)/arch/$(TARGET)/

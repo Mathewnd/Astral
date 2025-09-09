@@ -35,7 +35,7 @@ configure() {
         --without-xcomposite \
         --without-xinerama \
         --with-x \
-	--with-wine-tools="${base_dir}/host-builds/wine/"
+	--with-wine-tools="${base_dir}/build-${JINX_ARCH}/host-builds/wine/"
 }
 
 build() {

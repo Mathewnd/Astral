@@ -1,11 +1,11 @@
 name=libtool
 revision=1
 from_source=libtool
-hostdeps="autoconf automake"
-imagedeps="gcc build-essential help2man"
+imagedeps="gcc build-essential help2man autoconf automake"
 
 configure() {
 	cp -pr ${source_dir}/* .
+	cp -pr ${source_dir}/.* .
 	./configure --prefix=${prefix}
 }
 
