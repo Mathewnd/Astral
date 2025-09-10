@@ -1,104 +1,39 @@
-diff --git mlibc-clean/abis/linux/in.h mlibc-workdir/abis/linux/in.h
-index 87bc25f..d7370d0 100644
---- mlibc-clean/abis/linux/in.h
-+++ mlibc-workdir/abis/linux/in.h
-@@ -109,6 +109,9 @@ struct group_source_req {
+diff --git mlibc-clean/abis/linux/fcntl.h mlibc-workdir/abis/linux/fcntl.h
+index b2215a2..fb152a7 100644
+--- mlibc-clean/abis/linux/fcntl.h
++++ mlibc-workdir/abis/linux/fcntl.h
+@@ -88,6 +88,14 @@
  
- #define IPPORT_RESERVED 1024
+ #if __MLIBC_LINUX_OPTION
  
-+#define IP_MULTICAST_TTL 33
-+#define IPV6_MULTICAST_HOPS 18
++#define DN_ACCESS 1
++#define DN_MODIFY 2
++#define DN_CREATE 4
++#define DN_DELETE 8
++#define DN_RENAME 16
++#define DN_ATTRIB 32
++#define DN_MULTISHOT 0x80000000
 +
- #define IPPROTO_IP       0
- #define IPPROTO_HOPOPTS  0
- #define IPPROTO_ICMP     1
+ #define AT_STATX_SYNC_AS_STAT 0x0000
+ #define AT_STATX_FORCE_SYNC 0x2000
+ #define AT_STATX_DONT_SYNC 0x4000
 diff --git mlibc-clean/meson.build mlibc-workdir/meson.build
-index 39796b5..7d671fc 100644
+index 37f8200..af2ea0b 100644
 --- mlibc-clean/meson.build
 +++ mlibc-workdir/meson.build
-@@ -268,6 +268,7 @@ elif host_machine.system() == 'astral'
+@@ -264,6 +264,7 @@ elif host_machine.system() == 'astral'
  	libc_include_dirs += include_directories('sysdeps/astral/include')
  	internal_conf.set10('MLIBC_MAP_DSO_SEGMENTS', true)
  	internal_conf.set10('MLIBC_MAP_FILE_WINDOWS', true)
 +	internal_conf.set10('MLIBC_MMAP_ALLOCATE_DSO', true)
  	subdir('sysdeps/astral')
- else
- 	error('No sysdeps defined for OS: ' + host_machine.system())
-diff --git mlibc-clean/options/ansi/generic/environment.cpp mlibc-workdir/options/ansi/generic/environment.cpp
-index 5625592..36b42ee 100644
---- mlibc-clean/options/ansi/generic/environment.cpp
-+++ mlibc-workdir/options/ansi/generic/environment.cpp
-@@ -111,8 +111,10 @@ namespace mlibc {
- int putenv(char *string) {
- 	frg::string_view view{string};
- 	size_t s = view.find_first('=');
--	if(s == size_t(-1))
--		__ensure(!"Environment strings need to contain an equals sign");
-+	if(s == size_t(-1)) {
-+		unsetenv(string);
-+		return 0;
-+	}
- 
- 	update_vector();
- 	assign_variable(view.sub_string(0, s), string, true);
-diff --git mlibc-clean/options/ansi/generic/string.cpp mlibc-workdir/options/ansi/generic/string.cpp
-index 8defd0e..d6cb65b 100644
---- mlibc-clean/options/ansi/generic/string.cpp
-+++ mlibc-workdir/options/ansi/generic/string.cpp
-@@ -406,7 +406,6 @@ char *strerror(int e) {
- 	case ENOPROTOOPT: s = "Protocol not available (ENOPROTOOPT)"; break;
- 	case ENOTEMPTY: s = "Directory not empty (ENOTEMPTY)"; break;
- 	case ENOTRECOVERABLE: s = "Sate not recoverable (ENOTRECOVERABLE)"; break;
--	case ENOTSUP: s = "Operation not supported (ENOTSUP)"; break;
- 	case ENOTTY: s = "Inappropriate ioctl for device (ENOTTY)"; break;
- 	case EOVERFLOW: s = "Value too large for defined datatype (EOVERFLOW)"; break;
- #if EOPNOTSUPP != ENOTSUP
-diff --git mlibc-clean/options/crypt/generic/crypt.cpp mlibc-workdir/options/crypt/generic/crypt.cpp
-index 65e0d23..95b060c 100644
---- mlibc-clean/options/crypt/generic/crypt.cpp
-+++ mlibc-workdir/options/crypt/generic/crypt.cpp
-@@ -1,7 +1,8 @@
- #include <crypt.h>
- #include <bits/ensure.h>
-+#include <string.h>
- 
--char *crypt(const char *, const char *) {
-+char *crypt(const char *passwd, const char *) {
- 	__ensure(!"Not implemented");
- 	__builtin_unreachable();
- }
-diff --git mlibc-clean/options/glibc/generic/execinfo.cpp mlibc-workdir/options/glibc/generic/execinfo.cpp
-index 3474615..e034881 100644
---- mlibc-clean/options/glibc/generic/execinfo.cpp
-+++ mlibc-workdir/options/glibc/generic/execinfo.cpp
-@@ -1,9 +1,10 @@
- #include <execinfo.h>
- #include <bits/ensure.h>
-+#include <mlibc/debug.hpp>
- 
- int backtrace(void **, int) {
--	__ensure(!"Not implemented");
--	__builtin_unreachable();
-+	mlibc::infoLogger() << "libc: backtrace() is not implemented!\n" << frg::endlog;
-+	return 0;
- }
- 
- char **backtrace_symbols(void *const *, int) {
-diff --git mlibc-clean/options/posix/generic/dlfcn.cpp mlibc-workdir/options/posix/generic/dlfcn.cpp
-index fc34a3b..b1a95a9 100644
---- mlibc-clean/options/posix/generic/dlfcn.cpp
-+++ mlibc-workdir/options/posix/generic/dlfcn.cpp
-@@ -1,4 +1,4 @@
--
-+#define _GNU_SOURCE
- #include <bits/ensure.h>
- #include <dlfcn.h>
- 
+ elif host_machine.system() == 'menix'
+ 	rtld_include_dirs += include_directories('sysdeps/menix/include')
 diff --git mlibc-clean/options/posix/generic/unistd.cpp mlibc-workdir/options/posix/generic/unistd.cpp
-index 444ad22..44205bd 100644
+index 9652a17..c38ab8c 100644
 --- mlibc-clean/options/posix/generic/unistd.cpp
 +++ mlibc-workdir/options/posix/generic/unistd.cpp
-@@ -483,9 +483,16 @@ int lockf(int fd, int op, off_t size) {
+@@ -571,9 +571,16 @@ int lockf(int fd, int op, off_t size) {
  	return -1;
  }
  
@@ -119,31 +54,22 @@ index 444ad22..44205bd 100644
  
  long pathconf(const char *, int name) {
 diff --git mlibc-clean/options/posix/include/mlibc/posix-sysdeps.hpp mlibc-workdir/options/posix/include/mlibc/posix-sysdeps.hpp
-index a224474..21a1046 100644
+index 9387f76..0f2852b 100644
 --- mlibc-clean/options/posix/include/mlibc/posix-sysdeps.hpp
 +++ mlibc-workdir/options/posix/include/mlibc/posix-sysdeps.hpp
-@@ -236,6 +236,8 @@ int sys_vm_unmap(void *pointer, size_t size);
+@@ -253,6 +253,8 @@ int sys_vm_unmap(void *pointer, size_t size);
  
- [[gnu::weak]] int sys_waitid(idtype_t idtype, id_t id, siginfo_t *info, int options);
+ [[gnu::weak]] int sys_inet_configured(bool *ipv4, bool *ipv6);
  
 +[[gnu::weak]] int sys_nice(int nice, int *ret);
 +
  } //namespace mlibc
  
  #endif // MLIBC_POSIX_SYSDEPS
-diff --git mlibc-clean/options/rtld/generic/main.cpp mlibc-workdir/options/rtld/generic/main.cpp
-index 9219ef0..1ff679c 100644
---- mlibc-clean/options/rtld/generic/main.cpp
-+++ mlibc-workdir/options/rtld/generic/main.cpp
-@@ -17,6 +17,8 @@
- #include "elf.hpp"
- #include "linker.hpp"
- 
-+#define _GNU_SOURCE
-+
- #if __MLIBC_POSIX_OPTION
- #include <dlfcn.h>
- #endif
+diff --git mlibc-clean/sysdeps/astral/crt-x86_64/crt0.S mlibc-workdir/sysdeps/astral/crt-x86_64/crt1.S
+similarity index 100%
+rename from mlibc-clean/sysdeps/astral/crt-x86_64/crt0.S
+rename to mlibc-workdir/sysdeps/astral/crt-x86_64/crt1.S
 diff --git mlibc-clean/sysdeps/astral/generic/astral.cpp mlibc-workdir/sysdeps/astral/generic/astral.cpp
 index d5ba7b2..a86353f 100644
 --- mlibc-clean/sysdeps/astral/generic/astral.cpp
@@ -158,7 +84,7 @@ index d5ba7b2..a86353f 100644
  	long error = syscall(SYSCALL_ARCHCTL, &ret, func, (uint64_t)arg);
  	if(error)
 diff --git mlibc-clean/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
-index 2a504ab..6a7c882 100644
+index bb85dba..a541845 100644
 --- mlibc-clean/sysdeps/astral/generic/generic.cpp
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
 @@ -31,6 +31,12 @@ namespace mlibc {
@@ -213,7 +139,7 @@ index 2a504ab..6a7c882 100644
  	#ifndef MLIBC_BUILDING_RTLD
  
  	typedef struct {
-@@ -487,6 +516,12 @@ namespace mlibc {
+@@ -376,6 +405,12 @@ namespace mlibc {
  		return ret;
  	}
  
@@ -226,7 +152,7 @@ index 2a504ab..6a7c882 100644
  	#ifndef MLIBC_BUILDING_RTLD
  
  	[[noreturn]] void sys_thread_exit() {
-@@ -882,7 +917,7 @@ namespace mlibc {
+@@ -771,7 +806,7 @@ namespace mlibc {
  
  	int sys_tcb_set(void *pointer) {
  		long r;
@@ -266,10 +192,10 @@ index 5f42d62..09a5d5f 100644
  #ifndef __MLIBC_ABI_ONLY
  
 diff --git mlibc-clean/sysdeps/astral/meson.build mlibc-workdir/sysdeps/astral/meson.build
-index a5ede46..e198d2e 100644
+index 0990599..9467cdb 100644
 --- mlibc-clean/sysdeps/astral/meson.build
 +++ mlibc-workdir/sysdeps/astral/meson.build
-@@ -63,6 +63,12 @@ if not no_headers
+@@ -76,14 +76,29 @@ if not no_headers
  		subdir: 'abi-bits',
  		follow_symlinks: true,
  	)
@@ -282,3 +208,23 @@ index a5ede46..e198d2e 100644
  endif
  
  if not headers_only
+-	crt = custom_target('crt0',
++	custom_target('crt1',
+ 		build_by_default: true,
+ 		command: c_compiler.cmd_array() + ['-c', '-o', '@OUTPUT@', '@INPUT@'],
+-		input: 'crt-x86_64/crt0.S',
+-		output: 'crt0.o',
++		input: 'crt-x86_64/crt1.S',
++		output: 'crt1.o',
++		install: true,
++		install_dir: get_option('libdir')
++	)
++	
++        custom_target('Scrt1',
++		build_by_default: true,
++		command: c_compiler.cmd_array() + ['-c', '-o', '@OUTPUT@', '@INPUT@'],
++		input: 'crt-x86_64/crt1.S',
++		output: 'Scrt1.o',
+ 		install: true,
+ 		install_dir: get_option('libdir')
+ 	)

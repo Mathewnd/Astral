@@ -12,6 +12,7 @@ configure() {
         --disable-tests \
         --enable-win64 \
         --disable-win16 \
+	--without-inotify \
         --without-alsa \
         --without-capi \
         --without-cups \

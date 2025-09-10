@@ -7,7 +7,7 @@ imagedeps="meson ninja-build git build-essential binutils"
 deps="mlibc-headers"
 
 configure() {
-        meson --cross-file ${base_dir}/util/crossfile -Dmlibc_no_headers=true --prefix=${prefix} ${source_dir} -Dlinux_kernel_headers=${sysroot_dir}/${prefix}/include -Ddisable_crypt_option=true -Ddisable_iconv_option=true -Ddisable_intl_option=true
+        meson --cross-file ${base_dir}/util/crossfile -Dno_headers=true --prefix=${prefix} ${source_dir} -Dlinux_kernel_headers=${sysroot_dir}/${prefix}/include -Dposix_option=enabled -Dlinux_option=enabled -Dglibc_option=enabled -Dbsd_option=enabled
 }
 
 build() {

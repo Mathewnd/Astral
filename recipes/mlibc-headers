@@ -5,7 +5,7 @@ imagedeps="ninja-build meson build-essential rsync"
 builddeps="linux-headers"
 
 configure() {
-	meson setup --cross-file "${base_dir}/util/crossfile" --prefix="${prefix}"  -Dheaders_only=true "${source_dir}" -Ddisable_crypt_option=true -Ddisable_iconv_option=true -Ddisable_intl_option=true
+	meson setup --cross-file "${base_dir}/util/crossfile" --prefix="${prefix}"  -Dheaders_only=true "${source_dir}" -Dposix_option=enabled -Dlinux_option=enabled -Dglibc_option=enabled -Dbsd_option=enabled
 }
 
 build() {

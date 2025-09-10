@@ -40,7 +40,7 @@ index 0000000..fe6e2e1
 +#define LINK_SPEC "%{shared:-shared} %{static:-static} %{!shared: %{!static: %{rdynamic:-export-dynamic}}} %{!dynamic-linker:-dynamic-linker /usr/lib/ld.so}"
 +
 +#undef STARTFILE_SPEC
-+#define STARTFILE_SPEC "%{!shared:crt0.o%s} crti.o%s %{shared:crtbeginS.o%s;:crtbegin.o%s}"
++#define STARTFILE_SPEC "%{!shared:crt1.o%s} crti.o%s %{shared:crtbeginS.o%s;:crtbegin.o%s}"
 +
 +#undef ENDFILE_SPEC
 +#define ENDFILE_SPEC "%{shared:crtendS.o%s;:crtend.o%s} crtn.o%s"
@@ -78,7 +78,7 @@ index c5064dd..e151646 100644
  
  case ${target} in
 +x86_64-*-astral*)
-+    tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h glibc-stdint.h i386/i386elf.h i386/x86-64.h astral.h"
++    tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h glibc-stdint.h i386/i386elf.h i386/x86-64.h astral.h gnu-user.h"
 +    ;;
  aarch64*-*-elf | aarch64*-*-fuchsia* | aarch64*-*-rtems*)
  	tm_file="${tm_file} dbxelf.h elfos.h newlib-stdint.h"
@@ -93,7 +93,7 @@ index 8c56fca..aecb1da 100644
  	;;
 +x86_64-*-astral*)
 +	extra_parts="$extra_parts crti.o crtbegin.o crtend.o crtn.o crtbeginS.o crtendS.o crtprec32.o crtprec64.o crtprec80.o crtfastmath.o"
-+	tmake_file="$tmake_file gnu-user.h t-crtstuff-pic t-libgcc-pic i386/t-crtpc t-crtfm i386/t-crtstuff t-dfprules"
++	tmake_file="$tmake_file t-crtstuff-pic t-libgcc-pic i386/t-crtpc t-crtfm i386/t-crtstuff t-dfprules"
 +	;;
  i[34567]86-*-linux*)
  	extra_parts="$extra_parts crtprec32.o crtprec64.o crtprec80.o crtfastmath.o"
