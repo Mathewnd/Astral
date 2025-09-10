@@ -1,7 +1,7 @@
 name=pkgconfig
 revision=1
 from_source=pkgconfig
-imagedeps="gcc build-essential autoconf automake"
+imagedeps="gcc build-essential autoconf automake libtool"
 hostdeps="libtool"
 
 configure() {

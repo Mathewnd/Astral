@@ -2,11 +2,12 @@ name=xbitmaps
 revision=1
 from_source=xbitmaps
 imagedeps="meson build-essential"
-hostdeps="xgcc xbinutils pkgconfig util-macros"
+hostdeps="xgcc xbinutils pkgconfig util-macros autoconf automake libtool"
 deps="base"
 
 build() {
-	${source_dir}/configure --prefix=${prefix} --host=x86_64-astral
+	cp -rp ${source_dir}/* .
+	./configure --prefix=${prefix} --host=x86_64-astral
 }
 
 package() {

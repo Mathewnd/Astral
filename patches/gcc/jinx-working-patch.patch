@@ -93,7 +93,7 @@ index 8c56fca..aecb1da 100644
  	;;
 +x86_64-*-astral*)
 +	extra_parts="$extra_parts crti.o crtbegin.o crtend.o crtn.o crtbeginS.o crtendS.o crtprec32.o crtprec64.o crtprec80.o crtfastmath.o"
-+	tmake_file="$tmake_file t-crtstuff-pic t-libgcc-pic i386/t-crtpc t-crtfm i386/t-crtstuff t-dfprules"
++	tmake_file="$tmake_file gnu-user.h t-crtstuff-pic t-libgcc-pic i386/t-crtpc t-crtfm i386/t-crtstuff t-dfprules"
 +	;;
  i[34567]86-*-linux*)
  	extra_parts="$extra_parts crtprec32.o crtprec64.o crtprec80.o crtfastmath.o"
