@@ -5,7 +5,7 @@ imagedeps="build-essential gcc"
 hostdeps="automake autoconf"
 
 configure() {
-	${source_dir}/configure --target=x86_64-astral --prefix=${prefix} --with-sysroot=${sysroot_dir} --disable-werror
+	${source_dir}/configure --target=x86_64-astral --prefix=${prefix} --with-sysroot=${sysroot_dir} --disable-werror --enable-default-execstack=no
 }
 
 build() {

@@ -1,0 +1,9 @@
+name=libarchive
+version=3.8.1
+source_method=tarball
+tarball_url=https://github.com/libarchive/libarchive/releases/download/v${version}/libarchive-${version}.tar.xz
+tarball_sha512=c794d1c6e6a6dcf4072438dc4e8ce5b1530bbe9ad40afad18f4e6a444aa5d85e48c58cfbd8af41d4d25e93844956de3ce262cb1d68097d2e5f95bd87b5a982b7
+
+prepare() {
+	true
+}

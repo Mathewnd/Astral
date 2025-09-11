@@ -1,0 +1,9 @@
+name=xbps
+version=0.60.5
+source_method=tarball
+tarball_url="https://github.com/void-linux/xbps/archive/refs/tags/${version}.tar.gz"
+tarball_sha512=a820dc74d0a25490a917eecc087c88fb8c9d1245c16e6e7be508ac8b650e19d8e3265684f1171a824c284f3c1febba8c5cabd471c3722883c533c908db7e92bb
+
+prepare() {
+	true
+}

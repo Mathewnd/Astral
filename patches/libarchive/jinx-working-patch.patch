@@ -1,0 +1,20 @@
+diff --git libarchive-clean/build/autoconf/config.sub libarchive-workdir/build/autoconf/config.sub
+index dba16e8..564ee86 100755
+--- libarchive-clean/build/autoconf/config.sub
++++ libarchive-workdir/build/autoconf/config.sub
+@@ -1723,7 +1723,7 @@ case $os in
+ 	# Now accept the basic system types.
+ 	# The portable systems comes first.
+ 	# Each alternative MUST end in a * to match a version number.
+-	gnu* | android* | bsd* | mach* | minix* | genix* | ultrix* | irix* \
++	gnu* | astral* | android* | bsd* | mach* | minix* | genix* | ultrix* | irix* \
+ 	     | *vms* | esix* | aix* | cnk* | sunos | sunos[34]* \
+ 	     | hpux* | unos* | osf* | luna* | dgux* | auroraux* | solaris* \
+ 	     | sym* |  plan9* | psp* | sim* | xray* | os68k* | v88r* \
+diff --git libarchive-workdir/build/cmake/Platform/Astral.cmake libarchive-workdir/build/cmake/Platform/Astral.cmake
+new file mode 100644
+index 0000000..54a156b
+--- /dev/null
++++ libarchive-workdir/build/cmake/Platform/Astral.cmake
+@@ -0,0 +1 @@
++include(Platform/UnixPaths)

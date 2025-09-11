@@ -1,0 +1,21 @@
+name=xbps
+revision=1
+from_source=xbps
+imagedeps="build-essential"
+hostdeps="xgcc xbinutils pkgconfig"
+deps="base libarchive openssl zlib"
+
+configure() {
+	cp -rp ${source_dir}/* .
+	CFLAGS="${CFLAGS} -Wno-error" ASTRAL_XBPS_PKG_CONFIG=x86_64-astral-pkg-config ./configure --host=x86_64-astral --prefix=${prefix} --sysconfdir=/etc --verbose
+}
+
+build() {
+	make -j ${parallelism} AR=x86_64-astral-ar RANLIB=x86_64-astral-ranlib
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+
+	sed -i "s/ARCH_HERE/${JINX_ARCH}/g" "${dest_dir}${prefix}"/share/xbps.d/00-repository-main.conf
+}

@@ -6,7 +6,7 @@ hostdeps="xgcc xbinutils automake autoconf"
 deps="base"
 
 configure() {
-	${source_dir}/configure --host=x86_64-astral --target=x86_64-astral --prefix=${prefix} --disable-werror
+	${source_dir}/configure --host=x86_64-astral --target=x86_64-astral --prefix=${prefix} --disable-werror --enable-default-execstack=no
 }
 
 build() {
