@@ -442,6 +442,14 @@ static int devfs_lock(vnode_t *vnode) {
 static int devfs_unlock(vnode_t *vnode) {
 	return 0;
 }
+	
+static int devfs_advlock(vnode_t *node, int op, advlock_t *advlock) {
+	devnode_t *devnode = (devnode_t *)node;
+	if (devnode->master)
+		devnode = devnode->master;
+
+	return vfs_advlock((vnode_t *)devnode, op, advlock);
+}
 
 static int devfs_enodev() {
 	return ENODEV;
@@ -479,6 +487,7 @@ static vops_t vnops = {
 	.putpage = devfs_putpage,
 	.getpage = devfs_getpage,
 	.sync = devfs_sync,
+	.advlock = devfs_advlock,
 	.lock = devfs_lock,
 	.unlock = devfs_unlock
 };

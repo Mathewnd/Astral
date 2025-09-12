@@ -229,6 +229,10 @@ static int sockfs_unlock(vnode_t *) {
 	return 0;
 }
 
+static int sockfs_advlock(vnode_t *node, int op, advlock_t *advlock) {
+	return vfs_advlock(node, op, advlock);
+}
+
 static int sockfs_enodev() {
 	return ENODEV;
 }
@@ -258,6 +262,7 @@ static vops_t vnops = {
 	.putpage = sockfs_enodev,
 	.getpage = sockfs_enodev,
 	.sync = sockfs_enodev,
+	.advlock = sockfs_advlock,
 	.lock = sockfs_lock,
 	.unlock = sockfs_unlock
 };

@@ -31,7 +31,8 @@ typedef struct polldata {
 } polldata_t;
 
 #define POLL_INITHEADER(x) \
-	SPINLOCK_INIT((x)->lock);
+	SPINLOCK_INIT((x)->lock); \
+	(x)->data = NULL;
 
 int poll_initdesc(polldesc_t *, size_t size);
 void poll_add(pollheader_t *, polldata_t *, int events);

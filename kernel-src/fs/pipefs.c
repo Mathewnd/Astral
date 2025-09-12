@@ -364,6 +364,10 @@ static int pipefs_unlock(vnode_t *vnode) {
 	return 0;
 }
 
+static int pipefs_advlock(vnode_t *node, int op, advlock_t *advlock) {
+	return vfs_advlock(node, op, advlock);
+}
+
 static int pipefs_enodev() {
 	return ENODEV;
 }
@@ -392,6 +396,7 @@ static vops_t vnops = {
 	.putpage = pipefs_enodev,
 	.getpage = pipefs_enodev,
 	.sync = pipefs_enodev,
+	.advlock = pipefs_advlock,
 	.lock = pipefs_lock,
 	.unlock = pipefs_unlock
 };

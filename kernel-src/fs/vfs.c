@@ -12,6 +12,7 @@
 #include <kernel/pipefs.h>
 #include <kernel/auth.h>
 #include <kernel/init.h>
+#include <kernel/slab.h>
 
 #define PATHNAME_MAX 512
 #define MAXLINKDEPTH 64
@@ -21,6 +22,7 @@ vnode_t *vfsroot;
 
 static mutex_t listlock;
 static vfs_t *vfslist;
+static scache_t *advlock_cache;
 
 static cred_t *getcred() {
 	if (current_thread() == NULL || current_thread()->proc == NULL)
@@ -50,6 +52,15 @@ static vops_t vnops = {
 	.unlock = noop
 };
 
+static bool advlock_ctor(scache_t *cache, void *_obj) {
+	advlock_t *obj = _obj;
+	obj->type = ADVLOCK_UNLOCK;
+	obj->shared_count = 0;
+	obj->refcount = 1;
+	EVENT_INITHEADER(&obj->unlock_event);
+	return true;
+}
+
 void vfs_init() {
 	__assert(hashtable_init(&fstable, 20) == 0);
 	vfsroot = alloc(sizeof(vnode_t));
@@ -58,9 +69,20 @@ void vfs_init() {
 	vfsroot->type = V_TYPE_DIR;
 	vfsroot->refcount = 1;
 	vfsroot->ops = &vnops;
+	advlock_cache = slab_newcache(sizeof(advlock_t), 0, advlock_ctor, NULL);
+	__assert(advlock_cache);
 }
 
 INIT_ROUTINE_DEFINE(vfs, INIT_ROUTINE_FLAGS_NONE, vfs_init, bsp_early);
+
+advlock_t *advlock_allocate(void) {
+	return slab_allocate(advlock_cache);
+}
+
+void advlock_free(advlock_t *advlock) {
+	advlock->refcount = 1;
+	slab_free(advlock_cache, advlock);
+}
 
 int vfs_register(vfsops_t *ops, char *name) {
 	return hashtable_set(&fstable, ops, name, strlen(name), true);
@@ -164,6 +186,140 @@ int vfs_close(vnode_t *node, int flags) {
 	int err = VOP_CLOSE(node, flags, getcred());
 	VOP_UNLOCK(node);
 	return err;
+}
+
+static void adv_unlock(vnode_t *vnode, int op, advlock_t *lock) {
+	MUTEX_ACQUIRE(&vnode->adv_mutex);
+
+	switch (lock->type) {
+		// is this lock not attached anywhere?
+		case ADVLOCK_UNLOCK:
+			goto leave;
+		case ADVLOCK_EXCLUSIVE:
+			__assert(vnode->advlock == lock);
+
+			EVENT_SIGNAL(&lock->unlock_event);
+			ADVLOCK_UNREF(lock);
+			vnode->advlock = NULL;
+
+			lock->type = ADVLOCK_UNLOCK;
+
+			break;
+		case ADVLOCK_SHARED:
+			__assert(vnode->advlock && vnode->advlock->type == ADVLOCK_SHARED);
+			lock->type = ADVLOCK_UNLOCK;
+
+			if (--vnode->advlock->shared_count == 0) {
+				// we do not change the type as this will be destroyed
+				// (shared locks allocate an extra advlock)
+				EVENT_SIGNAL(&vnode->advlock->unlock_event);
+				ADVLOCK_UNREF(vnode->advlock);
+				vnode->advlock = NULL;
+			}
+	}
+
+	leave:
+	MUTEX_RELEASE(&vnode->adv_mutex);
+}
+
+static int adv_lock(vnode_t *vnode, int op, advlock_t *lock, bool non_blocking) {
+	retry:
+	MUTEX_ACQUIRE(&vnode->adv_mutex);
+	int error = 0;
+
+	// do we have to convert the lock?
+	if ((lock->type == ADVLOCK_EXCLUSIVE && op == ADVLOCK_SHARED) ||
+		(lock->type == ADVLOCK_SHARED && op == ADVLOCK_EXCLUSIVE)) {
+		error = EDEADLK;
+		goto leave;
+	}
+
+	// have we already taken it?
+	if (lock->type == op) {
+		goto leave;
+	}
+
+	if ((op == ADVLOCK_EXCLUSIVE && vnode->advlock && vnode->advlock != lock) ||
+	    (op == ADVLOCK_SHARED    && vnode->advlock && vnode->advlock->type == ADVLOCK_EXCLUSIVE)
+	) {
+		// can't take lock, sleep
+		if (non_blocking) {
+			error = EWOULDBLOCK;
+			goto leave;
+		}
+
+		advlock_t *sleeping_on = vnode->advlock;
+		ADVLOCK_REF(sleeping_on);
+
+		eventlistener_t listener;
+		EVENT_INITLISTENER(&listener);
+		EVENT_ATTACH(&listener, &sleeping_on->unlock_event);
+
+		MUTEX_RELEASE(&vnode->adv_mutex);
+
+		error = EVENT_WAIT(&listener, 0);
+		EVENT_DETACHALL(&listener);
+
+		ADVLOCK_UNREF(sleeping_on);
+
+		// interrupted by a signal?
+		if (error)
+			return error;
+
+		goto retry;
+	}
+
+	// can take the lock!
+	lock->type = op;
+
+	if (vnode->advlock == NULL) {
+		// unlocked advlock
+		if (op == ADVLOCK_SHARED) {
+			// shared locks allocate a dummy one
+			vnode->advlock = advlock_allocate();
+			if (vnode->advlock == NULL) {
+				error = ENOMEM;
+				goto leave;
+			}
+		} else {
+			// exclusive lock
+			vnode->advlock = lock;
+			ADVLOCK_REF(vnode->advlock);
+		}
+	} else {
+		// shared lock on shared advlock
+		++vnode->advlock->shared_count;
+	}
+
+	leave:
+	MUTEX_RELEASE(&vnode->adv_mutex);
+	return error;
+}
+
+// expected to be called from inside filesystem specific code
+// adv_mutex is expected to be unlocked
+// returns 0 if successful lock, EWOULDBLOCK if unsucessful and non-blocking
+// a ADVLOCK_UNLOCK operation decreases the shared count or releases an exclusive lock if applicable, waking all waiters in case of a successful unlock
+// a ADVLOCK_SHARED operation takes an unlocked lock or increments the shared count of a shared one
+// a ADVLOCK_EXCLUSIVE operation either places the lock or sleeps waiting to do so
+int vfs_advlock(vnode_t *node, int op, advlock_t *lock) {
+	int error = 0;
+	int non_blocking = op & ADVLOCK_NON_BLOCKING;
+	op &= ~ADVLOCK_NON_BLOCKING;
+
+	if (op == ADVLOCK_UNLOCK) {
+		adv_unlock(node, op, lock);
+	} else {
+		retry:
+		error = adv_lock(node, op, lock, non_blocking);
+		if (error == EDEADLK) {
+			// EDEADLK is a way of adv_lock signaling that the lock should be converted, and thus must be unlocked and then relocked non-atomically
+			adv_unlock(node, ADVLOCK_UNLOCK, lock);
+			goto retry;
+		}
+	}
+
+	return error;
 }
 
 // if node is not NULL, then a reference is kept and the newnode is returned in node

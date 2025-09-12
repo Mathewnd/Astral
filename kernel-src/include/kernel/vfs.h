@@ -9,6 +9,7 @@
 #include <time.h>
 #include <errno.h>
 #include <kernel/cred.h>
+#include <kernel/event.h>
 
 #define V_ATTR_MODE	1
 #define V_ATTR_UID	2
@@ -71,6 +72,21 @@ typedef struct vfs_t {
 	int flags;
 } vfs_t;
 
+#define ADVLOCK_SHARED 1
+#define ADVLOCK_EXCLUSIVE 2
+#define ADVLOCK_NON_BLOCKING 4
+#define ADVLOCK_UNLOCK 8
+
+typedef struct advlock_t {
+	int type;
+	int refcount;
+	int shared_count;
+	eventheader_t unlock_event;
+} advlock_t;
+
+#define ADVLOCK_REF(x) __atomic_fetch_add(&(x)->refcount, 1, __ATOMIC_SEQ_CST);
+#define ADVLOCK_UNREF(x) if (__atomic_sub_fetch(&(x)->refcount, 1, __ATOMIC_SEQ_CST) == 0) advlock_free(x);
+
 #define V_FLAGS_ROOT 1
 
 #define V_TYPE_REGULAR	0
@@ -105,6 +121,9 @@ typedef struct vnode_t {
 
 	mutex_t pages_mutex;
 	struct page_t *pages;
+
+	mutex_t adv_mutex;
+	advlock_t *advlock;
 } vnode_t;
 
 typedef struct vfsops_t {
@@ -143,6 +162,7 @@ typedef struct vops_t {
 	int (*getpage)(vnode_t *node, uintmax_t offset, struct page_t *page);
 	int (*putpage)(vnode_t *node, uintmax_t offset, struct page_t *page);
 	int (*sync)(vnode_t *node);
+	int (*advlock)(vnode_t *node, int op, advlock_t *advlock);
 	int (*lock)(vnode_t *node);
 	int (*unlock)(vnode_t *node);
 } vops_t;
@@ -164,6 +184,8 @@ typedef struct vops_t {
 	MUTEX_INIT(&(vn)->lock); \
 	MUTEX_INIT(&(vn)->size_lock); \
 	MUTEX_INIT(&(vn)->pages_mutex); \
+	MUTEX_INIT(&(vn)->adv_mutex); \
+	(vn)->advlock = NULL; \
 	(vn)->refcount = 1; \
 	(vn)->flags = f; \
 	(vn)->type = t; \
@@ -201,6 +223,7 @@ typedef struct vops_t {
 #define VOP_GETPAGE(v, o, p) (v)->ops->getpage(v, o, p)
 #define VOP_PUTPAGE(v, o, p) (v)->ops->putpage(v, o, p)
 #define VOP_SYNC(v) (v)->ops->sync(v)
+#define VOP_ADVLOCK(v, o, a) (v)->ops->advlock(v, o, a)
 #define VOP_HOLD(v) __atomic_add_fetch(&(v)->refcount, 1, __ATOMIC_SEQ_CST)
 #define VOP_RELEASE(v) {\
 		if (__atomic_sub_fetch(&(v)->refcount, 1, __ATOMIC_SEQ_CST) == 0) {\
@@ -210,6 +233,9 @@ typedef struct vops_t {
 	}
 
 extern vnode_t *vfsroot;
+
+advlock_t *advlock_allocate(void);
+void advlock_free(advlock_t *advlock);
 
 void vfs_init();
 int vfs_mount(vnode_t *backing, vnode_t *pathref, char *path, char *name, void *data);
@@ -226,6 +252,7 @@ int vfs_link(vnode_t *destref, char *destpath, vnode_t *linkref, char *linkpath,
 int vfs_rename(vnode_t *srcref, char *srcpath, vnode_t *dstref, char *dstpath, int flags);
 int vfs_unlink(vnode_t *ref, char *path);
 int vfs_pollstub(vnode_t *node, struct polldata *, int events);
+int vfs_advlock(vnode_t *node, int op, advlock_t *lock);
 void vfs_inactive(vnode_t *node);
 
 #define VFS_LOOKUP_PARENT 	0x20000000

@@ -20,6 +20,7 @@ static bool ctor(scache_t *cache, void *obj) {
 	file->offset = 0;
 	file->flags = 0;
 	file->mode = 0;
+	file->advlock = NULL;
 	file->refcount = 1;
 	return true;
 }
@@ -39,12 +40,18 @@ static void cleanfile(file_t *file) {
 		VOP_RELEASE(file->vnode);
 	}
 
-	file->vnode = NULL;
 	file->refcount = 1;
 	file->offset = 0;
 	file->flags = 0;
 	file->mode = 0;
 	MUTEX_INIT(&file->mutex);
+	if (file->advlock) {
+		// try unlocking it if applicable
+		VOP_ADVLOCK(file->vnode, ADVLOCK_UNLOCK, file->advlock);
+		ADVLOCK_UNREF(file->advlock);
+		file->advlock = NULL;
+	}
+	file->vnode = NULL;
 	slab_free(filecache, file);
 }
 

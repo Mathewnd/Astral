@@ -4,6 +4,7 @@
 #include <kernel/vfs.h>
 #include <mutex.h>
 #include <kernel/scheduler.h>
+#include <kernel/event.h>
 
 typedef struct file_t {
 	vnode_t *vnode;
@@ -12,6 +13,7 @@ typedef struct file_t {
 	mode_t mode;
 	uintmax_t offset;
 	int flags;
+	advlock_t *advlock;
 } file_t;
 
 typedef struct fd_t {

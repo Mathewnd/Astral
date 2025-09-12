@@ -1823,6 +1823,10 @@ static int ext2_unlock(vnode_t *vnode) {
 	return 0;
 }
 
+static int ext2_advlock(vnode_t *node, int op, advlock_t *advlock) {
+	return vfs_advlock(node, op, advlock);
+}
+
 static int ext2_inactive(vnode_t *vnode) {
 	ext2node_t *node = (ext2node_t *)vnode;
 	ext2fs_t *fs = (ext2fs_t *)vnode->vfs;
@@ -2010,6 +2014,7 @@ static vops_t vnops = {
 	.getpage = ext2_getpage,
 	.putpage = ext2_putpage,
 	.sync = ext2_sync,
+	.advlock = ext2_advlock,
 	.lock = ext2_lock,
 	.unlock = ext2_unlock
 };

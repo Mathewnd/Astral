@@ -84,7 +84,7 @@ index d5ba7b2..a86353f 100644
  	long error = syscall(SYSCALL_ARCHCTL, &ret, func, (uint64_t)arg);
  	if(error)
 diff --git mlibc-clean/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
-index bb85dba..a541845 100644
+index bb85dba..5e9e21a 100644
 --- mlibc-clean/sysdeps/astral/generic/generic.cpp
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
 @@ -31,6 +31,12 @@ namespace mlibc {
@@ -100,10 +100,15 @@ index bb85dba..a541845 100644
  	int sys_getsockopt(int fd, int layer, int number,
  		void *__restrict buffer, socklen_t *__restrict size) {
  		(void)size;
-@@ -40,6 +46,18 @@ namespace mlibc {
+@@ -40,6 +46,23 @@ namespace mlibc {
  		return 0;
  	}
  
++	int sys_flock(int fd, int options) {
++		long r;
++		return syscall(SYSCALL_FLOCK, &r, fd, options);
++	}
++
 +	int sys_nice(int nice, int *ret) {
 +		long r = -1;
 +		long e = syscall(SYSCALL_NICE, &r, nice);
@@ -119,7 +124,7 @@ index bb85dba..a541845 100644
  	int sys_tgkill(int pid, int tid, int sig) {
  		long ret;
  		return syscall(SYSCALL_KILLTHREAD, &ret, pid, tid, sig);
-@@ -161,7 +179,18 @@ namespace mlibc {
+@@ -161,7 +184,18 @@ namespace mlibc {
  		*bytes_written = writec;
  		return error;
  	}
@@ -139,7 +144,7 @@ index bb85dba..a541845 100644
  	#ifndef MLIBC_BUILDING_RTLD
  
  	typedef struct {
-@@ -376,6 +405,12 @@ namespace mlibc {
+@@ -376,6 +410,12 @@ namespace mlibc {
  		return ret;
  	}
  
@@ -152,7 +157,7 @@ index bb85dba..a541845 100644
  	#ifndef MLIBC_BUILDING_RTLD
  
  	[[noreturn]] void sys_thread_exit() {
-@@ -771,7 +806,7 @@ namespace mlibc {
+@@ -771,7 +811,7 @@ namespace mlibc {
  
  	int sys_tcb_set(void *pointer) {
  		long r;
@@ -179,15 +184,16 @@ index d738e02..7e4f2a1 100644
  #ifdef __cplusplus
  extern "C" {
 diff --git mlibc-clean/sysdeps/astral/include/astral/syscall.h mlibc-workdir/sysdeps/astral/include/astral/syscall.h
-index 5f42d62..09a5d5f 100644
+index 5f42d62..6fbb253 100644
 --- mlibc-clean/sysdeps/astral/include/astral/syscall.h
 +++ mlibc-workdir/sysdeps/astral/include/astral/syscall.h
-@@ -96,6 +96,8 @@
+@@ -96,6 +96,9 @@
  #define SYSCALL_SIGTIMEDWAIT 89
  #define SYSCALL_SIGPENDING 90
  #define SYSCALL_KILLTHREAD 91
 +#define SYSCALL_SHUTDOWN 92
 +#define SYSCALL_NICE 93
++#define SYSCALL_FLOCK 94
  
  #ifndef __MLIBC_ABI_ONLY
  

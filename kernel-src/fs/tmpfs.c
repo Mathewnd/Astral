@@ -503,6 +503,10 @@ static int tmpfs_sync(vnode_t *node) {
 	return 0;
 }
 
+static int tmpfs_advlock(vnode_t *node, int op, advlock_t *advlock) {
+	return vfs_advlock(node, op, advlock);
+}
+
 static int tmpfs_lock(vnode_t *node) {
 	MUTEX_ACQUIRE(&node->lock);
 	return 0;
@@ -542,6 +546,7 @@ static vops_t vnops = {
 	.getpage = tmpfs_getpage,
 	.putpage = tmpfs_putpage,
 	.sync = tmpfs_sync,
+	.advlock = tmpfs_advlock,
 	.lock = tmpfs_lock,
 	.unlock = tmpfs_unlock
 };
