@@ -1,0 +1,8 @@
+name=iana-etc
+revision=1
+from_source=iana-etc
+
+package() {
+	mkdir -p ${dest_dir}/etc
+	cp -r ${source_dir}/{services,protocols} ${dest_dir}/etc
+}

@@ -1,0 +1,8 @@
+name=iana-etc
+version=20250826
+source_method=tarball
+tarball_url="https://github.com/Mic92/iana-etc/releases/download/${version}/iana-etc-${version}.tar.gz"
+tarball_sha512=57849347701dd4a446dde27462328b8fdb162670389a56c5c5b757afd5514cf16114d87954c01b9c5dbcdabfec0f5993e4fd5949009d16905bbc10a35bb0a8e4
+prepare() {
+        true
+}

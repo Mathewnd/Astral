@@ -3,7 +3,7 @@ revision=1
 from_source=netd
 imagedeps="build-essential"
 hostdeps="xbinutils xgcc"
-deps="base"
+deps="base iana-etc"
 
 build() {
 	make -C ${source_dir} -j ${parallelism}
