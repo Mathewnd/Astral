@@ -13,11 +13,13 @@ chmod 1777 /tmp
 
 chmod 0755 /dev/pts
 
-mkdir -p /var/log
-mkdir -p /var/run
-
 # required to be owned by root and sticky for rootless Xorg.
 mkdir -p /tmp/.X11-unix
 chmod 1777 /tmp/.X11-unix
 
 /usr/sbin/acpid
+
+# do first time boot configuration if needed
+if [ ! -f "/var/lib/.first_boot_done" ]; then
+	/usr/libexec/astral/first-boot
+fi

@@ -1,0 +1,19 @@
+#!/usr/bin/bash
+# this file will be executed on the first boot of the system
+echo first-boot: running first boot script...
+
+# create some directories needed in case they have not been already
+echo first-boot: creating /var directories...
+mkdir -p /var/log
+mkdir -p /var/run
+mkdir -p /var/lib
+
+# run post install hooks
+echo first-boot: running post install hooks...
+xbps-reconfigure -a > /var/log/first_install_reconfigure.log
+
+# all done
+touch /var/lib/.first_boot_done
+
+echo first-boot: syncing disks...
+sync
