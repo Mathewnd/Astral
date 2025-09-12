@@ -21,5 +21,6 @@ chmod 1777 /tmp/.X11-unix
 
 # do first time boot configuration if needed
 if [ ! -f "/var/lib/.first_boot_done" ]; then
+	echo rc: running first boot script
 	/usr/libexec/astral/first-boot
 fi

@@ -22,4 +22,6 @@ package() {
 	ln -fvs /usr/share/games/doom/DOOM1.WAD ${dest_dir}/root/DOOM1.WAD
 	ln -fvs /usr/share/games/doom/DOOM1.WAD ${dest_dir}/home/astral/DOOM1.WAD
 	ln -fvs /usr/share/games/doom/DOOM1.WAD ${dest_dir}/etc/skel/DOOM1.WAD
+
+	copy_install_hook
 }

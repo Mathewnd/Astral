@@ -1,3 +1,8 @@
 JINX_MAJOR_VER=0.6
 export CFLAGS="-O2 -march=x86-64 -pipe -mtune=generic"
 export CXXFLAGS="${CFLAGS}"
+
+copy_install_hook () {
+	cp -v ${base_dir}/install-hooks/${name} ${dest_dir}/INSTALL
+	chmod +x ${dest_dir}/INSTALL
+}

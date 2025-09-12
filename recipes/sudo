@@ -21,4 +21,6 @@ package() {
 	echo "astral ALL=(ALL:ALL) ALL" >> ${dest_dir}/etc/sudoers
 	chmod ${mode} ${dest_dir}/etc/sudoers
 	chmod u+s ${dest_dir}/etc/sudoers
+
+	copy_install_hook
 }
