@@ -94,6 +94,7 @@ extern syscall_killthread
 extern syscall_shutdown
 extern syscall_nice
 extern syscall_flock
+extern syscall_getcpu
 syscalltab:
 dq syscall_print
 dq syscall_mmap
@@ -190,7 +191,8 @@ dq syscall_killthread
 dq syscall_shutdown
 dq syscall_nice
 dq syscall_flock
-syscallcount equ 95
+dq syscall_getcpu
+syscallcount equ 96
 section .text
 global arch_syscall_entry
 ; on entry:
