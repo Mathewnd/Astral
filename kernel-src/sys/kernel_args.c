@@ -47,7 +47,7 @@ void kernel_arguments_parse(void) {
 	const char *cmdline = kernel_file_request.response->kernel_file->cmdline;
 	__assert(cmdline);
 	size_t length = min(strlen(cmdline), TOTAL_ARGUMENTS_CHARACTER_LIMIT);
-	char temp_buffer[length];
+	char temp_buffer[length + 1];
 	memcpy(temp_buffer, cmdline, length);
 
 	bool escaping = false;
@@ -77,6 +77,8 @@ void kernel_arguments_parse(void) {
 		}
 	}
 
-	if (key != temp_buffer + length)
+	if (key != temp_buffer + length) {
+		temp_buffer[length] = '\0';
 		insert_argument(key, value);
+	}
 }
