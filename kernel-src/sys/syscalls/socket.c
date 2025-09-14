@@ -3,12 +3,26 @@
 #include <kernel/sock.h>
 #include <errno.h>
 
+#define SOCK_CLOEXEC   0x80000
+#define SOCK_NONBLOCK  0x800
+
 syscallret_t syscall_socket(context_t *, int domain, int type, int protocol) {
 	syscallret_t ret = {
 		.ret = -1
 	};
 
 	int socktype = -1;
+	bool non_blocking = false, close_exec = false;
+
+	if (type & SOCK_NONBLOCK) {
+		non_blocking = true;
+		type &= ~SOCK_NONBLOCK;
+	}
+
+	if (type & SOCK_CLOEXEC) {
+		close_exec = true;
+		type &= ~SOCK_CLOEXEC;
+	}
 
 	switch (domain) {
 		case AF_INET:
@@ -42,7 +56,7 @@ syscallret_t syscall_socket(context_t *, int domain, int type, int protocol) {
 	file_t *file;
 	int fd;
 	
-	ret.errno = fd_new(0, &file, &fd);
+	ret.errno = fd_new(close_exec ? O_CLOEXEC : 0, &file, &fd);
 	if (ret.errno) {
 		// socket gets deleted by node cleanup
 		VOP_RELEASE(vnode);
@@ -50,7 +64,7 @@ syscallret_t syscall_socket(context_t *, int domain, int type, int protocol) {
 	}
 
 	file->vnode = vnode;
-	file->flags = FILE_READ | FILE_WRITE;
+	file->flags = FILE_READ | FILE_WRITE | (non_blocking ? O_NONBLOCK : 0);
 	file->offset = 0;
 	file->mode = 0777;
 
