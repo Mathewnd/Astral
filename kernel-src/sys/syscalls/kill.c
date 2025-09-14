@@ -26,10 +26,6 @@ syscallret_t syscall_kill(context_t *context, int pid, int signal) {
 		return ret;
 	}
 
-	// null signal is meant to find out about the existance of a process
-	if (signal == 0)
-		goto leave;
-
 	if (pid >= 1) {
 		if (signal != SIGCONT || jobctl_getpgid(target) != jobctl_getpgid(current_thread()->proc)) {
 			ret.errno = auth_process_check(&current_thread()->proc->cred, AUTH_ACTIONS_PROCESS_SIGNAL, target);

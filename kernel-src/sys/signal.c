@@ -278,6 +278,9 @@ int signal_wait(sigset_t *sigset, timespec_t *timeout, siginfo_t *siginfo, int *
 }
 
 void signal_signalthread(struct thread_t *thread, int signal, bool urgent) {
+	if (signal == 0)
+		return;
+
 	PROCESS_ENTER(thread->proc);
 	THREAD_ENTER(thread);
 
@@ -305,6 +308,8 @@ void signal_signalthread(struct thread_t *thread, int signal, bool urgent) {
 }
 
 void signal_signalproc(struct proc_t *proc, int signal) {
+	if (signal == 0)
+		return;
 	// first, check if any threads have the signal unmasked, and set as pending for the first one
 	PROCESS_ENTER(proc);
 	void *address = proc->signals.actions[signal].address;
