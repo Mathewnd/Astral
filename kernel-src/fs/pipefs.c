@@ -225,7 +225,7 @@ int pipefs_write(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size, u
 	while (1) {
 		// check for space or if the read end has been closed
 		int revents = internalpoll(node, NULL, POLLOUT);
-		if (revents & POLLHUP)
+		if (revents & POLLERR)
 			break;
 
 		size_t freebytes = RINGBUFFER_FREESPACE(&pipenode->data);
