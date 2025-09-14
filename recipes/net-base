@@ -1,0 +1,4 @@
+name=net-base
+version=1
+revision=1
+deps="netd make-ca iana-etc openssl"

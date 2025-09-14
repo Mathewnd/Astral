@@ -22,7 +22,7 @@ all:
 	echo "#ifndef _BUILD_H" > include/build.h 
 	echo "#define _BUILD_H" >> include/build.h 
 	echo "	#define BUILD_DATE \"$(shell date -u)\"" >> include/build.h
-	echo "	#define BUILD_TARGET \"$(TARGET)\"" >> include/build.h
+	echo "	#define BUILD_TARGET \"$(JINX_ARCH)\"" >> include/build.h
 	echo "#endif" >> include/build.h 
 	make astral
 

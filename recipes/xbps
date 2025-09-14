@@ -3,7 +3,7 @@ revision=1
 from_source=xbps
 imagedeps="build-essential"
 hostdeps="xgcc xbinutils pkgconfig"
-deps="base libarchive openssl zlib"
+deps="base libarchive openssl zlib zstd"
 
 configure() {
 	cp -rp ${source_dir}/* .
@@ -17,5 +17,6 @@ build() {
 package() {
 	make install DESTDIR=${dest_dir}
 
+	echo $JINX_ARCH
 	sed -i "s/ARCH_HERE/${JINX_ARCH}/g" "${dest_dir}${prefix}"/share/xbps.d/00-repository-main.conf
 }

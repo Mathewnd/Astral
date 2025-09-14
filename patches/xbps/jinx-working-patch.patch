@@ -11,6 +11,49 @@ index 8e6b2db..7079ab8 100755
  # Ensure that we do not inherit these from env
  OS=
  BUILD=
+diff --git xbps-workdir/data/58:87:8d:25:bd:62:da:57:bf:89:ec:7a:c7:dc:6f:85.plist xbps-workdir/data/58:87:8d:25:bd:62:da:57:bf:89:ec:7a:c7:dc:6f:85.plist
+new file mode 100644
+index 0000000..7ff24dc
+--- /dev/null
++++ xbps-workdir/data/58:87:8d:25:bd:62:da:57:bf:89:ec:7a:c7:dc:6f:85.plist
+@@ -0,0 +1,12 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
++<plist version="1.0">
++<dict>
++        <key>public-key</key>
++        <data>LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUlJQklqQU5CZ2txaGtpRzl3MEJBUUVGQUFPQ0FROEFNSUlCQ2dLQ0FRRUFsN3pjNFdsWk0yY21jS2p2Q0pldQpRYlFsN3Y1M2N5MmJ0TDVvV0Q3c0l6eWNDTVNaRkY1OGdkTzFFK2VmcXlabTNCNFZ1d0k2UUZkOWY2T2FtNW12CkIrczVzR1FLZ2lxWlR5SHZaa005R3Nab1pjdnZGZHZHa0o2WEdBeCtjWHJDLzR6Sm9Dak5sWTVhb1ExeXMxRnUKUngzQ2RBTkNCa3NtRGxkdTQ1RFFJZnlYMXh0eXZ0S0FvRUM4NCtGOVhmdDBKOENDSllLeW43M0RRUkdIbThqawppZkhSYld4aEZCdTdKQmZJWDYzT0R1UG1wTHdLYmJjQ2g4dWMya3hzMVNzVHhaaG9Ia0NURlkzL0V0R2p6eW9NClpNaFRIbHl1MTBQTU54eEN2U2hyYW05UlVPVi80NkhNWWZudDU4YUtOM1R4cEFkR3ZHTU1rSVUxdnpienlJekMKandJREFRQUIKLS0tLS1FTkQgUFVCTElDIEtFWS0tLS0tCg==</data>
++        <key>public-key-size</key>
++        <integer>2048</integer>
++        <key>signature-by</key>
++        <string>Math</string>
++</dict>
++</plist>
+diff --git xbps-clean/data/60:ae:0c:d6:f0:95:17:80:bc:93:46:7a:89:af:a3:2d.plist xbps-clean/data/60:ae:0c:d6:f0:95:17:80:bc:93:46:7a:89:af:a3:2d.plist
+deleted file mode 100644
+index c1e82a7..0000000
+--- xbps-clean/data/60:ae:0c:d6:f0:95:17:80:bc:93:46:7a:89:af:a3:2d.plist
++++ /dev/null
+@@ -1,12 +0,0 @@
+-<?xml version="1.0" encoding="UTF-8"?>
+-<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+-<plist version="1.0">
+-<dict>
+-	<key>public-key</key>
+-	<data>LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUlJQ0lqQU5CZ2txaGtpRzl3MEJBUUVGQUFPQ0FnOEFNSUlDQ2dLQ0FnRUF2clN6QlpNdmd2T0NJM0FYYk9qYQoycktSa0pTVE0zYy9FalRJZ0NnRFhndW05M0JQQ3RZOE1jRlZvQ1U0T2lYSEdmVG1xMzlCVk5wTHZMSEw5S2sxCnAyNzhTQmhYVk90YkIyRVZtREtudmZJREVUbGRMR3plN3JaTlJKZHR1TjJtWi9UVnJVQjlTMHlRYytJdWY0aHYKMytEOTdWSWRUSkhBN0FTcjA0MjhwcEVHSkd3U1NoWTJYSm05RDVJMEV1R1JXYzE0TUVHN2RJS0ppWWlNMG5FNAp0WW8yL3ZINElGVEhkblZBM2dZaVp5RG5idUNBUi84RVNmVVRVMTNTTkNPZGJ1ZGYzRDVCY3krVWlNREpJM1llCjRNRktCclQ5WmhaK0dzWEJaWTQ4MmxxaVppNkNMNXB0YzlJUUZmOC9lS1phOGphdGtpVkZWZ3JLZU5Sak9UeE4KZldTdTJua3hHTlgrYmhYWXRoaUdXbUpFWThjQ0FQeUZOK0x2NVJldEsyNTZnZGNiMnNrbUVxZWZ2MnpQQyt3VgpXQmJkSDViRDRiWmpuME42Wmw4MXJ2NVJ6RHZudmYrdkQxNGFGVWJaOFFGcXU3NVBiTDR3Nm1ZTTRsZE0vZzBSCjZOWEU4QXo5Qnd4MnREZlllS3V1dHcxRXBQbTJZdkZ5VFViMWNveUF1VEdSeUFhcDFVVEh2ZzlsaFBJSm1oRlEKSjVrQ2cxcUQ3QTMxV2wwUmxuZTZoZ0dvMFpaTko1Y0pNL3YvelNUS0pjdUZnd283SDBoT0dpbDZEZm84OUI0agpHOTZBQ3lQUytEVktQRlhSWXdqL0FrYkhwYVEyZjFGTUFvU3BCcXVEcUhoM3VrazcxS1g2ajE5dDBpRjhEUUxyCnZ0RlNTZElqREEwMmx3ZVY5TmFRcFdzQ0F3RUFBUT09Ci0tLS0tRU5EIFBVQkxJQyBLRVktLS0tLQo=</data>
+-	<key>public-key-size</key>
+-	<integer>4096</integer>
+-	<key>signature-by</key>
+-	<string>Void Linux</string>
+-</dict>
+-</plist>
+diff --git xbps-clean/data/repod-main.conf xbps-workdir/data/repod-main.conf
+index e1c99f1..c78164d 100644
+--- xbps-clean/data/repod-main.conf
++++ xbps-workdir/data/repod-main.conf
+@@ -1 +1 @@
+-repository=https://repo-default.voidlinux.org/current
++repository=https://astral-os.org/repository
 diff --git xbps-clean/lib/fetch/ftp.c xbps-workdir/lib/fetch/ftp.c
 index 877b70d..a303d18 100644
 --- xbps-clean/lib/fetch/ftp.c

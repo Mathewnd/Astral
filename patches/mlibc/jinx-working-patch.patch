@@ -84,13 +84,20 @@ index d5ba7b2..a86353f 100644
  	long error = syscall(SYSCALL_ARCHCTL, &ret, func, (uint64_t)arg);
  	if(error)
 diff --git mlibc-clean/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
-index bb85dba..5f12e17 100644
+index bb85dba..be7ad9e 100644
 --- mlibc-clean/sysdeps/astral/generic/generic.cpp
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -40,6 +40,31 @@ namespace mlibc {
+@@ -40,6 +40,38 @@ namespace mlibc {
  		return 0;
  	}
  
++	int sys_inet_configured(bool *ipv4, bool *ipv6) {
++		// there is no ipv6 support in the kernel currently and no way of checking for configured interfaces
++		*ipv4 = true;
++		*ipv6 = false;
++		return 0;
++	}
++
 +	int sys_getcpu(int *cpu) {
 +		long ret;
 +		// can never fail
@@ -119,7 +126,7 @@ index bb85dba..5f12e17 100644
  	int sys_tgkill(int pid, int tid, int sig) {
  		long ret;
  		return syscall(SYSCALL_KILLTHREAD, &ret, pid, tid, sig);
-@@ -161,7 +186,18 @@ namespace mlibc {
+@@ -161,7 +193,18 @@ namespace mlibc {
  		*bytes_written = writec;
  		return error;
  	}
@@ -139,7 +146,7 @@ index bb85dba..5f12e17 100644
  	#ifndef MLIBC_BUILDING_RTLD
  
  	typedef struct {
-@@ -376,6 +412,12 @@ namespace mlibc {
+@@ -376,6 +419,12 @@ namespace mlibc {
  		return ret;
  	}
  
@@ -152,7 +159,7 @@ index bb85dba..5f12e17 100644
  	#ifndef MLIBC_BUILDING_RTLD
  
  	[[noreturn]] void sys_thread_exit() {
-@@ -771,7 +813,7 @@ namespace mlibc {
+@@ -771,7 +820,7 @@ namespace mlibc {
  
  	int sys_tcb_set(void *pointer) {
  		long r;

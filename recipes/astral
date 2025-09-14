@@ -6,7 +6,7 @@ hostdeps="xgcc xbinutils limine"
 
 build() {
 	cp -pr "${source_dir}"/* .
-	CC="x86_64-astral-gcc" LD="x86_64-astral-gcc" AS="nasm" TARGET=x86-64 make -j${parallelism}
+	CC="x86_64-astral-gcc" LD="x86_64-astral-gcc" AS="nasm" TARGET=x86-64 JINX_ARCH=${JINX_ARCH} make -j${parallelism}
 }
 
 package() {

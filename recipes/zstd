@@ -1,0 +1,18 @@
+name=zstd
+revision=1
+from_source=zstd
+imagedeps="build-essential"
+hostdeps="xgcc xbinutils"
+deps="base"
+
+configure() {
+	cp -rp ${source_dir}/* .
+}
+
+build() {
+	make CC=x86_64-astral-gcc LD=x86_64-astral-ld -j${parallelism}
+}
+
+package() {
+	make install DESTDIR="${dest_dir}" PREFIX=/usr
+}

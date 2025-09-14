@@ -9,12 +9,12 @@ LIMINEDIR=$(JINX_DIR)/host-pkgs/limine/usr/local/share/limine/
 KERNEL=$(JINX_DIR)/builds/astral/astral
 QEMUFLAGS=-M q35 -m 2g -smp cpus=4 -no-shutdown -no-reboot -debugcon file:/dev/stdout -serial stdio -netdev user,id=net0 -device virtio-net,netdev=net0 -object filter-dump,id=f1,netdev=net0,file=netdump.dat
 QEMUISOFLAGS=-cdrom $(ISO)
-QEMUDISKFLAGS=-drive file=$(DISKNAME),if=none,id=nvme -device virtio-blk,serial=deadc0ff,drive=nvme -boot order=dc
+QEMUDISKFLAGS=-drive file=$(DISKNAME),if=none,id=nvme -device nvme,serial=deadc0ff,drive=nvme -boot order=dc
 QEMUIMGFLAGS=-drive file=$(IMG),if=none,id=usb -device nec-usb-xhci,id=xhci -device usb-storage,bus=xhci.0,drive=usb,removable=on
 INITRD=$(JINX_DIR)/initrds/initrd
 DISTROTYPE=full
 
-MINIMALPACKAGES=mlibc bash coreutils init distro-files vim nano mount netd shadow sudo neofetch
+MINIMALPACKAGES=mlibc bash coreutils init distro-files vim nano mount shadow sudo xbps net-base neofetch
 
 .PHONY: all kernel clean clean-kernel iso img initrd full minimal disk distro-minimal distro-full
 
