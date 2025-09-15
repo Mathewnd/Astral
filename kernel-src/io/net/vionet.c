@@ -21,6 +21,7 @@ typedef struct {
 	semaphore_t txsem;
 	spinlock_t txlock;
 	dpc_t txdpc;
+	dpc_t rxdpc;
 	int id;
 } vionetdev_t;
 
@@ -53,7 +54,7 @@ static void rx_dpc(context_t *context, dpcarg_t arg) {
 
 static void rx_irq(isr_t *isr, context_t *context) {
 	vionetdev_t *netdev = isr->priv;
-	dpc_enqueue(&netdev->txdpc, rx_dpc, netdev);
+	dpc_enqueue(&netdev->rxdpc, rx_dpc, netdev);
 }
 
 static void tx_dpc(context_t *context, dpcarg_t arg) {
