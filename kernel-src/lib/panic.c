@@ -6,7 +6,9 @@
 
 __attribute__((noreturn)) void _panic(char *msg, context_t *ctx) {
 	interrupt_set(false);
-	arch_smp_haltallothers();
+	if (arch_smp_cpusawake > 1)
+		arch_smp_haltallothers();
+
 	printf("cpu%lu: Oops.\n", current_cpu_id());
 
 	if (msg)
