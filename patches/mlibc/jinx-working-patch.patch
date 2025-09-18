@@ -1,239 +1,199 @@
-diff --git mlibc-clean/abis/linux/fcntl.h mlibc-workdir/abis/linux/fcntl.h
-index b2215a2..fb152a7 100644
---- mlibc-clean/abis/linux/fcntl.h
-+++ mlibc-workdir/abis/linux/fcntl.h
-@@ -88,6 +88,14 @@
+diff --git mlibc-clean/options/ansi/generic/stdio.cpp mlibc-workdir/options/ansi/generic/stdio.cpp
+index a5e177a..91a9db7 100644
+--- mlibc-clean/options/ansi/generic/stdio.cpp
++++ mlibc-workdir/options/ansi/generic/stdio.cpp
+@@ -8,6 +8,7 @@
+ #include <wchar.h>
+ #include <ctype.h>
+ #include <limits.h>
++#include <math.h>
  
- #if __MLIBC_LINUX_OPTION
+ #include <abi-bits/fcntl.h>
  
-+#define DN_ACCESS 1
-+#define DN_MODIFY 2
-+#define DN_CREATE 4
-+#define DN_DELETE 8
-+#define DN_RENAME 16
-+#define DN_ATTRIB 32
-+#define DN_MULTISHOT 0x80000000
-+
- #define AT_STATX_SYNC_AS_STAT 0x0000
- #define AT_STATX_FORCE_SYNC 0x2000
- #define AT_STATX_DONT_SYNC 0x4000
-diff --git mlibc-clean/meson.build mlibc-workdir/meson.build
-index 37f8200..af2ea0b 100644
---- mlibc-clean/meson.build
-+++ mlibc-workdir/meson.build
-@@ -264,6 +264,7 @@ elif host_machine.system() == 'astral'
- 	libc_include_dirs += include_directories('sysdeps/astral/include')
- 	internal_conf.set10('MLIBC_MAP_DSO_SEGMENTS', true)
- 	internal_conf.set10('MLIBC_MAP_FILE_WINDOWS', true)
-+	internal_conf.set10('MLIBC_MMAP_ALLOCATE_DSO', true)
- 	subdir('sysdeps/astral')
- elif host_machine.system() == 'menix'
- 	rtld_include_dirs += include_directories('sysdeps/menix/include')
-diff --git mlibc-clean/options/posix/generic/unistd.cpp mlibc-workdir/options/posix/generic/unistd.cpp
-index 9652a17..c38ab8c 100644
---- mlibc-clean/options/posix/generic/unistd.cpp
-+++ mlibc-workdir/options/posix/generic/unistd.cpp
-@@ -571,9 +571,16 @@ int lockf(int fd, int op, off_t size) {
- 	return -1;
+@@ -348,6 +349,20 @@ static void store_int(void *dest, unsigned int size, unsigned long long i) {
+ 	}
  }
  
--int nice(int) {
++static void store_float(void *dest, unsigned int size, long double f) {
++	switch(size) {
++		case SCANF_TYPE_LL:
++			*(long double *)dest = f;
++			break;
++		case SCANF_TYPE_L:
++			*(double *)dest = f;
++			break;
++		default:
++			*(float *)dest = f;
++			break;
++	}
++}
++
+ template<typename H>
+ static int do_scanf(H &handler, const char *fmt, __builtin_va_list args) {
+ 	#define NOMATCH_CHECK(cond) ({ if(cond) return match_count; }) // if cond is true, matching error
+@@ -476,6 +491,141 @@ static int do_scanf(H &handler, const char *fmt, __builtin_va_list args) {
+ 		}
+ 
+ 		switch (*fmt) {
++			case 'a':
++			case 'A':
++			case 'E':
++			case 'e':
++			case 'G':
++			case 'g':
++			case 'F':
++			case 'f': {
++				bool is_negative = false;
++				long double divisor = 10;
++				long double result = 0;
++				int count = 0;
++				bool dot = false;
++				char c = handler.look_ahead();
++				EOF_CHECK(c == '\0');
++
++				if((c == '-')) {
++					handler.consume();
++					is_negative = true;
++					c = handler.look_ahead();
++				}
++				
++				if((c == '+')) {
++					handler.consume();
++					c = handler.look_ahead();
++				}
++
++				// nan?
++				if(tolower(c) == 'n') {
++					handler.consume();
++					c = handler.look_ahead();
++					if(tolower(c) != 'a')
++						return match_count;
++
++					handler.consume();
++					c = handler.look_ahead();
++					if(tolower(c) != 'n')
++						return match_count;
++
++					handler.consume();
++					if(dest)
++						store_float(dest, type, NAN);
++
++					continue;
++				}
++
++				// inf?
++				if(tolower(c) == 'i') {
++					handler.consume();
++					c = handler.look_ahead();
++					size_t i;
++					for(i = 0; i < strlen("nfinity"); ++i) {
++						if (tolower(c) != "nfinity"[i])
++							break;
++						handler.consume();
++						c = handler.look_ahead();
++					}
++
++					NOMATCH_CHECK(i != 2 && i != 8);
++
++					if(dest)
++						store_float(dest, type, is_negative ? -INFINITY : INFINITY);
++
++					continue;
++				}
++
++				// check if hexadecimal
++				if (c == '0') {
++					handler.consume();
++					c = handler.look_ahead();
++					if (tolower(c) == 'x') {
++						mlibc::infoLogger() << "mlibc: no support for hexadecimal floats on scanf" << frg::endlog;
++						return match_count;
++					}
++
++					++count;
++				}
++
++				while(isdigit(c) || (dot == false && c == '.')) {
++					handler.consume();
++					if(c == '.') {
++						dot = true;
++						c = handler.look_ahead();
++						continue;
++					}
++
++					long double character_value = c - '0';
++
++					if(dot) {
++						result = result + character_value / divisor;
++						divisor *= 10;
++					} else {
++						result = result * 10 + character_value;
++					}
++
++					++count;
++					c = handler.look_ahead();
++				}
++
++				NOMATCH_CHECK(count == 0);
++
++				result = is_negative ? -result : result;
++
++				// check for scientific notation
++				if (tolower(c) == 'e') {
++					handler.consume();
++					c = handler.look_ahead();
++					bool negative_exponent = false;
++					if(c == '+') {
++						handler.consume();
++						c = handler.look_ahead();
++					}
++
++					if(c == '-') {
++						negative_exponent = true;
++						handler.consume();
++						c = handler.look_ahead();
++					}
++
++					int exponent = 0;
++
++					while(isdigit(c)) {
++						handler.consume();
++						int value = c - '0';
++						exponent = exponent * 10 + value;
++						c = handler.look_ahead();
++					}
++
++					result = result * powl(10, negative_exponent ? -exponent : exponent);
++				}
++
++				if (dest)
++					store_float(dest, type, result);
++				break;
++			}
+ 			case 'd':
+ 			case 'u':
+ 				base = 10;
+diff --git mlibc-clean/options/glibc/generic/execinfo.cpp mlibc-workdir/options/glibc/generic/execinfo.cpp
+index 6b6a9c0..e1a37e2 100644
+--- mlibc-clean/options/glibc/generic/execinfo.cpp
++++ mlibc-workdir/options/glibc/generic/execinfo.cpp
+@@ -2,6 +2,7 @@
+ 
+ #include <bits/ensure.h>
+ #include <mlibc/debug.hpp>
++#include <errno.h>
+ 
+ int backtrace(void **, int) {
+ 	mlibc::infoLogger() << "mlibc: backtrace() is a stub!" << frg::endlog;
+@@ -9,8 +10,9 @@ int backtrace(void **, int) {
+ }
+ 
+ char **backtrace_symbols(void *const *, int) {
 -	__ensure(!"Not implemented");
 -	__builtin_unreachable();
-+int nice(int nice) {
-+	int new_nice;
-+
-+	MLIBC_CHECK_OR_ENOSYS(mlibc::sys_nice, -1);
-+	if(int e = mlibc::sys_nice(nice, &new_nice); e) {
-+		errno = e;
-+		return -1;
-+	}
-+
-+	return new_nice;
++	mlibc::infoLogger() << "mlibc: backtrace() is a stub!" << frg::endlog;
++	errno = ENOSYS;
++	return NULL;
  }
  
- long pathconf(const char *, int name) {
-diff --git mlibc-clean/options/posix/include/mlibc/posix-sysdeps.hpp mlibc-workdir/options/posix/include/mlibc/posix-sysdeps.hpp
-index 9387f76..0f2852b 100644
---- mlibc-clean/options/posix/include/mlibc/posix-sysdeps.hpp
-+++ mlibc-workdir/options/posix/include/mlibc/posix-sysdeps.hpp
-@@ -253,6 +253,8 @@ int sys_vm_unmap(void *pointer, size_t size);
- 
- [[gnu::weak]] int sys_inet_configured(bool *ipv4, bool *ipv6);
- 
-+[[gnu::weak]] int sys_nice(int nice, int *ret);
-+
- } //namespace mlibc
- 
- #endif // MLIBC_POSIX_SYSDEPS
-diff --git mlibc-clean/sysdeps/astral/crt-x86_64/crt0.S mlibc-workdir/sysdeps/astral/crt-x86_64/crt1.S
-similarity index 100%
-rename from mlibc-clean/sysdeps/astral/crt-x86_64/crt0.S
-rename to mlibc-workdir/sysdeps/astral/crt-x86_64/crt1.S
-diff --git mlibc-clean/sysdeps/astral/generic/astral.cpp mlibc-workdir/sysdeps/astral/generic/astral.cpp
-index d5ba7b2..a86353f 100644
---- mlibc-clean/sysdeps/astral/generic/astral.cpp
-+++ mlibc-workdir/sysdeps/astral/generic/astral.cpp
-@@ -4,7 +4,7 @@
- 
- #ifndef MLIBC_BUILDING_RTLD
- 
--int syscall_archctl(int func, void *arg) {
-+int arch_ctl(int func, void *arg) {
- 	long ret;
- 	long error = syscall(SYSCALL_ARCHCTL, &ret, func, (uint64_t)arg);
- 	if(error)
-diff --git mlibc-clean/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
-index bb85dba..be7ad9e 100644
---- mlibc-clean/sysdeps/astral/generic/generic.cpp
-+++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -40,6 +40,38 @@ namespace mlibc {
- 		return 0;
- 	}
- 
-+	int sys_inet_configured(bool *ipv4, bool *ipv6) {
-+		// there is no ipv6 support in the kernel currently and no way of checking for configured interfaces
-+		*ipv4 = true;
-+		*ipv6 = false;
-+		return 0;
-+	}
-+
-+	int sys_getcpu(int *cpu) {
-+		long ret;
-+		// can never fail
-+		syscall(SYSCALL_GETCPU, &ret);
-+		*cpu = ret;
-+		return 0;
-+	}
-+
-+	int sys_flock(int fd, int options) {
-+		long r;
-+		return syscall(SYSCALL_FLOCK, &r, fd, options);
-+	}
-+
-+	int sys_nice(int nice, int *ret) {
-+		long r = -1;
-+		long e = syscall(SYSCALL_NICE, &r, nice);
-+		*ret = r;
-+		return e;
-+	}
-+
-+	int sys_shutdown(int sockfd, int how) {
-+		long ret;
-+		return syscall(SYSCALL_SHUTDOWN, &ret, sockfd, how);
-+	}
-+
- 	int sys_tgkill(int pid, int tid, int sig) {
- 		long ret;
- 		return syscall(SYSCALL_KILLTHREAD, &ret, pid, tid, sig);
-@@ -161,7 +193,18 @@ namespace mlibc {
- 		*bytes_written = writec;
- 		return error;
- 	}
--	
-+
-+	int sys_getrlimit(int resource, struct rlimit *limit) {
-+		switch(resource) {
-+		case RLIMIT_NOFILE:
-+			limit->rlim_cur = RLIM_INFINITY;
-+			limit->rlim_max = RLIM_INFINITY;
-+			return 0;
-+		default:
-+			return EINVAL;
-+		}
-+	}
-+
- 	#ifndef MLIBC_BUILDING_RTLD
- 
- 	typedef struct {
-@@ -376,6 +419,12 @@ namespace mlibc {
- 		return ret;
- 	}
- 
-+	pid_t sys_gettid() {
-+		long ret;
-+		syscall(SYSCALL_GETTID, &ret);
-+		return ret;
-+	}
-+
- 	#ifndef MLIBC_BUILDING_RTLD
- 
- 	[[noreturn]] void sys_thread_exit() {
-@@ -771,7 +820,7 @@ namespace mlibc {
- 
- 	int sys_tcb_set(void *pointer) {
- 		long r;
--		return syscall(SYSCALL_ARCHCTL, &r, ARCH_CTL_FSBASE, (uint64_t)pointer);
-+		return syscall(SYSCALL_ARCHCTL, &r, ARCH_CTL_SET_FSBASE, (uint64_t)pointer);
- 	}
- 
- 	#define FUTEX_WAIT 0
-diff --git mlibc-clean/sysdeps/astral/include/astral/archctl.h mlibc-workdir/sysdeps/astral/include/astral/archctl.h
-index d738e02..7e4f2a1 100644
---- mlibc-clean/sysdeps/astral/include/astral/archctl.h
-+++ mlibc-workdir/sysdeps/astral/include/astral/archctl.h
-@@ -1,8 +1,10 @@
- #ifndef _ASTRAL_ARCHCTL_H
- #define _ASTRAL_ARCHCTL_H
- 
--#define ARCH_CTL_GSBASE 0
--#define ARCH_CTL_FSBASE 1
-+#define ARCH_CTL_SET_GSBASE 0
-+#define ARCH_CTL_SET_FSBASE 1
-+#define ARCH_CTL_GET_GSBASE 2
-+#define ARCH_CTL_GET_FSBASE 3
- 
- #ifdef __cplusplus
- extern "C" {
-diff --git mlibc-clean/sysdeps/astral/include/astral/syscall.h mlibc-workdir/sysdeps/astral/include/astral/syscall.h
-index 5f42d62..8414286 100644
---- mlibc-clean/sysdeps/astral/include/astral/syscall.h
-+++ mlibc-workdir/sysdeps/astral/include/astral/syscall.h
-@@ -96,6 +96,10 @@
- #define SYSCALL_SIGTIMEDWAIT 89
- #define SYSCALL_SIGPENDING 90
- #define SYSCALL_KILLTHREAD 91
-+#define SYSCALL_SHUTDOWN 92
-+#define SYSCALL_NICE 93
-+#define SYSCALL_FLOCK 94
-+#define SYSCALL_GETCPU 95
- 
- #ifndef __MLIBC_ABI_ONLY
- 
-diff --git mlibc-clean/sysdeps/astral/meson.build mlibc-workdir/sysdeps/astral/meson.build
-index 0990599..9467cdb 100644
---- mlibc-clean/sysdeps/astral/meson.build
-+++ mlibc-workdir/sysdeps/astral/meson.build
-@@ -76,14 +76,29 @@ if not no_headers
- 		subdir: 'abi-bits',
- 		follow_symlinks: true,
- 	)
-+        install_headers(
-+                'include/astral/syscall.h',
-+                'include/astral/archctl.h',
-+                subdir: 'astral',
-+                follow_symlinks: true,
-+        )
- endif
- 
- if not headers_only
--	crt = custom_target('crt0',
-+	custom_target('crt1',
- 		build_by_default: true,
- 		command: c_compiler.cmd_array() + ['-c', '-o', '@OUTPUT@', '@INPUT@'],
--		input: 'crt-x86_64/crt0.S',
--		output: 'crt0.o',
-+		input: 'crt-x86_64/crt1.S',
-+		output: 'crt1.o',
-+		install: true,
-+		install_dir: get_option('libdir')
-+	)
-+	
-+        custom_target('Scrt1',
-+		build_by_default: true,
-+		command: c_compiler.cmd_array() + ['-c', '-o', '@OUTPUT@', '@INPUT@'],
-+		input: 'crt-x86_64/crt1.S',
-+		output: 'Scrt1.o',
- 		install: true,
- 		install_dir: get_option('libdir')
- 	)
+ void backtrace_symbols_fd(void *const *, int, int) {
