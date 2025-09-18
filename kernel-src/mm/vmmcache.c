@@ -9,7 +9,7 @@
 #define TABLE_SIZE 4096
 #define WRITER_TICK_SECONDS 15
 
-static mutex_t *mutex_table;
+static mutex_t mutex;
 static page_t **table;
 
 static thread_t *writerthread;
@@ -18,11 +18,11 @@ static eventheader_t syncevent;
 static eventheader_t pagereadyevent;
 size_t vmmcache_cachedpages;
 
-#define HOLD_LOCK(vnode, offset) \
-	MUTEX_ACQUIRE(&mutex_table[getentry(vnode, offset)]);
+#define HOLD_LOCK() \
+	MUTEX_ACQUIRE(&mutex);
 
-#define RELEASE_LOCK(vnode, offset) \
-	MUTEX_RELEASE(&mutex_table[getentry(vnode, offset)]);
+#define RELEASE_LOCK() \
+	MUTEX_RELEASE(&mutex);
 
 static inline uint64_t fnv1ahash(void *buffer, size_t size);
 static uintmax_t getentry(vnode_t *vnode, uintmax_t offset) {
@@ -70,7 +70,7 @@ static void putpage(page_t *page) {
 		page->backing->pages->vnodeprev = page;
 
 	page->backing->pages = page;
-	__atomic_fetch_add(&vmmcache_cachedpages, 1, __ATOMIC_SEQ_CST);
+	++vmmcache_cachedpages;
 }
 
 // assumes lock is held
@@ -100,14 +100,14 @@ static void removepage(page_t *page) {
 
 	page->vnodenext = NULL;
 	page->vnodeprev = NULL;
-	__atomic_fetch_sub(&vmmcache_cachedpages, 1, __ATOMIC_SEQ_CST);
+	--vmmcache_cachedpages;
 }
 
 int vmmcache_getpage(vnode_t *vnode, uintmax_t offset, page_t **res) {
 	__assert(vnode->type == V_TYPE_REGULAR || vnode->type == V_TYPE_BLKDEV);
 	__assert((offset % PAGE_SIZE) == 0);
 	retry_err:
-	HOLD_LOCK(vnode, offset);
+	HOLD_LOCK();
 
 	page_t *newpage = NULL;
 	volatile page_t *page = findpage(vnode, offset);
@@ -115,7 +115,7 @@ int vmmcache_getpage(vnode_t *vnode, uintmax_t offset, page_t **res) {
 	if (page) {
 		// page is present in the page cache
 		pmm_hold(pmm_getpageaddress((page_t *)page));
-		RELEASE_LOCK(vnode, offset);
+		RELEASE_LOCK();
 
 		// in the case of a retry, release the allocated page here
 		if (newpage)
@@ -140,7 +140,7 @@ int vmmcache_getpage(vnode_t *vnode, uintmax_t offset, page_t **res) {
 		*res = (page_t *)page;
 	} else {
 		// page is not present in the cache, we will have to load it in
-		RELEASE_LOCK(vnode, offset);
+		RELEASE_LOCK();
 
 		void *address = pmm_allocpage(PMM_SECTION_DEFAULT);
 		if (address == NULL)
@@ -148,16 +148,13 @@ int vmmcache_getpage(vnode_t *vnode, uintmax_t offset, page_t **res) {
 
 		newpage = pmm_getpage(address);
 		
-		MUTEX_ACQUIRE(&vnode->pages_mutex);
-		HOLD_LOCK(vnode, offset);
+		HOLD_LOCK();
 
 		// while the lock wasn't being held, the page could have potentially been added to the cache
 		// check for it again and return from the function as if it was always there in the first place
 		page = findpage(vnode, offset);
-		if (page) {
-			MUTEX_RELEASE(&vnode->pages_mutex);
+		if (page)
 			goto retry;
-		}
 
 		newpage->backing = vnode;
 		newpage->offset = offset;
@@ -165,8 +162,7 @@ int vmmcache_getpage(vnode_t *vnode, uintmax_t offset, page_t **res) {
 		// add it to the page cache
 		putpage(newpage);
 
-		MUTEX_RELEASE(&vnode->pages_mutex);
-		RELEASE_LOCK(vnode, offset);
+		RELEASE_LOCK();
 
 		VOP_LOCK(vnode);
 		int error = VOP_GETPAGE(vnode, offset, newpage);
@@ -176,16 +172,14 @@ int vmmcache_getpage(vnode_t *vnode, uintmax_t offset, page_t **res) {
 			// an error happened with GETPAGE, remove the page from the cache,
 			// tell the sleeping threads that something happened and free the page
 			// by setting backing to null so it gets treated as an anonymous page again
-			MUTEX_ACQUIRE(&vnode->pages_mutex);
-			HOLD_LOCK(vnode, offset);
+			HOLD_LOCK();
 			removepage(newpage);
-			MUTEX_RELEASE(&vnode->pages_mutex);
 
 			newpage->flags |= PAGE_FLAGS_ERROR;
 			newpage->backing = NULL;
 			newpage->offset = 0;
 
-			RELEASE_LOCK(vnode, offset);
+			RELEASE_LOCK();
 			pmm_release(pmm_getpageaddress(newpage));
 			EVENT_SIGNAL(&pagereadyevent);
 			return error;
@@ -202,13 +196,11 @@ int vmmcache_getpage(vnode_t *vnode, uintmax_t offset, page_t **res) {
 // adds a page to the cache in a specific offset if its not already there
 int vmmcache_pushpage(vnode_t *vnode, uintmax_t offset, page_t *page) {
 	__assert((offset % PAGE_SIZE) == 0);
-	MUTEX_ACQUIRE(&vnode->pages_mutex);
-	HOLD_LOCK(vnode, offset);
+	HOLD_LOCK();
 
 	page_t *pagetest = findpage(vnode, offset);
 	if (pagetest) {
-		MUTEX_RELEASE(&vnode->pages_mutex);
-		RELEASE_LOCK(vnode, offset);
+		RELEASE_LOCK();
 		return EAGAIN;
 	}
 
@@ -218,18 +210,15 @@ int vmmcache_pushpage(vnode_t *vnode, uintmax_t offset, page_t *page) {
 
 	putpage(page);
 
-	MUTEX_RELEASE(&vnode->pages_mutex);
-	RELEASE_LOCK(vnode, offset);
+	RELEASE_LOCK();
 	return 0;
 }
 
 // removes a page from the cache AND turns it into anonymous memory
 int vmmcache_evict(page_t *page) {
-	MUTEX_ACQUIRE(&page->backing->pages_mutex);
-	HOLD_LOCK(page->backing, page->offset);
+	HOLD_LOCK();
 	if (page->refcount > 1) {
-		MUTEX_RELEASE(&page->backing->pages_mutex);
-		RELEASE_LOCK(page->backing, page->offset);
+		RELEASE_LOCK();
 		return EAGAIN;
 	}
 	__assert(page->refcount == 1);
@@ -240,24 +229,21 @@ int vmmcache_evict(page_t *page) {
 		removepage(page);
 	}
 
-	MUTEX_RELEASE(&page->backing->pages_mutex);
-	RELEASE_LOCK(page->backing, page->offset);
-
 	page->flags = 0;
 	page->backing = NULL;
 	page->offset = 0;
+
+	RELEASE_LOCK();
 	return 0;
 }
 
 // removes a page from the cache *but doesn't do anything to it*
 int vmmcache_takepage(page_t *page) {
-	MUTEX_ACQUIRE(&page->backing->pages_mutex);
-	HOLD_LOCK(page->backing, page->offset);
+	HOLD_LOCK();
 	// someone called vmmcache_getpage() and got this page while the lock wasn't held
 	// return an error status to the caller
 	if (page->refcount > 1) {
-		MUTEX_RELEASE(&page->backing->pages_mutex);
-		RELEASE_LOCK(page->backing, page->offset);
+		RELEASE_LOCK();
 		return EAGAIN;
 	}
 
@@ -270,13 +256,12 @@ int vmmcache_takepage(page_t *page) {
 		removepage(page);
 	}
 
-	MUTEX_RELEASE(&page->backing->pages_mutex);
-	RELEASE_LOCK(page->backing, page->offset);
+	RELEASE_LOCK();
 	return 0;
 }
 
 int vmmcache_truncate(vnode_t *vnode, uintmax_t offset) {
-	MUTEX_ACQUIRE(&vnode->pages_mutex);
+	HOLD_LOCK();
 	page_t *pagelist = NULL;
 	page_t *page = vnode->pages;
 
@@ -288,16 +273,13 @@ int vmmcache_truncate(vnode_t *vnode, uintmax_t offset) {
 		if (oldpage->offset < offset)
 			continue;
 
-		__atomic_or_fetch(&oldpage->flags, PAGE_FLAGS_TRUNCATED, __ATOMIC_SEQ_CST);
-		HOLD_LOCK(oldpage->backing, oldpage->offset);
+		oldpage->flags |= PAGE_FLAGS_TRUNCATED;
 		removepage(oldpage);
-		RELEASE_LOCK(oldpage->backing, oldpage->offset);
-
 		oldpage->vnodenext = pagelist;
 		pagelist = oldpage;
 	}
 
-	MUTEX_RELEASE(&vnode->pages_mutex);
+	RELEASE_LOCK();
 
 	// make sure to unref if they are pinned
 	while (pagelist) {
@@ -310,11 +292,15 @@ int vmmcache_truncate(vnode_t *vnode, uintmax_t offset) {
 	return 0;
 }
 
+// called with lock held
+// returns with lock released
+// expects backing lock to be held
 static int syncpage(page_t *page, bool backinglock) {
-	int flags = __atomic_fetch_and(&page->flags, ~PAGE_FLAGS_DIRTY, __ATOMIC_SEQ_CST);
-	__assert(flags & PAGE_FLAGS_DIRTY);
+	__assert(page->flags & PAGE_FLAGS_DIRTY);
+	page->flags &= ~PAGE_FLAGS_DIRTY;
+	RELEASE_LOCK();
 	int e = 0;
-	if ((flags & PAGE_FLAGS_TRUNCATED) == 0) {
+	if ((page->flags & PAGE_FLAGS_TRUNCATED) == 0) {
 		if (backinglock)
 			VOP_LOCK(page->backing);
 
@@ -333,7 +319,6 @@ static int syncpage(page_t *page, bool backinglock) {
 	return e;
 }
 
-MUTEX_DEFINE(dirty_list_mutex);
 static page_t *dirtylist;
 static page_t *dirtylistend;
 
@@ -343,8 +328,7 @@ int vmmcache_syncvnode(vnode_t *vnode, uintmax_t offset, size_t size) {
 	uintmax_t top = offset + size;
 	// overflow check
 	__assert(top > offset);
-	MUTEX_ACQUIRE(&vnode->pages_mutex);
-	MUTEX_ACQUIRE(&dirty_list_mutex);
+	HOLD_LOCK();
 
 	// loop through all vnode pages in memory and check which ones are in the range and are dirty
 	// TODO create a proper vnode dirty list as to not have to loop through the ENTIRE thing in memory
@@ -372,13 +356,13 @@ int vmmcache_syncvnode(vnode_t *vnode, uintmax_t offset, size_t size) {
 		vnodedirtylist = page;
 	}
 
-	MUTEX_RELEASE(&dirty_list_mutex);
-	MUTEX_RELEASE(&vnode->pages_mutex);
+	RELEASE_LOCK();
 
 	int e = 0;
 	while (vnodedirtylist) {
 		// in the case of failure, only the first error to occur will be reported and we will not
 		// retry the write and keep on syncing the pages to disk
+		HOLD_LOCK();
 		page_t *page = vnodedirtylist;
 		vnodedirtylist = vnodedirtylist->writenext;
 		page->writenext = NULL;
@@ -396,13 +380,16 @@ int vmmcache_syncvnode(vnode_t *vnode, uintmax_t offset, size_t size) {
 int vmmcache_sync() {
 	eventlistener_t eventlistener;
 	EVENT_INITLISTENER(&eventlistener);
+	HOLD_LOCK();
 	if (dirtylist == NULL) {
 		// no dirty pages
+		RELEASE_LOCK();
 		return 0;
 	}
 
 	EVENT_ATTACH(&eventlistener, &syncevent);
 	semaphore_signal(&sync);
+	RELEASE_LOCK();
 
 	EVENT_WAIT(&eventlistener, 0);
 
@@ -413,7 +400,7 @@ int vmmcache_sync() {
 // backing expected locked
 int vmmcache_makedirty(page_t *page) {
 	bool madedirty = false;
-	MUTEX_ACQUIRE(&dirty_list_mutex);
+	HOLD_LOCK();
 
 	if ((page->flags & (PAGE_FLAGS_DIRTY | PAGE_FLAGS_TRUNCATED)) == 0) {
 		madedirty = true;
@@ -433,7 +420,7 @@ int vmmcache_makedirty(page_t *page) {
 		VOP_HOLD(page->backing);
 	}
 
-	MUTEX_RELEASE(&dirty_list_mutex);
+	RELEASE_LOCK();
 	if (madedirty) {
 		vattr_t attr;
 		attr.mtime = timekeeper_time();
@@ -453,11 +440,11 @@ static void writer() {
 	timer_insert(current_cpu()->timer, &timerentry, tick, NULL, (uintmax_t)WRITER_TICK_SECONDS * 1000000, true);
 	interrupt_set(true);
 	for (;;) {
-		MUTEX_ACQUIRE(&dirty_list_mutex);
+		HOLD_LOCK();
 		volatile page_t *page = dirtylistend;
 		if (page == NULL) {
-			MUTEX_RELEASE(&dirty_list_mutex);
 			EVENT_SIGNAL(&syncevent);
+			RELEASE_LOCK();
 			semaphore_wait(&sync, false);
 			continue;
 		}
@@ -469,21 +456,16 @@ static void writer() {
 			dirtylist = NULL;
 
 		page->writeprev = NULL;
-		MUTEX_RELEASE(&dirty_list_mutex);
-
 		// TODO notify error on vmmcache_syncvnode
 		syncpage((page_t *)page, true);
 	}
 }
 
 void vmmcache_init() {
+	MUTEX_INIT(&mutex);
 	table = vmm_map(NULL, TABLE_SIZE * sizeof(page_t *), VMM_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, NULL);
 	__assert(table);
-	mutex_table = vmm_map(NULL, TABLE_SIZE * sizeof(mutex_t), VMM_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, NULL);
-	__assert(mutex_table);
 	memset(table, 0, TABLE_SIZE * sizeof(page_t *));
-	for (int i = 0; i < TABLE_SIZE; ++i)
-		MUTEX_INIT(&mutex_table[i]);
 
 	SEMAPHORE_INIT(&sync, 0);
 	writerthread = sched_newthread(writer, PAGE_SIZE * 16, 1, NULL, NULL);
