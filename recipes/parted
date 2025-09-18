@@ -1,0 +1,19 @@
+name=parted
+revision=1
+from_source=parted
+imagedeps="build-essential"
+hostdeps="xgcc xbinutils pkgconfig libtool"
+deps="base ncurses libuuid readline"
+
+configure() {
+	cp -rp ${source_dir}/* .
+	./configure --host=x86_64-astral --prefix=${prefix} --disable-device-mapper --disable-nls --enable-shared --disable-static
+}
+
+build() {
+	make -j ${parallelism}
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+}

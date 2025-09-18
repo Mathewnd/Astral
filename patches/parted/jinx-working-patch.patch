@@ -1,0 +1,639 @@
+diff --git parted-clean/configure parted-workdir/configure
+index 7b7b1fd..7f6404f 100755
+--- parted-clean/configure
++++ parted-workdir/configure
+@@ -5323,6 +5323,7 @@ case "$host_os" in
+ 	linux*|uclinux*) OS=linux ;;
+ 	gnu*)	OS=gnu ;;
+ 	beos*)	OS=beos ;;
++	astral*) OS=astral ;;
+ 	*)	as_fn_error $? "Unknown or unsupported OS \"$host_os\".  Only \"linux\", \"uclinux\", \"gnu\" and \"beos\" are supported in this version of GNU Parted." "$LINENO" 5 ;;
+ esac
+ 
+diff --git parted-workdir/libparted/arch/astral.c parted-workdir/libparted/arch/astral.c
+new file mode 100644
+index 0000000..2989679
+--- /dev/null
++++ parted-workdir/libparted/arch/astral.c
+@@ -0,0 +1,558 @@
++/*
++    libparted - a library for manipulating disk partitions
++    Copyright (C) 2006-2007, 2009-2014, 2019-2023 Free Software Foundation,
++    Inc.
++
++    This program is free software; you can redistribute it and/or modify
++    it under the terms of the GNU General Public License as published by
++    the Free Software Foundation; either version 3 of the License, or
++    (at your option) any later version.
++
++    This program is distributed in the hope that it will be useful,
++    but WITHOUT ANY WARRANTY; without even the implied warranty of
++    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++    GNU General Public License for more details.
++
++    You should have received a copy of the GNU General Public License
++    along with this program.  If not, see <http://www.gnu.org/licenses/>.
++*/
++
++#include <config.h>
++
++#include <parted/parted.h>
++#include <parted/debug.h>
++
++/* POSIX headers */
++#include <sys/stat.h>
++#include <dirent.h>
++#include <limits.h>
++#include <unistd.h>
++#include <fcntl.h>
++#include <errno.h>
++#include <sys/ioctl.h>
++#include <sys/sysmacros.h>
++
++#include "../architecture.h"
++
++#define _(str) (str)
++
++#define ASTRAL_SPECIFIC(dev)	((struct astral_specific *) (dev)->arch_specific)
++
++struct astral_specific {
++	int	fd;
++};
++
++#define BLOCK_TYPE_DISK 0
++#define BLOCK_TYPE_PART 1
++
++#define BLOCK_IOCTL_GETDESC 0xb10ccd35c
++
++struct astral_blockdesc {
++	void *filler;
++	int type;
++	uintmax_t lbaoffset;
++	size_t blockcapacity;
++	size_t blocksize;
++	void *filler2[2];
++};
++
++static int
++_do_fsync (PedDevice* dev)
++{
++        struct astral_specific* arch_specific = ASTRAL_SPECIFIC (dev);
++        int                     status;
++        PedExceptionOption      ex_status;
++
++        while (1) {
++                status = fsync (arch_specific->fd);
++                if (status >= 0) break;
++
++                ex_status = ped_exception_throw (
++                        PED_EXCEPTION_ERROR,
++                        PED_EXCEPTION_RETRY_IGNORE_CANCEL,
++                        _("%s during write on %s"),
++                        strerror (errno), dev->path);
++
++                switch (ex_status) {
++                        case PED_EXCEPTION_IGNORE:
++                                return 1;
++
++                        case PED_EXCEPTION_RETRY:
++                                break;
++
++                        case PED_EXCEPTION_UNHANDLED:
++                                ped_exception_catch ();
++                                /* FALLTHROUGH */
++                        case PED_EXCEPTION_CANCEL:
++                                return 0;
++                        default:
++                                PED_ASSERT (0);
++                                break;
++                }
++        }
++        return 1;
++}
++
++static int
++_device_init_blkdev(PedDevice* dev)
++{
++	int type;
++	struct astral_blockdesc desc;
++	int fd = open(dev->path, O_RDONLY);
++	if (fd < 0)
++		return 0;
++
++	if (ioctl(fd, BLOCK_IOCTL_GETDESC, &desc) < 0)
++		goto error;
++
++	close (fd);
++
++	dev->length = desc.blockcapacity;
++	dev->sector_size = dev->phys_sector_size = desc.blocksize;
++
++	/* XXX: We have no way to get this!  */
++	dev->bios_geom.sectors = 63;
++	dev->bios_geom.heads = 255;
++	int cyl_size = dev->bios_geom.sectors * dev->bios_geom.heads;
++	dev->bios_geom.cylinders = dev->length / cyl_size
++					* (dev->sector_size / PED_SECTOR_SIZE_DEFAULT);
++	dev->hw_geom = dev->bios_geom;
++	dev->model = strdup("Disk device");
++
++	// determine type
++
++	if (dev->path && strstr(dev->path, "nvme"))
++		return PED_DEVICE_NVME;
++
++	return PED_DEVICE_UNKNOWN;
++error:
++	close(fd);
++	return 0;
++}
++
++static int
++_device_init_file(PedDevice* dev, struct stat* dev_statp)
++{
++	if (!dev_statp->st_size)
++		return 0;
++
++	dev->sector_size =
++	dev->phys_sector_size = PED_SECTOR_SIZE_DEFAULT;
++
++	dev->length = dev_statp->st_size / PED_SECTOR_SIZE_DEFAULT;
++
++	dev->bios_geom.cylinders = dev->length / (4 * 32);
++	dev->bios_geom.heads = 4;
++	dev->bios_geom.sectors = 32;
++	dev->hw_geom = dev->bios_geom;
++
++	dev->model = strdup(_("Disk Image"));
++
++	return PED_DEVICE_FILE;
++}
++
++static int
++_device_init(PedDevice* dev)
++{
++	struct stat dev_stat;
++	int type = 0;
++
++	/* Check if we're a regular file */
++	if (stat(dev->path, &dev_stat) < 0)
++		goto done;
++
++	if (S_ISBLK(dev_stat.st_mode))
++		type = _device_init_blkdev(dev);
++	else if (S_ISREG(dev_stat.st_mode))
++		type = _device_init_file(dev,&dev_stat);
++
++done:
++	return type;
++}
++
++
++static PedDevice*
++astral_new (const char* path)
++{
++	struct stat stat_info;
++	PedDevice* dev;
++
++	PED_ASSERT(path != NULL);
++
++	dev = (PedDevice*) ped_malloc (sizeof (PedDevice));
++	if (!dev)
++		goto error;
++
++	dev->path = strdup(path);
++	if (!dev->path)
++		goto error_free_dev;
++
++	dev->arch_specific
++		= (struct astral_specific *) ped_malloc(sizeof(struct astral_specific));
++	if (dev->arch_specific == NULL)
++		goto error_free_path;
++
++	dev->open_count = 0;
++	dev->read_only = 0;
++	dev->external_mode = 0;
++	dev->dirty = 0;
++	dev->boot_dirty = 0;
++
++	if ((dev->type=_device_init(dev)) <= 0)
++		goto error_free_arch_specific;
++
++	/* All OK! */
++	return dev;
++
++error_free_arch_specific:
++	free (dev->arch_specific);
++
++error_free_path:
++	free (dev->path);
++
++error_free_dev:
++	free (dev);
++
++error:
++	return NULL;
++}
++
++static void
++astral_destroy (PedDevice* dev)
++{
++	free (dev->arch_specific);
++	free (dev->path);
++	free (dev->model);
++	free (dev);
++}
++
++static int
++astral_is_busy (PedDevice* dev)
++{
++	return 1;
++}
++
++static int
++astral_open (PedDevice* dev)
++{
++	struct astral_specific *arch_specific = ASTRAL_SPECIFIC(dev);
++
++retry:
++	arch_specific->fd = open(dev->path, O_RDWR);
++	if (arch_specific->fd == -1) {
++		char* rw_error_msg = strerror(errno);
++
++		arch_specific->fd = open (dev->path, O_RDONLY);
++		if (arch_specific->fd == -1) {
++			if (ped_exception_throw (
++					PED_EXCEPTION_ERROR,
++					PED_EXCEPTION_RETRY_CANCEL,
++					_("Error opening %s: %s"),
++					dev->path, strerror (errno))
++					!= PED_EXCEPTION_RETRY) {
++						return 0;
++					} else {
++						goto retry;
++					}
++		} else {
++			ped_exception_throw (
++				PED_EXCEPTION_WARNING,
++				PED_EXCEPTION_OK,
++				_("Unable to open %s read-write (%s).  %s has "
++					"been opened read-only."),
++				dev->path, rw_error_msg, dev->path);
++			dev->read_only = 1;
++		}
++	} else {
++		dev->read_only = 0;
++	}
++
++	_do_fsync (dev);
++
++	return 1;
++}
++
++static int astral_refresh_open (PedDevice* dev)
++{
++	return 1;
++}
++
++static int astral_close (PedDevice* dev)
++{
++	struct astral_specific *arch_specific = ASTRAL_SPECIFIC(dev);
++
++	if (dev->dirty)
++		_do_fsync(dev);
++
++	close (arch_specific->fd);
++
++	return 1;
++}
++
++static int astral_refresh_close (PedDevice* dev)
++{
++	if (dev->dirty)
++		_do_fsync(dev);
++
++	return 1;
++}
++
++static int astral_read (const PedDevice* dev, void* buffer, PedSector start, PedSector count)
++{
++	struct astral_specific *arch_specific = ASTRAL_SPECIFIC(dev);
++	int status;
++	PedExceptionOption ex_status;
++	size_t read_length = count * dev->sector_size;
++
++	PED_ASSERT(dev->sector_size % PED_SECTOR_SIZE_DEFAULT == 0);
++
++	/* First, try to seek */
++	while(1)
++	{
++		if (lseek(arch_specific->fd, start * dev->sector_size, SEEK_SET)
++			== start * dev->sector_size)
++			break;
++
++		ex_status = ped_exception_throw (
++			PED_EXCEPTION_ERROR,
++			PED_EXCEPTION_RETRY_IGNORE_CANCEL,
++			_("%s during seek for read on %s"),
++			strerror (errno), dev->path);
++
++		switch (ex_status)
++		{
++			case PED_EXCEPTION_IGNORE:
++				return 1;
++			case PED_EXCEPTION_RETRY:
++				break /* out of switch */;
++			case PED_EXCEPTION_UNHANDLED:
++				ped_exception_catch ();
++			case PED_EXCEPTION_CANCEL:
++				return 0;
++		}
++	}
++
++	/* If we seeked ok, now is the time to read */
++	while (1)
++	{
++		status = read(arch_specific->fd, buffer, read_length);
++		if (status == count * dev->sector_size)
++			break;
++
++		if (status > 0)
++		{
++			read_length -= status;
++			buffer += status;
++			continue;
++		}
++
++		ex_status = ped_exception_throw (
++			PED_EXCEPTION_ERROR,
++			PED_EXCEPTION_RETRY_IGNORE_CANCEL,
++			_("%s during read on %s"),
++			strerror (errno),
++			dev->path);
++
++		switch (ex_status)
++		{
++			case PED_EXCEPTION_IGNORE:
++				return 1;
++			case PED_EXCEPTION_RETRY:
++				break;
++			case PED_EXCEPTION_UNHANDLED:
++				ped_exception_catch ();
++			case PED_EXCEPTION_CANCEL:
++				return 0;
++		}
++	}
++
++	return 1;
++}
++
++static int astral_write (PedDevice* dev, const void* buffer, PedSector start,
++	PedSector count)
++{
++	struct astral_specific *arch_specific = ASTRAL_SPECIFIC(dev);
++	int                     status;
++	PedExceptionOption      ex_status;
++	size_t                  write_length = count * dev->sector_size;
++
++	PED_ASSERT(dev->sector_size % PED_SECTOR_SIZE_DEFAULT == 0);
++
++	if (dev->read_only)
++	{
++		if (ped_exception_throw (
++			PED_EXCEPTION_ERROR,
++			PED_EXCEPTION_IGNORE_CANCEL,
++			_("Can't write to %s, because it is opened read-only."),
++			dev->path)
++			!= PED_EXCEPTION_IGNORE)
++			return 0;
++		else
++			return 1;
++	}
++
++	while(1)
++	{
++		if (lseek(arch_specific->fd,start * dev->sector_size,SEEK_SET)
++			== start * dev->sector_size)
++			break;
++
++		ex_status = ped_exception_throw (
++			PED_EXCEPTION_ERROR, PED_EXCEPTION_RETRY_IGNORE_CANCEL,
++			_("%s during seek for write on %s"),
++			strerror (errno), dev->path);
++
++		switch (ex_status)
++		{
++			case PED_EXCEPTION_IGNORE:
++				return 1;
++			case PED_EXCEPTION_RETRY:
++				break;
++			case PED_EXCEPTION_UNHANDLED:
++				ped_exception_catch ();
++			case PED_EXCEPTION_CANCEL:
++				return 0;
++		}
++	}
++
++#ifdef READ_ONLY
++	printf ("ped_device_write (\"%s\", %p, %d, %d)\n",
++		dev->path, buffer, (int) start, (int) count);
++#else
++	dev->dirty = 1;
++	while(1)
++	{
++		status = write (arch_specific->fd, buffer, write_length);
++		if (status == count * dev->sector_size)
++			break;
++
++		if (status > 0)
++		{
++			write_length -= status;
++			buffer += status;
++			continue;
++		}
++
++		ex_status = ped_exception_throw (
++			PED_EXCEPTION_ERROR,
++			PED_EXCEPTION_RETRY_IGNORE_CANCEL,
++			_("%s during write on %s"),
++			strerror (errno), dev->path);
++
++		switch (ex_status)
++		{
++			case PED_EXCEPTION_IGNORE:
++				return 1;
++			case PED_EXCEPTION_RETRY:
++				break;
++			case PED_EXCEPTION_UNHANDLED:
++				ped_exception_catch ();
++			case PED_EXCEPTION_CANCEL:
++				return 0;
++		}
++	}
++#endif /* !READ_ONLY */
++
++	return 1;
++}
++
++static PedSector astral_check (PedDevice* dev, void* buffer, PedSector start, PedSector count)
++{
++	struct astral_specific*	arch_specific = ASTRAL_SPECIFIC(dev);
++	PedSector		done = 0;
++	int				status;
++
++	PED_ASSERT(dev != NULL);
++
++	if (lseek(arch_specific->fd, start * dev->sector_size, SEEK_SET)
++		!= start * dev->sector_size)
++		return 0;
++
++	for (done = 0; done < count; done += status / dev->sector_size)
++	{
++		status = read (arch_specific->fd, buffer,
++                               (size_t) ((count-done) * dev->sector_size));
++		if (status < 0)
++			break;
++	}
++
++	return done;
++}
++
++static int astral_sync (PedDevice* dev)
++{
++        if (dev->read_only)
++                return 1;
++        if (!_do_fsync (dev))
++                return 0;
++
++        return 1;
++}
++
++/* Probe for all available disks */
++static void astral_probe_all(void) {
++	DIR *dir = opendir("/dev/");
++	if (!dir)
++		return;
++
++	struct dirent *dent = readdir(dir);
++	struct stat stat;
++	while (dent) {
++		char full_path[100];
++		snprintf(full_path, 100, "/dev/%s", dent->d_name);
++		if (stat(full_path, &stat) == 0 && S_ISBLK(stat.st_mode) && major(stat.st_rdev) == 7) {
++			// figure out if this is a disk
++			int f = open(full_path, O_RDONLY);
++			struct astral_blockdesc desc = {0};
++			if (ioctl(f, BLOCK_IOCTL_GETDESC, &desc) == 0 && desc.type == BLOCK_TYPE_DISK)
++				_ped_device_probe(full_path);
++		}
++
++		dent = readdir(dir);
++	}
++
++	closedir(dir);
++}
++
++static char* astral_partition_get_path (const PedPartition* part)
++{
++	return NULL;
++}
++
++static int astral_partition_is_busy (const PedPartition* part)
++{
++	return 0;
++}
++
++static int astral_disk_commit (PedDisk* disk)
++{
++	return 0;
++}
++
++static PedDeviceArchOps astral_dev_ops = {
++        _new:           astral_new,
++        destroy:        astral_destroy,
++        is_busy:        astral_is_busy,
++        open:           astral_open,
++        refresh_open:   astral_refresh_open,
++        close:          astral_close,
++        refresh_close:  astral_refresh_close,
++        read:           astral_read,
++        write:          astral_write,
++        check:          astral_check,
++        sync:           astral_sync,
++        sync_fast:      astral_sync,
++        probe_all:      astral_probe_all
++};
++
++static PedDiskArchOps astral_disk_ops =  {
++        partition_get_path:     astral_partition_get_path,
++        partition_is_busy:      astral_partition_is_busy,
++        disk_commit:            astral_disk_commit
++};
++
++PedArchitecture ped_astral_arch = {
++        dev_ops:        &astral_dev_ops,
++        disk_ops:       &astral_disk_ops
++};
+diff --git parted-clean/libparted/architecture.c parted-workdir/libparted/architecture.c
+index 4020f98..0126e39 100644
+--- parted-clean/libparted/architecture.c
++++ parted-workdir/libparted/architecture.c
+@@ -34,6 +34,9 @@ ped_set_architecture ()
+ #elif defined(__BEOS__)
+ 	extern PedArchitecture ped_beos_arch;
+ 	const PedArchitecture* arch = &ped_beos_arch;
++#elif defined(__astral__)
++	extern PedArchitecture ped_astral_arch;
++	const PedArchitecture* arch = &ped_astral_arch;
+ #else
+ 	extern PedArchitecture ped_gnu_arch;
+ 	const PedArchitecture* arch = &ped_gnu_arch;
+diff --git parted-clean/libparted/libparted.c parted-workdir/libparted/libparted.c
+index 204ce00..1b72255 100644
+--- parted-clean/libparted/libparted.c
++++ parted-workdir/libparted/libparted.c
+@@ -76,7 +76,6 @@ extern void ped_disk_pc98_init ();
+ extern void ped_disk_sun_init ();
+ extern void ped_disk_amiga_init ();
+ extern void ped_disk_dasd_init ();
+-extern void ped_disk_atari_init ();
+ 
+ static void
+ init_disk_types ()
+@@ -87,7 +86,6 @@ init_disk_types ()
+ #if defined __s390__ || defined __s390x__
+ 	ped_disk_dasd_init();
+ #endif
+-	ped_disk_atari_init (); /* easy false positives, so probe others first */
+ 	ped_disk_sun_init ();
+ #ifdef ENABLE_PC98
+ 	ped_disk_pc98_init ();
+@@ -146,7 +144,6 @@ extern void ped_disk_pc98_done ();
+ extern void ped_disk_sun_done ();
+ extern void ped_disk_amiga_done ();
+ extern void ped_disk_dasd_done ();
+-extern void ped_disk_atari_done ();
+ 
+ static void
+ done_disk_types ()
+@@ -166,7 +163,6 @@ done_disk_types ()
+ 	ped_disk_bsd_done ();
+ 	ped_disk_amiga_done ();
+ 	ped_disk_aix_done ();
+-	ped_disk_atari_done ();
+ }
+ 
+ static void _init() __attribute__ ((constructor));
+diff --git parted-clean/libparted/unit.c parted-workdir/libparted/unit.c
+index a63b98d..01f46fb 100644
+--- parted-clean/libparted/unit.c
++++ parted-workdir/libparted/unit.c
+@@ -248,7 +248,7 @@ ped_unit_format_custom_byte (const PedDevice* dev, PedSector byte, PedUnit unit)
+ 	    (w < 100.) ? 1 :
+ 			 0 ;
+ 
+-#ifdef __BEOS__
++#if defined(__BEOS__) || defined(__astral__)
+ 	snprintf (buf, 100, "%.*f%s", p, d, ped_unit_get_name(unit));
+ #else
+ 	snprintf (buf, 100, "%1$.*2$f%3$s", d, p, ped_unit_get_name (unit));

@@ -1,0 +1,9 @@
+name=ninja
+version=1.13.1
+source_method=tarball
+tarball_url="https://github.com/ninja-build/ninja/archive/refs/tags/v${version}.tar.gz"
+tarball_sha512=ec94d42967b962d66ab0747fcb9d095510117159de0473ec08df47a657895aa2523f920798e4608d0c6cf0e2e382512c14aec8a54ea58b6cd4b01edd3a7c8e62
+
+prepare() {
+	true
+}

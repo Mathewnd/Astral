@@ -1,0 +1,10 @@
+name=parted
+version=3.6
+source_method=tarball
+tarball_url="https://ftpmirror.gnu.org/gnu/parted/parted-${version}.tar.xz"
+tarball_sha512=034a44b25718acba175212019d24f092972a791c5bd1d921ae91e17478657a77c5c5dd0c832bed7968c3a07ec6c65c0785acfac2f90c1ca5e1692f3c141693ef
+hostdeps="libtool automake autoconf pkgconfig"
+
+prepare() {
+	cp -v $(find /usr/local/share/automake* -name config.sub) build-aux
+}

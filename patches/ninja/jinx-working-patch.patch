@@ -1,0 +1,36 @@
+diff --git ninja-clean/configure.py ninja-workdir/configure.py
+index 03b5ce4..66af21a 100755
+--- ninja-clean/configure.py
++++ ninja-workdir/configure.py
+@@ -65,16 +65,21 @@ class Platform(object):
+             self._platform = 'os400'
+         elif self._platform.startswith('dragonfly'):
+             self._platform = 'dragonfly'
++        elif self._platform.startswith('astral'):
++            self._platform = 'astral'
+ 
+     @staticmethod
+     def known_platforms() -> List[str]:
+       return ['linux', 'darwin', 'freebsd', 'openbsd', 'solaris', 'sunos5',
+               'mingw', 'msvc', 'gnukfreebsd', 'bitrig', 'netbsd', 'aix',
+-              'dragonfly']
++              'dragonfly', 'astral']
+ 
+     def platform(self) -> str:
+         return self._platform  # type: ignore # Incompatible return value type
+ 
++    def is_astral(self) -> bool:
++        return self._platform == 'astral'
++
+     def is_linux(self) -> bool:
+         return self._platform == 'linux'
+ 
+@@ -108,7 +113,7 @@ class Platform(object):
+ 
+     def supports_ppoll(self) -> bool:
+         return self._platform in ('freebsd', 'linux', 'openbsd', 'bitrig',
+-                                  'dragonfly')
++                                  'dragonfly', 'astral')
+ 
+     def supports_ninja_browse(self) -> bool:
+         return (not self.is_windows()

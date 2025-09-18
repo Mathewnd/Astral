@@ -1,0 +1,10 @@
+name=util-linux
+version=2.41.1
+source_method=tarball
+tarball_url="https://github.com/util-linux/util-linux/archive/refs/tags/v${version}.tar.gz"
+tarball_sha512="cada3b2c4b19be00265bd984fe74d49d75a62e14be8df89010068ee65022c252eeb08b98ec1cdf1951e2981ea3864f1837428cb089f1c2317fe2fd44d8135bcc"
+hostdeps="automake autoconf libtool pkgconfig"
+
+prepare() {
+	autoreconf -fvi
+}

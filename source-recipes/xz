@@ -1,0 +1,10 @@
+name=xz
+version=5.8.1
+source_method=tarball
+tarball_url="https://github.com/tukaani-project/xz/releases/download/v${version}/xz-${version}.tar.gz"
+tarball_sha512=151b2a47fdf00274c4fd71ceada8fb6c892bdac44070847ebf3259e602b97c95ee5ee88974e03d7aa821ab4f16d5c38e50dfb2baf660cf39c199878a666e19ad
+hostdeps="autoconf automake libtool pkgconfig"
+
+prepare() {
+	autoreconf -fvi
+}

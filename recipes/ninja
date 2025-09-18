@@ -1,0 +1,23 @@
+name=ninja
+from_source=ninja
+revision=1
+hostdeps="xgcc xbinutils pkgconfig libstdc++-v3"
+imagedeps="build-essential python3"
+deps="base"
+
+configure() {
+	CC=x86_64-astral-gcc CXX=x86_64-astral-g++ LD=x86_64-astral-g++ python3 ${source_dir}/configure.py --verbose --platform astral --host astral
+}
+
+build() {
+        ninja
+}
+
+package() {
+	mkdir -p ${dest_dir}/${prefix}/bin/
+	mkdir -p ${dest_dir}/${prefix}/share/bash-completion/completions
+	mkdir -p ${dest_dir}/${prefix}/share/zsh/site-functions
+	install -vm755 ninja ${dest_dir}/${prefix}/bin/ninja
+	install -vDm644 ${source_dir}/misc/bash-completion ${dest_dir}/${prefix}/share/bash-completion/completions/ninja
+	install -vDm644 ${source_dir}/misc/zsh-completion  ${dest_dir}/${prefix}/share/zsh/site-functions/_ninja
+}

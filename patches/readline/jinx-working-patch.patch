@@ -1,7 +1,8 @@
-diff -ruN readline-clean/support/config.sub readline/support/config.sub
---- readline-clean/support/config.sub	2022-10-14 16:21:57.553229749 -0300
-+++ readline/support/config.sub	2022-10-14 16:22:12.479896273 -0300
-@@ -1723,7 +1723,7 @@
+diff --git readline-clean/support/config.sub readline-workdir/support/config.sub
+index 9b62e37..12d8ea2 100644
+--- readline-clean/support/config.sub
++++ readline-workdir/support/config.sub
+@@ -1723,7 +1723,7 @@ case $os in
  	# Now accept the basic system types.
  	# The portable systems comes first.
  	# Each alternative MUST end in a * to match a version number.
@@ -10,3 +11,29 @@ diff -ruN readline-clean/support/config.sub readline/support/config.sub
  	     | *vms* | esix* | aix* | cnk* | sunos | sunos[34]* \
  	     | hpux* | unos* | osf* | luna* | dgux* | auroraux* | solaris* \
  	     | sym* |  plan9* | psp* | sim* | xray* | os68k* | v88r* \
+diff --git readline-clean/support/shlib-install readline-workdir/support/shlib-install
+index 661355d..8c14919 100644
+--- readline-clean/support/shlib-install
++++ readline-workdir/support/shlib-install
+@@ -118,7 +118,7 @@ INSTALL_LINK2='${echo} cd $INSTALLDIR && ${echo} ${LN} $LIBNAME $LINK2'
+ # Create symlinks to the installed library.  This section is incomplete.
+ #
+ case "$host_os-$host_vendor" in
+-*linux*|freebsd*|dragonfly*)
++*linux*|freebsd*|dragonfly*|astral*)
+ 	# libname.so.M -> libname.so.M.N
+ 	${echo} ${RM} ${INSTALLDIR}/$LINK2
+ 	if [ -z "$uninstall" ]; then
+diff --git readline-clean/support/shobj-conf readline-workdir/support/shobj-conf
+index cd7634d..c72d34a 100644
+--- readline-clean/support/shobj-conf
++++ readline-workdir/support/shobj-conf
+@@ -123,7 +123,7 @@ sunos5*|solaris2*)
+ 	;;
+ 
+ # All versions of Linux (including Gentoo/FreeBSD) or the semi-mythical GNU Hurd.
+-linux*-*|gnu*-*|k*bsd*-gnu-*|midnightbsd*|freebsd*|dragonfly*)
++linux*-*|gnu*-*|k*bsd*-gnu-*|midnightbsd*|freebsd*|dragonfly*|astral*)
+ 	SHOBJ_CFLAGS=-fPIC
+ 	SHOBJ_LD='${CC}'
+ 	SHOBJ_LDFLAGS='-shared -Wl,-soname,$@'

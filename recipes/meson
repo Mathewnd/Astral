@@ -1,0 +1,14 @@
+name=meson
+from_source=meson
+revision=1
+hostdeps="python"
+deps="base"
+
+build() {
+	cp -rp ${source_dir}/* .
+}
+
+package() {
+	/usr/bin/env python3 setup.py install --prefix=${prefix} --root=${dest_dir}
+	sed -i -e 's/\/usr\/local\/bin\/python3/\/usr\/bin\/env python3/g' ${dest_dir}/${prefix}/bin/meson
+}

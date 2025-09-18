@@ -1,0 +1,9 @@
+name=meson
+version=1.9.0
+source_method=tarball
+tarball_url="https://github.com/mesonbuild/meson/archive/refs/tags/${version}.tar.gz"
+tarball_sha512=ecd69b6734be14c467f7db67dd88c0e57ebfad83ce3ddada131ff3e43ac964523e1083d7c7f3803033a9a76adbc32ad26dd2e3aca69884269000ca64130bde07
+
+prepare() {
+	true
+}

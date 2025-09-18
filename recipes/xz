@@ -1,12 +1,12 @@
-name=e2fsprogs
+name=xz
 revision=1
-from_source=e2fsprogs
+from_source=xz
 imagedeps="build-essential"
 hostdeps="xgcc xbinutils pkgconfig libtool"
-deps="base libuuid"
+deps="base"
 
 configure() {
-	${source_dir}/configure --host=x86_64-astral --prefix=${prefix} --disable-libuuid
+	${source_dir}/configure --host=x86_64-astral --prefix=${prefix} --disable-static
 }
 
 build() {

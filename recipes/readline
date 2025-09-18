@@ -2,7 +2,7 @@ name=readline
 revision=1
 from_source=readline
 imagedeps="build-essential"
-hostdeps="xgcc xbinutils"
+hostdeps="xgcc xbinutils libtool pkgconfig"
 deps="base ncurses"
 
 configure() {

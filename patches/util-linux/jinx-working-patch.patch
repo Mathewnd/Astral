@@ -1,0 +1,33 @@
+diff --git util-linux-clean/Makefile.am util-linux-workdir/Makefile.am
+index 01e9970..7660be9 100644
+--- util-linux-clean/Makefile.am
++++ util-linux-workdir/Makefile.am
+@@ -84,7 +84,7 @@ EXTRA_DIST =
+ CLEANFILES =
+ DISTCLEANFILES =
+ 
+-SUBDIRS = po
++SUBDIRS = #po
+ 
+ RCS_FIND_IGNORE = \( -name SCCS -o -name BitKeeper -o -name .svn -o \
+ 		-name CVS -o -name .pc -o -name .hg -o -name .git \) -prune -o
+@@ -120,7 +120,6 @@ include lsfd-cmd/Makemodule.am
+ include pam_lastlog2/Makemodule.am
+ include bash-completion/Makemodule.am
+ include man-common/Makemodule.am
+-include po-man/Makemodule.am
+ 
+ include Documentation/Makemodule.am
+ include tests/Makemodule.am
+diff --git util-linux-clean/configure.ac util-linux-workdir/configure.ac
+index d1c1840..a860cc9 100644
+--- util-linux-clean/configure.ac
++++ util-linux-workdir/configure.ac
+@@ -3110,7 +3110,6 @@ libmount/src/libmount.h
+ libsmartcols/docs/Makefile
+ libsmartcols/docs/version.xml
+ libsmartcols/src/libsmartcols.h
+-po/Makefile.in
+ ])
+ 
+ AC_OUTPUT
