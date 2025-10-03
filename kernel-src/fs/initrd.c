@@ -167,7 +167,11 @@ void initrd_unpack() {
 			case TAR_SYMLINK:
 				err = vfs_link(NULL, entry.link, vfsroot, entry.name, V_TYPE_LINK, &entryattr);
 				break;
+			case TAR_HARDLINK:
+				err = vfs_link(vfsroot, entry.link, vfsroot, entry.name, V_TYPE_REGULAR, &entryattr);
+				break;
 			default:
+				printf("initrd: bad type %d on entry %s\n", entry.type, entry.name);
 				__assert(!"Unsupported file type");
 				break;
 		}
