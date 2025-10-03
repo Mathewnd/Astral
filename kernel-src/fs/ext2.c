@@ -485,6 +485,10 @@ static int getinodeblock(ext2fs_t *fs, ext2node_t *node, uintmax_t index, blockp
 
 	// first singly indirect block
 	if (singly == 0) {
+		if (node->inode.singlypointer == 0) {
+			*block = 0;
+			return 0;
+		}
 		size_t readc;
 		return vfs_read(fs->backing, block, sizeof(blockptr_t), BLOCK_GETDISKOFFSET(fs, node->inode.singlypointer) + singlyoffset, &readc, 0);
 	}
@@ -496,11 +500,20 @@ static int getinodeblock(ext2fs_t *fs, ext2node_t *node, uintmax_t index, blockp
 
 	// first doubly indirect block
 	if (doubly == 0) {
+		if (node->inode.doublypointer == 0) {
+			*block = 0;
+			return 0;
+		}
 		size_t readc;
 		blockptr_t singlyptr;
 		int e = vfs_read(fs->backing, &singlyptr, sizeof(blockptr_t), BLOCK_GETDISKOFFSET(fs, node->inode.doublypointer) + doublyoffset, &readc, 0);
 		if (e)
 			return e;
+
+		if (singlyptr == 0) {
+			*block = 0;
+			return 0;
+		}
 		return vfs_read(fs->backing, block, sizeof(blockptr_t), BLOCK_GETDISKOFFSET(fs, singlyptr) + singlyoffset, &readc, 0);
 	}
 
@@ -512,13 +525,29 @@ static int getinodeblock(ext2fs_t *fs, ext2node_t *node, uintmax_t index, blockp
 	size_t readc;
 	blockptr_t doublyptr;
 	blockptr_t singlyptr;
+
+	if (node->inode.triplypointer == 0) {
+		*block = 0;
+		return 0;
+	}
+
 	int e = vfs_read(fs->backing, &doublyptr, sizeof(blockptr_t), BLOCK_GETDISKOFFSET(fs, node->inode.triplypointer) + triplyoffset, &readc, 0);
 	if (e)
 		return e;
 
+	if (doublyptr == 0) {
+		*block = 0;
+		return 0;
+	}
+
 	e = vfs_read(fs->backing, &singlyptr, sizeof(blockptr_t), BLOCK_GETDISKOFFSET(fs, doublyptr) + doublyoffset, &readc, 0);
 	if (e)
 		return e;
+
+	if (singlyptr == 0) {
+		*block = 0;
+		return 0;
+	}
 
 	return vfs_read(fs->backing, block, sizeof(blockptr_t), BLOCK_GETDISKOFFSET(fs, singlyptr) + singlyoffset, &readc, 0);
 }
@@ -724,17 +753,28 @@ static int resizeinode(ext2fs_t *fs, ext2node_t *node, size_t newsize) {
 	size_t currentblockcount = ROUND_UP(INODE_SIZE(&node->inode), fs->blocksize) / fs->blocksize;
 
 	if (newblockcount > currentblockcount) {
-		// grow
-		for (int i = currentblockcount; i < newblockcount; ++i) {
-			uintmax_t newblock;
-			int e = allocatestructure(fs, &newblock, false);
-			if (e)
-				return e;
-			e = setinodeblock(fs, node, i, newblock);
-			ASSERT_UNCLEAN(fs, e == 0);
-			if (e)
-				return e;
+		// when growing, we do not allocate any new blocks to use the sparse file feature
+		// instead, we set specific objects to zero
+		size_t blocks_in_indirect = BLOCKS_IN_INDIRECT(fs);
+		size_t doubly_start = blocks_in_indirect + 12 ;
+		size_t triply_start = blocks_in_indirect * blocks_in_indirect + doubly_start;
+		// direct?
+		if (currentblockcount < 12) {
+			for (int i = currentblockcount; i < min(newblockcount, 12); ++i) 
+				node->inode.directpointer[i] = 0;
 		}
+
+		// singly?
+		if (currentblockcount <= 12 && newblockcount > 12)
+			node->inode.singlypointer = 0;
+
+		// doubly?
+		if (newblockcount <= doubly_start && newblockcount > doubly_start)
+			node->inode.doublypointer = 0;
+		
+		// triply?
+		if (newblockcount <= triply_start && newblockcount > triply_start)
+			node->inode.triplypointer = 0;
 	} else if (newblockcount < currentblockcount) {
 		// shrink
 		for (int i = newblockcount; i < currentblockcount; ++i) {
@@ -902,7 +942,7 @@ static int findindir(ext2fs_t *fs, ext2node_t *node, char *name, int *inode, ext
 
 		ext2dent_t *dent = (ext2dent_t *)((uintptr_t)dirbuffer + block_offset);
 
-		if (namelen == dent->namelen && dent->inode && strncmp(name, dent->name, dent->namelen) == 0) {
+		if (namelen == dent->namelen && dent->inode && memcmp(name, dent->name, dent->namelen) == 0) {
 			inodefound = dent->inode;
 			if (switchnode) {
 				dent->inode = switchnode->id;
@@ -1014,7 +1054,7 @@ static int removedent(ext2fs_t *fs, ext2node_t *node, char *name, int *inode) {
 
 		dent = (ext2dent_t *)((uintptr_t)dirbuffer + block_offset);
 
-		if (namelen == dent->namelen && dent->inode && strncmp(name, dent->name, dent->namelen) == 0) {
+		if (namelen == dent->namelen && dent->inode && memcmp(name, dent->name, dent->namelen) == 0) {
 			inodefound = dent->inode;
 			break;
 		}
@@ -1262,7 +1302,6 @@ static int ext2_getdents(vnode_t *vnode, dent_t *buffer, size_t count, uintmax_t
 		return ENOTDIR;
 
 	int err = 0;
-	// XXX loading the whole dir into memory at once isn't the best idea but works for now
 	void *dirbuffer = alloc(fs->blocksize); 
 	if (dirbuffer == NULL)
 		return ENOMEM;
