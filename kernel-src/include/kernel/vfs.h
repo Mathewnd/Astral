@@ -10,6 +10,7 @@
 #include <errno.h>
 #include <kernel/cred.h>
 #include <kernel/event.h>
+#include <errno.h>
 
 #define V_ATTR_MODE	1
 #define V_ATTR_UID	2
@@ -229,6 +230,8 @@ typedef struct vops_t {
 			(v) = NULL; \
 		} \
 	}
+
+#define VFS_STUB(x) static int x () { return ENODEV; }
 
 extern vnode_t *vfsroot;
 
