@@ -1,0 +1,19 @@
+name=dosfstools
+revision=1
+from_source=dosfstools
+imagedeps="build-essential"
+hostdeps="xgcc xbinutils pkgconfig libtool automake autoconf"
+deps="base"
+
+configure() {
+	cp -rp ${source_dir}/* .
+	./configure --host=x86_64-astral --prefix=${prefix}
+}
+
+build() {
+	make -j ${parallelism}
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+}
