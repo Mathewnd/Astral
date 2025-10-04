@@ -26,4 +26,4 @@ mkdir -p "${SYSROOT}/tmp"
 mount "${SYSROOT}/dev" devfs
 mount "${SYSROOT}/tmp" tmpfs
 
-chroot "${SYSROOT}" /usr/bin/bash -l
+exec chroot /usr/bin/bash
