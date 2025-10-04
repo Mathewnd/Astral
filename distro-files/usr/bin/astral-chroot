@@ -1,0 +1,29 @@
+#!/usr/bin/bash
+
+usage() {
+	echo $0: usage: $0 sysroot
+}
+
+if [ $# = 0 ]
+then
+	usage
+	exit 1
+fi
+
+if [ -z "$1" ]
+then
+	echo "$0: empty sysroot argument"
+	exit 1
+fi
+
+SYSROOT="$1"
+PKGS=
+
+cp -L /etc/resolv.conf "${SYSROOT}/etc/"
+mkdir -p "${SYSROOT}/dev"
+mkdir -p "${SYSROOT}/tmp"
+
+mount "${SYSROOT}/dev" devfs
+mount "${SYSROOT}/tmp" tmpfs
+
+chroot "${SYSROOT}" /usr/bin/bash -l

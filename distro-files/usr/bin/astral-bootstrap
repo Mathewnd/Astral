@@ -1,0 +1,35 @@
+#!/usr/bin/bash
+
+usage() {
+	echo $0: usage: $0 sysroot [packages ...]
+}
+
+if [ $# = 0 ]
+then
+	usage
+	exit 1
+fi
+
+if [ -z "$1" ]
+then
+	echo "$0: empty sysroot argument"
+	exit 1
+fi
+
+SYSROOT="$1"
+PKGS=
+
+shift
+
+for i in $@; do
+	PKGS+="$i "
+done
+
+echo $PKGS
+
+mkdir -p "${SYSROOT}/usr/share"
+mkdir -p "${SYSROOT}/var/db/xbps"
+cp -r /var/db/xbps/keys "${SYSROOT}/var/db/xbps"
+cp -r /usr/share/xbps.d "${SYSROOT}/usr/share"
+
+xbps-install --rootdir ${SYSROOT} -S -y $PKGS
