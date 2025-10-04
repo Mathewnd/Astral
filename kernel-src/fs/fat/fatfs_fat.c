@@ -326,6 +326,7 @@ int fatfs_resize_file(fatfs_t *fatfs, fatnode_t *fatnode, size_t new_size) {
 			return error;
 
 		fatnode->cluster = 0;
+		fatnode->saved_cluster = 0;
 	} else {
 		// truncate a part of the file
 		fatfs_cluster_t cluster;
@@ -335,6 +336,9 @@ int fatfs_resize_file(fatfs_t *fatfs, fatnode_t *fatnode, size_t new_size) {
 
 		__assert(cluster != FATFS_CLUSTER_FREE && fatfs_is_cluster_eof(fatfs, cluster) == false);
 		error = fatfs_cut_chain(fatfs, cluster);
+
+		// no need to update the saved index/cluster as the previour fatfs_get_cluster_from_index call will have
+		// set the index and cluster properly
 	}
 
 	if (error == 0) {

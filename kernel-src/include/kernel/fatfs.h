@@ -59,6 +59,9 @@ typedef struct fatnode_t {
 
 	size_t size;
 
+	size_t saved_index;
+	size_t saved_cluster;
+
 	struct fatnode_t *parent_dir;
 	size_t dent_disk_offset;
 } fatnode_t;

@@ -956,6 +956,7 @@ fatnode_t *fatfs_allocate_node(vfs_t *vfs, int type) {
 	fatnode->cluster = 0;
 	fatnode->parent_dir = NULL;
 	fatnode->dent_disk_offset = 0;
+	fatnode->saved_cluster = 0;
 
 	return fatnode;
 }

@@ -477,7 +477,6 @@ int fatfs_update_dent(fatfs_t *fatfs, fatnode_t *fatnode) {
 }
 
 static int get_free_dents(fatfs_t *fatfs, fatnode_t *fatnode, size_t dent_count, size_t *dent_offset) {
-	// TODO add a first free search
 	size_t offset = 0;
 	fatfs_dent_t dent;
 	size_t free_count = 0;

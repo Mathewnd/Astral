@@ -1,9 +1,13 @@
 #include <kernel/fatfs.h>
 #include <logging.h>
 
-// TODO optimize this by keeping some metadata in the fatfs node
 int fatfs_get_cluster_from_index(fatfs_t *fs, fatnode_t *node, uintmax_t index, fatfs_cluster_t *cluster) {
-	fatfs_cluster_t iterator = node->cluster;
+	if (node->saved_cluster == 0 || node->saved_index > index) {
+		node->saved_cluster = node->cluster;
+		node->saved_index = 0;
+	}
+
+	fatfs_cluster_t iterator = node->saved_cluster;
 
 	// empty file?
 	if (iterator == 0) {
@@ -40,6 +44,12 @@ int fatfs_get_cluster_from_index(fatfs_t *fs, fatnode_t *node, uintmax_t index, 
 			iterator = FATFS_CLUSTER_EOF_FAT32;
 			break;
 		}
+	}
+
+	if (fatfs_is_cluster_eof(fs, iterator) == false) {
+		// update the last found index
+		node->saved_index = index;
+		node->saved_cluster = iterator;
 	}
 
 	*cluster = iterator;
