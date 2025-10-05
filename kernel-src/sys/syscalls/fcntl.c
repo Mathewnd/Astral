@@ -11,6 +11,7 @@
 #define F_SETFL  4
 #define F_SETLK64 6
 #define F_SETLKW64 7
+#define F_DUPFD_CLOEXEC 1030
 
 #define FD_CLOEXEC 1
 
@@ -26,10 +27,11 @@ syscallret_t syscall_fcntl(context_t *, int fd, int cmd, uint64_t arg) {
 	}
 
 	switch (cmd) {
+		case F_DUPFD_CLOEXEC:
 		case F_DUPFD:
 			{
 			int f;
-			ret.errno = fd_dup(fd, arg, false, 0, &f);
+			ret.errno = fd_dup(fd, arg, false, (cmd == F_DUPFD_CLOEXEC) ? O_CLOEXEC : 0, &f);
 			ret.ret = f;
 			}
 			break;
