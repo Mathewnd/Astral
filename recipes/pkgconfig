@@ -1,0 +1,29 @@
+name=pkgconfig
+revision=1
+from_source=pkgconfig
+imagedeps="build-essential"
+hostdeps="xgcc xbinutils automake autoconf libtool"
+deps="base"
+
+configure() {
+	${source_dir}/configure --prefix=${prefix} --host=x86_64-astral
+}
+
+build() {
+	make -j${parallelism}
+}
+
+package() {
+	make install DESTDIR="${dest_dir}"
+	mkdir -p ${dest_dir}/${prefix}/share/pkgconfig/personality.d
+	
+	cat > ${dest_dir}/${prefix}/share/pkgconfig/personality.d/x86_64-astral.personality << EOF
+Triplet: x86_64-astral
+DefaultSearchPaths: ${prefix}/lib/pkgconfig:${prefix}/share/pkgconfig
+SystemIncludePaths: ${prefix}/usr/include
+SystemLibraryPaths: ${prefix}/usr/lib
+EOF
+
+	ln -s pkgconf ${dest_dir}/${prefix}/bin/x86_64-astral-pkg-config
+	ln -s pkgconf ${dest_dir}/${prefix}/bin/pkg-config
+}

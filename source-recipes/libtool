@@ -3,16 +3,8 @@ version=2.5.4
 source_method=tarball
 tarball_url="https://ftpmirror.gnu.org/gnu/libtool/libtool-${version}.tar.gz"
 tarball_sha512="60599f5c3168a287fe3a35062fd2e32e0b73433fce820bfd18d28b0e3bd7a8fefde6d6f0505fbbc2d664119ab7c539269184993843289932c895847ea1ab9f04"
-hostdeps="autoconf automake"
-imagedeps="build-essential help2man wget git"
-allow_network="yes"
+hostdeps="automake"
 
 prepare() {
-	#git clone https://git.savannah.gnu.org/git/gnulib.git
-	#cd gnulib
-	#git checkout 4b17a1ae49e69df1ac5dc35a4f60b20ab958baf2
-	#rm -rf .git
-	#cd ..
-	#./bootstrap --force --skip-git --skip-po --gnulib-srcdir=gnulib
-	true
+	cp -v $(find /usr/local/share/automake* -name config.sub) ./build-aux/
 }

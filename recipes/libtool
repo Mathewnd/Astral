@@ -1,0 +1,21 @@
+name=libtool
+revision=1
+from_source=libtool
+imagedeps="build-essential help2man"
+hostdeps="xgcc xbinutils"
+deps="base"
+
+configure() {
+	cp -pr ${source_dir}/* .
+	cp -pr ${source_dir}/.* .
+	./configure --prefix=${prefix} --host=x86_64-astral
+}
+
+build() {
+	make -j${parallelism}
+}
+
+package() {
+	make install DESTDIR="${dest_dir}"
+}
+

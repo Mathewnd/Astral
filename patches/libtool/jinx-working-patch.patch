@@ -1,3 +1,250 @@
+diff --git libtool-clean/configure libtool-workdir/configure
+index 2ca7bda..ce50f64 100755
+--- libtool-clean/configure
++++ libtool-workdir/configure
+@@ -7842,7 +7842,7 @@ linux* | k*bsd*-gnu | kopensolaris*-gnu | gnu*)
+   lt_cv_deplibs_check_method=pass_all
+   ;;
+ 
+-*-mlibc)
++*-mlibc | astral*)
+   lt_cv_deplibs_check_method=pass_all
+   ;;
+ 
+@@ -11409,7 +11409,7 @@ lt_prog_compiler_static=
+       lt_prog_compiler_static='-Bstatic'
+       ;;
+ 
+-    *-mlibc)
++    *-mlibc | astral*)
+       lt_prog_compiler_wl='-Wl,'
+       lt_prog_compiler_pic='-fPIC'
+       lt_prog_compiler_static='-static'
+@@ -12076,7 +12076,7 @@ _LT_EOF
+       fi
+       ;;
+ 
+-    *-mlibc)
++    *-mlibc | astral*)
+ 	archive_cmds='$CC -shared $pic_flag $libobjs $deplibs $compiler_flags $wl-soname $wl$soname -o $lib'
+ 	archive_expsym_cmds='$CC -shared $pic_flag $libobjs $deplibs $compiler_flags $wl-soname $wl$soname $wl-retain-symbols-file $wl$export_symbols -o $lib'
+       ;;
+@@ -12785,7 +12785,7 @@ printf "%s\n" "$lt_cv_irix_exported_symbol" >&6; }
+       esac
+       ;;
+ 
+-    *-mlibc)
++    *-mlibc | astral*)
+       ;;
+ 
+     netbsd* | netbsdelf*-gnu)
+@@ -13980,7 +13980,7 @@ netbsd*)
+   hardcode_into_libs=yes
+   ;;
+ 
+-*-mlibc)
++*-mlibc | astral*)
+   version_type=linux # correct to gnu/linux during the next big refactor
+   need_lib_prefix=no
+   need_version=no
+@@ -14457,7 +14457,7 @@ lt_prog_compiler_static=
+       lt_prog_compiler_static='-Bstatic'
+       ;;
+ 
+-    *-mlibc)
++    *-mlibc | astral*)
+       lt_prog_compiler_wl='-Wl,'
+       lt_prog_compiler_pic='-fPIC'
+       lt_prog_compiler_static='-static'
+@@ -16278,7 +16278,7 @@ else case e in #(
+     # at 6.2 and later dlopen does load deplibs.
+     lt_cv_sys_dlopen_deplibs=yes
+     ;;
+-  *-mlibc)
++  *-mlibc | astral*)
+     lt_cv_sys_dlopen_deplibs=yes
+     ;;
+   netbsd* | netbsdelf*-gnu)
+@@ -18356,7 +18356,7 @@ fi
+ 	esac
+ 	;;
+ 
+-      *-mlibc)
++      *-mlibc | astral*)
+         ld_shlibs_CXX=yes
+ 	;;
+ 
+@@ -19081,7 +19081,7 @@ lt_prog_compiler_static_CXX=
+ 	;;
+       netbsd* | netbsdelf*-gnu)
+ 	;;
+-      *-mlibc)
++      *-mlibc | astral*)
+ 	;;
+       *qnx* | *nto*)
+         # QNX uses GNU C++, but need to define -shared option too, otherwise
+@@ -20234,7 +20234,7 @@ netbsd*)
+   hardcode_into_libs=yes
+   ;;
+ 
+-*-mlibc)
++*-mlibc | astral*)
+   version_type=linux # correct to gnu/linux during the next big refactor
+   need_lib_prefix=no
+   need_version=no
+@@ -20681,7 +20681,7 @@ lt_prog_compiler_static_CXX=
+ 	;;
+       netbsd* | netbsdelf*-gnu)
+ 	;;
+-      *-mlibc)
++      *-mlibc | astral*)
+ 	;;
+       *qnx* | *nto*)
+         # QNX uses GNU C++, but need to define -shared option too, otherwise
+@@ -21689,7 +21689,7 @@ lt_prog_compiler_static_F77=
+       lt_prog_compiler_static_F77='-Bstatic'
+       ;;
+ 
+-    *-mlibc)
++    *-mlibc | astral*)
+       lt_prog_compiler_wl_F77='-Wl,'
+       lt_prog_compiler_pic_F77='-fPIC'
+       lt_prog_compiler_static_F77='-static'
+@@ -22341,7 +22341,7 @@ _LT_EOF
+       fi
+       ;;
+ 
+-    *-mlibc)
++    *-mlibc | astral*)
+ 	archive_cmds_F77='$CC -shared $pic_flag $libobjs $deplibs $compiler_flags $wl-soname $wl$soname -o $lib'
+ 	archive_expsym_cmds_F77='$CC -shared $pic_flag $libobjs $deplibs $compiler_flags $wl-soname $wl$soname $wl-retain-symbols-file $wl$export_symbols -o $lib'
+       ;;
+@@ -22998,7 +22998,7 @@ printf "%s\n" "$lt_cv_irix_exported_symbol" >&6; }
+       esac
+       ;;
+ 
+-    *-mlibc)
++    *-mlibc | astral*)
+       ;;
+ 
+     netbsd* | netbsdelf*-gnu)
+@@ -24014,7 +24014,7 @@ netbsd*)
+   hardcode_into_libs=yes
+   ;;
+ 
+-*-mlibc)
++*-mlibc | astral*)
+   version_type=linux # correct to gnu/linux during the next big refactor
+   need_lib_prefix=no
+   need_version=no
+@@ -24491,7 +24491,7 @@ lt_prog_compiler_static_F77=
+       lt_prog_compiler_static_F77='-Bstatic'
+       ;;
+ 
+-    *-mlibc)
++    *-mlibc | astral*)
+       lt_prog_compiler_wl_F77='-Wl,'
+       lt_prog_compiler_pic_F77='-fPIC'
+       lt_prog_compiler_static_F77='-static'
+@@ -25628,7 +25628,7 @@ lt_prog_compiler_static_FC=
+       lt_prog_compiler_static_FC='-Bstatic'
+       ;;
+ 
+-    *-mlibc)
++    *-mlibc | astral*)
+       lt_prog_compiler_wl_FC='-Wl,'
+       lt_prog_compiler_pic_FC='-fPIC'
+       lt_prog_compiler_static_FC='-static'
+@@ -26280,7 +26280,7 @@ _LT_EOF
+       fi
+       ;;
+ 
+-    *-mlibc)
++    *-mlibc | astral*)
+ 	archive_cmds_FC='$CC -shared $pic_flag $libobjs $deplibs $compiler_flags $wl-soname $wl$soname -o $lib'
+ 	archive_expsym_cmds_FC='$CC -shared $pic_flag $libobjs $deplibs $compiler_flags $wl-soname $wl$soname $wl-retain-symbols-file $wl$export_symbols -o $lib'
+       ;;
+@@ -26937,7 +26937,7 @@ printf "%s\n" "$lt_cv_irix_exported_symbol" >&6; }
+       esac
+       ;;
+ 
+-    *-mlibc)
++    *-mlibc | astral*)
+       ;;
+ 
+     netbsd* | netbsdelf*-gnu)
+@@ -27953,7 +27953,7 @@ netbsd*)
+   hardcode_into_libs=yes
+   ;;
+ 
+-*-mlibc)
++*-mlibc | astral*)
+   version_type=linux # correct to gnu/linux during the next big refactor
+   need_lib_prefix=no
+   need_version=no
+@@ -28430,7 +28430,7 @@ lt_prog_compiler_static_FC=
+       lt_prog_compiler_static_FC='-Bstatic'
+       ;;
+ 
+-    *-mlibc)
++    *-mlibc | astral*)
+       lt_prog_compiler_wl_FC='-Wl,'
+       lt_prog_compiler_pic_FC='-fPIC'
+       lt_prog_compiler_static_FC='-static'
+@@ -29277,7 +29277,7 @@ lt_prog_compiler_static_GO=
+       lt_prog_compiler_static_GO='-Bstatic'
+       ;;
+ 
+-    *-mlibc)
++    *-mlibc | astral*)
+       lt_prog_compiler_wl_GO='-Wl,'
+       lt_prog_compiler_pic_GO='-fPIC'
+       lt_prog_compiler_static_GO='-static'
+@@ -29929,7 +29929,7 @@ _LT_EOF
+       fi
+       ;;
+ 
+-    *-mlibc)
++    *-mlibc | astral*)
+ 	archive_cmds_GO='$CC -shared $pic_flag $libobjs $deplibs $compiler_flags $wl-soname $wl$soname -o $lib'
+ 	archive_expsym_cmds_GO='$CC -shared $pic_flag $libobjs $deplibs $compiler_flags $wl-soname $wl$soname $wl-retain-symbols-file $wl$export_symbols -o $lib'
+       ;;
+@@ -30597,7 +30597,7 @@ printf "%s\n" "$lt_cv_irix_exported_symbol" >&6; }
+       esac
+       ;;
+ 
+-    *-mlibc)
++    *-mlibc | astral*)
+       ;;
+ 
+     netbsd* | netbsdelf*-gnu)
+@@ -31568,7 +31568,7 @@ lt_prog_compiler_static_GCJ=
+       lt_prog_compiler_static_GCJ='-Bstatic'
+       ;;
+ 
+-    *-mlibc)
++    *-mlibc | astral*)
+       lt_prog_compiler_wl_GCJ='-Wl,'
+       lt_prog_compiler_pic_GCJ='-fPIC'
+       lt_prog_compiler_static_GCJ='-static'
+@@ -32220,7 +32220,7 @@ _LT_EOF
+       fi
+       ;;
+ 
+-    *-mlibc)
++    *-mlibc | astral*)
+ 	archive_cmds_GCJ='$CC -shared $pic_flag $libobjs $deplibs $compiler_flags $wl-soname $wl$soname -o $lib'
+ 	archive_expsym_cmds_GCJ='$CC -shared $pic_flag $libobjs $deplibs $compiler_flags $wl-soname $wl$soname $wl-retain-symbols-file $wl$export_symbols -o $lib'
+       ;;
+@@ -32888,7 +32888,7 @@ printf "%s\n" "$lt_cv_irix_exported_symbol" >&6; }
+       esac
+       ;;
+ 
+-    *-mlibc)
++    *-mlibc | astral*)
+       ;;
+ 
+     netbsd* | netbsdelf*-gnu)
 diff --git libtool-clean/libtoolize.in libtool-workdir/libtoolize.in
 index 6c15aa5..4f4d4f0 100644
 --- libtool-clean/libtoolize.in
