@@ -6,7 +6,7 @@ imagedeps="gcc build-essential help2man autoconf automake"
 configure() {
 	cp -pr ${source_dir}/* .
 	cp -pr ${source_dir}/.* .
-	./configure --prefix=${prefix}
+	./configure --prefix=${prefix} --with-gnu-ld --enable-shared --disable-static
 }
 
 build() {
