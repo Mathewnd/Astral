@@ -1,0 +1,10 @@
+name=patch
+version=2.8
+source_method=tarball
+tarball_url="https://ftpmirror.gnu.org/gnu/patch/patch-${version}.tar.xz"
+tarball_sha512=d689d696660a662753e8660792733c3be0a94c76abfe7a28b0f9f70300c3a42d6437d081553a59bfde6e1b0d5ee13ed89be48d0b00b6da2cadbfc14a15ada603
+hostdeps="autoconf automake libtool pkgconfig"
+
+prepare() {
+        autoreconf -vfi
+}
