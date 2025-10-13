@@ -456,11 +456,12 @@ int vfs_write_iovec(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size
 
 			vmmcache_makedirty(page);
 			*written += writesize;
-			pageoffset += 1;
-			pagecount -= 1;
 
 			if (flags & V_FFLAGS_NOCACHE)
 				err = writenocache(node, page, pageoffset * PAGE_SIZE);
+
+			pageoffset += 1;
+			pagecount -= 1;
 
 			pmm_release(FROM_HHDM(address));
 			if (err)
@@ -567,13 +568,14 @@ int vfs_read_iovec(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size,
 			}
 
 			*bytesread += readsize;
-			pageoffset += 1;
-			pagecount -= 1;
 
 			if (flags & V_FFLAGS_NOCACHE) {
 				// try to turn it into anonymous memory
 				vmmcache_evict(page);
 			}
+
+			pageoffset += 1;
+			pagecount -= 1;
 
 			pmm_release(FROM_HHDM(address));
 		}

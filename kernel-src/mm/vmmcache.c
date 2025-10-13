@@ -185,7 +185,10 @@ int vmmcache_getpage(vnode_t *vnode, uintmax_t offset, page_t **res) {
 			return error;
 		}
 
+		HOLD_LOCK();
 		newpage->flags |= PAGE_FLAGS_READY;
+		RELEASE_LOCK();
+
 		EVENT_SIGNAL(&pagereadyevent);
 		*res = newpage;
 	}
@@ -335,7 +338,7 @@ int vmmcache_syncvnode(vnode_t *vnode, uintmax_t offset, size_t size) {
 	page_t *page = vnode->pages;
 	page_t *vnodedirtylist = NULL;
 	for (; page; page = page->vnodenext) {
-		if (page->offset < offset || page->offset >= top || (page->offset & PAGE_FLAGS_DIRTY) == 0)
+		if (page->offset < offset || page->offset >= top || (page->flags & PAGE_FLAGS_DIRTY) == 0)
 			continue;
 
 		// remove from write list and add to an internal list using the write pointers
