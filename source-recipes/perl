@@ -1,0 +1,259 @@
+name=perl
+version=5.40.2
+source_method=tarball
+tarball_url="https://www.cpan.org/src/5.0/perl-${version}.tar.gz"
+tarball_sha512=78a186f6511e672ebac4c4627c446d3faaeab05fd6b190a7056b8e674eea33762bf1dc7ac9d695f9959366c34ecdc4c49030d7dad29ff42d1a53ce7c5d558d10
+hostdeps="autoconf automake libtool pkgconfig"
+allow_network=yes
+
+prepare() {
+	# get some modules
+	# TODO: verify integrity?
+
+	curl https://cpan.metacpan.org/authors/id/M/ML/MLEHMANN/common-sense-3.75.tar.gz > cpan/common-sense.tar.gz
+	curl https://cpan.metacpan.org/authors/id/J/JS/JSTOWE/TermReadKey-2.38.tar.gz > cpan/term-readkey.tar.gz
+	curl https://cpan.metacpan.org/authors/id/A/AT/ATOOMIC/Time-HiRes-1.9764.tar.gz > cpan/time-hires.tar.gz
+
+	cd cpan
+	# common-sense
+	echo preparing common::sense
+	tar -xf common-sense.tar.gz
+	mv common-sense-* common-sense
+
+	# term-readkey
+	echo preparing term::readkey
+	tar -xf term-readkey.tar.gz
+	mv TermReadKey-* Term-ReadKey
+
+	# term-readkey has a very stupid step in its build process that involves running perl with it linked to check for its configuration
+	# patch it to not do that and use a known preset one
+	#mkdir -v Term-ReadKey-Tmp
+	#mv -v Term-ReadKey/ReadKey.pm.PL Term-ReadKey-Tmp/
+
+	patch -F 3 -l --no-backup-if-mismatch -p1 -d Term-ReadKey <<- 'EOF'
+		diff --git perl-term-readkey-clean/ReadKey.pm.PL perl-term-readkey-workdir/ReadKey.pm.PL
+		index 1ebbdd3..13dc559 100644
+		--- perl-term-readkey-clean/ReadKey.pm.PL
+		+++ perl-term-readkey-workdir/ReadKey.pm.PL
+		@@ -505,133 +505,9 @@ sub GetTerminalSize
+		 !FIRSTPART
+
+		 close OUT;
+		-# preload the XS module needed for the blockoptions() expansions below
+		-# does not work with miniperl
+		-package Term::ReadKey;
+		-require DynaLoader;
+		-our @ISA = qw(DynaLoader);
+		-
+		-print "Bootstrapping the XS for blockoptions: ";
+		-bootstrap Term::ReadKey or die;
+		-print blockoptions()."\n";
+		-
+		 open OUT, ">>", $file or die "Can't append to $file: $!";
+		 print OUT "# blockoptions: \n";
+		-if ( &blockoptions() & 1 )    # Use nodelay
+		-{
+		-    print OUT "#nodelay\n";
+		-    if ( &blockoptions() & 2 )    #poll
+		-    {
+		-        print OUT <<'!NO!SUBS!';
+		-# poll
+		-sub ReadKey {
+		-  my $File = normalizehandle((@_>1?$_[1]:\*STDIN));
+		-  if (defined $_[0] && $_[0] > 0) {
+		-      if ($_[0]) {
+		-          return undef if &pollfile($File,$_[0]) == 0;
+		-      }
+		-  }
+		-  if (defined $_[0] && $_[0] < 0) { &setnodelay($File,1); }
+		-  my $value = getc $File;
+		-  if (defined $_[0] && $_[0] < 0) { &setnodelay($File,0); }
+		-  $value;
+		-}
+		-sub ReadLine {
+		-    my $File = normalizehandle((@_>1?$_[1]:\*STDIN));
+		-    if (defined $_[0] && $_[0] > 0) {
+		-        if ($_[0]) {
+		-            return undef if &pollfile($File,$_[0]) == 0;
+		-        }
+		-    }
+		-    if (defined $_[0] && $_[0] < 0) { &setnodelay($File,1) };
+		-    my $value = scalar(<$File>);
+		-    if (defined $_[0] && $_[0] < 0) { &setnodelay($File,0) };
+		-    $value;
+		-}
+		-!NO!SUBS!
+		-
+		-    }
+		-    elsif ( &blockoptions() & 4 )    #select
+		-    {
+		-        print OUT <<'!NO!SUBS!';
+		-#select
+		-sub ReadKey {
+		-    my $File = normalizehandle((@_>1?$_[1]:\*STDIN));
+		-    if (defined $_[0] && $_[0] > 0) {
+		-        if ($_[0]) { return undef if &selectfile($File,$_[0]) == 0 }
+		-    }
+		-    if (defined $_[0] && $_[0] < 0) { &setnodelay($File,1); }
+		-    my $value = getc $File;
+		-    if (defined $_[0] && $_[0] < 0) { &setnodelay($File,0); }
+		-    $value;
+		-}
+		-sub ReadLine {
+		-    my $File = normalizehandle((@_>1?$_[1]:\*STDIN));
+		-    if (defined $_[0] && $_[0] > 0) {
+		-        if ($_[0]) { return undef if &selectfile($File,$_[0]) == 0 }
+		-    }
+		-    if (defined $_[0] && $_[0] < 0) { &setnodelay($File,1) };
+		-    my $value = scalar(<$File>);
+		-    if (defined $_[0] && $_[0] < 0) { &setnodelay($File,0) };
+		-    $value;
+		-}
+		-!NO!SUBS!
+		-
+		-    }
+		-    else
+		-    {    #nothing
+		-        print OUT <<'!NO!SUBS!';
+		-sub ReadKey {
+		-    my $File = normalizehandle((@_>1?$_[1]:\*STDIN));
+		-    if (defined $_[0] && $_[0] > 0) {
+		-       # Nothing better seems to exist, so I just use time-of-day
+		-       # to timeout the read. This isn't very exact, though.
+		-       $starttime = time;
+		-       $endtime = $starttime + $_[0];
+		-        &setnodelay($File,1);
+		-        my $value;
+		-       while (time < $endtime) { # This won't catch wraparound!
+		-            $value = getc $File;
+		-            last if defined($value);
+		-       }
+		-        &setnodelay($File,0);
+		-        return $value;
+		-    }
+		-    if (defined $_[0] && $_[0] < 0) { &setnodelay($File,1); }
+		-    my $value = getc $File;
+		-    if (defined $_[0] && $_[0] < 0) { &setnodelay($File,0); }
+		-    $value;
+		-}
+		-sub ReadLine {
+		-    my $File = normalizehandle((@_>1?$_[1]:\*STDIN));
+		-    if (defined $_[0] && $_[0] > 0) {
+		-       # Nothing better seems to exist, so I just use time-of-day
+		-       # to timeout the read. This isn't very exact, though.
+		-       $starttime = time;
+		-       $endtime = $starttime + $_[0];
+		-        &setnodelay($File,1);
+		-        my $value;
+		-       while (time < $endtime) { # This won't catch wraparound!
+		-            $value = scalar(<$File>);
+		-            last if defined($value);
+		-       }
+		-        &setnodelay($File,0);
+		-        return $value;
+		-    }
+		-    if (defined $_[0] && $_[0] < 0) { &setnodelay($File,1) };
+		-    my $value = scalar(<$File>);
+		-    if (defined $_[0] && $_[0] < 0) { &setnodelay($File,0) };
+		-    $value;
+		-}
+		-!NO!SUBS!
+		-
+		-    }
+		-}
+		-else {
+		     print OUT "#no nodelay\n";
+		-
+		-    if ( &blockoptions() & 2 )    # Use poll
+		-    {
+			 print OUT <<'!NO!SUBS!';
+		 #poll
+		 sub ReadKey {
+		@@ -649,77 +525,6 @@ sub ReadLine {
+		     scalar(<$File>);
+		 }
+		 !NO!SUBS!
+		-
+		-    }
+		-    elsif ( &blockoptions() & 4 )    # Use select
+		-    {
+		-        print OUT <<'!NO!SUBS!';
+		-#select
+		-sub ReadKey {
+		-    my $File = normalizehandle((@_>1?$_[1]:\*STDIN));
+		-    if (defined $_[0] && $_[0] != 0) {
+		-        return undef if &selectfile($File,$_[0]) == 0
+		-    }
+		-    getc $File;
+		-}
+		-sub ReadLine {
+		-    my $File = normalizehandle((@_>1?$_[1]:\*STDIN));
+		-    if (defined $_[0] && $_[0] != 0) {
+		-        return undef if &selectfile($File,$_[0]) == 0;
+		-    }
+		-    scalar(<$File>);
+		-}
+		-!NO!SUBS!
+		-
+		-    }
+		-    elsif ( &blockoptions() & 8 )    # Use Win32
+		-    {
+		-        print OUT <<'!NO!SUBS!';
+		-#Win32
+		-sub ReadKey {
+		-    my $File = normalizehandle((@_>1?$_[1]:\*STDIN));
+		-    if ($_[0] || $CurrentMode >= 3) {
+		-        Win32PeekChar($File, $_[0]);
+		-    } else {
+		-       getc $File;
+		-    }
+		-    #if ($_[0]!=0) {return undef if !Win32PeekChar($File, $_[0])};
+		-    #getc $File;
+		-}
+		-sub ReadLine {
+		-    my $File = normalizehandle((@_>1?$_[1]:\*STDIN));
+		-    #if ($_[0]!=0) {return undef if !Win32PeekChar($File, $_[0])};
+		-    #scalar(<$File>);
+		-    if ($_[0]) {
+		-        croak("Non-blocking ReadLine is not supported on this architecture")
+		-    }
+		-    scalar(<$File>);
+		-}
+		-!NO!SUBS!
+		-
+		-    }
+		-    else
+		-    {
+		-        print OUT <<'!NO!SUBS!';
+		-sub ReadKey {
+		-    my $File = normalizehandle((@_>1?$_[1]:\*STDIN));
+		-    if ($_[0]) {
+		-        croak("Non-blocking ReadKey is not supported on this architecture")
+		-    }
+		-    getc $File;
+		-}
+		-sub ReadLine {
+		-    my $File = normalizehandle((@_>1?$_[1]:\*STDIN));
+		-    if ($_[0]) {
+		-      croak("Non-blocking ReadLine is not supported on this architecture")
+		-    }
+		-    scalar(<$File>);
+		-}
+		-!NO!SUBS!
+		-
+		-    }
+		-}
+		-
+		 print OUT <<'EOF';
+		 1;
+		 # ex: set ro:
+	EOF
+
+	# time-hires
+	echo preparing time::hires
+	tar -xf time-hires.tar.gz
+	mv Time-HiRes-* Time-HiRes
+
+
+	true
+}

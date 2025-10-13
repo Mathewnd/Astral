@@ -1,0 +1,8 @@
+name=perl-cross
+revision=1
+from_source=perl-cross
+
+package() {
+	mkdir -p ${dest_dir}/${prefix}/share/perl-cross/
+	cp -rp ${source_dir}/* ${dest_dir}/${prefix}/share/perl-cross/
+}

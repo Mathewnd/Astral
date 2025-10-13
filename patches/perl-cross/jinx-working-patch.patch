@@ -1,0 +1,39 @@
+diff --git perl-cross-clean/cnf/configure_tool.sh perl-cross-workdir/cnf/configure_tool.sh
+index 5b6d099..3a70872 100644
+--- perl-cross-clean/cnf/configure_tool.sh
++++ perl-cross-workdir/cnf/configure_tool.sh
+@@ -274,6 +274,10 @@ if not hinted 'osname'; then
+ 			define osname "midipix"
+ 			result "Midipix"
+ 			;;
++		*-astral*)
++			define osname "astral"
++			result "Astral"
++			;;
+ 		*)
+ 			result "no"
+ 			;;
+diff --git perl-cross-workdir/cnf/hints/astral perl-cross-workdir/cnf/hints/astral
+new file mode 100644
+index 0000000..b448683
+--- /dev/null
++++ perl-cross-workdir/cnf/hints/astral
+@@ -0,0 +1,18 @@
++d_voidsig='define'
++d_nanosleep='define'
++d_clock_gettime='define'
++
++usemallocwrap='define'
++
++libswanted='m crypt pthread nm ndbm gdbm dbm db dl gdbm_compat'
++
++st_ino_sign=1
++st_ino_size=8
++
++d_fcntl_can_lock='undef'
++
++d_setlocale='undef'
++d_nl_langinfo_l='undef'
++d_nl_langinfo='undef'
++
++d_sigsetjmp='undef'

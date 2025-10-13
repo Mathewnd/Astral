@@ -1,0 +1,10 @@
+name=perl-cross
+version=1.6.2
+source_method=tarball
+tarball_url="https://github.com/arsv/perl-cross/releases/download/${version}/perl-cross-${version}.tar.gz"
+tarball_sha512=51b45bf972304634d706d09e27d457636e43f9f27f739004eca529b21245ba78612dcb08b54225fc7ca19511983642c37915939ea8aa1c1a4560093474d9e76b
+hostdeps="automake"
+
+prepare() {
+	cp -v $(find /usr/local/share/automake* -name config.sub) cnf
+}

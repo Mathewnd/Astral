@@ -1,0 +1,21 @@
+name=perl
+revision=1
+from_source=perl
+imagedeps="build-essential"
+hostdeps="xgcc xbinutils perl-cross"
+deps="base bzip2 libxcrypt zlib libintl gettext"
+
+configure() {
+	cp -rp ${source_dir}/* .
+	cp -rp /usr/local/share/perl-cross/* .
+	CFLAGS="${CFLAGS} -DNO_LOCALE" ./configure --target=x86_64-astral --prefix=${prefix} -Dvendorprefix=${prefix} --target-tools-prefix=x86_64-astral- --mode=cross --targetarch=x86_64-astral --sysroot=${sysroot_dir}
+	bash
+}
+
+build() {
+	CFLAGS="${CFLAGS} -DNO_LOCALE" make #-j${parallelism}
+}
+
+package() {
+	CFLAGS="${CFLAGS} -DNO_LOCALE" make install DESTDIR="${dest_dir}"
+}
