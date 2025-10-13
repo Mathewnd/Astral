@@ -1,0 +1,10 @@
+name=rsync
+version=3.4.1
+source_method=tarball
+tarball_url="https://download.samba.org/pub/rsync/src/rsync-${version}.tar.gz"
+tarball_sha512=a3ecde4843ddb795308dca88581b868ac0221eb6f88a1477d7a9a2ecb4e4686042966bdddbab40866f90a4715d3104daa7b83222ddf0f3387b796a86bde8e5c2
+hostdeps="autoconf automake libtool pkgconfig"
+
+prepare() {
+	cp -v $(find /usr/local/share/automake* -name config.sub) .
+}

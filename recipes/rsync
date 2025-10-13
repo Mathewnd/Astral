@@ -1,0 +1,18 @@
+name=rsync
+revision=1
+from_source=rsync
+imagedeps="build-essential"
+hostdeps="xgcc xbinutils"
+deps="base openssl zstd"
+
+configure() {
+	${source_dir}/configure --host=x86_64-astral --prefix=${prefix} --disable-xxhash --disable-lz4
+}
+
+build() {
+	make -j${parallelism}
+}
+
+package() {
+	make install DESTDIR="${dest_dir}"
+}
