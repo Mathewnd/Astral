@@ -1,0 +1,52 @@
+diff --git m4-clean/lib/getlocalename_l-unsafe.c m4-workdir/lib/getlocalename_l-unsafe.c
+index 66b2c74..593e2a0 100644
+--- m4-clean/lib/getlocalename_l-unsafe.c
++++ m4-workdir/lib/getlocalename_l-unsafe.c
+@@ -473,7 +473,7 @@ getlocalename_l_unsafe (int category, locale_t locale)
+       struct gl_locale_category_t *plc =
+         &locale->category[gl_log2_lcmask_to_index (gl_log2_lc_mask (category))];
+       return (struct string_with_storage) { plc->name, STORAGE_OBJECT };
+-#elif __GLIBC__ >= 2 && !defined __UCLIBC__
++#elif (__GLIBC__ >= 2 && !defined __UCLIBC__)
+       /* Work around an incorrect definition of the _NL_LOCALE_NAME macro in
+          glibc < 2.12.
+          See <https://sourceware.org/bugzilla/show_bug.cgi?id=10968>.  */
+@@ -668,7 +668,9 @@ getlocalename_l_unsafe (int category, locale_t locale)
+       };
+       const char *name = ((struct __locale_t *) locale)->mb_cur_max == 4 ? "C.UTF-8" : "C";
+       return (struct string_with_storage) { name, STORAGE_INDEFINITE };
+-#else
++#elif defined(__astral__)
++	abort();
++#elif
+  #error "Please port gnulib getlocalename_l-unsafe.c to your platform! Report this to bug-gnulib."
+ #endif
+     }
+diff --git m4-clean/lib/localename-unsafe.c m4-workdir/lib/localename-unsafe.c
+index a058281..fc46925 100644
+--- m4-clean/lib/localename-unsafe.c
++++ m4-workdir/lib/localename-unsafe.c
+@@ -2616,6 +2616,10 @@ get_lcid (const char *locale_name)
+ const char *
+ gl_locale_name_thread_unsafe (int category, _GL_UNUSED const char *categoryname)
+ {
++
++#ifdef __astral__
++	return NULL;
++#endif
+   if (category == LC_ALL)
+     /* Invalid argument.  */
+     abort ();
+diff --git m4-clean/lib/wchar.in.h m4-workdir/lib/wchar.in.h
+index 8836ed1..eba3531 100644
+--- m4-clean/lib/wchar.in.h
++++ m4-workdir/lib/wchar.in.h
+@@ -191,7 +191,7 @@
+ /* mingw and MSVC define wint_t as 'unsigned short' in <crtdefs.h> or
+    <stddef.h>.  This is too small: ISO C 99 section 7.24.1.(2) says that
+    wint_t must be "unchanged by default argument promotions".  Override it.  */
+-# if @GNULIBHEADERS_OVERRIDE_WINT_T@
++# if 0
+ #  if !GNULIB_defined_wint_t
+ #   if @HAVE_CRTDEFS_H@
+ #    include <crtdefs.h>

@@ -1,0 +1,10 @@
+name=m4
+version=1.4.20
+source_method=tarball
+tarball_url="https://ftp.gnu.org/gnu/m4/m4-${version}.tar.gz"
+tarball_sha512="0db92e37b984bcac0e640bccb9d3463757793b1fef665601f6d8052906d1ed26078af37c751e3e0cd9ee8d9ff165e51cfe9560422a5b3559f4b58de446b7429c"
+hostdeps="automake"
+
+prepare() {
+	cp -v $(find /usr/local/share/automake* -name config.sub) build-aux
+}

@@ -1,0 +1,20 @@
+name=autoconf
+revision=1
+from_source=autoconf
+imagedeps="gcc"
+deps="perl"
+
+configure() {
+	cp -rp ${source_dir}/* .
+	cp -rp ${source_dir}/.* .
+
+	./configure --prefix=${prefix} --host=x86_64-astral
+}
+
+build() {
+	make -j${parallelism}
+}
+
+package() {
+	make install DESTDIR="${dest_dir}"
+}

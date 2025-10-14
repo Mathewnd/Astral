@@ -1,0 +1,13 @@
+diff --git autoconf-clean/build-aux/config.sub autoconf-workdir/build-aux/config.sub
+index 59bb593..0f608e9 100755
+--- autoconf-clean/build-aux/config.sub
++++ autoconf-workdir/build-aux/config.sub
+@@ -1343,7 +1343,7 @@ case $os in
+ 	# The portable systems comes first.
+ 	# Each alternative MUST END IN A *, to match a version number.
+ 	# -sysv* is not here because it comes later, after sysvr4.
+-	-gnu* | -bsd* | -mach* | -minix* | -genix* | -ultrix* | -irix* \
++	-gnu* | -astral* | -bsd* | -mach* | -minix* | -genix* | -ultrix* | -irix* \
+ 	      | -*vms* | -sco* | -esix* | -isc* | -aix* | -cnk* | -sunos | -sunos[34]*\
+ 	      | -hpux* | -unos* | -osf* | -luna* | -dgux* | -auroraux* | -solaris* \
+ 	      | -sym* | -kopensolaris* \
