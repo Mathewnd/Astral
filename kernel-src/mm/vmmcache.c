@@ -345,14 +345,13 @@ int vmmcache_syncvnode(vnode_t *vnode, uintmax_t offset, size_t size) {
 		// in a singly linked list way
 		if (page->writenext)
 			page->writenext->writeprev = page->writeprev;
+		else
+			dirtylistend = page->writeprev;
 
 		if (page->writeprev)
 			page->writeprev->writenext = page->writenext;
 		else
 			dirtylist = page->writenext;
-
-		if (dirtylist == NULL)
-			dirtylistend = NULL;
 
 		page->writenext = vnodedirtylist;
 		page->writeprev = NULL;
