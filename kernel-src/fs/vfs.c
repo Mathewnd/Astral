@@ -440,6 +440,8 @@ int vfs_write_iovec(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size
 		page_t *page = NULL;
 
 		if (startoffset) {
+			if (node->type == V_TYPE_BLKDEV)
+				arch_e9_puts("1\n");
 			// unaligned first page
 			err = vmmcache_getpage(node, pageoffset * PAGE_SIZE, &page);
 			if (err)
@@ -469,6 +471,8 @@ int vfs_write_iovec(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size
 		}
 
 		for (uintmax_t offset = 0; offset < pagecount * PAGE_SIZE; offset += PAGE_SIZE) {
+			if (node->type == V_TYPE_BLKDEV)
+				arch_e9_puts("2\n");
 			// the other pages
 			err = vmmcache_getpage(node, pageoffset * PAGE_SIZE + offset, &page);
 			if (err)
@@ -759,69 +763,48 @@ int vfs_rename(vnode_t *srcref, char *srcpath, vnode_t *dstref, char *dstpath, i
 	if (srcdir != dstdir)
 		VOP_LOCK(srcdir); // lock it again for the other ops if they arent the same
 
-	bool srcdotdot = strcmp(srccomp, "..") == 0;
-	bool dstdotdot = strcmp(dstcomp, "..") == 0;
-	vnode_t *src = NULL;
-	vnode_t *dst = NULL;
-
-	err = VOP_LOOKUP(srcdir, srccomp, &src, getcred());
-	if (err)
-		goto cleanup_locks;
-
-	// srcdir is unlocked by VOP_LOOKUP if srccomp is ".."
-	if (srcdotdot)
-		VOP_LOCK(srcdir);
-
-	VOP_UNLOCK(src); // locked by VOP_LOOKUP, unlocked here to allow the other VOP_LOOKUP to not deadlock
-
-	err = VOP_LOOKUP(dstdir, dstcomp, &dst, getcred());
-	if (err != 0 && err != ENOENT) {
-		VOP_RELEASE(src);
+	// . and .. will not be handled
+	if (strcmp(srccomp, "..") == 0 || strcmp(srccomp, ".") == 0) {
+		err = EBUSY;
 		goto cleanup_locks;
 	}
 
-	// dstdir is unlocked by VOP_LOOKUP if dstcomp is ".."
-	if (dstdotdot)
-		VOP_LOCK(dstdir);
+	if (strcmp(dstcomp, "..") == 0 || strcmp(dstcomp, ".") == 0) {
+		err = EEXIST;
+		goto cleanup_locks;
+	}
 
-	if (src != dst)
-		VOP_LOCK(src); // lock it again for the rename if they arent the same
+	// TODO EINVAL in case of dstdir being in a prefix of srcdir (or vice versa, forgot)
+
+	vnode_t *src = NULL;
+	err = VOP_LOOKUP(srcdir, srccomp, &src, getcred());
+	if (err)
+		goto cleanup_locks;
 
 	// check if we can rename the old file
 	err = auth_filesystem_check(getcred(), AUTH_ACTIONS_FILESYSTEM_RENAME, src, srcdir) ? EACCES : 0;
 	if (err)
 		goto cleanup_child;
 
-	if (dst) {
-		// and if we have a file, check if we can replace it
-		err = auth_filesystem_check(getcred(), AUTH_ACTIONS_FILESYSTEM_UNLINK, dst, dstdir) ? EACCES : 0;
-		if (err)
-			goto cleanup_child;
-	}
+	err = auth_filesystem_check(getcred(), AUTH_ACTIONS_FILESYSTEM_RENAME, src, dstdir) ? EACCES : 0;
+	if (err)
+		goto cleanup_child;
 
 	// and if we can then write the new link to the directory
 	err = VOP_ACCESS(dstdir, V_ACCESS_WRITE, getcred());
 	if (err)
 		goto cleanup_child;
 
-	err = VOP_RENAME(srcdir, src, srccomp, dstdir, dst, dstcomp, flags);
+	err = VOP_RENAME(srcdir, src, srccomp, dstdir, dstcomp, flags);
 
 	cleanup_child:
 
-	if (src != dst)
-		VOP_UNLOCK(src);
-
-	if (dst)
-		VOP_UNLOCK(dst);
-
+	VOP_UNLOCK(src); // locked by VOP_LOOKUP
 	VOP_RELEASE(src);
-
-	if (dst)
-		VOP_RELEASE(dst);
 
 	cleanup_locks:
 	if (srcdir != dstdir)
-		VOP_UNLOCK(srcdir);
+		VOP_UNLOCK(srcdir); // locked by vfs_lookup
 
 	VOP_UNLOCK(dstdir); // locked by vfs_lookup
 	VOP_RELEASE(srcdir);

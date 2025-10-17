@@ -245,6 +245,15 @@ static int tmpfs_access(vnode_t *vnode, mode_t mode, cred_t *cred) {
 	return auth_filesystem_check(cred, auth_filesystem_convertaccess(mode), vnode, NULL) ? EACCES : 0;
 }
 
+static int is_directory_empty(tmpfsnode_t *node) {
+	HASHTABLE_FOREACH(&node->children) {
+		if (memcmp(entry->key, ".", 1) && memcmp(entry->key, "..", 2))
+			return ENOTEMPTY;
+	}
+
+	return 0;
+}
+
 static int tmpfs_unlink(vnode_t *node, vnode_t *child, char *name, cred_t *cred) {
 	tmpfsnode_t *tmpnode = (tmpfsnode_t *)node;
 	if (node->type != V_TYPE_DIR)
@@ -267,10 +276,9 @@ static int tmpfs_unlink(vnode_t *node, vnode_t *child, char *name, cred_t *cred)
 
 	if (unlinknode->type == V_TYPE_DIR) {
 		// check if directory is empty
-		HASHTABLE_FOREACH(&unlinktmpnode->children) {
-			if (memcmp(entry->key, ".", 1) && memcmp(entry->key, "..", 2))
-				return ENOTEMPTY;
-		}
+		err = is_directory_empty(unlinktmpnode);
+		if (err)
+			return err;
 	}
 
 	err = hashtable_remove(&tmpnode->children, name, namelen);
@@ -310,7 +318,7 @@ static int tmpfs_link(vnode_t *node, vnode_t *dir, char *name, cred_t *cred) {
 	return 0;
 }
 
-static int tmpfs_rename(vnode_t *source, vnode_t *sourcefile, char *oldname, vnode_t *target, vnode_t *targetfile, char *newname, int flags) {
+static int tmpfs_rename(vnode_t *source, vnode_t *sourcefile, char *oldname, vnode_t *target, char *newname, int flags) {
 	if (source->vfs != target->vfs)
 		return EXDEV;
 
@@ -323,27 +331,34 @@ static int tmpfs_rename(vnode_t *source, vnode_t *sourcefile, char *oldname, vno
 	size_t oldlen = strlen(oldname);
 	size_t newlen = strlen(newname);
 
-	// get original node
-	void *v;
-	int error = hashtable_get(&sourcedir->children, &v, oldname, oldlen);
-	if (error)
-		goto cleanup;
-
-	vnode_t *node = v;
-	__assert(sourcefile == node);
-
 	vnode_t *oldnode = NULL;
+	void *v;
 
 	// get old node in target
-	error = hashtable_get(&targetdir->children, &v, newname, newlen);
+	int error = hashtable_get(&targetdir->children, &v, newname, newlen);
 	if (error != ENOENT && error != 0)
 		goto cleanup;
 	else if (error == 0) // found
 		oldnode = v;
 
-	__assert(oldnode == targetfile);
+	if (oldnode) {
+		// we are replacing an existing link
+		// do some checks expected by posix
+		if (sourcefile->type != V_TYPE_DIR && oldnode->type == V_TYPE_DIR)
+			return EISDIR;
 
-	if (node->vfsmounted || (oldnode && oldnode->vfsmounted)) {
+		if (sourcefile->type == V_TYPE_DIR && oldnode->type != V_TYPE_DIR)
+			return ENOTDIR;
+
+		error = oldnode->type == V_TYPE_DIR ? is_directory_empty((tmpfsnode_t *)oldnode) : 0;
+		if (error)
+			return error;
+
+		if (sourcefile == oldnode)
+			return 0; // POSIX says that if both are the same file, rename is a no-op
+	}
+
+	if (sourcefile->vfsmounted || (oldnode && oldnode->vfsmounted)) {
 		error = EBUSY;
 		goto cleanup;
 	}
@@ -353,7 +368,7 @@ static int tmpfs_rename(vnode_t *source, vnode_t *sourcefile, char *oldname, vno
 		goto cleanup;
 
 	// link node to new name
-	error = hashtable_set(&targetdir->children, node, newname, newlen, true);
+	error = hashtable_set(&targetdir->children, sourcefile, newname, newlen, true);
 	if (error)
 		goto cleanup;
 

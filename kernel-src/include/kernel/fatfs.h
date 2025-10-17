@@ -114,5 +114,6 @@ int fatfs_rw_bytes_iovec(fatfs_t *fs, fatnode_t *node, iovec_iterator_t *iovec_i
 int fatfs_rw_bytes(fatfs_t *fs, fatnode_t *node, void *buffer, size_t count, uintmax_t offset, bool write, bool cache);
 int fatfs_get_file_disk_offset(fatfs_t *fatfs, fatnode_t *node, size_t byte_offset, size_t *disk_offset);
 int fatfs_write_directory_entry(fatfs_t *fatfs, fatnode_t *fatnode, fatfs_dent_t *dent, const char *name, size_t *disk_offset);
+int fatfs_destroy_chain(fatfs_t *fatfs, fatfs_cluster_t cluster);
 
 #endif

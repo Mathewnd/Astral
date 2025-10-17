@@ -158,7 +158,7 @@ typedef struct vops_t {
 	int (*ioctl)(vnode_t *node, unsigned long request, void *arg, int *result, cred_t *cred);
 	int (*maxseek)(vnode_t *node, size_t *max);
 	int (*resize)(vnode_t *node, size_t newsize, cred_t *cred);
-	int (*rename)(vnode_t *sourcedir, vnode_t *source, char *oldname, vnode_t *targetdir, vnode_t *target, char *newname, int flags);
+	int (*rename)(vnode_t *sourcedir, vnode_t *source, char *oldname, vnode_t *targetdir, char *newname, int flags);
 	int (*getpage)(vnode_t *node, uintmax_t offset, struct page_t *page);
 	int (*putpage)(vnode_t *node, uintmax_t offset, struct page_t *page);
 	int (*sync)(vnode_t *node);
@@ -218,7 +218,7 @@ typedef struct vops_t {
 #define VOP_IOCTL(v, r, a, rp, c) ((v)->ops->ioctl ? (v)->ops->ioctl(v, r, a, rp, c) : ENOTTY)
 #define VOP_MAXSEEK(v, rp) ((v)->ops->maxseek ? (v)->ops->maxseek(v, rp) : ENOTTY)
 #define VOP_RESIZE(v, s, c) (v)->ops->resize(v, s, c)
-#define VOP_RENAME(sd, s, o, td, t, n, f) (s)->ops->rename(sd, s, o, td, t, n, f)
+#define VOP_RENAME(sd, s, o, td, n, f) (s)->ops->rename(sd, s, o, td, n, f)
 #define VOP_GETPAGE(v, o, p) (v)->ops->getpage(v, o, p)
 #define VOP_PUTPAGE(v, o, p) (v)->ops->putpage(v, o, p)
 #define VOP_SYNC(v) (v)->ops->sync(v)

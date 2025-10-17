@@ -310,6 +310,8 @@ static int allocatestructure(ext2fs_t *fs, uintmax_t *retid, bool inode) {
 	if (e)
 		goto cleanup;
 
+	__assert(writec == bmsize);
+
 	// update block group desc free structure count
 	if (inode)
 		desc.freeinodes -= 1;
@@ -1282,8 +1284,9 @@ static int ext2_lookup(vnode_t *vnode, char *name, vnode_t **result, cred_t *cre
 
 	// VOP_LOOKUP returns the vnode locked
 	*result = &newnode->vnode;
-	if (newnode != node)
+	if (newnode != node) {
 		VOP_LOCK(*result);
+	}
 
 	cleanup:
 	if (err && newnode) {
@@ -1501,6 +1504,9 @@ static int ext2_link(vnode_t *vnode, vnode_t *dirvnode, char *name, cred_t *cred
 	if (vnode->vfs != dirvnode->vfs)
 		return EXDEV;
 
+	if (vnode->type == V_TYPE_DIR)
+		return EPERM;
+
 	ext2node_t *node = (ext2node_t *)vnode;
 	ext2node_t *dirnode = (ext2node_t *)dirvnode;
 	ext2fs_t *fs = (ext2fs_t *)dirvnode->vfs;
@@ -1701,42 +1707,48 @@ static int handleinodeunlink(ext2fs_t *fs, ext2node_t *node, int inode, ext2node
 	return err;
 }
 
+static int is_directory_empty(ext2node_t *node) {
+	// check if its actually empty (readcount > 2, asserted 2 for . and ..)
+	size_t readcount;
+	dent_t *dents = alloc(sizeof(dent_t) * 3);
+	if (dents == NULL)
+		return ENOMEM;
+
+	int err = ext2_getdents(&node->vnode, dents, 3, 0, &readcount);
+	if (err) {
+		free(dents);
+		return err;
+	}
+
+	if (readcount > 2) {
+		free(dents);
+		return ENOTEMPTY;
+	}
+
+	// if any of the dot entries is missing, mark filesystem as unclean and return not empty as we cant really be sure
+	if (readcount != 2 ||
+	strcmp(dents[0].d_name, "..") == 0 || strcmp(dents[0].d_name, ".") != 0 ||
+	strcmp(dents[0].d_name, "..") == 0 || strcmp(dents[0].d_name, ".") != 0) {
+		ASSERT_UNCLEAN(((ext2fs_t *)node->vnode.vfs), !"missing dot dent");
+		free(dents);
+		return ENOTEMPTY;
+	}
+
+	free(dents);
+
+	return 0;
+}
+
 static int ext2_unlink(vnode_t *vnode, vnode_t *child, char *name, cred_t *cred) {
 	ext2node_t *node = (ext2node_t *)vnode;
 	ext2fs_t *fs = (ext2fs_t *)vnode->vfs;
 
-	// check if its actually empty (readcount > 2, asserted 2 for . and ..)
-	if (child->type == V_TYPE_DIR) {
-		size_t readcount;
-		dent_t *dents = alloc(sizeof(dent_t) * 3);
-		if (dents == NULL)
-			return ENOMEM;
-
-		int err = ext2_getdents(child, dents, 3, 0, &readcount);
-		if (err) {
-			free(dents);
-			return err;
-		}
-
-		if (readcount > 2) {
-			free(dents);
-			return ENOTEMPTY;
-		}
-
-		// if any of the dot entries is missing, mark filesystem as unclean and return not empty as we cant really be sure
-		if (readcount != 2 ||
-		strcmp(dents[0].d_name, "..") == 0 || strcmp(dents[0].d_name, ".") != 0 ||
-		strcmp(dents[0].d_name, "..") == 0 || strcmp(dents[0].d_name, ".") != 0) {
-			ASSERT_UNCLEAN(fs, !"missing dot dent");
-			free(dents);
-			return ENOTEMPTY;
-		}
-
-		free(dents);
-	}
+	int err = child->type == V_TYPE_DIR ? is_directory_empty(node) : 0;
+	if (err)
+		return err;
 
 	int inode = 0;
-	int err = removedent(fs, node, name, &inode);
+	err = removedent(fs, node, name, &inode);
 	if (err)
 		return err;
 
@@ -1795,49 +1807,103 @@ static int ext2_putpage(vnode_t *node, uintmax_t offset, struct page_t *page) {
 	return error;
 }
 
-static int ext2_rename(vnode_t *sourcedir, vnode_t *source, char *oldname, vnode_t *targetdir, vnode_t *new, char *newname, int flags) {
+static int ext2_rename(vnode_t *sourcedir, vnode_t *source, char *oldname, vnode_t *targetdir, char *newname, int flags) {
 	if (sourcedir->vfs != targetdir->vfs)
 		return EXDEV;
 
 	if (sourcedir->type != V_TYPE_DIR || targetdir->type != V_TYPE_DIR)
 		return ENOTDIR;
 
-	// the only guarantee mandated by posix is that target will always point to a valid file
-	// and it *may* have both source and target pointing to the same file
+	if (source->vfsmounted)
+		return EBUSY;
 
 	ext2fs_t *fs = (ext2fs_t *)targetdir->vfs;
-	ext2node_t *ext2targetnode = (ext2node_t *)targetdir;
+	ext2node_t *ext2targetdirnode = (ext2node_t *)targetdir;
+	ext2node_t *ext2sourcedirnode = (ext2node_t *)sourcedir;
 	ext2node_t *ext2sourcenode = (ext2node_t *)source;
+	vnode_t *replaced_vnode = NULL;
+
+	// get the vnode which will be replaced
+	int err = ext2_lookup(targetdir, newname, &replaced_vnode, NULL);
+	if (err && err != ENOENT)
+		return err;
+
+	ext2node_t *ext2_replaced_node = (ext2node_t *)replaced_vnode;
+
+	if (replaced_vnode) {
+		// we are replacing an existing link
+		// do some checks expected by posix
+		// TODO add these to fatfs and tmpfs
+		if (source->type != V_TYPE_DIR && replaced_vnode->type == V_TYPE_DIR) {
+			VOP_RELEASE(replaced_vnode);
+			return EISDIR;
+		}
+
+		if (source->type == V_TYPE_DIR && replaced_vnode->type != V_TYPE_DIR) {
+			VOP_RELEASE(replaced_vnode);
+			return ENOTDIR;
+		}
+
+		if (replaced_vnode->vfsmounted) {
+			VOP_RELEASE(replaced_vnode);
+			return EBUSY;
+		}
+
+		err = replaced_vnode->type == V_TYPE_DIR ? is_directory_empty(ext2_replaced_node) : 0;
+		if (err) {
+			VOP_RELEASE(replaced_vnode);
+			return err;
+		}
+
+		if (source == replaced_vnode) {
+			// POSIX says that if both are the same file, rename is a no-op
+			VOP_RELEASE(replaced_vnode);
+			return 0;
+		}
+	}
 
 	// switch out or create the target dirent
 	int oldinode;
-	int err = findindir(fs, ext2targetnode, newname, &oldinode, ext2sourcenode);
+	err = findindir(fs, ext2targetdirnode, newname, &oldinode, ext2sourcenode);
 	if (err == ENOENT) {
 		// the dirent needs to be created
-		err = linkinternal(fs, ext2targetnode, ext2sourcenode, newname);
+		err = linkinternal(fs, ext2targetdirnode, ext2sourcenode, newname);
 	} else if (err == 0){
 		// the dirent was switched, clean up the inode
-		err = handleinodeunlink(fs, ext2targetnode, oldinode, (ext2node_t *)new);
+		err = handleinodeunlink(fs, ext2targetdirnode, oldinode, ext2_replaced_node);
 		ext2sourcenode->inode.links += 1;
 		ASSERT_UNCLEAN(fs, writeinode(fs, &ext2sourcenode->inode, ext2sourcenode->id) == 0);
+		VOP_RELEASE(replaced_vnode);
+	} else if (err) {
+		if (replaced_vnode) {
+			VOP_RELEASE(replaced_vnode);
+		}
 	}
 
-	if (err) {
-		return err;
-	}
-
-	ext2node_t *ext2sourcedirnode = (ext2node_t *)sourcedir;
-	// unlink the original dirent
-	err = findindir(fs, ext2sourcedirnode, oldname, &oldinode, NULL);
 	if (err)
-		goto cleanup;
+		return err;
 
-	if (ext2sourcenode->id == oldinode) {
-		// link still points to the same inode, unlink it
-		err = VOP_UNLINK(sourcedir, source, oldname, NULL);
+	// unlink the original dirent
+	int inode = 0;
+	err = removedent(fs, ext2sourcedirnode, oldname, &inode);
+	if (err)
+		return err;
+
+	__assert(inode == ext2sourcenode->id);
+
+	err = handleinodeunlink(fs, ext2sourcedirnode, inode, (ext2node_t *)ext2sourcenode);
+	ASSERT_UNCLEAN(fs, err == 0);
+
+	// handle .. entry when directory
+	if (source->type == V_TYPE_DIR) {
+		err = findindir(fs, ext2sourcenode, "..", &inode, ext2targetdirnode);
+		ASSERT_UNCLEAN(fs, err == 0);
+		if (err)
+			return err;
+
+		// no need to change nlinks, as renaming on a dir is only possible when there was already a dir there
 	}
 
-	cleanup:
 	return err;
 }
 

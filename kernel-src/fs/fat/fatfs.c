@@ -672,18 +672,91 @@ static int fatfs_create(vnode_t *parent, char *name, vattr_t *attr, int type, vn
 	return error;
 }
 
-static int fatfs_rename(vnode_t *vsource_dir, vnode_t *vsource, char *old_name, vnode_t *vtarget_dir, vnode_t *vtarget, char *new_name, int flags) {
+static int is_directory_empty(fatnode_t *node) {
+	// check if its actually empty (readcount > 2, asserted 2 for . and ..)
+	size_t readcount;
+	dent_t *dents = alloc(sizeof(dent_t) * 3);
+	if (dents == NULL)
+		return ENOMEM;
+
+	int error = fatfs_getdents((vnode_t *)node, dents, 3, 0, &readcount);
+	if (error) {
+		free(dents);
+		return error;
+	}
+
+	if (readcount > 2) {
+		free(dents);
+		return ENOTEMPTY;
+	}
+
+	// if any of the dot entries is missing, do not do anything as we cannot be sure of consistency
+	if (readcount != 2 ||
+	strcmp(dents[0].d_name, ".") != 0 || strcmp(dents[1].d_name, "..") != 0) {
+		free(dents);
+		printf("fatfs: filesystem corruption detected: missing or bad dot entries\n");
+		return ENOTEMPTY;
+	}
+
+	free(dents);
+
+	return 0;
+}
+
+static int fatfs_rename(vnode_t *vsource_dir, vnode_t *vsource, char *old_name, vnode_t *vtarget_dir, char *new_name, int flags) {
 	fatfs_t *fatfs = (fatfs_t *)vsource_dir->vfs;
 	fatnode_t *source_dir = (fatnode_t *)vsource_dir;
 	fatnode_t *source = (fatnode_t *)vsource;
 	fatnode_t *target_dir = (fatnode_t *)vtarget_dir;
-	fatnode_t *target = (fatnode_t *)vtarget;
 
 	if (vsource_dir->vfs != vtarget_dir->vfs)
 		return EXDEV;
 
 	if (vsource_dir->type != V_TYPE_DIR || vtarget_dir->type != V_TYPE_DIR)
 		return ENOTDIR;
+
+	if (vsource->vfsmounted)
+		return EBUSY;
+
+	vnode_t *vtarget = NULL;
+	fatnode_t *target;
+
+	int error = fatfs_lookup(vtarget_dir, new_name, &vtarget, NULL);
+	if (error && error != ENOENT)
+		return error;
+
+	target = (fatnode_t *)vtarget;
+
+	if (target) {
+		// we are replacing an existing link
+		// do some checks expected by posix
+		if (vsource->type != V_TYPE_DIR && vtarget->type == V_TYPE_DIR) {
+			VOP_RELEASE(vtarget);
+			return EISDIR;
+		}
+
+		if (vsource->type == V_TYPE_DIR && vtarget->type != V_TYPE_DIR) {
+			VOP_RELEASE(vtarget);
+			return ENOTDIR;
+		}
+
+		if (vtarget->vfsmounted) {
+			VOP_RELEASE(vtarget);
+			return EBUSY;
+		}
+
+		error = vtarget->type == V_TYPE_DIR ? is_directory_empty(target) : 0;
+		if (error) {
+			VOP_RELEASE(vtarget);
+			return error;
+		}
+
+		if (source == target) {
+			// POSIX says that if both are the same file, rename is a no-op
+			VOP_RELEASE(vtarget);
+			return 0;
+		}
+	}
 
 	fatfs_dent_t new_dent = {
 		.attributes = (vsource->type == V_TYPE_DIR) ? FATFS_DENT_ATTRIBUTE_DIRECTORY : 0,
@@ -695,9 +768,9 @@ static int fatfs_rename(vnode_t *vsource_dir, vnode_t *vsource, char *old_name, 
 	// switch out or create the target dent
 	fatfs_dent_t target_dent;
 	size_t dent_disk_offset;
-	int error = fatfs_directory_lookup(fatfs, target_dir, new_name, &target_dent, &dent_disk_offset);
-
+	error = fatfs_directory_lookup(fatfs, target_dir, new_name, &target_dent, &dent_disk_offset);
 	if (error == ENOENT) {
+		__assert(target == NULL);
 		// create dirent
 		error = fatfs_write_directory_entry(fatfs, target_dir, &new_dent, new_name, &dent_disk_offset);
 		if (error)
@@ -708,21 +781,29 @@ static int fatfs_rename(vnode_t *vsource_dir, vnode_t *vsource, char *old_name, 
 		// already exists, switch it up
 		size_t written;
 		error = vfs_write(fatfs->backing, &new_dent, sizeof(new_dent), dent_disk_offset, &written, 0);
-		if (error)
+		if (error) {
+			VOP_RELEASE(vtarget);
 			return error;
+		}
 
 		__assert(written == sizeof(new_dent));
 
-		// remove from the vnode map
 		MUTEX_ACQUIRE(&fatfs->vnode_map_mutex);
-		__assert(hashtable_remove(&fatfs->vnode_map, &target->dent_disk_offset, sizeof(target->dent_disk_offset)) == 0);
+		// remove from the vnode map
+		__assert(hashtable_remove(&fatfs->vnode_map, &dent_disk_offset, sizeof(dent_disk_offset)) == 0);
 		MUTEX_RELEASE(&fatfs->vnode_map_mutex);
+
 		VOP_RELEASE(vtarget); // table hold
 
 		__assert(target->parent_dir == target_dir);
 		VOP_RELEASE(vtarget_dir)
 		target->parent_dir = NULL;
 		target->dent_disk_offset = 0;
+
+		VOP_RELEASE(vtarget); // lookup hold
+	} else {
+		VOP_RELEASE(vtarget);
+		return error;
 	}
 
 	MUTEX_ACQUIRE(&fatfs->vnode_map_mutex);
@@ -808,38 +889,11 @@ static int fatfs_unlink(vnode_t *vnode, vnode_t *child, char *name, cred_t *cred
 	fatfs_t *fs = (fatfs_t *)vnode->vfs;
 	fatnode_t *child_fatnode = (fatnode_t *)child;
 
-	// check if its actually empty (readcount > 2, asserted 2 for . and ..)
-	if (child->type == V_TYPE_DIR) {
-		size_t readcount;
-		dent_t *dents = alloc(sizeof(dent_t) * 3);
-		if (dents == NULL)
-			return ENOMEM;
-
-		int error = fatfs_getdents(child, dents, 3, 0, &readcount);
-		if (error) {
-			free(dents);
-			return error;
-		}
-
-		if (readcount > 2) {
-			free(dents);
-			return ENOTEMPTY;
-		}
-
-		// if any of the dot entries is missing, do not do anything as we cannot be sure of consistency
-		if (readcount != 2 ||
-		strcmp(dents[0].d_name, ".") != 0 || strcmp(dents[1].d_name, "..") != 0) {
-			free(dents);
-			printf("fatfs: filesystem corruption detected: missng or bad dot entries\n");
-			return ENOTEMPTY;
-		}
-
-		free(dents);
-	}
+	int error = child->type == V_TYPE_DIR ? is_directory_empty(child_fatnode) : 0;
 
 	// remove the dent
 	fatfs_dent_t dent;
-	int error = fatfs_directory_lookup(fs, node, name, &dent, NULL);
+	error = fatfs_directory_lookup(fs, node, name, &dent, NULL);
 	if (error)
 		return error;
 

@@ -137,7 +137,6 @@ int fatfs_cluster_chain_length(fatfs_t *fatfs, fatfs_cluster_t cluster, size_t *
 	if (cluster == 0)
 		return 0;
 	while (fatfs_is_cluster_eof(fatfs, cluster) == false) {
-		printf("chain length: %x\n", cluster);
 		int error = fatfs_next_cluster(fatfs, cluster, &cluster);
 		if (error)
 			return error;
@@ -275,6 +274,21 @@ int fatfs_allocate_cluster(fatfs_t *fatfs, fatfs_cluster_t reference, fatfs_clus
 	return error;
 }
 
+int fatfs_destroy_chain(fatfs_t *fatfs, fatfs_cluster_t cluster) {
+		// truncate whole file
+		int error = fatfs_cut_chain(fatfs, cluster);
+		if (error)
+			return error;
+
+		error = fatfs_set_next_cluster(fatfs, cluster, FATFS_CLUSTER_FREE, true);
+		if (error)
+			return error;
+
+		// [increment and update fsinfo]
+
+		return error;
+}
+
 int fatfs_resize_file(fatfs_t *fatfs, fatnode_t *fatnode, size_t new_size) {
 	size_t current_cluster_count = ROUND_UP(fatnode->size, fatfs->cluster_size) / fatfs->cluster_size;
 	size_t new_cluster_count = ROUND_UP(new_size, fatfs->cluster_size) / fatfs->cluster_size;
@@ -317,13 +331,11 @@ int fatfs_resize_file(fatfs_t *fatfs, fatnode_t *fatnode, size_t new_size) {
 		}
 	} else if (new_cluster_count == 0) {
 		// truncate whole file
-		error = fatfs_cut_chain(fatfs, fatnode->cluster);
+		error = fatfs_destroy_chain(fatfs, fatnode->cluster);
 		if (error)
 			return error;
 
-		error = fatfs_set_next_cluster(fatfs, fatnode->cluster, FATFS_CLUSTER_FREE, true);
-		if (error)
-			return error;
+		// [update fsinfo]
 
 		fatnode->cluster = 0;
 		fatnode->saved_cluster = 0;
