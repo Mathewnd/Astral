@@ -334,18 +334,13 @@ int vfs_create(vnode_t *ref, char *path, vattr_t *attr, int type, vnode_t **node
 
 	err = VOP_ACCESS(parent, V_ACCESS_WRITE, getcred());
 	if (err) {
-		VOP_UNLOCK(parent);
-		VOP_RELEASE(parent);
 		goto cleanup_parent;
 	}
 
 	vnode_t *ret;
 	err = VOP_CREATE(parent, component, attr, type, &ret, getcred());
-	VOP_RELEASE(parent);
-	if (err) {
-		VOP_UNLOCK(parent);
-		goto cleanup;
-	}
+	if (err)
+		goto cleanup_parent;
 
 	if (node) {
 		*node = ret;
@@ -356,6 +351,7 @@ int vfs_create(vnode_t *ref, char *path, vattr_t *attr, int type, vnode_t **node
 	}
 
 	cleanup_parent:
+	VOP_RELEASE(parent);
 	VOP_UNLOCK(parent);
 	cleanup:
 	free(component);
@@ -701,7 +697,12 @@ int vfs_unlink(vnode_t *ref, char *path) {
 	if (err)
 		goto cleanup;
 
-	bool isdotdot = strcmp(path, "..") == 0;
+	if (strcmp(component, "..") == 0 || strcmp(component, ".") == 0) {
+		VOP_UNLOCK(parent);
+		VOP_RELEASE(parent);
+		err = EBUSY;
+		goto cleanup;
+	}
 
 	vnode_t *child = NULL;
 	err = VOP_LOOKUP(parent, component, &child, getcred());
@@ -716,12 +717,11 @@ int vfs_unlink(vnode_t *ref, char *path) {
 		goto cleanup_release;
 
 	err = VOP_UNLINK(parent, child, component, getcred());
+
 	cleanup_release:
 	// locked by VOP_LOOKUP
 	VOP_UNLOCK(child);
-	// locked by vfs_lookup, unlocked by VOP_LOOKUP if component is ".."
-	if (!isdotdot)
-		VOP_UNLOCK(parent);
+	VOP_UNLOCK(parent);
 
 	VOP_RELEASE(child);
 	VOP_RELEASE(parent);

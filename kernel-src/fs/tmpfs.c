@@ -291,7 +291,7 @@ static int tmpfs_unlink(vnode_t *node, vnode_t *child, char *name, cred_t *cred)
 
 	if (child->type == V_TYPE_DIR) {
 		// undo .. entry link
-		VOP_RELEASE(node);
+		// note that the parent unref happens only at freenode() time
 		--tmpnode->attr.nlinks;
 	}
 
@@ -387,7 +387,7 @@ static int tmpfs_rename(vnode_t *source, vnode_t *sourcefile, char *oldname, vno
 	if (sourcefile->type == V_TYPE_DIR && targetdir != sourcedir) {
 		tmpfsnode_t *v = (tmpfsnode_t *)sourcefile;
 		// handle .. entry 
-		__assert(hashtable_set(&v->children, targetdir, "..", 3, false) == 0);
+		__assert(hashtable_set(&v->children, targetdir, "..", 2, false) == 0);
 		sourcedir->attr.nlinks -= 1;
 		targetdir->attr.nlinks += 1;
 
@@ -396,6 +396,8 @@ static int tmpfs_rename(vnode_t *source, vnode_t *sourcefile, char *oldname, vno
 	}
 
 	if (oldnode) {
+		if (oldnode->type == V_TYPE_DIR)
+			VOP_HOLD(target); // account for the oldnode reference that will be released
 		tmpfsnode_t *old_tmpnode = (tmpfsnode_t *)oldnode;
 		--old_tmpnode->attr.nlinks;
 		VOP_RELEASE(oldnode);
@@ -492,6 +494,7 @@ static int tmpfs_getdents(vnode_t *node, dent_t *buffer, size_t count, uintmax_t
 }
 
 static int tmpfs_inactive(vnode_t *node) {
+	arch_e9_puts("tmpfs_inactive\n");
 	tmpfsnode_t *tmp_node = (tmpfsnode_t *)node;
 	__assert(tmp_node->attr.nlinks == (node->type == V_TYPE_DIR ? 1 : 0));
 	if (node->type == V_TYPE_REGULAR) {
