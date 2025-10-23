@@ -440,8 +440,6 @@ int vfs_write_iovec(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size
 		page_t *page = NULL;
 
 		if (startoffset) {
-			if (node->type == V_TYPE_BLKDEV)
-				arch_e9_puts("1\n");
 			// unaligned first page
 			err = vmmcache_getpage(node, pageoffset * PAGE_SIZE, &page);
 			if (err)
@@ -471,8 +469,6 @@ int vfs_write_iovec(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size
 		}
 
 		for (uintmax_t offset = 0; offset < pagecount * PAGE_SIZE; offset += PAGE_SIZE) {
-			if (node->type == V_TYPE_BLKDEV)
-				arch_e9_puts("2\n");
 			// the other pages
 			err = vmmcache_getpage(node, pageoffset * PAGE_SIZE + offset, &page);
 			if (err)

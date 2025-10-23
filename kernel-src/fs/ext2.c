@@ -1643,7 +1643,7 @@ static int ext2_munmap(vnode_t *node, void *addr, uintmax_t offset, int flags, c
 }
 
 static int handleinodeunlink(ext2fs_t *fs, ext2node_t *node, int inode, ext2node_t *known) {
-	bool isdir = false;
+	bool cleanup_parent_dir = false;
 	void *v;
 	MUTEX_ACQUIRE(&fs->inodetablelock);
 	int err = hashtable_get(&fs->inodetable, &v, &inode, sizeof(inode));
@@ -1653,8 +1653,8 @@ static int handleinodeunlink(ext2fs_t *fs, ext2node_t *node, int inode, ext2node
 		err = readinode(fs, &buff, inode);
 		ASSERT_UNCLEAN(fs, err == 0);
 		if (err == 0) {
-			if (INODE_TYPEPERM_TYPE(buff.typeperm) == INODE_TYPE_DIR) { // account for . entry
-				isdir = true;
+			if (INODE_TYPEPERM_TYPE(buff.typeperm) == INODE_TYPE_DIR && buff.links == 2) { // dir cleanup if nlinks == 2
+				cleanup_parent_dir = true;
 				buff.links -= 1;
 			}
 
@@ -1681,8 +1681,8 @@ static int handleinodeunlink(ext2fs_t *fs, ext2node_t *node, int inode, ext2node
 		if (known == NULL)
 			VOP_LOCK(&unlinknode->vnode);
 
-		if (INODE_TYPEPERM_TYPE(unlinknode->inode.typeperm) == INODE_TYPE_DIR) { // account for . entry
-			isdir = 1;
+		if (INODE_TYPEPERM_TYPE(unlinknode->inode.typeperm) == INODE_TYPE_DIR && unlinknode->inode.links == 2) { // cleanup dir if nlinks == 2
+			cleanup_parent_dir = true;
 			unlinknode->inode.links -= 1;
 		}
 
@@ -1700,7 +1700,7 @@ static int handleinodeunlink(ext2fs_t *fs, ext2node_t *node, int inode, ext2node
 		}
 	}
 
-	if (isdir) { // account for .. entry in unlinked dir
+	if (cleanup_parent_dir) { // account for .. entry in unlinked dir
 		--node->inode.links;
 		ASSERT_UNCLEAN(fs, writeinode(fs, &node->inode, node->id) == 0);
 	}
@@ -1743,7 +1743,7 @@ static int ext2_unlink(vnode_t *vnode, vnode_t *child, char *name, cred_t *cred)
 	ext2node_t *node = (ext2node_t *)vnode;
 	ext2fs_t *fs = (ext2fs_t *)vnode->vfs;
 
-	int err = child->type == V_TYPE_DIR ? is_directory_empty(node) : 0;
+	int err = child->type == V_TYPE_DIR ? is_directory_empty((ext2node_t *)child) : 0;
 	if (err)
 		return err;
 
@@ -1894,14 +1894,18 @@ static int ext2_rename(vnode_t *sourcedir, vnode_t *source, char *oldname, vnode
 	err = handleinodeunlink(fs, ext2sourcedirnode, inode, (ext2node_t *)ext2sourcenode);
 	ASSERT_UNCLEAN(fs, err == 0);
 
-	// handle .. entry when directory
-	if (source->type == V_TYPE_DIR) {
+	// handle .. entry when directory and have different parent directoriess
+	if (source->type == V_TYPE_DIR && ext2sourcedirnode != ext2targetdirnode) {
 		err = findindir(fs, ext2sourcenode, "..", &inode, ext2targetdirnode);
 		ASSERT_UNCLEAN(fs, err == 0);
 		if (err)
 			return err;
 
-		// no need to change nlinks, as renaming on a dir is only possible when there was already a dir there
+		ext2targetdirnode->inode.links += 1;
+		ASSERT_UNCLEAN(fs, writeinode(fs, &ext2targetdirnode->inode, ext2targetdirnode->id) == 0);
+
+		ext2sourcedirnode->inode.links -= 1;
+		ASSERT_UNCLEAN(fs, writeinode(fs, &ext2sourcedirnode->inode, ext2sourcedirnode->id) == 0);
 	}
 
 	return err;

@@ -117,7 +117,7 @@ static int tmpfs_create(vnode_t *parent, char *name, vattr_t *attr, int type, vn
 	tmpattr.size = 0;
 	tmpattr.type = type;
 	int error = tmpfs_setattr(node, &tmpattr, V_ATTR_ALL, cred);
-	tmpnode->attr.nlinks = 1;
+	tmpnode->attr.nlinks = type == V_TYPE_DIR ? 2 : 1;
 
 	if (error) {
 		VOP_RELEASE(node);
@@ -141,8 +141,10 @@ static int tmpfs_create(vnode_t *parent, char *name, vattr_t *attr, int type, vn
 	}
 
 	// hold the .. reference (done here to reduce cleanup)
-	if (type == V_TYPE_DIR)
+	if (type == V_TYPE_DIR) {
+		parenttmpnode->attr.nlinks += 1;
 		VOP_HOLD(parent);
+	}
 
 	node->vfs = parent->vfs;
 	*result = node;
@@ -286,6 +288,13 @@ static int tmpfs_unlink(vnode_t *node, vnode_t *child, char *name, cred_t *cred)
 		return err;
 
 	--unlinktmpnode->attr.nlinks;
+
+	if (child->type == V_TYPE_DIR) {
+		// undo .. entry link
+		VOP_RELEASE(node);
+		--tmpnode->attr.nlinks;
+	}
+
 	VOP_RELEASE(unlinknode);
 
 	return 0;
@@ -375,8 +384,22 @@ static int tmpfs_rename(vnode_t *source, vnode_t *sourcefile, char *oldname, vno
 	// remove old link. should not fail
 	__assert(hashtable_remove(&sourcedir->children, oldname, oldlen) == 0);
 
-	if (oldnode)
+	if (sourcefile->type == V_TYPE_DIR && targetdir != sourcedir) {
+		tmpfsnode_t *v = (tmpfsnode_t *)sourcefile;
+		// handle .. entry 
+		__assert(hashtable_set(&v->children, targetdir, "..", 3, false) == 0);
+		sourcedir->attr.nlinks -= 1;
+		targetdir->attr.nlinks += 1;
+
+		VOP_RELEASE(source);
+		VOP_HOLD(target);
+	}
+
+	if (oldnode) {
+		tmpfsnode_t *old_tmpnode = (tmpfsnode_t *)oldnode;
+		--old_tmpnode->attr.nlinks;
 		VOP_RELEASE(oldnode);
+	}
 
 	cleanup:
 	return error;
@@ -469,10 +492,12 @@ static int tmpfs_getdents(vnode_t *node, dent_t *buffer, size_t count, uintmax_t
 }
 
 static int tmpfs_inactive(vnode_t *node) {
+	tmpfsnode_t *tmp_node = (tmpfsnode_t *)node;
+	__assert(tmp_node->attr.nlinks == (node->type == V_TYPE_DIR ? 1 : 0));
 	if (node->type == V_TYPE_REGULAR) {
 		vmmcache_truncate(node, 0);
 	}
-	freenode((tmpfsnode_t *)node);
+	freenode(tmp_node);
 	return 0;
 }
 
