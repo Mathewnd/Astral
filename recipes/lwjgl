@@ -1,0 +1,21 @@
+name=lwjgl
+revision=1
+from_source=lwjgl
+imagedeps="build-essential zip unzip file ant openjdk-8-jdk"
+hostdeps="xgcc xbinutils libstdc++-v3 pkgconfig autoconf"
+deps="base alsa-lib cups freetype fontconfig libpng libjpeg-turbo zlib libx11 libxext libxi libxrandr libxrender libxt libxtst xorgproto libiconv libffi libxcursor libxxf86vm"
+
+configure() {
+	cp -rp ${source_dir}/* .
+	cp -rp ${source_dir}/.* .
+}
+
+build() {
+	JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64/ ant -DCC=x86_64-astral-gcc -Dhwplatform=x86_64 -Dlwjgl.platform.linux=false -Dlwjgl.platform.astral=true
+}
+
+package() {
+	mkdir -vp ${dest_dir}/${prefix}/share/lwjgl
+	cp -rv libs/*.jar ${dest_dir}/${prefix}/share/lwjgl
+	cp -rv libs/astral/* ${dest_dir}/${prefix}/share/lwjgl
+}

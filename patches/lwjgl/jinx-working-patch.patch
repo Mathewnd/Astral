@@ -1,0 +1,157 @@
+diff --git lwjgl-clean/build.xml lwjgl-workdir/build.xml
+index 7f6bb68..1e9d04c 100644
+--- lwjgl-clean/build.xml
++++ lwjgl-workdir/build.xml
+@@ -30,6 +30,7 @@
+ 		<mkdir dir="${lwjgl.temp}/doc"              taskname="initialiazing temp/doc folder" />
+ 		<mkdir dir="${lwjgl.temp}/res"              taskname="initialiazing temp/res folder" />
+ 		<mkdir dir="${lwjgl.temp}/native"           taskname="initialiazing temp/native folder" />
++		<mkdir dir="${lwjgl.temp}/native/astral"    taskname="initialiazing temp/astral folder" />
+ 		<mkdir dir="${lwjgl.temp}/native/windows"   taskname="initialiazing temp/windows folder" />
+ 		<mkdir dir="${lwjgl.temp}/native/linux"     taskname="initialiazing temp/linux folder" />
+ 		<mkdir dir="${lwjgl.temp}/native/freebsd"   taskname="initialiazing temp/freebsd folder" />
+@@ -58,7 +59,7 @@
+ 	<!-- Creates a distribution of LWJGL -->
+ 	<target name="release" description="Creates a distribution of LWJGL using supplied native binaries">
+ 		<!-- Warn user -->
+-        <echo message="Before running the release target, please manually compile all platforms and place required files in ${lwjgl.lib}/windows, ${lwjgl.lib}/linux, ${lwjgl.lib}/freebsd and ${lwjgl.lib}/macosx${line.separator}Missing files will result in a successfull built, but with incomplete release zips"/>
++		<echo message="Before running the release target, please manually compile all platforms and place required files in ${lwjgl.lib}/astral, ${lwjgl.lib}/windows, ${lwjgl.lib}/linux, ${lwjgl.lib}/freebsd and ${lwjgl.lib}/macosx${line.separator}Missing files will result in a successfull built, but with incomplete release zips"/>
+         <input
+             message="All data in the ${lwjgl.dist} folder will be deleted. Continue? "
+             validargs="yes,no"
+@@ -235,6 +236,11 @@
+ 		<copy todir="${lwjgl.temp}/jar">
+ 			<fileset dir="${lwjgl.lib}/" includes="*.jar"/>
+ 		</copy>
++		<copy todir="${lwjgl.temp}/native/astral">
++			<fileset dir="${lwjgl.lib}/astral">
++				<patternset refid="lwjgl-astral.fileset" />
++			</fileset>
++		</copy>
+ 		<copy todir="${lwjgl.temp}/native/windows">
+ 			<fileset dir="${lwjgl.lib}/windows">
+ 				<patternset refid="lwjgl-windows.fileset" />
+@@ -423,6 +429,8 @@
+ 			</filterchain>
+ 		</loadfile>
+ 		<echo>
++			lwjgl.java.astral.version = ${lwjgl.java.astral.version}
++			lwjgl.native.astral.version = ${lwjgl.native.astral.version}
+ 			lwjgl.java.windows.version = ${lwjgl.java.windows.version}
+ 			lwjgl.native.windows.version = ${lwjgl.native.windows.version}
+ 			lwjgl.java.linux.version = ${lwjgl.java.linux.version}
+@@ -485,10 +493,10 @@
+ 		</condition>
+ 		<antcall target="-compile_native_win32" />
+ 
+-		<condition property="lwjgl.platform.linux">
+-			<os name="Linux" />
++		<condition property="lwjgl.platform.astral">
++			<os name="Astral" />
+ 		</condition>
+-		<antcall target="-compile_native_linux" />
++		<antcall target="-compile_native_astral" />
+ 
+ 		<condition property="lwjgl.platform.freebsd">
+ 			<os name="FreeBSD" />
+@@ -520,6 +528,14 @@
+ 		<version-check platform="windows"/>
+ 	</target>
+ 
++	<target name="-compile_native_astral" if="lwjgl.platform.astral">
++		<ant antfile="platform_build/astral_ant/build.xml" inheritAll="false"/>
++		<copy todir="${lwjgl.lib}/astral">
++			<fileset dir="${lwjgl.bin}/lwjgl" includes="liblwjgl*.so"/>
++		</copy>
++		<!-- headless issues <version-check platform="astral"/> -->
++	</target>
++
+ 	<!-- Compiles LWJGL on Linux platforms -->
+ 	<target name="-compile_native_linux" if="lwjgl.platform.linux">
+ 		<ant antfile="platform_build/linux_ant/build.xml" inheritAll="false"/>
+@@ -568,11 +584,6 @@
+ 			<os family="windows"/>
+ 		</condition>
+ 		<antcall target="-compile_native_win32_es"/>
+-
+-		<condition property="lwjgl.platform.linux">
+-			<os name="Linux"/>
+-		</condition>
+-		<antcall target="-compile_native_linux_es"/>
+ 	</target>
+ 
+ 	<!-- Compiles LWJGL ES on Win32 platforms  -->
+diff --git lwjgl-workdir/platform_build/astral_ant/build.xml lwjgl-workdir/platform_build/astral_ant/build.xml
+new file mode 100644
+index 0000000..4c3980c
+--- /dev/null
++++ lwjgl-workdir/platform_build/astral_ant/build.xml
+@@ -0,0 +1,68 @@
++<?xml version="1.0"?>
++
++<project name="lwjgl native code, astral" basedir="../../bin/lwjgl" default="compile">
++	<property name="native" location="../../src/native"/>
++	<property name="libname64" value="liblwjgl64.so"/>
++	<property name="libs64" value="-L/usr/X11R6/lib -L/usr/local/lib -lm -lX11 -lXext -lXcursor -lXrandr -lXxf86vm -pthread -L${java.home}/lib/amd64 -ljawt" />
++
++	<target name="clean">
++		<delete>
++			<fileset dir="x64"/>
++			<fileset dir="." includes="*.o"/>
++			<fileset dir="." includes="*.so"/>
++		</delete>
++	</target>
++
++    <target name="compile">
++		<exec executable="uname" outputproperty="hwplatform">
++			<arg value="-m"/>
++		</exec>
++		<condition property="cflags_pthread" value="-pthreads" else="-pthread">
++			<os name="SunOS" />
++		</condition>
++		<condition property="version_script_flags64" value="-m64" else="-Wl,--version-script='${native}/linux/lwjgl.map'">
++			<and>
++				<os name="SunOS" />
++			</and>
++		</condition>
++    	<condition property="cflags64" value="-O2 -m64 -Wall -c -fPIC -std=c99 -Wunused" else="-O2 -Wall -c -fPIC -std=c99 -Wunused">
++    		<os name="SunOS" />
++    	</condition>
++
++		<property name="linker_flags64" value="${version_script_flags64} -shared -O2 -Wall -o ${libname64} ${libs64}"/>
++
++    	<antcall target="compile64"/>
++    </target>
++
++    <target name="compile64">
++    	<mkdir dir="x64"/>
++	<apply dir="x64" executable="${CC}" skipemptyfilesets="true" failonerror="true">
++			<arg line="${cflags64} ${cflags_pthread}"/>
++			<arg value="-I${java.home}/include"/>
++			<arg value="-I${java.home}/include/linux"/>
++			<arg value="-I${java.home}/include/astral"/>
++			<arg value="-I${java.home}/../include"/>
++			<arg value="-I${java.home}/../include/linux"/>
++			<arg value="-I${java.home}/../include/astral"/>
++            <arg value="-I/usr/local/include"/>
++			<arg value="-I/usr/X11R6/include"/>
++            <arg value="-I${native}/common"/>
++		    <arg value="-I${native}/common/opengl"/>
++			<arg value="-I${native}/linux"/>
++		    <arg value="-I${native}/linux/opengl"/>
++			<mapper type="glob" from="*.c" to="*.o"/>
++		    <fileset dir="${native}/common" includes="*.c"/>
++		    <fileset dir="${native}/common/opengl" includes="*.c"/>
++		    <fileset dir="${native}/generated/openal" includes="*.c"/>
++		    <fileset dir="${native}/generated/opencl" includes="*.c"/>    		
++		    <fileset dir="${native}/generated/opengl" includes="*.c"/>
++		    <fileset dir="${native}/linux" includes="*.c"/>
++		    <fileset dir="${native}/linux/opengl" includes="*.c"/>
++	    </apply>
++	    <apply dir="." parallel="true" executable="${CC}" failonerror="true">
++			<srcfile/>
++			<arg line="${linker_flags64}"/>
++			<fileset dir="x64" includes="*.o"/>
++		</apply>
++    </target>
++</project>
