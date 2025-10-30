@@ -225,3 +225,17 @@ index 119574e..f9f1cde 100644
  }
  
  void backtrace_symbols_fd(void *const *buffer, int size, int fd) {
+diff --git mlibc-clean/options/rtld/generic/main.cpp mlibc-workdir/options/rtld/generic/main.cpp
+index b2db152..e6438fe 100644
+--- mlibc-clean/options/rtld/generic/main.cpp
++++ mlibc-workdir/options/rtld/generic/main.cpp
+@@ -681,6 +681,9 @@ void *__dlapi_open(const char *file, int flags, void *returnAddress) {
+ 			}
+ 		}
+ 
++		if (isGlobal)
++			object->localScope = globalScope.get();
++
+ 		Loader linker{object->localScope, nullptr, false, rts};
+ 		linker.linkObjects(object);
+ 		linker.initObjects(initialRepository.get());
