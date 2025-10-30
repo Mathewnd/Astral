@@ -9,6 +9,7 @@
 #include <kernel/abi.h>
 #include <kernel/poll.h>
 #include <kernel/init.h>
+#include <kernel/usercopy.h>
 
 #define BUFFER_SIZE 16 * PAGE_SIZE
 #define PIPE_ATOMIC_SIZE 4096
@@ -368,6 +369,24 @@ static int pipefs_advlock(vnode_t *node, int op, advlock_t *advlock) {
 	return vfs_advlock(node, op, advlock);
 }
 
+static int pipefs_ioctl(vnode_t *node, unsigned long request, void *arg, int *result, cred_t *cred) {
+	pipenode_t *pipenode = (pipenode_t *)node;
+	int error = ENOTTY;
+
+	INTERNAL_LOCK(node);
+
+	switch (request) {
+		case FIONREAD: {
+			int i = RINGBUFFER_DATACOUNT(&pipenode->data);
+			error = USERCOPY_POSSIBLY_TO_USER(arg, &i, sizeof(int));
+			break;
+		}
+	}
+	
+	INTERNAL_UNLOCK(node);
+	return error;
+}
+
 static int pipefs_enodev() {
 	return ENODEV;
 }
@@ -397,6 +416,7 @@ static vops_t vnops = {
 	.getpage = pipefs_enodev,
 	.sync = pipefs_enodev,
 	.advlock = pipefs_advlock,
+	.ioctl = pipefs_ioctl,
 	.lock = pipefs_lock,
 	.unlock = pipefs_unlock
 };
