@@ -468,3 +468,66 @@ index e33d9b4..39f784f 100644
  #else // solaris / linux
      jlong num_physical_pages = sysconf(_SC_PHYS_PAGES);
      return (num_physical_pages * page_size);
+diff --git openjdk17-clean/src/java.base/unix/classes/java/lang/ProcessImpl.java openjdk17-workdir/src/java.base/unix/classes/java/lang/ProcessImpl.java
+index 2bf36f8..705daf3 100644
+--- openjdk17-clean/src/java.base/unix/classes/java/lang/ProcessImpl.java
++++ openjdk17-workdir/src/java.base/unix/classes/java/lang/ProcessImpl.java
+@@ -89,8 +89,11 @@ final class ProcessImpl extends Process {
+ 
+         BSD(LaunchMechanism.POSIX_SPAWN, LaunchMechanism.FORK),
+ 
++	ASTRAL(LaunchMechanism.FORK),
++
+         AIX(LaunchMechanism.POSIX_SPAWN, LaunchMechanism.FORK);
+ 
++
+         final LaunchMechanism defaultLaunchMechanism;
+         final Set<LaunchMechanism> validLaunchMechanisms;
+ 
+@@ -135,6 +138,7 @@ final class ProcessImpl extends Process {
+             if (osName.equals("Linux")) { return LINUX; }
+             if (osName.contains("OS X")) { return BSD; }
+             if (osName.equals("AIX")) { return AIX; }
++            if (osName.equals("Astral")) { return ASTRAL; }
+ 
+             throw new Error(osName + " is not a supported OS platform.");
+         }
+@@ -346,6 +350,7 @@ final class ProcessImpl extends Process {
+      */
+     void initStreams(int[] fds, boolean forceNullOutputStream) throws IOException {
+         switch (platform) {
++            case ASTRAL:
+             case LINUX:
+             case BSD:
+                 stdin = (fds[0] == -1) ?
+@@ -464,6 +469,7 @@ final class ProcessImpl extends Process {
+ 
+     private void destroy(boolean force) {
+         switch (platform) {
++            case ASTRAL:
+             case LINUX:
+             case BSD:
+             case AIX:
+diff --git openjdk17-clean/src/java.desktop/share/classes/sun/awt/OSInfo.java openjdk17-workdir/src/java.desktop/share/classes/sun/awt/OSInfo.java
+index 8770ed2..fe02b7d 100644
+--- openjdk17-clean/src/java.desktop/share/classes/sun/awt/OSInfo.java
++++ openjdk17-workdir/src/java.desktop/share/classes/sun/awt/OSInfo.java
+@@ -40,6 +40,7 @@ public class OSInfo {
+         LINUX,
+         MACOSX,
+         AIX,
++	ASTRAL,
+         UNKNOWN
+     }
+ 
+@@ -107,6 +108,10 @@ public class OSInfo {
+                 return AIX;
+             }
+ 
++	    if (osName.contains("Astral")) {
++                return ASTRAL;
++            }
++
+             // determine another OS here
+         }
+ 
