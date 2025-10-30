@@ -3,7 +3,7 @@ revision=1
 from_source=lwjgl
 imagedeps="build-essential zip unzip file ant openjdk-8-jdk"
 hostdeps="xgcc xbinutils libstdc++-v3 pkgconfig autoconf"
-deps="base alsa-lib cups freetype fontconfig libpng libjpeg-turbo zlib libx11 libxext libxi libxrandr libxrender libxt libxtst xorgproto libiconv libffi libxcursor libxxf86vm"
+deps="base alsa-lib cups freetype fontconfig libpng libjpeg-turbo zlib libx11 libxext libxi libxrandr libxrender libxt libxtst xorgproto libiconv libffi libxcursor libxxf86vm openjdk17"
 
 configure() {
 	cp -rp ${source_dir}/* .
@@ -11,7 +11,7 @@ configure() {
 }
 
 build() {
-	JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64/ ant -DCC=x86_64-astral-gcc -Dhwplatform=x86_64 -Dlwjgl.platform.linux=false -Dlwjgl.platform.astral=true
+	JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64 ant -DCC=x86_64-astral-gcc -Dhwplatform=x86_64 -Dlwjgl.platform.linux=false -Dlwjgl.platform.astral=true -Dsysroot=${sysroot_dir} -Dcross.java.home="/usr/lib/jvm/java-17/"
 }
 
 package() {

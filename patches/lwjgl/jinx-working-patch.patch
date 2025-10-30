@@ -83,7 +83,7 @@ index 7f6bb68..1e9d04c 100644
  	<!-- Compiles LWJGL ES on Win32 platforms  -->
 diff --git lwjgl-workdir/platform_build/astral_ant/build.xml lwjgl-workdir/platform_build/astral_ant/build.xml
 new file mode 100644
-index 0000000..4c3980c
+index 0000000..f87405e
 --- /dev/null
 +++ lwjgl-workdir/platform_build/astral_ant/build.xml
 @@ -0,0 +1,68 @@
@@ -92,7 +92,7 @@ index 0000000..4c3980c
 +<project name="lwjgl native code, astral" basedir="../../bin/lwjgl" default="compile">
 +	<property name="native" location="../../src/native"/>
 +	<property name="libname64" value="liblwjgl64.so"/>
-+	<property name="libs64" value="-L/usr/X11R6/lib -L/usr/local/lib -lm -lX11 -lXext -lXcursor -lXrandr -lXxf86vm -pthread -L${java.home}/lib/amd64 -ljawt" />
++	<property name="libs64" value="-L${sysroot}/usr/X11R6/lib -lm -lX11 -lXext -lXcursor -lXrandr -lXxf86vm -pthread -L${sysroot}/${cross.java.home}/lib -ljawt" />
 +
 +	<target name="clean">
 +		<delete>
@@ -124,17 +124,17 @@ index 0000000..4c3980c
 +    </target>
 +
 +    <target name="compile64">
-+    	<mkdir dir="x64"/>
++	    <mkdir dir="x64"/>
 +	<apply dir="x64" executable="${CC}" skipemptyfilesets="true" failonerror="true">
 +			<arg line="${cflags64} ${cflags_pthread}"/>
-+			<arg value="-I${java.home}/include"/>
-+			<arg value="-I${java.home}/include/linux"/>
-+			<arg value="-I${java.home}/include/astral"/>
-+			<arg value="-I${java.home}/../include"/>
-+			<arg value="-I${java.home}/../include/linux"/>
-+			<arg value="-I${java.home}/../include/astral"/>
-+            <arg value="-I/usr/local/include"/>
-+			<arg value="-I/usr/X11R6/include"/>
++			<arg value="-I${sysroot}/${cross.java.home}/include"/>
++			<arg value="-I${sysroot}/${cross.java.home}/include/linux"/>
++			<arg value="-I${sysroot}/${cross.java.home}/include/astral"/>
++			<arg value="-I${sysroot}/${cross.java.home}/../include"/>
++			<arg value="-I${sysroot}/${cross.java.home}/../include/linux"/>
++			<arg value="-I${sysroot}/${cross.java.home}/../include/astral"/>
++			<arg value="-I${sysroot}/usr/local/include"/>
++			<arg value="-I${sysroot}/usr/X11R6/include"/>
 +            <arg value="-I${native}/common"/>
 +		    <arg value="-I${native}/common/opengl"/>
 +			<arg value="-I${native}/linux"/>
@@ -155,3 +155,16 @@ index 0000000..4c3980c
 +		</apply>
 +    </target>
 +</project>
+diff --git lwjgl-clean/src/java/org/lwjgl/LWJGLUtil.java lwjgl-workdir/src/java/org/lwjgl/LWJGLUtil.java
+index 0ab810e..fc366ff 100644
+--- lwjgl-clean/src/java/org/lwjgl/LWJGLUtil.java
++++ lwjgl-workdir/src/java/org/lwjgl/LWJGLUtil.java
+@@ -272,7 +272,7 @@ public class LWJGLUtil {
+ 		final String osName = getPrivilegedProperty("os.name");
+ 		if ( osName.startsWith("Windows") )
+ 			PLATFORM = PLATFORM_WINDOWS;
+-		else if ( osName.startsWith("Linux") || osName.startsWith("FreeBSD") || osName.startsWith("OpenBSD") || osName.startsWith("SunOS") || osName.startsWith("Unix") )
++		else if ( osName.startsWith("Linux") || osName.startsWith("FreeBSD") || osName.startsWith("OpenBSD") || osName.startsWith("SunOS") || osName.startsWith("Unix") || osName.startsWith("Astral") )
+ 			PLATFORM = PLATFORM_LINUX;
+ 		else if ( osName.startsWith("Mac OS X") || osName.startsWith("Darwin") )
+ 			PLATFORM = PLATFORM_MACOSX;
