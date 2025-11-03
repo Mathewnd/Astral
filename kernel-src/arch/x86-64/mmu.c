@@ -327,9 +327,8 @@ static void pfisr(isr_t *self, context_t *ctx) {
 	thread_t *thread = current_thread();
 	interrupt_set(true);
 	int vmmerror = 0;
-	if (ctx->error & ERROR_PRESENT)
-		vmmerror |= VMM_ACTION_READ;
-	
+
+	vmmerror |= VMM_ACTION_READ; // valid x86 PTEs will always have read permission (present) and actions will always have a read because of that.
 	if (ctx->error & ERROR_WRITE)
 		vmmerror |= VMM_ACTION_WRITE;
 	
