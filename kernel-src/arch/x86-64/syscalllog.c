@@ -5,7 +5,7 @@
 
 #ifdef SYSCALL_LOGGING
 
-#define SYSCALL_COUNT 96
+#define SYSCALL_COUNT 97
 #define LOGSTR(x) arch_e9_puts(x)
 
 static char *name[] = {
@@ -104,7 +104,8 @@ static char *name[] = {
 	"shutdown",
 	"nice",
 	"flock",
-	"getcpu"
+	"getcpu",
+	"sysinfo"
 };
 
 static char *args[] = {
@@ -203,7 +204,8 @@ static char *args[] = {
 	"how %d", // shutdown
 	"off %d", // nice
 	"fd %d op %d", // flock
-	"N/A" // getcpu
+	"N/A", // getcpu
+	"ptr %p", // sysinfo
 };
 
 #endif

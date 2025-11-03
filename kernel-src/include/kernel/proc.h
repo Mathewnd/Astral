@@ -112,5 +112,6 @@ pid_t proc_allocate_pid(void);
 void proc_init(void);
 void proc_exit(void);
 void proc_run_init();
+size_t proc_get_count(void);
 
 #endif

@@ -46,6 +46,7 @@ void pmm_makefree(void *address, size_t count);
 void *pmm_alloc(size_t size, int section);
 void pmm_free(void *addr, size_t size);
 void pmm_init();
+void pmm_getinfo(size_t *total_pages, size_t *free_pages);
 
 extern uintptr_t hhdmbase;
 

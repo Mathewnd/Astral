@@ -323,3 +323,8 @@ void pmm_free(void *addr, size_t size) {
 	for (int i = 0; i < size; ++i)
 		pmm_release((void *)((uintptr_t)addr + PAGE_SIZE * i));
 }
+
+void pmm_getinfo(size_t *total_pages, size_t *free_pages) {
+	*total_pages = pagecount;
+	*free_pages = freepagecount;
+}

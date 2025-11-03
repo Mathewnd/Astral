@@ -23,6 +23,16 @@ pid_t proc_allocate_pid(void) {
 	return __atomic_fetch_add(&currpid, 1, __ATOMIC_SEQ_CST);
 }
 
+size_t proc_get_count(void) {
+	MUTEX_ACQUIRE(&proc_pid_table_mutex);
+
+	size_t count = pid_table.entrycount;
+
+	MUTEX_RELEASE(&proc_pid_table_mutex);
+
+	return count;
+}
+
 proc_t *proc_get_from_pid(int pid) {
 	MUTEX_ACQUIRE(&proc_pid_table_mutex);
 	void *_proc = NULL;
