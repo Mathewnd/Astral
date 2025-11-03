@@ -218,11 +218,10 @@ bool sched_wakeup(thread_t *thread, int reason) {
 static void dopreempt() {
 	// interrupts are disabled, the thread context is already saved
 	thread_t *current = current_thread();
-	current->flags &= ~THREAD_FLAGS_PREEMPTED;
 
 	spinlock_acquire(&current_cpu()->sched_lock);
 
-	current->flags &= ~THREAD_FLAGS_RUNNING;
+	current->flags &= ~(THREAD_FLAGS_RUNNING | THREAD_FLAGS_PREEMPTED);
 	sched_insert_in_cpu_queue(current_cpu(), current);
 	thread_t *next = sched_select_next_thread();
 
