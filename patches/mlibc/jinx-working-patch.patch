@@ -1,5 +1,5 @@
 diff --git mlibc-clean/options/ansi/generic/stdio.cpp mlibc-workdir/options/ansi/generic/stdio.cpp
-index 070168f..827732a 100644
+index 070168f..7f20cb2 100644
 --- mlibc-clean/options/ansi/generic/stdio.cpp
 +++ mlibc-workdir/options/ansi/generic/stdio.cpp
 @@ -8,6 +8,7 @@
@@ -173,6 +173,34 @@ index 070168f..827732a 100644
  			case 'd':
  			case 'u':
  				base = 10;
+@@ -787,21 +937,24 @@ static int do_scanf(H &handler, const char *fmt, __builtin_va_list args) {
+ 				}
+ 
+ 				for (; *fmt != ']'; fmt++) {
++					auto fmt_unsigned = reinterpret_cast<const unsigned char *>(fmt);
++
+ 					if (!*fmt) return EOF;
+ 					if (*fmt == '-' && *fmt != ']') {
+ 						fmt++;
+-						for (char c = *(fmt - 2); c < *fmt; c++)
++						fmt_unsigned++;
++						for (unsigned char c = *(fmt_unsigned - 2); c < *fmt_unsigned; c++)
+ 							scanset[1 + c] = 1 - invert;
+ 					}
+-					scanset[1 + *fmt] = 1 - invert;
++					scanset[1 + *fmt_unsigned] = 1 - invert;
+ 				}
+ 
+ 				char c = handler.look_ahead();
+ 				EOF_CHECK(c == '\0');
+ 				while (c && (!width || count < width)) {
+-					handler.consume();
+ 					if (!scanset[1 + c])
+ 						break;
++					handler.consume();
+ 
+ 					if(type == SCANF_TYPE_L)
+ 						append_to_wbuffer(c);
 diff --git mlibc-clean/options/glibc/generic/execinfo.cpp mlibc-workdir/options/glibc/generic/execinfo.cpp
 index 119574e..f9f1cde 100644
 --- mlibc-clean/options/glibc/generic/execinfo.cpp
@@ -225,6 +253,19 @@ index 119574e..f9f1cde 100644
  }
  
  void backtrace_symbols_fd(void *const *buffer, int size, int fd) {
+diff --git mlibc-clean/options/internal/include/bits/null.h mlibc-workdir/options/internal/include/bits/null.h
+index 176008f..4fddf21 100644
+--- mlibc-clean/options/internal/include/bits/null.h
++++ mlibc-workdir/options/internal/include/bits/null.h
+@@ -9,7 +9,7 @@
+ #ifndef __cplusplus
+ #  define NULL ((void *)0)
+ #else
+-#  define NULL 0
++#  define NULL 0L
+ #endif
+ 
+ #endif /* MLIBC_NULL_H */
 diff --git mlibc-clean/options/rtld/generic/main.cpp mlibc-workdir/options/rtld/generic/main.cpp
 index b2db152..e6438fe 100644
 --- mlibc-clean/options/rtld/generic/main.cpp
@@ -239,3 +280,31 @@ index b2db152..e6438fe 100644
  		Loader linker{object->localScope, nullptr, false, rts};
  		linker.linkObjects(object);
  		linker.initObjects(initialRepository.get());
+diff --git mlibc-clean/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
+index be7ad9e..6fb09ec 100644
+--- mlibc-clean/sysdeps/astral/generic/generic.cpp
++++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
+@@ -47,6 +47,11 @@ namespace mlibc {
+ 		return 0;
+ 	}
+ 
++	int sys_sysinfo(struct sysinfo *info) {
++		long r;
++		return syscall(SYSCALL_SYSINFO, &r, (uint64_t)info);
++	}
++
+ 	int sys_getcpu(int *cpu) {
+ 		long ret;
+ 		// can never fail
+diff --git mlibc-clean/sysdeps/astral/include/astral/syscall.h mlibc-workdir/sysdeps/astral/include/astral/syscall.h
+index 8414286..9773b9c 100644
+--- mlibc-clean/sysdeps/astral/include/astral/syscall.h
++++ mlibc-workdir/sysdeps/astral/include/astral/syscall.h
+@@ -100,6 +100,7 @@
+ #define SYSCALL_NICE 93
+ #define SYSCALL_FLOCK 94
+ #define SYSCALL_GETCPU 95
++#define SYSCALL_SYSINFO 96
+ 
+ #ifndef __MLIBC_ABI_ONLY
+ 
