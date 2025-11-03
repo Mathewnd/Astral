@@ -79,7 +79,7 @@ static void timeout(context_t *, dpcarg_t arg) {
 	spinlock_acquire(&desc->eventlock);
 
 	if (spinlock_try(&desc->lock))
-		sched_wakeup(desc->thread, 1);
+		sched_wakeup(desc->thread, ETIMEDOUT);
 
 	spinlock_release(&desc->eventlock);
 	interrupt_set(intstate);
@@ -115,14 +115,12 @@ int poll_dowait(polldesc_t *desc, size_t ustimeout) {
 		ret = EINTR;
 	}
 
-	if (ustimeout != 0 && ret != 1) {
+	if (ustimeout != 0 && ret != ETIMEDOUT) {
 		timer_remove(current_cpu()->timer, &sleepentry);
 		sched_target_cpu(NULL);
 	}
 
 	interrupt_set(intstate);
-
-	ret = ret == 1 ? 0 : ret;
 
 	return ret;
 }

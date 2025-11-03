@@ -5,6 +5,7 @@
 #include <hashtable.h>
 #include <kernel/poll.h>
 #include <kernel/alloc.h>
+#include <arch/cpu.h>
 
 static mutex_t futexmutex;
 static hashtable_t hashtable;
@@ -50,7 +51,14 @@ syscallret_t syscall_futex(context_t *, uint32_t *futexp, int op, uint32_t value
 		MUTEX_INIT(&futexmutex);
 	}
 
-	timespec_t timespec = tm ? *tm : (timespec_t){0};
+	timespec_t timespec = {0};
+	if (tm) {
+		ret.errno = usercopy_fromuser(&timespec, tm, sizeof(timespec_t));
+		if (ret.errno)
+			return ret;
+	}
+	uintmax_t us = timespec.s * 1000000 + timespec.ns / 1000;
+
 	polldesc_t desc = {0};
 	ret.errno = poll_initdesc(&desc, 1);
 	if (unlikely(ret.errno))
@@ -89,6 +97,12 @@ syscallret_t syscall_futex(context_t *, uint32_t *futexp, int op, uint32_t value
 				break;
 			}
 
+			// if timeout is zero, do not sleep
+			if (tm && us == 0) {
+				ret.errno = ETIMEDOUT;
+				break;
+			}
+
 			if (futex == NULL) {
 				futex = alloc(sizeof(futex_t));
 				if (futex == NULL) {
@@ -101,26 +115,21 @@ syscallret_t syscall_futex(context_t *, uint32_t *futexp, int op, uint32_t value
 					break;
 			}
 
-			uintmax_t us = timespec.s * 1000000 + timespec.ns / 1000;
 			++futex->waiting;
-			
+
 			for (;;) {
 				poll_add(&futex->pollheader, &desc.data[0], POLLOUT);
 
 				MUTEX_RELEASE(&futexmutex);
 
 				ret.errno = poll_dowait(&desc, us);
-				int revents = 0;
-				if (desc.event)
-					revents = desc.event->revents;
 
 				MUTEX_ACQUIRE(&futexmutex);
 
-				if (revents == 0 || ret.errno == EINTR) {
+				if (ret.errno) {
 					// timed out or interrupted
 					--futex->waiting;
 					futex->waking = futex->waking > futex->waiting ? futex->waiting : futex->waking; // if it happened during a wakeup, just to make sure nothing bad happens
-					ret.errno = ret.errno == EINTR ? EINTR : 0;
 				} else if (futex->waking == 0) {
 					// should go back to sleep
 					poll_leave(&desc);

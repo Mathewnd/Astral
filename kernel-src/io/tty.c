@@ -266,16 +266,15 @@ static int read(int minor, iovec_iterator_t *iovec_iterator, size_t size, uintma
 
 		error = poll_dowait(&desc, effectivetimeout);
 
-
-		if (error == 0 && (desc.event == NULL || (desc.event && desc.event->revents == 0))) {
-			// timed out!
-			poll_leave(&desc);
-			poll_destroydesc(&desc);
-			break;
-		}
-
 		poll_leave(&desc);
 		poll_destroydesc(&desc);
+
+		if (error == ETIMEDOUT) {
+			// this does not return an error on timeout.
+			// instead, it just returns the number of bytes read.
+			error = 0;
+			break;
+		}
 
 		if (error)
 			goto leave;

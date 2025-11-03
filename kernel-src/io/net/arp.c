@@ -270,7 +270,7 @@ int arp_lookup(netdev_t *netdev, uint32_t ip, mac_t *mac) {
 		}
 
 		MUTEX_RELEASE(&cachelock);
-		int timedout = EVENT_WAIT(&eventlistener, to);
+		e = EVENT_WAIT(&eventlistener, to);
 		MUTEX_ACQUIRE(&cachelock);
 		time = timekeeper_time();
 
@@ -279,7 +279,10 @@ int arp_lookup(netdev_t *netdev, uint32_t ip, mac_t *mac) {
 			break;
 		}
 
-		if (timedout || time.s > end.s || (end.s == time.s && time.ns >= end.ns)) {
+		if (e == EINTR)
+			return e;
+
+		if (e == ETIMEDOUT || time.s > end.s || (end.s == time.s && time.ns >= end.ns)) {
 			e = ENETUNREACH;
 			break;
 		}
