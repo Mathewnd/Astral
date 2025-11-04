@@ -96,6 +96,8 @@ extern syscall_nice
 extern syscall_flock
 extern syscall_getcpu
 extern syscall_sysinfo
+extern syscall_writev
+extern syscall_readv
 syscalltab:
 dq syscall_print
 dq syscall_mmap
@@ -194,7 +196,9 @@ dq syscall_nice
 dq syscall_flock
 dq syscall_getcpu
 dq syscall_sysinfo
-syscallcount equ 97
+dq syscall_writev
+dq syscall_readv
+syscallcount equ 99
 section .text
 global arch_syscall_entry
 ; on entry:
