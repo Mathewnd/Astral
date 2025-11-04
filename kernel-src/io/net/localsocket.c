@@ -237,9 +237,11 @@ static int sendctrl(socket_t *socket, sockctrl_t *ctrl, size_t len, size_t datas
 			// create a new barrier secion
 			__assert(peer->barrierwrite != peer->barriercurrent + BARRIER_SIZE);
 
+			if (peer->bytesremaining[peer->barrierwrite % BARRIER_SIZE])
+				++peer->barrierwrite;
+
 			peer->filesremaining[peer->barrierwrite % BARRIER_SIZE] = fdcount;
 			peer->bytesremaining[peer->barrierwrite % BARRIER_SIZE] = datasent;
-			++peer->barrierwrite;
 		}
 
 		ctrl = SOCK_CTRL_NEXT(ctrl);
@@ -466,7 +468,8 @@ static int localsock_recv(socket_t *socket, sockdesc_t *sockdesc) {
 
 		// check if we should step forward from that barrier
 		localsocket->bytesremaining[localsocket->barriercurrent % BARRIER_SIZE] -= recvcount;
-		if (localsocket->bytesremaining[localsocket->barriercurrent % BARRIER_SIZE] == 0)
+		if (localsocket->bytesremaining[localsocket->barriercurrent % BARRIER_SIZE] == 0 &&
+		    localsocket->bytesremaining[(localsocket->barriercurrent + 1) % BARRIER_SIZE])
 			++localsocket->barriercurrent;
 	}
 
