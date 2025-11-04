@@ -28,6 +28,7 @@
 #define AT_PHENT 4
 #define AT_PHNUM 5
 #define AT_ENTRY 9
+#define AT_SECURE 23
 #define AT_EXECFN 31
 
 typedef struct {
@@ -41,6 +42,7 @@ typedef struct {
 	auxv64_t phent;
 	auxv64_t entry;
 	auxv64_t execfn;
+	auxv64_t secure;
 	auxv64_t null;
 } auxv64list_t;
 

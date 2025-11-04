@@ -258,18 +258,32 @@ static syscallret_t execve(context_t *context, char *upath, char *uargv[], char 
 		VOP_RELEASE(interpnode);
 	}
 
-	stack = elf_preparestack(STACK_TOP, &auxv64, argv, envp, path);
-	if (stack == NULL) {
-		ret.errno = ENOMEM;
-		goto error;
-	}
-
 	vattr_t vattr;
 	VOP_LOCK(node);
 	ret.errno = VOP_GETATTR(node, &vattr, NULL);
 	VOP_UNLOCK(node);
 	if (ret.errno)
 		goto error;
+
+	int suid = -1;
+	int sgid = -1;
+
+	if (vattr.mode & V_ATTR_MODE_SUID) {
+		suid = vattr.uid;
+		auxv64.secure.val = 1;
+	}
+
+	if (vattr.mode & V_ATTR_MODE_SGID) {
+		sgid = vattr.gid;
+		auxv64.secure.val = 1;
+	}
+
+	stack = elf_preparestack(STACK_TOP, &auxv64, argv, envp, path);
+	if (stack == NULL) {
+		ret.errno = ENOMEM;
+		goto error;
+	}
+
 
 	ret.ret = 0;
 
@@ -296,15 +310,6 @@ static syscallret_t execve(context_t *context, char *upath, char *uargv[], char 
 	vmm_destroycontext(oldctx);
 	CTX_SP(context) = (uint64_t)stack;
 	CTX_IP(context) = (uint64_t)entry;
-
-	int suid = -1;
-	int sgid = -1;
-
-	if (vattr.mode & V_ATTR_MODE_SUID)
-		suid = vattr.uid;
-
-	if (vattr.mode & V_ATTR_MODE_SGID)
-		sgid = vattr.gid;
 
 	cred_doexec(&current_thread()->proc->cred, suid, sgid);
 

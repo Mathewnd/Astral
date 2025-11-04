@@ -162,7 +162,9 @@ int elf_load(vnode_t *vnode, void *base, void **entry, char **interpreter, auxv6
 	auxv64->phnum.type = AT_PHNUM;
 	auxv64->phent.type = AT_PHENT;
 	auxv64->entry.type = AT_ENTRY;
-	
+	auxv64->secure.type = AT_SECURE;
+
+	auxv64->secure.val = 0; // set later by whoever called elf_load
 	auxv64->phnum.val = header.phcount;
 	auxv64->phent.val = header.phsize;
 	auxv64->entry.val = header.entry + (uintptr_t)base;
