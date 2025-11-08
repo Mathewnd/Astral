@@ -1833,30 +1833,34 @@ static int ext2_rename(vnode_t *sourcedir, vnode_t *source, char *oldname, vnode
 	if (replaced_vnode) {
 		// we are replacing an existing link
 		// do some checks expected by posix
-		// TODO add these to fatfs and tmpfs
 		if (source->type != V_TYPE_DIR && replaced_vnode->type == V_TYPE_DIR) {
+			VOP_UNLOCK(replaced_vnode);
 			VOP_RELEASE(replaced_vnode);
 			return EISDIR;
 		}
 
 		if (source->type == V_TYPE_DIR && replaced_vnode->type != V_TYPE_DIR) {
+			VOP_UNLOCK(replaced_vnode);
 			VOP_RELEASE(replaced_vnode);
 			return ENOTDIR;
 		}
 
 		if (replaced_vnode->vfsmounted) {
+			VOP_UNLOCK(replaced_vnode);
 			VOP_RELEASE(replaced_vnode);
 			return EBUSY;
 		}
 
 		err = replaced_vnode->type == V_TYPE_DIR ? is_directory_empty(ext2_replaced_node) : 0;
 		if (err) {
+			VOP_UNLOCK(replaced_vnode);
 			VOP_RELEASE(replaced_vnode);
 			return err;
 		}
 
 		if (source == replaced_vnode) {
 			// POSIX says that if both are the same file, rename is a no-op
+			VOP_UNLOCK(replaced_vnode);
 			VOP_RELEASE(replaced_vnode);
 			return 0;
 		}
@@ -1873,9 +1877,11 @@ static int ext2_rename(vnode_t *sourcedir, vnode_t *source, char *oldname, vnode
 		err = handleinodeunlink(fs, ext2targetdirnode, oldinode, ext2_replaced_node);
 		ext2sourcenode->inode.links += 1;
 		ASSERT_UNCLEAN(fs, writeinode(fs, &ext2sourcenode->inode, ext2sourcenode->id) == 0);
+		VOP_UNLOCK(replaced_vnode);
 		VOP_RELEASE(replaced_vnode);
 	} else if (err) {
 		if (replaced_vnode) {
+			VOP_UNLOCK(replaced_vnode);
 			VOP_RELEASE(replaced_vnode);
 		}
 	}

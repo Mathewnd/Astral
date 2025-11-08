@@ -731,28 +731,33 @@ static int fatfs_rename(vnode_t *vsource_dir, vnode_t *vsource, char *old_name, 
 		// we are replacing an existing link
 		// do some checks expected by posix
 		if (vsource->type != V_TYPE_DIR && vtarget->type == V_TYPE_DIR) {
+			VOP_UNLOCK(vtarget);
 			VOP_RELEASE(vtarget);
 			return EISDIR;
 		}
 
 		if (vsource->type == V_TYPE_DIR && vtarget->type != V_TYPE_DIR) {
+			VOP_UNLOCK(vtarget);
 			VOP_RELEASE(vtarget);
 			return ENOTDIR;
 		}
 
 		if (vtarget->vfsmounted) {
+			VOP_UNLOCK(vtarget);
 			VOP_RELEASE(vtarget);
 			return EBUSY;
 		}
 
 		error = vtarget->type == V_TYPE_DIR ? is_directory_empty(target) : 0;
 		if (error) {
+			VOP_UNLOCK(vtarget);
 			VOP_RELEASE(vtarget);
 			return error;
 		}
 
 		if (source == target) {
 			// POSIX says that if both are the same file, rename is a no-op
+			VOP_UNLOCK(vtarget);
 			VOP_RELEASE(vtarget);
 			return 0;
 		}
@@ -782,6 +787,7 @@ static int fatfs_rename(vnode_t *vsource_dir, vnode_t *vsource, char *old_name, 
 		size_t written;
 		error = vfs_write(fatfs->backing, &new_dent, sizeof(new_dent), dent_disk_offset, &written, 0);
 		if (error) {
+			VOP_UNLOCK(vtarget);
 			VOP_RELEASE(vtarget);
 			return error;
 		}
@@ -796,13 +802,17 @@ static int fatfs_rename(vnode_t *vsource_dir, vnode_t *vsource, char *old_name, 
 		VOP_RELEASE(vtarget); // table hold
 
 		__assert(target->parent_dir == target_dir);
-		VOP_RELEASE(vtarget_dir)
+		VOP_RELEASE(vtarget_dir);
 		target->parent_dir = NULL;
 		target->dent_disk_offset = 0;
 
+		VOP_UNLOCK(vtarget);
 		VOP_RELEASE(vtarget); // lookup hold
 	} else {
-		VOP_RELEASE(vtarget);
+		if (vtarget) {
+			VOP_UNLOCK(vtarget);
+			VOP_RELEASE(vtarget);
+		}
 		return error;
 	}
 
