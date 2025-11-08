@@ -227,6 +227,8 @@ found:
 	if (thread->cputarget == NULL)
 		--current_cpu()->stealable_thread_count;
 
+	__assert((thread->flags & THREAD_FLAGS_QUEUED) == 0);
+	__assert((thread->flags & THREAD_FLAGS_RUNNING) == 0);
 	return thread;
 }
 
