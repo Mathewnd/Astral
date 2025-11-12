@@ -266,6 +266,123 @@ index 176008f..4fddf21 100644
  #endif
  
  #endif /* MLIBC_NULL_H */
+diff --git mlibc-clean/options/posix/generic/lookup.cpp mlibc-workdir/options/posix/generic/lookup.cpp
+index c2da918..823d85a 100644
+--- mlibc-clean/options/posix/generic/lookup.cpp
++++ mlibc-workdir/options/posix/generic/lookup.cpp
+@@ -12,6 +12,7 @@
+ #include <unistd.h>
+ #include <stdio.h>
+ #include <ctype.h>
++#include <poll.h>
+ 
+ namespace mlibc {
+ 
+@@ -116,21 +117,41 @@ int lookup_name_dns(struct lookup_result &buf, const char *name,
+ 			(struct sockaddr*)&sin, sizeof(sin));
+ 	if (sent != request.size()) {
+ 		mlibc::infoLogger() << "lookup_name_dns(): sendto() failed to send everything" << frg::endlog;
++		close(fd);
+ 		return -EAI_SYSTEM;
+ 	}
+ 
+ 	char response[256];
+-	ssize_t rlen;
+ 	int num_ans = 0;
+-	while ((rlen = recvfrom(fd, response, 256, 0, nullptr, nullptr)) >= 0) {
++	int fds_ready;
++
++	struct pollfd pollfd;
++	pollfd.fd = fd;
++	pollfd.events = POLLIN;
++
++	// default timeout is 5 seconds
++	// TODO resolv.conf can specify a timeout and we ignore it currently.
++	while ((fds_ready = poll(&pollfd, 1, 5000)) > 0) {
++		ssize_t rlen = recvfrom(fd, response, 256, 0, nullptr, nullptr);
++		if (rlen < 0) {
++			mlibc::infoLogger() << "lookup_name_dns(): recvfrom() failed" << frg::endlog;
++			close(fd);
++			return -EAI_SYSTEM;
++		}
++
+ 		if ((size_t)rlen < sizeof(struct dns_header))
+ 			continue;
++
+ 		auto response_header = reinterpret_cast<struct dns_header*>(response);
+-		if (response_header->identification != header.identification)
++		if (response_header->identification != header.identification) {
++			close(fd);
+ 			return -EAI_FAIL;
++		}
+ 
+-		if ((ntohs(response_header->flags) & 0xF) == RETURN_NXDOMAIN)
++		if ((ntohs(response_header->flags) & 0xF) == RETURN_NXDOMAIN) {
++			close (fd);
+ 			return -EAI_NONAME;
++		}
+ 
+ 		auto it = response + sizeof(struct dns_header);
+ 		for (int i = 0; i < ntohs(response_header->no_q); i++) {
+@@ -187,6 +208,10 @@ int lookup_name_dns(struct lookup_result &buf, const char *name,
+ 	}
+ 
+ 	close(fd);
++
++	if (fds_ready == 0)
++		return -EAI_AGAIN;
++
+ 	return buf.buf.size();
+ }
+ 
+@@ -265,18 +290,36 @@ int lookup_addr_dns(frg::span<char> name, frg::array<uint8_t, 16> &addr, int fam
+ 			(struct sockaddr*)&sin, sizeof(sin));
+ 	if (sent != request.size()) {
+ 		mlibc::infoLogger() << "lookup_name_dns(): sendto() failed to send everything" << frg::endlog;
++		close(fd);
+ 		return -EAI_SYSTEM;
+ 	}
+ 
+ 	char response[256];
+-	ssize_t rlen;
+ 	int num_ans = 0;
+-	while ((rlen = recvfrom(fd, response, 256, 0, nullptr, nullptr)) >= 0) {
++	int fds_ready;
++
++	struct pollfd pollfd;
++	pollfd.fd = fd;
++	pollfd.events = POLLIN;
++
++	// default timeout is 5 seconds
++	// TODO resolv.conf can specify a timeout and we ignore it currently.
++	while ((fds_ready = poll(&pollfd, 1, 5000)) > 0) {
++		ssize_t rlen = recvfrom(fd, response, 256, 0, nullptr, nullptr);
++		if (rlen < 0) {
++			mlibc::infoLogger() << "lookup_name_dns(): recvfrom() failed" << frg::endlog;
++			close(fd);
++			return -EAI_SYSTEM;
++		}
++
+ 		if ((size_t)rlen < sizeof(struct dns_header))
+ 			continue;
++
+ 		auto response_header = reinterpret_cast<struct dns_header*>(response);
+-		if (response_header->identification != header.identification)
++		if (response_header->identification != header.identification) {
++			close(fd);
+ 			return -EAI_FAIL;
++		}
+ 
+ 		auto it = response + sizeof(struct dns_header);
+ 		for (int i = 0; i < ntohs(response_header->no_q); i++) {
+@@ -300,6 +343,7 @@ int lookup_addr_dns(frg::span<char> name, frg::array<uint8_t, 16> &addr, int fam
+ 
+ 			switch (rr_type) {
+ 				case RECORD_PTR: {
++					close(fd);
+ 					auto ptr_name = read_dns_name(response, it);
+ 					if (ptr_name.size() >= name.size())
+ 						return -EAI_OVERFLOW;
 diff --git mlibc-clean/options/posix/generic/search.cpp mlibc-workdir/options/posix/generic/search.cpp
 index 5c57cf8..cb2d97f 100644
 --- mlibc-clean/options/posix/generic/search.cpp
