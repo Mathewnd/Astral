@@ -12,10 +12,10 @@ index 7b7b1fd..7f6404f 100755
  
 diff --git parted-workdir/libparted/arch/astral.c parted-workdir/libparted/arch/astral.c
 new file mode 100644
-index 0000000..2989679
+index 0000000..4fda5e7
 --- /dev/null
 +++ parted-workdir/libparted/arch/astral.c
-@@ -0,0 +1,558 @@
+@@ -0,0 +1,561 @@
 +/*
 +    libparted - a library for manipulating disk partitions
 +    Copyright (C) 2006-2007, 2009-2014, 2019-2023 Free Software Foundation,
@@ -141,6 +141,9 @@ index 0000000..2989679
 +
 +	if (dev->path && strstr(dev->path, "nvme"))
 +		return PED_DEVICE_NVME;
++
++	if (dev->path && strstr(dev->path, "vioblk"))
++		return PED_DEVICE_VIRTBLK;
 +
 +	return PED_DEVICE_UNKNOWN;
 +error:
