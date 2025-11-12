@@ -908,12 +908,17 @@ __attribute__((noreturn)) static void tcp_worker() {
 			continue;
 		}
 
-		if (seqinrange(tcpheader->seq, tcpheader->seq + 1, tcb->rcvnext, tcb->rcvnext + tcb->rcvwindow) && (tcpheader->control & CONTROL_RST) && tcb->state != TCB_STATE_LISTEN) {
+		// resets have different requirements based on the state of the connection.
+		// if the state is not *syn sent*, it must fall within the window to bee accepted
+		if ((tcpheader->control & CONTROL_RST) && tcb->state != TCB_STATE_LISTEN && (
+				(tcb->state == TCB_STATE_SYNSENT) ||
+				(seqinrange(tcpheader->seq, tcpheader->seq + 1, tcb->rcvnext, tcb->rcvnext + tcb->rcvwindow)))) {
 			tcp_reset(tcb);
 			MUTEX_RELEASE(&tcb->mutex);
 			TCB_RELEASE(tcb);
 			continue;
 		}
+
 
 		switch (tcb->state) {
 			case TCB_STATE_LISTEN: {
