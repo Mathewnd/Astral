@@ -1,3 +1,15 @@
+diff --git xorg-server-clean/Xext/shm.c xorg-server-workdir/Xext/shm.c
+index 071bd1a..68b2e26 100644
+--- xorg-server-clean/Xext/shm.c
++++ xorg-server-workdir/Xext/shm.c
+@@ -1207,6 +1207,7 @@ static int
+ shm_tmpfile(void)
+ {
+     const char *shmdirs[] = {
++	"/dev/shm",
+         "/run/shm",
+         "/var/tmp",
+         "/tmp",
 diff --git xorg-server-clean/hw/xfree86/common/xf86Bus.c xorg-server-workdir/hw/xfree86/common/xf86Bus.c
 index fd144db..b232e27 100644
 --- xorg-server-clean/hw/xfree86/common/xf86Bus.c
