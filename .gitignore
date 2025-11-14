@@ -32,3 +32,4 @@ initrds
 hdd.img
 netdump.dat
 build-*
+graph_kernel_deps.png

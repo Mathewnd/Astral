@@ -267,10 +267,7 @@ void pmm_init() {
 	MUTEX_INIT(&freelistmutex);
 }
 
-INIT_ROUTINE_DEFINE(pmm, 
-		INIT_ROUTINE_FLAGS_NONE, 
-		pmm_init, 
-		arch_early);
+INIT_ROUTINE_DEFINE(pmm, INIT_ROUTINE_FLAGS_NONE, pmm_init, arch_early);
 
 // XXX pmm_alloc won't be able to take pages from the page cache when the allocation size is over 1 page
 

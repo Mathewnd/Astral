@@ -9,11 +9,7 @@
 
 static cpu_t bsp_cpu;
 
-INIT_ROUTINE_DEFINE(bsp_early,
-		INIT_ROUTINE_FLAGS_PHONY,
-		NULL,
-		alloc, term, cpu
-	);
+INIT_ROUTINE_DEFINE(bsp_early, INIT_ROUTINE_FLAGS_PHONY, NULL, alloc, term, cpu);
 
 DEFINE_KERNEL_ARGUMENT(root, char *);
 DEFINE_KERNEL_ARGUMENT(rootfs, char *);
