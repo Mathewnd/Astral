@@ -2,6 +2,7 @@
 #include <kernel/proc.h>
 #include <kernel/slab.h>
 #include <logging.h>
+#include <arch/context.h>
 
 static scache_t *thread_cache;
 
@@ -17,8 +18,14 @@ thread_t *sched_newthread(void *ip, size_t kstacksize, int nice, proc_t *proc, v
 
 	memset(thread, 0, sizeof(thread_t));
 
+	if (arch_extracontext_init(&thread->extracontext)) {
+		slab_free(thread_cache, thread);
+		return NULL;
+	}
+
 	thread->kernelstack = vmm_map(NULL, kstacksize, VMM_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_NOEXEC, NULL);
 	if (thread->kernelstack == NULL) {
+		arch_extracontext_free(&thread->extracontext);
 		slab_free(thread_cache, thread);
 		return NULL;
 	}
@@ -37,7 +44,6 @@ thread_t *sched_newthread(void *ip, size_t kstacksize, int nice, proc_t *proc, v
 	}
 
 	CTX_INIT(&thread->context, proc != NULL, true);
-	CTX_XINIT(&thread->extracontext, proc != NULL);
 	CTX_SP(&thread->context) = proc ? (ctxreg_t)ustack : (ctxreg_t)thread->kernelstacktop;
 	CTX_IP(&thread->context) = (ctxreg_t)ip;
 	SPINLOCK_INIT(thread->sleeplock);
@@ -52,6 +58,7 @@ thread_t *sched_newthread(void *ip, size_t kstacksize, int nice, proc_t *proc, v
 
 void sched_destroythread(thread_t *thread) {
 	vmm_unmap(thread->kernelstack, thread->kernelstacksize, 0);
+	arch_extracontext_free(&thread->extracontext);
 	slab_free(thread_cache, thread);
 }
 

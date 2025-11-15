@@ -8,6 +8,7 @@
 #include <arch/idt.h>
 #include <arch/gdt.h>
 #include <kernel/dpc.h>
+#include <arch/context.h>
 
 #define EFER_SYSCALLENABLE 1
 
@@ -251,6 +252,7 @@ static void arch_early(void) {
 	arch_idt_reload();
 	interrupt_register(0xfd, (void *)infinite_loop, NULL, IPL_IGNORE);
 	dpc_init();
+	arch_extracontext_detect();
 }
 
 INIT_ROUTINE_DEFINE(arch_early, INIT_ROUTINE_FLAGS_NONE, arch_early)
