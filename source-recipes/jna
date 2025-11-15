@@ -1,0 +1,8 @@
+name=jna
+version=5.13.0
+source_method=tarball
+tarball_url="https://github.com/java-native-access/jna/archive/refs/tags/${version}.tar.gz"
+tarball_sha512=aefd0becc03bb7fd753e8c5cdcbcb20f6d590125a5fb03048bef0024e826ab0254b750e22a8bb26bea38cc89262ad45e5030b666cb2c857b01b15a6a55379a0f
+prepare() {
+	true
+}

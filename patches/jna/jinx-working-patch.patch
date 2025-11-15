@@ -1,0 +1,138 @@
+diff -urN --no-dereference jna-clean/build.xml jna-workdir/build.xml
+--- jna-clean/build.xml
++++ jna-workdir/build.xml
+@@ -939,6 +939,9 @@
+     <condition property="make.OS" value="OS=android">
+       <matches pattern="^android-" string="${os.prefix}"/>
+     </condition>
++    <condition property="make.OS" value="OS=astral">
++      <matches pattern="^astral-" string="${os.prefix}"/>
++    </condition>
+     <property name="make.OS" value="IGNORE="/>
+     <!-- Ensure Makefile ARCH property properly set for darwin -->
+     <condition property="ARCH" value="aarch64">
+diff -urN --no-dereference jna-clean/native/Makefile jna-workdir/native/Makefile
+--- jna-clean/native/Makefile
++++ jna-workdir/native/Makefile
+@@ -32,7 +32,7 @@
+ # NDK_PLATFORM below or set it in your environment.
+ #
+ # The windows build requires a cygwin installation.  The build will use MSVC
+-# for compilation if cl.exe is found on the PATH, otherwise the build will fall 
++# for compilation if cl.exe is found on the PATH, otherwise the build will fall
+ # back to mingw.
+ 
+ # Systems which support POSIX signals may be able to support VM crash
+@@ -118,7 +118,7 @@
+ ALIBDIR=/usr/lib
+ ifeq ($(ARCH),arm)
+ PREFIX=arm-linux-androideabi-
+-COPT+= -mthumb-interwork -march=armv5te -mtune=xscale -msoft-float -fstack-protector 
++COPT+= -mthumb-interwork -march=armv5te -mtune=xscale -msoft-float -fstack-protector
+ HOST=arm-linux-eabi
+ else
+ ifeq ($(ARCH),armv7)
+@@ -234,7 +234,7 @@
+ ifeq ($(USE_MSVC),true)
+ # MS compiler
+ CC=$(FFI_SRC)/msvcc.sh
+-CDEFINES+=-DHAVE_PROTECTION 
++CDEFINES+=-DHAVE_PROTECTION
+ ifneq ($(DYNAMIC_LIBFFI),true)
+ CDEFINES+=-DUSE_STATIC_RTL
+ endif
+@@ -396,13 +396,13 @@
+ DARWIN_ARCH=$(ARCH)
+ ifeq ($(ARCH),aarch64)
+   DARWIN_ARCH=arm64
+-else 
++else
+ ifeq ($(ARCH),x86-64)
+   DARWIN_ARCH=x86_64
+ else
+ ifeq ($(ARCH),x86)
+   DARWIN_ARCH=x86
+-else 
++else
+ endif
+ endif
+ endif
+@@ -455,6 +455,19 @@
+ LIBS=
+ endif
+ 
++ifeq ($(OS),astral)
++PCFLAGS+=-fPIC
++CDEFINES+=-DHAVE_PROTECTION
++HOST_CONFIG=--host=x86_64-astral
++JAVA_INCLUDES+=-I"$(JAVA_HOME)/include/linux"
++ifeq ($(DYNAMIC_LIBFFI),true)
++LDFLAGS+=-Wl,-soname,$@
++else
++# Ensure we bind to local libffi symbols
++LDFLAGS+=-Wl,-soname,$@,-Bsymbolic
++endif
++endif
++
+ # Unfortunately, we have to use different libffi include files depending on
+ # the target, so we can't do a simple universal build on darwin.  Do
+ # separate builds, then merge the results.
+@@ -473,7 +486,7 @@
+ 	cp $(LIBRARY) $(INSTALLDIR)
+ 
+ ifeq ($(ARCH), amd64)
+-$(DLLCB): dll-callback.c 
++$(DLLCB): dll-callback.c
+ 	$(MINGW) -DDEFINE_CALLBACKS -c $< $(COUT)
+ endif
+ 
+@@ -505,7 +518,7 @@
+ 	$(LD) $(LDFLAGS) $< $(TESTDEP) $(LIBS)
+ 
+ ifneq ($(DYNAMIC_LIBFFI),true)
+-$(FFI_LIB): 
++$(FFI_LIB):
+ 	@mkdir -p $(FFI_BUILD)
+ 	@if [ ! -f $(FFI_SRC)/configure ]; then \
+ 	  echo "Generating configure"; \
+diff -urN --no-dereference jna-clean/src/com/sun/jna/Platform.java jna-workdir/src/com/sun/jna/Platform.java
+--- jna-clean/src/com/sun/jna/Platform.java
++++ jna-workdir/src/com/sun/jna/Platform.java
+@@ -42,6 +42,7 @@
+     public static final int GNU = 9;
+     public static final int KFREEBSD = 10;
+     public static final int NETBSD = 11;
++    public static final int ASTRAL = 13;
+ 
+     /** Whether read-only (final) fields within Structures are supported. */
+     public static final boolean RO_FIELDS;
+@@ -110,6 +111,9 @@
+         else if (osName.equalsIgnoreCase("netbsd")) {
+             osType = NETBSD;
+         }
++        else if (osName.startsWith("Astral")) {
++            osType = ASTRAL;
++        }
+         else {
+             osType = UNSPECIFIED;
+         }
+@@ -175,6 +179,9 @@
+     public static final boolean iskFreeBSD() {
+         return osType == KFREEBSD;
+     }
++    public static final boolean isAstral() {
++        return osType == ASTRAL;
++    }
+     public static final boolean isX11() {
+         // TODO: check filesystem for /usr/X11 or some other X11-specific test
+         return !Platform.isWindows() && !Platform.isMac();
+@@ -341,6 +348,9 @@
+             case Platform.KFREEBSD:
+                 osPrefix = "kfreebsd-" + arch;
+                 break;
++            case Platform.ASTRAL:
++                osPrefix = "astral-" + arch;
++                break;
+             default:
+                 osPrefix = name.toLowerCase();
+                 int space = osPrefix.indexOf(" ");
