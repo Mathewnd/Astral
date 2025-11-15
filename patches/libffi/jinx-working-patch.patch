@@ -1,0 +1,13 @@
+diff -urN --no-dereference libffi-clean/src/closures.c libffi-workdir/src/closures.c
+--- libffi-clean/src/closures.c
++++ libffi-workdir/src/closures.c
+@@ -139,6 +139,9 @@
+    executable memory. */
+ #  define FFI_MMAP_EXEC_WRIT 1
+ # endif
++# if defined(__astral__)
++#  define FFI_MMAP_EXEC_WRIT 1
++# endif
+ #endif
+ 
+ #if FFI_MMAP_EXEC_WRIT && !defined FFI_MMAP_EXEC_SELINUX
