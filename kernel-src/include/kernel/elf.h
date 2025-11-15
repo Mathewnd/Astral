@@ -27,6 +27,7 @@
 #define AT_PHDR 3
 #define AT_PHENT 4
 #define AT_PHNUM 5
+#define AT_PAGESZ 6
 #define AT_ENTRY 9
 #define AT_SECURE 23
 #define AT_EXECFN 31
@@ -43,6 +44,7 @@ typedef struct {
 	auxv64_t entry;
 	auxv64_t execfn;
 	auxv64_t secure;
+	auxv64_t pagesz;
 	auxv64_t null;
 } auxv64list_t;
 
