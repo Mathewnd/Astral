@@ -1,0 +1,23 @@
+name=openal
+revision=1
+from_source=openal
+imagedeps="build-essential cmake"
+hostdeps="xgcc xbinutils libstdc++-v3 pkgconfig"
+deps="base alsa-lib"
+
+configure() {
+	cmake \
+	-DCMAKE_TOOLCHAIN_FILE=${base_dir}/util/cmake \
+	-DCMAKE_INSTALL_PREFIX=${prefix} \
+	-DCMAKE_BUILD_TYPE=Release \
+	-DCMAKE_INSTALL_LIBDIR=lib \
+	${source_dir}
+}
+
+build() {
+	make -j${parallelism}
+}
+
+package() {
+	DESTDIR=${dest_dir} make install
+}
