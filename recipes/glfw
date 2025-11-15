@@ -1,0 +1,25 @@
+name=glfw
+revision=1
+from_source=glfw
+imagedeps="build-essential"
+hostdeps="xgcc xbinutils cmake pkgconfig"
+deps="base libx11 libxext libxi libxrandr libxrender libxt libxtst xorgproto libiconv libxcursor libxxf86vm libxinerama"
+
+configure() {
+	cmake \
+	-DCMAKE_TOOLCHAIN_FILE=${base_dir}/util/cmake \
+	-DCMAKE_INSTALL_PREFIX=${prefix} \
+	-DCMAKE_BUILD_TYPE=Release \
+	-DCMAKE_INSTALL_LIBDIR=lib \
+	-DBUILD_SHARED_LIBS=ON \
+	-DGLFW_BUILD_WAYLAND=OFF \
+	${source_dir}
+}
+
+build() {
+	make -j${parallelism}
+}
+
+package() {
+	DESTDIR=${dest_dir} make install
+}
