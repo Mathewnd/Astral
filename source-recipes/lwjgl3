@@ -1,0 +1,8 @@
+name=lwjgl3
+version=3.3.3
+source_method=tarball
+tarball_url="https://github.com/LWJGL/lwjgl3/archive/refs/tags/${version}.tar.gz"
+tarball_sha512=739a8bcadc0b4008326b9a90fcbc90076308baa0e38649454b8747187611d355d454e4c0396d1a9f4ea3c1ac515ec8f7ae0ff6607fb0dab825d035c6a83873b7
+prepare() {
+	true
+}

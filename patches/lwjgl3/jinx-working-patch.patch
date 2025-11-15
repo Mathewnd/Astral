@@ -1,0 +1,3814 @@
+diff -urN --no-dereference lwjgl3-clean/build.xml lwjgl3-workdir/build.xml
+--- lwjgl3-clean/build.xml
++++ lwjgl3-workdir/build.xml
+@@ -1181,6 +1181,7 @@
+         <element name="windows-content" optional="true"/>
+         <element name="windows-x86-content" optional="true"/>
+         <element name="windows-arm64-content" optional="true"/>
++        <element name="astral-content" optional="true"/>
+         <sequential>
+             <local name="auto-natives"/>
+             <condition property="auto-natives">
+@@ -1221,6 +1222,9 @@
+                 <get-release platform="windows" arch="arm64" file="@{native-library}.dll" if:set="auto-natives"/>
+                 <get-release platform="windows" arch="arm64" file="@{native-library}.dll.git" if:set="git-revision"/>
+ 
++                <get-release platform="astral" arch="x64" file="lib@{native-library}.so" if:set="auto-natives"/>
++                <get-release platform="astral" arch="x64" file="lib@{native-library}.so.git" if:set="git-revision"/>
++
+                 <content/>
+             </parallel>
+ 
+@@ -1288,6 +1292,9 @@
+                     <natives-jar name="@{name}" title="@{title}" platform="windows-arm64" path="windows/arm64" type="dll">
+                         <windows-arm64-content/>
+                     </natives-jar>
++                    <natives-jar name="@{name}" title="@{title}" platform="astral" path="astral/x64" type="so">
++                        <linux-content/>
++                    </natives-jar>
+                 </parallel>
+             </sequential>
+         </sequential>
+@@ -1306,6 +1313,7 @@
+         <element name="windows" optional="true"/>
+         <element name="windows-x86" optional="true"/>
+         <element name="windows-arm64" optional="true"/>
++        <element name="astral" optional="true"/>
+         <sequential>
+             <local name="module.name"/>
+             <property name="module.name" value="@{name}"/>
+@@ -1333,6 +1341,7 @@
+                 <windows-content><windows/></windows-content>
+                 <windows-x86-content><windows-x86/></windows-x86-content>
+                 <windows-arm64-content><windows-arm64/></windows-arm64-content>
++                <astral-content><astral/></astral-content>
+             </release-natives>
+ 
+             <!-- Bundle classes -->
+@@ -1557,6 +1566,10 @@
+                 <get-release platform="windows" arch="arm64" file="assimp.dll"/>
+                 <get-release platform="windows" arch="arm64" file="assimp.dll.git"/>
+                 <get-release platform="windows" arch="arm64" file="draco.dll"/>
++
++                <get-release platform="astral" arch="x64" file="libassimp.so"/>
++                <get-release platform="astral" arch="x64" file="libassimp.so.git"/>
++                <get-release platform="astral" arch="x64" file="libdraco.so"/>
+             </natives>
+         </release-module>
+ 
+@@ -1583,6 +1596,9 @@
+ 
+                 <get-release platform="windows" arch="x86" file="bgfx.dll"/>
+                 <get-release platform="windows" arch="x86" file="bgfx.dll.git"/>
++
++                <get-release platform="astral" arch="x64" file="libbgfx.so"/>
++                <get-release platform="astral" arch="x64" file="libbgfx.so.git"/>
+             </natives>
+         </release-module>
+ 
+@@ -1628,6 +1644,9 @@
+ 
+                 <get-release platform="windows" arch="arm64" file="glfw.dll"/>
+                 <get-release platform="windows" arch="arm64" file="glfw.dll.git"/>
++
++                <get-release platform="astral" arch="x64" file="libglfw.so"/>
++                <get-release platform="astral" arch="x64" file="libglfw.so.git"/>
+             </natives>
+         </release-module>
+ 
+@@ -1653,6 +1672,7 @@
+                 <get-release platform="macos" arch="arm64" file="libktx.dylib"/>
+                 <get-release platform="windows" arch="x64" file="ktx.dll"/>
+                 <get-release platform="windows" arch="arm64" file="ktx.dll"/>
++                <get-release platform="astral" arch="x64" file="libktx.so"/>
+             </natives>
+         </release-module>
+ 
+@@ -1678,6 +1698,7 @@
+                 <get-release platform="windows" arch="x64" file="lwjgl_meow.dll"/>
+                 <get-release platform="windows" arch="x86" file="lwjgl_meow.dll"/>
+                 <get-release platform="windows" arch="arm64" file="lwjgl_meow.dll"/>
++                <get-release platform="astral" arch="x64" file="liblwjgl_meow.so"/>
+             </natives>
+         </release-module>
+ 
+@@ -1693,6 +1714,7 @@
+                 <get-release platform="linux" arch="x64" file="liblwjgl_nfd_portal.so"/>
+                 <get-release platform="linux" arch="arm64" file="liblwjgl_nfd_portal.so"/>
+                 <get-release platform="linux" arch="arm32" file="liblwjgl_nfd_portal.so"/>
++                <get-release platform="astral" arch="x64" file="liblwjgl_nfd_portal.so"/>
+             </natives>
+         </release-module>
+ 
+@@ -1728,6 +1750,9 @@
+ 
+                 <get-release platform="windows" arch="arm64" file="OpenAL.dll"/>
+                 <get-release platform="windows" arch="arm64" file="OpenAL.dll.git"/>
++
++                <get-release platform="astral" arch="x64" file="libopenal.so"/>
++                <get-release platform="astral" arch="x64" file="libopenal.so.git"/>
+             </natives>
+         </release-module>
+ 
+@@ -1758,6 +1783,10 @@
+                 <get-release platform="windows" arch="x86" file="lwjgl_openvr.dll"/>
+                 <get-release platform="windows" arch="x86" file="openvr_api.dll"/>
+                 <get-release platform="windows" arch="x86" file="openvr_api.dll.git"/>
++
++                <get-release platform="astral" arch="x64" file="liblwjgl_openvr.so"/>
++                <get-release platform="astral" arch="x64" file="libopenvr_api.so"/>
++                <get-release platform="astral" arch="x64" file="libopenvr_api.so.git"/>
+             </natives>
+         </release-module>
+ 
+@@ -1781,6 +1810,9 @@
+ 
+                 <get-release platform="windows" arch="arm64" file="openxr-loader.dll"/>
+                 <get-release platform="windows" arch="arm64" file="openxr-loader.dll.git"/>
++
++                <get-release platform="astral" arch="x64" file="libopenxr_loader.so"/>
++                <get-release platform="astral" arch="x64" file="libopenxr_loader.so.git"/>
+             </natives>
+         </release-module>
+ 
+@@ -1810,6 +1842,8 @@
+ 
+                 <get-release platform="windows" arch="x64" file="lwjgl_remotery.dll"/>
+                 <get-release platform="windows" arch="x86" file="lwjgl_remotery.dll"/>
++
++                <get-release platform="astral" arch="x64" file="liblwjgl_remotery.so"/>
+             </natives>
+         </release-module>
+ 
+@@ -1829,6 +1863,7 @@
+                 <get-release platform="macos" arch="x64" file="liblwjgl_sse.dylib"/>
+                 <get-release platform="windows" arch="x64" file="lwjgl_sse.dll"/>
+                 <get-release platform="windows" arch="x86" file="lwjgl_sse.dll"/>
++                <get-release platform="astral" arch="x64" file="liblwjgl_sse.so"/>
+             </natives>
+         </release-module>
+ 
+@@ -1848,6 +1883,7 @@
+                 <get-release platform="macos" arch="x64" file="liblwjgl_tootle.dylib"/>
+                 <get-release platform="windows" arch="x64" file="lwjgl_tootle.dll"/>
+                 <get-release platform="windows" arch="x86" file="lwjgl_tootle.dll"/>
++                <get-release platform="astral" arch="x64" file="liblwjgl_tootle.so"/>
+             </natives>
+         </release-module>
+ 
+diff -urN --no-dereference lwjgl3-clean/config/astral/build.xml lwjgl3-workdir/config/astral/build.xml
+--- lwjgl3-clean/config/astral/build.xml	1970-01-01 01:00:00.000000000 +0100
++++ lwjgl3-workdir/config/astral/build.xml
+@@ -0,0 +1,482 @@
++<!--
++  ~ Copyright LWJGL. All rights reserved.
++  ~ License terms: https://www.lwjgl.org/license
++  -->
++<project name="native-astral" basedir="../.." xmlns:if="ant:if" xmlns:unless="ant:unless">
++    <import file="../build-definitions.xml"/>
++
++    <condition property="gcc.prefix" value="${gcc.prefix}" else="">
++        <isset property="gcc.prefix"/>
++    </condition>
++    <condition property="gcc.suffix" value="-${gcc.version}" else="">
++        <isset property="gcc.version"/>
++    </condition>
++
++    <property name="module.lwjgl.rel" value="../../../../${module.lwjgl}"/>
++
++    <macrodef name="compile">
++        <attribute name="dest" default="${dest}"/>
++        <attribute name="lang" default="c"/>
++        <attribute name="gcc.exec" default="${gcc.prefix}gcc${gcc.suffix}"/>
++        <attribute name="gpp.exec" default="${gcc.prefix}g++${gcc.suffix}"/>
++        <attribute name="lto" default="-flto"/>
++        <attribute name="flags" default=""/>
++        <attribute name="simple" default="false"/>
++        <attribute name="relative" default="true"/>
++        <element name="source" implicit="true" optional="true"/>
++        <sequential>
++            <local name="cpp"/>
++            <condition property="cpp"><not><equals arg1="@{lang}" arg2="c"/></not></condition>
++            <local name="gcc"/>
++            <condition property="gcc" value="@{gcc.exec}" else="@{gpp.exec}"><equals arg1="@{lang}" arg2="c"/></condition>
++            <mkdir dir="@{dest}"/>
++            <apply dir="@{dest}" executable="${gcc}" dest="@{dest}" skipemptyfilesets="true" failonerror="true" parallel="true" taskname="Compiler">
++                <arg line="-c -std=gnu11" unless:set="cpp"/>
++                <arg line="-c -std=gnu++14" if:set="cpp"/>
++                <arg line="-m64" if:set="build.arch.x64"/>
++                <arg line="-m32 -mfpmath=sse -msse -msse2" if:set="build.arch.x86"/>
++                <arg line="-O3 @{lto} -fPIC @{flags} -pthread -DNDEBUG -DLWJGL_ASTRAL -DLWJGL_${build.arch}"/>
++                <arg line="-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0 -D_GNU_SOURCE"/>
++                <arg line="-D_FILE_OFFSET_BITS=64"/>
++
++                <arg value="-I${jni.headers}"/>
++                <arg value="-I${jni.headers}/linux"/>
++                <arg value="-I${jni.headers}/astral"/>
++
++                <arg value="-I${module.lwjgl.rel}/core/src/main/c"/>
++                <arg value="-I${module.lwjgl.rel}/core/src/main/c/${platform}"/>
++
++                <arg value="-I${src.main.rel}" if:true="@{simple}"/>
++
++                <source/>
++                <fileset dir="." includes="${src.generated}/*" if:true="@{simple}"/>
++
++                <regexpmapper from="(\w+)\.(?:c|cc|cpp|S)$" to="\1.o"/>
++            </apply>
++        </sequential>
++    </macrodef>
++
++    <macrodef name="build">
++        <attribute name="module"/>
++        <attribute name="suffix" default=""/>
++        <attribute name="linker" default="gcc"/>
++        <attribute name="lang" default="c"/>
++        <attribute name="gcc.exec" default="${gcc.prefix}gcc${gcc.suffix}"/>
++        <attribute name="gpp.exec" default="${gcc.prefix}g++${gcc.suffix}"/>
++        <attribute name="flags" default="-Werror -Wfatal-errors"/>
++        <attribute name="simple" default="false"/>
++        <element name="beforeCompile" optional="true"/>
++        <element name="source" optional="true"/>
++        <element name="beforeLink" optional="true"/>
++        <element name="link" optional="true"/>
++        <sequential>
++            <local name="src.main"/>
++            <local name="src.main.rel"/>
++            <local name="src.generated"/>
++            <property name="src.main" location="${module.lwjgl}/@{module}/src/main/c" relative="true"/>
++            <property name="src.main.rel" value="${module.lwjgl.rel}/@{module}/src/main/c"/>
++            <property name="src.generated" location="${module.lwjgl}/@{module}/src/generated/c" relative="true"/>
++
++            <local name="name"/>
++            <condition property="name" value="lwjgl" else="lwjgl_@{module}@{suffix}">
++                <equals arg1="@{module}" arg2="core"/>
++            </condition>
++
++            <local name="dest"/>
++            <property name="dest" value="${bin.native}/@{module}@{suffix}"/>
++
++            <beforeCompile/>
++            <compile lang="@{lang}" gcc.exec="@{gcc.exec}" gpp.exec="@{gpp.exec}" flags="@{flags}" simple="@{simple}">
++                <source/>
++            </compile>
++
++            <local name="lib.arch"/>
++            <property name="lib.arch" value="${lib.native}/${module.@{module}.path}"/>
++
++            <local name="lib-uptodate"/>
++            <uptodate property="lib-uptodate" targetfile="${lib.arch}/lib${name}.so">
++                <srcfiles file="config/${platform}/build.xml"/>
++                <srcfiles dir="${dest}" includes="**"/>
++            </uptodate>
++            <local name="lib-dependencies-uptodate"/>
++            <condition property="lib-dependencies-uptodate" value="true">
++            <or>
++                <isset property="lib-uptodate"/>
++                <istrue value="${build.offline}"/>
++            </or>
++            </condition>
++
++            <local name="version.script"/>
++            <property name="version.script" location="config/${platform}/version.script"/>
++
++            <local name="gcc"/>
++            <condition property="gcc" value="@{gcc.exec}" else="@{gpp.exec}">
++                <and>
++                    <equals arg1="@{lang}" arg2="c"/>
++                    <equals arg1="@{linker}" arg2="gcc"/>
++                </and>
++            </condition>
++
++            <echo message="Linking ${name}" taskname="${gcc}" unless:set="lib-uptodate"/>
++            <mkdir dir="${lib.arch}" unless:set="lib-uptodate"/>
++            <beforeLink unless:set="lib-uptodate"/>
++            <apply executable="${gcc}" failonerror="true" parallel="true" taskname="Linker" unless:set="lib-uptodate">
++                <srcfile/>
++                <arg value="-shared"/>
++                <arg value="-m64" if:set="build.arch.x64"/>
++                <arg value="-m32" if:set="build.arch.x86"/>
++
++                <arg line="-z noexecstack"/>
++                <arg line="-O3 -flto -fPIC -pthread -o ${lib.arch}/lib${name}.so"/>
++
++                <arg line="-Wl,--no-undefined"/>
++                <arg line="-Wl,--version-script,${version.script}"/>
++                <fileset dir="${dest}" includes="*.o"/>
++                <link/>
++            </apply>
++
++            <apply executable="${gcc.prefix}strip" failonerror="true" taskname="Symbol strip" unless:set="lib-uptodate">
++                <filelist dir="${lib.arch}" files="lib${name}.so"/>
++            </apply>
++            <delete file="${lib.native}/touch.txt" quiet="true" unless:set="lib-uptodate"/>
++        </sequential>
++    </macrodef>
++
++    <macrodef name="build_simple">
++        <attribute name="module"/>
++        <attribute name="gcc.exec" default="${gcc.prefix}gcc${gcc.suffix}"/>
++        <attribute name="gpp.exec" default="${gcc.prefix}g++${gcc.suffix}"/>
++        <sequential>
++            <build module="@{module}" gcc.exec="@{gcc.exec}" gpp.exec="@{gpp.exec}" simple="true" if:true="${binding.@{module}}"/>
++        </sequential>
++    </macrodef>
++
++    <target name="compile-native-platform">
++        <local name="gcc.version.string"/>
++        <exec executable="bash" outputproperty="gcc.version.string" logError="true" failonerror="true">
++            <arg line="-o pipefail -c"/>
++            <arg value="${gcc.prefix}gcc${gcc.suffix} --version | grep ^.*gcc"/>
++        </exec>
++        <echo message='${gcc.prefix}gcc${gcc.suffix} --version: "${gcc.version.string}"' taskname="Compiler"/>
++
++        <parallel threadsPerProcessor="2">
++
++        <!-- CORE -->
++        <build module="core" flags="-Werror -Wfatal-errors -Wall -Wextra -pedantic">
++            <source>
++                <arg value="-I${src.main.rel}/libffi"/>
++                <arg value="-I${src.main.rel}/libffi/aarch64" if:set="build.arch.arm64"/>
++                <arg value="-I${src.main.rel}/libffi/arm" if:set="build.arch.arm32"/>
++                <arg value="-I${src.main.rel}/libffi/x86" unless:set="build.arch.arm"/>
++                <arg value="-DX86_64" if:set="build.arch.x64"/> <!-- for libffi/x86/ffitarget.h -->
++                <fileset dir=".">
++                    <include name="${src.main}/*.c"/>
++                    <include name="${src.generated}/*.c"/>
++                    <include name="${src.generated}/${platform}/*.c"/>
++                    <include name="${module.lwjgl}/jawt/src/generated/c/*.c" if:true="${binding.jawt}"/>
++                </fileset>
++            </source>
++            <link>
++                <arg value="-lffi"/>
++                <arg value="-ldl"/>
++            </link>
++        </build>
++
++        <!-- LIBDIVIDE -->
++        <build_simple module="libdivide"/>
++
++        <!-- LLVM -->
++        <build_simple module="llvm"/>
++
++        <!-- LMDB -->
++        <build module="lmdb" simple="true" if:true="${binding.lmdb}">
++            <beforeCompile>
++                <compile>
++                    <arg value="-I${src.main.rel}"/>
++                    <arg value="-DMDB_USE_ROBUST=0"/>
++                    <fileset dir="." includes="${src.main}/*.c"/>
++                </compile>
++            </beforeCompile>
++        </build>
++
++        <!-- LZ4 -->
++        <build module="lz4" simple="true" if:true="${binding.lz4}">
++            <beforeCompile>
++                <compile>
++                    <arg value="-I${src.main.rel}"/>
++                    <arg value="-I${module.lwjgl.rel}/xxhash/src/main/c"/>
++                    <fileset dir="." includes="${src.main}/*.c"/>
++                    <fileset dir="." includes="${module.lwjgl}/xxhash/src/main/c/xxhash.c"/>
++                </compile>
++            </beforeCompile>
++        </build>
++
++        <!-- Meow -->
++        <sequential if:true="${binding.meow}">
++            <local name="meow.flags"/>
++            <condition property="meow.flags" value="-march=armv8-a+crypto" else="-maes -msse4.2">
++                <isset property="build.arch.arm"/>
++            </condition>
++            <build module="meow" simple="true" flags="-Werror -Wfatal-errors ${meow.flags}"/>
++        </sequential>
++
++        <!-- meshoptimizer -->
++        <build module="meshoptimizer" simple="true" linker="g++" if:true="${binding.meshoptimizer}">
++            <beforeCompile>
++                <compile lang="c++" flags="-DMESHOPTIMIZER_NO_WRAPPERS">
++                    <arg value="-I${src.main.rel}"/>
++                    <fileset dir="." includes="${src.main}/*.cpp"/>
++                </compile>
++            </beforeCompile>
++        </build>
++
++        <!-- NanoVG -->
++        <build module="nanovg" simple="true" if:true="${binding.nanovg}">
++            <source>
++                <arg value="-isystem${module.lwjgl.rel}/stb/src/main/c"/>
++            </source>
++            <link>
++                <arg value="-lm"/>
++            </link>
++        </build>
++
++        <!-- NativeFileDialog -->
++        <build module="nfd" simple="true" linker="g++" if:true="${binding.nfd}">
++            <beforeCompile>
++                <local name="astral.triplet"/>
++                <condition property="astral.triplet" value="x86_64-astral"><not><isset property="build.arch.arm"/></not></condition>
++
++                <compile lang="c++">
++                    <arg line="-I/usr/include/gtk-3.0 -I/usr/include/glib-2.0 -I/usr/lib64/glib-2.0/include -I/usr/lib/${astral.triplet}/glib-2.0/include -I/usr/include/pango-1.0 -I/usr/include/harfbuzz -I/usr/include/cairo -I/usr/include/gdk-pixbuf-2.0 -I/usr/include/atk-1.0"/>
++                    <arg value="-I${src.main.rel}/include"/>
++                    <fileset dir="." includes="${src.main}/nfd_gtk.cpp"/>
++                </compile>
++            </beforeCompile>
++            <source>
++                <arg value="-I${src.main.rel}/include"/>
++            </source>
++            <link>
++                <arg value="-lglib-2.0"/>
++                <arg value="-lgobject-2.0"/>
++                <arg value="-lgtk-3"/>
++                <arg value="-lgdk-3"/>
++            </link>
++        </build>
++        <build module="nfd" suffix="_portal" simple="true" linker="g++" if:true="${binding.nfd}">
++            <beforeCompile>
++                <local name="astral.triplet"/>
++                <condition property="astral.triplet" value="x86_64-astral"><not><isset property="build.arch.arm"/></not></condition>
++
++                <compile lang="c++">
++                    <arg line="-I/usr/include/dbus-1.0 -I/usr/lib64/dbus-1.0/include -I/usr/lib/${astral.triplet}/dbus-1.0/include"/>
++                    <arg value="-I${src.main.rel}/include"/>
++                    <fileset dir="." includes="${src.main}/nfd_portal.cpp"/>
++                </compile>
++            </beforeCompile>
++            <source>
++                <arg value="-I${src.main.rel}/include"/>
++            </source>
++            <link>
++                <arg value="-ldbus-1"/>
++            </link>
++        </build>
++
++        <!-- Nuklear -->
++        <build simple="true" module="nuklear">
++            <link>
++                <arg value="-lm"/>
++            </link>
++        </build>
++
++        <!-- OpenGL -->
++        <build module="opengl">
++            <source>
++                <arg value="-I${src.main.rel}"/>
++                <fileset dir="." includes="${src.generated}/*" excludes="${src.generated}/org_lwjgl_opengl_WGL.c"/>
++            </source>
++        </build>
++
++        <!-- OpenGL ES -->
++        <build_simple module="opengles"/>
++
++        <!-- OpenVR -->
++        <build_simple module="openvr"/>
++
++        <!-- Par -->
++        <build simple="true" module="par">
++            <link>
++                <arg value="-lm"/>
++            </link>
++        </build>
++
++        <!-- Remotery -->
++        <build module="remotery" if:true="${binding.remotery}">
++            <source>
++                <arg value="-I${src.main.rel}"/>
++                <fileset dir="." includes="${src.generated}/*.c" excludes="**/*Metal.c"/>
++            </source>
++            <link>
++                <arg value="-ldl"/>
++                <arg value="-lm"/>
++                <arg value="-l:libGL.so.1" unless:set="gcc.libpath.opengl"/>
++                <arg line="-L ${gcc.libpath.opengl} -l:libGL.so.1" if:set="gcc.libpath.opengl"/>
++            </link>
++        </build>
++
++        <!-- rpmalloc -->
++        <build_simple module="rpmalloc"/>
++
++        <!-- SSE -->
++        <build module="sse" simple="true" if:true="${binding.sse}">
++            <source>
++                <arg value="-msse3"/>
++            </source>
++        </build>
++
++        <!-- stb -->
++        <build module="stb" if:true="${binding.stb}">
++            <source>
++                <arg value="-isystem${src.main.rel}"/>
++                <fileset dir="." includes="${src.generated}/*.c"/>
++            </source>
++            <link>
++                <arg value="-lm"/>
++            </link>
++        </build>
++
++        <!-- tinyexr -->
++        <build module="tinyexr" simple="true" linker="g++" if:true="${binding.tinyexr}">
++            <beforeCompile>
++                <compile lang="c++">
++                    <arg value="-I${src.main.rel}"/>
++                    <fileset dir="." includes="${src.main}/*.cc"/>
++                    <fileset dir="." includes="${src.generated}/*.cpp"/>
++                </compile>
++                <compile>
++                    <arg value="-I${src.main.rel}"/>
++                    <fileset dir="." includes="${src.main}/*.c"/>
++                </compile>
++            </beforeCompile>
++        </build>
++
++        <!-- tiny file dialogs -->
++        <build module="tinyfd" simple="true" if:true="${binding.tinyfd}">
++            <beforeCompile>
++                <compile>
++                    <arg value="-I${src.main.rel}"/>
++                    <fileset dir="." includes="${src.main}/*.c"/>
++                </compile>
++            </beforeCompile>
++        </build>
++
++        <!-- AMD Tootle -->
++        <build module="tootle" lang="c++" if:true="${binding.tootle}">
++            <beforeCompile>
++                <compile flags="-D_SOFTWARE_ONLY_VERSION -D_LINUX">
++                    <arg value="-I${src.main.rel}"/>
++                    <fileset dir="." includes="${src.main}/*.c"/>
++                </compile>
++                <compile lang="c++" flags="-D_SOFTWARE_ONLY_VERSION -D_LINUX">
++                    <arg value="-I${src.main.rel}"/>
++                    <arg value="-I${src.main.rel}/include"/>
++                    <arg value="-I${src.main.rel}/RayTracer"/>
++                    <arg value="-I${src.main.rel}/RayTracer/JRT"/>
++                    <arg value="-I${src.main.rel}/RayTracer/Math"/>
++                    <fileset dir=".">
++                        <include name="${src.main}/*.cpp"/>
++                        <exclude name="${src.main}/d3d*.cpp"/>
++                        <exclude name="${src.main}/gdi*.cpp"/>
++                    </fileset>
++                    <fileset dir="." includes="${src.main}/RayTracer/*.cpp"/>
++                    <fileset dir="." includes="${src.main}/RayTracer/JRT/*.cpp"/>
++                    <fileset dir="." includes="${src.main}/RayTracer/Math/*.cpp"/>
++                </compile>
++            </beforeCompile>
++            <source>
++                <arg value="-D_LINUX"/>
++                <arg value="-I${src.main.rel}/include"/>
++                <fileset dir="." includes="${src.generated}/*.cpp"/>
++            </source>
++        </build>
++
++        <!-- Vulkan Memory Allocator -->
++        <build module="vma" lang="c++" if:true="${binding.vma}">
++            <source>
++                <arg value="-I${src.main.rel}"/>
++                <arg value="-I${module.lwjgl.rel}/vulkan/src/main/c"/>
++                <fileset dir="." includes="${src.generated}/*.cpp"/>
++            </source>
++            <link>
++                <arg value="-latomic" if:set="build.arch.arm"/>
++            </link>
++        </build>
++
++        <!-- xxHash -->
++        <build_simple module="xxhash"/>
++
++        <!-- yoga -->
++        <build module="yoga" simple="true" lang="c++" if:true="${binding.yoga}">
++            <beforeCompile>
++                <compile lang="c++">
++                    <arg value="-I${src.main.rel}"/>
++                    <fileset dir="." includes="${src.main}/**/*.cpp"/>
++                </compile>
++            </beforeCompile>
++        </build>
++
++        <!-- zstd -->
++        <build module="zstd" simple="true" if:true="${binding.zstd}">
++            <beforeCompile>
++                <compile flags="-DZSTD_MULTITHREAD">
++                    <arg value="-I${module.lwjgl.rel}/xxhash/src/main/c"/>
++                    <fileset dir="." includes="${src.main}/common/*.c"/>
++                    <fileset dir="." includes="${src.main}/compress/*.c"/>
++                    <fileset dir="." includes="${src.main}/decompress/*.c"/>
++                    <fileset dir="." includes="${src.main}/decompress/*.S" unless:set="build.arch.arm"/>
++                    <fileset dir="." includes="${src.main}/dictBuilder/*.c"/>
++                    <fileset dir="." includes="${module.lwjgl}/xxhash/src/main/c/xxhash.c"/>
++                </compile>
++            </beforeCompile>
++            <source>
++                <arg value="-I${src.main.rel}/common"/>
++                <arg value="-I${src.main.rel}/dictBuilder"/>
++            </source>
++        </build>
++
++        </parallel>
++
++        <local name="native-dependencies-uptodate"/>
++        <condition property="native-dependencies-uptodate" value="true">
++            <or>
++                <istrue value="${build.offline}"/>
++                <resourceexists>
++                    <file file="${lib.native}/touch.txt"/>
++                </resourceexists>
++            </or>
++        </condition>
++
++        <sequential unless:set="native-dependencies-uptodate">
++            <parallel threadsPerProcessor="4" failonany="true">
++
++            <update-dependency module="assimp" artifact="libassimp.so"/>
++            <update-dependency module="assimp" artifact="libdraco.so"/>
++            <update-dependency module="bgfx" artifact="libbgfx.so"/>
++            <update-dependency module="freetype" artifact="libfreetype.so"/>
++            <update-dependency module="glfw" artifact="libglfw.so"/>
++            <update-dependency module="harfbuzz" artifact="libharfbuzz.so"/>
++            <update-dependency module="hwloc" artifact="libhwloc.so"/>
++            <update-dependency module="jemalloc" artifact="libjemalloc.so"/>
++            <update-dependency module="ktx" artifact="libktx.so"/>
++            <update-dependency module="openal" artifact="libopenal.so"/>
++            <update-dependency module="openvr" artifact="libopenvr_api.so"/>
++            <update-dependency module="openxr" artifact="libopenxr_loader.so"/>
++            <update-dependency module="opus" artifact="libopus.so"/>
++            <update-dependency module="shaderc" artifact="libshaderc.so"/>
++            <update-dependency module="spvc" artifact="libspirv-cross.so"/>
++
++            </parallel>
++
++            <touch file="${lib.native}/touch.txt" verbose="false"/>
++        </sequential>
++    </target>
++</project>
+diff -urN --no-dereference lwjgl3-clean/config/astral/version.script lwjgl3-workdir/config/astral/version.script
+--- lwjgl3-clean/config/astral/version.script	1970-01-01 01:00:00.000000000 +0100
++++ lwjgl3-workdir/config/astral/version.script
+@@ -0,0 +1,9 @@
++LWJGL {
++    # Expose symbols required by the JVM
++    global:
++        *org_lwjgl_*;
++        JNI_On*;
++
++    # Hide everything else
++    local: *;
++};
+diff -urN --no-dereference lwjgl3-clean/config/build-definitions.xml lwjgl3-workdir/config/build-definitions.xml
+--- lwjgl3-clean/config/build-definitions.xml
++++ lwjgl3-workdir/config/build-definitions.xml
+@@ -120,10 +120,14 @@
+     <condition property="platform.windows">
+         <os family="Windows"/>
+     </condition>
++    <condition property="platform.astral">
++        <os name="Astral"/>
++    </condition>
+ 
+     <property name="platform" value="linux" if:set="platform.linux"/>
+     <property name="platform" value="macos" if:set="platform.macos"/>
+     <property name="platform" value="windows" if:set="platform.windows"/>
++    <property name="platform" value="astral" if:set="platform.astral"/>
+ 
+     <property name="platform.remote" value="macosx" if:set="platform.macos"/>
+     <property name="platform.remote" value="${platform}"/>
+@@ -131,6 +135,7 @@
+     <property name="platform.linux.remote" value="linux"/>
+     <property name="platform.macos.remote" value="macosx"/>
+     <property name="platform.windows.remote" value="windows"/>
++    <property name="platform.astral.remote" value="astral"/>
+ 
+     <property name="lib.native" location="${lib}/native/${platform}/${build.arch}" relative="true"/>
+ 
+diff -urN --no-dereference lwjgl3-clean/modules/generator/src/main/kotlin/org/lwjgl/generator/Modules.kt lwjgl3-workdir/modules/generator/src/main/kotlin/org/lwjgl/generator/Modules.kt
+--- lwjgl3-clean/modules/generator/src/main/kotlin/org/lwjgl/generator/Modules.kt
++++ lwjgl3-workdir/modules/generator/src/main/kotlin/org/lwjgl/generator/Modules.kt
+@@ -55,6 +55,11 @@
+         "Contains bindings to native APIs specific to the Windows operating system.",
+         CallingConvention.STDCALL
+     ),
++    CORE_ASTRAL(
++        "core.astral",
++        "org.lwjgl.system.astral",
++        "Contains bindings to native APIs specific to the Astral operating system."
++    ),
+ 
+     ASSIMP(
+         "assimp",
+@@ -988,4 +993,4 @@
+     }
+ }
+ 
+-fun String.dependsOn(vararg modules: Module): String? = if (modules.any { it.enabled }) this else null
+\ No newline at end of file
++fun String.dependsOn(vararg modules: Module): String? = if (modules.any { it.enabled }) this else null
+diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/main/c/astral/AstralConfig.h lwjgl3-workdir/modules/lwjgl/core/src/main/c/astral/AstralConfig.h
+--- lwjgl3-clean/modules/lwjgl/core/src/main/c/astral/AstralConfig.h	1970-01-01 01:00:00.000000000 +0100
++++ lwjgl3-workdir/modules/lwjgl/core/src/main/c/astral/AstralConfig.h
+@@ -0,0 +1,18 @@
++/*
++ * Copyright LWJGL. All rights reserved.
++ * License terms: https://www.lwjgl.org/license
++ */
++
++#include <stddef.h>
++#include <stdint.h>
++
++#define DISABLE_WARNINGS() \
++    _Pragma("GCC diagnostic push") \
++    _Pragma("GCC diagnostic ignored \"-Wpedantic\"")
++
++#define ENABLE_WARNINGS() \
++    _Pragma("GCC diagnostic pop")
++
++// JNIEXPORT_CRITICAL & CRITICAL are used as a workaround for JDK-8167409 on applicable functions.
++#define JNIEXPORT_CRITICAL static
++#define CRITICAL(function) _JavaCritical_##function
+diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/main/c/common_tools.h lwjgl3-workdir/modules/lwjgl/core/src/main/c/common_tools.h
+--- lwjgl3-clean/modules/lwjgl/core/src/main/c/common_tools.h
++++ lwjgl3-workdir/modules/lwjgl/core/src/main/c/common_tools.h
+@@ -13,6 +13,9 @@
+ #ifdef LWJGL_MACOS
+     #include "macOSConfig.h"
+ #endif
++#ifdef LWJGL_ASTRAL
++    #include "AstralConfig.h"
++#endif
+ 
+ DISABLE_WARNINGS()
+ #include <jni.h>
+diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/main/java/org/lwjgl/system/APIUtil.java lwjgl3-workdir/modules/lwjgl/core/src/main/java/org/lwjgl/system/APIUtil.java
+--- lwjgl3-clean/modules/lwjgl/core/src/main/java/org/lwjgl/system/APIUtil.java
++++ lwjgl3-workdir/modules/lwjgl/core/src/main/java/org/lwjgl/system/APIUtil.java
+@@ -9,6 +9,7 @@
+ import org.lwjgl.system.linux.*;
+ import org.lwjgl.system.macosx.*;
+ import org.lwjgl.system.windows.*;
++import org.lwjgl.system.astral.*;
+ 
+ import javax.annotation.*;
+ import java.io.*;
+@@ -128,6 +129,8 @@
+                 return new LinuxLibrary(name);
+             case MACOSX:
+                 return MacOSXLibrary.create(name);
++            case ASTRAL:
++                return new AstralLibrary(name);
+             default:
+                 throw new IllegalStateException();
+         }
+@@ -669,4 +672,4 @@
+     public static void apiClosureRet(long ret, float __result)   { memPutFloat(ret, __result); }
+     public static void apiClosureRet(long ret, double __result)  { memPutDouble(ret, __result); }
+ 
+-}
+\ No newline at end of file
++}
+diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/main/java/org/lwjgl/system/Platform.java lwjgl3-workdir/modules/lwjgl/core/src/main/java/org/lwjgl/system/Platform.java
+--- lwjgl3-clean/modules/lwjgl/core/src/main/java/org/lwjgl/system/Platform.java
++++ lwjgl3-workdir/modules/lwjgl/core/src/main/java/org/lwjgl/system/Platform.java
+@@ -47,6 +47,18 @@
+ 
+             return System.mapLibraryName(name);
+         }
++    },
++    ASTRAL("Astral", "astral") {
++        private final Pattern SO = Pattern.compile("(?:^|/)lib\\w+[.]so(?:[.]\\d+)*$");
++
++        @Override
++        String mapLibraryName(String name) {
++            if (SO.matcher(name).find()) {
++                return name;
++            }
++
++            return System.mapLibraryName(name);
++        }
+     };
+ 
+     /** The architectures supported by LWJGL. */
+@@ -87,6 +99,8 @@
+             current = LINUX;
+         } else if (osName.startsWith("Mac OS X") || osName.startsWith("Darwin")) {
+             current = MACOSX;
++        } else if (osName.startsWith("Astral")) {
++            current = ASTRAL;
+         } else {
+             throw new LinkageError("Unknown platform: " + osName);
+         }
+@@ -169,4 +183,4 @@
+         }
+     }
+ 
+-}
+\ No newline at end of file
++}
+diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/main/java/org/lwjgl/system/astral/AstralLibrary.java lwjgl3-workdir/modules/lwjgl/core/src/main/java/org/lwjgl/system/astral/AstralLibrary.java
+--- lwjgl3-clean/modules/lwjgl/core/src/main/java/org/lwjgl/system/astral/AstralLibrary.java	1970-01-01 01:00:00.000000000 +0100
++++ lwjgl3-workdir/modules/lwjgl/core/src/main/java/org/lwjgl/system/astral/AstralLibrary.java
+@@ -0,0 +1,54 @@
++/*
++ * Copyright LWJGL. All rights reserved.
++ * License terms: https://www.lwjgl.org/license
++ */
++package org.lwjgl.system.astral;
++
++import org.lwjgl.system.*;
++
++import javax.annotation.*;
++import java.nio.*;
++
++import static org.lwjgl.system.MemoryStack.*;
++import static org.lwjgl.system.MemoryUtil.*;
++import static org.lwjgl.system.astral.DynamicLinkLoader.*;
++
++/** Implements a {@link SharedLibrary} on the Astral OS. */
++public class AstralLibrary extends SharedLibrary.Default {
++
++    public AstralLibrary(String name) {
++        this(name, loadLibrary(name));
++    }
++
++    public AstralLibrary(String name, long handle) {
++        super(name, handle);
++    }
++
++    private static long loadLibrary(String name) {
++        long handle;
++        try (MemoryStack stack = stackPush()) {
++            handle = dlopen(stack.UTF8(name), RTLD_LAZY | RTLD_LOCAL);
++        }
++        if (handle == NULL) {
++            throw new UnsatisfiedLinkError("Failed to dynamically load library: " + name + "(error = " + dlerror() + ")");
++        }
++        return handle;
++    }
++
++    @Nullable
++    @Override
++    public String getPath() {
++        return SharedLibraryUtil.getLibraryPath(address());
++    }
++
++    @Override
++    public long getFunctionAddress(ByteBuffer functionName) {
++        return dlsym(address(), functionName);
++    }
++
++    @Override
++    public void free() {
++        dlclose(address());
++    }
++
++}
+diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/core/astral/LinuxTypes.kt lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/LinuxTypes.kt
+--- lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/core/astral/LinuxTypes.kt	1970-01-01 01:00:00.000000000 +0100
++++ lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/LinuxTypes.kt
+@@ -0,0 +1,156 @@
++/*
++ * Copyright LWJGL. All rights reserved.
++ * License terms: https://www.lwjgl.org/license
++ */
++package core.astral
++
++import org.lwjgl.generator.*
++
++val __u8 = typedef(uint8_t, "__u8")
++val __u16 = typedef(uint16_t, "__u16")
++val __u32 = typedef(uint32_t, "__u32")
++val __u64 = typedef(uint64_t, "__u64")
++
++val __s32 = typedef(int32_t, "__s32")
++val __s64 = typedef(int64_t, "__s64")
++
++val ssize_t = IntegerType("ssize_t", PrimitiveMapping.POINTER)
++
++val mode_t = typedef(unsigned_int, "mode_t")
++val off_t = typedef(int64_t, "off_t")
++val pid_t = typedef(int, "pid_t")
++val pthread_t = typedef(unsigned_long_int, "pthread_t")
++val socklen_t = typedef(uint32_t, "socklen_t")
++
++val cpu_set_t = "cpu_set_t".opaque
++val sigset_t = "sigset_t".opaque
++
++val flock = struct(Module.CORE_ASTRAL, "Flock", nativeName = "flock64") {
++    short("l_type", "type of lock").links("#F_RDLCK #F_WRLCK #F_UNLCK")
++    short("l_whence", "where {@code l_start} is relative to (like {@code lseek})")
++    off_t("l_start", "offset where the lock begins")
++    off_t("l_len", "size of the locked area; zero means until EOF")
++    pid_t("l_pid", "process holding the lock")
++}
++
++val f_owner_ex = struct(Module.CORE_ASTRAL, "FOwnerEx", nativeName = "f_owner_ex") {
++    int("type", "")
++    pid_t("pid", "")
++}
++
++// fcntl.h
++
++val open_how = struct(Module.CORE_ASTRAL, "OpenHow", nativeName = "struct open_how") {
++    documentation =
++        """
++        Arguments for how {@code openat2(2)} should open the target path.
++
++        If only {@code flags} and {@code @}mode are non-zero, then {@code openat2(2)} operates very similarly to {@code openat(2)}.
++
++        However, unlike {@code openat(2)}, unknown or invalid bits in {@code flags} result in {@code -EINVAL} rather than being silently ignored. {@code mode}
++        must be zero unless one of #O_CREAT, #O_TMPFILE are set.
++        """
++
++    __u64("flags", "")
++    __u64("mode", "")
++    __u64("resolve", "")
++}
++
++// fs.h
++
++val __kernel_rwf_t = typedef(int, "__kernel_rwf_t")
++
++// sys/epoll.h
++
++val epoll_data_t = union(Module.CORE_ASTRAL, "EpollData", nativeName = "epoll_data_t") {
++    opaque_p("ptr", "")
++    int("fd", "")
++    uint32_t("u32", "")
++    uint64_t("u64", "")
++}
++
++val epoll_event = struct(Module.CORE_ASTRAL, "EpollEvent", nativeName = "struct epoll_event") {
++    uint32_t("events", "epoll events")
++    epoll_data_t("data", "user data variable")
++}
++
++// sys/uio.h
++
++val iovec = struct(Module.CORE_ASTRAL, "IOVec", nativeName = "struct iovec") {
++    Check("iov_len")..nullable..void.p("iov_base", "starting address")
++    size_t("iov_len", "number of bytes to transfer")
++}
++
++// sys/socket.h
++
++val msghdr = struct(Module.CORE_ASTRAL, "Msghdr", nativeName = "struct msghdr") {
++    void.p("msg_name", "address to send to/receive from")
++    AutoSize("msg_name")..socklen_t("msg_namelen", "length of {@code address} data")
++
++    iovec.p("msg_iov", "vector of data to send/receive into")
++    AutoSize("msg_iov")..size_t("msg_iovlen", "number of elements in the vector")
++
++    void.p("msg_control", "ancillary data (eg BSD filedesc passing)")
++    AutoSize("msg_control")..size_t("msg_controllen", "ancillary data buffer length")
++
++    int("msg_flags", "flags on received message")
++}
++
++val sockaddr = struct(Module.CORE_ASTRAL, "Sockaddr", nativeName = "struct sockaddr") {
++    documentation = "Structure describing a generic socket address."
++
++    typedef(unsigned_short, "sa_family_t")("sa_family", "address family and length")
++    char("sa_data", "address data")[14]
++}
++
++val cmsghdr = struct(Module.CORE_ASTRAL, "CMsghdr", nativeName = "struct cmsghdr") {
++    socklen_t("cmsg_len", "data byte count, including header")
++    int("cmsg_level", "originating protocol")
++    int("cmsg_type", "protocol-specific type")
++    char("cmsg_data", "")[0]
++}
++
++// sys/stat.h
++
++val stat = "struct stat".opaque // TODO:
++
++val statx_timestamp = struct(Module.CORE_ASTRAL, "StatxTimestamp", nativeName = "struct statx_timestamp") {
++    documentation =  "Timestamp structure for the timestamps in {@code struct statx}."
++
++    __s64("tv_sec", "the number of seconds before (negative) or after (positive) {@code 00:00:00 1st January 1970 UTC}")
++    __u32("tv_nsec", "a number of nanoseconds (0..999,999,999) after the {@code tv_sec} time")
++    __s32("__reserved", "in case we need a yet finer resolution").private()
++}
++
++val statx = struct(Module.CORE_ASTRAL, "Statx", nativeName = "struct statx") {
++    __u32("stx_mask", "what results were written [uncond]")
++    __u32("stx_blksize", "preferred general I/O size [uncond]")
++    __u64("stx_attributes", "flags conveying information about the file [uncond]")
++    __u32("stx_nlink", "number of hard links")
++    __u32("stx_uid", "user ID of owner")
++    __u32("stx_gid", "group ID of owner")
++    __u16("stx_mode", "file mode")
++    __u16("__spare0", "")[1].private()
++    __u64("stx_ino", "{@code inode} number")
++    __u64("stx_size", "file size")
++    __u64("stx_blocks", "number of 512-byte blocks allocated")
++    __u64("stx_attributes_mask", "mask to show what's supported in {@code stx_attributes}")
++    statx_timestamp("stx_atime", "last access time")
++    statx_timestamp("stx_btime", "file creation time")
++    statx_timestamp("stx_ctime", "last attribute change time")
++    statx_timestamp("stx_mtime", "last data modification time ")
++    __u32("stx_rdev_major", "device ID of special file [if bdev/cdev]")
++    __u32("stx_rdev_minor", "")
++    __u32("stx_dev_major", "ID of device containing file [uncond]")
++    __u32("stx_dev_minor", "")
++    __u64("stx_mnt_id", "")
++    __u64("__spare2", "").private()
++    __u64("__spare3", "spare space for future expansion")[12].private()
++}
++
++// time_types.h
++
++val __kernel_timespec = struct(Module.CORE_ASTRAL, "KernelTimespec", nativeName = "struct __kernel_timespec") {
++    int64_t("tv_sec", "seconds")
++    long_long("tv_nsec", "nanoseconds")
++}
+\ No newline at end of file
+diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/core/astral/WaylandTypes.kt lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/WaylandTypes.kt
+--- lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/core/astral/WaylandTypes.kt	1970-01-01 01:00:00.000000000 +0100
++++ lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/WaylandTypes.kt
+@@ -0,0 +1,11 @@
++/*
++ * Copyright LWJGL. All rights reserved.
++ * License terms: https://www.lwjgl.org/license
++ */
++package core.astral
++
++import org.lwjgl.generator.*
++
++val wl_display = "struct wl_display".opaque
++val wl_output = "struct wl_output".opaque
++val wl_surface = "struct wl_surface".opaque
+\ No newline at end of file
+diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/core/astral/XEvents.kt lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/XEvents.kt
+--- lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/core/astral/XEvents.kt	1970-01-01 01:00:00.000000000 +0100
++++ lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/XEvents.kt
+@@ -0,0 +1,470 @@
++/*
++ * Copyright LWJGL. All rights reserved.
++ * License terms: https://www.lwjgl.org/license
++ */
++package core.astral
++
++import org.lwjgl.generator.*
++
++val XAnyEvent = struct(Module.CORE_ASTRAL, "XAnyEvent") {
++	documentation = "Generic X event."
++
++	int("type", "the event type constant name that uniquely identifies it")
++	unsigned_long("serial", "# of last request processed by server")
++	Bool("send_event", "true if this came from an #XSendEvent() request")
++	Display.p("display", "{@code Display} the event was read from")
++	Window("window", "window it reported relative to")
++}
++
++val XKeyEvent = struct(Module.CORE_ASTRAL, "XKeyEvent") {
++	documentation = "Key event."
++
++	int("type", "the event type").links("#KeyPress #KeyRelease")
++	XAnyEvent copy "serial"
++	XAnyEvent copy "send_event"
++	XAnyEvent copy "display"
++	XAnyEvent copy "window"
++	Window("root", "root window that the event occurred on")
++	Window("subwindow", "child window")
++	Time("time", "milliseconds ")
++	int("x", "pointer x coordinate in event window")
++	int("y", "pointer y coordinate in event window")
++	int("x_root", "x coordinate relative to {@code root}")
++	int("y_root", "y coordinate relative to {@code root}")
++	unsigned_int("state", "key mask")
++	unsigned_int("keycode", "detail")
++	Bool("same_screen", "same screen flag")
++}
++
++val XEvent = union(Module.CORE_ASTRAL, "XEvent", mutable = false) {
++	documentation = "This union is defined so Xlib can always use the same sized event structure internally, to avoid memory fragmentation."
++
++	int("type", "")
++
++	XAnyEvent("xany", "")
++	XKeyEvent("xkey", "")
++	struct(Module.CORE_ASTRAL, "XButtonEvent") {
++		documentation = "Button event."
++
++		int("type", "the event type").links("#ButtonPress #ButtonRelease")
++		XAnyEvent copy "serial"
++		XAnyEvent copy "send_event"
++		XAnyEvent copy "display"
++		XAnyEvent copy "window"
++		XKeyEvent copy "root"
++		XKeyEvent copy "subwindow"
++		XKeyEvent copy "time"
++		XKeyEvent copy "x"
++		XKeyEvent copy "y"
++		XKeyEvent copy "x_root"
++		XKeyEvent copy "y_root"
++		unsigned_int("state", "button mask")
++		unsigned_int("button", "detail")
++		XKeyEvent copy "same_screen"
++	}("xbutton", "")
++	struct(Module.CORE_ASTRAL, "XMotionEvent") {
++		documentation = "Motion event."
++
++		int("type", "the event type").links("#MotionNotify")
++		XAnyEvent copy "serial"
++		XAnyEvent copy "send_event"
++		XAnyEvent copy "display"
++		XAnyEvent copy "window"
++		XKeyEvent copy "root"
++		XKeyEvent copy "subwindow"
++		XKeyEvent copy "time"
++		XKeyEvent copy "x"
++		XKeyEvent copy "y"
++		XKeyEvent copy "x_root"
++		XKeyEvent copy "y_root"
++		unsigned_int("state", "key or button mask")
++		char("is_hint", "detail")
++		Bool("same_screen", "same screen flag")
++	}("xmotion", "")
++	struct(Module.CORE_ASTRAL, "XCrossingEvent") {
++		documentation = ""
++
++		int("type", "of event")
++		XAnyEvent copy "serial"
++		XAnyEvent copy "send_event"
++		XAnyEvent copy "display"
++		XAnyEvent copy "window"
++		XKeyEvent copy "root"
++		XKeyEvent copy "subwindow"
++		XKeyEvent copy "time"
++		XKeyEvent copy "x"
++		XKeyEvent copy "y"
++		XKeyEvent copy "x_root"
++		XKeyEvent copy "y_root"
++		int("mode", "").links("#NotifyNormal #NotifyGrab #NotifyUngrab")
++		int("detail", "")
++		int("same_screen", "same screen flag")
++		int("focus", "boolean focus")
++		unsigned_int("state", "key or button mask")
++	}("xcrossing", "")
++	struct(Module.CORE_ASTRAL, "XFocusChangeEvent") {
++		documentation = ""
++
++		int("type", "").links("#FocusIn #FocusOut")
++		XAnyEvent copy "serial"
++		XAnyEvent copy "send_event"
++		XAnyEvent copy "display"
++		XAnyEvent copy "window"
++		int("mode", "").links("#NotifyNormal #NotifyWhileGrabbed #NotifyGrab #NotifyUngrab")
++		int("detail", "").links(
++			"#NotifyAncestor #NotifyVirtual #NotifyInferior #NotifyNonlinear #NotifyNonlinearVirtual #NotifyPointer #NotifyPointerRoot #NotifyDetailNone"
++		)
++	}("xfocus", "")
++	struct(Module.CORE_ASTRAL, "XExposeEvent") {
++		documentation = ""
++
++		int("type", "")
++		XAnyEvent copy "serial"
++		XAnyEvent copy "send_event"
++		XAnyEvent copy "display"
++		XAnyEvent copy "window"
++		int("x", "")
++		int("y", "")
++		int("width", "")
++		int("height", "")
++		int("count", "if non-zero, at least this many more")
++	}("xexpose", "")
++	struct(Module.CORE_ASTRAL, "XGraphicsExposeEvent") {
++		documentation = ""
++
++		int("type", "")
++		XAnyEvent copy "serial"
++		XAnyEvent copy "send_event"
++		XAnyEvent copy "display"
++		Drawable("drawable", "")
++		int("x", "")
++		int("y", "")
++		int("width", "")
++		int("height", "")
++		int("count", "if non-zero, at least this many more")
++		int("major_code", "core is {@code CopyArea} or {@code CopyPlane}")
++		int("minor_code", "not defined in the core")
++	}("xgraphicsexpose", "")
++	struct(Module.CORE_ASTRAL, "XNoExposeEvent") {
++		documentation = ""
++
++		int("type", "")
++		XAnyEvent copy "serial"
++		XAnyEvent copy "send_event"
++		XAnyEvent copy "display"
++		Drawable("drawable", "")
++		int("major_code", "core is {@code CopyArea} or {@code CopyPlane}")
++		int("minor_code", "not defined in the core")
++	}("xnoexpose", "")
++	struct(Module.CORE_ASTRAL, "XVisibilityEvent") {
++		documentation = ""
++
++		int("type", "")
++		XAnyEvent copy "serial"
++		XAnyEvent copy "send_event"
++		XAnyEvent copy "display"
++		XAnyEvent copy "window"
++		int("state", "visibility state")
++	}("xvisibility", "")
++	struct(Module.CORE_ASTRAL, "XCreateWindowEvent") {
++		documentation = ""
++
++		int("type", "")
++		XAnyEvent copy "serial"
++		XAnyEvent copy "send_event"
++		XAnyEvent copy "display"
++		Window("parent", "parent of the window")
++		Window("window", "window id of window created")
++		int("x", "window location")
++		int("y", "window location")
++		int("width", "size of window")
++		int("height", "size of window")
++		int("border_width", "border width")
++		int("override_redirect", "creation should be overridden")
++	}("xcreatewindow", "")
++	struct(Module.CORE_ASTRAL, "XDestroyWindowEvent") {
++		documentation = ""
++
++		int("type", "")
++		XAnyEvent copy "serial"
++		XAnyEvent copy "send_event"
++		XAnyEvent copy "display"
++		Window("event", "")
++		Window("window", "")
++	}("xdestroywindow", "")
++	struct(Module.CORE_ASTRAL, "XUnmapEvent") {
++		documentation = ""
++
++		int("type", "")
++		XAnyEvent copy "serial"
++		XAnyEvent copy "send_event"
++		XAnyEvent copy "display"
++		Window("event", "")
++		Window("window", "")
++		int("from_configure", "")
++	}("xunmap", "")
++	struct(Module.CORE_ASTRAL, "XMapEvent") {
++		documentation = ""
++
++		int("type", "")
++		XAnyEvent copy "serial"
++		XAnyEvent copy "send_event"
++		XAnyEvent copy "display"
++		Window("event", "")
++		Window("window", "")
++		int("override_redirect", "boolean, is override set...")
++	}("xmap", "")
++	struct(Module.CORE_ASTRAL, "XMapRequestEvent") {
++		documentation = ""
++
++		int("type", "")
++		XAnyEvent copy "serial"
++		XAnyEvent copy "send_event"
++		XAnyEvent copy "display"
++		Window("parent", "")
++		Window("window", "")
++	}("xmaprequest", "")
++	struct(Module.CORE_ASTRAL, "XReparentEvent") {
++		documentation = ""
++
++		int("type", "")
++		XAnyEvent copy "serial"
++		XAnyEvent copy "send_event"
++		XAnyEvent copy "display"
++		Window("event", "")
++		Window("window", "")
++		Window("parent", "")
++		int("x", "")
++		int("y", "")
++		int("override_redirect", "")
++	}("xreparent", "")
++	struct(Module.CORE_ASTRAL, "XConfigureEvent") {
++		documentation = "Motion event."
++
++		int("type", "")
++		XAnyEvent copy "serial"
++		XAnyEvent copy "send_event"
++		XAnyEvent copy "display"
++		XAnyEvent copy "window"
++		int("x", "")
++		int("y", "")
++		int("width", "")
++		int("height", "")
++		int("border_width", "")
++		Window("above", "")
++		Bool("override_redirect", "")
++	}("xconfigure", "")
++	struct(Module.CORE_ASTRAL, "XGravityEvent") {
++		documentation = ""
++
++		int("type", "")
++		XAnyEvent copy "serial"
++		XAnyEvent copy "send_event"
++		XAnyEvent copy "display"
++		Window("event", "")
++		Window("window", "")
++		int("x", "")
++		int("y", "")
++	}("xgravity", "")
++	struct(Module.CORE_ASTRAL, "XResizeRequestEvent") {
++		documentation = ""
++
++		int("type", "")
++		XAnyEvent copy "serial"
++		XAnyEvent copy "send_event"
++		XAnyEvent copy "display"
++		XAnyEvent copy "window"
++		int("width", "")
++		int("height", "")
++	}("xresizerequest", "")
++	struct(Module.CORE_ASTRAL, "XConfigureRequestEvent") {
++		documentation = ""
++
++		int("type", "")
++		XAnyEvent copy "serial"
++		XAnyEvent copy "send_event"
++		XAnyEvent copy "display"
++		Window("parent", "")
++		Window("window", "")
++		int("x", "")
++		int("y", "")
++		int("width", "")
++		int("height", "")
++		int("border_width", "")
++		Window("above", "")
++		int("detail", "").links("#Above #Below #TopIf #BottomIf #Opposite")
++		unsigned_long("value_mask", "")
++	}("xconfigurerequest", "")
++	struct(Module.CORE_ASTRAL, "XCirculateEvent") {
++		documentation = ""
++
++		int("type", "")
++		XAnyEvent copy "serial"
++		XAnyEvent copy "send_event"
++		XAnyEvent copy "display"
++		Window("event", "")
++		Window("window", "")
++		int("place", "").links("#PlaceOnTop #PlaceOnBottom")
++	}("xcirculate", "")
++	struct(Module.CORE_ASTRAL, "XCirculateRequestEvent") {
++		documentation = ""
++
++		int("type", "")
++		XAnyEvent copy "serial"
++		XAnyEvent copy "send_event"
++		XAnyEvent copy "display"
++		Window("parent", "")
++		Window("window", "")
++		int("place", "").links("#PlaceOnTop #PlaceOnBottom")
++	}("xcirculaterequest", "")
++	struct(Module.CORE_ASTRAL, "XPropertyEvent") {
++		documentation = "Property event."
++
++		int("type", "")
++		XAnyEvent copy "serial"
++		XAnyEvent copy "send_event"
++		XAnyEvent copy "display"
++		XAnyEvent copy "window"
++		Atom("atom", "")
++		Time("time", "")
++		int("state", "").links("#PropertyNewValue #PropertyDelete")
++	}("xproperty", "")
++	struct(Module.CORE_ASTRAL, "XSelectionClearEvent") {
++		documentation = ""
++
++		int("type", "")
++		XAnyEvent copy "serial"
++		XAnyEvent copy "send_event"
++		XAnyEvent copy "display"
++		XAnyEvent copy "window"
++		Atom("selection", "")
++		Time("time", "")
++	}("xselectionclear", "")
++	struct(Module.CORE_ASTRAL, "XSelectionRequestEvent") {
++		documentation = "SelectionRequest event structure."
++
++		int("type", "")
++		XAnyEvent copy "serial"
++		XAnyEvent copy "send_event"
++		XAnyEvent copy "display"
++		Window("owner", "")
++		Window("requestor", "")
++		Atom("selection", "")
++		Atom("target", "")
++		Atom("property", "")
++		Time("time", "")
++	}("xselectionrequest", "")
++	struct(Module.CORE_ASTRAL, "XSelectionEvent") {
++		documentation = "Selection event structure."
++
++		int("type", "")
++		XAnyEvent copy "serial"
++		XAnyEvent copy "send_event"
++		XAnyEvent copy "display"
++		Window("requestor", "")
++		Atom("selection", "")
++		Atom("target", "")
++		Atom("property", "atom or #None")
++		Time("time", "")
++	}("xselection", "")
++	struct(Module.CORE_ASTRAL, "XColormapEvent") {
++		documentation = ""
++
++		int("type", "")
++		XAnyEvent copy "serial"
++		XAnyEvent copy "send_event"
++		XAnyEvent copy "display"
++		XAnyEvent copy "window"
++		Colormap("colormap", "colormap or #None")
++		int("new", "")
++		int("state", "").links("#ColormapInstalled #ColormapUninstalled")
++	}("xcolormap", "")
++	struct(Module.CORE_ASTRAL, "XClientMessageEvent") {
++		documentation =
++			"""
++			Client message event.
++			
++			The {@code message_type} member is set to an atom that indicates how the data should be interpreted by the receiving client. The {@code format}
++			member is set to 8, 16, or 32 and specifies whether the data should be viewed as a list of bytes, shorts, or longs. The {@code data} member is a
++			union that contains the members {@code b}, {@code s}, and {@code l}. The {@code b}, {@code s}, and {@code l} members represent data of twenty 8-bit
++			values, ten 16-bit values, and five 32-bit values. Particular message types might not make use of all these values. The X server places no
++			interpretation on the values in the {@code window}, {@code message_type}, or {@code data} members.
++			"""
++
++		int("type", "")
++		XAnyEvent copy "serial"
++		XAnyEvent copy "send_event"
++		XAnyEvent copy "display"
++		XAnyEvent copy "window"
++		Atom("message_type", "")
++		int("format", "")
++		struct {
++			char("b", "")[20]
++			short("s", "")[10]
++			long("l", "")[5]
++		}("data", "")
++	}("xclient", "")
++	struct(Module.CORE_ASTRAL, "XMappingEvent") {
++		documentation = ""
++
++		int("type", "")
++		XAnyEvent copy "serial"
++		XAnyEvent copy "send_event"
++		XAnyEvent copy "display"
++		XAnyEvent copy "window"
++		int("request", "").links("#MappingModifier #MappingKeyboard #MappingPointer")
++		int("first_keycode", "first keycode")
++		int("count", "defines range of change w. {@code first_keycode}")
++	}("xmapping", "")
++	struct(Module.CORE_ASTRAL, "XErrorEvent") {
++		documentation = "Error event."
++
++		int("type", "")
++		Display.p("display", "display the event was read from")
++		XID("resourceid", "resource id")
++		unsigned_long("serial", "serial number of failed request")
++		unsigned_char("error_code", "error code of failed request")
++		unsigned_char("request_code", "major op-code of failed request")
++		unsigned_char("minor_code", "minor op-code of failed request")
++	}("xerror", "")
++	struct(Module.CORE_ASTRAL, "XKeymapEvent") {
++		documentation = "Generated on {@code EnterWindow} and {@code FocusIn} when {@code KeyMapState} selected."
++
++		int("type", "")
++		XAnyEvent copy "serial"
++		XAnyEvent copy "send_event"
++		XAnyEvent copy "display"
++		XAnyEvent copy "window"
++		char("key_vector", "")[32]
++	}("xkeymap", "")
++	struct(Module.CORE_ASTRAL, "XGenericEvent") {
++		documentation = "GenericEvent. This event is the standard event for all newer extensions."
++
++		int("type", "of event").links("#GenericEvent")
++		XAnyEvent copy "serial"
++		XAnyEvent copy "send_event"
++		XAnyEvent copy "display"
++		int("extension", "major opcode of extension that caused the event")
++		int("evtype", "actual event type")
++	}("xgeneric", "")
++	struct(Module.CORE_ASTRAL, "XGenericEventCookie") {
++		documentation = "Additional information for an {@code XGenericEvent}."
++
++		int("type", "of event").links("#GenericEvent")
++		XAnyEvent copy "serial"
++		XAnyEvent copy "send_event"
++		XAnyEvent copy "display"
++		int("extension", "major opcode of extension that caused the event")
++		int("evtype", "actual event type")
++		unsigned_int("cookie", "")
++		void.p("data", "")
++	}("xcookie", "")
++
++	long.padding(24)
++}
++
++val XTimeCoord = struct(Module.CORE_ASTRAL, "XTimeCoord", mutable = false) {
++    Time("time", "the time, in milliseconds")
++    short("x", "the x coordinate of the pointer relative to the origin of the specified window")
++	short("y", "the y coordinate of the pointer relative to the origin of the specified window")
++}
+\ No newline at end of file
+diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/core/astral/XTypes.kt lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/XTypes.kt
+--- lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/core/astral/XTypes.kt	1970-01-01 01:00:00.000000000 +0100
++++ lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/XTypes.kt
+@@ -0,0 +1,79 @@
++/*
++ * Copyright LWJGL. All rights reserved.
++ * License terms: https://www.lwjgl.org/license
++ */
++package core.astral
++
++import org.lwjgl.generator.*
++
++val Bool = typedef(intb, "Bool")
++val Status = typedef(int, "Status")
++
++val XID = typedef(unsigned_long, "XID")
++val Mask = typedef(unsigned_long, "Mask")
++val Atom = typedef(unsigned_long, "Atom")
++val VisualID = typedef(unsigned_long, "VisualID")
++val Time = typedef(unsigned_long, "Time")
++
++val Colormap = typedef(XID, "Colormap")
++val Cursor = typedef(XID, "Cursor")
++val Drawable = typedef(XID, "Drawable")
++val Font = typedef(XID, "Font")
++val Pixmap = typedef(XID, "Pixmap")
++val Window = typedef(XID, "Window")
++
++val Display = "Display".opaque // Display is a struct, but should be treated as an opaque type by apps
++val DISPLAY = Parameter(Display.p, "display", "the connection to the X server") // This is here so that GLX extensions can use it
++
++val Visual = struct(Module.CORE_ASTRAL, "Visual") {
++    documentation = "Visual structure; contains information about colormapping possible."
++
++    nullable..opaque_p("ext_data", "")
++    VisualID("visualid", "")
++    int("class", "")
++    unsigned_long("red_mask", "")
++    unsigned_long("green_mask", "")
++    unsigned_long("blue_mask", "")
++    int("bits_per_rgb", "")
++    int("map_entries", "")
++}
++
++val XVisualInfo = struct(Module.CORE_ASTRAL, "XVisualInfo") {
++    documentation = "Information used by the visual utility routines to find desired visual type from the many visuals a display may support."
++
++    Visual.p("visual", "")
++    VisualID("visualid", "")
++    int("screen", "")
++    int("depth", "")
++    int("class", "")
++    unsigned_long("red_mask", "")
++    unsigned_long("green_mask", "")
++    unsigned_long("blue_mask", "")
++    int("colormap_size", "")
++    int("bits_per_rgb", "")
++}
++
++val XSetWindowAttributes = struct(Module.CORE_ASTRAL, "XSetWindowAttributes") {
++    documentation = "Data structure for setting window attributes."
++
++    Pixmap("background_pixmap", "")
++    unsigned_long("background_pixel", "")
++    Pixmap("border_pixmap", "")
++    unsigned_long("border_pixel", "")
++    int("bit_gravity", "")
++    int("win_gravity", "")
++    int("backing_store", "")
++    unsigned_long("backing_planes", "")
++    unsigned_long("backing_pixel", "")
++    Bool("save_under", "")
++    long("event_mask", "")
++    long("do_not_propagate_mask", "")
++    Bool("override_redirect", "")
++    Colormap("colormap", "")
++    Cursor("cursor", "")
++}
++
++// --------------- Xrandr.h ---------------
++
++val RROutput = typedef(XID, "RROutput")
++val RRCrtc = typedef(XID, "RRCrtc")
+\ No newline at end of file
+diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/DynamicLinkLoader.kt lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/DynamicLinkLoader.kt
+--- lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/DynamicLinkLoader.kt	1970-01-01 01:00:00.000000000 +0100
++++ lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/DynamicLinkLoader.kt
+@@ -0,0 +1,90 @@
++/*
++ * Copyright LWJGL. All rights reserved.
++ * License terms: https://www.lwjgl.org/license
++ */
++package core.astral.templates
++
++import org.lwjgl.generator.*
++
++val dlfcn = "DynamicLinkLoader".nativeClass(Module.CORE_ASTRAL, nativeSubPath = "astral") {
++    nativeImport("<dlfcn.h>")
++
++    documentation = "Native bindings to &lt;dlfcn.h&gt;."
++
++    val Modes = IntConstant(
++        "The {@code mode} argument to #dlopen() contains one of the following.",
++
++        "RTLD_LAZY"..0x00001,
++        "RTLD_NOW"..0x00002,
++        "RTLD_BINDING_MASK"..0x3,
++        "RTLD_NOLOAD"..0x00004,
++        "RTLD_DEEPBIND"..0x00008
++    ).javaDocLinks + " #RTLD_GLOBAL #RTLD_LOCAL #RTLD_NODELETE"
++
++    IntConstant(
++        """
++        If the following bit is set in the {@code mode} argument to #dlopen(), the symbols of the loaded object and its dependencies are made visible as
++        if the object were linked directly into the program.
++        """,
++
++        "RTLD_GLOBAL"..0x00100
++    )
++
++    IntConstant(
++        """
++        Unix98 demands the following flag which is the inverse to #RTLD_GLOBAL. The implementation does this by default and so we can define the value
++        to zero.
++        """,
++
++        "RTLD_LOCAL".."0"
++    )
++
++    IntConstant(
++        "Do not delete object when closed.",
++
++        "RTLD_NODELETE"..0x01000
++    )
++
++    opaque_p(
++        "dlopen",
++        """
++        Loads the dynamic library file named by the null-terminated string {@code filename} and returns an opaque "handle" for the dynamic library. If
++        {@code filename} is #NULL, then the returned handle is for the main program.
++        """,
++
++        nullable..charUTF8.const.p("filename", "the name of the dynamic library to open, or #NULL"),
++        int("mode", "a bitfield", Modes, LinkMode.BITFIELD)
++    )
++
++    charUTF8.p(
++        "dlerror",
++        """
++        Returns a human readable string describing the most recent error that occurred from #dlopen(), #dlsym() or #dlclose() since
++        the last call to {@code dlerror()}. It returns #NULL if no errors have occurred since initialization or since it was last called.
++        """,
++        void()
++    )
++
++    opaque_p(
++        "dlsym",
++        """
++        Takes a "handle" of a dynamic library returned by #dlopen() and the null-terminated symbol name, returning the address where that symbol is loaded
++        into memory. If the symbol is not found, in the specified library or any of the libraries that were automatically loaded by #dlopen() when that
++        library was loaded, {@code dlsym()} returns #NULL.
++        """,
++
++        opaque_p("handle", "the dynamic library handle"),
++        charASCII.const.p("name", "the symbol name")
++    )
++
++    int(
++        "dlclose",
++        """
++        Decrements the reference count on the dynamic library handle handle. If the reference count drops to zero and no other loaded libraries use symbols in
++        it, then the dynamic library is unloaded.
++        """,
++
++        opaque_p("handle", "the dynamic library to close")
++    )
++
++}
+diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/X11.kt lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/X11.kt
+--- lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/X11.kt	1970-01-01 01:00:00.000000000 +0100
++++ lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/X11.kt
+@@ -0,0 +1,718 @@
++/*
++ * Copyright LWJGL. All rights reserved.
++ * License terms: https://www.lwjgl.org/license
++ */
++package core.astral.templates
++
++import org.lwjgl.generator.*
++import core.astral.*
++
++val X11 = "X11".nativeClass(
++    Module.CORE_ASTRAL,
++    nativeSubPath = "astral",
++    binding = simpleBinding(Module.CORE_ASTRAL, "X11", libraryExpression = "null, \"libX11.so.6\", \"libX11.so\"")
++) {
++    documentation = "Native bindings to libX11."
++
++    IntConstant(
++        "Boolean values",
++
++        "True".."1",
++        "False".."0"
++    )
++
++    IntConstant(
++        "RESERVED RESOURCE AND CONSTANT DEFINITIONS",
++
++        "None".."0",
++        "ParentRelative".."1",
++        "CopyFromParent".."0",
++        "PointerWindow".."0",
++        "InputFocus".."1",
++        "PointerRoot".."1",
++        "AnyPropertyType".."0",
++        "AnyKey".."0",
++        "AnyButton".."0",
++        "AllTemporary".."0",
++        "CurrentTime".."0",
++        "NoSymbol".."0"
++    )
++
++    IntConstant(
++        "ERROR CODES",
++
++        "Success".."0",
++        "BadRequest".."1",
++        "BadValue".."2",
++        "BadWindow".."3",
++        "BadPixmap".."4",
++        "BadAtom".."5",
++        "BadCursor".."6",
++        "BadFont".."7",
++        "BadMatch".."8",
++        "BadDrawable".."9",
++        "BadAccess".."10",
++        "BadAlloc".."11",
++        "BadColor".."12",
++        "BadGC".."13",
++        "BadIDChoice".."14",
++        "BadName".."15",
++        "BadLength".."16",
++        "BadImplementation".."17",
++        "FirstExtensionError".."128",
++        "LastExtensionError".."255"
++    )
++
++    IntConstant(
++        "Window attributes for CreateWindow and ChangeWindowAttributes",
++
++        "CWBackPixmap".."1 << 0",
++        "CWBackPixel".."1 << 1",
++        "CWBorderPixmap".."1 << 2",
++        "CWBorderPixel".."1 << 3",
++        "CWBitGravity".."1 << 4",
++        "CWWinGravity".."1 << 5",
++        "CWBackingStore".."1 << 6",
++        "CWBackingPlanes".."1 << 7",
++        "CWBackingPixel".."1 << 8",
++        "CWOverrideRedirect".."1 << 9",
++        "CWSaveUnder".."1 << 10",
++        "CWEventMask".."1 << 11",
++        "CWDontPropagate".."1 << 12",
++        "CWColormap".."1 << 13",
++        "CWCursor".."1 << 14"
++    )
++
++    IntConstant(
++        "Input Event Masks. Used as event-mask window attribute and as arguments to Grab requests. Not to be confused with event names.",
++
++        "NoEventMask".."0",
++        "KeyPressMask".."1 << 0",
++        "KeyReleaseMask".."1 << 1",
++        "ButtonPressMask".."1 << 2",
++        "ButtonReleaseMask".."1 << 3",
++        "EnterWindowMask".."1 << 4",
++        "LeaveWindowMask".."1 << 5",
++        "PointerMotionMask".."1 << 6",
++        "PointerMotionHintMask".."1 << 7",
++        "Button1MotionMask".."1 << 8",
++        "Button2MotionMask".."1 << 9",
++        "Button3MotionMask".."1 << 10",
++        "Button4MotionMask".."1 << 11",
++        "Button5MotionMask".."1 << 12",
++        "ButtonMotionMask".."1 << 13",
++        "KeymapStateMask".."1 << 14",
++        "ExposureMask".."1 << 15",
++        "VisibilityChangeMask".."1 << 16",
++        "StructureNotifyMask".."1 << 17",
++        "ResizeRedirectMask".."1 << 18",
++        "SubstructureNotifyMask".."1 << 19",
++        "SubstructureRedirectMask".."1 << 20",
++        "FocusChangeMask".."1 << 21",
++        "PropertyChangeMask".."1 << 22",
++        "ColormapChangeMask".."1 << 23",
++        "OwnerGrabButtonMask".."1 << 24"
++    )
++
++    IntConstant(
++        """
++        Event names. Used in "type" field in {@code XEvent} structures. Not to be confused with event masks above. They start from 2 because 0 and 1 are reserved in
++        the protocol for errors and replies.
++        """,
++
++        "KeyPress".."2",
++        "KeyRelease".."3",
++        "ButtonPress".."4",
++        "ButtonRelease".."5",
++        "MotionNotify".."6",
++        "EnterNotify".."7",
++        "LeaveNotify".."8",
++        "FocusIn".."9",
++        "FocusOut".."10",
++        "KeymapNotify".."11",
++        "Expose".."12",
++        "GraphicsExpose".."13",
++        "NoExpose".."14",
++        "VisibilityNotify".."15",
++        "CreateNotify".."16",
++        "DestroyNotify".."17",
++        "UnmapNotify".."18",
++        "MapNotify".."19",
++        "MapRequest".."20",
++        "ReparentNotify".."21",
++        "ConfigureNotify".."22",
++        "ConfigureRequest".."23",
++        "GravityNotify".."24",
++        "ResizeRequest".."25",
++        "CirculateNotify".."26",
++        "CirculateRequest".."27",
++        "PropertyNotify".."28",
++        "SelectionClear".."29",
++        "SelectionRequest".."30",
++        "SelectionNotify".."31",
++        "ColormapNotify".."32",
++        "ClientMessage".."33",
++        "MappingNotify".."34",
++        "GenericEvent".."35",
++        "LASTEvent".."36"
++    )
++
++    IntConstant(
++        "Key masks. Used as modifiers to GrabButton and GrabKey, results of QueryPointer, state in various key-, mouse-, and button-related events.",
++
++        "ShiftMask".."1<<0",
++        "LockMask".."1<<1",
++        "ControlMask".."1<<2",
++        "Mod1Mask".."1<<3",
++        "Mod2Mask".."1<<4",
++        "Mod3Mask".."1<<5",
++        "Mod4Mask".."1<<6",
++        "Mod5Mask".."1<<7"
++    )
++
++    IntConstant(
++        "modifier names. Used to build a SetModifierMapping request or to read a GetModifierMapping request. These correspond to the masks defined above.",
++
++        "ShiftMapIndex".."0",
++        "LockMapIndex".."1",
++        "ControlMapIndex".."2",
++        "Mod1MapIndex".."3",
++        "Mod2MapIndex".."4",
++        "Mod3MapIndex".."5",
++        "Mod4MapIndex".."6",
++        "Mod5MapIndex".."7"
++    )
++
++    IntConstant(
++        "button masks. Used in same manner as Key masks above. Not to be confused with button names below.",
++
++        "Button1Mask".."1<<8",
++        "Button2Mask".."1<<9",
++        "Button3Mask".."1<<10",
++        "Button4Mask".."1<<11",
++        "Button5Mask".."1<<12",
++        "AnyModifier".."1<<15"
++    )
++
++    IntConstant(
++        """
++        button names. Used as arguments to GrabButton and as detail in ButtonPress and ButtonRelease events. Not to be confused with button masks above. Note
++        that 0 is already defined above as "AnyButton".
++        """,
++
++        "Button1".."1",
++        "Button2".."2",
++        "Button3".."3",
++        "Button4".."4",
++        "Button5".."5"
++    )
++
++    IntConstant(
++        "Notify modes",
++
++        "NotifyNormal".."0",
++        "NotifyGrab".."1",
++        "NotifyUngrab".."2",
++        "NotifyWhileGrabbed".."3",
++        "NotifyHint".."1"
++    )
++
++    IntConstant(
++        "Notify detail",
++
++        "NotifyAncestor".."0",
++        "NotifyVirtual".."1",
++        "NotifyInferior".."2",
++        "NotifyNonlinear".."3",
++        "NotifyNonlinearVirtual".."4",
++        "NotifyPointer".."5",
++        "NotifyPointerRoot".."6",
++        "NotifyDetailNone".."7"
++    )
++
++    IntConstant(
++        "Visibility notify",
++
++        "VisibilityUnobscured".."0",
++        "VisibilityPartiallyObscured".."1",
++        "VisibilityFullyObscured".."2"
++    )
++
++    IntConstant(
++        "Circulation request",
++
++        "PlaceOnTop".."0",
++        "PlaceOnBottom".."1"
++    )
++
++    IntConstant(
++        "Property notification",
++
++        "PropertyNewValue".."0",
++        "PropertyDelete".."1"
++    )
++
++    IntConstant(
++        "Color Map notification",
++
++        "ColormapUninstalled".."0",
++        "ColormapInstalled".."1"
++    )
++
++    IntConstant(
++        "GrabPointer, GrabButton, GrabKeyboard, GrabKey Modes",
++
++        "GrabModeSync".."0",
++        "GrabModeAsync".."1"
++    )
++
++    IntConstant(
++        "GrabPointer, GrabKeyboard reply status",
++
++        "GrabSuccess".."0",
++        "AlreadyGrabbed".."1",
++        "GrabInvalidTime".."2",
++        "GrabNotViewable".."3",
++        "GrabFrozen".."4"
++    )
++
++    IntConstant(
++        "AllowEvents modes",
++
++        "AsyncPointer".."0",
++        "SyncPointer".."1",
++        "ReplayPointer".."2",
++        "AsyncKeyboard".."3",
++        "SyncKeyboard".."4",
++        "ReplayKeyboard".."5",
++        "AsyncBoth".."6",
++        "SyncBoth".."7"
++    )
++
++    IntConstant(
++        "For #XCreateColormap().",
++
++        "AllocNone".."0",
++        "AllocAll".."1"
++    )
++
++    IntConstant(
++        "Used in XSetInputFocus(), XGetInputFocus().",
++
++        "RevertToNone".."None",
++        "RevertToPointerRoot".."PointerRoot",
++        "RevertToParent".."2"
++    )
++
++    IntConstant(
++        "Window classes used by #XCreateWindow().",
++
++        "InputOutput".."1",
++        "InputOnly".."2"
++    )
++
++    IntConstant(
++        "SCREEN SAVER STUFF",
++
++        "DontPreferBlanking".."0",
++        "PreferBlanking".."1",
++        "DefaultBlanking".."2",
++        "DisableScreenSaver".."0",
++        "DisableScreenInterval".."0",
++        "DontAllowExposures".."0",
++        "AllowExposures".."1",
++        "DefaultExposures".."2",
++        "ScreenSaverReset".."0",
++        "ScreenSaverActive".."1"
++    )
++
++    IntConstant(
++        "Property modes",
++
++        "PropModeReplace".."0",
++        "PropModePrepend".."1",
++        "PropModeAppend".."2"
++    )
++
++    IntConstant(
++        "graphics functions, as in GC.alu",
++
++        "GXclear"..0x0,
++        "GXand"..0x1,
++        "GXandReverse"..0x2,
++        "GXcopy"..0x3,
++        "GXandInverted"..0x4,
++        "GXnoop"..0x5,
++        "GXxor"..0x6,
++        "GXor"..0x7,
++        "GXnor"..0x8,
++        "GXequiv"..0x9,
++        "GXinvert"..0xa,
++        "GXorReverse"..0xb,
++        "GXcopyInverted"..0xc,
++        "GXorInverted"..0xd,
++        "GXnand"..0xe,
++        "GXset"..0xf
++    )
++
++    IntConstant(
++        "LineStyle",
++
++        "LineSolid".."0",
++        "LineOnOffDash".."1",
++        "LineDoubleDash".."2"
++    )
++
++    IntConstant(
++        "capStyle",
++
++        "CapNotLast".."0",
++        "CapButt".."1",
++        "CapRound".."2",
++        "CapProjecting".."3"
++    )
++
++    IntConstant(
++        "joinStyle",
++
++        "JoinMiter".."0",
++        "JoinRound".."1",
++        "JoinBevel".."2"
++    )
++
++    IntConstant(
++        "fillStyle",
++
++        "FillSolid".."0",
++        "FillTiled".."1",
++        "FillStippled".."2",
++        "FillOpaqueStippled".."3"
++    )
++
++    IntConstant(
++        "fillRule",
++
++        "EvenOddRule".."0",
++        "WindingRule".."1"
++    )
++
++    IntConstant(
++        "subwindow mode",
++
++        "ClipByChildren".."0",
++        "IncludeInferiors".."1"
++    )
++
++    IntConstant(
++        "SetClipRectangles ordering",
++
++        "Unsorted".."0",
++        "YSorted".."1",
++        "YXSorted".."2",
++        "YXBanded".."3"
++    )
++
++    IntConstant(
++        "CoordinateMode for drawing routines",
++
++        "CoordModeOrigin".."0",
++        "CoordModePrevious".."1"
++    )
++
++    IntConstant(
++        "Polygon shapes",
++
++        "Complex".."0",
++        "Nonconvex".."1",
++        "Convex".."2"
++    )
++
++    IntConstant(
++        "Arc modes for PolyFillArc",
++
++        "ArcChord".."0",
++        "ArcPieSlice".."1"
++    )
++
++    IntConstant(
++        "GC components: masks used in CreateGC, CopyGC, ChangeGC, OR'ed into GC.stateChanges",
++
++        "GCFunction".."1<<0",
++        "GCPlaneMask".."1<<1",
++        "GCForeground".."1<<2",
++        "GCBackground".."1<<3",
++        "GCLineWidth".."1<<4",
++        "GCLineStyle".."1<<5",
++        "GCCapStyle".."1<<6",
++        "GCJoinStyle".."1<<7",
++        "GCFillStyle".."1<<8",
++        "GCFillRule".."1<<9",
++        "GCTile".."1<<10",
++        "GCStipple".."1<<11",
++        "GCTileStipXOrigin".."1<<12",
++        "GCTileStipYOrigin".."1<<13",
++        "GCFont".."1<<14",
++        "GCSubwindowMode".."1<<15",
++        "GCGraphicsExposures".."1<<16",
++        "GCClipXOrigin".."1<<17",
++        "GCClipYOrigin".."1<<18",
++        "GCClipMask".."1<<19",
++        "GCDashOffset".."1<<20",
++        "GCDashList".."1<<21",
++        "GCArcMode".."1<<22",
++        "GCLastBit".."22"
++    )
++
++    IntConstant(
++        "",
++
++        "Above".."0",
++        "Below".."1",
++        "TopIf".."2",
++        "BottomIf".."3",
++        "Opposite".."4"
++    )
++
++    IntConstant(
++        "",
++
++        "MappingModifier".."0",
++        "MappingKeyboard".."1",
++        "MappingPointer".."2"
++    )
++
++    val DISPLAY = Display.p("display", "the connection to the X server")
++    val WINDOW = Window("w", "the window")
++    //val DRAWABLE = Drawable("d", "the drawable")
++
++    Display.p(
++        "XOpenDisplay",
++        """
++        Returns a Display structure that serves as the connection to the X server and that contains all the information about that X server. {@code XOpenDisplay}
++        connects your application to the X server through TCP or DECnet communications protocols, or through some local inter-process communication protocol.
++        If the hostname is a host machine name and a single colon (:) separates the hostname and display number, {@code XOpenDisplay} connects using TCP streams.
++        If the hostname is not specified, Xlib uses whatever it believes is the fastest transport. If the hostname is a host machine name and a double colon
++        (::) separates the hostname and display number, {@code XOpenDisplay} connects using DECnet. A single X server can support any or all of these transport
++        mechanisms simultaneously. A particular Xlib implementation can support many more of these transport mechanisms.
++        """,
++
++        nullable..charASCII.const.p(
++            "display_name",
++            """
++            the hardware display name, which determines the display and communications domain to be used. On a POSIX-conformant system, if the
++            {@code display_name} is #NULL, it defaults to the value of the DISPLAY environment variable.
++            """
++        )
++    )
++
++    void(
++        "XCloseDisplay",
++        """
++        Closes the connection to the X server for the display specified in the {@code Display} structure and destroys all windows, resource IDs (Window, Font,
++        Pixmap, Colormap, Cursor, and GContext), or other resources that the client has created on this display, unless the close-down mode of the resource has
++        been changed (see {@code XSetCloseDownMode()}). Therefore, these windows, resource IDs, and other resources should never be referenced again or an error will
++        be generated. Before exiting, you should call {@code XCloseDisplay()} explicitly so that any pending errors are reported as {@code XCloseDisplay()}
++        performs a final {@code XSync()} operation.
++        """,
++
++        DISPLAY
++    )
++
++    int(
++        "XDefaultScreen",
++        "Returns a pointer to the default screen.",
++
++        DISPLAY
++    )
++
++    Window(
++        "XRootWindow",
++        "Returns the root window of the specified screen.",
++
++        DISPLAY,
++        int("screen_number", "the appropriate screen number on the host server")
++    )
++
++    Colormap(
++        "XCreateColormap",
++        """
++        Creates a colormap of the specified visual type for the screen on which the specified window resides and returns the colormap ID associated with it.
++        Note that the specified window is only used to determine the screen.
++        """,
++
++        DISPLAY,
++        WINDOW,
++        Visual.p("visual", "a visual type supported on the screen. If the visual type is not one supported by the screen, a {@code BadMatch} error results."),
++        int("alloc", "the colormap entries to be allocated. You can pass AllocNone or AllocAll.")
++    )
++
++    int(
++        "XFreeColormap",
++        """
++        Deletes the association between the {@code colormap} resource ID and the {@code colormap} and frees the {@code colormap} storage. However, this function
++        has no effect on the default colormap for a screen. If the specified {@code colormap} is an installed map for a screen, it is uninstalled. If the
++        specified {@code colormap} is defined as the {@code colormap} for a window, {@code XFreeColormap()} changes the colormap associated with the window to
++        #None and generates a {@code ColormapNotify} event. X does not define the colors displayed for a window with a colormap of #None.
++        """,
++
++        DISPLAY,
++        Colormap("colormap", "the colormap to destroy")
++    )
++
++    Window(
++        "XCreateWindow",
++        """
++        Creates an unmapped subwindow for a specified parent window, returns the window ID of the created window, and causes the X server to generate a
++        {@code CreateNotify }event. The created window is placed on top in the stacking order with respect to siblings.
++
++        The coordinate system has the X axis horizontal and the Y axis vertical with the origin [0, 0] at the upper-left corner. Coordinates are integral, in
++        terms of pixels, and coincide with pixel centers. Each window and pixmap has its own coordinate system. For a window, the origin is inside the border at
++        the inside, upper-left corner.
++
++        The x and y coordinates are the top-left outside corner of the window's borders and are relative to the inside of the parent window's borders.
++
++        The width and height are the created window's inside dimensions and do not include the created window's borders.
++        """,
++
++        DISPLAY,
++        Window("parent", "the parent window"),
++        int("x", "the window x-coordinate"),
++        int("y", "the window y-coordinate"),
++        unsigned_int("width", "the window width"),
++        unsigned_int("height", "the window height"),
++        unsigned_int("border_width", "the border width"),
++        int("depth", "the window's depth. A depth of #CopyFromParent means the depth is taken from the parent."),
++        unsigned_int("windowClass", "the created window's class", "#InputOutput #InputOnly #CopyFromParent"),
++        Visual.p("visual", "the visual type. A visual of #CopyFromParent means the visual type is taken from the parent."),
++        unsigned_long(
++            "valuemask",
++            """
++            which window attributes are defined in the attributes argument. This mask is the bitwise inclusive OR of the valid attribute mask bits. If
++            {@code valuemask} is zero, the attributes are ignored and are not referenced.
++            """
++        ),
++        XSetWindowAttributes.p("attributes", "the structure from which the values (as specified by the value mask) are to be taken")
++    )
++
++    int(
++        "XDestroyWindow",
++        """
++        Destroys the specified window as well as all of its subwindows and causes the X server to generate a {@code DestroyNotify} event for each window. The
++        window should never be referenced again. If the window specified by the {@code w} argument is mapped, it is unmapped automatically. The ordering of the
++        {@code DestroyNotify} events is such that for any given window being destroyed, {@code DestroyNotify} is generated on any inferiors of the window before
++        being generated on the window itself. The ordering among siblings and across subhierarchies is not otherwise constrained. If the window you specified is
++        a root window, no windows are destroyed. Destroying a mapped window will generate {@code Expose} events on other windows that were obscured by the
++        window being destroyed.
++        """,
++
++        DISPLAY,
++        WINDOW
++    )
++
++    int(
++        "XFree",
++        "Free in-memory data that was created by an Xlib function.",
++
++        MultiType(PointerMapping.DATA_POINTER)..Unsafe..void.p("data", "the data that is to be freed")
++    )
++
++    Status(
++        "XSendEvent",
++        """
++        The {@code XSendEvent} function identifies the destination window, determines which clients should receive the specified events, and ignores any active
++        grabs. This function requires you to pass an event mask. This function uses the {@code w} argument to identify the destination window as follows:
++        ${ul(
++            "If {@code w} is {@code PointerWindow}, the destination window is the window that contains the pointer.",
++            """
++            If {@code w} is {@code InputFocus} and if the focus window contains the pointer, the destination window is the window that contains the pointer;
++            otherwise, the destination window is the focus window.
++            """
++        )}
++
++        To determine which clients should receive the specified events, {@code XSendEvent} uses the propagate argument as follows:
++        ${ul(
++            """
++            If {@code event_mask} is the empty set, the event is sent to the client that created the destination window. If that client no longer exists, no
++            event is sent.
++            """,
++            """
++            If {@code propagate} is #False, the event is sent to every client selecting on destination any of the event types in the {@code event_mask}
++            argument.
++            """,
++            """
++            If {@code propagate} is #True and no clients have selected on destination any of the event types in event-mask, the destination is replaced with
++            the closest ancestor of destination for which some client has selected a type in event-mask and for which no intervening window has that type in
++            its do-not-propagate-mask. If no such window exists or if the window is an ancestor of the focus window and #InputFocus was originally specified as
++            the destination, the event is not sent to any clients. Otherwise, the event is reported to every client selecting on the final destination any of
++            the types specified in {@code event_mask}.
++            """
++        )}
++
++        The event in the {@code XEvent} structure must be one of the core events or one of the events defined by an extension (or a #BadValue error results) so
++        that the X server can correctly byte-swap the contents as necessary. The contents of the event are otherwise unaltered and unchecked by the X server
++        except to force {@code send_event} to #True in the forwarded event and to set the serial number in the event correctly; therefore these fields and the
++        display field are ignored by {@code XSendEvent}.
++
++        {@code XSendEvent} returns zero if the conversion to wire protocol format failed and returns nonzero otherwise. {@code XSendEvent} can generate
++        #BadValue and #BadWindow errors.
++
++        The server may retain the recent history of the pointer motion and do so to a finer granularity than is reported by #MotionNotify events. The
++        #XGetMotionEvents() function makes this history available.
++        """,
++
++        DISPLAY,
++        Window("w", "specifies the window the event is to be sent to"),
++        Bool("propagate", "specifies a {@code Boolean} value"),
++        long("event_mask", "specifies the event mask"),
++        XEvent.p("event_send", "specifies the event that is to be sent")
++    )
++
++    unsigned_long(
++        "XDisplayMotionBufferSize",
++        "",
++
++        DISPLAY
++    )
++
++    XTimeCoord.p(
++        "XGetMotionEvents",
++        """
++        The {@code XGetMotionEvents} function returns all events in the motion history buffer that fall between the specified start and stop times, inclusive,
++        and that have coordinates that lie within the specified window (including its borders) at its present placement.
++        
++        If the server does not support motion history, if the start time is later than the stop time, or if the start time is in the future, no events are
++        returned; {@code XGetMotionEvents} returns #NULL. If the stop time is in the future, it is equivalent to specifying #CurrentTime.
++        {@code XGetMotionEvents} can generate a #BadWindow error.
++        """,
++
++        DISPLAY,
++        Window("w" ,""),
++        Time("start", ""),
++        Time("stop", ""),
++        AutoSizeResult..Check(1)..int.p("nevents_return", "")
++    )
++
++    Bool(
++        "XTranslateCoordinates",
++        """
++        Translates window coordinates.
++        
++        If {@code XTranslateCoordinates} returns #True, it takes the {@code src_x} and {@code src_y} coordinates relative to the source window's origin and
++        returns these coordinates to {@code dest_x_return} and {@code dest_y_return} relative to the destination window's origin. If
++        {@code XTranslateCoordinates} returns #False, {@code src_w} and {@code dest_w} are on different screens, and {@code dest_x_return} and
++        {@code dest_y_return} are zero. If the coordinates are contained in a mapped child of {@code dest_w}, that child is returned to {@code child_return}.
++        Otherwise, {@code child_return} is set to #None.
++
++        {@code XTranslateCoordinates} can generate a #BadWindow error.
++        """,
++
++        DISPLAY,
++        Window("src_w", "specifies the source window"),
++        Window("dest_w", "specifies the destination window"),
++        int("src_x", "specifies the x coordinate within the source window"),
++        int("src_y", "specifies the x coordinate within the source window"),
++        Check(1)..int.p("dest_x_return", "returns the x coordinate within the destination window"),
++        Check(1)..int.p("dest_y_return", "returns the y coordinate within the destination window"),
++        Check(1)..Window.p("child_return", "returns the child if the coordinates are contained in a mapped child of the destination window")
++    )
++}
+\ No newline at end of file
+diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/fcntl.kt lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/fcntl.kt
+--- lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/fcntl.kt	1970-01-01 01:00:00.000000000 +0100
++++ lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/fcntl.kt
+@@ -0,0 +1,760 @@
++/*
++ * Copyright LWJGL. All rights reserved.
++ * License terms: https://www.lwjgl.org/license
++ */
++package core.astral.templates
++
++import core.astral.*
++import org.lwjgl.generator.*
++
++val fcntl = "FCNTL".nativeClass(Module.CORE_ASTRAL, nativeSubPath = "astral") {
++    nativeImport(
++        "<fcntl.h>",
++        "<errno.h>"
++    )
++    documentation = "Native bindings to &lt;fcntl.h&gt;."
++
++    EnumConstant(
++        "",
++
++        "O_ACCMODE".enum("", "00000003"),
++        "O_RDONLY".enum("", "00000000"),
++        "O_WRONLY".enum("", "00000001"),
++        "O_RDWR".enum("", "00000002"),
++
++        "O_APPEND".enum(
++            """
++            The file is opened in append mode.
++
++            Before each {@code write(2)}, the file offset is positioned at the end of the file, as if with {@code lseek(2)}. {@code O_APPEND} may lead to
++            corrupted files on NFS file systems if more than one process appends data to a file at once. This is because NFS does not support appending to a
++            file, so the client kernel has to simulate it, which can't be done without a race condition.
++            """,
++            "00002000"
++        ),
++        "O_ASYNC".enum(
++            """
++            Enable signal-driven I/O: generate a signal ({@code SIGIO} by default, but this can be changed via {@code fcntl(2)}) when input or output becomes
++            possible on this file descriptor.
++
++            This feature is only available for terminals, pseudoterminals, sockets, and (since Linux 2.6) pipes and FIFOs. See {@code fcntl(2)} for further
++            details.
++            """,
++            "020000"
++        ),
++        "O_CLOEXEC".enum(
++            """
++            Enable the close-on-exec flag for the new file descriptor.
++
++            Specifying this flag permits a program to avoid additional {@code fcntl(2) F_SETFD} operations to set the {@code FD_CLOEXEC} flag. Additionally,
++            use of this flag is essential in some multithreaded programs since using a separate {@code fcntl(2) F_SETFD} operation to set the
++            {@code FD_CLOEXEC} flag does not suffice to avoid race conditions where one thread opens a file descriptor at the same time as another thread does
++            a {@code fork(2)} plus {@code execve(2)}.
++            """,
++            "02000000"
++        ),
++        "O_CREAT".enum(
++            """
++            If the file does not exist it will be created.
++
++            The owner (user ID) of the file is set to the effective user ID of the process. The group ownership (group ID) is set either to the effective group
++            ID of the process or to the group ID of the parent directory (depending on file system type and mount options, and the mode of the parent
++            directory, see the mount options {@code bsdgroups} and {@code sysvgroups} described in {@code mount(8)}).
++            """,
++            "00000100"
++        ),
++        "O_DIRECT".enum(
++            """
++            Try to minimize cache effects of the I/O to and from this file.
++
++            In general this will degrade performance, but it is useful in special situations, such as when applications do their own caching. File I/O is done
++            directly to/from user-space buffers. The {@code O_DIRECT} flag on its own makes an effort to transfer data synchronously, but does not give the
++            guarantees of the {@code O_SYNC} flag that data and necessary metadata are transferred. To guarantee synchronous I/O, {@code O_SYNC} must be used
++            in addition to {@code O_DIRECT}.
++
++            A semantically similar (but deprecated) interface for block devices is described in {@code raw(8)}.
++            """,
++            "040000"
++        ),
++        "O_DIRECTORY".enum(
++            """
++            If pathname is not a directory, cause the open to fail.
++
++            This flag is Linux-specific, and was added in kernel version 2.1.126, to avoid denial-of-service problems if {@code opendir(3)} is called on a FIFO
++            or tape device, but should not be used outside of the implementation of {@code opendir(3)}.
++            """,
++            "0200000"
++        ),
++        "O_DSYNC".enum("""""", "00010000"),
++        "O_EXCL".enum(
++            """
++            Ensure that this call creates the file: if this flag is specified in conjunction with {@code O_CREAT}, and pathname already exists, then
++            {@code open()} will fail.
++
++            When these two flags are specified, symbolic links are not followed: if {@code pathname} is a symbolic link, then {@code open()} fails regardless
++            of where the symbolic link points to.
++
++            In general, the behavior of {@code O_EXCL} is undefined if it is used without {@code O_CREAT}. There is one exception: on Linux 2.6 and later,
++            {@code O_EXCL} can be used without {@code O_CREAT} if {@code pathname} refers to a block device. If the block device is in use by the system (e.g.,
++            mounted), {@code open()} fails with the error {@code EBUSY}.
++
++            On NFS, {@code O_EXCL} is only supported when using NFSv3 or later on kernel 2.6 or later. In NFS environments where {@code O_EXCL} support is not
++            provided, programs that rely on it for performing locking tasks will contain a race condition. Portable programs that want to perform atomic file
++            locking using a lockfile, and need to avoid reliance on NFS support for {@code O_EXCL}, can create a unique file on the same file system (e.g.,
++            incorporating hostname and PID), and use {@code link(2)} to make a link to the lockfile. If {@code link(2)} returns 0, the lock is successful.
++            Otherwise, use {@code stat(2)} on the unique file to check if its link count has increased to 2, in which case the lock is also successful.
++            """,
++            "00000200"
++        ),
++        "O_LARGEFILE".enum(
++            """
++            (LFS) Allow files whose sizes cannot be represented in an {@code off_t} (but can be represented in an {@code off64_t}) to be opened.
++
++            The {@code _LARGEFILE64_SOURCE} macro must be defined (before including any header files) in order to obtain this definition. Setting the
++            {@code _FILE_OFFSET_BITS} feature test macro to 64 (rather than using {@code O_LARGEFILE}) is the preferred method of accessing large files on
++            32-bit systems (see {@code feature_test_macros(7)}).
++            """,
++            "00100000"
++        ),
++        "O_NOATIME".enum(
++            """
++            Do not update the file last access time ({@code st_atime} in the {@code inode}) when the file is {@code read(2)}.
++
++            This flag is intended for use by indexing or backup programs, where its use can significantly reduce the amount of disk activity. This flag may not
++            be effective on all file systems. One example is NFS, where the server maintains the access time.
++            """,
++            "01000000"
++        ),
++        "O_NOCTTY".enum(
++            """
++            If {@code pathname} refers to a terminal device --see {@code tty(4)}-- it will not become the process's controlling terminal even if the process
++            does not have one.
++            """,
++            "00000400"
++        ),
++        "O_NOFOLLOW".enum(
++            """
++            If {@code pathname} is a symbolic link, then the open fails.
++
++            This is a FreeBSD extension, which was added to Linux in version 2.1.126. Symbolic links in earlier components of the {@code pathname} will still
++            be followed.
++            """,
++            "00400000"
++        ),
++        "O_NONBLOCK".enum(
++            """
++            When possible, the file is opened in nonblocking mode.
++
++            Neither the {@code open()} nor any subsequent operations on the file descriptor which is returned will cause the calling process to wait. For the
++            handling of FIFOs (named pipes), see also {@code fifo(7)}. For a discussion of the effect of {@code O_NONBLOCK} in conjunction with mandatory file
++            locks and with file leases, see {@code fcntl(2)}.
++            """,
++            "00004000"
++        ),
++        "O_NDELAY".enum("""""", "O_NONBLOCK"),
++        "O_PATH".enum("""""", "010000000"),
++        "O_SYNC".enum(
++            """
++            The file is opened for synchronous I/O.
++
++            Any {@code write(2)}s on the resulting file descriptor will block the calling process until the data has been physically written to the underlying
++            hardware.
++            """,
++            "04010000"
++        ),
++        "O_TMPFILE".enum("""""", "020000000 | O_DIRECTORY"),
++        "O_TRUNC".enum(
++            """
++            If the file already exists and is a regular file and the open mode allows writing (i.e., is {@code O_RDWR} or {@code O_WRONLY}) it will be
++            truncated to length 0.
++
++            If the file is a FIFO or terminal device file, the {@code O_TRUNC} flag is ignored. Otherwise the effect of {@code O_TRUNC} is unspecified.
++            """,
++            "00001000"
++        ),
++    )
++
++    EnumConstant(
++        "File types encoded in type {@code mode_t}.",
++
++        "S_IFMT".enum("Type of file.", "00170000"),
++        "S_IFBLK".enum("Block special.", "0060000"),
++        "S_IFCHR".enum("Character special.", "0020000"),
++        "S_IFIFO".enum("FIFO special.", "0010000"),
++        "S_IFREG".enum("Regular.", "0100000"),
++        "S_IFDIR".enum("Directory.", "0040000"),
++        "S_IFLNK".enum("Symbolic link.", "0120000"),
++        "S_IFSOCK".enum("Socket.", "0140000")
++    )
++
++   val ModeBits = EnumConstant(
++        "File mode bits encoded in type {@code mode_t}.",
++
++        "S_IRWXU".enum("Read, write, execute/search by owner.", "0700"),
++        "S_IRUSR".enum("Read permission, owner.", "0400"),
++        "S_IWUSR".enum("Write permission, owner.", "0200"),
++        "S_IXUSR".enum("Execute/search permission, owner.", "0100"),
++        "S_IRWXG".enum("Read, write, execute/search by group.", "070"),
++        "S_IRGRP".enum("Read permission, group.", "040"),
++        "S_IWGRP".enum("Write permission, group.", "020"),
++        "S_IXGRP".enum("Execute/search permission, group.", "010"),
++        "S_IRWXO".enum("Read, write, execute/search by others.", "07"),
++        "S_IROTH".enum("Read permission, others.", "04"),
++        "S_IWOTH".enum("Write permission, others.", "02"),
++        "S_IXOTH".enum("Execute/search permission, others.", "01"),
++        "S_ISUID".enum("Set-user-ID on execution.", "04000"),
++        "S_ISGID".enum("Set-group-ID on execution.", "02000"),
++        "S_ISVTX".enum("On directories, restricted deletion flag.", "01000")
++    ).javaDocLinks
++
++    val commands = EnumConstant(
++        "#fcntl() commands.",
++
++        "F_DUPFD".enum(
++            """
++            Duplicate the file descriptor {@code fd} using the lowest-numbered available file descriptor greater than or equal to {@code arg}.
++
++            This is different from {@code dup2(2)}, which uses exactly the file descriptor specified.
++
++            On success, the new file descriptor is returned.
++
++            See {@code dup(2)} for further details.
++            """,
++            "0"
++        ),
++        "F_GETFD".enum("Return (as the function result) the file descriptor flags; {@code arg} is ignored.", "1"),
++        "F_SETFD".enum("Set the file descriptor flags to the value specified by {@code arg}.", "2"),
++        "F_GETFL".enum("Return (as the function result) the file access mode and the file status flags; {@code arg} is ignored.", "3"),
++        "F_SETFL".enum(
++            """
++            Set the file status flags to the value specified by {@code arg}.
++
++            File access mode (#O_RDONLY, #O_WRONLY, #O_RDWR) and file creation flags (i.e., #O_CREAT, #O_EXCL, #O_NOCTTY, #O_TRUNC) in {@code arg} are ignored.
++            On Linux, this command can change only the #O_APPEND, #O_ASYNC, #O_DIRECT, #O_NOATIME, and #O_NONBLOCK flags. It is not possible to change the
++            #O_DSYNC and #O_SYNC flags; see BUGS, below.
++            """,
++            "4"
++        ),
++        "F_GETLK".enum(
++            """
++            On input to this call, lock describes a lock we would like to place on the file.
++
++            If the lock could be placed, {@code fcntl()} does not actually place it, but returns #F_UNLCK in the {@code l_type} field of lock and leaves the
++            other fields of the structure unchanged.
++
++            If one or more incompatible locks would prevent this lock being placed, then {@code fcntl()} returns details about one of those locks in the
++            {@code l_type}, {@code l_whence}, {@code l_start}, and {@code l_len} fields of lock. If the conflicting lock is a traditional (process-associated)
++            record lock, then the {@code l_pid} field is set to the {@code PID} of the process holding that lock. If the conflicting lock is an open file
++            description lock, then {@code l_pid} is set to -1. Note that the returned information may already be out of date by the time the caller inspects
++            it.
++            """,
++            "5"
++        ),
++        "F_SETLK".enum(
++            """
++            Acquire a lock (when {@code l_type} is #F_RDLCK or #F_WRLCK) or release a lock (when {@code l_type} is #F_UNLCK) on the bytes specified by the
++            {@code l_whence}, {@code l_start}, and {@code l_len} fields of lock.
++
++            If a conflicting lock is held by another process, this call returns -1 and sets {@code errno} to {@code EACCES} or {@code EAGAIN}. (The error
++            returned in this case differs across implementations, so POSIX requires a portable application to check for both errors.)
++            """,
++            "8"
++        ),
++        "F_SETLKW".enum(
++            """
++            As for #F_SETLK, but if a conflicting lock is held on the file, then wait for that lock to be released.
++
++            If a signal is caught while waiting, then the call is interrupted and (after the signal handler has returned) returns immediately (with return
++            value -1 and errno set to {@code EINTR}; see {@code signal(7)}).
++            """,
++            "7"
++        ),
++        "F_SETOWN".enum(
++            """
++            Set the process ID or process group ID that will receive {@code SIGIO} and {@code SIGURG} signals for events on the file descriptor {@code fd}.
++
++            The target process or process group ID is specified in {@code arg}. A process ID is specified as a positive value; a process group ID is specified
++            as a negative value. Most commonly, the calling process specifies itself as the owner (that is, {@code arg} is specified as {@code getpid(2)}).
++
++            As well as setting the file descriptor owner, one must also enable generation of signals on the file descriptor. This is done by using the
++            {@code fcntl()} #F_SETFL command to set the #O_ASYNC file status flag on the file descriptor. Subsequently, a {@code SIGIO} signal is sent whenever
++            input or output becomes possible on the file descriptor. The {@code fcntl()} #F_SETSIG command can be used to obtain delivery of a signal other
++            than {@code SIGIO}.
++
++            Sending a signal to the owner process (group) specified by {@code F_SETOWN} is subject to the same permissions checks as are described for
++            {@code kill(2)}, where the sending process is the one that employs {@code F_SETOWN} (but see BUGS below). If this permission check fails, then the
++            signal is silently discarded. Note: The {@code F_SETOWN} operation records the caller's credentials at the time of the {@code fcntl()} call, and it
++            is these saved credentials that are used for the permission checks.
++
++            If the file descriptor {@code fd} refers to a socket, {@code F_SETOWN} also selects the recipient of {@code SIGURG} signals that are delivered when
++            out-of-band data arrives on that socket. ({@code SIGURG} is sent in any situation where {@code select(2)} would report the socket as having an
++            "exceptional condition".)
++
++            The following was true in 2.6.x kernels up to and including kernel 2.6.11:
++
++            If a nonzero value is given to #F_SETSIG in a multithreaded process running with a threading library that supports thread groups (e.g., NPTL), then
++            a positive value given to {@code F_SETOWN} has a different meaning: instead of being a process ID identifying a whole process, it is a thread ID
++            identifying a specific thread within a process. Consequently, it may be necessary to pass {@code F_SETOWN} the result of {@code gettid(2)} instead
++            of {@code getpid(2)} to get sensible results when {@code F_SETSIG} is used. (In current Linux threading implementations, a main thread's thread ID
++            is the same as its process ID. This means that a single-threaded program can equally use {@code gettid(2)} or {@code getpid(2)} in this scenario.)
++            Note, however, that the statements in this paragraph do not apply to the {@code SIGURG} signal generated for out-of-band data on a socket: this
++            signal is always sent to either a process or a process group, depending on the value given to {@code F_SETOWN}.
++
++            The above behavior was accidentally dropped in Linux 2.6.12, and won't be restored. From Linux 2.6.32 onward, use #F_SETOWN_EX to target
++            {@code SIGIO} and {@code SIGURG} signals at a particular thread.
++            """,
++            "8"
++        ),
++        "F_GETOWN".enum(
++            """
++            Return (as the function result) the process ID or process group ID currently receiving {@code SIGIO} and {@code SIGURG} signals for events on file
++            descriptor {@code fd}.
++
++            Process IDs are returned as positive values; process group IDs are returned as negative values (but see BUGS below). {@code arg} is ignored.
++            """,
++            "9"
++        ),
++        "F_SETSIG".enum(
++            """
++            Set the signal sent when input or output becomes possible to the value given in {@code arg}.
++
++            A value of zero means to send the default {@code SIGIO} signal. Any other value (including {@code SIGIO}) is the signal to send instead, and in
++            this case additional info is available to the signal handler if installed with {@code SA_SIGINFO}.
++
++            By using {@code F_SETSIG} with a nonzero value, and setting {@code SA_SIGINFO} for the signal handler (see {@code sigaction(2)}), extra information
++            about I/O events is passed to the handler in a {@code siginfo_t} structure. If the {@code si_code} field indicates the source is {@code SI_SIGIO},
++            the {@code si_fd} field gives the file descriptor associated with the event. Otherwise, there is no indication which file descriptors are pending,
++            and you should use the usual mechanisms ({@code select(2)}, {@code poll(2)}, {@code read(2)} with {@code O_NONBLOCK} set etc.) to determine which
++            file descriptors are available for I/O.
++
++            Note that the file descriptor provided in {@code si_fd} is the one that was specified during the {@code F_SETSIG} operation. This can lead to an
++            unusual corner case. If the file descriptor is duplicated ({@code dup(2)} or similar), and the original file descriptor is closed, then I/O events
++            will continue to be generated, but the {@code si_fd} field will contain the number of the now closed file descriptor.
++
++            By selecting a real time signal (value &ge; {@code SIGRTMIN}), multiple I/O events may be queued using the same signal numbers. (Queuing is
++            dependent on available memory.) Extra information is available if {@code SA_SIGINFO} is set for the signal handler, as above.
++
++            Note that Linux imposes a limit on the number of real-time signals that may be queued to a process (see {@code getrlimit(2)} and {@code signal(7)})
++            and if this limit is reached, then the kernel reverts to delivering {@code SIGIO}, and this signal is delivered to the entire process rather than
++            to a specific thread.
++            """,
++            "10"
++        ),
++        "F_GETSIG".enum(
++            """
++            Return (as the function result) the signal sent when input or output becomes possible.
++
++            A value of zero means {@code SIGIO} is sent. Any other value (including {@code SIGIO}) is the signal sent instead, and in this case additional info
++            is available to the signal handler if installed with {@code SA_SIGINFO}. {@code arg} is ignored.
++            """,
++            "11"
++        ),
++        "F_SETOWN_EX".enum(
++            """
++            This operation performs a similar task to #F_SETOWN. It allows the caller to direct I/O availability signals to a specific thread, process, or
++            process group.
++
++            The caller specifies the target of signals via {@code arg}, which is a pointer to a ##FOwnerEx structure. The type field has one of the following
++            values, which define how pid is interpreted: #F_OWNER_TID, #F_OWNER_PID, #F_OWNER_PGRP.
++            """,
++            "15"
++        ),
++        "F_GETOWN_EX".enum(
++            """
++            Return the current file descriptor owner settings as defined by a previous #F_SETOWN_EX operation.
++
++            The information is returned in the ##FOwnerEx structure pointed to by {@code arg}.
++
++            The type field will have one of the values #F_OWNER_TID, #F_OWNER_PID, or #F_OWNER_PGRP. The {@code pid} field is a positive integer representing a
++            thread ID, process ID, or process group ID. See #F_SETOWN_EX for more details.
++            """,
++            "16"
++        ),
++        "F_OFD_GETLK".enum(
++            """
++            On input to this call, {@code lock} describes an open file description lock we would like to place on the file.
++
++            If the lock could be placed, {@code fcntl()} does not actually place it, but returns #F_UNLCK in the {@code l_type} field of {@code lock} and
++            leaves the other fields of the structure unchanged. If one or more incompatible locks would prevent this lock being placed, then details about one
++            of these locks are returned via {@code lock}, as described above for #F_GETLK. 
++            """,
++            "36"
++        ),
++        "F_OFD_SETLK".enum(
++            """
++            Acquire an open file description lock (when {@code l_type} is #F_RDLCK or #F_WRLCK) or release an open file description lock (when {@code l_type}
++            is #F_UNLCK) on the bytes specified by the {@code l_whence}, {@code l_start}, and {@code l_len} fields of {@code lock}.
++
++            If a conflicting lock is held by another process, this call returns -1 and sets {@code errno} to {@code EAGAIN}.
++            """,
++            "37"
++        ),
++        "F_OFD_SETLKW".enum(
++            """
++            As for #F_OFD_SETLK, but if a conflicting lock is held on the file, then wait for that lock to be released.
++
++            If a signal is caught while waiting, then the call is interrupted and (after the signal handler has returned) returns immediately (with return
++            value -1 and {@code errno} set to {@code EINTR}; see {@code signal(7)}).  
++            """,
++            "38"
++        ),
++        "F_SETLEASE".enum(
++            "Set or remove a file lease according to which of the following values is specified in the integer {@code arg}: #F_RDLCK, #F_WRLCK, #F_UNLCK",
++            "1024"
++        ),
++        "F_GETLEASE".enum(
++            """
++             Indicates what type of lease is associated with the file descriptor {@code fd} by returning either #F_RDLCK, #F_WRLCK, or #F_UNLCK, indicating,
++             respectively, a read lease, a write lease, or no lease. {@code arg} is ignored.
++            """,
++            "1025"
++        ),
++        "F_NOTIFY".enum(
++            """
++            (Linux 2.4 onward) Provide notification when the directory referred to by {@code fd} or any of the files that it contains is changed.
++
++            The events to be notified are specified in {@code arg}, which is a bit mask specified by ORing together zero or more of the following bits:
++            #DN_ACCESS, #DN_MODIFY, #DN_CREATE, #DN_DELETE, #DN_RENAME, #DN_ATTRIB
++
++            (In order to obtain these definitions, the {@code _GNU_SOURCE} feature test macro must be defined before including any header files.)
++
++            Directory notifications are normally "one-shot", and the application must reregister to receive further notifications. Alternatively, if
++            #DN_MULTISHOT is included in {@code arg}, then notification will remain in effect until explicitly removed.
++
++            A series of {@code F_NOTIFY} requests is cumulative, with the events in {@code arg} being added to the set already monitored. To disable
++            notification of all events, make an {@code F_NOTIFY} call specifying {@code arg} as 0.
++
++            Notification occurs via delivery of a signal. The default signal is {@code SIGIO}, but this can be changed using the #F_SETSIG command to
++            {@code fcntl()}. (Note that {@code SIGIO} is one of the nonqueuing standard signals; switching to the use of a real-time signal means that multiple
++            notifications can be queued to the process.) In the latter case, the signal handler receives a {@code siginfo_t} structure as its second argument
++            (if the handler was established using {@code SA_SIGINFO}) and the {@code si_fd} field of this structure contains the file descriptor which
++            generated the notification (useful when establishing notification on multiple directories).
++
++            Especially when using {@code DN_MULTISHOT}, a real time signal should be used for notification, so that multiple notifications can be queued.
++
++            NOTE: New applications should use the {@code inotify} interface (available since kernel 2.6.13), which provides a much superior interface for
++            obtaining notifications of filesystem events. See {@code inotify(7)}.
++            """,
++            "1026"
++        ),
++        "F_SETPIPE_SZ".enum(
++            """
++            Change the capacity of the pipe referred to by {@code fd} to be at least {@code arg} bytes.
++
++            An unprivileged process can adjust the pipe capacity to any value between the system page size and the limit defined in
++            {@code /proc/sys/fs/pipe-max-size} (see {@code proc(5)}). Attempts to set the pipe capacity below the page size are silently rounded up to the page
++            size. Attempts by an unprivileged process to set the pipe capacity above the limit in {@code /proc/sys/fs/pipe-max-size} yield the error
++            {@code EPERM}; a privileged process ({@code CAP_SYS_RESOURCE}) can override the limit.
++
++            When allocating the buffer for the pipe, the kernel may use a capacity larger than {@code arg}, if that is convenient for the implementation. (In
++            the current implementation, the allocation is the next higher power-of-two page-size multiple of the requested size.) The actual capacity (in
++            bytes) that is set is returned as the function result.
++
++            Attempting to set the pipe capacity smaller than the amount of buffer space currently used to store data produces the error {@code EBUSY}.
++
++            Note that because of the way the pages of the pipe buffer are employed when data is written to the pipe, the number of bytes that can be written
++            may be less than the nominal size, depending on the size of the writes.
++            """,
++            "1031"
++        ),
++        "F_GETPIPE_SZ".enum("Return (as the function result) the capacity of the pipe referred to by {@code fd}.", "1032"
++        ),
++        "F_ADD_SEALS".enum(
++            """
++            Add the seals given in the bit-mask argument {@code arg} to the set of seals of the {@code inode} referred to by the file descriptor {@code fd}.
++
++            Seals cannot be removed again. Once this call succeeds, the seals are enforced by the kernel immediately. If the current set of seals includes
++            #F_SEAL_SEAL (see below), then this call will be rejected with {@code EPERM}. Adding a seal that is already set is a no-op, in case
++            {@code F_SEAL_SEAL} is not set already. In order to place a seal, the file descriptor {@code fd} must be writable.
++            """,
++            "1033"
++        ),
++        "F_GET_SEALS".enum(
++            """
++            Return (as the function result) the current set of seals of the {@code inode} referred to by {@code fd}.
++
++            If no seals are set, 0 is returned. If the file does not support sealing, -1 is returned and {@code errno} is set to {@code EINVAL}.
++            """,
++            "1034"
++        ),
++        "F_GET_RW_HINT".enum("Returns the value of the read/write hint associated with the underlying {@code inode} referred to by {@code fd}.", "1035"),
++        "F_SET_RW_HINT".enum(
++            """
++            Sets the read/write hint value associated with the underlying {@code inode} referred to by {@code fd}.
++
++            This hint persists until either it is explicitly modified or the underlying filesystem is unmounted.
++            """,
++            "1036"
++        ),
++        "F_GET_FILE_RW_HINT".enum("Returns the value of the read/write hint associated with the open file description referred to by {@code fd}.", "1037"),
++        "F_SET_FILE_RW_HINT".enum("Sets the read/write hint value associated with the open file description referred to by {@code fd}.", "1038"),
++        "F_DUPFD_CLOEXEC".enum(
++            """
++            As for #F_DUPFD, but additionally set the close-on-exec flag for the duplicate file descriptor.
++
++            Specifying this flag permits a program to avoid an additional {@code fcntl()} #F_SETFD operation to set the #FD_CLOEXEC flag. For an explanation of
++            why this flag is useful, see the description of #O_CLOEXEC in {@code open(2)}.
++            """,
++            "1030"
++        )
++    ).javaDocLinks
++
++    IntConstant("", "FD_CLOEXEC".."1")
++
++    EnumConstant(
++        "For posix #fcntl() and {@code l_type} field of an ##Flock for {@code lockf()}.",
++
++        "F_RDLCK".enum(
++            """
++            Take out a read lease.
++
++            This will cause the calling process to be notified when the file is opened for writing or is truncated. A read lease can be placed only on a file
++            descriptor that is opened read-only.
++            """,
++            "0"
++        ),
++        "F_WRLCK".enum(
++            """
++            Take out a write lease.
++
++            This will cause the caller to be notified when the file is opened for reading or writing or is truncated. A write lease may be placed on a file
++            only if there are no other open file descriptors for the file.
++            """,
++            "1"
++        ),
++        "F_UNLCK".enum("Remove our lease from the file.", "2"),
++        "F_EXLCK".enum("", "4"),
++        "F_SHLCK".enum("", "8")
++    )
++
++    EnumConstant(
++        "##FOwnerEx{@code ::type} values.",
++
++        "F_OWNER_TID".enum(
++            """
++            Send the signal to the thread whose thread ID (the value returned by a call to {@code clone(2)} or {@code gettid(2)}) is specified in {@code pid}.
++            """,
++            "0"
++        ),
++        "F_OWNER_PID".enum(" Send the signal to the process whose ID is specified in {@code pid}.", "1"),
++        "F_OWNER_PGRP".enum(
++            """
++            Send the signal to the process group whose ID is specified in {@code pid}.
++
++            (Note that, unlike with #F_SETOWN, a process group ID is specified as a positive value here.)
++            """,
++            "2"
++        )
++    )
++
++    EnumConstant(
++        "",
++
++        "LOCK_SH".enum("shared lock", "1"),
++        "LOCK_EX".enum("exclusive lock", "2"),
++        "LOCK_NB".enum("or'd with one of the above to prevent blocking", "4"),
++        "LOCK_UN".enum("remove lock", "8"),
++        "LOCK_MAND".enum("This is a mandatory flock...", "32"),
++        "LOCK_READ".enum("which allows concurrent read operations", "64"),
++        "LOCK_WRITE".enum("which allows concurrent write operations", "128"),
++        "LOCK_RW".enum("which allows concurrent read &amp; writes ops", "192")
++    )
++
++    EnumConstant(
++        "",
++
++        "DN_ACCESS".enum("A file was accessed ({@code read(2)}, {@code pread(2)}, {@code readv(2)}, and similar).", 0x00000001),
++        "DN_MODIFY".enum(
++            "A file was modified ({@code write(2)}, {@code pwrite(2)}, {@code writev(2)}, {@code truncate(2)}, {@code ftruncate(2)}, and similar).",
++            0x00000002
++        ),
++        "DN_CREATE".enum(
++            """
++            A file was created ({@code open(2)}, {@code creat(2)}, {@code mknod(2)}, {@code mkdir(2)}, {@code link(2)}, {@code symlink(2)}, {@code rename(2)}
++            into this directory).
++            """,
++            0x00000004
++        ),
++        "DN_DELETE".enum("A file was unlinked ({@code unlink(2)}, {@code rename(2)} to another directory, {@code rmdir(2)}).", 0x00000008),
++        "DN_RENAME".enum("A file was renamed within this directory ({@code rename(2)}).", 0x00000010),
++        "DN_ATTRIB".enum(
++            "The attributes of a file were changed ({@code chown(2)}, {@code chmod(2)}, {@code utime(2)}, {@code utimensat(2)}, and similar).",
++            0x00000020
++        ),
++        "DN_MULTISHOT".enum("Don't remove notifier", "0x80000000")
++    )
++
++    EnumConstant(
++        "",
++
++        "F_SEAL_SEAL".enum(
++            """
++            If this seal is set, any further call to {@code fcntl()} with #F_ADD_SEALS fails with the error {@code EPERM}.
++
++            Therefore, this seal prevents any modifications to the set of seals itself. If the initial set of seals of a file includes {@code F_SEAL_SEAL},
++            then this effectively causes the set of seals to be constant and locked.  
++            """,
++            "0x0001"
++        ),
++        "F_SEAL_SHRINK".enum(
++            """
++            If this seal is set, the file in question cannot be reduced in size.
++
++            This affects {@code open(2)} with the #O_TRUNC flag as well as {@code truncate(2)} and {@code ftruncate(2)}. Those calls fail with {@code EPERM} if
++            you try to shrink the file in question. Increasing the file size is still possible.  
++            """,
++            "0x0002"
++        ),
++        "F_SEAL_GROW".enum(
++            """
++            If this seal is set, the size of the file in question cannot be increased.
++
++            This affects {@code write(2)} beyond the end of the file, {@code truncate(2)}, {@code ftruncate(2)}, and {@code fallocate(2)}. These calls fail
++            with {@code EPERM} if you use them to increase the file size. If you keep the size or shrink it, those calls still work as expected.  
++            """,
++            "0x0004"
++        ),
++        "F_SEAL_WRITE".enum(
++            """
++            If this seal is set, you cannot modify the contents of the file.
++
++            Note that shrinking or growing the size of the file is still possible and allowed. Thus, this seal is normally used in combination with one of the
++            other seals. This seal affects {@code write(2)} and {@code fallocate(2)} (only in combination with the {@code FALLOC_FL_PUNCH_HOLE} flag). Those
++            calls fail with {@code EPERM} if this seal is set. Furthermore, trying to create new shared, writable memory-mappings via {@code mmap(2)} will also
++            fail with {@code EPERM}.
++
++            Using the #F_ADD_SEALS operation to set the {@code F_SEAL_WRITE} seal fails with {@code EBUSY} if any writable, shared mapping exists.  Such
++            mappings must be unmapped before you can add this seal. Furthermore, if there are any asynchronous I/O operations ({@code io_submit(2)}) pending on
++            the file, all outstanding writes will be discarded.
++            """,
++            "0x0008"
++        ),
++        "F_SEAL_FUTURE_WRITE".enum(
++            """
++            The effect of this seal is similar to #F_SEAL_WRITE, but the contents of the file can still be modified via shared writable mappings that were
++            created prior to the seal being set.
++
++            Any attempt to create a new writable mapping on the file via {@code mmap(2)} will fail with {@code EPERM}. Likewise, an attempt to write to the
++            file via {@code write(2)} will fail with {@code EPERM}.
++
++            Using this seal, one process can create a memory buffer that it can continue to modify while sharing that buffer on a "read-only" basis with other
++            processes.
++
++            (since Linux 5.1)
++            """,
++            "0x0010"
++        )
++    )
++
++    EnumConstant(
++        "",
++
++        "RWH_WRITE_LIFE_NOT_SET".enum("No specific hint has been set. This is the default value.", "0"),
++        "RWH_WRITE_LIFE_NONE".enum("No specific write lifetime is associated with this file or {@code inode}."),
++        "RWH_WRITE_LIFE_SHORT".enum("Data written to this {@code inode} or via this open file description is expected to have a short lifetime."),
++        "RWH_WRITE_LIFE_MEDIUM".enum(
++            """
++            Data written to this {@code inode} or via this open file description is expected to have a lifetime longer than data written with
++            #RWH_WRITE_LIFE_SHORT.
++            """
++        ),
++        "RWH_WRITE_LIFE_LONG".enum(
++            """
++            Data written to this {@code inode} or via this open file description is expected to have a lifetime longer than data written with
++            #RWH_WRITE_LIFE_MEDIUM.
++            """
++        ),
++        "RWH_WRITE_LIFE_EXTREME".enum(
++            """
++            Data written to this {@code inode} or via this open file description is expected to have a lifetime longer than data written with
++            #RWH_WRITE_LIFE_LONG.
++            """
++        )
++    )
++
++    SaveErrno..int(
++        "open",
++        """
++        Given a {@code pathname} for a file, {@code open()} returns a file descriptor, a small, nonnegative integer for use in subsequent system calls
++        ({@code read(2)}, {@code write(2)}, {@code lseek(2)}, {@code fcntl(2)}, etc.).
++
++        The file descriptor returned by a successful call will be the lowest-numbered file descriptor not currently open for the process.
++        """,
++
++        charUTF8.const.p("pathname", ""),
++        int("flags", ""),
++        mode_t("mode", "", ModeBits, LinkMode.BITFIELD),
++
++        returnDoc = "the new file descriptor, or -1 if an error occurred (in which case, {@code errno} is set appropriately)."
++    )
++
++    SaveErrno..int(
++        "openat",
++        """
++        The {@code openat()} system call operates in exactly the same way as {@code open(2)}, except for the differences described in this manual page.
++
++        If the pathname given in {@code pathname} is relative, then it is interpreted relative to the directory referred to by the file descriptor
++        {@code dirfd} (rather than relative to the current working directory of the calling process, as is done by {@code open(2)} for a relative pathname).
++
++        If {@code pathname} is relative and {@code dirfd} is the special value {@code AT_FDCWD}, then pathname is interpreted relative to the current working
++        directory of the calling process (like {@code open(2)}).
++
++        If {@code pathname} is absolute, then {@code dirfd} is ignored.
++        """,
++
++        int("dirfd", ""),
++        charUTF8.const.p("pathname", ""),
++        int("flags", ""),
++        mode_t("mode", "", ModeBits, LinkMode.BITFIELD),
++
++        returnDoc = "a new file descriptor on success. On error, -1 is returned and {@code errno} is set to indicate the error."
++    )
++
++    SaveErrno..int(
++        "creat",
++        """
++        Equivalent to {@code open()} with {@code flags} equal to {@code O_CREAT|O_WRONLY|O_TRUNC}.
++        """,
++
++        charUTF8.const.p("pathname", ""),
++        mode_t("mode", "", ModeBits, LinkMode.BITFIELD)
++    )
++
++    SaveErrno..int(
++        "fcntl",
++        """
++        Performs one of the operations determined by {@code cmd} on the open file descriptor {@code fd}.
++
++        {@code fcntl()} can take an optional third argument.  Whether or not this argument is required is determined by {@code cmd}. The required argument type
++        is indicated in parentheses after each {@code cmd} name (in most cases, the required type is {@code int}, and we identify the argument using the name
++        {@code arg}), or {@code void} is specified if the argument is not required.
++
++        <b>LWJGL note</b>: Use #fcntli() or #fcntlp() to pass a third argument of the appropriate type.
++
++        Certain of the operations below are supported only since a particular Linux kernel version. The preferred method of checking whether the host kernel
++        supports a particular operation is to invoke {@code fcntl()} with the desired {@code cmd} value and then test whether the call failed with
++        {@code EINVAL}, indicating that the kernel does not recognize this value.
++        """,
++
++        int("fd", ""),
++        int("cmd", "", commands)
++    )
++
++    SaveErrno..NativeName("fcntl")..int(
++        "fcntli",
++        "#fcntl() overload that takes a third argument of type {@code int}.",
++
++        int("fd", ""),
++        int("cmd", "", commands),
++        int("arg", "")
++    )
++
++    SaveErrno..NativeName("fcntl")..int(
++        "fcntlp",
++        "#fcntl() overload that takes a third argument of type {@code void *}.",
++
++        int("fd", ""),
++        int("cmd", "", commands),
++        opaque_p("arg", "")
++    )
++}
+\ No newline at end of file
+diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/mman.kt lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/mman.kt
+--- lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/mman.kt	1970-01-01 01:00:00.000000000 +0100
++++ lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/mman.kt
+@@ -0,0 +1,280 @@
++/*
++ * Copyright LWJGL. All rights reserved.
++ * License terms: https://www.lwjgl.org/license
++ */
++package core.astral.templates
++
++import core.astral.*
++import org.lwjgl.generator.*
++
++val mman = "MMAN".nativeClass(Module.CORE_ASTRAL, nativeSubPath = "astral") {
++    nativeImport(
++        "<sys/mman.h>",
++        "<errno.h>"
++    )
++    documentation = "Native bindings to &lt;sys/mman.h&gt;."
++
++    LongConstant(
++        "Return value of #mmap() in case of an error.",
++
++        "MAP_FAILED".."-1L"
++    )
++
++    EnumConstant(
++        """
++        The {@code prot} argument describes the desired memory protection of the mapping (and must not conflict with the open mode of the file).
++
++        It is either {@code PROT_NONE} or the bitwise OR of one or more of the following flags.
++        """,
++
++        "PROT_EXEC".enum("Pages may be executed.", "0x4"),
++        "PROT_READ".enum("Pages may be read.", "0x1"),
++        "PROT_WRITE".enum("Pages may be written.", "0x2"),
++        "PROT_NONE".enum("Pages may not be accessed.", "0x0"),
++        "PROT_GROWSDOWN".enum("Extend change to start of {@code growsdown} vma ({@code mprotect} only).", "0x01000000"),
++        "PROT_GROWSUP".enum("Extend change to start of {@code growsup} vma ({@code mprotect} only).", "0x02000000")
++    )
++
++    EnumConstant(
++        """
++        The flags argument determines whether updates to the mapping are visible to other processes mapping the same region, and whether updates are carried
++        through to the underlying file.
++
++        This behavior is determined by including exactly one of the following values in {@code flags}.
++        """,
++
++        "MAP_SHARED".enum(
++            """
++            Share this mapping.
++
++            Updates to the mapping are visible to other processes mapping the same region, and (in the case of file-backed mappings) are carried through to the
++            underlying file. (To precisely control when updates are carried through to the underlying file requires the use of {@code msync(2)}.)
++            """,
++            "0x01"
++        ),
++        "MAP_SHARED_VALIDATE".enum(
++            """
++            This flag provides the same behavior as #MAP_SHARED except that {@code MAP_SHARED} mappings ignore unknown flags in {@code flags}.
++
++            By contrast, when creating a mapping using {@code MAP_SHARED_VALIDATE}, the kernel verifies all passed flags are known and fails the mapping with
++            the error {@code EOPNOTSUPP} for unknown flags. This mapping type is also required to be able to use some mapping flags (e.g., {@code MAP_SYNC}).
++            """,
++            "0x03"
++        ),
++        "MAP_PRIVATE".enum(
++            """
++            Create a private copy-on-write mapping.
++
++            Updates to the mapping are not visible to other processes mapping the same file, and are not carried through to the underlying file.  It is
++            unspecified whether changes made to the file after the #mmap() call are visible in the mapped region.
++            """,
++            "0x02"
++        )
++    )
++
++    IntConstant("", "MAP_HUGE_SHIFT".."26")
++    IntConstant("", "MAP_HUGE_MASK".."0x3f")
++
++    EnumConstant(
++        "",
++
++        "MAP_32BIT".enum(
++            """
++             Put the mapping into the first 2 Gigabytes of the process address space.
++
++             This flag is supported only on x86-64, for 64-bit programs. It was added to allow thread stacks to be allocated somewhere in the first 2 GB of
++             memory, so as to improve context-switch performance on some early 64-bit processors. Modern x86-64 processors no longer have this performance
++             problem, so use of this flag is not required on those systems. The {@code MAP_32BIT} flag is ignored when #MAP_FIXED is set.
++            """,
++            "0x40"
++        ),
++        "MAP_ANONYMOUS".enum(
++            """
++            The mapping is not backed by any file; its contents are initialized to zero.
++
++            The {@code fd} argument is ignored; however, some implementations require {@code fd} to be -1 if {@code MAP_ANONYMOUS} (or #MAP_ANON) is specified,
++            and portable applications should ensure this. The {@code offset} argument should be zero. The use of {@code MAP_ANONYMOUS} in conjunction with
++            {@code MAP_SHARED} is supported on Linux only since kernel 2.4.
++            """,
++            "0x20"
++        ),
++        "MAP_ANON".enum("Synonym for MAP_ANONYMOUS; provided for compatibility with other implementations.", "MAP_ANONYMOUS"),
++        "MAP_DENYWRITE".enum(
++            """
++            This flag is ignored.
++
++            (Long ago —Linux 2.0 and earlier— it signaled that attempts to write to the underlying file should fail with {@code ETXTBSY}. But this was a source
++            of denial-of-service attacks.)
++            """,
++            "0x00800"
++        ),
++        "MAP_EXECUTABLE".enum("This flag is ignored.", "0x01000"),
++        "MAP_FILE".enum("Compatibility flag. Ignored.", "0"),
++        "MAP_FIXED".enum(
++            """
++            Don't interpret {@code addr} as a hint: place the mapping at exactly that address.
++
++            {@code addr} must be suitably aligned: for most architectures a multiple of the page size is sufficient; however, some architectures may impose
++            additional restrictions. If the memory region specified by {@code addr} and {@code length} overlaps pages of any existing mapping(s), then the
++            overlapped part of the existing mapping(s) will be discarded. If the specified address cannot be used, #mmap() will fail.
++
++            Software that aspires to be portable should use the {@code MAP_FIXED} flag with care, keeping in mind that the exact layout of a process's memory
++            mappings is allowed to change significantly between kernel versions, C library versions, and operating system releases. Carefully read the
++            discussion of this flag in NOTES!
++            """,
++            "0x10"
++        ),
++        "MAP_FIXED_NOREPLACE".enum(
++            """
++            This flag provides behavior that is similar to #MAP_FIXED with respect to the {@code addr} enforcement, but differs in that
++            {@code MAP_FIXED_NOREPLACE} never clobbers a preexisting mapped range.
++
++            If the requested range would collide with an existing mapping, then this call fails with the error {@code EEXIST}. This flag can therefore be used
++            as a way to atomically (with respect to other threads) attempt to map an address range: one thread will succeed; all others will report failure.
++
++            Note that older kernels which do not recognize the {@code MAP_FIXED_NOREPLACE} flag will typically (upon detecting a collision with a preexisting
++            mapping) fall back to a "non-{@code MAP_FIXED}" type of behavior: they will return an address that is different from the requested address.
++            Therefore, backward-compatible software should check the returned address against the requested address.
++
++            (since Linux 4.17)
++            """,
++            "0x100000"
++        ),
++        "MAP_GROWSDOWN".enum(
++            """
++            This flag is used for stacks. It indicates to the kernel virtual memory system that the mapping should extend downward in memory.
++
++            The return address is one page lower than the memory area that is actually created in the process's virtual address space. Touching an address in
++            the "guard" page below the mapping will cause the mapping to grow by a page. This growth can be repeated until the mapping grows to within a page
++            of the high end of the next lower mapping, at which point touching the "guard" page will result in a {@code SIGSEGV} signal.
++            """,
++            "0x00100"
++        ),
++        "MAP_HUGETLB".enum(
++            """
++            Allocate the mapping using "huge" pages.
++
++            See the Linux kernel source file {@code Documentation/admin-guide/mm/hugetlbpage.rst} for further information, as well as NOTES, below.
++
++            (since Linux 2.6.32)
++            """,
++            "0x40000"
++        ),
++        "MAP_HUGE_2MB".enum(
++            """
++            Used in conjunction with #MAP_HUGETLB to select alternative {@code hugetlb} page sizes (respectively, 2 MB and 1 GB) on systems that support
++            multiple {@code hugetlb} page sizes.
++
++            More generally, the desired huge page size can be configured by encoding the base-2 logarithm of the desired page size in the six bits at the
++            offset #MAP_HUGE_SHIFT. (A value of zero in this bit field provides the default huge page size; the default huge page size can be discovered via
++            the {@code Hugepagesize} field exposed by {@code /proc/meminfo}.) Thus, the above two constants are defined as:
++            ${codeBlock("""
++\#define MAP_HUGE_2MB    (21 << MAP_HUGE_SHIFT)
++\#define MAP_HUGE_1GB    (30 << MAP_HUGE_SHIFT)""")}
++
++            The range of huge page sizes that are supported by the system can be discovered by listing the subdirectories in {@code /sys/kernel/mm/hugepages}.
++
++            (since Linux 3.8)
++            """,
++            "21 << MAP_HUGE_SHIFT"
++        ),
++        "MAP_HUGE_1GB".enum("See #MAP_HUGE_2MB.", "30 << MAP_HUGE_SHIFT"),
++        "MAP_LOCKED".enum(
++            """
++
++            """,
++            "0x02000"
++        ),
++        "MAP_NONBLOCK".enum(
++            """
++
++            """,
++            "0x10000"
++        ),
++        "MAP_NORESERVE".enum(
++            """
++
++            """,
++            "0x04000"
++        ),
++        "MAP_POPULATE".enum(
++            """
++
++            """,
++            "0x08000"
++        ),
++        "MAP_STACK".enum(
++            """
++
++            """,
++            "0x20000"
++        ),
++        "MAP_SYNC".enum(
++            """
++
++            """,
++            "0x80000"
++        ),
++        "MAP_UNINITIALIZED".enum(
++            """
++
++            """,
++            "0x4000000"
++        )
++    )
++
++    SaveErrno..opaque_p(
++        "mmap",
++        """
++        Creates a new mapping in the virtual address space of the calling process.
++
++        The starting address for the new mapping is specified in {@code addr}. The {@code length} argument specifies the length of the mapping (which must be
++        greater than 0).
++
++        If {@code addr} is #NULL, then the kernel chooses the (page-aligned) address at which to create the mapping; this is the most portable method of
++        creating a new mapping. If {@code addr} is not #NULL, then the kernel takes it as a hint about where to place the mapping; on Linux, the kernel will
++        pick a nearby page boundary (but always above or equal to the value specified by {@code /proc/sys/vm/mmap_min_addr}) and attempt to create the mapping
++        there. If another mapping already exists there, the kernel picks a new address that may or may not depend on the hint. The address of the new mapping
++        is returned as the result of the call.
++
++        The contents of a file mapping (as opposed to an anonymous mapping; see {@code MAP_ANONYMOUS} below), are initialized using {@code length} bytes
++        starting at offset {@code offset} in the file (or other object) referred to by the file descriptor {@code fd}. {@code offset} must be a multiple of the
++        page size as returned by {@code sysconf(_SC_PAGE_SIZE)}.
++
++        After the {@code mmap()} call has returned, the file descriptor, {@code fd}, can be closed immediately without invalidating the mapping.
++        """,
++
++        nullable..opaque_p("addr", ""),
++        size_t("length", ""),
++        int(
++            "prot",
++            "describes the desired memory protection of the mapping (and must not conflict with the open mode of the file)",
++            "PROT_\\w+", LinkMode.BITFIELD
++        ),
++        int("flags", "", "MAP_\\w+", LinkMode.BITFIELD),
++        int("fd", ""),
++        off_t("offset", ""),
++
++        returnDoc =
++        "on success, returns a pointer to the mapped area. On error, the value #MAP_FAILED is returned, and {@code errno} is set to indicate the error."
++    )
++
++    SaveErrno..int(
++        "munmap",
++        """
++        Deletes the mappings for the specified address range, and causes further references to addresses within the range to generate invalid memory
++        references.
++
++        The region is also automatically unmapped when the process is terminated. On the other hand, closing the file descriptor does not unmap the region.
++
++        The address {@code addr} must be a multiple of the page size (but {@code length} need not be). All pages containing a part of the indicated range are
++        unmapped, and subsequent references to these pages will generate {@code SIGSEGV}. It is not an error if the indicated range does not contain any mapped
++        pages.
++        """,
++
++        void.p("addr", ""),
++        AutoSize("addr")..size_t("length", ""),
++
++        returnDoc = "on success, returns 0. On failure, it returns -1, and {@code errno} is set to indicate the error (probably to {@code EINVAL})."
++    )
++}
+\ No newline at end of file
+diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/pthread.kt lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/pthread.kt
+--- lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/pthread.kt	1970-01-01 01:00:00.000000000 +0100
++++ lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/pthread.kt
+@@ -0,0 +1,20 @@
++/*
++ * Copyright LWJGL. All rights reserved.
++ * License terms: https://www.lwjgl.org/license
++ */
++package core.astral.templates
++
++import core.astral.*
++import org.lwjgl.generator.*
++
++val pthread = "PThread".nativeClass(Module.CORE_ASTRAL, prefixMethod = "pthread_", nativeSubPath = "astral") {
++    nativeImport("<pthread.h>")
++    documentation = "Native bindings to &lt;pthread.h&gt;."
++
++    pthread_t(
++        "self",
++        "",
++
++        void()
++    )
++}
+\ No newline at end of file
+diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/socket.kt lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/socket.kt
+--- lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/socket.kt	1970-01-01 01:00:00.000000000 +0100
++++ lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/socket.kt
+@@ -0,0 +1,41 @@
++/*
++ * Copyright LWJGL. All rights reserved.
++ * License terms: https://www.lwjgl.org/license
++ */
++package core.astral.templates
++
++import core.astral.*
++import org.lwjgl.generator.*
++
++val socket = "Socket".nativeClass(Module.CORE_ASTRAL, nativeSubPath = "astral") {
++    nativeImport(
++        "<sys/socket.h>",
++        "<errno.h>"
++    )
++    documentation = "Native bindings to &lt;sys/socket.h&gt;."
++
++    // TODO:
++
++    EnumConstant(
++        "The following constants should be used for the second parameter of {@code shutdown}.",
++
++        "SHUT_RD".enum("No more receptions.", "0"),
++        "SHUT_WR".enum("No more transmissions."),
++        "SHUT_RDWR".enum("No more receptions or transmissions.")
++    )
++
++    SaveErrno..int(
++        "socket",
++        """
++        Create a new socket of type {@code __type} in domain {@code __domain}, using protocol {@code __protocol}.
++        
++        If {@code __protocol} is zero, one is chosen automatically.  
++        """,
++
++        int("__domain", ""),
++        int("__type", ""),
++        int("__protocol", ""),
++
++        returnDoc = "a file descriptor for the new socket, or -1 for errors"
++    )
++}
+\ No newline at end of file
+diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/stat.kt lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/stat.kt
+--- lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/stat.kt	1970-01-01 01:00:00.000000000 +0100
++++ lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/stat.kt
+@@ -0,0 +1,34 @@
++/*
++ * Copyright LWJGL. All rights reserved.
++ * License terms: https://www.lwjgl.org/license
++ */
++package core.astral.templates
++
++import core.astral.*
++import org.lwjgl.generator.*
++
++val sys_stat_h = "Stat".nativeClass(Module.CORE_ASTRAL, nativeSubPath = "astral") {
++    nativeImport(
++        "<sys/stat.h>",
++        "<errno.h>"
++    )
++    documentation = "Native bindings to &lt;sys/stat.h&gt;."
++
++    // TODO:
++
++    SaveErrno..int(
++        "stat",
++        "",
++
++        charUTF8.const.p("__file", ""),
++        stat.p("__buf", "")
++    )
++
++    SaveErrno..int(
++        "fstat",
++        "",
++
++        int("__fd", ""),
++        stat.p("__buf", "")
++    )
++}
+\ No newline at end of file
+diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/uio.kt lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/uio.kt
+--- lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/uio.kt	1970-01-01 01:00:00.000000000 +0100
++++ lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/uio.kt
+@@ -0,0 +1,115 @@
++/*
++ * Copyright LWJGL. All rights reserved.
++ * License terms: https://www.lwjgl.org/license
++ */
++package core.astral.templates
++
++import core.astral.*
++import org.lwjgl.generator.*
++
++val uio = "UIO".nativeClass(Module.CORE_ASTRAL, nativeSubPath = "astral") {
++    nativeImport(
++        "<sys/uio.h>",
++        "<errno.h>"
++    )
++    documentation = "Native bindings to &lt;sys/uio.h&gt;."
++
++    // TODO:
++
++    IntConstant("", "UIO_FASTIOV".."8")
++    IntConstant("", "UIO_MAXIOV".."1024")
++
++    EnumConstant(
++        "Flags for {@code preadv2}/{@code pwritev2}.",
++
++        "RWF_HIPRI".enum("High priority request.", 0x00000001),
++        "RWF_DSYNC".enum("per-IO #O_DSYNC", 0x00000002),
++        "RWF_SYNC".enum("per-IO #O_SYNC", 0x00000004),
++        "RWF_NOWAIT".enum("per-IO nonblocking mode", 0x00000008),
++        "RWF_APPEND".enum("per-IO #O_APPEND", 0x00000010),
++    )
++
++    SaveErrno..ssize_t(
++        "readv",
++        "",
++
++        int("__fd", ""),
++        iovec.const.p("__iovec", ""),
++        int("__count", "")
++    )
++
++    SaveErrno..ssize_t(
++        "writev",
++        "",
++
++        int("__fd", ""),
++        iovec.const.p("__iovec", ""),
++        int("__count", "")
++    )
++
++    SaveErrno..ssize_t(
++        "preadv",
++        "",
++
++        int("__fd", ""),
++        iovec.const.p("__iovec", ""),
++        int("__count", ""),
++        off_t("__offset", "")
++    )
++
++    SaveErrno..ssize_t(
++        "pwritev",
++        "",
++
++        int("__fd", ""),
++        iovec.const.p("__iovec", ""),
++        int("__count", ""),
++        off_t("__offset", "")
++    )
++
++    /*SaveErrno..ssize_t(
++        "preadv2",
++        "",
++
++        int("__fd", ""),
++        iovec.const.p("__iovec", ""),
++        int("__count", ""),
++        off_t("__offset", ""),
++        int("__flags", "")
++    )*/
++
++    /*SaveErrno..ssize_t(
++        "pwritev2",
++        "",
++
++        int("__fd", ""),
++        iovec.const.p("__iovec", ""),
++        int("__count", ""),
++        off_t("__offset", ""),
++        int("__flags", "")
++    )*/
++
++    SaveErrno..ssize_t(
++        "process_vm_readv",
++        "Read from another process' address space.",
++
++        pid_t("__pid", ""),
++        iovec.const.p("__lvec", ""),
++        unsigned_long_int("__liovcnt", ""),
++        iovec.const.p("__rvec", ""),
++        unsigned_long_int("__riovcnt", ""),
++        unsigned_long_int("__flags", "")
++    )
++
++    SaveErrno..ssize_t(
++        "process_vm_writev",
++        "Write to another process' address space.",
++
++        pid_t("__pid", ""),
++        iovec.const.p("__lvec", ""),
++        unsigned_long_int("__liovcnt", ""),
++        iovec.const.p("__rvec", ""),
++        unsigned_long_int("__riovcnt", ""),
++        unsigned_long_int("__flags", "")
++    )
++}
+\ No newline at end of file
+diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/unistd.kt lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/unistd.kt
+--- lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/unistd.kt	1970-01-01 01:00:00.000000000 +0100
++++ lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/unistd.kt
+@@ -0,0 +1,73 @@
++/*
++ * Copyright LWJGL. All rights reserved.
++ * License terms: https://www.lwjgl.org/license
++ */
++package core.astral.templates
++
++import core.astral.*
++import org.lwjgl.generator.*
++
++val unistd = "UNISTD".nativeClass(Module.CORE_ASTRAL, nativeSubPath = "astral") {
++    nativeImport(
++        "<unistd.h>",
++        "<errno.h>"
++    )
++
++    documentation = "Native bindings to &lt;unistd.h&gt;."
++
++    EnumConstant(
++        "",
++
++        "_SC_OPEN_MAX".enum("", "4"),
++        "_SC_PAGE_SIZE".enum("", "30"),
++        "_SC_IOV_MAX".enum("", "60")
++    )
++
++    SaveErrno..int(
++        "close",
++        """
++
++        """,
++
++        int("fd", "")
++    )
++
++    SaveErrno..long(
++        "sysconf",
++        """
++
++        """,
++
++        int("name", "")
++    )
++
++    SaveErrno..ssize_t(
++        "read",
++        "",
++
++        int("fd", ""),
++        void.p("buf", ""),
++        AutoSize("buf")..size_t("count", "")
++    )
++
++    pid_t(
++        "getpid",
++        "",
++
++        void()
++    )
++
++    pid_t(
++        "getppid",
++        "",
++
++        void()
++    )
++
++    pid_t(
++        "gettid",
++        "",
++
++        void()
++    )
++}
+diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/openal/src/main/java/org/lwjgl/openal/ALC.java lwjgl3-workdir/modules/lwjgl/openal/src/main/java/org/lwjgl/openal/ALC.java
+--- lwjgl3-clean/modules/lwjgl/openal/src/main/java/org/lwjgl/openal/ALC.java
++++ lwjgl3-workdir/modules/lwjgl/openal/src/main/java/org/lwjgl/openal/ALC.java
+@@ -64,6 +64,7 @@
+         switch (Platform.get()) {
+             case LINUX:
+             case MACOSX:
++            case ASTRAL:
+                 libName = "openal";
+                 break;
+             case WINDOWS:
+@@ -350,4 +351,4 @@
+ 
+     }
+ 
+-}
+\ No newline at end of file
++}
+diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/opengl/src/main/java/org/lwjgl/opengl/GL.java lwjgl3-workdir/modules/lwjgl/opengl/src/main/java/org/lwjgl/opengl/GL.java
+--- lwjgl3-clean/modules/lwjgl/opengl/src/main/java/org/lwjgl/opengl/GL.java
++++ lwjgl3-workdir/modules/lwjgl/opengl/src/main/java/org/lwjgl/opengl/GL.java
+@@ -98,6 +98,7 @@
+         SharedLibrary GL;
+         switch (Platform.get()) {
+             case LINUX:
++            case ASTRAL:
+                 GL = Library.loadNative(GL.class, "org.lwjgl.opengl", Configuration.OPENGL_LIBRARY_NAME, "libGLX.so.0", "libGL.so.1", "libGL.so");
+                 break;
+             case MACOSX:
+diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/remotery/src/main/c/Remotery.h lwjgl3-workdir/modules/lwjgl/remotery/src/main/c/Remotery.h
+--- lwjgl3-clean/modules/lwjgl/remotery/src/main/c/Remotery.h
++++ lwjgl3-workdir/modules/lwjgl/remotery/src/main/c/Remotery.h
+@@ -130,7 +130,7 @@
+ // Platform identification
+ #if defined(_WINDOWS) || defined(_WIN32)
+     #define RMT_PLATFORM_WINDOWS
+-#elif defined(__linux__) || defined(__FreeBSD__) || defined(__OpenBSD__)
++#elif defined(__linux__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__astral__)
+     #define RMT_PLATFORM_LINUX
+     #define RMT_PLATFORM_POSIX
+ #elif defined(__APPLE__)
