@@ -551,9 +551,20 @@ index 5c57cf8..cb2d97f 100644
  
  void tdestroy(void *root, void (*free_node)(void *)) {
 diff --git mlibc-clean/options/rtld/generic/main.cpp mlibc-workdir/options/rtld/generic/main.cpp
-index b2db152..e6438fe 100644
+index b2db152..244ad4b 100644
 --- mlibc-clean/options/rtld/generic/main.cpp
 +++ mlibc-workdir/options/rtld/generic/main.cpp
+@@ -636,8 +636,8 @@ void *__dlapi_open(const char *file, int flags, void *returnAddress) {
+ 			// In order to know which RUNPATH / RPATH to process, we must find the calling object.
+ 			SharedObject *origin = initialRepository->findCaller(returnAddress);
+ 			if (!origin) {
+-				mlibc::panicLogger() << "rtld: unable to determine calling object of dlopen "
+-					<< "(ra = " << returnAddress << ")" << frg::endlog;
++				// When we can't find the origin, assume it's the main executable (copies glibc behavior)
++				origin = executableSO;
+ 			}
+ 
+ 			objectResult = initialRepository->requestObjectWithName(file, origin, newScope, !isGlobal, rts);
 @@ -681,6 +681,9 @@ void *__dlapi_open(const char *file, int flags, void *returnAddress) {
  			}
  		}
