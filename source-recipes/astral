@@ -10,7 +10,7 @@ prepare() {
 	rm -f io/printf.c
 	rm -f include/printf.h
 	rm -rf flanterm
-	curl https://raw.githubusercontent.com/limine-bootloader/limine-protocol/refs/heads/trunk/include/limine.h > include/limine.h
+	curl https://raw.githubusercontent.com/limine-bootloader/limine-protocol/4607d68cbdbe653885937fb3178449588addb799/include/limine.h > include/limine.h
 	pushd /tmp/
 	wget https://github.com/mpaland/printf/archive/refs/tags/v4.0.0.tar.gz
 	tar -xf v4.0.0.tar.gz
