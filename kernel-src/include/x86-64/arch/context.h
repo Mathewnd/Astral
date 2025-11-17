@@ -41,9 +41,10 @@ typedef struct {
 typedef struct {
 	uint64_t gsbase;
 	uint64_t fsbase;
-	__attribute__((aligned(16))) uint8_t fx[512];
-	uint32_t mxcsr;
+	void *xsave;
 } extracontext_t;
+
+extern size_t arch_xsave_size;
 
 #define CTX_INIT(x,u,interrupts) \
 	if (u) { \
@@ -54,15 +55,6 @@ typedef struct {
 		(x)->ds = (x)->es = (x)->ss = 0x10; \
 	} \
 	(x)->rflags = interrupts ? 0x200 : 0;
-
-// all sse exceptions masked
-// initialise the x87 FPU state as it would be after the FNINIT instruction
-#define CTX_XINIT(x, u) {\
-	(x)->mxcsr = 0x1f80; \
-	*((uint16_t *)&(x)->fx[0]) = 0x37f; \
-	*((uint16_t *)&(x)->fx[2]) = 0; \
-	(x)->fx[4] = 0; \
-	}
 
 #define CTX_SP(x) (x)->rsp
 #define CTX_IP(x) (x)->rip
@@ -81,43 +73,36 @@ typedef struct {
 void arch_context_switch(context_t *context);
 int arch_context_saveandcall(void (*fn)(context_t *context, void *argument), void *stack, void *argument);
 
+void arch_extracontext_detect(void);
+
+int arch_extracontext_init(extracontext_t *context);
+void arch_extracontext_free(extracontext_t *context);
+void arch_extracontext_save(extracontext_t *context);
+void arch_extracontext_load(extracontext_t *context);
+void arch_extracontext_copy(extracontext_t *dst, const extracontext_t *src);
+
 #include <string.h>
 
 // kernelgsbase is set as user because they'll be swapped in the context switch
 #define ARCH_CONTEXT_SWITCHTHREAD(x) \
 	current_cpu()->ist.rsp0 = (uint64_t)(x)->kernelstacktop; \
-	wrmsr(MSR_KERNELGSBASE, (x)->extracontext.gsbase); \
-	wrmsr(MSR_FSBASE, (x)->extracontext.fsbase); \
-	asm("fxrstor (%%rax)" : : "a"(&(x)->extracontext.fx[0])); \
-	asm("ldmxcsr (%%rax)" : : "a"(&(x)->extracontext.mxcsr)); \
+	arch_extracontext_load(&(x)->extracontext); \
 	arch_context_switch(&thread->context);
 
 #define ARCH_CONTEXT_THREADSAVE(t, c) \
 	memcpy(&(t)->context, c, sizeof(context_t)); \
-	(t)->extracontext.gsbase = rdmsr(MSR_KERNELGSBASE); \
-	(t)->extracontext.fsbase = rdmsr(MSR_FSBASE); \
-	asm("fxsave (%%rax)" : : "a"(&(t)->extracontext.fx[0])); \
-	asm("stmxcsr (%%rax)" : : "a"(&(t)->extracontext.mxcsr));
+	arch_extracontext_save(&(t)->extracontext);
 
 #define ARCH_CONTEXT_THREADLOAD(t, c) \
 	memcpy(c, &(t)->context, sizeof(context_t)); \
 	current_cpu()->ist.rsp0 = (uint64_t)(t)->kernelstacktop; \
-	wrmsr(MSR_KERNELGSBASE, (t)->extracontext.gsbase); \
-	wrmsr(MSR_FSBASE, (t)->extracontext.fsbase); \
-	asm("fxrstor (%%rax)" : : "a"(&(t)->extracontext.fx[0])); \
-	asm("ldmxcsr (%%rax)" : : "a"(&(t)->extracontext.mxcsr));
+	arch_extracontext_load(&(t)->extracontext);
 
 #define ARCH_EXTRACONTEXT_LOAD(c) \
-	wrmsr(MSR_KERNELGSBASE, (c)->gsbase); \
-	wrmsr(MSR_FSBASE, (c)->fsbase); \
-	asm("fxrstor (%%rax)" : : "a"(&(c)->fx[0])); \
-	asm("ldmxcsr (%%rax)" : : "a"(&(c)->mxcsr));
+	arch_extracontext_load(c);
 
 #define ARCH_EXTRACONTEXT_SAVE(c) \
-	(c)->gsbase = rdmsr(MSR_KERNELGSBASE); \
-	(c)->fsbase = rdmsr(MSR_FSBASE); \
-	asm("fxsave (%%rax)" : : "a"(&(c)->fx[0])); \
-	asm("stmxcsr (%%rax)" : : "a"(&(c)->mxcsr));
+	arch_extracontext_save(c);
 
 #define ARCH_CONTEXT_INTSTATUS(x) ((x)->rflags & 0x200 ? true : false)
 #define ARCH_CONTEXT_ISUSER(x) ((x)->cs == 0x23)

@@ -385,6 +385,13 @@ int tty_ioctl(tty_t *tty, unsigned long req, void *arg, int *result, cred_t *cre
 			size_t len = min(strlen(tty->name) + 1, TTY_NAME_MAX);
 			return USERCOPY_POSSIBLY_TO_USER(arg, tty->name, len);
 		}
+		case FIONREAD: {
+			MUTEX_ACQUIRE(&tty->readmutex);
+			int count = RINGBUFFER_DATACOUNT(&tty->readbuffer);
+			MUTEX_RELEASE(&tty->readmutex);
+			int status = USERCOPY_POSSIBLY_TO_USER(arg, &count, sizeof(count));
+			return status;
+		}
 		default:
 			return ENOTTY;
 	}

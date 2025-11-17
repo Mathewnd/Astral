@@ -8,6 +8,7 @@
 #include <arch/smp.h>
 #include <kernel/alloc.h>
 #include <kernel/init.h>
+#include <arch/context.h>
 
 DEFINE_KERNEL_ARGUMENT(nosmp, bool);
 
@@ -35,6 +36,7 @@ static void cpuwakeup(struct limine_smp_info *info) {
 	arch_idt_reload();
 	interrupt_register(0xfd, (void *)cpuwakeuphalt, NULL, IPL_IGNORE);
 	dpc_init();
+	arch_extracontext_detect();
 	arch_mmu_apswitch();
 	vmm_apinit();
 

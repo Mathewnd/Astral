@@ -540,7 +540,7 @@ bool signal_check(struct thread_t *thread, context_t *context, bool syscall, uin
 		// get where in memory to put the frame
 		#if ARCH_SIGNAL_STACK_GROWS_DOWNWARDS == 1
 		void *stack = altstack ? (void *)((uintptr_t)altstack + thread->signals.stack.size) : (void *)CTX_SP(context);
-		stack = (void *)((((uintptr_t)stack - ARCH_SIGNAL_REDZONE_SIZE - sizeof(sigframe_t)) & ~0xfl) - 0x8);
+		stack = (void *)((((uintptr_t)stack - ARCH_SIGNAL_REDZONE_SIZE - ARCH_SIGFRAME_SIZE) & ~0xfl) - 0x8);
 		#else
 			#error unsupported
 		#endif
@@ -553,35 +553,36 @@ bool signal_check(struct thread_t *thread, context_t *context, bool syscall, uin
 		}
 
 		// configure stack frame
-		sigframe_t sigframe;
-		sigframe.restorer = action->restorer;
+		sigframe_t *sigframe = __builtin_alloca(ARCH_SIGFRAME_SIZE);
+		arch_sigframe_init(sigframe);
+		sigframe->restorer = action->restorer;
 		if (altstack) {
-			memcpy(&sigframe.oldstack, &thread->signals.stack, sizeof(stack_t));
+			memcpy(&sigframe->oldstack, &thread->signals.stack, sizeof(stack_t));
 			memset(&thread->signals.stack, 0, sizeof(stack_t));
 		} else {
-			memset(&sigframe.oldstack, 0, sizeof(stack_t));
+			memset(&sigframe->oldstack, 0, sizeof(stack_t));
 		}
 
 		if (thread->signals.hasreturnmask) {
 			// if we were waiting in signal_suspend, push the old mask into the return frame
 			// of the first signal and set it to not act this way the next check
-			memcpy(&sigframe.oldmask, &thread->signals.returnmask, sizeof(sigset_t));
+			memcpy(&sigframe->oldmask, &thread->signals.returnmask, sizeof(sigset_t));
 			thread->signals.hasreturnmask = false;
 		} else {
 			// else, just push the current mask
-			memcpy(&sigframe.oldmask, &thread->signals.mask, sizeof(sigset_t));
+			memcpy(&sigframe->oldmask, &thread->signals.mask, sizeof(sigset_t));
 		}
-		memcpy(&sigframe.context, context, sizeof(context_t));
-		memcpy(&sigframe.extracontext, &thread->extracontext, sizeof(extracontext_t));
+		memcpy(&sigframe->context, context, sizeof(context_t));
+		arch_extracontext_copy(&sigframe->extracontext, &thread->extracontext);
 
-		arch_sigframe_prepare_mcontext(stack, &sigframe);
+		arch_sigframe_prepare_mcontext(stack, sigframe);
 
-		memset(&sigframe.siginfo, 0, sizeof(siginfo_t));
+		memset(&sigframe->siginfo, 0, sizeof(siginfo_t));
 		if (signal == SIGSEGV)
-			sigframe.siginfo.__si_fields.__sigfault.si_addr = CTX_TRAP_ADDR(context);
+			sigframe->siginfo.__si_fields.__sigfault.si_addr = CTX_TRAP_ADDR(context);
 
-		if (usercopy_touser(stack, &sigframe, sizeof(sigframe_t))) {
-			printf("signal: bad user stack %p (altstack %p) handling signal %d trapno %lu\n", stack, altstack, signal, sigframe.mcontext.gregs[MCONTEXT_REG_TRAPNO]);
+		if (usercopy_touser(stack, sigframe, ARCH_SIGFRAME_SIZE)) {
+			printf("signal: bad user stack %p (altstack %p) handling signal %d trapno %lu\n", stack, altstack, signal, sigframe->mcontext.gregs[MCONTEXT_REG_TRAPNO]);
 			THREAD_LEAVE(thread);
 			PROCESS_LEAVE(proc);
 			interrupt_set(true);

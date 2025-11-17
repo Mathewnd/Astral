@@ -1,0 +1,26 @@
+name=jna
+revision=1
+from_source=jna
+imagedeps="build-essential zip unzip file ant openjdk-8-jdk"
+hostdeps="xgcc xbinutils"
+deps="base openjdk17"
+
+configure() {
+	cp -rp "${source_dir}/." .
+}
+
+build() {
+	JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64 ant \
+	    -DCC=x86_64-astral-gcc \
+	    -Dos.prefix=linux-x86-64 \
+	    -Djre.arch=x86-64 \
+	    -Djdk.home="${sysroot_dir}/usr/lib/jvm/java-17" \
+	    -Dbuild-native=true \
+	    -Ddynlink.native=true \
+	    dist
+}
+
+package() {
+	mkdir -p "${dest_dir}${prefix}/share/jna"
+	cp build/jna.jar "${dest_dir}${prefix}/share/jna"
+}

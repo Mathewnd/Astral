@@ -1,0 +1,8 @@
+name=openal
+version=1.21.0
+source_method=tarball
+tarball_url="https://github.com/kcat/openal-soft/archive/refs/tags/openal-soft-${version}.tar.gz"
+tarball_sha512=0c8159e25d9776469478c5ec577fd123c87822a22fc1da978b4e99a7fc1a5ed29ea2a53dc975cc311f72660114a7f8ab75fd9b080d93ac2a280b424c1c66d497
+prepare() {
+	true
+}

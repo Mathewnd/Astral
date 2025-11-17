@@ -56,9 +56,15 @@ typedef struct {
 	context_t context;
 	extracontext_t extracontext;
 	siginfo_t siginfo;
+	uint8_t xsave[];
 } sigframe_t;
 
 #define ARCH_SIGFRAME_GET_UCONTEXT_POINTER(x) (&(x)->uc_flags)
+#define ARCH_SIGFRAME_SIZE (sizeof(sigframe_t) + arch_xsave_size)
+
+static inline void arch_sigframe_init(sigframe_t *sigframe) {
+	sigframe->extracontext.xsave = sigframe->xsave;
+}
 
 static inline void arch_sigframe_prepare_mcontext(void *stack, sigframe_t *sigframe) {
 	context_t *context = &sigframe->context;
@@ -89,7 +95,8 @@ static inline void arch_sigframe_prepare_mcontext(void *stack, sigframe_t *sigfr
 	gregs[MCONTEXT_REG_OLDMASK] = 0;
 	gregs[MCONTEXT_REG_CR2] = context->cr2;
 
-	sigframe->mcontext.fpu_state_p = &((sigframe_t *)stack)->extracontext.fx;
+	extracontext->xsave = ((sigframe_t *)stack)->xsave;
+	sigframe->mcontext.fpu_state_p = extracontext->xsave;
 }
 
 static inline void arch_sigframe_get_context_from_mcontext(sigframe_t *sigframe) {

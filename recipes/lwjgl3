@@ -1,0 +1,46 @@
+name=lwjgl3
+revision=1
+from_source=lwjgl3
+imagedeps="build-essential zip unzip file ant openjdk-8-jdk"
+hostdeps="xgcc xbinutils libstdc++-v3 pkgconfig autoconf"
+deps="base cups freetype fontconfig libpng libjpeg-turbo zlib libx11 libxext libxi libxrandr libxrender libxt libxtst xorgproto libiconv libffi libxcursor libxxf86vm openjdk17 glfw openal"
+allow_network=yes
+
+configure() {
+	cp -rp "${source_dir}/." .
+}
+
+_call_ant() {
+	JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64 ant \
+	    -Dgcc.prefix=x86_64-astral- \
+	    -Dbuild.arch=x64 \
+	    -Dplatform=astral \
+	    -Djni.headers="${sysroot_dir}/usr/lib/jvm/java-17/include" \
+	    -Dbinding.nfd=false \
+	    -Dbinding.tootle=false \
+	    -Dbinding.remotery=false \
+	    -Dbinding.assimp=false \
+	    -Dbinding.bgfx=false \
+	    -Dbinding.harfbuzz=false \
+	    -Dbinding.hwloc=false \
+	    -Dbinding.ktx=false \
+	    -Dbinding.openvr=false \
+	    -Dbinding.openxr=false \
+	    -Dbinding.opus=false \
+	    -Dbinding.shaderc=false \
+	    -Dbinding.spvc=false \
+	    -Dbinding.nanovg=false \
+	    -Djavadoc.skip=true \
+	    "$@"
+}
+
+build() {
+	_call_ant compile-templates generate compile
+	_call_ant -Dbuild.offline=true compile-native
+	yes | _call_ant -Dbuild.offline=true release
+}
+
+package() {
+	mkdir -vp "${dest_dir}${prefix}/share/lwjgl3"
+	find bin/RELEASE -type f -name '*.jar' ! -name '*-sources.jar' -exec cp '{}' "${dest_dir}${prefix}/share/lwjgl3" ';'
+}
