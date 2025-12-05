@@ -8,7 +8,8 @@ static inline bool iovec_iterator_finished(iovec_iterator_t *iovec_iterator) {
 
 bool iovec_user_check(iovec_t *iovec, size_t count) {
 	for (int i = 0; i < count; ++i) {
-		if (IS_USER_ADDRESS(iovec[i].addr) == false)
+		// POSIX says that when len is zero, the addr can be an invalid buffer
+		if (iovec->len && IS_USER_ADDRESS(iovec[i].addr) == false)
 			return false;
 	}
 
@@ -78,6 +79,7 @@ int iovec_iterator_copy_to_buffer(iovec_iterator_t *iovec_iterator, void *buffer
 	int error = 0;
 
 	for (;;) {
+		iovec_iterator_skip(iovec_iterator, 0); // this will skip any zero length entries
 		size_t remaining_current = iovec_iterator->current->len - iovec_iterator->current_offset;
 		size_t copy_current = min(remaining_current, remaining_total);
 
@@ -106,6 +108,7 @@ int iovec_iterator_copy_from_buffer(iovec_iterator_t *iovec_iterator, void *buff
 	int error = 0;
 
 	for (;;) {
+		iovec_iterator_skip(iovec_iterator, 0); // this will skip any zero length entries
 		size_t remaining_current = iovec_iterator->current->len - iovec_iterator->current_offset;
 		size_t copy_current = min(remaining_current, remaining_total);
 
@@ -133,6 +136,7 @@ int iovec_iterator_memset(iovec_iterator_t *iovec_iterator, uint8_t byte, size_t
 	int error = 0;
 
 	for (;;) {
+		iovec_iterator_skip(iovec_iterator, 0); // this will skip any zero length entries
 		size_t remaining_current = iovec_iterator->current->len - iovec_iterator->current_offset;
 		size_t copy_current = min(remaining_current, remaining_total);
 
@@ -160,6 +164,7 @@ size_t iovec_iterator_write_to_ringbuffer(iovec_iterator_t *iovec_iterator, ring
 	size_t current_done = 0;
 
 	for (;;) {
+		iovec_iterator_skip(iovec_iterator, 0); // this will skip any zero length entries
 		size_t remaining_current = iovec_iterator->current->len - iovec_iterator->current_offset;
 		size_t copy_current = min(remaining_current, remaining_total);
 
@@ -173,7 +178,7 @@ size_t iovec_iterator_write_to_ringbuffer(iovec_iterator_t *iovec_iterator, ring
 		if (current_done == 0)
 			break;
 
-		iovec_iterator_skip(iovec_iterator, copy_current);
+		iovec_iterator_skip(iovec_iterator, current_done);
 		remaining_total -= current_done;
 		total_done += current_done;
 
@@ -196,6 +201,7 @@ size_t iovec_iterator_peek_from_ringbuffer(iovec_iterator_t *iovec_iterator, rin
 	size_t current_done = 0;
 
 	for (;;) {
+		iovec_iterator_skip(iovec_iterator, 0); // this will skip any zero length entries
 		size_t remaining_current = iovec_iterator->current->len - iovec_iterator->current_offset;
 		size_t copy_current = min(remaining_current, remaining_total);
 
@@ -203,7 +209,7 @@ size_t iovec_iterator_peek_from_ringbuffer(iovec_iterator_t *iovec_iterator, rin
 		if (current_done == 0 || current_done == RINGBUFFER_USER_COPY_FAILED)
 			break;
 
-		iovec_iterator_skip(iovec_iterator, copy_current);
+		iovec_iterator_skip(iovec_iterator, current_done);
 		total_done += current_done;
 		remaining_total -= current_done;
 
@@ -229,6 +235,7 @@ size_t iovec_iterator_read_from_ringbuffer(iovec_iterator_t *iovec_iterator, rin
 }
 
 int iovec_iterator_next_page(iovec_iterator_t *iovec_iterator, size_t *page_offset, size_t *page_remaining, void **page) {
+	iovec_iterator_skip(iovec_iterator, 0); // this will skip any zero length entries
 	void *addr = (void *)((uintptr_t)iovec_iterator->current->addr + iovec_iterator->current_offset);
 	size_t offset_in_page = ((uintptr_t)addr % PAGE_SIZE);
 	size_t remaining = iovec_iterator->current->len - iovec_iterator->current_offset;
