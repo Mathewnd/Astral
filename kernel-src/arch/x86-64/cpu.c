@@ -9,6 +9,7 @@
 #include <arch/gdt.h>
 #include <kernel/dpc.h>
 #include <arch/context.h>
+#include <arch/prof.h>
 
 #define EFER_SYSCALLENABLE 1
 
@@ -43,6 +44,27 @@ static void x87isr(isr_t *self, context_t *ctx) {
 	} else {
 		_panic("x87 Floating-Point Exception", ctx);
 	}
+}
+
+void arch_nmi_isr(context_t *ctx) {
+	// we are in an NMI context, running on IST0 
+	// first load the proper gsbase to get access to cpu-local variables. 
+	// the pointer to cpu's data is at the beggining of the stack so after the context struct.
+	uint64_t old_gsbase = rdmsr(MSR_GSBASE);
+	wrmsr(MSR_GSBASE, *(uint64_t *)(ctx + 1));
+
+	bool handled = false;
+
+#ifdef ENABLE_PROFILING
+	if (arch_profiling_irq(ctx))
+		handled = true;
+#endif
+
+	if (!handled)
+		_panic("Unhandled NMI", ctx);
+
+	// restore the old gsbase
+	wrmsr(MSR_GSBASE, old_gsbase);
 }
 
 #define TOPOLOGY_TYPE_THREAD 1
@@ -237,6 +259,15 @@ void arch_cpu_init() {
 	}
 
 	current_cpu()->topology_node = topology_nodes[topology_depth - 1];
+
+	// allocate ists
+	uint64_t *ist1 = vmm_map(NULL, PAGE_SIZE * 4, VMM_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, NULL);
+	__assert(ist1);
+
+	// the cpu automatically aligns to 16 bytes when pushing the interrupt frame, so save ourselves the trouble:
+	ist1 += PAGE_SIZE * 4 / sizeof(uint64_t) - 2;
+	*ist1 = (uint64_t)current_cpu();
+	current_cpu()->ist.ist1 = (uint64_t)ist1;
 }
 
 INIT_ROUTINE_DEFINE(cpu, INIT_ROUTINE_FLAGS_NONE, arch_cpu_init, acpi_early);

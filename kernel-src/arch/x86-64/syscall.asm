@@ -273,6 +273,9 @@ arch_syscall_entry:
 	mov rdx, rsi
 	mov rsi, rdi
 
+	; set this as the end of the stack frame
+	xor rbp, rbp
+
 	; call logging function
 
 	sti

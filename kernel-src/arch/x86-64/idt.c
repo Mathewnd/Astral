@@ -29,16 +29,18 @@ static idtr_t idtr = {
 	.offset = (uint64_t)idt
 };
 
+void asm_nmi_handler();
 extern const uint64_t isr_table[256];
 
 void arch_idt_setup() {
 	for (int i = 0; i < 256; ++i) {
-		idt[i].offset = isr_table[i] & 0xffff;
+		uint64_t addr = i == 2 ? (uint64_t)asm_nmi_handler : isr_table[i];
+		idt[i].offset = addr & 0xffff;
 		idt[i].segment = 0x8;
-		idt[i].ist = 0;
+		idt[i].ist = i == 2 ? 1 : 0;
 		idt[i].flags = 0x8e;
-		idt[i].offset2 = (isr_table[i] >> 16) & 0xffff;
-		idt[i].offset3 = (isr_table[i] >> 32) & 0xffffffff;
+		idt[i].offset2 = (addr >> 16) & 0xffff;
+		idt[i].offset3 = (addr >> 32) & 0xffffffff;
 	}
 }
 
