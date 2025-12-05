@@ -47,6 +47,7 @@ typedef struct {
 extern size_t arch_xsave_size;
 
 #define CTX_INIT(x,u,interrupts) \
+	memset(x, 0, sizeof(context_t)); \
 	if (u) { \
 		(x)->cs = 0x23; \
 		(x)->ds = (x)->es = (x)->ss = 0x1b; \
