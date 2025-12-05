@@ -1,0 +1,7 @@
+name=prof
+version=0
+source_dir="tools/prof"
+
+prepare() {
+	true
+}

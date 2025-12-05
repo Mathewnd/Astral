@@ -28,8 +28,11 @@ tools/init/reboot
 tools/init/reboot.o
 tools/init/acpid
 tools/init/acpid.o
+tools/prof/astral-prof
+tools/prof/main.o
 initrds
 hdd.img
 netdump.dat
 build-*
 graph_kernel_deps.png
+profiler.out

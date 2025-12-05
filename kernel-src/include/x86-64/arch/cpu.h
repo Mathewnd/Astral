@@ -13,6 +13,7 @@
 #include <kernel/dpc.h>
 #include <arch/apic.h>
 #include <kernel/timekeeper.h>
+#include <ringbuffer.h>
 
 #define ARCH_EOI arch_apic_eoi
 
@@ -67,6 +68,10 @@ typedef struct cpu_t {
 	size_t shootdown_size;
 	spinlock_t shootdown_lock;
 	int *shootdown_done;
+
+#ifdef ENABLE_PROFILING
+	ringbuffer_t *prof_ringbuffer;
+#endif
 
 	// architecture specific, does not need to be exposed
 

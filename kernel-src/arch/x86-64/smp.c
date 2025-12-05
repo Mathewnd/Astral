@@ -49,6 +49,10 @@ static void cpuwakeup(struct limine_smp_info *info) {
 	
 	timekeeper_init();
 
+#ifdef ENABLE_PROFILING
+	arch_profiling_init();
+#endif
+
 	__atomic_add_fetch(&arch_smp_cpusawake, 1, __ATOMIC_SEQ_CST);
 	sched_ap_entry();
 }

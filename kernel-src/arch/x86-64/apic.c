@@ -129,6 +129,10 @@ static void writeiored(void *ioapic, uint8_t entry, uint8_t vector, uint8_t deli
 	writeioapic(ioapic, 0x11 + entry * 2, (uint32_t)dest << 24);
 }
 
+void arch_apic_init_perf(void) {
+	writelapic(APIC_LVT_PERFORMANCE, LVT_DELIVERY_NMI);
+}
+
 void arch_ioapic_setirq(uint8_t irq, uint8_t vector, uint8_t proc, bool masked) {
 	// default settings for ISA irqs
 	uint8_t polarity = 1; // active high

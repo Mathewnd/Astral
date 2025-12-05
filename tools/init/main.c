@@ -343,11 +343,11 @@ int main(int argc, char *argv[]) {
 		return EXIT_FAILURE;
 	}
 
-	// start a login shell in /dev/com0 if it exists
-	if (access("/dev/com0", F_OK) == 0)
+	// start a login shell in /dev/com0 if it exists and kernel does not enable profiling
+	if (access("/dev/com0", F_OK) == 0 && access("/dev/prof", F_OK))
 		spawn_login_prompt("/dev/com0");
 
-	if (argc >1 && strcmp(argv[1], "withlogin") == 0)
+	if (argc > 1 && strcmp(argv[1], "withlogin") == 0)
 		dologinprompt("/dev/console");
 
 	// open /dev/console as the controlling terminal if we're not doing login
