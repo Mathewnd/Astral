@@ -16,7 +16,7 @@ static void update_interactivity(thread_t *thread) {
 		thread->metrics.interactivity_score = (SCALING_FACTOR * sleep_time) / run_time + SCALING_FACTOR;
 
 	thread->metrics.interactivity_score += thread->nice + (thread->proc ? thread->proc->nice : 0);
-	thread->metrics.interactivity_score = min(thread->metrics.interactivity_score, SCHED_MAX_INTERACTIVITY);
+	thread->metrics.interactivity_score = max(min(thread->metrics.interactivity_score, SCHED_MAX_INTERACTIVITY - 1), 0);
 }
 
 static void offset_times(thread_t *thread, time_t run_us, time_t sleep_us) {
