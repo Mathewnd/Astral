@@ -17,6 +17,11 @@ syscallret_t syscall_archctl(context_t *context, int func, void *arg) {
 		.ret = 0
 	};
 
+	if (!IS_USER_ADDRESS(arg)) {
+		ret.errno = EFAULT;
+		return ret;
+	}
+
 	switch (func) {
 		case ARCH_CTL_SET_GSBASE:
 			// kernelgsbase because it will be switched out to user
