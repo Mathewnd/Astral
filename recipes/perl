@@ -8,8 +8,7 @@ deps="base bzip2 libxcrypt zlib libintl gettext"
 configure() {
 	cp -rp ${source_dir}/* .
 	cp -rp /usr/local/share/perl-cross/* .
-	CFLAGS="${CFLAGS} -DNO_LOCALE" ./configure --target=x86_64-astral --prefix=${prefix} -Dvendorprefix=${prefix} --target-tools-prefix=x86_64-astral- --mode=cross --targetarch=x86_64-astral --sysroot=${sysroot_dir}
-	bash
+	CFLAGS="${CFLAGS} -DNO_LOCALE -Wno-error=implicit-function-declaration" ./configure --target=x86_64-astral --prefix=${prefix} -Dvendorprefix=${prefix} --target-tools-prefix=x86_64-astral- --mode=cross --targetarch=x86_64-astral --sysroot=${sysroot_dir}
 }
 
 build() {

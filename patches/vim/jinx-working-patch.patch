@@ -34,3 +34,16 @@ index 31f66b1..0244c96 100644
  	alarm_pending = FALSE;
      }
  
+diff --git vim-clean/src/time.c vim-workdir/src/time.c
+index 62b38b4..a26dfea 100644
+--- vim-clean/src/time.c
++++ vim-workdir/src/time.c
+@@ -6,7 +6,7 @@
+  * Do ":help credits" in Vim to see a list of people who contributed.
+  * See README.txt for an overview of the Vim source code.
+  */
+-
++#define _XOPEN_SOURCE
+ /*
+  * time.c: functions related to time and timers
+  */

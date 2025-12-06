@@ -1,0 +1,24 @@
+diff --git xneko-clean/xneko.c xneko-workdir/xneko.c
+index 92a9e34..a81d0c1 100644
+--- xneko-clean/xneko.c
++++ xneko-workdir/xneko.c
+@@ -99,7 +99,9 @@
+ #include <signal.h>
+ #include <math.h>
+ #include <sys/time.h>
+-
++#include <stdlib.h>
++#include <string.h>
++#include <unistd.h>
+ 
+ #ifndef	lint
+ static char
+@@ -451,7 +453,7 @@ BitmapGCData	BitmapGCDataTable[] =
+       &RightTogi1Xbm, rtogi1_bits, rtogi1_width, rtogi1_height },
+     { &RightTogi2GC,
+       &RightTogi2Xbm, rtogi2_bits, rtogi2_width, rtogi2_height },
+-    { NULL, NULL, NULL, NULL, NULL }
++    { 0, 0, 0, 0, 0 }
+ };
+ 
+ typedef struct {

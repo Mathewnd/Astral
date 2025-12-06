@@ -6,7 +6,7 @@ hostdeps="xgcc xbinutils pkgconfig automake autoconf util-macros libtool"
 deps="base xorg-server"
 
 configure() {
-	SYSROOT=${sysroot_dir} ${source_dir}/configure --prefix=${prefix} --host=x86_64-astral --disable-static
+	CFLAGS="$CFLAGS -Wno-error=incompatible-pointer-types" SYSROOT=${sysroot_dir} ${source_dir}/configure --prefix=${prefix} --host=x86_64-astral --disable-static
 }
 
 build() {

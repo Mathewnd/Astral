@@ -1,8 +1,8 @@
 name=xfontmiscmisc
 version=1.1.3
 source_method=tarball
-tarball_url="https://www.x.org/archive//individual/font/font-misc-misc-${version}.tar.xz"
-tarball_sha512="fac4bfda0e4189d1a9999abc47bdd404f2beeec5301da190d92afc2176cd344789b7223c1b2f4748bd0efe1b9a81fa7f13f7037015d5d800480fa2236f369b48"
+tarball_url="https://gitlab.freedesktop.org/xorg/font/misc-misc/-/archive/font-misc-misc-1.1.3/misc-misc-font-misc-misc-1.1.3.tar.gz?ref_type=tags"
+tarball_sha512="9d1ec911e0f9048423ea3ce684378c1c9a732fddb32c7ffd0059af4138a0d52c9d8dcde4403ab5923860b4ce0c935a7be813368f1fe1845421c7669d1631c112"
 hostdeps="automake autoconf libtool pkgconfig util-macros fontutil"
 
 prepare() {

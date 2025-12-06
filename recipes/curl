@@ -7,11 +7,11 @@ deps="base openssl zlib"
 
 configure() {
 	cp -rpv ${source_dir}/* .
-	./configure --host=x86_64-astral --prefix=${prefix} --with-openssl --with-zlib --disable-ipv6 --with-ca-path=/etc/ssl/certs --disable-static
+	CFLAGS="${CFLAGS} -Wno-error=implicit-function-declaration" ./configure --host=x86_64-astral --prefix=${prefix} --with-openssl --with-zlib --disable-ipv6 --with-ca-path=/etc/ssl/certs --disable-static
 }
 
 build() {
-	make -j ${parallelism}
+	CFLAGS="${CFLAGS} -Wno-error=implicit-function-declaration" make -j ${parallelism}
 }
 
 package() {

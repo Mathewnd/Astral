@@ -13,5 +13,5 @@ build() {
 package(){
 	cd ${base_dir}/build-${JINX_ARCH}/host-builds/xgcc
 	make DESTDIR="${dest_dir}" install-target-libstdc++-v3
-	rm -rf ${dest_dir}/usr/local/lib/gcc/x86_64-astral/12.1.0/
+	rm -rf ${dest_dir}/usr/local/lib/gcc/x86_64-astral/14.3.0/
 }

@@ -8,7 +8,7 @@ deps="base libx11"
 build() {
 	cp -rp ${source_dir}/doomgeneric/* .
 	cp -vp Makefile.x11 Makefile
-	make
+	CFLAGS="${CFLAGS} -Wno-error=implicit-function-declaration -Wno-error=int-conversion" make
 }
 
 package() {

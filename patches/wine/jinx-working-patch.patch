@@ -60,7 +60,7 @@ index fe7464a..02f7a89 100755
  if test "x$ac_cv_func_fstatfs" = xyes
  then :
 diff --git wine-clean/dlls/ntdll/unix/signal_x86_64.c wine-workdir/dlls/ntdll/unix/signal_x86_64.c
-index caa8524..9f4448d 100644
+index caa8524..9d35af1 100644
 --- wine-clean/dlls/ntdll/unix/signal_x86_64.c
 +++ wine-workdir/dlls/ntdll/unix/signal_x86_64.c
 @@ -75,6 +75,10 @@
@@ -120,8 +120,8 @@ index caa8524..9f4448d 100644
 +
 +#elif defined(__astral__)
 +    arch_ctl(ARCH_CTL_SET_GSBASE, teb);
-+    arch_ctl(ARCH_CTL_GET_FSBASE, &thread_data->pthread_teb);
-+    if (fs32_sel) alloc_fs_sel( fs32_sel >> 3, get_wow_teb( teb ));
++    //arch_ctl(ARCH_CTL_GET_FSBASE, &thread_data->pthread_teb);
++    //if (fs32_sel) alloc_fs_sel( fs32_sel >> 3, get_wow_teb( teb ));
  #else
  # error Please define setting %gs for your architecture
  #endif

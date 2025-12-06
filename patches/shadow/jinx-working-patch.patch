@@ -66,14 +66,16 @@ index 1137e83..bbdcb95 100644
  
  
 diff --git shadow-clean/lib/user_busy.c shadow-workdir/lib/user_busy.c
-index a622376..f0ef2a4 100644
+index a622376..e6ab4c5 100644
 --- shadow-clean/lib/user_busy.c
 +++ shadow-workdir/lib/user_busy.c
-@@ -24,6 +24,7 @@
+@@ -24,6 +24,9 @@
  #endif				/* ENABLE_SUBIDS */
  #include "shadowlog.h"
  #include "string/sprintf.h"
 +#include <utmpx.h>
++#include <signal.h>
++
  
  
  #ifdef __linux__

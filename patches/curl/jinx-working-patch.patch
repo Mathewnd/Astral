@@ -1,0 +1,20 @@
+diff --git curl-clean/src/tool_filetime.c curl-workdir/src/tool_filetime.c
+index 1311388..15fd8dc 100644
+--- curl-clean/src/tool_filetime.c
++++ curl-workdir/src/tool_filetime.c
+@@ -132,15 +132,6 @@ void setfiletime(curl_off_t filetime, const char *filename,
+             filetime, (unsigned int)GetLastError());
+     }
+ 
+-#elif defined(HAVE_UTIMES)
+-    struct timeval times[2];
+-    times[0].tv_sec = times[1].tv_sec = (time_t)filetime;
+-    times[0].tv_usec = times[1].tv_usec = 0;
+-    if(utimes(filename, times)) {
+-      warnf(global, "Failed to set filetime %" CURL_FORMAT_CURL_OFF_T
+-            " on '%s': %s", filetime, filename, strerror(errno));
+-    }
+-
+ #elif defined(HAVE_UTIME)
+     struct utimbuf times;
+     times.actime = (time_t)filetime;

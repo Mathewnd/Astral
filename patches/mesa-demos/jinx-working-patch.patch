@@ -1,5 +1,5 @@
 diff --git mesa-demos-clean/meson.build mesa-demos-workdir/meson.build
-index c1853f9..1edc2d9 100644
+index c1853f9..d30024f 100644
 --- mesa-demos-clean/meson.build
 +++ mesa-demos-workdir/meson.build
 @@ -99,7 +99,7 @@ if not dep_glu.found() and host_machine.system() != 'darwin'
@@ -11,3 +11,25 @@ index c1853f9..1edc2d9 100644
    # xquartz doesn't have a glx.pc, but it does have the header. And all the
    # symbols reside in libGL, so let's just use that.
    if cc.check_header('GL/glx.h', dependencies: dep_x11)
+@@ -163,7 +163,7 @@ if cc.has_function('sincos', prefix: '#define _GNU_SOURCE\n#include <math.h>',
+   add_project_arguments('-DHAVE_SINCOS', language: 'c')
+ endif
+ 
+-if ['linux', 'cygwin', 'gnu', 'freebsd', 'gnu/kfreebsd', 'haiku', 'android'].contains(host_machine.system())
++if ['linux', 'cygwin', 'gnu', 'freebsd', 'gnu/kfreebsd', 'haiku', 'android', 'astral'].contains(host_machine.system())
+   add_project_arguments('-D_GNU_SOURCE', language: ['c', 'cpp'])
+ elif host_machine.system() == 'windows'
+   add_project_arguments(['-D_USE_MATH_DEFINES'], language: ['c', 'cpp'])
+diff --git mesa-demos-clean/src/util/matrix.c mesa-demos-workdir/src/util/matrix.c
+index 1d1212c..adf71dd 100644
+--- mesa-demos-clean/src/util/matrix.c
++++ mesa-demos-workdir/src/util/matrix.c
+@@ -9,6 +9,8 @@
+ 
+ #include "matrix.h"
+ 
++#define _DEFAULT_SOURCE
++#define _GNU_SOURCE
+ #include <math.h>
+ #include <string.h>
+ #include <stdlib.h>

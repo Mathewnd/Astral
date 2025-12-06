@@ -7,7 +7,7 @@ deps="base"
 
 build() {
 	cp -rp ${source_dir}/doomgeneric/* .
-	make
+	CFLAGS="${CFLAGS} -Wno-error=implicit-function-declaration" make
 }
 
 package() {

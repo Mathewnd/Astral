@@ -1,8 +1,8 @@
 diff --git openssl-clean/Configurations/10-main.conf openssl-workdir/Configurations/10-main.conf
-index 2a047ca..357fd04 100644
+index 2fcb96a..02517f4 100644
 --- openssl-clean/Configurations/10-main.conf
 +++ openssl-workdir/Configurations/10-main.conf
-@@ -192,6 +192,35 @@ my %targets = (
+@@ -187,6 +187,35 @@ my %targets = (
          thread_scheme    => "(unknown)",
      },
  
@@ -38,3 +38,15 @@ index 2a047ca..357fd04 100644
  #### VOS Configurations
      "vos-gcc" => {
          inherit_from     => [ "BASE_unix" ],
+diff --git openssl-clean/test/v3ext.c openssl-workdir/test/v3ext.c
+index 386135f..5f79492 100644
+--- openssl-clean/test/v3ext.c
++++ openssl-workdir/test/v3ext.c
+@@ -13,6 +13,7 @@
+ #include <openssl/pem.h>
+ #include <openssl/err.h>
+ #include "internal/nelem.h"
++#include <string.h>
+ 
+ #include "testutil.h"
+ 

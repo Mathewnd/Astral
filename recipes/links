@@ -6,7 +6,7 @@ hostdeps="xgcc xbinutils pkgconfig"
 deps="base zlib openssl bzip2 libpng libxext freetype fontconfig libjpeg-turbo"
 
 configure() {
-	CC=x86_64-astral-gcc ${source_dir}/configure --prefix=${prefix} --host=x86_64-astral --enable-graphics --without-directfb --without-librsvg --with-bzip2 --with-X --x-includes=${sysroot_dir}/usr/include --x-libraries=${sysroot_dir}/usr/lib --with-zlib --with-openssl --without-libtiff --without-openmp --without-lzma --with-freetype --without-ipv6
+	CFLAGS="$CFLAGS -Wno-error=implicit-int" CC=x86_64-astral-gcc ${source_dir}/configure --prefix=${prefix} --host=x86_64-astral --enable-graphics --without-directfb --without-librsvg --with-bzip2 --with-X --x-includes=${sysroot_dir}/usr/include --x-libraries=${sysroot_dir}/usr/lib --with-zlib --with-openssl --without-libtiff --without-openmp --without-lzma --with-freetype --without-ipv6
 }
 
 build() {

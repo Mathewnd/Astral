@@ -1,8 +1,8 @@
 name=xfontalias
 version=1.0.5
 source_method=tarball
-tarball_url="https://www.x.org/pub/individual/font/font-alias-${version}.tar.xz"
-tarball_sha512="86bffa6b9ff789eeba715c079965157806ed633d44cd3dbf5e2a4bba2b390a0f48db65edc8e3264acbc2368d78a8d7e05bc2e2e3a86ddbf6b08bfe7f5e862bcc"
+tarball_url="https://gitlab.freedesktop.org/xorg/font/alias/-/archive/font-alias-1.0.5/alias-font-alias-1.0.5.tar.gz?ref_type=tags"
+tarball_sha512="497a4204ca9e7112d74b40f38cc0369d7a7fee44000c87a48148b581db80b07ddacf7103148bf39430435c4162b6e1fbad9766d9ee342b994d9b5c5c33535245"
 hostdeps="automake autoconf libtool pkgconfig util-macros fontutil"
 
 prepare() {

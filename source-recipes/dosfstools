@@ -3,8 +3,8 @@ version=4.2
 source_method=tarball
 tarball_url="https://github.com/dosfstools/dosfstools/releases/download/v${version}/dosfstools-${version}.tar.gz"
 tarball_sha512=3cc0808edb4432428df8a67da4bb314fd1f27adc4a05754c1a492091741a7b6875ebd9f6a509cc4c5ad85643fc40395b6e0cadee548b25cc439cc9b725980156
-hostdeps="libtool"
+hostdeps="automake"
 
 prepare() {
-	libtoolize -f
+	cp -v $(find /usr/local/share/automake* -name config.sub) .
 }

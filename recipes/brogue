@@ -10,7 +10,7 @@ configure() {
 }
 
 build() {
-	make CC=x86_64-astral-gcc TERMINAL=YES DATADIR="/usr/share/games/brogue" RELEASE=YES GRAPHICS=NO LDLIBS=-ltinfow
+	CFLAGS="$CFLAGS -Wno-error=implicit-function-declaration" make CC=x86_64-astral-gcc TERMINAL=YES DATADIR="/usr/share/games/brogue" RELEASE=YES GRAPHICS=NO LDLIBS=-ltinfow
 }
 
 package() {

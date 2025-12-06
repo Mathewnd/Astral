@@ -1,8 +1,8 @@
 name=xrandr
 version=1.5.1
 source_method=tarball
-tarball_url="https://www.x.org/pub/individual/app/xrandr-${version}.tar.xz"
-tarball_sha512="3d0d37e974b9dffb996276ee7fd676327fd0956e5f5f572dd142a651a35d3cdfa2f6dd415cf27bf87f306981957aba4cc014c12baebefcabaa5d66b78a114922"
+tarball_url="https://gitlab.freedesktop.org/xorg/app/xrandr/-/archive/xrandr-1.5.1/xrandr-xrandr-1.5.1.tar.gz?ref_type=tags"
+tarball_sha512="47501581cc40bc654b008b37abbb03a840c6977e0020666c55f30621e51fa4e36f8fce86ac1f57a4866e68a121a17bb9f3d6bc3753458ab8fa187e3d2fd8d1c8"
 hostdeps="autoconf automake util-macros pkgconfig libtool"
 prepare() {
         autoreconf -fvi

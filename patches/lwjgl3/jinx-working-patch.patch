@@ -1,4 +1,5 @@
-diff -urN --no-dereference lwjgl3-clean/build.xml lwjgl3-workdir/build.xml
+diff --git lwjgl3-clean/build.xml lwjgl3-workdir/build.xml
+index d0fad82..1f162b5 100644
 --- lwjgl3-clean/build.xml
 +++ lwjgl3-workdir/build.xml
 @@ -1181,6 +1181,7 @@
@@ -156,8 +157,10 @@ diff -urN --no-dereference lwjgl3-clean/build.xml lwjgl3-workdir/build.xml
              </natives>
          </release-module>
  
-diff -urN --no-dereference lwjgl3-clean/config/astral/build.xml lwjgl3-workdir/config/astral/build.xml
---- lwjgl3-clean/config/astral/build.xml	1970-01-01 01:00:00.000000000 +0100
+diff --git lwjgl3-workdir/config/astral/build.xml lwjgl3-workdir/config/astral/build.xml
+new file mode 100644
+index 0000000..323791d
+--- /dev/null
 +++ lwjgl3-workdir/config/astral/build.xml
 @@ -0,0 +1,482 @@
 +<!--
@@ -642,8 +645,10 @@ diff -urN --no-dereference lwjgl3-clean/config/astral/build.xml lwjgl3-workdir/c
 +        </sequential>
 +    </target>
 +</project>
-diff -urN --no-dereference lwjgl3-clean/config/astral/version.script lwjgl3-workdir/config/astral/version.script
---- lwjgl3-clean/config/astral/version.script	1970-01-01 01:00:00.000000000 +0100
+diff --git lwjgl3-workdir/config/astral/version.script lwjgl3-workdir/config/astral/version.script
+new file mode 100644
+index 0000000..10108e1
+--- /dev/null
 +++ lwjgl3-workdir/config/astral/version.script
 @@ -0,0 +1,9 @@
 +LWJGL {
@@ -655,10 +660,11 @@ diff -urN --no-dereference lwjgl3-clean/config/astral/version.script lwjgl3-work
 +    # Hide everything else
 +    local: *;
 +};
-diff -urN --no-dereference lwjgl3-clean/config/build-definitions.xml lwjgl3-workdir/config/build-definitions.xml
+diff --git lwjgl3-clean/config/build-definitions.xml lwjgl3-workdir/config/build-definitions.xml
+index 6fc8796..36f0d9f 100644
 --- lwjgl3-clean/config/build-definitions.xml
 +++ lwjgl3-workdir/config/build-definitions.xml
-@@ -120,10 +120,14 @@
+@@ -120,10 +120,14 @@ This script is included in /build.xml and /config/update-dependencies.xml.
      <condition property="platform.windows">
          <os family="Windows"/>
      </condition>
@@ -673,7 +679,7 @@ diff -urN --no-dereference lwjgl3-clean/config/build-definitions.xml lwjgl3-work
  
      <property name="platform.remote" value="macosx" if:set="platform.macos"/>
      <property name="platform.remote" value="${platform}"/>
-@@ -131,6 +135,7 @@
+@@ -131,6 +135,7 @@ This script is included in /build.xml and /config/update-dependencies.xml.
      <property name="platform.linux.remote" value="linux"/>
      <property name="platform.macos.remote" value="macosx"/>
      <property name="platform.windows.remote" value="windows"/>
@@ -681,10 +687,11 @@ diff -urN --no-dereference lwjgl3-clean/config/build-definitions.xml lwjgl3-work
  
      <property name="lib.native" location="${lib}/native/${platform}/${build.arch}" relative="true"/>
  
-diff -urN --no-dereference lwjgl3-clean/modules/generator/src/main/kotlin/org/lwjgl/generator/Modules.kt lwjgl3-workdir/modules/generator/src/main/kotlin/org/lwjgl/generator/Modules.kt
+diff --git lwjgl3-clean/modules/generator/src/main/kotlin/org/lwjgl/generator/Modules.kt lwjgl3-workdir/modules/generator/src/main/kotlin/org/lwjgl/generator/Modules.kt
+index c4acc53..24dec9f 100644
 --- lwjgl3-clean/modules/generator/src/main/kotlin/org/lwjgl/generator/Modules.kt
 +++ lwjgl3-workdir/modules/generator/src/main/kotlin/org/lwjgl/generator/Modules.kt
-@@ -55,6 +55,11 @@
+@@ -55,6 +55,11 @@ enum class Module(
          "Contains bindings to native APIs specific to the Windows operating system.",
          CallingConvention.STDCALL
      ),
@@ -696,15 +703,17 @@ diff -urN --no-dereference lwjgl3-clean/modules/generator/src/main/kotlin/org/lw
  
      ASSIMP(
          "assimp",
-@@ -988,4 +993,4 @@
+@@ -988,4 +993,4 @@ private class JNILibraryWithInit constructor(
      }
  }
  
 -fun String.dependsOn(vararg modules: Module): String? = if (modules.any { it.enabled }) this else null
 \ No newline at end of file
 +fun String.dependsOn(vararg modules: Module): String? = if (modules.any { it.enabled }) this else null
-diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/main/c/astral/AstralConfig.h lwjgl3-workdir/modules/lwjgl/core/src/main/c/astral/AstralConfig.h
---- lwjgl3-clean/modules/lwjgl/core/src/main/c/astral/AstralConfig.h	1970-01-01 01:00:00.000000000 +0100
+diff --git lwjgl3-workdir/modules/lwjgl/core/src/main/c/astral/AstralConfig.h lwjgl3-workdir/modules/lwjgl/core/src/main/c/astral/AstralConfig.h
+new file mode 100644
+index 0000000..bc8eb8d
+--- /dev/null
 +++ lwjgl3-workdir/modules/lwjgl/core/src/main/c/astral/AstralConfig.h
 @@ -0,0 +1,18 @@
 +/*
@@ -725,7 +734,21 @@ diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/main/c/astral/Ast
 +// JNIEXPORT_CRITICAL & CRITICAL are used as a workaround for JDK-8167409 on applicable functions.
 +#define JNIEXPORT_CRITICAL static
 +#define CRITICAL(function) _JavaCritical_##function
-diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/main/c/common_tools.h lwjgl3-workdir/modules/lwjgl/core/src/main/c/common_tools.h
+diff --git lwjgl3-clean/modules/lwjgl/core/src/main/c/common_tools.c lwjgl3-workdir/modules/lwjgl/core/src/main/c/common_tools.c
+index 73cc397..4911a81 100644
+--- lwjgl3-clean/modules/lwjgl/core/src/main/c/common_tools.c
++++ lwjgl3-workdir/modules/lwjgl/core/src/main/c/common_tools.c
+@@ -36,7 +36,7 @@ static inline void detachCurrentThread(void) {
+ }
+ 
+ static inline EnvData* createEnvData(jboolean async, JNIEnv* env) {
+-    EnvData* data = (EnvData*)calloc(sizeof(EnvData), 1);
++    EnvData* data = (EnvData*)calloc(1, sizeof(EnvData));
+ 
+     data->async = async;
+     data->env = env;
+diff --git lwjgl3-clean/modules/lwjgl/core/src/main/c/common_tools.h lwjgl3-workdir/modules/lwjgl/core/src/main/c/common_tools.h
+index 78799c9..16d6903 100644
 --- lwjgl3-clean/modules/lwjgl/core/src/main/c/common_tools.h
 +++ lwjgl3-workdir/modules/lwjgl/core/src/main/c/common_tools.h
 @@ -13,6 +13,9 @@
@@ -738,10 +761,11 @@ diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/main/c/common_too
  
  DISABLE_WARNINGS()
  #include <jni.h>
-diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/main/java/org/lwjgl/system/APIUtil.java lwjgl3-workdir/modules/lwjgl/core/src/main/java/org/lwjgl/system/APIUtil.java
+diff --git lwjgl3-clean/modules/lwjgl/core/src/main/java/org/lwjgl/system/APIUtil.java lwjgl3-workdir/modules/lwjgl/core/src/main/java/org/lwjgl/system/APIUtil.java
+index b502294..0aec2e9 100644
 --- lwjgl3-clean/modules/lwjgl/core/src/main/java/org/lwjgl/system/APIUtil.java
 +++ lwjgl3-workdir/modules/lwjgl/core/src/main/java/org/lwjgl/system/APIUtil.java
-@@ -9,6 +9,7 @@
+@@ -9,6 +9,7 @@ import org.lwjgl.system.libffi.*;
  import org.lwjgl.system.linux.*;
  import org.lwjgl.system.macosx.*;
  import org.lwjgl.system.windows.*;
@@ -749,7 +773,7 @@ diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/main/java/org/lwj
  
  import javax.annotation.*;
  import java.io.*;
-@@ -128,6 +129,8 @@
+@@ -128,6 +129,8 @@ public final class APIUtil {
                  return new LinuxLibrary(name);
              case MACOSX:
                  return MacOSXLibrary.create(name);
@@ -758,20 +782,23 @@ diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/main/java/org/lwj
              default:
                  throw new IllegalStateException();
          }
-@@ -669,4 +672,4 @@
+@@ -669,4 +672,4 @@ public final class APIUtil {
      public static void apiClosureRet(long ret, float __result)   { memPutFloat(ret, __result); }
      public static void apiClosureRet(long ret, double __result)  { memPutDouble(ret, __result); }
  
 -}
 \ No newline at end of file
 +}
-diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/main/java/org/lwjgl/system/Platform.java lwjgl3-workdir/modules/lwjgl/core/src/main/java/org/lwjgl/system/Platform.java
+diff --git lwjgl3-clean/modules/lwjgl/core/src/main/java/org/lwjgl/system/Platform.java lwjgl3-workdir/modules/lwjgl/core/src/main/java/org/lwjgl/system/Platform.java
+index 1babac9..37e8476 100644
 --- lwjgl3-clean/modules/lwjgl/core/src/main/java/org/lwjgl/system/Platform.java
 +++ lwjgl3-workdir/modules/lwjgl/core/src/main/java/org/lwjgl/system/Platform.java
-@@ -47,6 +47,18 @@
+@@ -45,6 +45,18 @@ public enum Platform {
+                 return name;
+             }
  
-             return System.mapLibraryName(name);
-         }
++            return System.mapLibraryName(name);
++        }
 +    },
 +    ASTRAL("Astral", "astral") {
 +        private final Pattern SO = Pattern.compile("(?:^|/)lib\\w+[.]so(?:[.]\\d+)*$");
@@ -782,12 +809,10 @@ diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/main/java/org/lwj
 +                return name;
 +            }
 +
-+            return System.mapLibraryName(name);
-+        }
+             return System.mapLibraryName(name);
+         }
      };
- 
-     /** The architectures supported by LWJGL. */
-@@ -87,6 +99,8 @@
+@@ -87,6 +99,8 @@ public enum Platform {
              current = LINUX;
          } else if (osName.startsWith("Mac OS X") || osName.startsWith("Darwin")) {
              current = MACOSX;
@@ -796,15 +821,17 @@ diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/main/java/org/lwj
          } else {
              throw new LinkageError("Unknown platform: " + osName);
          }
-@@ -169,4 +183,4 @@
+@@ -169,4 +183,4 @@ public enum Platform {
          }
      }
  
 -}
 \ No newline at end of file
 +}
-diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/main/java/org/lwjgl/system/astral/AstralLibrary.java lwjgl3-workdir/modules/lwjgl/core/src/main/java/org/lwjgl/system/astral/AstralLibrary.java
---- lwjgl3-clean/modules/lwjgl/core/src/main/java/org/lwjgl/system/astral/AstralLibrary.java	1970-01-01 01:00:00.000000000 +0100
+diff --git lwjgl3-workdir/modules/lwjgl/core/src/main/java/org/lwjgl/system/astral/AstralLibrary.java lwjgl3-workdir/modules/lwjgl/core/src/main/java/org/lwjgl/system/astral/AstralLibrary.java
+new file mode 100644
+index 0000000..021c3ab
+--- /dev/null
 +++ lwjgl3-workdir/modules/lwjgl/core/src/main/java/org/lwjgl/system/astral/AstralLibrary.java
 @@ -0,0 +1,54 @@
 +/*
@@ -861,8 +888,10 @@ diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/main/java/org/lwj
 +    }
 +
 +}
-diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/core/astral/LinuxTypes.kt lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/LinuxTypes.kt
---- lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/core/astral/LinuxTypes.kt	1970-01-01 01:00:00.000000000 +0100
+diff --git lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/LinuxTypes.kt lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/LinuxTypes.kt
+new file mode 100644
+index 0000000..5294cf7
+--- /dev/null
 +++ lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/LinuxTypes.kt
 @@ -0,0 +1,156 @@
 +/*
@@ -1022,8 +1051,10 @@ diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/
 +    long_long("tv_nsec", "nanoseconds")
 +}
 \ No newline at end of file
-diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/core/astral/WaylandTypes.kt lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/WaylandTypes.kt
---- lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/core/astral/WaylandTypes.kt	1970-01-01 01:00:00.000000000 +0100
+diff --git lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/WaylandTypes.kt lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/WaylandTypes.kt
+new file mode 100644
+index 0000000..f0e0f2a
+--- /dev/null
 +++ lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/WaylandTypes.kt
 @@ -0,0 +1,11 @@
 +/*
@@ -1038,8 +1069,10 @@ diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/
 +val wl_output = "struct wl_output".opaque
 +val wl_surface = "struct wl_surface".opaque
 \ No newline at end of file
-diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/core/astral/XEvents.kt lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/XEvents.kt
---- lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/core/astral/XEvents.kt	1970-01-01 01:00:00.000000000 +0100
+diff --git lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/XEvents.kt lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/XEvents.kt
+new file mode 100644
+index 0000000..37a534a
+--- /dev/null
 +++ lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/XEvents.kt
 @@ -0,0 +1,470 @@
 +/*
@@ -1513,8 +1546,10 @@ diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/
 +	short("y", "the y coordinate of the pointer relative to the origin of the specified window")
 +}
 \ No newline at end of file
-diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/core/astral/XTypes.kt lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/XTypes.kt
---- lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/core/astral/XTypes.kt	1970-01-01 01:00:00.000000000 +0100
+diff --git lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/XTypes.kt lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/XTypes.kt
+new file mode 100644
+index 0000000..063b903
+--- /dev/null
 +++ lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/XTypes.kt
 @@ -0,0 +1,79 @@
 +/*
@@ -1597,8 +1632,10 @@ diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/
 +val RROutput = typedef(XID, "RROutput")
 +val RRCrtc = typedef(XID, "RRCrtc")
 \ No newline at end of file
-diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/DynamicLinkLoader.kt lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/DynamicLinkLoader.kt
---- lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/DynamicLinkLoader.kt	1970-01-01 01:00:00.000000000 +0100
+diff --git lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/DynamicLinkLoader.kt lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/DynamicLinkLoader.kt
+new file mode 100644
+index 0000000..eb8ecce
+--- /dev/null
 +++ lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/DynamicLinkLoader.kt
 @@ -0,0 +1,90 @@
 +/*
@@ -1691,8 +1728,10 @@ diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/
 +    )
 +
 +}
-diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/X11.kt lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/X11.kt
---- lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/X11.kt	1970-01-01 01:00:00.000000000 +0100
+diff --git lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/X11.kt lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/X11.kt
+new file mode 100644
+index 0000000..a4fbaf9
+--- /dev/null
 +++ lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/X11.kt
 @@ -0,0 +1,718 @@
 +/*
@@ -2414,8 +2453,10 @@ diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/
 +    )
 +}
 \ No newline at end of file
-diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/fcntl.kt lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/fcntl.kt
---- lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/fcntl.kt	1970-01-01 01:00:00.000000000 +0100
+diff --git lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/fcntl.kt lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/fcntl.kt
+new file mode 100644
+index 0000000..2a5efea
+--- /dev/null
 +++ lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/fcntl.kt
 @@ -0,0 +1,760 @@
 +/*
@@ -3179,8 +3220,10 @@ diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/
 +    )
 +}
 \ No newline at end of file
-diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/mman.kt lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/mman.kt
---- lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/mman.kt	1970-01-01 01:00:00.000000000 +0100
+diff --git lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/mman.kt lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/mman.kt
+new file mode 100644
+index 0000000..5cfb3b2
+--- /dev/null
 +++ lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/mman.kt
 @@ -0,0 +1,280 @@
 +/*
@@ -3464,8 +3507,10 @@ diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/
 +    )
 +}
 \ No newline at end of file
-diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/pthread.kt lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/pthread.kt
---- lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/pthread.kt	1970-01-01 01:00:00.000000000 +0100
+diff --git lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/pthread.kt lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/pthread.kt
+new file mode 100644
+index 0000000..7610f37
+--- /dev/null
 +++ lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/pthread.kt
 @@ -0,0 +1,20 @@
 +/*
@@ -3489,8 +3534,10 @@ diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/
 +    )
 +}
 \ No newline at end of file
-diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/socket.kt lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/socket.kt
---- lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/socket.kt	1970-01-01 01:00:00.000000000 +0100
+diff --git lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/socket.kt lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/socket.kt
+new file mode 100644
+index 0000000..ec7abac
+--- /dev/null
 +++ lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/socket.kt
 @@ -0,0 +1,41 @@
 +/*
@@ -3535,8 +3582,10 @@ diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/
 +    )
 +}
 \ No newline at end of file
-diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/stat.kt lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/stat.kt
---- lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/stat.kt	1970-01-01 01:00:00.000000000 +0100
+diff --git lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/stat.kt lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/stat.kt
+new file mode 100644
+index 0000000..edb7a25
+--- /dev/null
 +++ lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/stat.kt
 @@ -0,0 +1,34 @@
 +/*
@@ -3574,8 +3623,10 @@ diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/
 +    )
 +}
 \ No newline at end of file
-diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/uio.kt lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/uio.kt
---- lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/uio.kt	1970-01-01 01:00:00.000000000 +0100
+diff --git lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/uio.kt lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/uio.kt
+new file mode 100644
+index 0000000..43051e6
+--- /dev/null
 +++ lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/uio.kt
 @@ -0,0 +1,115 @@
 +/*
@@ -3694,8 +3745,10 @@ diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/
 +    )
 +}
 \ No newline at end of file
-diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/unistd.kt lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/unistd.kt
---- lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/unistd.kt	1970-01-01 01:00:00.000000000 +0100
+diff --git lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/unistd.kt lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/unistd.kt
+new file mode 100644
+index 0000000..149dd05
+--- /dev/null
 +++ lwjgl3-workdir/modules/lwjgl/core/src/templates/kotlin/core/astral/templates/unistd.kt
 @@ -0,0 +1,73 @@
 +/*
@@ -3771,10 +3824,11 @@ diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/core/src/templates/kotlin/
 +        void()
 +    )
 +}
-diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/openal/src/main/java/org/lwjgl/openal/ALC.java lwjgl3-workdir/modules/lwjgl/openal/src/main/java/org/lwjgl/openal/ALC.java
+diff --git lwjgl3-clean/modules/lwjgl/openal/src/main/java/org/lwjgl/openal/ALC.java lwjgl3-workdir/modules/lwjgl/openal/src/main/java/org/lwjgl/openal/ALC.java
+index 0a6cfef..9ef32f9 100644
 --- lwjgl3-clean/modules/lwjgl/openal/src/main/java/org/lwjgl/openal/ALC.java
 +++ lwjgl3-workdir/modules/lwjgl/openal/src/main/java/org/lwjgl/openal/ALC.java
-@@ -64,6 +64,7 @@
+@@ -64,6 +64,7 @@ public final class ALC {
          switch (Platform.get()) {
              case LINUX:
              case MACOSX:
@@ -3782,17 +3836,18 @@ diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/openal/src/main/java/org/l
                  libName = "openal";
                  break;
              case WINDOWS:
-@@ -350,4 +351,4 @@
+@@ -350,4 +351,4 @@ public final class ALC {
  
      }
  
 -}
 \ No newline at end of file
 +}
-diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/opengl/src/main/java/org/lwjgl/opengl/GL.java lwjgl3-workdir/modules/lwjgl/opengl/src/main/java/org/lwjgl/opengl/GL.java
+diff --git lwjgl3-clean/modules/lwjgl/opengl/src/main/java/org/lwjgl/opengl/GL.java lwjgl3-workdir/modules/lwjgl/opengl/src/main/java/org/lwjgl/opengl/GL.java
+index 6ae1b4f..637eb07 100644
 --- lwjgl3-clean/modules/lwjgl/opengl/src/main/java/org/lwjgl/opengl/GL.java
 +++ lwjgl3-workdir/modules/lwjgl/opengl/src/main/java/org/lwjgl/opengl/GL.java
-@@ -98,6 +98,7 @@
+@@ -98,6 +98,7 @@ public final class GL {
          SharedLibrary GL;
          switch (Platform.get()) {
              case LINUX:
@@ -3800,10 +3855,11 @@ diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/opengl/src/main/java/org/l
                  GL = Library.loadNative(GL.class, "org.lwjgl.opengl", Configuration.OPENGL_LIBRARY_NAME, "libGLX.so.0", "libGL.so.1", "libGL.so");
                  break;
              case MACOSX:
-diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/remotery/src/main/c/Remotery.h lwjgl3-workdir/modules/lwjgl/remotery/src/main/c/Remotery.h
+diff --git lwjgl3-clean/modules/lwjgl/remotery/src/main/c/Remotery.h lwjgl3-workdir/modules/lwjgl/remotery/src/main/c/Remotery.h
+index 68868bb..e565217 100644
 --- lwjgl3-clean/modules/lwjgl/remotery/src/main/c/Remotery.h
 +++ lwjgl3-workdir/modules/lwjgl/remotery/src/main/c/Remotery.h
-@@ -130,7 +130,7 @@
+@@ -130,7 +130,7 @@ documented just below this comment.
  // Platform identification
  #if defined(_WINDOWS) || defined(_WIN32)
      #define RMT_PLATFORM_WINDOWS
@@ -3812,3 +3868,15 @@ diff -urN --no-dereference lwjgl3-clean/modules/lwjgl/remotery/src/main/c/Remote
      #define RMT_PLATFORM_LINUX
      #define RMT_PLATFORM_POSIX
  #elif defined(__APPLE__)
+diff --git lwjgl3-clean/modules/lwjgl/stb/src/main/c/stb_dxt.h lwjgl3-workdir/modules/lwjgl/stb/src/main/c/stb_dxt.h
+index 6150a87..89e09ed 100644
+--- lwjgl3-clean/modules/lwjgl/stb/src/main/c/stb_dxt.h
++++ lwjgl3-workdir/modules/lwjgl/stb/src/main/c/stb_dxt.h
+@@ -83,6 +83,7 @@ STBDDEF void stb_compress_bc5_block(unsigned char *dest, const unsigned char *sr
+ // #define STB_DXT_USE_ROUNDING_BIAS
+ 
+ #include <stdlib.h>
++#include <string.h>
+ 
+ #if !defined(STBD_FABS)
+ #include <math.h>

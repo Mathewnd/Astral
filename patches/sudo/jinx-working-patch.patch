@@ -1,3 +1,15 @@
+diff --git sudo-clean/plugins/sudoers/auth/passwd.c sudo-workdir/plugins/sudoers/auth/passwd.c
+index 7524ada..87d18e6 100644
+--- sudo-clean/plugins/sudoers/auth/passwd.c
++++ sudo-workdir/plugins/sudoers/auth/passwd.c
+@@ -33,6 +33,7 @@
+ #include <string.h>
+ #include <unistd.h>
+ #include <pwd.h>
++#include <crypt.h>
+ 
+ #include <sudoers.h>
+ #include "sudo_auth.h"
 diff --git sudo-clean/plugins/sudoers/getspwuid.c sudo-workdir/plugins/sudoers/getspwuid.c
 index dd5092d..319facd 100644
 --- sudo-clean/plugins/sudoers/getspwuid.c
