@@ -579,7 +579,7 @@ bool signal_check(struct thread_t *thread, context_t *context, bool syscall, uin
 
 		memset(&sigframe->siginfo, 0, sizeof(siginfo_t));
 		if (signal == SIGSEGV)
-			sigframe->siginfo.__si_fields.__sigfault.si_addr = CTX_TRAP_ADDR(context);
+			sigframe->siginfo.__si_fields.__sigfault.si_addr = (void *)CTX_TRAP_ADDR(context);
 
 		if (usercopy_touser(stack, sigframe, ARCH_SIGFRAME_SIZE)) {
 			printf("signal: bad user stack %p (altstack %p) handling signal %d trapno %lu\n", stack, altstack, signal, sigframe->mcontext.gregs[MCONTEXT_REG_TRAPNO]);

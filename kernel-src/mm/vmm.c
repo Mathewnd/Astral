@@ -906,6 +906,7 @@ vmmcontext_t *vmm_fork(vmmcontext_t *oldcontext) {
 		range = range->next;
 	}
 
+	// TODO do only userspace invalidation as to not send ipi to all cores
 	arch_mmu_invalidate_range(NULL, 0);
 
 	MUTEX_RELEASE(&oldcontext->space.lock);

@@ -55,12 +55,14 @@ typedef struct {
 #define DT_SOCK 12
 #define DT_WHT 14
 
+#define NAME_MAX 255
+
 typedef struct {
 	ino_t d_ino;
 	off_t d_off;
 	unsigned short d_reclen;
 	unsigned char d_type;
-	char d_name[1024];
+	char d_name[NAME_MAX+1];
 } dent_t;
 
 #define TYPE_FIFO 1
