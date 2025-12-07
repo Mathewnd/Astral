@@ -26,13 +26,6 @@ if not os.access("flamegraph.pl", os.R_OK):
     os.system("chmod +x flamegraph.pl")
 
 print("Starting subprocesses")
-# Start addr2line TODO: other architectures
-proc_a2l = subprocess.Popen(
-        ["addr2line", "-s", "-f", "-e", "../build-x86_64/iso/astral"],
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        text=True
-)
 
 # Start the flamegraph renderer
 proc_fg = subprocess.Popen(
@@ -44,6 +37,8 @@ proc_fg = subprocess.Popen(
 
 traces = {}
 
+mappings = {}
+
 print("Getting function information")
 # get info out of addr2line
 while True:
@@ -53,8 +48,9 @@ while True:
         break
 
     backtrace_size = int.from_bytes(backtrace_size, byteorder='little', signed=False)
+    backtrace = []
 
-    # Send the addresses to addr2line
+    # Get backtrace, calling addr2line for non-cached mappings
     i = backtrace_size
     while i > 0:
         i -= 1
@@ -66,19 +62,38 @@ while True:
 
         addr = hex(int.from_bytes(addr, byteorder='little', signed=False))
 
-        proc_a2l.stdin.write(addr + "\n")
-        proc_a2l.stdin.flush()
+        # Add it to the backtrace
+        backtrace.append(addr)
+        if addr in mappings:
+            continue
 
-    # Read back the lines from addr2line and format them in a way flamegraph expects
-    i = backtrace_size
+        # Get the mapping
+        msg = addr + "\n"
+        # Start and send the data to addr2line
+        data = subprocess.Popen(
+                ["addr2line", "-i", "-s", "-f", "-e", "../build-x86_64/iso/astral"],
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                text=True
+        ).communicate(input=msg)[0].split('\n')
+
+        mappings[addr] = data
+
+    # format the response in a way flamegraph expects
     formatted_str = ""
-    while i > 0:
-        i -= 1
+    for addr in backtrace:
+        map_data = mappings[addr]
 
-        function = proc_a2l.stdout.readline().replace('\n', '')
-        file, line = proc_a2l.stdout.readline().replace('\n', '').split(":")
+        aux_function = ""
+        for data_line in map_data:
+            if aux_function == "":
+                aux_function = data_line
+                continue
 
-        formatted_str = file + "`" + function + ";" + formatted_str
+            file, line = data_line.split(":")
+
+            formatted_str = file + "`" + aux_function + ";" + formatted_str
+            aux_function = ""
 
     formatted_str = formatted_str[:-1] # remove ;
 
@@ -86,8 +101,6 @@ while True:
         traces[formatted_str] = 0
 
     traces[formatted_str] += 1
-        
-proc_a2l.stdin.close()
 
 print("Generating flamegraph")
 # send the trace over to flamegraph
