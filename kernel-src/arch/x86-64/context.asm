@@ -82,6 +82,12 @@ arch_context_saveandcall:
 	push qword 0	; GS
 	sub rsp, 8 	; cr2
 
+	test rsi, rsi
+	jz .nostackchange2
+
+	xor rbp, rbp	; the old stack will no longer be in our ownership, so zero rbp
+
+	.nostackchange2:
 	mov r11, rdi 	; save function to call
 	mov rdi, rsp 	; first argument is the context struct
 	mov rsi, rdx	; pass argument
