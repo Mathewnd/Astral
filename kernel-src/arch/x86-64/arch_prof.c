@@ -72,8 +72,10 @@ static uint8_t get_backtrace(context_t *context, uintptr_t *data) {
 	if (IS_USER_ADDRESS(context->rip))
 		return 0;
 
+	data[0] = context->rip;
+
 	uint64_t *rbp = (uint64_t *)context->rbp;
-	uint8_t done = 0;
+	uint8_t done = 1;
 
 	for (;;) {
 		if (IS_USER_ADDRESS(rbp) || done == 255)
@@ -83,7 +85,7 @@ static uint8_t get_backtrace(context_t *context, uintptr_t *data) {
 		if (IS_USER_ADDRESS(rip))
 			break;
 
-		data[done++] = rip;
+		data[done++] = rip - 1;
 		rbp = (uint64_t *)*rbp;
 	}
 
