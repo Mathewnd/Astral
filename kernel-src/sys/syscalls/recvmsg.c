@@ -6,10 +6,12 @@
 #include <kernel/file.h>
 #include <kernel/alloc.h>
 
-#define KNOWN_FLAGS (MSG_PEEK | MSG_WAITALL | MSG_CMSG_CLOEXEC)
+#define KNOWN_FLAGS (MSG_PEEK | MSG_WAITALL | MSG_CMSG_CLOEXEC | MSG_DONTWAIT)
 
 syscallret_t syscall_recvmsg(context_t *, int fd, msghdr_t *umsghdr, int flags) {
-	__assert((flags & ~KNOWN_FLAGS) == 0);
+	if (flags & ~KNOWN_FLAGS)
+		printf("recvmsg: unknown %x\n", flags);
+
 	syscallret_t ret = {
 		.ret = -1
 	};
@@ -54,6 +56,9 @@ syscallret_t syscall_recvmsg(context_t *, int fd, msghdr_t *umsghdr, int flags) 
 
 	if (flags & MSG_WAITALL)
 		recvflags |= SOCKET_RECV_FLAGS_WAITALL;
+
+	if (flags & MSG_DONTWAIT)
+		recvflags |= V_FFLAGS_NONBLOCKING;
 
 	if (flags & MSG_CMSG_CLOEXEC)
 		recvflags |= SOCKET_RECV_FLAGS_CLOEXEC_CTRL;

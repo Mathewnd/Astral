@@ -24,7 +24,13 @@ syscallret_t syscall_getpgid(context_t *ctx, pid_t pid) {
 		.errno = 0
 	};
 
-	__assert(pid == 0);
+	if (pid != 0) {
+		printf("getpgid: unsupported pid %d\n", pid);
+		ret.errno = EOPNOTSUPP;
+		ret.ret = -1;
+		return ret;
+	}
+
 	ret.ret = jobctl_getpgid(current_thread()->proc);
 	return ret;
 }
@@ -34,7 +40,13 @@ syscallret_t syscall_getsid(context_t *ctx, pid_t pid) {
 		.errno = 0
 	};
 
-	__assert(pid == 0);
+	if (pid != 0) {
+		printf("getpgid: unsupported pid %d\n", pid);
+		ret.errno = EOPNOTSUPP;
+		ret.ret = -1;
+		return ret;
+	}
+
 	ret.ret = jobctl_getsid(current_thread()->proc);
 	return ret;
 }

@@ -17,10 +17,12 @@ static void open(file_t *file, vnode_t *node, int flags) {
 }
 
 syscallret_t syscall_pipe2(context_t *, int flags) {
-	__assert((flags & ~(O_CLOEXEC | O_NONBLOCK)) == 0);
 	syscallret_t ret = {
 		.ret = -1
 	};
+
+	if (flags & ~(O_CLOEXEC | O_NONBLOCK))
+		printf("pipe2: unknown %x\n", flags);
 
 	vnode_t *node = NULL;
 	int readfd, writefd;

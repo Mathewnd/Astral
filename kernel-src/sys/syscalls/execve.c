@@ -254,7 +254,9 @@ static syscallret_t execve(context_t *context, char *upath, char *uargv[], char 
 		if (ret.errno)
 			goto error;
 
-		__assert(interpinterp == NULL);
+		if (interpinterp)
+			free(interpinterp);
+
 		VOP_RELEASE(interpnode);
 	}
 

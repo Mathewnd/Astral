@@ -6,8 +6,10 @@
 #include <kernel/alloc.h>
 
 syscallret_t syscall_sendmsg(context_t *, int fd, msghdr_t *umsghdr, int flags)  {
-	__assert((flags & ~MSG_NOSIGNAL) == 0);
 	syscallret_t ret;
+
+	if (flags & ~MSG_NOSIGNAL)
+		printf("sendmsg: unknown %x\n", flags);
 
 	msghdr_t msghdr;
 	ret.errno = sock_copymsghdr(&msghdr, umsghdr);

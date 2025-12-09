@@ -8,7 +8,8 @@ syscallret_t syscall_renameat(context_t *context, int olddirfd, char *uoldpath, 
 		.ret = -1
 	};
 
-	__assert(flags == 0);
+	if (flags)
+		printf("renameat: unknown %x\n", flags);
 
 	size_t oldpathlen;
 	size_t newpathlen;

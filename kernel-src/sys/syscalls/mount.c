@@ -19,7 +19,9 @@ syscallret_t syscall_mount(context_t *context, char *ubacking, char *umountpoint
 	syscallret_t ret = {
 		.ret = -1
 	};
-	__assert(flags == 0);
+
+	if (flags != 0)
+		printf("mount: unknown %x\n", flags);
 
 	size_t mountpointlen, fslen;
 

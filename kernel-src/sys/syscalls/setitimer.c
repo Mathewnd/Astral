@@ -29,7 +29,11 @@ syscallret_t syscall_getitimer(context_t *context, int which, itimerval_t *value
 		.ret = -1
 	};
 
-	__assert(which == ITIMER_REAL);
+	if (which != ITIMER_REAL) {
+		ret.errno = EOPNOTSUPP;
+		return ret;
+	}
+
 	itimer_t *itimer = selectitimer(which);
 	if (itimer == NULL) {
 		ret.errno = EINVAL;
@@ -61,7 +65,10 @@ syscallret_t syscall_setitimer(context_t *context, int which, itimerval_t *unew,
 		.ret = -1
 	};
 
-	__assert(which == ITIMER_REAL);
+	if (which != ITIMER_REAL) {
+		ret.errno = EOPNOTSUPP;
+		return ret;
+	}
 
 	itimer_t *itimer = selectitimer(which);
 	if (itimer == NULL) {

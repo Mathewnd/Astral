@@ -26,11 +26,18 @@ syscallret_t syscall_mmap(context_t *context, void *hint, size_t len, int prot, 
 	};
 
 	if ((~KNOWN_FLAGS & flags))
-		printf("%x\n", flags);
+		printf("mmap: unknown flags: %x\n", flags);
 
-	__assert((~KNOWN_FLAGS & flags) == 0);
-	__assert((~KNOWN_PROT & prot) == 0);
-	__assert(!((flags & MAP_PRIVATE) && (flags & MAP_SHARED)));
+	if ((~KNOWN_PROT & prot)) {
+		printf("mmap: bad prot: %x\n", prot);
+		ret.errno = EINVAL;
+		return ret;
+	}
+
+	if ((flags & MAP_PRIVATE) && (flags & MAP_SHARED)) {
+		ret.errno = EINVAL;
+		return ret;
+	}
 
 	// check alignment
 	if (len == 0 || (uintptr_t)hint % PAGE_SIZE) {

@@ -16,7 +16,10 @@ syscallret_t syscall_mprotect(context_t *context, void *address, size_t len, int
 		.ret = -1
 	};
 
-	__assert((~KNOWN_PROT & prot) == 0);
+	if (prot & ~KNOWN_PROT) {
+		ret.errno = EINVAL;
+		return ret;
+	}
 
 	// check alignment
 	if (len == 0 || (uintptr_t)address % PAGE_SIZE || address > USERSPACE_END) {

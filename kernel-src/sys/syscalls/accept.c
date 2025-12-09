@@ -28,6 +28,11 @@ syscallret_t syscall_accept(context_t *, int oldfd, abisockaddr_t *abisockaddr, 
 
 	socket_t *server = SOCKFS_SOCKET_FROM_NODE(oldfile->vnode);
 
+	if (server->ops->accept == NULL) {
+		ret.errno = ENOTSUP;
+		goto cleanup;
+	}
+
 	socket_t *client = socket_create(server->type);
 	if (client == NULL) {
 		ret.errno = ENOMEM;

@@ -94,6 +94,7 @@ typedef struct {
 #define MSG_CMSG_CLOEXEC 0x40000000
 #define MSG_CTRUNC 0x8
 #define MSG_PEEK 2
+#define MSG_DONTWAIT 0x40
 #define MSG_WAITALL 0x100
 #define MSG_NOSIGNAL 0x4000
 

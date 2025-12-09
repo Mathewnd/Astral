@@ -15,9 +15,14 @@ syscallret_t syscall_waitpid(context_t *context, pid_t pid, int *status, int opt
 		.ret = -1
 	};
 
-	__assert((options & ~KNOWN_FLAGS) == 0);
-	// TODO implement these
-	__assert(pid == -1 || pid > 0);
+	if (options & ~KNOWN_FLAGS)
+		printf("waitpid: unknown %x\n", options);
+
+	if (pid < -1 || pid == 0) {
+		printf("waitpid: unhandled pid %d\n", pid);
+		ret.errno = EOPNOTSUPP;
+		return ret;
+	}
 
 	thread_t *thread = current_thread();
 	proc_t *proc = thread->proc;
