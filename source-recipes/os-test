@@ -1,0 +1,8 @@
+name=os-test
+version=1764d1493063388df9ab42544cb5da371b44fd58
+git_url="https://gitlab.com/sortix/os-test.git"
+commit=1764d1493063388df9ab42544cb5da371b44fd58
+
+prepare() {
+        true
+}

@@ -1,0 +1,16 @@
+name=os-test
+revision=1
+from_source=os-test
+imagedeps="build-essential"
+hostdeps="xgcc xbinutils"
+deps="base"
+
+build() {
+	cp -rpa ${source_dir}/* .
+	make -j${parallelism} OS=Astral CC=x86_64-astral-gcc CC_FOR_BUILD=gcc
+}
+
+package() {
+	mkdir -pv "${dest_dir}/usr/share/os-test"
+	cp -rpa * "${dest_dir}/usr/share/os-test"
+}
