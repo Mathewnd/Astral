@@ -100,7 +100,7 @@ void udp_process(netdev_t *netdev, void *buffer, uint32_t peer) {
 	spinlock_acquire(&portlock);
 
 	udpsocket_t *socket = (udpsocket_t *)ports[dstport];
-	if (socket)
+	if (socket && (socket->socket.shutdown & SOCKET_SHUTDOWN_READ) == 0)
 		__atomic_add_fetch(&socket->packetsprocessing, 1, __ATOMIC_SEQ_CST);
 
 	spinlock_release(&portlock);
