@@ -447,6 +447,7 @@ int pipefs_newpipe(vnode_t **nodep) {
 
 	int e = ringbuffer_init(&node->data, BUFFER_SIZE);
 	if (e) {
+		ctor(nodecache, vnode);
 		slab_free(nodecache, vnode);
 		return e;
 	}
