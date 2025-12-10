@@ -91,7 +91,7 @@ int vfs_register(vfsops_t *ops, char *name) {
 void vfs_inactive(vnode_t *vnode) {
 	if (vnode->type == V_TYPE_SOCKET && vnode->socketbinding) {
 		localsock_leavebinding(vnode);
-	} else if (vnode->type == V_TYPE_FIFO) {
+	} else if (vnode->type == V_TYPE_FIFO && vnode->fifobinding) {
 		pipefs_leavebinding(vnode);
 	}
 	vnode->ops->inactive(vnode);
