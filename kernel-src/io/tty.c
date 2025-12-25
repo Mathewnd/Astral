@@ -168,6 +168,9 @@ static int internalpoll(tty_t *tty, polldata_t *data, int events) {
 
 	MUTEX_ACQUIRE(&tty->readmutex);
 
+	if (tty->hup_check && tty->hup_check(tty->deviceinternal))
+		revents |= POLLHUP | (events & POLLIN);
+
 	if ((events & POLLIN) && RINGBUFFER_DATACOUNT(&tty->readbuffer))
 		revents |= POLLIN;
 
@@ -484,7 +487,7 @@ static devops_t devops = {
 	.inactive = inactive
 };
 
-tty_t *tty_create(char *name, ttydevicewritefn_t writefn, ttyinactivefn_t inactivefn, tty_termios_callback_t termios_callback, void *internal) {
+tty_t *tty_create(char *name, ttydevicewritefn_t writefn, ttyinactivefn_t inactivefn, tty_termios_callback_t termios_callback, tty_hup_check_t hup_check, void *internal) {
 	tty_t *tty = alloc(sizeof(tty_t));
 	if (tty == NULL)
 		return NULL;

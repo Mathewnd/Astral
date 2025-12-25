@@ -81,6 +81,12 @@ static size_t writetopty(void *_pty, char *data, size_t size) {
 	return written;
 }
 
+// TODO: signal hup to the tty
+static int hup_check(void *_pty) {
+	pty_t *pty = _pty;
+	return pty->hangup;
+}
+
 static void inactivepty(void *_pty) {
 	pty_t *pty = _pty;
 	freeptyminor(pty->minor);
@@ -186,6 +192,7 @@ static int poll(int minor, polldata_t *data, int events) {
 	return revents;
 }
 #define TIOCGPTN 0x80045430
+#define TIOCSPTLCK 0x13376167
 static int ioctl(int minor, unsigned long request, void *_arg, int *result, cred_t *cred) {
 	pty_t *pty = ptyget(minor);
 	if (pty == NULL)
@@ -194,6 +201,9 @@ static int ioctl(int minor, unsigned long request, void *_arg, int *result, cred
 	switch (request) {
 		case TIOCGPTN: {
 			return USERCOPY_POSSIBLY_TO_USER(_arg, &pty->minor, sizeof(int));
+		}
+		case TIOCSPTLCK: {
+			break; // no-op
 		}
 		default:
 			return tty_ioctl(pty->tty, request, _arg, result, cred);
@@ -266,7 +276,7 @@ static int open(int oldminor, vnode_t **vnode, int flags) {
 	// create a pairing slave device
 
 	snprintf(tmpname, 20, "pts/%d", newminor);
-	pty->tty = tty_create(tmpname, writetopty, inactivepty, NULL, pty);
+	pty->tty = tty_create(tmpname, writetopty, inactivepty, NULL, hup_check, pty);
 	if (pty->tty == NULL) {
 		VOP_RELEASE(pty->mastervnode);
 		return ENOMEM;

@@ -266,7 +266,7 @@ static uacpi_iteration_decision init_com(void *, uacpi_namespace_node *node, uns
 	char tty_name[10];
 	snprintf(tty_name, 10, "com%d", pc_com->id);
 
-	pc_com->tty = tty_create(tty_name, write_tty, NULL, termios_callback, pc_com);
+	pc_com->tty = tty_create(tty_name, write_tty, NULL, termios_callback, NULL, pc_com);
 	if (pc_com->tty == NULL) {
 		printf("%s: failed to create tty\n", tty_name);
 		return UACPI_ITERATION_DECISION_NEXT_PEER;

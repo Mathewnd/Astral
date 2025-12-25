@@ -115,7 +115,7 @@ void console_init() {
 	__assert(thread);
 	sched_queue(thread);
 
-	tty = tty_create("console", console_ttywrite, NULL, NULL, NULL);
+	tty = tty_create("console", console_ttywrite, NULL, NULL, NULL, NULL);
 	__assert(tty);
 
 	size_t x, y, fbx, fby;

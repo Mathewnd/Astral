@@ -8,7 +8,10 @@ syscallret_t syscall_ioctl(context_t *, int fd, unsigned long request, void *arg
 		.ret = -1
 	};
 
-	if (IS_USER_ADDRESS(arg) == false) {
+	// arg could be null for, say, an ioctl that does not pass an argument
+	// this is safe as any accesses on ioctls are done through user copy, which
+	// returns EFAULT on a null access
+	if (arg != NULL && IS_USER_ADDRESS(arg) == false) {
 		ret.errno = EFAULT;
 		return ret;
 	}
