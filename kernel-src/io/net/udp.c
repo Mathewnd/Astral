@@ -188,7 +188,7 @@ static int udp_send(socket_t *socket, sockdesc_t *sockdesc) {
 		return 0;
 	}
 
-	if (sockdesc->addr == NULL) {
+	if (sockdesc->addr == NULL && udpsocket->peerport == 0) {
 		e = ENOTCONN;
 		goto cleanup;
 	}
@@ -352,6 +352,24 @@ static int udp_shutdown(socket_t *socket, int how) {
 	return 0;
 }
 
+static int udp_connect(socket_t *socket, sockaddr_t *addr, uintmax_t flags, cred_t *cred) {
+	udpsocket_t *udpsocket = (udpsocket_t *)socket;
+	int error = 0;
+	MUTEX_ACQUIRE(&socket->mutex);
+
+	if (udpsocket->peerport) {
+		error = EISCONN;
+		goto cleanup;
+	}
+
+	udpsocket->peerport = addr->ipv4addr.port;
+	udpsocket->peeraddress = addr->ipv4addr.addr;
+
+	cleanup:
+	MUTEX_RELEASE(&socket->mutex);
+	return error;
+}
+
 static socketops_t socketops = {
 	.bind = udp_bind,
 	.send = udp_send,
@@ -360,7 +378,8 @@ static socketops_t socketops = {
 	.poll = udp_poll,
 	.getname = udp_getname,
 	.getpeername = udp_getpeername,
-	.shutdown = udp_shutdown
+	.shutdown = udp_shutdown,
+	.connect = udp_connect
 };
 
 socket_t *udp_createsocket() {

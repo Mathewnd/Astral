@@ -64,7 +64,7 @@ typedef struct socketops_t {
 	int (*send)(socket_t *socket, sockdesc_t *desc);
 	int (*recv)(socket_t *socket, sockdesc_t *desc);
 	int (*poll)(socket_t *socket, polldata_t *data, int events);
-	int (*connect)(socket_t *socket, sockaddr_t *addr, uintmax_t data, cred_t *cred);
+	int (*connect)(socket_t *socket, sockaddr_t *addr, uintmax_t flags, cred_t *cred);
 	int (*listen)(socket_t *socket, int backlog);
 	int (*accept)(socket_t *server, socket_t *client, sockaddr_t *addr, uintmax_t flags);
 	int (*getname)(socket_t *socket, sockaddr_t *addr);
