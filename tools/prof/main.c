@@ -43,7 +43,7 @@ int main(int argc, char *argv[]) {
 
 	printf("%s: draining /dev/prof\n", argv[0]);
 	// empty it
-	if (ioctl(infd, 12345678, NULL) > 0)
+	if (ioctl(infd, 12345678, NULL) < 0)
 		return EXIT_FAILURE;
 
 	struct pollfd pollfd[2];
