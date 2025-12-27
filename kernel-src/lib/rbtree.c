@@ -83,6 +83,24 @@ static void rotate_left(rbtree_t **rootp, rbtree_t *node) {
 		RBTREE_NODE_SET_PARENT(node_left_subtree, parent);
 }
 
+rbtree_t *rbtree_find_first_larger_equal(rbtree_t *rbtree, void *key, rbtree_value_compare_fn_t compare_fn) {
+	rbtree_t *found = NULL;
+	for (;;) {
+		if (rbtree == NULL)
+			return found;
+
+		int comparison = compare_fn(key, rbtree);
+
+		if (comparison == 0)
+			return rbtree;
+
+		if (comparison == 1 && (found == NULL || compare_fn(found, rbtree) > 0))
+			found = rbtree;
+
+		rbtree = comparison == 1 ? rbtree->right : rbtree->left;
+	}
+}
+
 rbtree_t *rbtree_lookup(rbtree_t *rbtree, void *key, rbtree_value_compare_fn_t compare_fn) {
 	for (;;) {
 		if (rbtree == NULL)
@@ -287,17 +305,15 @@ rbtree_t *rbtree_successor(rbtree_t *node) {
 		iterator = node;
 		rbtree_t *parent = RBTREE_NODE_GET_PARENT(node);
 		while (parent) {
-			if (parent->left == iterator && parent->right)
-				break;
+			if (parent->left == iterator)
+				return parent;
 
 			iterator = parent;
 			parent = RBTREE_NODE_GET_PARENT(iterator);
 		}
 
-		if (parent == NULL)
-			return NULL;
-
-		iterator = parent->right;
+		// end of tree
+		return NULL;
 	}
 
 	// we have gone right, go all the way down left
@@ -314,17 +330,15 @@ rbtree_t *rbtree_predecessor(rbtree_t *node) {
 		iterator = node;
 		rbtree_t *parent = RBTREE_NODE_GET_PARENT(node);
 		while (parent) {
-			if (parent->right == iterator && parent->left)
-				break;
+			if (parent->right == iterator)
+				return parent;
 
 			iterator = parent;
 			parent = RBTREE_NODE_GET_PARENT(iterator);
 		}
 
-		if (parent == NULL)
-			return NULL;
-
-		iterator = parent->left;
+		// end of tree
+		return NULL;
 	}
 
 	// we have gone right, go all the way down left

@@ -21,5 +21,6 @@ rbtree_t *rbtree_first(rbtree_t *rbtree);
 rbtree_t *rbtree_last(rbtree_t *rbtree);
 rbtree_t *rbtree_successor(rbtree_t *node);
 rbtree_t *rbtree_predecessor(rbtree_t *node);
+rbtree_t *rbtree_find_first_larger_equal(rbtree_t *rbtree, void *key, rbtree_value_compare_fn_t compare_fn);
 
 #endif
