@@ -36,7 +36,8 @@ typedef struct {
 } sockaddr_t;
 
 typedef struct {
-	size_t length;
+	socklen_t length;
+	int padding;
 	int level;
 	int type;
 	uint8_t data[];

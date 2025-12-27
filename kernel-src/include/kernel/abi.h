@@ -104,6 +104,8 @@ typedef struct {
 
 #define SOL_SOCKET 1
 
+typedef unsigned socklen_t;
+
 typedef struct {
 	unsigned short type;
 	char addr[14];
@@ -122,11 +124,13 @@ typedef struct {
 
 typedef struct {
 	void *addr;
-	size_t addrlen;
+	socklen_t addrlen;
 	iovec_t *iov;
-	size_t iovcount;
+	socklen_t iovcount;
+	int padding0;
 	void *msgctrl;
-	size_t ctrllen;
+	socklen_t ctrllen;
+	int padding1;
 	int flags;
 } msghdr_t;
 
