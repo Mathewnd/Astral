@@ -42,10 +42,11 @@ typedef struct {
 
 void arch_extracontext_detect(void) {
     if (!arch_xsave_size) {
-        if (cpuid_base_max_leaf() >= 0x0d) {
+        cpuid_results_t results;
+	cpuid(1, &results);
+        if (cpuid_base_max_leaf() >= 0x0d && (results.ecx & (1 << 26))) {
             xsave_method = XSAVE;
 
-            cpuid_results_t results;
             cpuid_with_ecx(0x0d, 0, &results);
             xcr0_value = ((uint64_t)results.edx << 32) | results.eax;
             xcr0_value &= XCR0_MASK;
