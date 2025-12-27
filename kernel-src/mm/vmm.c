@@ -21,10 +21,8 @@ static vmmcache_t *newcache() {
 	ptr->header.next = NULL;
 	MUTEX_INIT(&ptr->header.lock);
 
-	for (uintmax_t i = 0; i < VMM_RANGES_PER_CACHE; ++i) {
+	for (uintmax_t i = 0; i < VMM_RANGES_PER_CACHE; ++i)
 		ptr->ranges[i].size = 0;
-		ptr->ranges[i].next = NULL;
-	}
 
 	return ptr;
 }
@@ -95,43 +93,61 @@ static vmmspace_t *getspace(void *vaddr) {
 		return NULL;
 }
 
+static int rbtree_value_compare(void *addr, rbtree_t *node) {
+	vmmrange_t *range = container_of(node, vmmrange_t, rbtree_node);
+	void *range_top = RANGE_TOP(range);
+
+	if (addr >= range_top)
+		return 1;
+
+	if (addr < range->start)
+		return -1;
+
+	return 0;
+}
 
 // get a range from an address
 static vmmrange_t *getrange(vmmspace_t *space, void *addr) {
-	vmmrange_t *range = space->ranges;
-	while (range) {
-		if (addr >= range->start && addr < RANGE_TOP(range))
-			break;
-		range = range->next;
-	}
-	return range;
+	rbtree_t *rbtree = rbtree_lookup(space->ranges, addr, rbtree_value_compare);
+	return container_of(rbtree, vmmrange_t, rbtree_node);
 }
 
 // get start of range that fits specific size from specific offset
 static void *getfreerange(vmmspace_t *space, void *addr, size_t size) {
-	vmmrange_t *range = space->ranges;
+	rbtree_t *rbtree = space->ranges;
 	if (addr == NULL)
 		addr = space->start;
 
-	// if theres no ranges
-	if (range == NULL)
+	// no ranges
+	if (rbtree == NULL)
 		return addr;
+
+	rbtree = rbtree_first(rbtree);
+	vmmrange_t *range = container_of(rbtree, vmmrange_t, rbtree_node);
 
 	// if theres free space before the first range
 	if (range->start != space->start && addr < range->start && (uintptr_t)range->start - (uintptr_t)addr >= size)
 		return addr;
 
-	while (range->next) {
+	// check for space between two ranges
+	rbtree_t *next = rbtree_successor(rbtree);
+	while (next) {
+		vmmrange_t *next_range = container_of(next, vmmrange_t, rbtree_node);
+
 		void *rangetop = RANGE_TOP(range);
 		if (addr < rangetop)
 			addr = rangetop;
 
-		if (addr < range->next->start) {
-			size_t freesize = (uintptr_t)range->next->start - (uintptr_t)addr;
+		if (addr < next_range->start) {
+			size_t freesize = (uintptr_t)next_range->start - (uintptr_t)addr;
 			if (freesize >= size)
 				return addr;
 		}
-		range = range->next;
+
+		rbtree = next;
+		range = container_of(rbtree, vmmrange_t, rbtree_node);
+
+		next = rbtree_successor(next);
 	}
 
 	// if theres free space after the last range
@@ -145,80 +161,60 @@ static void *getfreerange(vmmspace_t *space, void *addr, size_t size) {
 	return NULL;
 }
 
-static void insertrange(vmmspace_t *space, vmmrange_t *newrange) {
-	vmmrange_t *range = space->ranges;
+static int rbtree_compare(rbtree_t *a, rbtree_t *b) {
+	vmmrange_t *range_a = container_of(a, vmmrange_t, rbtree_node);
+	vmmrange_t *range_b = container_of(b, vmmrange_t, rbtree_node);
 
-	// space has no other ranges
-	if (range == NULL) {
-		space->ranges = newrange;
-		newrange->next = NULL;
-		newrange->prev = NULL;
-		return;
-	}
+	if (range_a->start == range_b->start)
+		return 0;
 
-	void *newrangetop = RANGE_TOP(newrange);
+	return range_a->start > range_b->start ? 1 : -1;
+}
 
-	// range is before the first space range
-	if (newrangetop <= range->start) {
-		space->ranges = newrange;
-		newrange->next = range;
-		range->prev = newrange;
-		newrange->prev = NULL;
-		goto fragcheck;
-	}
+static bool compatible(vmmrange_t *prev, vmmrange_t *next) {
+	void *prev_range_top = RANGE_TOP(prev);
 
-	while (range->next) {
-		if (newrange->start >= RANGE_TOP(range) && newrange->start < range->next->start) { // space inbetween two other ranges
-			newrange->next = range->next;
-			if (newrange->next)
-				newrange->next->prev = newrange;
+	return prev_range_top == next->start && prev->flags == next->flags && prev->mmuflags == next->mmuflags && // general compatibility
+		((prev->flags & VMM_FLAGS_FILE) == 0 || (prev->vnode == next->vnode && prev->offset + prev->size == next->offset)); // same file mapping, if any
+}
 
-			newrange->prev = range;
-			range->next = newrange;
-			goto fragcheck;
-		}
-		range = range->next;
-	}
+static void printspace(vmmspace_t *space);
+static void insertrange(vmmspace_t *space, vmmrange_t *new_range) {
+	rbtree_insert(&space->ranges, &new_range->rbtree_node, rbtree_compare);
 
-	// space after the second range
-	range->next = newrange;
-	newrange->prev = range;
-	newrange->next = NULL;
+	rbtree_t *successor = rbtree_successor(&new_range->rbtree_node);
+	rbtree_t *predecessor = rbtree_predecessor(&new_range->rbtree_node);
 
-	fragcheck:
-	// join new range and the next
-	if (newrange->next && newrange->next->start == newrangetop && newrange->flags == newrange->next->flags && newrange->mmuflags == newrange->next->mmuflags
-		&& ((newrange->flags & VMM_FLAGS_FILE) == 0 || (newrange->vnode == newrange->next->vnode && newrange->offset + newrange->size == newrange->next->offset))) {
-		vmmrange_t *oldrange = newrange->next;
-		newrange->size += oldrange->size;
-		newrange->next = oldrange->next;
-		if (oldrange->next)
-			oldrange->next->prev = newrange;
+	vmmrange_t *next_range = successor ? container_of(successor, vmmrange_t, rbtree_node) : NULL;
+	vmmrange_t *prev_range = predecessor ? container_of(predecessor, vmmrange_t, rbtree_node) : NULL;
 
-		freerange(oldrange);
-		if (newrange->flags & VMM_FLAGS_FILE) {
-			VOP_RELEASE(newrange->vnode);
+	// fragmentation checking
+
+	// check next range
+	if (next_range && compatible(new_range, next_range)) {
+		new_range->size += next_range->size;
+
+		rbtree_remove(&space->ranges, &next_range->rbtree_node);
+		freerange(next_range);
+		if (new_range->flags & VMM_FLAGS_FILE) {
+			VOP_RELEASE(new_range->vnode);
 		}
 	}
 
-	// join new range and the previous
-	if (newrange->prev && RANGE_TOP(newrange->prev) == newrange->start && newrange->flags == newrange->prev->flags && newrange->mmuflags == newrange->prev->mmuflags
-		&& ((newrange->flags & VMM_FLAGS_FILE) == 0 || (newrange->vnode == newrange->prev->vnode && newrange->prev->offset + newrange->prev->size == newrange->offset))) {
-		vmmrange_t *oldrange = newrange->prev;
-		oldrange->size += newrange->size;
-		oldrange->next = newrange->next;
+	// check prev range
+	if (prev_range && compatible(prev_range, new_range)) {
+		prev_range->size += new_range->size;
 
-		if (newrange->next)
-			newrange->next->prev = oldrange;
-
-		freerange(newrange);
-		if (oldrange->flags & VMM_FLAGS_FILE) {
-			VOP_RELEASE(oldrange->vnode);
+		rbtree_remove(&space->ranges, &new_range->rbtree_node);
+		freerange(new_range);
+		if (prev_range->flags & VMM_FLAGS_FILE) {
+			VOP_RELEASE(prev_range->vnode);
 		}
 	}
 }
 
 static void destroyrange(vmmrange_t *range, uintmax_t _offset, size_t size, int flags) {
+	// TODO find first
 	uintmax_t top = _offset + size;
 
 	for (uintmax_t offset = _offset; offset < top; offset += PAGE_SIZE) {
@@ -307,185 +303,215 @@ static inline bool canwritevnode(vmmrange_t *range) {
 	return error == 0;
 }
 
-static int changemap(vmmspace_t *space, void *address, size_t size, bool free, int flags, mmuflags_t newmmuflags) {
+static int changemap(vmmspace_t *space, void *address, size_t size, bool free, int flags, mmuflags_t new_mmuflags) {
 	void *top = (void *)((uintptr_t)address + size);
-	vmmrange_t *range = space->ranges;
-	vmmrange_t *newrange = NULL;
+	vmmrange_t *new_range = NULL;
+
+	if (space->ranges == NULL)
+		return 0;
+
 	// allocated here and as soon as its used to make sure that 
 	// even in an allocation failure there will always be a valid mapping
 	if (free == false) {
-		newrange = allocrange();
-		if (newrange == NULL)
+		new_range = allocrange();
+		if (new_range == NULL)
 			return ENOMEM;
 	}
 
 	int error = 0;
 
-	while (range && range->start < top) {
-		__assert(range != space->ranges || range->prev == NULL);
-		void *rangetop = RANGE_TOP(range);
+	// get first range after address
+	rbtree_t *rbtree = rbtree_find_first_larger_equal(space->ranges, address, rbtree_value_compare);
+	vmmrange_t *range = container_of(rbtree, vmmrange_t, rbtree_node);
 
-		vmmrange_t *nextsave = range->next;
-		if (range->start >= address && rangetop <= top) {
-			// completely changed
-			if (free) {
-				if (range->prev)
-					range->prev->next = range->next;
-				else
-					space->ranges = range->next;
+	if (rbtree == NULL)
+		goto leave;
 
-				if (range->next)
-					range->next->prev = range->prev;
+	// check if we actually start at the predecessor
+	rbtree_t *predecessor = rbtree_predecessor(rbtree);
+	if (predecessor) {
+		vmmrange_t *predecessor_range = container_of(predecessor, vmmrange_t, rbtree_node);
+		if (RANGE_TOP(predecessor_range) > address) {
+			rbtree = predecessor;
+			range = predecessor_range;
+		}
+	}
 
-				destroyrange(range, 0, range->size, 0);
-				freerange(range);
-			} else {
-				if ((flags & VMM_FLAGS_CREDCHECK) && (range->flags & VMM_FLAGS_SHARED) &&
-					(range->flags & VMM_FLAGS_FILE) && canwritevnode(range) == false) {
-					error = EACCES;
-					goto leave;
-				}
+	// rbtree now has the first vmm range to be unmapped/remapped
 
-				changemmurange(range, range->start, range->size, newmmuflags);
-				range->mmuflags = newmmuflags;
+	// is the range we want to change in the middle of a mapping?
+	if (address > range->start && top < RANGE_TOP(range)) {
+		// split the mapping
+
+		// check for write permission if changing a shared file mapping
+		if (free == false && (flags & VMM_FLAGS_CREDCHECK) && (range->flags & VMM_FLAGS_SHARED) && 
+			(range->flags & VMM_FLAGS_FILE) && canwritevnode(range) == false) {
+			error = EACCES;
+			goto leave;
+		}
+
+		vmmrange_t *new = allocrange();
+		if (range == NULL) {
+			error = ENOMEM;
+			goto leave;
+		}
+
+		*new = *range; // copy most metadata
+
+		if (free) {
+			// release page data
+			destroyrange(range, (uintptr_t)address - (uintptr_t)range->start, size, 0);
+		}
+
+		// set up ranges
+		new->start = top;
+		new->size = (uintptr_t)RANGE_TOP(range) - (uintptr_t)new->start;
+		range->size = (uintptr_t)address - (uintptr_t)range->start;
+
+		if (range->flags & VMM_FLAGS_FILE) {
+			VOP_HOLD(range->vnode);
+			new->offset += range->size + size;
+		}
+
+		insertrange(space, new);
+
+		// if we are not just freeing memory, insert a new range
+		if (free == false) {
+			new_range->start = address;
+			new_range->size = size;
+			new_range->flags = range->flags;
+			new_range->mmuflags = new_mmuflags;
+
+			changemmurange(range, new_range->start, new_range->size, new_range->mmuflags);
+
+			if (range->flags & VMM_FLAGS_FILE) {
+				new_range->vnode = range->vnode;
+				new_range->offset = range->offset + range->size;
+				VOP_HOLD(range->vnode);
 			}
-		} else if (address > range->start && top < rangetop) {
-			// split (entire change was within a single range)
-			if (free == false && (flags & VMM_FLAGS_CREDCHECK) && (range->flags & VMM_FLAGS_SHARED) && 
-				(range->flags & VMM_FLAGS_FILE) && canwritevnode(range) == false) {
-				error = EACCES;
-				goto leave;
+
+			insertrange(space, new_range);
+			return 0; // dont free the new range
+		}
+
+		goto leave;
+	}
+
+	// are we starting from the end of a mapping?
+	if (address > range->start) {
+		// shrink the mapping
+
+		// permission checking
+		if (free == false && (flags & VMM_FLAGS_CREDCHECK) && (range->flags & VMM_FLAGS_SHARED) &&
+			(range->flags & VMM_FLAGS_FILE) && canwritevnode(range) == false) {
+			error = EACCES;
+			goto leave;
+		}
+
+		size_t difference = (uintptr_t)RANGE_TOP(range) - (uintptr_t)address;
+		range->size -= difference;
+
+		rbtree = rbtree_successor(rbtree); // in case we insert a new mapping, get the next successor here already
+
+		if (free) {
+			destroyrange(range, range->size, difference, 0);
+		} else {
+			// create a new range for the changes
+			new_range->start = (void *)((uintptr_t)range->start + range->size);
+			new_range->size = difference;
+			new_range->flags = range->flags;
+			new_range->mmuflags = new_mmuflags;
+
+			changemmurange(range, new_range->start, new_range->size, new_range->mmuflags);
+
+			if (range->flags & VMM_FLAGS_FILE) {
+				new_range->vnode = range->vnode;
+				new_range->offset = range->offset + range->size;
+				VOP_HOLD(range->vnode);
 			}
 
-			vmmrange_t *new = allocrange();
-			if (range == NULL) {
+			insertrange(space, new_range);
+			new_range = allocrange();
+			if (new_range == NULL) {
 				error = ENOMEM;
 				goto leave;
 			}
+		}
+	}
 
-			*new = *range;
+	// mappings that lie entirely in the range
+	for (;;) {
+		if (rbtree == NULL)
+			goto leave;
 
-			if (free) {
-				destroyrange(range, (uintptr_t)address - (uintptr_t)range->start, size, 0);
-			}
+		range = container_of(rbtree, vmmrange_t, rbtree_node);
+		if (RANGE_TOP(range) > top)
+			break;
 
-			new->start = top;
-			new->size = (uintptr_t)rangetop - (uintptr_t)new->start;
-			range->size = (uintptr_t)address - (uintptr_t)range->start;
+		rbtree = rbtree_successor(rbtree);
 
-			if (range->next)
-				range->next->prev = new;
-
-			// new->next is set by the copy in *new = *range
-			new->prev = range;
-			range->next = new;
-
-			if (range->flags & VMM_FLAGS_FILE) {
-				VOP_HOLD(range->vnode);
-				new->offset += range->size + size;
-			}
-
-			if (free == false) {
-				newrange->start = address;
-				newrange->size = size;
-				newrange->flags = range->flags;
-				newrange->mmuflags = newmmuflags;
-
-				changemmurange(range, newrange->start, newrange->size, newrange->mmuflags);
-
-				if (range->flags & VMM_FLAGS_FILE) {
-					newrange->vnode = range->vnode;
-					newrange->offset = range->offset;
-					VOP_HOLD(range->vnode);
-				}
-
-				insertrange(space, newrange);
-				newrange = allocrange();
-				if (newrange == NULL) {
-					error = ENOMEM;
-					goto leave;
-				}
-			}
-		} else if (top > range->start && range->start >= address) {
-			// partially change from start (end of change was within this range)
-			if (free == false && (flags & VMM_FLAGS_CREDCHECK) && (range->flags & VMM_FLAGS_SHARED) && 
+		// remove or change the flags of the range
+		if (free) {
+			rbtree_remove(&space->ranges, &range->rbtree_node);
+			destroyrange(range, 0, range->size, 0);
+			freerange(range);
+		} else {
+			// permission check
+			if ((flags & VMM_FLAGS_CREDCHECK) && (range->flags & VMM_FLAGS_SHARED) &&
 				(range->flags & VMM_FLAGS_FILE) && canwritevnode(range) == false) {
 				error = EACCES;
 				goto leave;
 			}
 
-			size_t difference = (uintptr_t)top - (uintptr_t)range->start;
-			if (free) {
-				destroyrange(range, 0, difference, 0);
-			}
-			range->start = (void *)((uintptr_t)range->start + difference);
-			range->size -= difference;
+			changemmurange(range, range->start, range->size, new_mmuflags);
+			range->mmuflags = new_mmuflags;
+		}
+	}
 
-			if (range->flags & VMM_FLAGS_FILE)
-				range->offset += difference;
+	// start of mapping is in the range
+	if (range->start < top) {
+		// move the start of the range
 
-			if (free == false) {
-				newrange->start = (void *)((uintptr_t)range->start - difference);
-				newrange->size = difference;
-				newrange->flags = range->flags;
-				newrange->mmuflags = newmmuflags;
-
-				changemmurange(range, newrange->start, newrange->size, newrange->mmuflags);
-
-				if (range->flags & VMM_FLAGS_FILE) {
-					newrange->vnode = range->vnode;
-					newrange->offset = range->offset - difference;
-					VOP_HOLD(range->vnode);
-				}
-
-				insertrange(space, newrange);
-				newrange = allocrange();
-				if (newrange == NULL) {
-					error = ENOMEM;
-					goto leave;
-				}
-			}
-		} else if (address < rangetop && rangetop <= top) {
-			// partially change from end (start of change was within this range)
-			if (free == false && (flags & VMM_FLAGS_CREDCHECK) && (range->flags & VMM_FLAGS_SHARED) &&
-				(range->flags & VMM_FLAGS_FILE) && canwritevnode(range) == false) {
-				error = EACCES;
-				goto leave;
-			}
-
-			size_t difference = (uintptr_t)rangetop - (uintptr_t)address;
-			range->size -= difference;
-			if (free) {
-				destroyrange(range, range->size, difference, 0);
-			} else {
-				newrange->start = (void *)((uintptr_t)range->start + range->size);
-				newrange->size = difference;
-				newrange->flags = range->flags;
-				newrange->mmuflags = newmmuflags;
-
-				changemmurange(range, newrange->start, newrange->size, newrange->mmuflags);
-
-				if (range->flags & VMM_FLAGS_FILE) {
-					newrange->vnode = range->vnode;
-					newrange->offset = range->offset + range->size;
-					VOP_HOLD(range->vnode);
-				}
-
-				insertrange(space, newrange);
-				newrange = allocrange();
-				if (newrange == NULL) {
-					error = ENOMEM;
-					goto leave;
-				}
-			}
+		// permission check
+		if (free == false && (flags & VMM_FLAGS_CREDCHECK) && (range->flags & VMM_FLAGS_SHARED) && 
+			(range->flags & VMM_FLAGS_FILE) && canwritevnode(range) == false) {
+			error = EACCES;
+			goto leave;
 		}
 
-		range = nextsave;
+		size_t difference = (uintptr_t)top - (uintptr_t)range->start;
+		if (free)
+			destroyrange(range, 0, difference, 0);
+
+		range->start = (void *)((uintptr_t)range->start + difference);
+		range->size -= difference;
+
+		if (range->flags & VMM_FLAGS_FILE)
+			range->offset += difference;
+
+		if (free == false) {
+			// insert range at the start
+			new_range->start = (void *)((uintptr_t)range->start - difference);
+			new_range->size = difference;
+			new_range->flags = range->flags;
+			new_range->mmuflags = new_mmuflags;
+
+			changemmurange(range, new_range->start, new_range->size, new_range->mmuflags);
+
+			if (range->flags & VMM_FLAGS_FILE) {
+				new_range->vnode = range->vnode;
+				new_range->offset = range->offset - difference;
+				VOP_HOLD(range->vnode);
+			}
+
+			insertrange(space, new_range);
+			return 0; // don't free the range, just leave
+		}
 	}
 
 	leave:
 	if (free == false)
-		freerange(newrange);
+		freerange(new_range);
 
 	return error;
 }
@@ -519,10 +545,11 @@ int vmm_changemmuflags(void *base, size_t size, mmuflags_t mmuflags, int flags) 
 
 static void printspace(vmmspace_t *space) {
 	printf("vmm: ranges:\n");
-	vmmrange_t *range = space->ranges;
-	while (range) {
+	rbtree_t *rbtree = rbtree_first(space->ranges);
+	while (rbtree) {
+		vmmrange_t *range = container_of(rbtree, vmmrange_t, rbtree_node);
 		printf("vmm: address %p size %lx flags %x\n", range->start, range->size, range->flags);
-		range = range->next;
+		rbtree = rbtree_successor(rbtree);
 	}
 }
 
@@ -873,9 +900,9 @@ vmmcontext_t *vmm_fork(vmmcontext_t *oldcontext) {
 
 	MUTEX_ACQUIRE(&oldcontext->space.lock);
 
-	vmmrange_t *range = oldcontext->space.ranges;
-
-	while (range) {
+	rbtree_t *rbtree = oldcontext->space.ranges ? rbtree_first(oldcontext->space.ranges) : NULL;
+	while (rbtree) {
+		vmmrange_t *range = container_of(rbtree, vmmrange_t, rbtree_node);
 		vmmrange_t *newrange = allocrange();
 		if (newrange == NULL)
 			goto error;
@@ -903,7 +930,7 @@ vmmcontext_t *vmm_fork(vmmcontext_t *oldcontext) {
 			arch_mmu_remap(oldcontext->pagetable, phys, vaddr, newrange->mmuflags & ~ARCH_MMU_FLAGS_WRITE);
 		}
 
-		range = range->next;
+		rbtree = rbtree_successor(rbtree);
 	}
 
 	// TODO do only userspace invalidation as to not send ipi to all cores

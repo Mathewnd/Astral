@@ -12,6 +12,9 @@
 #define likely(x)	__builtin_expect(!!(x), 1)
 #define unlikely(x)	__builtin_expect(!!(x), 0)
 
+#define container_of(ptr, type, member) \
+	((type *)((void *)ptr - offsetof(type, member)))
+
 static inline long abs(long x) {
 	return x < 0 ? -x : x;
 }

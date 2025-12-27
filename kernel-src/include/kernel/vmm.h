@@ -4,6 +4,7 @@
 #include <arch/mmu.h>
 #include <mutex.h>
 #include <kernel/vfs.h>
+#include <rbtree.h>
 
 #define VMM_FLAGS_PAGESIZE 1
 #define VMM_FLAGS_ALLOCATE 2
@@ -27,8 +28,7 @@ typedef struct {
 
 struct vmmcache_t;
 typedef struct vmmrange_t{
-	struct vmmrange_t *next;
-	struct vmmrange_t *prev;
+	rbtree_t rbtree_node;
 	void *start;
 	size_t size;
 	int flags;
@@ -57,7 +57,7 @@ typedef struct vmmcache_t {
 
 typedef struct {
 	mutex_t lock;
-	vmmrange_t *ranges;
+	rbtree_t *ranges;
 	void *start;
 	void *end;
 } vmmspace_t;
