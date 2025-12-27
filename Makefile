@@ -7,12 +7,22 @@ IMG=$(JINX_DIR)/astral-bootable.img
 DISKNAME=$(JINX_DIR)/hdd.img
 LIMINEDIR=$(JINX_DIR)/host-pkgs/limine/usr/local/share/limine/
 KERNEL=$(JINX_DIR)/builds/astral/astral
-QEMUFLAGS=-M q35 -m 2g -smp cpus=4 -no-shutdown -no-reboot -debugcon file:/dev/stdout -serial stdio -netdev user,id=net0 -device virtio-net,netdev=net0 -object filter-dump,id=f1,netdev=net0,file=netdump.dat
+QEMUFLAGS=\
+	-M q35 \
+	-m 2g \
+	-smp cpus=4 \
+	-no-shutdown \
+	-no-reboot \
+	-debugcon file:/dev/stdout \
+	-serial stdio \
+	-netdev user,id=net0 -device virtio-net,netdev=net0 \
+	-object filter-dump,id=f1,netdev=net0,file=netdump.dat
 QEMUISOFLAGS=-cdrom $(ISO)
 QEMUDISKFLAGS=-drive file=$(DISKNAME),if=none,id=nvme -device nvme,serial=deadc0ff,drive=nvme -boot order=dc
 QEMUIMGFLAGS=-drive file=$(IMG),if=none,id=usb -device nec-usb-xhci,id=xhci -device usb-storage,bus=xhci.0,drive=usb,removable=on
 INITRD=$(JINX_DIR)/initrds/initrd
 DISTROTYPE=full
+INITRDTYPE=minimal
 
 MINIMALPACKAGES=mlibc bash coreutils init distro-files vim nano mount shadow sudo xbps net-base neofetch
 
@@ -44,15 +54,15 @@ $(JINX_DIR)/.astral_ok: jinx
 iso: $(ISO)
 img: $(IMG)
 
-$(ISO): limine.conf liminebg.bmp $(KERNEL) $(INITRD)-$(DISTROTYPE)
+$(ISO): limine.conf liminebg.bmp $(KERNEL) $(INITRD)-$(INITRDTYPE)
 	mkdir -p $(ISODIR)
-	ln -f $(INITRD)-$(DISTROTYPE) $(ISODIR)/initrd
+	ln -f $(INITRD)-$(INITRDTYPE) $(ISODIR)/initrd
 	cp $(KERNEL) liminebg.bmp limine.conf $(LIMINEDIR)/limine-bios.sys $(LIMINEDIR)/limine-bios-cd.bin $(LIMINEDIR)/limine-uefi-cd.bin $(ISODIR)
 	xorriso -as mkisofs -b limine-bios-cd.bin -no-emul-boot -boot-load-size 4 -boot-info-table --efi-boot limine-uefi-cd.bin -efi-boot-part --efi-boot-image --protective-msdos-label $(ISODIR) -o $(ISO)
 
-$(IMG): limine.conf liminebg.bmp $(KERNEL) $(INITRD)-$(DISTROTYPE)
+$(IMG): limine.conf liminebg.bmp $(KERNEL) $(INITRD)-$(INITRDTYPE)
 	mkdir -p $(IMGDIR)/EFI/BOOT
-	ln -f $(INITRD)-$(DISTROTYPE) $(IMGDIR)/initrd
+	ln -f $(INITRD)-$(INITRDTYPE) $(IMGDIR)/initrd
 	cp $(KERNEL) liminebg.bmp limine.conf $(LIMINEDIR)/limine-bios.sys $(IMGDIR)
 	cp $(LIMINEDIR)/BOOTIA32.EFI $(IMGDIR)/EFI/BOOT
 	cp $(LIMINEDIR)/BOOTX64.EFI $(IMGDIR)/EFI/BOOT
@@ -90,8 +100,8 @@ $(INITRD)-minimal: distro-minimal
 
 initrd:
 	cd $(JINX_DIR) && \
-	rm $(INITRD)-$(DISTROTYPE) && \
-	make $(INITRD)-$(DISTROTYPE)
+	rm $(INITRD)-$(INITRDTYPE) && \
+	make $(INITRD)-$(INITRDTYPE)
 
 # ------ disk targets ------
 
