@@ -299,7 +299,7 @@ static void nvme_dpc(context_t *, dpcarg_t arg) {
 
 static void nvme_irq(isr_t *isr, context_t *context) {
 	queuepair_t *pair = isr->priv;
-	dpc_enqueue(&pair->dpc, nvme_dpc, pair);
+	dpc_enqueue(&pair->dpc, pair);
 }
 
 static isr_t *msixnewisrforqueue(queuepair_t *queuepair) {
@@ -458,6 +458,7 @@ static int createiosubqueue(nvmecontroller_t *controller, queuedesc_t *desc, siz
 }
 
 static void newioqueuepair(nvmecontroller_t *controller, queuepair_t *pair, int id) {
+	dpc_prepare(&pair->dpc, nvme_dpc);
 	__assert(createiocompqueue(controller, &pair->completion, QUEUEPAIR_ENTRY_COUNT, id, id, 0) == 0);
 	__assert(createiosubqueue(controller, &pair->submission, QUEUEPAIR_ENTRY_COUNT, id, id, 0) == 0);
 	pair->controller = controller;
@@ -812,6 +813,8 @@ static void initcontroller(pcienum_t *e) {
 	controller->adminqueue.completion.entrycount = PAGE_SIZE / sizeof(compentry_t);
 	controller->adminqueue.completion.doorbell = GET_DOORBELL(controller->bar0, 0, 1, controller->dbstride);
 	controller->adminqueue.completion.phase = 1;
+
+	dpc_prepare(&controller->adminqueue.dpc, nvme_dpc);
 
 	SPINLOCK_INIT(controller->adminqueue.lock);
 	SEMAPHORE_INIT(&controller->adminqueue.entrysem, QUEUEPAIR_ENTRY_COUNT);

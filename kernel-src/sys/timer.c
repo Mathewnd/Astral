@@ -60,7 +60,7 @@ static void timercheck(timer_t *timer) {
 		else
 			entry->fired = true;
 
-		dpc_enqueue(&entry->dpc, entry->fn, entry->arg);
+		dpc_enqueue(&entry->dpc, entry->arg);
 	}
 }
 
@@ -87,7 +87,7 @@ void timer_isr(timer_t *timer, context_t *context) {
 	else
 		oldentry->fired = true;
 
-	dpc_enqueue(&oldentry->dpc, oldentry->fn, oldentry->arg);
+	dpc_enqueue(&oldentry->dpc, oldentry->arg);
 
 	leave:
 	timercheck(timer);
@@ -143,9 +143,9 @@ void timer_insert(timer_t *timer, timerentry_t *entry, dpcfn_t fn, dpcarg_t arg,
 
 	memset(entry, 0, sizeof(timerentry_t));
 	entry->repeatus = repeating ? us : 0;
-	entry->fn = fn;
-	entry->arg = arg;
 	entry->fired = false;
+	entry->arg = arg;
+	dpc_prepare(&entry->dpc, fn);
 	insert(timer, entry, us);
 
 	if (timer->running) {

@@ -15,7 +15,8 @@ typedef struct _dpc_t {
 	dpcarg_t arg;
 } dpc_t;
 
-void dpc_enqueue(dpc_t *dpc, dpcfn_t, dpcarg_t);
+void dpc_prepare(dpc_t *dpc, dpcfn_t fn);
+void dpc_enqueue(dpc_t *dpc, dpcarg_t arg);
 void dpc_dequeue(dpc_t *dpc);
 void dpc_init();
 

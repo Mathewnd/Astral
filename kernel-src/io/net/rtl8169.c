@@ -152,10 +152,10 @@ static void rtl8169_isr(isr_t *self, context_t *) {
 		outw(dev->bar.address + REGISTER_IRQ_STATUS, status);
 
 		if (status & (REGISTER_IRQ_STATUS_TX_OK | REGISTER_IRQ_STATUS_TX_ERROR))
-			dpc_enqueue(&dev->tx_dpc, rtl8169_dpc_tx, dev);
+			dpc_enqueue(&dev->tx_dpc, dev);
 
 		if (status & (REGISTER_IRQ_STATUS_RX_OK | REGISTER_IRQ_STATUS_RX_ERROR))
-			dpc_enqueue(&dev->rx_dpc, rtl8169_dpc_rx, dev);
+			dpc_enqueue(&dev->rx_dpc, dev);
 
 		status = inw(dev->bar.address + REGISTER_IRQ_STATUS);
 	}
@@ -311,7 +311,7 @@ static void init_controller(pcienum_t *pci_enum) {
 
 	outb(pci_bar.address + REGISTER_COMMAND, REGISTER_COMMAND_TX_ENABLE);
 	outd(pci_bar.address + REGISTER_TX_CONFIG, REGISTER_TX_CONFIG_DMA_BURST_UNLIMITED | REGISTER_TX_CONFIG_IFG_NORMAL);
- 
+
 	outw(pci_bar.address + REGISTER_RX_MAX_SIZE, 1518);
 	// 128 * 0xc, enough for an ethernet MTU (while 0xb would be enough, the datasheet says that it must be larger than the max size)
 	outb(pci_bar.address + REGISTER_TX_MAX_SIZE, 0xc);
@@ -336,6 +336,9 @@ static void init_controller(pcienum_t *pci_enum) {
 	netdev->bar = pci_bar;
 	SEMAPHORE_INIT(&netdev->tx_semaphore, TX_DESCRIPTOR_COUNT);
 	SPINLOCK_INIT(netdev->tx_lock);
+
+	dpc_prepare(&netdev->tx_dpc, rtl8169_dpc_tx);
+	dpc_prepare(&netdev->rx_dpc, rtl8169_dpc_rx);
 
 	isr->priv = netdev;
 

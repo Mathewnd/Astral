@@ -54,7 +54,7 @@ static void rx_dpc(context_t *context, dpcarg_t arg) {
 
 static void rx_irq(isr_t *isr, context_t *context) {
 	vionetdev_t *netdev = isr->priv;
-	dpc_enqueue(&netdev->rxdpc, rx_dpc, netdev);
+	dpc_enqueue(&netdev->rxdpc, netdev);
 }
 
 static void tx_dpc(context_t *context, dpcarg_t arg) {
@@ -75,7 +75,7 @@ static void tx_dpc(context_t *context, dpcarg_t arg) {
 
 static void tx_irq(isr_t *isr, context_t *context) {
 	vionetdev_t *netdev = isr->priv;
-	dpc_enqueue(&netdev->txdpc, tx_dpc, netdev);
+	dpc_enqueue(&netdev->txdpc, netdev);
 }
 
 #define PREFIX_SIZE (sizeof(ethframe_t) + sizeof(vioframe_t))
@@ -178,6 +178,8 @@ int vionet_newdevice(viodevice_t *viodevice) {
 	netdev->netdev.allocdesc = vionet_allocdesc;
 	netdev->netdev.freedesc = vionet_freedesc;
 	__assert(hashtable_init(&netdev->netdev.arpcache, 30) == 0);
+	dpc_prepare(&netdev->rxdpc, rx_dpc);
+	dpc_prepare(&netdev->txdpc, tx_dpc);
 
 	// initialize queues
 	size_t rxsize = min(QUEUE_MAX_SIZE, virtio_queuesize(viodevice, 0));

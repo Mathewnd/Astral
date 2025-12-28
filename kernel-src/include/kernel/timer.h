@@ -11,9 +11,8 @@ typedef struct timerentry_t {
 	struct timerentry_t *next;
 	time_t absolutetick;
 	time_t repeatus;
-	dpcfn_t fn;
-	dpcarg_t arg;
 	dpc_t dpc;
+	dpcarg_t arg;
 	bool fired;
 } timerentry_t;
 
