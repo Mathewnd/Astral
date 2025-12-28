@@ -411,10 +411,9 @@ static int changemap(vmmspace_t *space, void *address, size_t size, bool free, i
 		size_t difference = (uintptr_t)RANGE_TOP(range) - (uintptr_t)address;
 		range->size -= difference;
 
-		rbtree = rbtree_successor(rbtree); // in case we insert a new mapping, get the next successor here already
-
 		if (free) {
 			destroyrange(range, range->size, difference, 0);
+			rbtree = rbtree_successor(rbtree);
 		} else {
 			// create a new range for the changes
 			new_range->start = (void *)((uintptr_t)range->start + range->size);
@@ -431,6 +430,9 @@ static int changemap(vmmspace_t *space, void *address, size_t size, bool free, i
 			}
 
 			insertrange(space, new_range);
+
+			rbtree = rbtree_successor(&new_range->rbtree_node);
+
 			new_range = allocrange();
 			if (new_range == NULL) {
 				error = ENOMEM;
