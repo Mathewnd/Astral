@@ -13,7 +13,7 @@ syscallret_t syscall_munmap(context_t *ctx, void *addr, size_t length) {
 		return ret;
 	}
 
-	if (length == 0 || length % PAGE_SIZE > 0) {
+	if (length == 0 || (uintptr_t)addr % PAGE_SIZE > 0) {
 		ret.errno = EINVAL;
 		return ret;
 	}
