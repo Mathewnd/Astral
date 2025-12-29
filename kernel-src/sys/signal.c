@@ -529,9 +529,8 @@ bool signal_check(struct thread_t *thread, context_t *context, bool syscall, uin
 				__assert(!"unsupported signal action");
 		}
 	} else {
-		// execute handler TODO THREAD_LOAD_CONTEXT
-		context_t old_context;
-		memcpy(&old_context, context, sizeof(old_context));
+		// execute handler
+		ARCH_CONTEXT_THREADSAVE(thread, context);
 
 		void *altstack = NULL;
 		// figure out the stack we will be running the signal handler in
