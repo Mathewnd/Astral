@@ -105,3 +105,19 @@ index 939925e..5ee7fad 100644
  	int sys_readv(int fd, const struct iovec *iovs, int iovc, ssize_t *bytes_read) {
  		long r;
  		int error = syscall(SYSCALL_READV, &r, fd, (uint64_t)iovs, iovc);
+diff --git mlibc-clean/sysdeps/astral/include/astral/archctl.h mlibc-workdir/sysdeps/astral/include/astral/archctl.h
+index 7e4f2a1..a5f382d 100644
+--- mlibc-clean/sysdeps/astral/include/astral/archctl.h
++++ mlibc-workdir/sysdeps/astral/include/astral/archctl.h
+@@ -5,6 +5,11 @@
+ #define ARCH_CTL_SET_FSBASE 1
+ #define ARCH_CTL_GET_GSBASE 2
+ #define ARCH_CTL_GET_FSBASE 3
++#define ARCH_CTL_SET_SYSTRACE 4
++
++#define ARCH_CTL_SYSTRACE_OFF 0
++#define ARCH_CTL_SYSTRACE_SELF 1
++#define ARCH_CTL_SYSTRACE_ALL 2
+ 
+ #ifdef __cplusplus
+ extern "C" {

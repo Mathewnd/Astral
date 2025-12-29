@@ -50,6 +50,9 @@ syscallret_t syscall_fork(context_t *ctx) {
 	nproc->root = proc_get_root();
 	nproc->cwd = proc_get_cwd();
 	nproc->threadlist = nthread;
+	if (proc->flags & PROC_FLAG_SYSTRACE && !(proc->flags & PROC_FLAG_SYSTRACE_SELF))
+		nproc->flags |= PROC_FLAG_SYSTRACE;
+
 	nthread->procnext = NULL;
 
 	ARCH_CONTEXT_THREADSAVE(nthread, ctx);

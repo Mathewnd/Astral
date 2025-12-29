@@ -1,0 +1,7 @@
+name=systrace
+version=0
+source_dir="tools/systrace"
+
+prepare() {
+	true
+}

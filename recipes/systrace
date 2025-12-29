@@ -1,0 +1,14 @@
+name=systrace
+revision=1
+from_source=systrace
+imagedeps="build-essential"
+hostdeps="xbinutils xgcc"
+deps="base"
+
+build() {
+	make -C ${source_dir} -j ${parallelism}
+}
+
+package() {
+	make -C ${source_dir} install PREFIX=${prefix} DESTDIR=${dest_dir}
+}

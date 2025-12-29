@@ -16,6 +16,9 @@
 #define PROC_STATE_NORMAL 0
 #define PROC_STATE_ZOMBIE 1
 
+#define PROC_FLAG_SYSTRACE (1 << 0)
+#define PROC_FLAG_SYSTRACE_SELF (1 << 1)
+
 typedef struct proc_t {
 	mutex_t mutex;
 	int refcount;
