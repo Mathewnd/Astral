@@ -167,8 +167,13 @@ time_t timer_remove(timer_t *timer, timerentry_t *entry) {
 	uintmax_t timeremaining = 0;
 
 	// if it had already fired by the time the lock was reached
-	if (entry->fired == true)
+	if (entry->fired == true) {
+		if (timer->running && timer->queue) {
+			timercheck(timer);
+			arm_for_next_target(timer);
+		}
 		goto cleanup;
+	}
 
 	timerentry_t *iterator = timer->queue;
 	timerentry_t *prev = NULL;
@@ -190,7 +195,7 @@ time_t timer_remove(timer_t *timer, timerentry_t *entry) {
 	// ALWAYS round up the time remaining
 	timeremaining = ROUND_UP(iterator->absolutetick - timer->tickcurrent, timer->ticksperus) / timer->ticksperus;
 
-	if (timer->queue) {
+	if (timer->queue && timer->running) {
 		timercheck(timer);
 		arm_for_next_target(timer);
 	}
