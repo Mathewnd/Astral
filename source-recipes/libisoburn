@@ -1,0 +1,10 @@
+name=libisoburn
+version=1.5.6
+source_method=tarball
+tarball_url="https://files.libburnia-project.org/releases/libisoburn-${version}.tar.gz"
+tarball_sha512=0fc0058aa4cf755f30d5be0de808012978c657348412c7f129b8f8128da41f18216f3e039050a5851b557ffab344cf7dc44df374400ca008e34e2e2524fbd979
+hostdeps="autoconf automake libtool pkgconfig libtool"
+
+prepare() {
+	autoreconf -fvi
+}

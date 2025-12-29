@@ -1,0 +1,18 @@
+name=libisoburn
+revision=1
+from_source=libisoburn
+imagedeps="build-essential"
+hostdeps="xgcc xbinutils pkgconfig libtool"
+deps="base libburn libisofs"
+
+configure() {
+	${source_dir}/configure --host=x86_64-astral --prefix=${prefix} --disable-static
+}
+
+build() {
+	make -j ${parallelism}
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+}
