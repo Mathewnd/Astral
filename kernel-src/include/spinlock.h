@@ -27,7 +27,7 @@ static inline bool spinlock_acquire_irq_clear(spinlock_t *lock) {
 }
 
 static inline void spinlock_release(spinlock_t *lock) {
-	*lock = 0;
+	__atomic_store_n(lock, 0, __ATOMIC_RELEASE);
 }
 
 static inline void spinlock_release_irq_restore(spinlock_t *lock, bool irqstate) {
