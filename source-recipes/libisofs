@@ -1,0 +1,10 @@
+name=libisofs
+version=1.5.6
+source_method=tarball
+tarball_url="https://files.libburnia-project.org/releases/libisofs-${version}.tar.gz"
+tarball_sha512=a5f573bbe9758e072fad195cc9beb672568273ddb993ece9c15585ad3f99efb0deae6fefb6d3d40b9712e73e3bc68869d79d923b2a09623d190f5dc84974d65f
+hostdeps="autoconf automake libtool pkgconfig libtool"
+
+prepare() {
+	autoreconf -fvi
+}
