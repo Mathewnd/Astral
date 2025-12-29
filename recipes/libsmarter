@@ -1,0 +1,18 @@
+name=libsmarter
+from_source=libsmarter
+revision=1
+hostdeps="xgcc xbinutils pkgconfig"
+imagedeps="meson ninja-build build-essential"
+
+configure() {
+        meson --cross-file ${base_dir}/util/crossfile --prefix=${prefix} ${source_dir} --includedir="share/mlibc-build/libsmarter/include"
+}
+
+build() {
+        ninja
+}
+
+package() {
+        DESTDIR=${dest_dir} ninja install
+}
+

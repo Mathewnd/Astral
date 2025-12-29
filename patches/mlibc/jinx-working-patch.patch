@@ -1,3 +1,23 @@
+diff --git mlibc-clean/options/ansi/generic/wchar.cpp mlibc-workdir/options/ansi/generic/wchar.cpp
+index b44ebc2..9339316 100644
+--- mlibc-clean/options/ansi/generic/wchar.cpp
++++ mlibc-workdir/options/ansi/generic/wchar.cpp
+@@ -54,8 +54,13 @@ size_t mbrlen(const char *__restrict mbs, size_t mb_limit, mbstate_t *__restrict
+ 
+ 	mlibc::code_seq<const char> nseq{mbs, mbs + mb_limit};
+ 	mlibc::code_seq<wchar_t> wseq{&wc, &wc + 1};
+-	if(auto e = cc->decode_wtranscode(nseq, wseq, *stp); e != mlibc::charcode_error::null)
+-		__ensure(!"decode_wtranscode() errors are not handled");
++	if(auto e = cc->decode_wtranscode(nseq, wseq, *stp); e != mlibc::charcode_error::null) {
++		if(e == mlibc::charcode_error::input_underflow)
++			return static_cast<size_t>(-1);
++		__ensure(e == mlibc::charcode_error::illegal_input);
++		errno = EILSEQ;
++		return static_cast<size_t>(-1);
++	}
+ 	return nseq.it - mbs;
+ }
+ 
 diff --git mlibc-clean/options/glibc/generic/execinfo.cpp mlibc-workdir/options/glibc/generic/execinfo.cpp
 index 1ed110d..ded9114 100644
 --- mlibc-clean/options/glibc/generic/execinfo.cpp

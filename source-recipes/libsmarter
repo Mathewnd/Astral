@@ -1,0 +1,9 @@
+name=libsmarter
+version=338cce63b22c85557c9274ad8ecfc8423a14024d
+source_method=tarball
+tarball_url="https://github.com/managarm/libsmarter/archive/${version}.tar.gz"
+tarball_sha512=1e890b46ede79f7b6ca765925173795a6e9d18f01337422b12a754db4c646856eb9ab6b0944d149a697cace0f5877d6d65eb6f904c2a619981226591241e5ae6
+
+prepare() {
+	true
+}
