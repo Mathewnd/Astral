@@ -529,8 +529,9 @@ bool signal_check(struct thread_t *thread, context_t *context, bool syscall, uin
 				__assert(!"unsupported signal action");
 		}
 	} else {
-		// execute handler
-		ARCH_CONTEXT_THREADSAVE(thread, context);
+		// execute handler TODO THREAD_LOAD_CONTEXT
+		context_t old_context;
+		memcpy(&old_context, context, sizeof(old_context));
 
 		void *altstack = NULL;
 		// figure out the stack we will be running the signal handler in
@@ -581,14 +582,6 @@ bool signal_check(struct thread_t *thread, context_t *context, bool syscall, uin
 		if (signal == SIGSEGV)
 			sigframe->siginfo.__si_fields.__sigfault.si_addr = (void *)CTX_TRAP_ADDR(context);
 
-		if (usercopy_touser(stack, sigframe, ARCH_SIGFRAME_SIZE)) {
-			printf("signal: bad user stack %p (altstack %p) handling signal %d trapno %lu\n", stack, altstack, signal, sigframe->mcontext.gregs[MCONTEXT_REG_TRAPNO]);
-			THREAD_LEAVE(thread);
-			PROCESS_LEAVE(proc);
-			interrupt_set(true);
-			proc_terminate(SIGSEGV);
-		}
-
 		// configure new thread signal mask
 		if ((action->flags & SA_NODEFER) == 0)
 			SIGNAL_SETON(&thread->signals.mask, signal);
@@ -613,6 +606,19 @@ bool signal_check(struct thread_t *thread, context_t *context, bool syscall, uin
 			memset(action, 0, sizeof(sigaction_t));
 
 		*need_context_switch = true;
+
+		THREAD_LEAVE(thread);
+		PROCESS_LEAVE(proc);
+		// copy the sigframe to the stack AFTER releasing the locks
+		// as it might take a page fault and result in sleeping while holding it
+		// and by this point, we don't need to hold it anymore
+		if (usercopy_touser(stack, sigframe, ARCH_SIGFRAME_SIZE)) {
+			printf("signal: bad user stack %p (altstack %p) handling signal %d trapno %lu\n", stack, altstack, signal, sigframe->mcontext.gregs[MCONTEXT_REG_TRAPNO]);
+			interrupt_set(true);
+			proc_terminate(SIGSEGV);
+		}
+
+		return retry;
 	}
 
 	leave:
