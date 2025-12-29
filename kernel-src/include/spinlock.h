@@ -4,19 +4,22 @@
 #include <stdbool.h>
 #include <kernel/interrupt.h>
 
-typedef int spinlock_t;
+typedef uintptr_t spinlock_t;
 
 #define SPINLOCK_INIT_VALUE 0
 #define SPINLOCK_INIT(x) x = SPINLOCK_INIT_VALUE
 #define SPINLOCK_DEFINE(x) spinlock_t x = SPINLOCK_INIT_VALUE
 
 static inline bool spinlock_try(spinlock_t *lock) {
-	return __sync_bool_compare_and_swap(lock, 0, 1);
+	spinlock_t expected = SPINLOCK_INIT_VALUE;
+	return __atomic_compare_exchange_n(lock, &expected, (uintptr_t)__builtin_return_address(0), false, __ATOMIC_ACQUIRE, __ATOMIC_RELAXED);
 }
 
 static inline void spinlock_acquire(spinlock_t *lock) {
-	while (!__sync_bool_compare_and_swap(lock, 0, 1)) {
+	spinlock_t expected = SPINLOCK_INIT_VALUE;
+	while (!__atomic_compare_exchange_n(lock, &expected, (uintptr_t)__builtin_return_address(0), false, __ATOMIC_ACQUIRE, __ATOMIC_RELAXED)) {
 		while (*lock) asm volatile ("pause" : : : "memory");
+		expected = SPINLOCK_INIT_VALUE;
 	}
 }
 
@@ -27,7 +30,7 @@ static inline bool spinlock_acquire_irq_clear(spinlock_t *lock) {
 }
 
 static inline void spinlock_release(spinlock_t *lock) {
-	*lock = 0;
+	__atomic_store_n(lock, 0, __ATOMIC_RELEASE);
 }
 
 static inline void spinlock_release_irq_restore(spinlock_t *lock, bool irqstate) {
