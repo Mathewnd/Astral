@@ -349,6 +349,7 @@ static int identify(nvmecontroller_t *controller, void *buffer, int what, int na
 	enqueueandwait(&controller->adminqueue, &pair);
 
 	memcpy(buffer, MAKE_HHDM(pair.sub.datapointer[0]), IDENTIFY_SIZE);
+	pmm_release((void *)pair.sub.datapointer[0]);
 	return COMP_CMDINFO_STATUS(pair.comp.cmdinfo) ? EIO : 0;
 }
 
