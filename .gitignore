@@ -30,6 +30,8 @@ tools/init/acpid
 tools/init/acpid.o
 tools/prof/astral-prof
 tools/prof/main.o
+tools/systrace/systrace
+tools/systrace/main.o
 initrds
 hdd.img
 netdump.dat
