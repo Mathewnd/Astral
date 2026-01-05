@@ -253,6 +253,7 @@ typedef struct nvmecontroller_t {
 	size_t paircount;
 	uintmax_t queueindex;
 	queuepair_t *ioqueues;
+	size_t max_transfer_size;
 } nvmecontroller_t;
 
 typedef struct {
@@ -260,6 +261,7 @@ typedef struct {
 	int id;
 	size_t blocksize;
 	size_t capacity;
+	size_t max_transfer_size_blocks;
 } nvmenamespace_t;
 
 #define CAP_COMMANDSET_NVM 1
@@ -504,52 +506,156 @@ static int iowrite(nvmenamespace_t *namespace, uint64_t prp[2], uint64_t lba, ui
 }
 
 #define PAGES_FLAGS (ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC)
+#define PAGES_IN_PRP_PAGE (PAGE_SIZE / sizeof(uint64_t))
+
+static void free_prps(uint64_t prp[2], bool has_list) {
+	pmm_release((void *)ROUND_DOWN(prp[0], PAGE_SIZE));
+	if (has_list) {
+		uint64_t *prp_list = (uint64_t *)prp[1];
+		for (int i = 0; prp_list[i] && i < PAGES_IN_PRP_PAGE; ++i)
+			pmm_release((void *)prp_list[i]);
+	}
+
+	if (prp[1])
+		pmm_release((void *)prp[1]);
+}
+
+// sets up prps based on an iovec iterator.
+// takes in the wanted block count and outputs an io_count for the i/o operation (for example, if it did not fit entirely on the prp)
+static int setup_prps(nvmenamespace_t *namespace, iovec_iterator_t *iovec_iterator, uint64_t prp[2], size_t count, size_t *io_count, bool *has_list) {
+	count = min(count, namespace->max_transfer_size_blocks);
+
+	// first page
+	void *page;
+	size_t page_offset, page_remaining;
+	int error = iovec_iterator_next_page(iovec_iterator, &page_offset, &page_remaining, &page);
+	if (error)
+		return error;
+	__assert(page);
+
+	// set up like here this for easier removal with free_prps later if nescessary
+	prp[0] = (uint64_t)page + page_offset;
+	prp[1] = 0;
+
+	// only accept block-aligned
+	if (page_remaining % namespace->blocksize) {
+		free_prps(prp, false);
+		return EINVAL;
+	}
+
+	size_t blocks_in_page = page_remaining / namespace->blocksize;
+	*io_count = blocks_in_page;
+
+	if (*io_count >= count) {
+		*has_list = false;
+		goto leave;
+	}
+
+	// second page
+	error = iovec_iterator_next_page(iovec_iterator, &page_offset, &page_remaining, &page);
+	if (error) {
+		free_prps(prp, false);
+		return error;
+	}
+	__assert(page);
+
+	prp[1] = (uint64_t)page;
+
+	// not page-aligned or size not a multiple of block size
+	if (page_offset || page_remaining % namespace->blocksize) {
+		free_prps(prp, false);
+		return EINVAL;
+	}
+
+	*io_count += page_remaining / namespace->blocksize;
+
+	if (*io_count >= count) {
+		*has_list = false;
+		goto leave;
+	}
+
+	// we have to allocate a proper prp list now
+	uint64_t *prp_list_phys = pmm_allocpage(PMM_SECTION_DEFAULT);
+	if (prp_list_phys == NULL) {
+		// out of memory, we'll have to make do with 2 pages
+		*has_list = false;
+		goto leave;
+	}
+	uint64_t *prp_list = MAKE_HHDM(prp_list_phys);
+
+	// copy the page we already had
+	prp_list[0] = prp[1];
+	prp[1] = (uint64_t)prp_list_phys;
+	*has_list = true;
+
+	// loop over the pages
+	for (int i = 1; i < PAGES_IN_PRP_PAGE; ++i) {
+		error = iovec_iterator_next_page(iovec_iterator, &page_offset, &page_remaining, &page);
+		if (error) {
+			prp_list[i] = 0;
+			free_prps(prp, true);
+			return error;
+		}
+		__assert(page);
+
+		// not page-aligned or size not a multiple of block size
+		if (page_offset || page_remaining % namespace->blocksize) {
+			prp_list[i] = 0;
+			free_prps(prp, true);
+			pmm_release(page);
+			return EINVAL;
+		}
+
+		prp_list[i] = (uint64_t)page;
+		*io_count += page_remaining / namespace->blocksize;
+
+		if (*io_count >= count) {
+			// add terminator
+			if (i + 1 != PAGES_IN_PRP_PAGE)
+				prp_list[i + 1] = 0;
+
+			goto leave;
+		}
+	}
+
+	leave:
+	// rewind overuse
+	if (*io_count > count) {
+		size_t iterator_offset = iovec_iterator_total_offset(iovec_iterator);
+		iterator_offset -= (*io_count - count) * namespace->blocksize;
+		iovec_iterator_set(iovec_iterator, iterator_offset);
+		*io_count = count;
+	}
+
+	return 0;
+}
 
 static int rwblocks(nvmenamespace_t *namespace, iovec_iterator_t *iovec_iterator, uintmax_t lba, size_t count, bool write) {
 	__assert(namespace->blocksize <= PAGE_SIZE);
 
-	int err = 0;
-
+	int error = 0;
 	uint64_t prp[2] = {0, 0};
+	size_t done = 0;
 
-	int done = 0;
-	while (done < count) {
-		void *page;
-		size_t page_offset, page_remaining;
-		err = iovec_iterator_next_page(iovec_iterator, &page_offset, &page_remaining, &page);
-		if (err)
+	for (;;) {
+		size_t io_count;
+		bool has_list;
+		error = setup_prps(namespace, iovec_iterator, prp, count, &io_count, &has_list);
+		if (error)
+			return error;
+
+		error = write ? iowrite(namespace, prp, lba + done, io_count) : ioread(namespace, prp, lba + done, io_count);
+
+		free_prps(prp, has_list);
+
+		if (error || io_count == count)
 			break;
 
-		// check that there is enough space to complete the write of this page
-		__assert(page);
-		__assert(page_remaining >= min((count - done) * namespace->blocksize, PAGE_SIZE));
-
-		// and that the space is aligned to the block size
-		__assert((page_remaining % namespace->blocksize) == 0);
-
-		size_t docount = page_remaining / namespace->blocksize;
-		docount = min(docount, count - done);
-
-		prp[0] = (uint64_t)page + page_offset;
-
-		err = write ? iowrite(namespace, prp, lba + done, docount) : ioread(namespace, prp, lba + done, docount);
-
-		pmm_release((void *)prp[0]);
-
-		// if we didnt use the whole space in the page, set the iterator back a bit
-		size_t diff_between_available_and_used = page_remaining - docount * namespace->blocksize;
-		if (diff_between_available_and_used) {
-			size_t iterator_offset = iovec_iterator_total_offset(iovec_iterator);
-			iovec_iterator_set(iovec_iterator, iterator_offset - diff_between_available_and_used);
-		}
-
-		if (err)
-			break;
-
-		done += docount;
+		done += io_count;
+		count -= io_count;
 	}
 
-	return err;
+	return error;
 }
 
 static int read(void *private, iovec_iterator_t *iovec_iterator, uintmax_t lba, size_t count) {
@@ -574,6 +680,8 @@ static void initnamespace(nvmecontroller_t *controller, int id) {
 
 	int lbaformat = namespaceid->lbaformattedsize & 0xf;
 	namespace->blocksize = 1 << namespaceid->lbaformat[lbaformat].lbadatasize;
+
+	namespace->max_transfer_size_blocks = controller->max_transfer_size / namespace->blocksize;
 
 	printf("nvme%lun%lu: %lu blocks with %lu bytes per block\n", controller->id, id, namespace->capacity, namespace->blocksize);
 
@@ -624,7 +732,8 @@ static void initcontroller(pcienum_t *e) {
 		return;
 	}
 
-	if (	(1 << (CAP_MINPAGESIZE(bar0->cap) + 12)) > PAGE_SIZE ||
+	size_t min_page_size = 1 << (CAP_MINPAGESIZE(bar0->cap) + 12);
+	if (	min_page_size > PAGE_SIZE ||
 		(1 << (CAP_MAXPAGESIZE(bar0->cap) + 12)) < PAGE_SIZE) {
 		printf("nvme: controller doesn't support the processor page size\n");
 	}
@@ -728,6 +837,8 @@ static void initcontroller(pcienum_t *e) {
 		free(controller);
 		return;
 	}
+
+	controller->max_transfer_size = controllerid->maxdatatransfer ? min_page_size * (1 << controllerid->maxdatatransfer) : SIZE_MAX;
 
 	++ctlrid;
 
