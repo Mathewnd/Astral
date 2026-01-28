@@ -135,15 +135,15 @@ void arch_apic_init_perf(void) {
 
 void arch_ioapic_setirq(uint8_t irq, uint8_t vector, uint8_t proc, bool masked) {
 	// default settings for ISA irqs
-	uint8_t polarity = 1; // active high
+	uint8_t polarity = 0; // active high
 	uint8_t trigger  = 0; // edge triggered
 	for (uintmax_t i = 0; i < override_count; ++i) {
 		struct acpi_madt_interrupt_source_override *override = getentry(ACPI_MADT_ENTRY_TYPE_INTERRUPT_SOURCE_OVERRIDE, i);
 		if (override->source != irq)
 			continue;
 
-		polarity = override->flags & 2 ? 1 : 0; // active low
-		trigger  = override->flags & 8 ? 1 : 0; // level triggered
+		polarity = ((override->flags & 0b11) == 0b11) ? 1 : 0; // active low : active high
+		trigger  = (((override->flags >> 2) & 0b11) == 0b11) ? 1 : 0; // level triggered : edge triggered
 		irq = override->gsi;
 		break;
 	}
