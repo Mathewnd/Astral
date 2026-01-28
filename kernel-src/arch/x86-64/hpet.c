@@ -109,7 +109,7 @@ static timekeeper_source_info_t *hpet_init(void) {
 
 	uint64_t capabilities = read64(HPET_REG_CAPS);
 	timekeeper_source_info.hz = 1000000000000000lu / HPET_CAP_FSPERTICK(capabilities);
-	printf("hpet%lu: %lu ticks per us (%lu hz)\n", table->number, timekeeper_source_info.hz, HPET_CAP_FSPERTICK(capabilities));
+	printf("hpet%lu: %lu hz\n", table->number, timekeeper_source_info.hz);
 	__assert(timekeeper_source_info.hz);
 
 	write64(HPET_REG_CONFIG, 0);
