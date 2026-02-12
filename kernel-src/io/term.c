@@ -13,13 +13,25 @@
 
 extern volatile struct limine_framebuffer_request fb_liminereq;
 static size_t xs, ys, fbxs, fbys;
+bool init_done;
 
+#ifdef TERM_EARLY_INIT
+static uint8_t bump[87300000]; // same defaults as flanterm's bump allocator
+static size_t bump_off;
+static void *internalalloc(size_t n) {
+	void *p = &bump[bump_off];
+	bump_off += n;
+	__assert(bump_off <= 87300000);
+	return p;
+}
+#else
 // TODO make more efficient. works for now
 static void *internalalloc(size_t n) {
 	void *addr = pmm_alloc(n / PAGE_SIZE + 1, PMM_SECTION_DEFAULT);
 	__assert(addr);
 	return MAKE_HHDM(addr);
 }
+#endif
 
 static struct flanterm_context *term_ctx;
 static mutex_t term_mutex;
@@ -46,6 +58,11 @@ static void noop(void *, size_t) {
 }
 
 void term_init() {
+	if (init_done)
+		return;
+
+	init_done = true;
+
 	__assert(fb_liminereq.response);
 	__assert(fb_liminereq.response->framebuffer_count);
 	struct limine_framebuffer *fb = fb_liminereq.response->framebuffers[0];

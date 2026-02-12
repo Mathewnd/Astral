@@ -6,6 +6,7 @@
 #include <kernel/devfs.h>
 #include <kernel/initrd.h>
 #include <kernel/scheduler.h>
+#include <kernel/term.h>
 
 static cpu_t bsp_cpu;
 
@@ -17,7 +18,12 @@ DEFINE_KERNEL_ARGUMENT(initrd, bool);
 
 void kernel_entry() {
 	cpu_set(&bsp_cpu);
+
+#ifdef TERM_EARLY_INIT
+	term_init();
+#else
 	logging_sethook(arch_early_log);
+#endif
 
 	kernel_arguments_parse();
 
