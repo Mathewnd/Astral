@@ -511,7 +511,7 @@ static int iowrite(nvmenamespace_t *namespace, uint64_t prp[2], uint64_t lba, ui
 static void free_prps(uint64_t prp[2], bool has_list) {
 	pmm_release((void *)ROUND_DOWN(prp[0], PAGE_SIZE));
 	if (has_list) {
-		uint64_t *prp_list = (uint64_t *)prp[1];
+		uint64_t *prp_list = MAKE_HHDM((uint64_t *)prp[1]);
 		for (int i = 0; prp_list[i] && i < PAGES_IN_PRP_PAGE; ++i)
 			pmm_release((void *)prp_list[i]);
 	}
