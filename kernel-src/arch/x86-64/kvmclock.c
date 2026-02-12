@@ -56,7 +56,7 @@ static timekeeper_source_info_t *kvm_timer_init(void) {
 
 	int page_offset = (uintptr_t)virtual_address % PAGE_SIZE;
 	void *virtual_page = (void *)((uintptr_t)virtual_address - page_offset);
-	void *physical_page = vmm_getphysical(virtual_page, false);
+	void *physical_page = vmm_getphysical(virtual_page, 0);
 	__assert(physical_page);
 
 	timekeeper_source_info->private = (void *)((uintptr_t)physical_page + page_offset);

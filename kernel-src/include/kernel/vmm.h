@@ -101,7 +101,10 @@ void vmm_unmap(void *addr, size_t size, int flags);
 bool vmm_pagefault(void *addr, bool user, int actions);
 vmmcontext_t *vmm_newcontext();
 void vmm_switchcontext(vmmcontext_t *ctx);
-void *vmm_getphysical(void *addr, bool hold);
+
+#define VMM_GET_PHYSICAL_FLAGS_HOLD 1
+#define VMM_GET_PHYSICAL_FLAGS_LOCK 2
+void *vmm_getphysical(void *addr, int flags);
 void vmm_apinit();
 void vmm_init();
 

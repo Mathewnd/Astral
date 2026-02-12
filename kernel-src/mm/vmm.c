@@ -694,7 +694,43 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 	return status;
 }
 
-void *vmm_getphysical(void *addr, bool hold) {
+/*
+static int lock_page(vmmspace_t *space, void *vaddr) {
+	vmmrange_t *range = getrange(space, vaddr);
+	if (!range)
+		return ENOENT;
+
+	void *mapped_address = arch_mmu_getphysical(current_vmm_context()->pagetable, vaddr);
+	bool present = arch_mmu_ispresent(current_vmm_context()->pagetable, vaddr);
+	bool writable = arch_mmu_iswritable(current_vmm_context()->pagetable, vaddr);
+	bool file_mapping = range->flags & VMM_FLAGS_FILE;
+	bool private = (range->flags & VMM_FLAGS_SHARED) == 0 || file_mapping == false;
+	void *real_phys;
+
+	// TODO anon with refcount == 1 can go into another cas
+	// TODO read-only permission checking for DMA
+	// TODO shared anonymous mappings are not handled properly by the kernel
+	if (present && writable == false && private)) {
+		// CoW cases (private mapping)
+		real_phys = pmm_allocpage(PMM_SECTION_DEFAULT);
+		if (real_phys == NULL)
+			return ENOMEM;
+
+		memcpy(MAKE_HHDM(real_phys), MAKE_HHDM(mapped_address), PAGE_SIZE);
+
+		arch_mmu_remap(current_vmm_context()->pagetable, real_phys, vaddr, range->mmuflags);
+		arch_mmu_invalidate_range(vaddr, PAGE_SIZE);
+		if (file_mapping == false || vfs_iscacheable(range->vnode))
+			pmm_release(mapped_address);
+	} else if (present == false && private) {
+		// not present private mapping case
+		real_phys = pmm_allocpage(PMM_SECTION_DEFAULT);
+		if (real_phys == NULL)
+	}
+}
+*/
+
+void *vmm_getphysical(void *addr, int flags) {
 	void *aligned_addr = (void *)ROUND_DOWN((uintptr_t)addr, PAGE_SIZE);
 
 	vmmspace_t *space = getspace(aligned_addr);
@@ -703,11 +739,19 @@ void *vmm_getphysical(void *addr, bool hold) {
 
 	MUTEX_ACQUIRE(&space->lock);
 
-	void *physical = arch_mmu_getphysical(current_vmm_context()->pagetable, aligned_addr);
+	void *physical;
+/*
+	if ((flags & VMM_GET_PHYSICAL_FLAGS_LOCK) && lock_page(space, aligned_addrr)) {
+		physical = NULL;
+		goto leave;
+	}*/
 
-	if (hold)
+	physical = arch_mmu_getphysical(current_vmm_context()->pagetable, aligned_addr);
+
+	if (flags & VMM_GET_PHYSICAL_FLAGS_HOLD)
 		pmm_hold(physical);
 
+	leave:
 	MUTEX_RELEASE(&space->lock);
 	return physical + ((uintptr_t)addr - (uintptr_t)aligned_addr);
 }

@@ -72,7 +72,7 @@ syscallret_t syscall_futex(context_t *, uint32_t *futexp, int op, uint32_t value
 	if (unlikely(ret.errno))
 		goto cleanup;
 
-	uint32_t *physical = vmm_getphysical(futexp, false);
+	uint32_t *physical = vmm_getphysical(futexp, 0);
 	futex_t *futex = getfutex(physical);
 
 	switch (op) {

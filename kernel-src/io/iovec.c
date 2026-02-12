@@ -245,7 +245,7 @@ int iovec_iterator_next_page(iovec_iterator_t *iovec_iterator, size_t *page_offs
 		return 0;
 	}
 
-	void *phys = vmm_getphysical((void *)((uintptr_t)addr - offset_in_page), true);
+	void *phys = vmm_getphysical((void *)((uintptr_t)addr - offset_in_page), VMM_GET_PHYSICAL_FLAGS_HOLD | VMM_GET_PHYSICAL_FLAGS_LOCK);
 	if (phys == NULL)
 		return EFAULT;
 
