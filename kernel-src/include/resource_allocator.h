@@ -4,7 +4,7 @@
 // simple FIFO allocator for an arbritary resource
 
 #include <kernel/scheduler.h>
-#include <mutex.h>
+#include <spinlock.h>
 
 // TODO move this to a proper dequeue abstraction
 typedef struct resource_allocator_waiter_t {
@@ -14,7 +14,7 @@ typedef struct resource_allocator_waiter_t {
 } resource_allocator_waiter_t;
 
 typedef struct {
-	mutex_t mutex;
+	spinlock_t spinlock; // a spinlock is used to allow freeing in an interrupt context
 	resource_allocator_waiter_t *queue;
 	resource_allocator_waiter_t *tail;
 	size_t resource_current;
@@ -22,7 +22,7 @@ typedef struct {
 } resource_allocator_t;
 
 void resource_allocator_init(resource_allocator_t *allocator, size_t resource_total, size_t allocate_max);
-void resource_allocate(resource_allocator_t *allocator, size_t count);
+size_t resource_allocate(resource_allocator_t *allocator, size_t count);
 void resource_free(resource_allocator_t *allocator, size_t count);
 
 #endif

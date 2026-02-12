@@ -18,14 +18,15 @@ static void pop(resource_allocator_t *allocator) {
 }
 
 void resource_allocator_init(resource_allocator_t *allocator, size_t resource_total, size_t allocate_max) {
-	MUTEX_INIT(&allocator->mutex);
+	SPINLOCK_INIT(allocator->spinlock);
 	allocator->queue = allocator->tail = NULL;
 	allocator->resource_current = resource_total;
 	allocator->allocate_max = allocate_max;
 }
 
-void resource_allocate(resource_allocator_t *allocator, size_t count) {
-	MUTEX_ACQUIRE(&allocator->mutex);
+size_t resource_allocate(resource_allocator_t *allocator, size_t count) {
+	count = min(allocator->allocate_max, count);
+	bool status = spinlock_acquire_irq_clear(&allocator->spinlock);
 
 	if (allocator->queue || allocator->resource_current < count) {
 		resource_allocator_waiter_t waiter = {
@@ -36,19 +37,19 @@ void resource_allocate(resource_allocator_t *allocator, size_t count) {
 
 		insert(allocator, &waiter);
 		sched_prepare_sleep(false);
-		MUTEX_RELEASE(&allocator->mutex);
+		spinlock_release(&allocator->spinlock);
 		sched_yield();
-		return;
+		return count;
 	}
 
 	allocator->resource_current -= count;
 	
-	MUTEX_RELEASE(&allocator->mutex);
+	spinlock_release_irq_restore(&allocator->spinlock, status);
+	return count;
 }
 
 void resource_free(resource_allocator_t *allocator, size_t count) {
-	count = min(allocator->allocate_max, count);
-	MUTEX_ACQUIRE(&allocator->mutex);
+	bool status = spinlock_acquire_irq_clear(&allocator->spinlock);
 
 	allocator->resource_current += count;
 
@@ -58,5 +59,5 @@ void resource_free(resource_allocator_t *allocator, size_t count) {
 		pop(allocator);
 	}
 	
-	MUTEX_RELEASE(&allocator->mutex);
+	spinlock_release_irq_restore(&allocator->spinlock, status);
 }
