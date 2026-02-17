@@ -341,6 +341,7 @@ static void init_controller(pcienum_t *pci_enum) {
 	netdev->netdev.sendpacket = rtl8169_sendpacket;
 	netdev->netdev.allocdesc = rtl8169_allocdesc;
 	netdev->netdev.freedesc = rtl8169_freedesc;
+	memcpy(&netdev->netdev.mac, &mac, sizeof(mac));
 	__assert(hashtable_init(&netdev->netdev.arpcache, 30) == 0);
 
 	netdev->tx_ring = tx_ring;
@@ -419,7 +420,8 @@ static void init_controller(pcienum_t *pci_enum) {
 }
 
 static int ids[] = {
-	0x8168
+	0x8168,
+	0x8169
 };
 
 void rtl8169_init() {
