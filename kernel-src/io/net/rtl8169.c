@@ -176,7 +176,7 @@ static int rtl8169_sendpacket(netdev_t *internal, netdesc_t desc, mac_t target, 
 
 	semaphore_wait(&netdev->tx_semaphore, false);
 
-	long ipl = spinlock_acquire_raise_ipl(&netdev->tx_lock, IPL_NET);
+	long ipl = spinlock_acquire_raise_ipl(&netdev->tx_lock, IPL_DPC);
 
 	netdev->tx_last = (netdev->tx_last + 1) % TX_DESCRIPTOR_COUNT;
 	descriptor_t *descriptor = &netdev->tx_ring[netdev->tx_last];
