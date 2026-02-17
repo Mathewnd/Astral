@@ -57,6 +57,8 @@
 
 #define DESCRIPTOR_OWN (1 << 15)
 #define DESCRIPTOR_EOR (1 << 14)
+#define DESCRIPTOR_FS (1 << 13)
+#define DESCRIPTOR_LS (1 << 12)
 
 typedef struct {
 	uint16_t length;
@@ -185,7 +187,7 @@ static int rtl8169_sendpacket(netdev_t *internal, netdesc_t desc, mac_t target, 
 	descriptor->addr_low = physical_address & 0xffffffff;
 	descriptor->addr_high = (physical_address >> 32) & 0xffffffff;
 	descriptor->length = desc.size;
-	descriptor->flags |= DESCRIPTOR_OWN;
+	descriptor->flags = (descriptor->flags & DESCRIPTOR_EOR) | DESCRIPTOR_OWN | DESCRIPTOR_FS | DESCRIPTOR_LS;;
 
 	netdev->tx_waiters[netdev->tx_last] = current_thread();
 
