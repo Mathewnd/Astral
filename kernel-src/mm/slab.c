@@ -18,11 +18,11 @@
 
 #define SLAB_DEBUG 0
 
-static slab_indirect_t *self_cache_indirect_table[32];
 static scache_t *self_cache;
 static scache_t *magazine_cache;
 static scache_t *slab_cache;
 static scache_t *indirect_cache;
+static scache_t *indirect_table_cache;
 
 static inline bool grow_cache(scache_t *cache) {
 	slab_t *slab;
@@ -387,16 +387,15 @@ void slab_free(scache_t *cache, void *addr) {
 
 #define MAGAZINE_SIZE 8
 
-static bool slab_initialize(scache_t *cache, size_t size, size_t alignment, bool (*ctor)(scache_t *, void *), void (*dtor)(scache_t *, void *), slab_indirect_t **indirect_table) {
+static bool slab_initialize(scache_t *cache, size_t size, size_t alignment, bool (*ctor)(scache_t *, void *), void (*dtor)(scache_t *, void *)) {
 	if (alignment == 0)
 		alignment = 8;
 
-	if (size >= SLAB_INDIRECT_CUTOFF && indirect_table == NULL) {
-		cache->indirect_table = alloc(sizeof(slab_indirect_t *) * 32);
+	if (size >= SLAB_INDIRECT_CUTOFF) {
+		cache->indirect_table = slab_allocate(indirect_table_cache);
 		if (cache->indirect_table == NULL)
 			return false;
-	} else if (size >= SLAB_INDIRECT_CUTOFF && indirect_table) {
-		cache->indirect_table = indirect_table;
+		memset(cache->indirect_table, 0, sizeof(slab_indirect_t *) * 32);
 	}
 
 	cache->size = size;
@@ -432,7 +431,7 @@ scache_t *slab_newcache(size_t size, size_t alignment, bool (*ctor)(scache_t *, 
 	if (cache == NULL)
 		return NULL;
 
-	if (!slab_initialize(cache, size, alignment, ctor, dtor, NULL)) {
+	if (!slab_initialize(cache, size, alignment, ctor, dtor)) {
 		slab_free(self_cache, cache);
 		return NULL;
 	}
@@ -455,11 +454,11 @@ static bool magazine_ctor(scache_t *, void *obj) {
 	return true;
 }
 
-static scache_t *create_new_from_vmm(size_t size, size_t alignment, bool (*ctor)(scache_t *, void *), void (*dtor)(scache_t *, void *), slab_indirect_t **table) {
+static scache_t *create_new_from_vmm(size_t size, size_t alignment, bool (*ctor)(scache_t *, void *), void (*dtor)(scache_t *, void *)) {
 	size_t cache_size = sizeof(scache_t) + sizeof(cache_per_cpu_t) * arch_smp_get_cpu_count();
 	scache_t *cache = vmm_map(NULL, cache_size, VMM_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, NULL);
 	__assert(cache);
-	__assert(slab_initialize(cache, size, alignment, ctor, dtor, table));
+	__assert(slab_initialize(cache, size, alignment, ctor, dtor));
 	return cache;
 }
 
@@ -467,11 +466,13 @@ static scache_t *create_new_from_vmm(size_t size, size_t alignment, bool (*ctor)
 void slab_init(void) {
 	size_t cache_size = sizeof(scache_t) + sizeof(cache_per_cpu_t) * arch_smp_get_cpu_count();
 	// the cache of caches needs for the slab and indirect caches to be up
-	slab_cache = create_new_from_vmm(sizeof(slab_t), 0, NULL, NULL, self_cache_indirect_table);
-	indirect_cache = create_new_from_vmm(sizeof(slab_indirect_t), 0, NULL, NULL, NULL);
-	self_cache = create_new_from_vmm(cache_size, 0, NULL, NULL, NULL);
+	slab_cache = create_new_from_vmm(sizeof(slab_t), 0, NULL, NULL);
+	indirect_cache = create_new_from_vmm(sizeof(slab_indirect_t), 0, NULL, NULL);
+	indirect_table_cache = create_new_from_vmm(sizeof(slab_indirect_t *) * 32, 0, NULL, NULL);
+	self_cache = create_new_from_vmm(cache_size, 0, NULL, NULL);
 
 	magazine_cache = slab_newcache(sizeof(magazine_t) + sizeof(void *) * MAGAZINE_SIZE, 0, magazine_ctor, NULL);
+	__assert(magazine_cache);
 }
 
 INIT_ROUTINE_DEFINE(slab, INIT_ROUTINE_FLAGS_NONE, slab_init, vmm);
