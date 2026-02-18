@@ -10,8 +10,8 @@
 
 #define REGISTER_MAC0 0x0
 #define REGISTER_MAC4 0x4
-#define REGISTER_RX_RING_LOW 0x20
-#define REGISTER_RX_RING_HIGH 0x24
+#define REGISTER_TX_RING_LOW 0x20
+#define REGISTER_TX_RING_HIGH 0x24
 #define REGISTER_COMMAND 0x37
 #define 	REGISTER_COMMAND_RX_ENABLE 4
 #define 	REGISTER_COMMAND_TX_ENABLE 8
@@ -39,8 +39,8 @@
 #define 	REGISTER_PHYAR_WRITE (1 << 31)
 #define REGISTER_RX_MAX_SIZE 0xda
 #define REGISTER_CCR 0xe0
-#define REGISTER_TX_RING_LOW 0xe4
-#define REGISTER_TX_RING_HIGH 0xe8
+#define REGISTER_RX_RING_LOW 0xe4
+#define REGISTER_RX_RING_HIGH 0xe8
 #define REGISTER_TX_MAX_SIZE 0xec
 
 #define PHY_BMCR 0
@@ -76,7 +76,7 @@ typedef struct {
 	dpc_t rx_dpc;
 	pcibar_t bar;
 	int tx_wait;
-	int tx_last;
+	int tx_next;
 	semaphore_t tx_semaphore;
 	int rx_next;
 	spinlock_t tx_lock;
@@ -113,10 +113,7 @@ static void rtl8169_dpc_tx(context_t *, dpcarg_t arg) {
 
 	spinlock_acquire(&dev->tx_lock);
 
-	do {
-		if (dev->tx_ring[dev->tx_wait].flags & DESCRIPTOR_OWN)
-			break;
-
+	while ((dev->tx_ring[dev->tx_wait].flags & DESCRIPTOR_OWN) == 0 && dev->tx_waiters[dev->tx_wait]) {
 		thread_t *thread = dev->tx_waiters[dev->tx_wait];
 		dev->tx_waiters[dev->tx_wait] = NULL;
 
@@ -124,7 +121,7 @@ static void rtl8169_dpc_tx(context_t *, dpcarg_t arg) {
 
 		semaphore_signal(&dev->tx_semaphore);
 		sched_wakeup(thread, SCHED_WAKEUP_REASON_NORMAL);
-	} while (dev->tx_wait != dev->tx_last);
+	}
 
 	spinlock_release(&dev->tx_lock);
 }
@@ -141,6 +138,7 @@ static void rtl8169_dpc_rx(context_t *, dpcarg_t arg) {
 		uint16_t eor = descriptor->flags & DESCRIPTOR_EOR;
 		descriptor->length = RX_BUFFER_SIZE;
 		descriptor->flags = eor | DESCRIPTOR_OWN;
+		descriptor->vlan = 0;
 
 		dev->rx_next = (dev->rx_next + 1) % RX_DESCRIPTOR_COUNT;
 	}
@@ -180,16 +178,17 @@ static int rtl8169_sendpacket(netdev_t *internal, netdesc_t desc, mac_t target, 
 
 	long ipl = spinlock_acquire_raise_ipl(&netdev->tx_lock, IPL_DPC);
 
-	netdev->tx_last = (netdev->tx_last + 1) % TX_DESCRIPTOR_COUNT;
-	descriptor_t *descriptor = &netdev->tx_ring[netdev->tx_last];
+	descriptor_t *descriptor = &netdev->tx_ring[netdev->tx_next];
 
 	uintptr_t physical_address = (uintptr_t)FROM_HHDM(desc.address);
 	descriptor->addr_low = physical_address & 0xffffffff;
 	descriptor->addr_high = (physical_address >> 32) & 0xffffffff;
 	descriptor->length = desc.size;
-	descriptor->flags = (descriptor->flags & DESCRIPTOR_EOR) | DESCRIPTOR_OWN | DESCRIPTOR_FS | DESCRIPTOR_LS;;
+	descriptor->flags = (descriptor->flags & DESCRIPTOR_EOR) | DESCRIPTOR_OWN | DESCRIPTOR_FS | DESCRIPTOR_LS;
+	descriptor->vlan = 0;
 
-	netdev->tx_waiters[netdev->tx_last] = current_thread();
+	netdev->tx_waiters[netdev->tx_next] = current_thread();
+	netdev->tx_next = (netdev->tx_next + 1) % TX_DESCRIPTOR_COUNT;
 
 	outb(netdev->bar.address + REGISTER_TRANSMIT_PRIORITY_POLLING, REGISTER_TRANSMIT_PRIORITY_POLLING_NORMAL);
 
@@ -234,18 +233,12 @@ static void init_controller(pcienum_t *pci_enum) {
 	pcibar_t pci_bar = pci_getbar(pci_enum, 0);
 	__assert(!pci_bar.mmio);
 
-	size_t int_count;
-	if (pci_enum->msix.exists) {
-		int_count = pci_initmsix(pci_enum);
-	} else if (pci_enum->msi.exists) {
-		printf("rtl8169: driver only supports msi-x currently\n");
-		return;
+	if (pci_enum->msi.exists) {
+		pci_initmsi(pci_enum, 1);
 	} else {
 		printf("rtl8169: no support for msi-x or msi\n");
 		return;
 	}
-
-	__assert(int_count);
 
 	// according to the spec, the order of initialization is:
 	// 1. C+CR
@@ -330,8 +323,7 @@ static void init_controller(pcienum_t *pci_enum) {
 
 	isr_t *isr = interrupt_allocate(rtl8169_isr, ARCH_EOI, IPL_NET);
 	__assert(isr);
-	pci_msixadd(pci_enum, 0, INTERRUPT_IDTOVECTOR(isr->id), 1, 0);
-	pci_msixsetmask(pci_enum, 0);
+	pci_msisetbase(pci_enum, INTERRUPT_IDTOVECTOR(isr->id), 1, 0);
 	outw(pci_bar.address + REGISTER_IRQ_MASK, REGISTER_IRQ_MASK_RX_OK | REGISTER_IRQ_MASK_TX_OK | REGISTER_IRQ_MASK_TX_ERROR | REGISTER_IRQ_MASK_RX_ERROR);
 
 	// register in netdev infrastructure
@@ -347,7 +339,6 @@ static void init_controller(pcienum_t *pci_enum) {
 	netdev->tx_ring = tx_ring;
 	netdev->rx_ring = rx_ring;
 	netdev->bar = pci_bar;
-	netdev->tx_last = -1;
 	SEMAPHORE_INIT(&netdev->tx_semaphore, TX_DESCRIPTOR_COUNT);
 	SPINLOCK_INIT(netdev->tx_lock);
 
