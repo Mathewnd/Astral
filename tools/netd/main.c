@@ -15,6 +15,7 @@
 #include <net/route.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <time.h>
 
 #ifndef SIOCADDRT
 	#define SIOCADDRT	0x890B
@@ -28,7 +29,6 @@
 #define DHCPHDR_HTYPE_ETH 1
 #define DHCPHDR_HLEN_ETH 6
 #define DHCPHDR_COOKIE 0x63825363
-#define DHCPHDR_XID 0x12345678
 
 #define DHCP_CLIENT_PORT 68
 #define DHCP_SERVER_PORT 67
@@ -78,6 +78,7 @@ static uint8_t discoveropts[] = {
 typedef struct {
 	dhcphdr_t hdr;
 	uint8_t opts[sizeof(discoveropts)];
+	uint8_t padding[300 - sizeof(dhcphdr_t) - sizeof(discoveropts)];
 } __attribute__((packed)) dhcpdiscover_t;
 
 typedef struct {
@@ -97,6 +98,7 @@ typedef struct {
 typedef struct {
 	dhcphdr_t hdr;
 	requestopts_t opts;
+	uint8_t padding[300 - sizeof(dhcphdr_t) - sizeof(requestopts_t)];
 } __attribute__((packed)) dhcprequest_t;
 
 typedef struct {
@@ -107,6 +109,8 @@ typedef struct {
 static char *name;
 static int sockfd;
 static uint8_t hwaddr[DHCPHDR_HLEN_ETH];
+static uint32_t xid;
+static time_t discoverstart;
 
 static void usage() {
 	fprintf(stderr, "%s: usage: %s device\n", name, name);
@@ -184,7 +188,9 @@ static int discover() {
 	packet.hdr.op = DHCPHDR_TYPE_CLIENT;
 	packet.hdr.htype = DHCPHDR_HTYPE_ETH;
 	packet.hdr.hlen = DHCPHDR_HLEN_ETH;
-	packet.hdr.xid = htonl(DHCPHDR_XID);
+	packet.hdr.xid = htonl(xid);
+	packet.hdr.secs = htons((uint16_t)(time(NULL) - discoverstart));
+	packet.hdr.flags = htons(0x8000);
 	memcpy(packet.hdr.clienthw, hwaddr, DHCPHDR_HLEN_ETH);
 	packet.hdr.cookie = htonl(DHCPHDR_COOKIE);
 
@@ -302,9 +308,9 @@ static int request(offer_t *offer) {
 	packet.hdr.op = DHCPHDR_TYPE_CLIENT;
 	packet.hdr.htype = DHCPHDR_HTYPE_ETH;
 	packet.hdr.hlen = DHCPHDR_HLEN_ETH;
-	packet.hdr.xid = htonl(DHCPHDR_XID);
-	packet.hdr.clientip = htonl(offer->clientip);
-	packet.hdr.serverip = htonl(offer->serverip);
+	packet.hdr.xid = htonl(xid);
+	packet.hdr.secs = htons((uint16_t)(time(NULL) - discoverstart));
+	packet.hdr.flags = htons(0x8000);
 	memcpy(packet.hdr.clienthw, hwaddr, DHCPHDR_HLEN_ETH);
 	packet.hdr.cookie = htonl(DHCPHDR_COOKIE);
 
@@ -465,6 +471,10 @@ int main(int argc, char *argv[]) {
 	if (getdevicehwaddr(argv[1]))
 		return EXIT_FAILURE;
 
+	srand(time(NULL));
+	xid = ((uint32_t)rand() << 16) ^ (uint32_t)rand();
+	discoverstart = time(NULL);
+
 	offer_t offer;
 
 	bool gotoffer = false;
@@ -477,13 +487,13 @@ int main(int argc, char *argv[]) {
 			if (waitforserver(10000))
 				break;
 
-			uint32_t xid;
+			uint32_t rxid;
 
-			if (processoffer(&offer, &xid))
+			if (processoffer(&offer, &rxid))
 				return EXIT_FAILURE;
 
 			// packet wasn't for this machine
-			if (xid != DHCPHDR_XID)
+			if (rxid != xid)
 				continue;
 
 			gotoffer = true;
@@ -499,12 +509,12 @@ int main(int argc, char *argv[]) {
 			if (waitforserver(10000))
 				break;
 
-			uint32_t xid;
+			uint32_t rxid;
 
-			if (getack(&xid))
+			if (getack(&rxid))
 				return EXIT_FAILURE;
 
-			if (xid != DHCPHDR_XID)
+			if (rxid != xid)
 				continue;
 
 			gotack = true;
