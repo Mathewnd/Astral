@@ -1,0 +1,5 @@
+name=irssi
+version=1.4.5
+source_method=tarball
+tarball_url="https://github.com/irssi/irssi/releases/download/${version}/irssi-${version}.tar.gz"
+tarball_sha512="6569dc786e31f0a9b62a2adf9235b3d168bbf2684a79b7666baacdea3c8e82397c0b2b708cc6e29438d2158d4b323f2de1643794d6a4ed92423dda81800955cf"
