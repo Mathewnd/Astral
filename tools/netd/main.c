@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -16,6 +17,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <time.h>
+#include <limits.h>
 
 #ifndef SIOCADDRT
 	#define SIOCADDRT	0x890B
@@ -61,6 +63,12 @@ typedef struct {
 #define OPTION_REQUEST 55
 #define OPTION_REQUEST_LENGTH 3
 
+#define OPTION_CLIENT_ID 61
+#define OPTION_CLIENT_ID_LENGTH 7
+
+#define OPTION_HOSTNAME 12
+#define OPTION_HOSTNAME_LENGTH 64
+
 #define OPTION_MASK 1
 #define OPTION_ROUTER 3
 #define OPTION_DNS 6
@@ -69,16 +77,23 @@ typedef struct {
 #define OPTION_SERVER 54
 #define OPTION_END 0xff
 
+#define DISCOVEROPTS_OFFSET_CLIENT_ID 11
+#define DISCOVEROPTS_OFFSET_HOSTNAME 19
+
 static uint8_t discoveropts[] = {
 	OPTION_TYPE, OPTION_TYPE_LENGTH, OPTION_TYPE_DHCPDISCOVER,
 	OPTION_REQUEST, OPTION_REQUEST_LENGTH, OPTION_MASK, OPTION_ROUTER, OPTION_DNS,
-	0xff
+	OPTION_CLIENT_ID, OPTION_CLIENT_ID_LENGTH, 1, 0, 0, 0, 0, 0, 0,
+	OPTION_HOSTNAME, OPTION_HOSTNAME_LENGTH, 
+	// 64 bytes for hostname
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	OPTION_END
 };
 
 typedef struct {
 	dhcphdr_t hdr;
 	uint8_t opts[sizeof(discoveropts)];
-	uint8_t padding[300 - sizeof(dhcphdr_t) - sizeof(discoveropts)];
 } __attribute__((packed)) dhcpdiscover_t;
 
 typedef struct {
@@ -92,13 +107,19 @@ typedef struct {
 	uint32_t ipreq;
 	uint8_t dhcpserverhdr[2];
 	uint32_t dhcpserver;
+	uint8_t userid;
+	uint8_t useridlen;
+	uint8_t useridtype;
+	uint8_t useridhwaddr[6];
+	uint8_t hn;
+	uint8_t hnlen;
+	uint8_t hndata[64];
 	uint8_t end;
 } __attribute__((packed)) requestopts_t;
 
 typedef struct {
 	dhcphdr_t hdr;
 	requestopts_t opts;
-	uint8_t padding[300 - sizeof(dhcphdr_t) - sizeof(requestopts_t)];
 } __attribute__((packed)) dhcprequest_t;
 
 typedef struct {
@@ -323,6 +344,13 @@ static int request(offer_t *offer) {
 	packet.opts.dhcpserverhdr[0] = OPTION_SERVER;
 	packet.opts.dhcpserverhdr[1] = 4;
 	packet.opts.dhcpserver = htonl(offer->serverip);
+	packet.opts.userid = OPTION_CLIENT_ID;
+	packet.opts.useridlen = OPTION_CLIENT_ID_LENGTH;
+	packet.opts.useridtype = 1;
+	memcpy(packet.opts.useridhwaddr, hwaddr, 6);
+	packet.opts.hn = OPTION_HOSTNAME;
+	gethostname(packet.opts.hndata, 64);
+	packet.opts.hnlen = packet.opts.hndata[63] ? 64 : strlen(packet.opts.hndata);
 	packet.opts.end = 0xff;
 
 	// broadcast address
@@ -475,26 +503,38 @@ int main(int argc, char *argv[]) {
 	xid = ((uint32_t)rand() << 16) ^ (uint32_t)rand();
 	discoverstart = time(NULL);
 
+	memcpy(&discoveropts[DISCOVEROPTS_OFFSET_CLIENT_ID], hwaddr, 6);
+	gethostname(&discoveropts[DISCOVEROPTS_OFFSET_HOSTNAME], 64);
+	if (discoveropts[DISCOVEROPTS_OFFSET_HOSTNAME + 63] == '\0')
+		discoveropts[DISCOVEROPTS_OFFSET_HOSTNAME - 1] = strlen(&discoveropts[DISCOVEROPTS_OFFSET_HOSTNAME]);
+
 	offer_t offer;
 
 	bool gotoffer = false;
 
 	while (gotoffer == false) {
+		printf("sending discover...\n");
 		if (discover())
 			return EXIT_FAILURE;
 
+		printf("waiting for offer...\n");
 		while (gotoffer == false) {
 			if (waitforserver(10000))
 				break;
+			printf("got offer!\n");
 
 			uint32_t rxid;
 
 			if (processoffer(&offer, &rxid))
 				return EXIT_FAILURE;
 
+			printf("processed offer!\n");
+
 			// packet wasn't for this machine
 			if (rxid != xid)
 				continue;
+
+			printf("packet id ok\n");
 
 			gotoffer = true;
 		}
@@ -502,21 +542,26 @@ int main(int argc, char *argv[]) {
 
 	bool gotack = false;
 	while (gotack == false) {
+		printf("sending request...\n");
 		if (request(&offer))
 			return EXIT_FAILURE;
 
+		printf("waiting for ack...\n");
 		while (gotack == false) {
 			if (waitforserver(10000))
 				break;
 
 			uint32_t rxid;
 
+			printf("got ack\n");
 			if (getack(&rxid))
 				return EXIT_FAILURE;
 
+			printf("ack ok\n");
 			if (rxid != xid)
 				continue;
 
+			printf("ack id ok\n");
 			gotack = true;
 		}
 	}
