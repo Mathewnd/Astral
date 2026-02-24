@@ -155,7 +155,7 @@ void timekeeper_early_init(void) {
 	current_cpu()->timekeeper_source = early_source;
 
 	printf("cpu%d: timekeeper: \"%s\" selected as early source. %lu ticks at early init (%lu hz)\n",
-			current_cpu_id(), early_source->name, current_cpu()->timekeeper_source_base_ticks, early_source_info->hz);
+			current_cpu_internal_id(), early_source->name, current_cpu()->timekeeper_source_base_ticks, early_source_info->hz);
 }
 
 INIT_ROUTINE_DEFINE(timekeeper_early, INIT_ROUTINE_FLAGS_NONE, timekeeper_early_init, arch_irq);
@@ -169,7 +169,7 @@ void timekeeper_init(void) {
 	timekeeper_source_t *new_source = get_source(old_source->priority, false);
 	if (new_source == old_source || new_source == NULL) {
 		// there is no better source in the system available than the current one
-		printf("cpu%d: timekeeper: keeping early source as main source\n", current_cpu_id());
+		printf("cpu%d: timekeeper: keeping early source as main source\n", current_cpu_internal_id());
 		return;
 	}
 
@@ -196,7 +196,7 @@ void timekeeper_init(void) {
 	interrupt_loweripl(old_ipl);
 
 	printf("cpu%d: timekeeper: \"%s\" selected as main source. %lu ticks at init (%lu hz)\n",
-			current_cpu_id(), new_source->name, current_cpu()->timekeeper_source_base_ticks, new_source_info->hz);
+			current_cpu_internal_id(), new_source->name, current_cpu()->timekeeper_source_base_ticks, new_source_info->hz);
 }
 
 INIT_ROUTINE_DEFINE(timekeeper, INIT_ROUTINE_FLAGS_NONE, timekeeper_init, scheduler);
