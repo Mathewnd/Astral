@@ -151,19 +151,13 @@ static void rtl8169_isr(isr_t *self, context_t *) {
 	if (!status)
 		return;
 
-	uint16_t clear = 0;
-
-	if (status & (REGISTER_IRQ_STATUS_TX_OK | REGISTER_IRQ_STATUS_TX_ERROR)) {
+	if (status & (REGISTER_IRQ_STATUS_TX_OK | REGISTER_IRQ_STATUS_TX_ERROR))
 		dpc_enqueue(&dev->tx_dpc, rtl8169_dpc_tx, dev);
-		clear |= REGISTER_IRQ_STATUS_TX_OK | REGISTER_IRQ_STATUS_TX_ERROR;
-	}
 
-	if (status & (REGISTER_IRQ_STATUS_RX_OK | REGISTER_IRQ_STATUS_RX_ERROR)) {
+	if (status & (REGISTER_IRQ_STATUS_RX_OK | REGISTER_IRQ_STATUS_RX_ERROR))
 		dpc_enqueue(&dev->rx_dpc, rtl8169_dpc_rx, dev);
-		clear |= REGISTER_IRQ_STATUS_RX_OK | REGISTER_IRQ_STATUS_RX_ERROR;
-	}
 
-	outw(dev->bar.address + REGISTER_IRQ_STATUS, clear);
+	outw(dev->bar.address + REGISTER_IRQ_STATUS, status);
 }
 
 static int rtl8169_sendpacket(netdev_t *internal, netdesc_t desc, mac_t target, int proto) {
@@ -184,8 +178,8 @@ static int rtl8169_sendpacket(netdev_t *internal, netdesc_t desc, mac_t target, 
 	descriptor->addr_low = physical_address & 0xffffffff;
 	descriptor->addr_high = (physical_address >> 32) & 0xffffffff;
 	descriptor->length = desc.size;
-	descriptor->flags = (descriptor->flags & DESCRIPTOR_EOR) | DESCRIPTOR_OWN | DESCRIPTOR_FS | DESCRIPTOR_LS;
 	descriptor->vlan = 0;
+	descriptor->flags = (descriptor->flags & DESCRIPTOR_EOR) | DESCRIPTOR_OWN | DESCRIPTOR_FS | DESCRIPTOR_LS;
 
 	netdev->tx_waiters[netdev->tx_next] = current_thread();
 	netdev->tx_next = (netdev->tx_next + 1) % TX_DESCRIPTOR_COUNT;
