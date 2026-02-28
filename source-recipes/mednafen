@@ -1,0 +1,10 @@
+name=mednafen
+version=1.32.1
+source_method=tarball
+tarball_url="https://mednafen.github.io/releases/files/mednafen-${version}.tar.xz"
+tarball_sha512=5a99c62561823ba9a59d4dfd3b454f87989c83b873f61d8d25e44af7e8fbf25a7513d26c7566672538a62aac400281f611f2db943e88fe839cd05d088087f8d9
+hostdeps="autoconf automake libtool pkgconfig"
+
+prepare() {
+        autoreconf -fvi
+}

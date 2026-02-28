@@ -1,0 +1,18 @@
+name=mednafen
+revision=1
+from_source=mednafen
+imagedeps="build-essential"
+hostdeps="xgcc xbinutils autoconf automake libtool pkgconfig libstdc++-v3"
+deps="base sdl2 zlib"
+
+configure() {
+	${source_dir}/configure --disable-alsa --prefix=/usr --host=x86_64-astral --without-libflac
+}
+
+build() {
+	make -j${parallelism} 
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+}
