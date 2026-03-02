@@ -19,7 +19,7 @@ typedef struct {
 	uint32_t bohc; // BIOS/OS handoff control and status
 } __attribute__((packed)) ghc_t;
 
-#define CAP_NCS(x) ((((x) >> 8) & 0x1f) - 1)
+#define CAP_NCS(x) ((((x) >> 8) & 0x1f) + 1)
 #define CAP_64BIT (1 << 31)
 
 #define GHC_IE 2
@@ -71,7 +71,7 @@ typedef struct {
 
 #define IE_D2H 1
 #define IE_IFE (1 << 27)
-#define IE_HBDE (1 < 28)
+#define IE_HBDE (1 << 28)
 #define IE_HBFE (1 << 29)
 #define IE_TFE (1 << 30)
 
@@ -295,7 +295,7 @@ static int setup_prdt(iovec_iterator_t *iterator, command_table_t *command_table
 	int err;
 	size_t block_done = 0;
 	size_t prdt_done = 0;
-	while (block_done < *requested_size || prdt_done >= PRDTL_LIMIT) {
+	while (block_done < *requested_size && prdt_done < PRDTL_LIMIT) {
 		void *page;
 		size_t page_offset, page_remaining;
 		err = iovec_iterator_next_page(iterator, &page_offset, &page_remaining, &page);
@@ -420,8 +420,8 @@ static void init_port(ahci_t *ahci, int port) {
 		return;
 	}
 
-	ahci->port_data[port]->sector_count = identify->lba48_size[0] | (identify->lba48_size[1] << 16) | 
-				(identify->lba48_size[2] << 16) | (identify->lba48_size[3] << 16);
+	ahci->port_data[port]->sector_count = (uint64_t)identify->lba48_size[0] | ((uint64_t)identify->lba48_size[1] << 16) | 
+				((uint64_t)identify->lba48_size[2] << 32) | ((uint64_t)identify->lba48_size[3] << 48);
 
 	printf("ahci%dp%d: ATA drive with %lu sectors\n", ahci->id, port, ahci->port_data[port]->sector_count);
 
