@@ -75,15 +75,6 @@ typedef struct {
 #define IE_HBFE (1 << 29)
 #define IE_TFE (1 << 30)
 
-typedef struct {
-	uint16_t flags;
-	uint16_t prdtl;
-	uint32_t prdbc;
-	uint32_t addr_lo;
-	uint32_t addr_high;
-	uint32_t reserved[4];
-} __attribute__((packed)) command_list;
-
 #define FIS_TYPE_H2D 0x27
 
 typedef struct {
@@ -183,15 +174,15 @@ void ahci_dpc(context_t *, dpcarg_t arg) {
 	if (error_happened) {
 		// an error happened, restart the port and notify last waiter
 		uint32_t ci = port_data->ahci->ports[port].ci;
-		port_data->ahci->ports[port].cmd &= ~CMD_ST;
-		while (port_data->ahci->ports[port].cmd & CMD_CR) CPU_PAUSE();
+		port_data->ahci->ports[port].cmd &= ~(CMD_ST | CMD_FRE);
+		while (port_data->ahci->ports[port].cmd & (CMD_CR | CMD_FR)) CPU_PAUSE();
 		port_data->ahci->ports[port].serr = port_data->ahci->ports[port].serr;
-		__assert((port_data->ahci->ports[port].tfd & (TFD_BSY | TFD_DRQ)) == 0);
+		__assert((port_data->ahci->ports[port].tfd & (TFD_BSY | TFD_DRQ)) == 0); // handling this is a TODO
 
 		// find errored out slot
 		for (
 		    error_slot = port_data->command_waiting;
-		    (port_data->ahci->ports[port].ci & (1 << error_slot)) == 0;
+		    (ci & (1 << error_slot)) == 0;
 		    error_slot = (error_slot + 1) % cmd_slots
 		    );
 
@@ -199,7 +190,10 @@ void ahci_dpc(context_t *, dpcarg_t arg) {
 		ci &= ~(1 << error_slot);
 
 		// enable command processing again
+		port_data->ahci->ports[port].cmd |= CMD_FRE;
+		while ((port_data->ahci->ports[port].cmd & CMD_FR) == 0) CPU_PAUSE();
 		port_data->ahci->ports[port].cmd |= CMD_ST;
+		while ((port_data->ahci->ports[port].cmd & CMD_CR) == 0) CPU_PAUSE();
 
 		// resend commands
 		for (int slot = port_data->command_waiting; port_data->waiters[slot]; slot = (slot + 1) % cmd_slots) {
@@ -232,6 +226,9 @@ void ahci_isr(isr_t *isr, context_t *) {
 		return;
 
 	for (int i = __builtin_ctz(ports_pending); ports_pending; i = __builtin_ctz(ports_pending)) {
+		if (ahci->port_data[i] == NULL)
+			continue;
+
 		dpc_enqueue(&ahci->port_data[i]->dpc, ahci_dpc, ahci->port_data[i]);
 
 		ports_pending &= ~(1 << i);
@@ -309,11 +306,10 @@ static int setup_prdt(iovec_iterator_t *iterator, command_table_t *command_table
 			return EINVAL;
 		}
 
-		command_table->prdt[prdt_done].base_low = (uintptr_t)page & 0xffffffff;
-		command_table->prdt[prdt_done].base_high = ((uintptr_t)page >> 32) & 0xffffffff;
-		command_table->prdt[prdt_done].byte_count_and_flags = page_remaining - 1;
-
 		size_t blocks_in_page = min(page_remaining / 512, *requested_size - block_done);
+		command_table->prdt[prdt_done].base_low = ((uintptr_t)page + page_offset) & 0xffffffff;
+		command_table->prdt[prdt_done].base_high = (((uintptr_t)page + page_offset) >> 32) & 0xffffffff;
+		command_table->prdt[prdt_done].byte_count_and_flags = blocks_in_page * 512 - 1;
 
 		// if we didnt use the whole space in the page, set the iterator back a bit
 		size_t diff_between_available_and_used = page_remaining - blocks_in_page * 512;
@@ -452,12 +448,10 @@ static void init_controller(pcienum_t *pci_enum) {
 	pcibar_t pci_bar = pci_getbar(pci_enum, 5);
 	__assert(pci_bar.mmio);
 
-	if (pci_enum->msix.exists) {
-		pci_initmsix(pci_enum);
-	} else if (pci_enum->msi.exists) {
+	if (pci_enum->msi.exists) {
 		pci_initmsi(pci_enum, 1);
 	} else {
-		printf("ahci: no support for msi-x or msi\n");
+		printf("ahci: no support for msi\n");
 		return;
 	}
 
@@ -587,7 +581,7 @@ static void init_controller(pcienum_t *pci_enum) {
 
 		// mask all irqs and clear irq status
 		ahci->ports[i].ie = 0;
-		ahci->ports[i].is = 0;
+		ahci->ports[i].is = ahci->ports[i].is;
 
 		// enable FIS receive
 		ahci->ports[i].cmd |= CMD_FRE;
@@ -621,7 +615,7 @@ static void init_controller(pcienum_t *pci_enum) {
 		pmm_release(fis_base_mem);
 
 	// clear global interrupt status
-	ahci->ghc->is = 0;
+	ahci->ghc->is = ahci->ghc->is;
 
 	// configure interrupts for each port
 	FOR_EACH_PORT(ahci) {
