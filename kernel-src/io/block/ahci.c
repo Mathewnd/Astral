@@ -70,6 +70,7 @@ typedef struct {
 #define SIG_ATA 0x101
 
 #define IE_D2H 1
+#define IE_PSS 2
 #define IE_IFE (1 << 27)
 #define IE_HBDE (1 << 28)
 #define IE_HBFE (1 << 29)
@@ -401,10 +402,6 @@ static int read(void *private, iovec_iterator_t *buffer, uintmax_t lba, size_t c
 }
 
 static void init_port(ahci_t *ahci, int port) {
-	// check if somethin is actually connected and if it is something we care about
-	if (SSTS_DET(ahci->ports[port].ssts) != SSTS_DET_OK || ahci->ports[port].sig != SIG_ATA)
-		return;
-
 	// send identify command
 	identify_t *identify_phys = pmm_allocpage(PMM_SECTION_DEFAULT);
 	__assert(identify_phys);
@@ -546,6 +543,13 @@ static void init_controller(pcienum_t *pci_enum) {
 			}
 		}
 
+		// check if somethin is actually connected and if it is something we care about
+		if (SSTS_DET(ahci->ports[i].ssts) != SSTS_DET_OK || ahci->ports[i].sig != SIG_ATA) {
+			ahci->implemented_ports &= ~(1 << i);
+			continue;
+		}
+
+
 		// program command list base
 		void *cmd_ptr = (void *)((uintptr_t)command_slot_mem + command_slot_offset);
 		memset(MAKE_HHDM(cmd_ptr), 0, 1024);
@@ -581,7 +585,7 @@ static void init_controller(pcienum_t *pci_enum) {
 
 		// mask all irqs and clear irq status
 		ahci->ports[i].ie = 0;
-		ahci->ports[i].is = ahci->ports[i].is;
+		ahci->ports[i].is = 0xffffffff;
 
 		// enable FIS receive
 		ahci->ports[i].cmd |= CMD_FRE;
@@ -615,11 +619,11 @@ static void init_controller(pcienum_t *pci_enum) {
 		pmm_release(fis_base_mem);
 
 	// clear global interrupt status
-	ahci->ghc->is = ahci->ghc->is;
+	ahci->ghc->is = 0xffffffff;
 
 	// configure interrupts for each port
 	FOR_EACH_PORT(ahci) {
-		ahci->ports[i].ie = IE_D2H | IE_IFE | IE_HBDE | IE_HBFE | IE_TFE;
+		ahci->ports[i].ie = IE_D2H | IE_IFE | IE_HBDE | IE_HBFE | IE_TFE | IE_PSS;
 	}
 
 	// set up MSI
