@@ -70,8 +70,8 @@ typedef struct {
 
 typedef struct {
 	netdev_t netdev;
-	descriptor_t *tx_ring;
-	descriptor_t *rx_ring;
+	volatile descriptor_t *tx_ring;
+	volatile descriptor_t *rx_ring;
 	dpc_t tx_dpc;
 	dpc_t rx_dpc;
 	pcibar_t bar;
@@ -130,7 +130,7 @@ static void rtl8169_dpc_rx(context_t *, dpcarg_t arg) {
 	rtl8169dev_t *dev = arg;
 
 	while (!(dev->rx_ring[dev->rx_next].flags & DESCRIPTOR_OWN)) {
-		descriptor_t *descriptor = &dev->rx_ring[dev->rx_next];
+		volatile descriptor_t *descriptor = &dev->rx_ring[dev->rx_next];
 		void *buffer = MAKE_HHDM((void *)(descriptor->addr_low | ((uint64_t)descriptor->addr_high << 32)));
 
 		eth_process(&dev->netdev, buffer);
@@ -148,16 +148,17 @@ static void rtl8169_isr(isr_t *self, context_t *) {
 	rtl8169dev_t *dev = self->priv;
 
 	uint16_t status = inw(dev->bar.address + REGISTER_IRQ_STATUS);
-	if (!status)
-		return;
+	while (status) {
+		outw(dev->bar.address + REGISTER_IRQ_STATUS, status);
 
-	if (status & (REGISTER_IRQ_STATUS_TX_OK | REGISTER_IRQ_STATUS_TX_ERROR))
-		dpc_enqueue(&dev->tx_dpc, rtl8169_dpc_tx, dev);
+		if (status & (REGISTER_IRQ_STATUS_TX_OK | REGISTER_IRQ_STATUS_TX_ERROR))
+			dpc_enqueue(&dev->tx_dpc, rtl8169_dpc_tx, dev);
 
-	if (status & (REGISTER_IRQ_STATUS_RX_OK | REGISTER_IRQ_STATUS_RX_ERROR))
-		dpc_enqueue(&dev->rx_dpc, rtl8169_dpc_rx, dev);
+		if (status & (REGISTER_IRQ_STATUS_RX_OK | REGISTER_IRQ_STATUS_RX_ERROR))
+			dpc_enqueue(&dev->rx_dpc, rtl8169_dpc_rx, dev);
 
-	outw(dev->bar.address + REGISTER_IRQ_STATUS, status);
+		status = inw(dev->bar.address + REGISTER_IRQ_STATUS);
+	}
 }
 
 static int rtl8169_sendpacket(netdev_t *internal, netdesc_t desc, mac_t target, int proto) {
@@ -172,7 +173,7 @@ static int rtl8169_sendpacket(netdev_t *internal, netdesc_t desc, mac_t target, 
 
 	long ipl = spinlock_acquire_raise_ipl(&netdev->tx_lock, IPL_DPC);
 
-	descriptor_t *descriptor = &netdev->tx_ring[netdev->tx_next];
+	volatile descriptor_t *descriptor = &netdev->tx_ring[netdev->tx_next];
 
 	uintptr_t physical_address = (uintptr_t)FROM_HHDM(desc.address);
 	descriptor->addr_low = physical_address & 0xffffffff;
