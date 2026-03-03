@@ -66,7 +66,7 @@ static inline bool grow_cache(scache_t *cache) {
 
 		if (unlikely(i < SLAB_INDIRECT_COUNT)) {
 			for (int j = 0; j < i; ++j)
-				slab_free(indirect_cache, indirect[i]);
+				slab_free(indirect_cache, indirect[j]);
 			
 			vmm_unmap(slab->base, byte_size, 0);
 
@@ -230,7 +230,7 @@ static void free_to_slab(scache_t *cache, void *addr) {
 		slab_t *search = cache->list;
 		do {
 			search = search->next;
-		} while (search != cache->list && search->reference_count != cache->size && (search->reference_count != 0 || search == slab));
+		} while (search != cache->list && search->reference_count != cache->slab_object_count && (search->reference_count != 0 || search == slab));
 
 		// if the list points to this slab and the next one is a partial, set the list to it
 		// otherwise, the next is full (refcount 0) or empty (refcount == slab_object_count), which means this slab will be still be the next one to
