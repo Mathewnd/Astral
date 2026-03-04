@@ -22,7 +22,7 @@ static __attribute__((noreturn)) void switch_thread(thread_t *thread) {
 	thread_t* current = current_thread();
 
 	sched_thread_running_callback(thread);
-	
+
 	current_cpu()->thread = thread;
 
 	if(current == NULL || thread->vmmctx != current->vmmctx)
@@ -230,7 +230,7 @@ static void dopreempt() {
 	switch_thread(next);
 }
 
-static void preempt_dpc(context_t *context, dpcarg_t arg) {
+static void sched_reschedule_dpc(context_t *context, dpcarg_t arg) {
 	thread_t* current = current_thread();
 	interrupt_set(false);
 
@@ -250,18 +250,18 @@ static void preempt_dpc(context_t *context, dpcarg_t arg) {
 
 // IPL_DPC
 static void reschedule_timer_dpc(context_t *context, dpcarg_t arg) {
-	dpc_enqueue(&current_cpu()->reschedule_dpc, preempt_dpc, NULL);
+	dpc_enqueue(&current_cpu()->reschedule_dpc, NULL);
 }
 
 // IPL_MAX
 static void reschedule_ipi(isr_t *, context_t *) {
-	dpc_enqueue(&current_cpu()->reschedule_dpc, preempt_dpc, NULL);
+	dpc_enqueue(&current_cpu()->reschedule_dpc, NULL);
 }
 
 void sched_preempt_cpu(cpu_t *cpu) {
 	long ipl = interrupt_raiseipl(IPL_DPC);
 	if (cpu == current_cpu()) {
-		dpc_enqueue(&cpu->reschedule_dpc, preempt_dpc, NULL);
+		dpc_enqueue(&cpu->reschedule_dpc, NULL);
 	} else {
 		arch_smp_send_ipi(cpu, cpu->reschedule_isr, ARCH_SMP_IPI_TARGET, false);
 	}
@@ -347,6 +347,7 @@ void sched_load_balancer(context_t *, dpcarg_t);
 void sched_ap_entry() {
 	SPINLOCK_INIT(current_cpu()->sched_lock);
 
+	dpc_prepare(&current_cpu()->reschedule_dpc, sched_reschedule_dpc);
 	set_up_bitmaps();
 
 	current_cpu()->schedulerstack = vmm_map(NULL, SCHEDULER_STACK_SIZE, VMM_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, NULL);
@@ -374,7 +375,8 @@ void sched_init() {
 
 	SPINLOCK_INIT(current_cpu()->sched_lock);
 	SPINLOCK_INIT(sched_idle_cpu_bitmap_lock);
-	
+
+	dpc_prepare(&current_cpu()->reschedule_dpc, sched_reschedule_dpc);
 	set_up_bitmaps();
 
 	__assert(bitmap_init(&sched_idle_cpu_bitmap, arch_smp_get_cpu_count()) == 0);

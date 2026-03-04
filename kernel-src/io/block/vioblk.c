@@ -54,7 +54,7 @@ static void vioblk_dpc(context_t *context, dpcarg_t arg) {
 
 static void vioblk_irq(isr_t *isr, context_t *context) {
 	vioblkdev_t *blkdev = isr->priv;
-	dpc_enqueue(&blkdev->queuedpc, vioblk_dpc, blkdev);
+	dpc_enqueue(&blkdev->queuedpc, blkdev);
 }
 
 // driver and device are physical addresses
@@ -176,6 +176,7 @@ int vioblk_newdevice(viodevice_t *viodevice) {
 	// initialize device object
 	vioblkdev_t *blkdev = alloc(sizeof(vioblkdev_t));
 	__assert(blkdev);
+	dpc_prepare(&blkdev->queuedpc, vioblk_dpc);
 
 	static int id = 0;
 	volatile blkdevconfig_t *blkconfig = viodevice->devconfig;

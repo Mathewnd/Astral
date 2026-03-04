@@ -204,7 +204,7 @@ void ahci_dpc(context_t *, dpcarg_t arg) {
 	}
 
 	// notify waiters about command completion
-	while (port_data->waiters[port_data->command_waiting] && 
+	while (port_data->waiters[port_data->command_waiting] &&
 	(port_data->ahci->ports[port].ci & (1 << port_data->command_waiting)) == 0) {
 		thread_t *thread = port_data->waiters[port_data->command_waiting];
 		port_data->waiters[port_data->command_waiting] = NULL;
@@ -230,7 +230,7 @@ void ahci_isr(isr_t *isr, context_t *) {
 		if (ahci->port_data[i] == NULL)
 			continue;
 
-		dpc_enqueue(&ahci->port_data[i]->dpc, ahci_dpc, ahci->port_data[i]);
+		dpc_enqueue(&ahci->port_data[i]->dpc, ahci->port_data[i]);
 
 		ports_pending &= ~(1 << i);
 		ahci->ports[i].is = ahci->ports[i].is;
@@ -413,7 +413,7 @@ static void init_port(ahci_t *ahci, int port) {
 		return;
 	}
 
-	ahci->port_data[port]->sector_count = (uint64_t)identify->lba48_size[0] | ((uint64_t)identify->lba48_size[1] << 16) | 
+	ahci->port_data[port]->sector_count = (uint64_t)identify->lba48_size[0] | ((uint64_t)identify->lba48_size[1] << 16) |
 				((uint64_t)identify->lba48_size[2] << 32) | ((uint64_t)identify->lba48_size[3] << 48);
 
 	printf("ahci%dp%d: ATA drive with %lu sectors\n", ahci->id, port, ahci->port_data[port]->sector_count);
@@ -549,7 +549,6 @@ static void init_controller(pcienum_t *pci_enum) {
 			continue;
 		}
 
-
 		// program command list base
 		void *cmd_ptr = (void *)((uintptr_t)command_slot_mem + command_slot_offset);
 		memset(MAKE_HHDM(cmd_ptr), 0, 1024);
@@ -609,6 +608,7 @@ static void init_controller(pcienum_t *pci_enum) {
 		port_data->command_list = MAKE_HHDM(cmd_ptr);
 		SPINLOCK_INIT(port_data->command_lock);
 		SEMAPHORE_INIT(&port_data->command_semaphore, ahci->command_slot_count);
+		dpc_prepare(&port_data->dpc, ahci_dpc);
 
 		ahci->port_data[i] = port_data;
 	}

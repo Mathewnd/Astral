@@ -39,13 +39,19 @@ static void isrfn(isr_t *self, context_t *context) {
 	}
 }
 
-void dpc_enqueue(dpc_t *dpc, dpcfn_t fn, dpcarg_t arg) {
+void dpc_prepare(dpc_t *dpc, dpcfn_t fn) {
+	dpc->fn = fn;
+	dpc->enqueued = false;
+	dpc->next = NULL;
+	dpc->prev = NULL;
+}
+
+void dpc_enqueue(dpc_t *dpc, dpcarg_t arg) {
 	bool entrystate = interrupt_set(false);
 
 	if (dpc->enqueued)
 		goto cleanup;
 
-	dpc->fn = fn;
 	dpc->arg = arg;
 	dpc->enqueued = true;
 	insert(dpc);

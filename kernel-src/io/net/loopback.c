@@ -43,7 +43,8 @@ static int loopback_sendpacket(netdev_t *netdev, netdesc_t desc, mac_t targetmac
 	memcpy(desc.address, &ethframe, sizeof(ethframe_t));
 
 	dpc_t dpc = {0};
-	dpc_enqueue(&dpc, rx_dpc, desc.address);
+	dpc_prepare(&dpc, rx_dpc);
+	dpc_enqueue(&dpc, desc.address);
 
 	return 0;
 }
