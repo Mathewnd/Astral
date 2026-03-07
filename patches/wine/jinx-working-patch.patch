@@ -1,8 +1,8 @@
 diff --git wine-clean/configure wine-workdir/configure
-index fe7464a..02f7a89 100755
+index ed9c961..7b8413f 100755
 --- wine-clean/configure
 +++ wine-workdir/configure
-@@ -7891,12 +7891,14 @@ then :
+@@ -10219,12 +10219,14 @@ then :
    printf "%s\n" "#define HAVE_SYS_CDIO_H 1" >>confdefs.h
  
  fi
@@ -22,7 +22,7 @@ index fe7464a..02f7a89 100755
  ac_fn_c_check_header_compile "$LINENO" "sys/event.h" "ac_cv_header_sys_event_h" "$ac_includes_default"
  if test "x$ac_cv_header_sys_event_h" = xyes
  then :
-@@ -8059,12 +8061,12 @@ then :
+@@ -10387,12 +10389,12 @@ then :
    printf "%s\n" "#define HAVE_SYS_VNODE_H 1" >>confdefs.h
  
  fi
@@ -40,7 +40,7 @@ index fe7464a..02f7a89 100755
  ac_fn_c_check_header_compile "$LINENO" "syscall.h" "ac_cv_header_syscall_h" "$ac_includes_default"
  if test "x$ac_cv_header_syscall_h" = xyes
  then :
-@@ -21003,12 +21005,12 @@ then :
+@@ -21321,12 +21323,12 @@ then :
    printf "%s\n" "#define HAVE_DLINFO 1" >>confdefs.h
  
  fi
@@ -50,20 +50,20 @@ index fe7464a..02f7a89 100755
 -  printf "%s\n" "#define HAVE_EPOLL_CREATE 1" >>confdefs.h
 -
 -fi
-+#ac_fn_c_check_func "$LINENO" "epoll_create" "ac_cv_func_epoll_create"
-+#if test "x$ac_cv_func_epoll_create" = xyes
-+#then :
-+#  printf "%s\n" "#define HAVE_EPOLL_CREATE 1" >>confdefs.h
++# ac_fn_c_check_func "$LINENO" "epoll_create" "ac_cv_func_epoll_create"
++# if test "x$ac_cv_func_epoll_create" = xyes
++# then :
++#   printf "%s\n" "#define HAVE_EPOLL_CREATE 1" >>confdefs.h
 +#
-+#fi
- ac_fn_c_check_func "$LINENO" "fstatfs" "ac_cv_func_fstatfs"
- if test "x$ac_cv_func_fstatfs" = xyes
++# fi
+ ac_fn_c_check_func "$LINENO" "epoll_pwait2" "ac_cv_func_epoll_pwait2"
+ if test "x$ac_cv_func_epoll_pwait2" = xyes
  then :
 diff --git wine-clean/dlls/ntdll/unix/signal_x86_64.c wine-workdir/dlls/ntdll/unix/signal_x86_64.c
-index caa8524..9d35af1 100644
+index 740df80..f0ac779 100644
 --- wine-clean/dlls/ntdll/unix/signal_x86_64.c
 +++ wine-workdir/dlls/ntdll/unix/signal_x86_64.c
-@@ -75,6 +75,10 @@
+@@ -82,6 +82,10 @@ extern void _thread_set_tsd_base(uint64_t);
  #include "unix_private.h"
  #include "wine/debug.h"
  
@@ -74,7 +74,7 @@ index caa8524..9d35af1 100644
  WINE_DEFAULT_DEBUG_CHANNEL(unwind);
  WINE_DECLARE_DEBUG_CHANNEL(seh);
  
-@@ -292,6 +296,38 @@ static inline XMM_SAVE_AREA32 *FPU_sig( const ucontext_t *context )
+@@ -355,6 +359,39 @@ static inline const WORD *SS_sig_ptr( const ucontext_t *context )
  
  #define XState_sig(context)  NULL
  
@@ -102,6 +102,7 @@ index caa8524..9d35af1 100644
 +#define CS_sig(context)      (*((WORD *)&(context)->uc_mcontext.gregs[REG_CSGSFS] + 0))
 +#define GS_sig(context)      (*((WORD *)&(context)->uc_mcontext.gregs[REG_CSGSFS] + 1))
 +#define FS_sig(context)      (*((WORD *)&(context)->uc_mcontext.gregs[REG_CSGSFS] + 2))
++#define SS_sig(context)      (*((WORD *)&(context)->uc_mcontext.gregs[REG_CSGSFS] + 3))
 +#define RSP_sig(context)     ((context)->uc_mcontext.gregs[REG_RSP])
 +#define RIP_sig(context)     ((context)->uc_mcontext.gregs[REG_RIP])
 +#define EFL_sig(context)     ((context)->uc_mcontext.gregs[REG_EFL])
@@ -109,15 +110,14 @@ index caa8524..9d35af1 100644
 +#define ERROR_sig(context)   ((context)->uc_mcontext.gregs[REG_ERR])
 +#define FPU_sig(context)     ((XMM_SAVE_AREA32 *)((context)->uc_mcontext.fpregs))
 +#define XState_sig(fpu)      (((unsigned int *)fpu->Reserved4)[12] == FP_XSTATE_MAGIC1 ? (XSAVE_AREA_HEADER *)(fpu + 1) : NULL)
-+	
++
  #else
  #error You must define the signal context functions for your platform
  #endif
-@@ -2604,6 +2640,11 @@ void call_init_thunk( LPTHREAD_START_ROUTINE entry, void *arg, BOOL suspend, TEB
-        thread's gsbase.  Have each thread record its gsbase pointer into its
-        TEB so alloc_tls_slot() can find it. */
-     teb->Instrumentation[0] = thread_data->pthread_teb;
-+
+@@ -2918,6 +2955,10 @@ void init_syscall_frame( LPTHREAD_START_ROUTINE entry, void *arg, BOOL suspend,
+     sysarch( X86_64_SET_GSBASE, &teb );
+ #elif defined (__APPLE__)
+     thread_data->pthread_teb = mac_thread_gsbase();
 +#elif defined(__astral__)
 +    arch_ctl(ARCH_CTL_SET_GSBASE, teb);
 +    //arch_ctl(ARCH_CTL_GET_FSBASE, &thread_data->pthread_teb);
@@ -126,10 +126,10 @@ index caa8524..9d35af1 100644
  # error Please define setting %gs for your architecture
  #endif
 diff --git wine-clean/server/sock.c wine-workdir/server/sock.c
-index 32d622a..539d5e3 100644
+index fdc26bc..235406b 100644
 --- wine-clean/server/sock.c
 +++ wine-workdir/server/sock.c
-@@ -4174,12 +4174,12 @@ static MIB_TCP_STATE get_tcp_socket_state( int fd )
+@@ -4282,12 +4282,12 @@ static MIB_TCP_STATE get_tcp_socket_state( int fd )
      #define TCP_INFO TCP_CONNECTION_INFO
      #define tcp_info tcp_connection_info
  #endif
