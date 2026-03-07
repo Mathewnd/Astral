@@ -1,18 +1,19 @@
 name=wine
 revision=1
 from_source=wine
-imagedeps="build-essential"
+imagedeps="build-essential mingw-w64"
 hostdeps="xgcc xbinutils pkgconfig wine freetype"
-deps="base libxcursor libxfixes libxi libxrandr libxrender libxxf86vm libx11 libxext mesa fontconfig sdl2 freetype glib xorgproto openssl"
+deps="base libxcursor libxfixes libxi libxrandr libxrender libxxf86vm libx11 libxext mesa fontconfig sdl2 freetype glib xorgproto openssl "
 
 configure() {
-        ${source_dir}/configure \
+    ${source_dir}/configure \
         --host=x86_64-astral \
         --prefix=/usr \
         --disable-tests \
+        --enable-tools \
         --enable-win64 \
         --disable-win16 \
-	--without-inotify \
+        --without-inotify \
         --without-alsa \
         --without-capi \
         --without-cups \
@@ -21,7 +22,6 @@ configure() {
         --without-gphoto \
         --without-gssapi \
         --without-krb5 \
-        --without-mingw \
         --without-netapi \
         --without-opencl \
         --without-osmesa \
@@ -35,14 +35,15 @@ configure() {
         --without-vulkan \
         --without-xcomposite \
         --without-xinerama \
+        --with-mingw \
         --with-x \
-	--with-wine-tools="${base_dir}/build-${JINX_ARCH}/host-builds/wine/"
+        --with-wine-tools="${base_dir}/build-${JINX_ARCH}/host-builds/wine/"
 }
 
 build() {
-	make -j ${parallelism}
+    make -j ${parallelism}
 }
 
 package() {
-	make install DESTDIR=${dest_dir}
+    make install DESTDIR=${dest_dir}
 }
