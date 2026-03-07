@@ -4,6 +4,7 @@
 #include <sys/poll.h>
 #include <errno.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <string.h>
 #include <sys/ioctl.h>
 #include <termios.h>
