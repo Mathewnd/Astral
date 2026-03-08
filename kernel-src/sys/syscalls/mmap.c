@@ -106,7 +106,7 @@ syscallret_t syscall_mmap(context_t *context, void *hint, size_t len, int prot, 
 	}
 
 	if (hint < USERSPACE_START)
-		hint = USERSPACE_START;
+		hint = USERSPACE_MMAP_START;
 
 	ret.ret = (uint64_t)vmm_map(hint, len, vmmflags, mmuflags, &vfd);
 	if (ret.ret == 0)

@@ -154,7 +154,7 @@ int elf_load(vnode_t *vnode, void *base, void **entry, char **interpreter, auxv6
 		return ENOEXEC;
 
 	if (!base && header.type == ELF_SHARED) {
-		base = (void *)0x400000;
+		base = (void *)0x40000000000;
 	}
 
 	auxv64->null.type = AT_NULL;
