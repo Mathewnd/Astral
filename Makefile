@@ -24,7 +24,7 @@ INITRD=$(JINX_DIR)/initrds/initrd
 DISTROTYPE=full
 INITRDTYPE=minimal
 
-MINIMALPACKAGES=mlibc bash coreutils init distro-files vim nano mount shadow sudo xbps net-base neofetch
+MINIMALPACKAGES=mlibc bash coreutils init distro-files vim nano mount shadow sudo xbps net-base fastfetch
 
 .PHONY: all kernel clean clean-kernel iso img initrd full minimal disk distro-minimal distro-full
 

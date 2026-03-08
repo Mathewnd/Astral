@@ -1,0 +1,261 @@
+diff --color -urN --no-dereference -x.git /home/bloba/Documents/fastfetch-clean/CMakeLists.txt fastfetch/CMakeLists.txt
+--- /home/bloba/Documents/fastfetch-clean/CMakeLists.txt	2026-02-23 17:55:25.821527603 +0000
++++ fastfetch/CMakeLists.txt	2026-02-28 19:28:59.961691077 +0000
+@@ -45,6 +45,8 @@
+     set(Haiku TRUE CACHE BOOL "..." FORCE)
+ elseif("${CMAKE_SYSTEM_NAME}" STREQUAL "GNU")
+     set(GNU TRUE CACHE BOOL "..." FORCE)
++elseif("${CMAKE_SYSTEM_NAME}" STREQUAL "Astral")
++    set(ASTRAL TRUE CACHE BOOL "..." FORCE)
+ elseif(NOT APPLE AND NOT WIN32)
+     message(FATAL_ERROR "Unsupported platform: ${CMAKE_SYSTEM_NAME}")
+ endif()
+@@ -72,7 +74,7 @@
+ cmake_dependent_option(ENABLE_VULKAN "Enable vulkan" ON "LINUX OR APPLE OR FreeBSD OR OpenBSD OR NetBSD OR WIN32 OR ANDROID OR SunOS OR Haiku OR GNU" OFF)
+ cmake_dependent_option(ENABLE_WAYLAND "Enable wayland-client" ON "LINUX OR FreeBSD OR OpenBSD OR NetBSD OR GNU" OFF)
+ cmake_dependent_option(ENABLE_XCB_RANDR "Enable xcb-randr" ON "LINUX OR FreeBSD OR OpenBSD OR NetBSD OR ANDROID OR SunOS OR GNU" OFF)
+-cmake_dependent_option(ENABLE_XRANDR "Enable xrandr" ON "LINUX OR FreeBSD OR OpenBSD OR NetBSD OR ANDROID OR SunOS OR GNU" OFF)
++cmake_dependent_option(ENABLE_XRANDR "Enable xrandr" ON "LINUX OR FreeBSD OR OpenBSD OR NetBSD OR ANDROID OR SunOS OR GNU OR ASTRAL" OFF)
+ cmake_dependent_option(ENABLE_DRM "Enable libdrm" ON "LINUX OR FreeBSD OR OpenBSD OR NetBSD OR SunOS OR GNU" OFF)
+ cmake_dependent_option(ENABLE_DRM_AMDGPU "Enable libdrm_amdgpu" ON "LINUX OR FreeBSD OR GNU" OFF)
+ cmake_dependent_option(ENABLE_GIO "Enable gio-2.0" ON "LINUX OR FreeBSD OR OpenBSD OR NetBSD OR ANDROID OR SunOS OR GNU" OFF)
+@@ -1301,6 +1303,79 @@
+         src/detection/wmtheme/wmtheme_linux.c
+         src/detection/camera/camera_nosupport.c
+    )
++elseif(ASTRAL)
++    list(APPEND LIBFASTFETCH_SRC
++        src/common/impl/dbus.c
++        src/common/impl/io_unix.c
++        src/common/impl/netif_gnu.c
++        src/common/impl/networking_linux.c
++        src/common/impl/processing_linux.c
++        src/common/impl/FFPlatform_unix.c
++        src/common/impl/binary_linux.c
++        src/detection/battery/battery_nosupport.c
++        src/detection/bios/bios_nosupport.c
++        src/detection/bluetooth/bluetooth_nosupport.c
++        src/detection/bluetoothradio/bluetoothradio_nosupport.c
++        src/detection/board/board_nosupport.c
++        src/detection/bootmgr/bootmgr_nosupport.c
++        src/detection/brightness/brightness_nosupport.c
++        src/detection/btrfs/btrfs_nosupport.c
++        src/detection/camera/camera_nosupport.c
++        src/detection/command/command.c
++        src/detection/chassis/chassis_nosupport.c
++        src/detection/cpu/cpu_astral.c
++        src/detection/cpucache/cpucache_nosupport.c
++        src/detection/cpuusage/cpuusage_nosupport.c
++        src/detection/cursor/cursor_nosupport.c
++        src/detection/de/de_nosupport.c
++        src/detection/disk/disk_nosupport.c
++        src/detection/diskio/diskio_nosupport.c
++        src/detection/displayserver/linux/common.c
++        src/detection/displayserver/linux/displayserver_linux.c
++        src/detection/displayserver/linux/wayland/wayland.c
++        src/detection/displayserver/linux/drm.c
++        src/detection/displayserver/linux/wmde.c
++        src/detection/displayserver/linux/xlib.c
++        src/detection/displayserver/linux/xcb.c
++        src/detection/dns/dns_linux.c
++        src/detection/editor/editor.c
++        src/detection/font/font_nosupport.c
++        src/detection/gamepad/gamepad_nosupport.c
++        src/detection/gpu/gpu_nosupport.c
++        src/detection/host/host_nosupport.c
++        src/detection/icons/icons_nosupport.c
++        src/detection/initsystem/initsystem_nosupport.c
++        src/detection/keyboard/keyboard_nosupport.c
++        src/detection/libc/libc_linux.c
++        src/detection/lm/lm_nosupport.c
++        src/detection/loadavg/loadavg_nosupport.c
++        src/detection/locale/locale_linux.c
++        src/detection/localip/localip_linux.c
++        src/detection/media/media_nosupport.c
++        src/detection/memory/memory_astral.c
++        src/detection/mouse/mouse_nosupport.c
++        src/detection/netio/netio_nosupport.c
++        src/detection/opengl/opengl_linux.c
++        src/detection/os/os_linux.c
++        src/detection/packages/packages_nosupport.c
++        src/detection/physicaldisk/physicaldisk_nosupport.c
++        src/detection/physicalmemory/physicalmemory_nosupport.c
++        src/detection/poweradapter/poweradapter_nosupport.c
++        src/detection/processes/processes_nosupport.c
++        src/detection/sound/sound_nosupport.c
++        src/detection/terminalfont/terminalfont_linux.c
++        src/detection/terminalsize/terminalsize_linux.c
++        src/detection/terminalshell/terminalshell_linux.c
++        src/detection/swap/swap_astral.c
++        src/detection/theme/theme_nosupport.c
++        src/detection/uptime/uptime_linux.c
++        src/detection/users/users_linux.c
++        src/detection/tpm/tpm_nosupport.c
++        src/detection/wallpaper/wallpaper_nosupport.c
++        src/detection/wifi/wifi_nosupport.c
++        src/detection/wm/wm_nosupport.c
++        src/detection/wmtheme/wmtheme_nosupport.c
++   )
+ endif()
+ 
+ if(ENABLE_DIRECTX_HEADERS)
+@@ -1437,6 +1512,8 @@
+ elseif(GNU)
+     # On Hurd PATH_MAX is not defined. Set an arbitrary limit as workaround.
+     target_compile_definitions(libfastfetch PUBLIC _GNU_SOURCE PATH_MAX=4096 O_PATH=0)
++elseif(ASTRAL)
++    target_compile_definitions(libfastfetch PUBLIC _GNU_SOURCE)
+ endif()
+ 
+ if(APPLE)
+diff --color -urN --no-dereference -x.git /home/bloba/Documents/fastfetch-clean/src/common/impl/FFPlatform_unix.c fastfetch/src/common/impl/FFPlatform_unix.c
+--- /home/bloba/Documents/fastfetch-clean/src/common/impl/FFPlatform_unix.c	2026-02-23 17:55:25.829412128 +0000
++++ fastfetch/src/common/impl/FFPlatform_unix.c	2026-03-08 20:18:25.956179074 +0000
+@@ -141,6 +141,8 @@
+                 break;
+             }
+         }
++    #elif defined(__astral__) // TODO: implement similar to how openbsd does it with argv
++        ssize_t exePathLen = 0;
+     #endif
+     if (exePathLen > 0)
+     {
+diff --color -urN --no-dereference -x.git /home/bloba/Documents/fastfetch-clean/src/detection/cpu/cpu_astral.c fastfetch/src/detection/cpu/cpu_astral.c
+--- /home/bloba/Documents/fastfetch-clean/src/detection/cpu/cpu_astral.c	1970-01-01 01:00:00.000000000 +0100
++++ fastfetch/src/detection/cpu/cpu_astral.c	2026-02-28 22:23:58.806961218 +0000
+@@ -0,0 +1,44 @@
++#include "cpu.h"
++#include <cpuid.h>
++
++void cpuid_brand_string(char buffer[49]) {
++    uint32_t regs[12];
++
++    __get_cpuid(0x80000000, regs + 0, regs + 1, regs + 2, regs + 3);
++    if (regs[0] < 0x80000004) {
++        strcpy(buffer, "Unknown");
++        return;
++    }
++
++    __get_cpuid(0x80000002, regs + 0, regs + 1, regs + 2, regs + 3);
++    __get_cpuid(0x80000003, regs + 4, regs + 5, regs + 6, regs + 7);
++    __get_cpuid(0x80000004, regs + 8, regs + 9, regs + 10, regs + 11);
++
++    memcpy(buffer, regs, sizeof(regs));
++    buffer[sizeof(regs)] = '\0';
++}
++
++void cpuid_vendor_string(char buffer[13]) {
++    uint32_t regs[4];
++
++    __get_cpuid(0x0, regs + 3, regs + 0, regs + 2, regs + 1);
++
++    memcpy(buffer, regs, sizeof(uint32_t) * 3);
++    buffer[12] = '\0';
++}
++
++const char* ffDetectCPUImpl(FF_MAYBE_UNUSED const FFCPUOptions* options, FF_MAYBE_UNUSED FFCPUResult* cpu)
++{
++    // Brand/Model
++    char brandBuffer[49];
++    cpuid_brand_string(brandBuffer);
++    ffStrbufSetS(&cpu->name, brandBuffer);
++
++    // Vendor String
++    char vendorBuffer[13];
++    cpuid_vendor_string(vendorBuffer);
++    ffStrbufSetS(&cpu->vendor, vendorBuffer);
++
++    ffCPUDetectByCpuid(cpu);
++    return NULL;
++}
+diff --color -urN --no-dereference -x.git /home/bloba/Documents/fastfetch-clean/src/detection/memory/memory_astral.c fastfetch/src/detection/memory/memory_astral.c
+--- /home/bloba/Documents/fastfetch-clean/src/detection/memory/memory_astral.c	1970-01-01 01:00:00.000000000 +0100
++++ fastfetch/src/detection/memory/memory_astral.c	2026-02-28 22:24:36.069963259 +0000
+@@ -0,0 +1,16 @@
++#include "memory.h"
++#include <sys/sysinfo.h>
++#include <unistd.h>
++
++const char* ffDetectMemory(FFMemoryResult* ram)
++{
++    struct sysinfo info;
++    if(sysinfo(&info)) {
++        return "sysinfo() failed";
++    }
++
++    ram->bytesTotal = (uint64_t)(info.totalram * info.mem_unit);
++    ram->bytesUsed = (uint64_t)((info.totalram - info.freeram) * info.mem_unit);
++
++    return NULL;
++}
+diff --color -urN --no-dereference -x.git /home/bloba/Documents/fastfetch-clean/src/detection/swap/swap_astral.c fastfetch/src/detection/swap/swap_astral.c
+--- /home/bloba/Documents/fastfetch-clean/src/detection/swap/swap_astral.c	1970-01-01 01:00:00.000000000 +0100
++++ fastfetch/src/detection/swap/swap_astral.c	2026-02-28 22:24:28.934962868 +0000
+@@ -0,0 +1,18 @@
++#include "swap.h"
++#include <sys/sysinfo.h>
++
++const char* ffDetectSwap(FFlist* result)
++{
++    struct sysinfo info;
++    if(sysinfo(&info)) {
++        return "sysinfo() failed";
++    }
++
++    FFSwapResult* swap = ffListAdd(result);
++
++    ffStrbufInitStatic(&swap->name, "Total");
++    swap->bytesTotal = (uint64_t)(info.totalswap * info.mem_unit);
++    swap->bytesUsed = (uint64_t)((info.totalswap - info.freeswap) * info.mem_unit);
++
++    return NULL;
++}
+diff --color -urN --no-dereference -x.git /home/bloba/Documents/fastfetch-clean/src/logo/ascii/astral.txt fastfetch/src/logo/ascii/astral.txt
+--- /home/bloba/Documents/fastfetch-clean/src/logo/ascii/astral.txt	1970-01-01 01:00:00.000000000 +0100
++++ fastfetch/src/logo/ascii/astral.txt	2026-02-23 18:05:56.586945191 +0000
+@@ -0,0 +1,11 @@
++$2                      .::.
++                   .:'  .:
++    *    $1MMM8&&$2.::'  .:'
++       $1MMMM$2.::'$1&&$2  .:'
++      $1MM$2..:'$188&&&&&&
++     $1M$2.:'$1MM88&&&&&&
++    $2.:'$1MMMM88&&&&&&       $2*
++  $2.:'  $1MMMMM88&&&&
++$2.:' * .:'$1MMM8&&&'
++$2:'  .:'
++$2'::'                *
+\ No newline at end of file
+diff --color -urN --no-dereference -x.git /home/bloba/Documents/fastfetch-clean/src/logo/builtin.c fastfetch/src/logo/builtin.c
+--- /home/bloba/Documents/fastfetch-clean/src/logo/builtin.c	2026-02-23 17:55:25.859979947 +0000
++++ fastfetch/src/logo/builtin.c	2026-02-26 21:42:41.065526790 +0000
+@@ -679,6 +679,17 @@
+         .colorKeys = FF_COLOR_FG_RED,
+         .colorTitle = FF_COLOR_FG_DEFAULT,
+     },
++    // Astral
++    {
++        .names = {"Astral"},
++        .lines = FASTFETCH_DATATEXT_LOGO_ASTRAL,
++        .colors = {
++            FF_COLOR_FG_BLUE,
++            FF_COLOR_FG_WHITE,
++        },
++        .colorKeys = FF_COLOR_FG_BLUE,
++        .colorTitle = FF_COLOR_FG_WHITE,
++    },
+     // Ataraxia
+     {
+         .names = {"Ataraxia Linux", "Ataraxia"},
+diff --color -urN --no-dereference -x.git /home/bloba/Documents/fastfetch-clean/src/options/general.h fastfetch/src/options/general.h
+--- /home/bloba/Documents/fastfetch-clean/src/options/general.h	2026-02-23 17:55:25.870622959 +0000
++++ fastfetch/src/options/general.h	2026-02-23 18:34:44.677964995 +0000
+@@ -16,7 +16,7 @@
+     bool detectVersion;
+ 
+     // Module options that cannot be put in module option structure
+-    #if defined(__linux__) || defined(__FreeBSD__) || defined(__sun) || defined(__OpenBSD__) || defined(__NetBSD__) || defined(__HAIKU__) || defined(__GNU__)
++    #if defined(__linux__) || defined(__FreeBSD__) || defined(__sun) || defined(__OpenBSD__) || defined(__NetBSD__) || defined(__HAIKU__) || defined(__GNU__) || defined(__astral__)
+     FFstrbuf playerName;
+     FFDsForceDrmType dsForceDrm;
+     #elif defined(_WIN32)
