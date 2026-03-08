@@ -3,7 +3,7 @@ revision=1
 from_source=wine
 imagedeps="build-essential mingw-w64"
 hostdeps="xgcc xbinutils pkgconfig wine freetype"
-deps="base libxcursor libxfixes libxi libxrandr libxrender libxxf86vm libx11 libxext mesa fontconfig sdl2 freetype glib xorgproto openssl "
+deps="base libxcursor libxfixes libxi libxrandr libxrender libxxf86vm libx11 libxext mesa fontconfig sdl2 freetype glib xorgproto openssl"
 
 configure() {
     ${source_dir}/configure \
@@ -33,8 +33,10 @@ configure() {
         --without-usb \
         --without-v4l2 \
         --without-vulkan \
+	--without-wayland \
         --without-xcomposite \
         --without-xinerama \
+	--with-opengl \
         --with-mingw \
         --with-x \
         --with-wine-tools="${base_dir}/build-${JINX_ARCH}/host-builds/wine/"

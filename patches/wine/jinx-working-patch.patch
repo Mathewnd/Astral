@@ -1,5 +1,5 @@
 diff --git wine-clean/configure wine-workdir/configure
-index ed9c961..7b8413f 100755
+index ed9c961..bed2e3e 100755
 --- wine-clean/configure
 +++ wine-workdir/configure
 @@ -10219,12 +10219,14 @@ then :
@@ -40,7 +40,7 @@ index ed9c961..7b8413f 100755
  ac_fn_c_check_header_compile "$LINENO" "syscall.h" "ac_cv_header_syscall_h" "$ac_includes_default"
  if test "x$ac_cv_header_syscall_h" = xyes
  then :
-@@ -21321,12 +21323,12 @@ then :
+@@ -21321,12 +21322,12 @@ then :
    printf "%s\n" "#define HAVE_DLINFO 1" >>confdefs.h
  
  fi
@@ -60,7 +60,7 @@ index ed9c961..7b8413f 100755
  if test "x$ac_cv_func_epoll_pwait2" = xyes
  then :
 diff --git wine-clean/dlls/ntdll/unix/signal_x86_64.c wine-workdir/dlls/ntdll/unix/signal_x86_64.c
-index 740df80..f0ac779 100644
+index 740df80..4012d5e 100644
 --- wine-clean/dlls/ntdll/unix/signal_x86_64.c
 +++ wine-workdir/dlls/ntdll/unix/signal_x86_64.c
 @@ -82,6 +82,10 @@ extern void _thread_set_tsd_base(uint64_t);
