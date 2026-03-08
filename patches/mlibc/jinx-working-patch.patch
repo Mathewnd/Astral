@@ -89,10 +89,10 @@ index 1ed110d..ded9114 100644
 +void backtrace_symbols_fd(void *const *, int, int) {
  }
 diff --git mlibc-clean/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
-index 939925e..5ee7fad 100644
+index 939925e..eb6a6aa 100644
 --- mlibc-clean/sysdeps/astral/generic/generic.cpp
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -47,6 +47,12 @@ namespace mlibc {
+@@ -47,6 +47,17 @@ namespace mlibc {
  		return 0;
  	}
  
@@ -100,6 +100,11 @@ index 939925e..5ee7fad 100644
 +		int r;
 +		// unlockpt is a no-op kernel side, so use this to check for an invalid pty
 +		return sys_ioctl(fd, 0x13376167, NULL, &r);
++	}
++
++	void sys_yield() {
++		long r;
++		syscall(SYSCALL_YIELD, &r);
 +	}
 +
  	int sys_readv(int fd, const struct iovec *iovs, int iovc, ssize_t *bytes_read) {
@@ -121,3 +126,15 @@ index 7e4f2a1..a5f382d 100644
  
  #ifdef __cplusplus
  extern "C" {
+diff --git mlibc-clean/sysdeps/astral/include/astral/syscall.h mlibc-workdir/sysdeps/astral/include/astral/syscall.h
+index a6c4067..d1656ca 100644
+--- mlibc-clean/sysdeps/astral/include/astral/syscall.h
++++ mlibc-workdir/sysdeps/astral/include/astral/syscall.h
+@@ -103,6 +103,7 @@
+ #define SYSCALL_SYSINFO 96
+ #define SYSCALL_WRITEV 97
+ #define SYSCALL_READV 98
++#define SYSCALL_YIELD 99
+ 
+ #ifndef __MLIBC_ABI_ONLY
+ 

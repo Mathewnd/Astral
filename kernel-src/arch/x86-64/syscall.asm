@@ -98,6 +98,7 @@ extern syscall_getcpu
 extern syscall_sysinfo
 extern syscall_writev
 extern syscall_readv
+extern syscall_yield
 syscalltab:
 dq syscall_print
 dq syscall_mmap
@@ -198,7 +199,8 @@ dq syscall_getcpu
 dq syscall_sysinfo
 dq syscall_writev
 dq syscall_readv
-syscallcount equ 99
+dq syscall_yield
+syscallcount equ 100
 section .text
 global arch_syscall_entry
 ; on entry:
