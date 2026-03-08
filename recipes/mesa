@@ -3,14 +3,28 @@ revision=1
 from_source=mesa
 imagedeps="gcc meson ninja-build python3-mako python3-setuptools python3-yaml"
 hostdeps="xgcc xbinutils pkgconfig automake autoconf util-macros libtool libstdc++-v3"
-deps="base llvm libexpat libxcb libx11 libxext zlib"
+deps="base llvm libexpat libxcb libx11 libxext zlib libxfixes libxxf86vm libdrm libxshmfence libxrandr"
 
 configure() {
 	cp -rp ${source_dir}/* .
 	mkdir -p build
 	cd build
 
-	meson --cross-file ${base_dir}/util/crossfile --prefix=${prefix} --buildtype=release -Dplatforms=x11 -Dglx=xlib -Dgallium-drivers=swrast -Dvulkan-drivers= -Dllvm=enabled -Dvalgrind=disabled -Dlibunwind=disabled ..
+	meson \
+		--cross-file ${base_dir}/util/crossfile \
+		--prefix=${prefix} \
+		--buildtype=release \
+		-Dplatforms=x11 \
+		-Dglx=dri \
+		-Dgallium-drivers=llvmpipe \
+		-Dvulkan-drivers= \
+		-Dllvm=enabled \
+		-Dvalgrind=disabled \
+		-Dlibunwind=disabled \
+		-Dbuild-tests=false \
+		-Degl=enabled \
+		-Ddri-drivers-path=/usr/lib/dri \
+		..
 }
 
 build() {

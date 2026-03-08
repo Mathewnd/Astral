@@ -1,0 +1,31 @@
+name=libdrm
+revision=1
+from_source=libdrm
+imagedeps="ninja-build build-essential"
+hostdeps="xgcc xbinutils pkgconfig libtool"
+deps="base"
+
+configure() {
+    meson --cross-file ${base_dir}/util/crossfile --prefix=${prefix} --buildtype=release \
+        -Dintel=disabled \
+        -Dradeon=disabled \
+        -Damdgpu=disabled \
+        -Dnouveau=disabled \
+        -Dvmwgfx=disabled \
+        -Domap=disabled \
+        -Dexynos=disabled \
+        -Dfreedreno=disabled \
+        -Dvc4=disabled \
+        -Detnaviv=disabled \
+        -Dtegra=disabled \
+        -Dtests=false \
+        ${source_dir}
+}
+
+build() {
+    ninja -j${parallelism}
+}
+
+package() {
+    DESTDIR=${dest_dir} ninja install
+}

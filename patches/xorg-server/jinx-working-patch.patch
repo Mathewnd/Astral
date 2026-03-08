@@ -10,6 +10,19 @@ index 071bd1a..68b2e26 100644
          "/run/shm",
          "/var/tmp",
          "/tmp",
+diff --git xorg-server-clean/configure.ac xorg-server-workdir/configure.ac
+index 7ef8581..38c16fd 100644
+--- xorg-server-clean/configure.ac
++++ xorg-server-workdir/configure.ac
+@@ -1435,7 +1435,7 @@ AM_CONDITIONAL([XF86VIDMODE], [test "x$XF86VIDMODE" = xyes])
+ AC_DEFINE_DIR(COMPILEDDEFAULTFONTPATH, FONTPATH, [Default font path])
+ AC_DEFINE_DIR(SERVER_MISC_CONFIG_PATH, SERVERCONFIG, [Server miscellaneous config path])
+ AC_DEFINE_DIR(BASE_FONT_PATH, FONTROOTDIR, [Default base font path])
+-dridriverdir=`$PKG_CONFIG --variable=dridriverdir dri`
++dridriverdir=`PKG_CONFIG_SYSROOT_DIR="" $PKG_CONFIG --variable=dridriverdir dri`
+ AC_DEFINE_DIR(DRI_DRIVER_PATH, dridriverdir, [Default DRI driver path])
+ AC_DEFINE_UNQUOTED(XVENDORNAME, ["$VENDOR_NAME"], [Vendor name])
+ AC_DEFINE_UNQUOTED(XVENDORNAMESHORT, ["$VENDOR_NAME_SHORT"], [Short vendor name])
 diff --git xorg-server-clean/hw/xfree86/common/xf86Bus.c xorg-server-workdir/hw/xfree86/common/xf86Bus.c
 index fd144db..b232e27 100644
 --- xorg-server-clean/hw/xfree86/common/xf86Bus.c
@@ -94,6 +107,19 @@ index 5695e71..c9230aa 100644
  #include <stdlib.h>
  #include <errno.h>
  
+diff --git xorg-server-clean/hw/xfree86/drivers/Makefile.am xorg-server-workdir/hw/xfree86/drivers/Makefile.am
+index 954c9f1..b916149 100644
+--- xorg-server-clean/hw/xfree86/drivers/Makefile.am
++++ xorg-server-workdir/hw/xfree86/drivers/Makefile.am
+@@ -1,8 +1,5 @@
+ SUBDIRS =
+ 
+-if XORG_DRIVER_MODESETTING
+-SUBDIRS += modesetting
+-endif
+ if XORG_DRIVER_INPUT_INPUTTEST
+ SUBDIRS += inputtest
+ endif
 diff --git xorg-server-clean/hw/xfree86/fbdevhw/fbdevhw.c xorg-server-workdir/hw/xfree86/fbdevhw/fbdevhw.c
 index 3d8b92e..31a0430 100644
 --- xorg-server-clean/hw/xfree86/fbdevhw/fbdevhw.c
@@ -204,6 +230,21 @@ index 4984ccf..bb3e2f8 100644
                                    char *device);
  
  extern _X_EXPORT char *fbdevHWGetName(ScrnInfoPtr pScrn);
+diff --git xorg-server-clean/hw/xfree86/os-support/bus/xf86Pci.h xorg-server-workdir/hw/xfree86/os-support/bus/xf86Pci.h
+index 4dbe08b..ff713aa 100644
+--- xorg-server-clean/hw/xfree86/os-support/bus/xf86Pci.h
++++ xorg-server-workdir/hw/xfree86/os-support/bus/xf86Pci.h
+@@ -105,7 +105,10 @@
+ #include <X11/Xarch.h>
+ #include <X11/Xfuncproto.h>
+ #include "misc.h"
++
++#ifndef __astral__
+ #include <pciaccess.h>
++#endif
+ 
+ /*
+  * PCI cfg space definitions (e.g. stuff right out of the PCI spec)
 diff --git xorg-server-clean/hw/xfree86/os-support/shared/posix_tty.c xorg-server-workdir/hw/xfree86/os-support/shared/posix_tty.c
 index 0cb9788..d6df170 100644
 --- xorg-server-clean/hw/xfree86/os-support/shared/posix_tty.c

@@ -1,0 +1,9 @@
+name=libdrm
+version=2.4.122
+source_method=tarball
+tarball_url="https://dri.freedesktop.org/libdrm/libdrm-${version}.tar.xz"
+tarball_sha512="ea6bac94416d4ba0e9805e142ae62904236bc49f803d4fc10c92968a4df64c818dd42524ad7a4e988062836783a148e27094050bb2754f751a368627f794ad13"
+
+prepare() {
+    true
+}

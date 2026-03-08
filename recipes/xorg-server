@@ -3,10 +3,10 @@ revision=1
 from_source=xorg-server
 imagedeps="meson ninja-build build-essential"
 hostdeps="xgcc xbinutils pkgconfig autoconf automake libtool pkgconfig util-macros xtrans fontutil"
-deps="base libxcvt pixman xorgproto xtrans xkbfile libxfont2 fontutil libgcrypt freetype xkeyboardconfig xkbcomp libxi libxrender libxcb libxext pixman libxdamage"
+deps="base libxcvt pixman xorgproto xtrans xkbfile libxfont2 fontutil libgcrypt freetype xkeyboardconfig xkbcomp libxi libxrender libxcb libxext pixman libxdamage libdrm mesa"
 
 configure() {
-	 ${source_dir}/configure --prefix=/usr --localstatedir=/var --host=x86_64-astral --disable-pciaccess --disable-libdrm --disable-glx --disable-int10-module --disable-glamor --disable-vgahw --disable-dri3 --disable-dri2 --disable-dri --disable-xephyr --disable-xwayland --disable-xnest --disable-dmx --with-fontrootdir=${prefix}/share/fonts/X11 --enable-mitshm
+	 CFLAGS="$CFLAGS -I${sysroot_dir}${prefix}/include/libdrm" LDFLAGS="-ldrm" dridriverdir=/usr/lib/dri ${source_dir}/configure --prefix=/usr --localstatedir=/var --host=x86_64-astral --disable-pciaccess --disable-int10-module --disable-glamor --disable-vgahw --disable-xephyr --disable-xnest --with-fontrootdir=${prefix}/share/fonts/X11 --enable-mitshm
 }
 
 build() {

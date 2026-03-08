@@ -1,0 +1,37 @@
+diff --git libdrm-clean/include/drm/drm.h libdrm-workdir/include/drm/drm.h
+index 4e4f7c2..f0d0f63 100644
+--- libdrm-clean/include/drm/drm.h
++++ libdrm-workdir/include/drm/drm.h
+@@ -43,8 +43,17 @@ typedef unsigned int drm_handle_t;
+ 
+ #else /* One of the BSDs */
+ 
+-#include <stdint.h>
+-#include <sys/ioccom.h>
++ #include <stdint.h>
++//#include <sys/ioccom.h>
++#ifdef __astral__
++#define _IOC(dir,type,nr,size) (((dir)<<30)|((size)<<16)|((type)<<8)|(nr))
++#define _IO(type,nr)           _IOC(0,(type),(nr),0)
++#define _IOR(type,nr,size)     _IOC(2,(type),(nr),sizeof(size))
++#define _IOW(type,nr,size)     _IOC(1,(type),(nr),sizeof(size))
++#define _IOWR(type,nr,size)    _IOC(3,(type),(nr),sizeof(size))
++#define _IOC_SIZE(nr)          (((nr)>>16)&0x3fff)
++#define _IOC_DIR(nr)           ((nr)>>30)
++#endif
+ #include <sys/types.h>
+ typedef int8_t   __s8;
+ typedef uint8_t  __u8;
+diff --git libdrm-clean/xf86drm.h libdrm-workdir/xf86drm.h
+index 6d91dfb..293580f 100644
+--- libdrm-clean/xf86drm.h
++++ libdrm-workdir/xf86drm.h
+@@ -58,7 +58,7 @@ extern "C" {
+ 
+ #else /* One of the *BSDs */
+ 
+-#include <sys/ioccom.h>
++//#include <sys/ioccom.h>
+ #define DRM_IOCTL_NR(n)         ((n) & 0xff)
+ #define DRM_IOC_VOID            IOC_VOID
+ #define DRM_IOC_READ            IOC_OUT

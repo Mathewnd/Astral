@@ -12,9 +12,18 @@ index 4e4f7c2..2e4d3e2 100644
  typedef int8_t   __s8;
  typedef uint8_t  __u8;
 diff --git mesa-clean/meson.build mesa-workdir/meson.build
-index 9fb4160..1a1a827 100644
+index 9fb4160..f774dad 100644
 --- mesa-clean/meson.build
 +++ mesa-workdir/meson.build
+@@ -118,7 +118,7 @@ with_any_opengl = with_opengl or with_gles1 or with_gles2
+ # Only build shared_glapi if at least one OpenGL API is enabled
+ with_shared_glapi = with_shared_glapi and with_any_opengl
+ 
+-system_has_kms_drm = ['openbsd', 'netbsd', 'freebsd', 'gnu/kfreebsd', 'dragonfly', 'linux', 'sunos', 'android', 'managarm'].contains(host_machine.system())
++system_has_kms_drm = ['openbsd', 'netbsd', 'freebsd', 'gnu/kfreebsd', 'dragonfly', 'linux', 'sunos', 'android', 'managarm', 'astral'].contains(host_machine.system())
+ 
+ gallium_drivers = get_option('gallium-drivers')
+ if gallium_drivers.contains('auto')
 @@ -1040,7 +1040,7 @@ if cc.has_function('fmemopen')
  endif
  
@@ -61,6 +70,129 @@ index 2aab5bf..e8f9d69 100644
  #ifdef HAVE_LINUX_UDMABUF_H
  #include <fcntl.h>
  #include <sys/mman.h>
+diff --git mesa-clean/src/gallium/targets/dril/dril_target.c mesa-workdir/src/gallium/targets/dril/dril_target.c
+index 593a07e..a8893b0 100644
+--- mesa-clean/src/gallium/targets/dril/dril_target.c
++++ mesa-workdir/src/gallium/targets/dril/dril_target.c
+@@ -332,8 +332,10 @@ init_dri2_configs(int fd)
+ 
+    /* dlopen/dlsym to avoid linkage */
+    egl = dlopen("libEGL.so.1", RTLD_LAZY | RTLD_LOCAL);
+-   if (!egl)
++   if (!egl) {
++	fprintf(stderr, "bad egl\n");
+       return false;
++   }
+ 
+    void * (*peglGetProcAddress)(const char *) = dlsym(egl, "eglGetProcAddress");
+    EGLDisplay (*peglGetPlatformDisplayEXT)(EGLenum, void *, const EGLint *) = peglGetProcAddress("eglGetPlatformDisplayEXT");
+@@ -342,34 +344,47 @@ init_dri2_configs(int fd)
+    EGLBoolean (*peglGetConfigs)(EGLDisplay, EGLConfig*, EGLint, EGLint*) = peglGetProcAddress("eglGetConfigs");
+    EGLBoolean (*peglGetConfigAttrib)(EGLDisplay, EGLConfig, EGLint, EGLint *) = peglGetProcAddress("eglGetConfigAttrib");
+    const char *(*peglQueryString)(EGLDisplay, EGLint) = peglGetProcAddress("eglQueryString");
++	// Add after dlopen succeeds:
++	fprintf(stderr, "dril: EGL client extensions: %s\n", peglQueryString(EGL_NO_DISPLAY, EGL_EXTENSIONS));
++	fflush(stderr);
+ 
+    struct gbm_device *gbm = NULL;
+    if (fd != -1) {
+       /* try opening GBM for hardware driver info */
+       gbm = gbm_create_device(fd);
+-      if (!gbm)
++      if (!gbm) {
++	 fprintf(stderr, "bad gbm\n");
+          goto out;
++      }
+    }
+ 
+-   EGLDisplay dpy = peglGetPlatformDisplayEXT(EGL_PLATFORM_GBM_MESA, gbm ? gbm : EGL_DEFAULT_DISPLAY, NULL);
+-   if (!dpy)
++   EGLDisplay dpy = peglGetPlatformDisplayEXT(EGL_PLATFORM_SURFACELESS_MESA, gbm ? gbm : EGL_DEFAULT_DISPLAY, NULL);
++   if (!dpy) {
++	 fprintf(stderr, "bad dpy\n");
+       goto out_gbm;
++   }
+    int maj, min;
+-   if (!peglInitialize(dpy, &maj, &min))
++   if (!peglInitialize(dpy, &maj, &min)) {
++	 fprintf(stderr, "bad pegl\n");
+       goto out_gbm;
++   }
+ 
+    const char *egl_extension_list = peglQueryString(dpy, EGL_EXTENSIONS);
+    bool has_srgb = strstr(egl_extension_list, "EGL_KHR_gl_colorspace");
+ 
+    int num_configs = 0;
+    EGLConfig *eglconfigs = NULL;
+-   if (!peglGetConfigs(dpy, NULL, 0, &num_configs))
++   if (!peglGetConfigs(dpy, NULL, 0, &num_configs)) {
++	 fprintf(stderr, "bad pegconfigs\n");
+       goto out_egl;
++   }
+    eglconfigs = malloc(sizeof(EGLConfig) * num_configs);
+    /* overestimate: num_configs * doubleBuffer * sRGB + NULL */
+    configs = calloc(num_configs * 2 * 2 + 1, sizeof(struct gl_config));
+-   if (!peglGetConfigs(dpy, eglconfigs, num_configs, &num_configs))
++   if (!peglGetConfigs(dpy, eglconfigs, num_configs, &num_configs)) {
++	 fprintf(stderr, "more bad pegconfigs\n");
+       goto out_egl;
++   }
+ 
+    for (unsigned i = 0; i < num_configs; i++) {
+       /* verify that this is the right format */
+@@ -381,6 +396,9 @@ init_dri2_configs(int fd)
+           !peglGetConfigAttrib(dpy, eglconfigs[i], EGL_SAMPLES, &samples))
+          continue;
+ 
++	    fprintf(stderr, "dril: config %u format=0x%x depth=%d stencil=%d samples=%d\n", i, format, depth, stencil, samples);
++    	fflush(stderr);      
++
+       enum pipe_format pformat = fourcc_to_pipe_format(format);
+ 
+       /* srgb configs go after base configs */
+@@ -412,6 +430,20 @@ init_dri2_configs(int fd)
+    /* check last format for srgbness too */
+    if (c && has_srgb)
+       c = add_srgb_config(configs, c, last_pformat, last_start);
++
++   fprintf(stderr, "c: %u\n", c);
++   /* surfaceless EGL returns no native visual IDs, populate directly */
++if (c == 0) {
++   configs = calloc(ARRAY_SIZE(drilConfigs) * 2 + 1, sizeof(struct gl_config));
++   for (unsigned i = 0; i < ARRAY_SIZE(drilConfigs); i++) {
++      /* single-buffered */
++      configs[c] = mem_dup(&drilConfigs[i], sizeof(drilConfigs[i]));
++      configs[c++]->doubleBufferMode = 0;
++      /* double-buffered */
++      configs[c] = mem_dup(&drilConfigs[i], sizeof(drilConfigs[i]));
++      configs[c++]->doubleBufferMode = 1;
++   }
++}
+ out_egl:
+    free(eglconfigs);
+    /* don't forget cleanup */
+diff --git mesa-clean/src/glx/glxcmds.c mesa-workdir/src/glx/glxcmds.c
+index 561d4c8..ffda2d0 100644
+--- mesa-clean/src/glx/glxcmds.c
++++ mesa-workdir/src/glx/glxcmds.c
+@@ -1832,6 +1832,9 @@ _X_HIDDEN GLboolean
+ __glxGetMscRate(struct glx_screen *psc,
+ 		int32_t * numerator, int32_t * denominator)
+ {
++#ifdef __astral__
++   return False;
++#else
+ #if !defined(GLX_USE_WINDOWSGL)
+    XF86VidModeModeLine mode_line;
+    int dot_clock;
+@@ -1882,6 +1885,7 @@ __glxGetMscRate(struct glx_screen *psc,
+ #endif
+ 
+    return False;
++#endif
+ }
+ #endif
+ 
 diff --git mesa-clean/src/util/detect_os.h mesa-workdir/src/util/detect_os.h
 index 86286df..f3a5106 100644
 --- mesa-clean/src/util/detect_os.h

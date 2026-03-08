@@ -1,0 +1,33 @@
+diff --git libxshmfence-clean/src/xshmfence_futex.h libxshmfence-workdir/src/xshmfence_futex.h
+index 673ac0e..a79f535 100644
+--- libxshmfence-clean/src/xshmfence_futex.h
++++ libxshmfence-workdir/src/xshmfence_futex.h
+@@ -51,11 +51,27 @@ static inline int futex_wait(int32_t *addr, int32_t value) {
+ #include <values.h>
+ #include <linux/futex.h>
+ #include <sys/time.h>
++
++#ifndef __astral__
+ #include <sys/syscall.h>
++#endif
+ 
+ static inline long sys_futex(void *addr1, int op, int val1, struct timespec *timeout, void *addr2, int val3)
+ {
+-	return syscall(SYS_futex, addr1, op, val1, timeout, addr2, val3);
++#ifdef __astral__
++    long ret;
++    long err;
++    register uint64_t r_timeout asm("r10") = (uint64_t)timeout;
++    asm volatile("syscall"
++        : "=a"(ret), "=d"(err)
++        : "a"(51UL), "D"(addr1), "S"((long)op), "d"((long)val1), "r"(r_timeout)
++        : "memory", "rcx", "r11");
++    if (err)
++        return -err;
++    return ret;
++#else
++    return syscall(SYS_futex, addr1, op, val1, timeout, addr2, val3);
++#endif
+ }
+ 
+ static inline int futex_wake(int32_t *addr) {
