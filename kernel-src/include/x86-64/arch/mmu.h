@@ -5,10 +5,11 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#define KERNELSPACE_START (void *)0xffff800000000000
-#define KERNELSPACE_END   (void *)0xffffffffffffffff
-#define USERSPACE_START   (void *)0x0000000000001000
-#define USERSPACE_END     (void *)0x0000800000000000
+#define KERNELSPACE_START    (void *)0xffff800000000000
+#define KERNELSPACE_END      (void *)0xffffffffffffffff
+#define USERSPACE_START      (void *)0x0000000000001000
+#define USERSPACE_END        (void *)0x0000800000000000
+#define USERSPACE_MMAP_START (void *)0x0000100000000000
 
 #define IS_USER_ADDRESS(a) ((void *)a < USERSPACE_END)
 
