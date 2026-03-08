@@ -1,0 +1,24 @@
+name=fastfetch
+version=1.0
+revision=1
+from_source=fastfetch
+imagedeps="build-essential cmake"
+hostdeps="xgcc xbinutils pkgconfig libstdc++-v3"
+deps="base libxrandr"
+
+configure() {
+	cmake \
+	-DPKG_CONFIG_EXECUTABLE="/usr/local/bin/x86_64-astral-pkg-config" \
+	-DCMAKE_TOOLCHAIN_FILE=${base_dir}/util/cmake \
+	-DCMAKE_INSTALL_PREFIX=${prefix} \
+	-DCMAKE_BUILD_TYPE=Release \
+	${source_dir}
+}
+
+build() {
+	make -j${parallelism}
+}
+
+package() {
+	DESTDIR=${dest_dir} make install
+}
