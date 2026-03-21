@@ -291,6 +291,7 @@ void proc_exit(void) {
 
 	if (lastchild) {
 		lastchild->sibling = init_proc->child;
+		lastchild->parent = init_proc;
 		init_proc->child = proc->child;
 	}
 
