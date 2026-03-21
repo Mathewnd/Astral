@@ -78,6 +78,6 @@ static inline int fileflagstovnodeflags(int flags) {
 	return vnflags;
 }
 
-#define FDTABLE_LIMIT 256
+#define FDTABLE_LIMIT 1024
 
 #endif
