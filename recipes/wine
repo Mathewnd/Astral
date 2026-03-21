@@ -11,7 +11,7 @@ configure() {
         --prefix=/usr \
         --disable-tests \
         --enable-tools \
-        --enable-win64 \
+	--enable-archs="i386,x86_64" \
         --disable-win16 \
         --without-inotify \
         --without-alsa \
@@ -24,7 +24,6 @@ configure() {
         --without-krb5 \
         --without-netapi \
         --without-opencl \
-        --without-osmesa \
         --without-oss \
         --without-pcap \
         --without-pulse \

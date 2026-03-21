@@ -1,5 +1,5 @@
 diff --git wine-clean/configure wine-workdir/configure
-index ed9c961..bed2e3e 100755
+index ed9c961..7b8413f 100755
 --- wine-clean/configure
 +++ wine-workdir/configure
 @@ -10219,12 +10219,14 @@ then :
@@ -40,7 +40,7 @@ index ed9c961..bed2e3e 100755
  ac_fn_c_check_header_compile "$LINENO" "syscall.h" "ac_cv_header_syscall_h" "$ac_includes_default"
  if test "x$ac_cv_header_syscall_h" = xyes
  then :
-@@ -21321,12 +21322,12 @@ then :
+@@ -21321,12 +21323,12 @@ then :
    printf "%s\n" "#define HAVE_DLINFO 1" >>confdefs.h
  
  fi
@@ -60,7 +60,7 @@ index ed9c961..bed2e3e 100755
  if test "x$ac_cv_func_epoll_pwait2" = xyes
  then :
 diff --git wine-clean/dlls/ntdll/unix/signal_x86_64.c wine-workdir/dlls/ntdll/unix/signal_x86_64.c
-index 740df80..4012d5e 100644
+index 740df80..df25be7 100644
 --- wine-clean/dlls/ntdll/unix/signal_x86_64.c
 +++ wine-workdir/dlls/ntdll/unix/signal_x86_64.c
 @@ -82,6 +82,10 @@ extern void _thread_set_tsd_base(uint64_t);
@@ -114,17 +114,194 @@ index 740df80..4012d5e 100644
  #else
  #error You must define the signal context functions for your platform
  #endif
-@@ -2918,6 +2955,10 @@ void init_syscall_frame( LPTHREAD_START_ROUTINE entry, void *arg, BOOL suspend,
+@@ -524,7 +561,7 @@ static unsigned int frame_size;
+ static unsigned int xstate_size = sizeof(XSAVE_AREA_HEADER);
+ static UINT64 xstate_extended_features;
+ 
+-#if defined(__linux__) || defined(__APPLE__)
++#if defined(__linux__) || defined(__APPLE__) || defined(__astral__)
+ static inline TEB *get_current_teb(void)
+ {
+     unsigned long rsp;
+@@ -927,6 +964,11 @@ static inline ucontext_t *init_handler( void *sigcontext )
+         if (CS_sig((ucontext_t *)sigcontext) == 0x07 /* SYSCALL_CS */)
+             CS_sig((ucontext_t *)sigcontext) = cs64_sel;
+     }
++#elif defined __astral__
++    if (amd64_thread_data()->fs) {
++    	struct ntdll_thread_data *thread_data = (struct ntdll_thread_data *)&get_current_teb()->GdiTebBatch;
++	arch_ctl(ARCH_CTL_SET_FSBASE, ((struct amd64_thread_data *)thread_data->cpu_data)->pthread_teb);
++    }
+ #endif
+     return sigcontext;
+ }
+@@ -942,6 +984,11 @@ static inline void leave_handler( ucontext_t *sigcontext )
+         !is_inside_signal_stack( (void *)RSP_sig(sigcontext )) &&
+         !is_inside_syscall( RSP_sig(sigcontext) ))
+         __asm__ volatile( "movw %0,%%fs" :: "r" (fs32_sel) );
++#elif defined __astral__
++    if (amd64_thread_data()->fs &&
++        !is_inside_signal_stack( (void *)RSP_sig(sigcontext )) &&
++        !is_inside_syscall( RSP_sig(sigcontext) ))
++        __asm__ volatile( "movw %0,%%fs" :: "r" ((uint16_t)amd64_thread_data()->fs) );
+ #elif defined __APPLE__
+     if (!is_inside_signal_stack( (void *)RSP_sig(sigcontext )) &&
+         !is_inside_syscall( RSP_sig(sigcontext )))
+@@ -1807,6 +1854,12 @@ __ASM_GLOBAL_FUNC( call_user_mode_callback,
+                    "jz 1f\n\t"
+                    "movw %ax,%fs\n"
+                    "1:\n\t"
++#elif defined __astral__
++                   "movw 0x338(%r13),%ax\n"    /* amd64_thread_data()->fs */
++                   "testw %ax,%ax\n\t"
++                   "jz 1f\n\t"
++                   "movw %ax,%fs\n"
++                   "1:\n\t"
+ #elif defined __APPLE__
+                    "movq %rcx,%r10\n\t"
+                    "movq %r13,%rdi\n\t"
+@@ -2315,6 +2368,8 @@ static inline BOOL check_invalid_gsbase( ucontext_t *ucontext )
+         __asm__("rdgsbase %0" : "=r" (cur_gsbase));
+     else
+         arch_prctl( ARCH_GET_GS, &cur_gsbase );
++#elif defined(__astral__)
++    arch_ctl(ARCH_CTL_GET_GSBASE, &cur_gsbase);
+ #elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+     amd64_get_gsbase( (void**)&cur_gsbase );
+ #elif defined(__NetBSD__)
+@@ -2376,6 +2431,8 @@ static inline BOOL check_invalid_gsbase( ucontext_t *ucontext )
+ 
+ #ifdef __linux__
+     arch_prctl( ARCH_SET_GS, teb );
++#elif defined(__astral__)
++    arch_ctl(ARCH_CTL_SET_GSBASE, teb);
+ #elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+     amd64_set_gsbase( teb );
+ #elif defined(__NetBSD__)
+@@ -2734,7 +2791,15 @@ void ldt_set_entry( WORD sel, LDT_ENTRY entry )
+     if ((ret = modify_ldt( &ldt_info ))) ERR( "modify_ldt failed %d\n", ret );
+ #elif defined(__APPLE__)
+     if (i386_set_ldt(sel >> 3, (union ldt_entry *)&entry, 1) < 0) perror("i386_set_ldt");
+-#else
++#elif defined(__astral__)
++    uint64_t entry_i;
++    memcpy(&entry_i, &entry, sizeof(entry_i));
++    archctl_ldt_request_t req = {
++        .entry = entry_i,
++	.seg = sel >> 3
++    };
++    if (arch_ctl(ARCH_CTL_SET_LDT_ENTRY, &req)) perror("arch_ctl(ARCH_CTL_SET_LDT_ENTRY)");
++#else 
+     fprintf( stderr, "No LDT support on this platform\n" );
+     exit(1);
+ #endif
+@@ -2854,8 +2919,12 @@ void signal_init_process(void)
+         cs32_sel = 0x23;
+         fs32_sel = alloc_fs_sel( -1, wow_teb );
+ #elif defined(__APPLE__)
+-        cs32_sel = ldt_alloc_entry( ldt_make_cs32_entry() );
++        cs32_sel = ldt_alloc_entry( ldt_make_cs32_entry() ); // TODO fs32_sel?
++#elif defined(__astral__)
++	cs32_sel = ldt_alloc_entry( ldt_make_cs32_entry() );
++	//fs32_sel = ldt_alloc_entry( ldt_make_fs32_entry(wow_teb) );
+ #endif
++
+     }
+ 
+     signal_alloc_thread( NtCurrentTeb() );
+@@ -2918,6 +2987,13 @@ void init_syscall_frame( LPTHREAD_START_ROUTINE entry, void *arg, BOOL suspend,
      sysarch( X86_64_SET_GSBASE, &teb );
  #elif defined (__APPLE__)
      thread_data->pthread_teb = mac_thread_gsbase();
 +#elif defined(__astral__)
 +    arch_ctl(ARCH_CTL_SET_GSBASE, teb);
-+    //arch_ctl(ARCH_CTL_GET_FSBASE, &thread_data->pthread_teb);
-+    //if (fs32_sel) alloc_fs_sel( fs32_sel >> 3, get_wow_teb( teb ));
++    if (thread_data->fs)
++    {
++        arch_ctl(ARCH_CTL_GET_FSBASE, &thread_data->pthread_teb);
++	ldt_set_entry( thread_data->fs, ldt_make_fs32_entry( get_wow_teb(teb) ));
++    }
  #else
  # error Please define setting %gs for your architecture
  #endif
+@@ -3127,6 +3203,15 @@ __ASM_GLOBAL_FUNC( __wine_syscall_dispatcher,
+                    "syscall\n\t"
+                    "leaq -0x98(%rbp),%rcx\n"
+                    "2:\n\t"
++#elif defined __astral__
++                   "movq 0x320(%r13),%rsi\n\t"     /* amd64_thread_data()->pthread_teb */
++                   "testq %rsi,%rsi\n\t"
++                   "jz 2f\n\t"
++		   "mov $1, %edi\n\t" /* ARCH_CTL_SET_FSBASE */
++		   "mov $6, %eax\n\t" /* SYSCALL_ARCHCTL*/
++		   "syscall\n\t"
++                   "leaq -0x98(%rbp),%rcx\n"
++                   "2:\n\t"
+ #elif defined __APPLE__
+                    "movq 0x320(%r13),%rdi\n\t"     /* amd64_thread_data()->pthread_teb */
+                    "xorl %esi,%esi\n\t"
+@@ -3179,6 +3264,12 @@ __ASM_GLOBAL_FUNC( __wine_syscall_dispatcher,
+                    "jz 1f\n\t"
+                    "movw %dx,%fs\n"
+                    "1:\n\t"
++#elif defined __astral__
++                   "movw 0x338(%r13),%dx\n"        /* amd64_thread_data()->fs */
++                   "testw %dx,%dx\n\t"
++                   "jz 1f\n\t"
++                   "movw %dx,%fs\n"
++                   "1:\n\t"
+ #elif defined __APPLE__
+                    "movq %rax,%r8\n\t"
+                    "movq %rcx,%rdx\n\t"
+@@ -3415,6 +3506,14 @@ __ASM_GLOBAL_FUNC( __wine_unix_call_dispatcher,
+                    "mov $158,%eax\n\t"             /* SYS_arch_prctl */
+                    "syscall\n\t"
+                    "2:\n\t"
++#elif defined __astral__
++                   "movq 0x320(%r13),%rsi\n\t"     /* amd64_thread_data()->pthread_teb */
++                   "testq %rsi,%rsi\n\t"
++                   "jz 2f\n\t"
++		   "mov $1, %edi\n\t" /* ARCH_CTL_SET_FSBASE */
++		   "mov $6, %eax\n\t" /* SYSCALL_ARCHCTL*/
++		   "syscall\n\t"
++                   "2:\n\t"
+ #elif defined __APPLE__
+                    "movq 0x320(%r13),%rdi\n\t"     /* amd64_thread_data()->pthread_teb */
+                    "xorl %esi,%esi\n\t"
+@@ -3447,6 +3546,12 @@ __ASM_GLOBAL_FUNC( __wine_unix_call_dispatcher,
+                    "jz 1f\n\t"
+                    "movw %dx,%fs\n"
+                    "1:\n\t"
++#elif defined __astral__
++                   "movw 0x338(%r13),%dx\n"        /* amd64_thread_data()->fs */
++                   "testw %dx,%dx\n\t"
++                   "jz 1f\n\t"
++                   "movw %dx,%fs\n"
++                   "1:\n\t"
+ #elif defined __APPLE__
+                    "movq %rax,%rdx\n\t"
+                    "movq %rcx,%r14\n\t"
+diff --git wine-clean/dlls/ntdll/unix/virtual.c wine-workdir/dlls/ntdll/unix/virtual.c
+index 781598f..025dfe1 100644
+--- wine-clean/dlls/ntdll/unix/virtual.c
++++ wine-workdir/dlls/ntdll/unix/virtual.c
+@@ -733,7 +733,7 @@ static void mmap_init( const struct preload_info *preload_info )
+         char *base = stack_ptr - ((unsigned int)stack_ptr & granularity_mask) - (granularity_mask + 1);
+         if (base > user_space_limit) reserve_area( user_space_limit, base );
+         base = stack_ptr - ((unsigned int)stack_ptr & granularity_mask) + (granularity_mask + 1);
+-#if defined(linux) || defined(__FreeBSD__) || defined (__FreeBSD_kernel__) || defined(__DragonFly__)
++#if defined(linux) || defined(__FreeBSD__) || defined (__FreeBSD_kernel__) || defined(__DragonFly__) || defined (__astral__)
+         /* Heuristic: assume the stack is near the end of the address */
+         /* space, this avoids a lot of futile allocation attempts */
+         end = (char *)(((unsigned long)base + 0x0fffffff) & 0xf0000000);
+@@ -2362,7 +2362,7 @@ static NTSTATUS map_file_into_view( struct file_view *view, int fd, size_t start
+     {
+         /* changes to the file are not guaranteed to be visible in read-only MAP_PRIVATE mappings,
+          * but they are on Linux so we take advantage of it */
+-#ifdef __linux__
++#if defined(__linux__) || defined(__astral__)
+         flags |= MAP_PRIVATE;
+ #else
+         flags |= MAP_SHARED;
 diff --git wine-clean/server/sock.c wine-workdir/server/sock.c
 index fdc26bc..235406b 100644
 --- wine-clean/server/sock.c
