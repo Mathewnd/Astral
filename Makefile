@@ -66,7 +66,7 @@ $(IMG): limine.conf liminebg.bmp $(KERNEL) $(INITRD)-$(INITRDTYPE)
 	cp $(KERNEL) liminebg.bmp limine.conf $(LIMINEDIR)/limine-bios.sys $(IMGDIR)
 	cp $(LIMINEDIR)/BOOTIA32.EFI $(IMGDIR)/EFI/BOOT
 	cp $(LIMINEDIR)/BOOTX64.EFI $(IMGDIR)/EFI/BOOT
-	../genbootimg.sh 200m  $(IMG) $(IMGDIR)
+	cd $(JINX_DIR) && ../genbootimg.sh 1g $(IMG) $(IMGDIR)
 
 # ------ build targets ------
 

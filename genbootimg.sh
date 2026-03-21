@@ -36,7 +36,7 @@ host-pkgs/limine/usr/local/bin/limine bios-install "$2"
 mformat -i "$2@@1M"
 mmd -i "$2@@1M" ::/EFI ::/EFI/BOOT ::/boot ::/boot/limine
 
-img="$PWD/$2"
+img="$2"
 
 cd "$3"
 #find . -type d -exec mmd -i "$img@@1M" ::{} \;
