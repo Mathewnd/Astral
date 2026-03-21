@@ -955,7 +955,7 @@ vmmcontext_t *vmm_fork(vmmcontext_t *oldcontext) {
 
 		memcpy(newrange, range, sizeof(vmmrange_t));
 
-		insertrange(&newcontext->space, newrange);
+		rbtree_insert(&newcontext->space.ranges, &newrange->rbtree_node, rbtree_compare);
 		if (range->flags & VMM_FLAGS_FILE)
 			VOP_HOLD(range->vnode);
 
