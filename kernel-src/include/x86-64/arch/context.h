@@ -42,6 +42,7 @@ typedef struct {
 	uint64_t gsbase;
 	uint64_t fsbase;
 	void *xsave;
+	uint16_t fs, gs;
 } extracontext_t;
 
 extern size_t arch_xsave_size;
@@ -106,6 +107,6 @@ void arch_extracontext_copy(extracontext_t *dst, const extracontext_t *src);
 	arch_extracontext_save(c);
 
 #define ARCH_CONTEXT_INTSTATUS(x) ((x)->rflags & 0x200 ? true : false)
-#define ARCH_CONTEXT_ISUSER(x) ((x)->cs == 0x23)
+#define ARCH_CONTEXT_ISUSER(x) ((x)->cs != 0x8)
 
 #endif

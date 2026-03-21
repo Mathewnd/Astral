@@ -66,6 +66,12 @@ static inline void arch_sigframe_init(sigframe_t *sigframe) {
 	sigframe->extracontext.xsave = sigframe->xsave;
 }
 
+#define CS_sig(context)      (*((WORD *)&(context)->uc_mcontext.gregs[REG_CSGSFS] + 0))
+#define GS_sig(context)      (*((WORD *)&(context)->uc_mcontext.gregs[REG_CSGSFS] + 1))
+#define FS_sig(context)      (*((WORD *)&(context)->uc_mcontext.gregs[REG_CSGSFS] + 2))
+#define SS_sig(context)      (*((WORD *)&(context)->uc_mcontext.gregs[REG_CSGSFS] + 3))
+
+
 static inline void arch_sigframe_prepare_mcontext(void *stack, sigframe_t *sigframe) {
 	context_t *context = &sigframe->context;
 	extracontext_t *extracontext = &sigframe->extracontext;
@@ -89,7 +95,7 @@ static inline void arch_sigframe_prepare_mcontext(void *stack, sigframe_t *sigfr
 	gregs[MCONTEXT_REG_RSP] = context->rsp;
 	gregs[MCONTEXT_REG_RIP] = context->rip;
 	gregs[MCONTEXT_REG_EFL] = context->rflags;
-	gregs[MCONTEXT_REG_CSGSFS] = 0;
+	gregs[MCONTEXT_REG_CSGSFS] = (uint64_t)context->cs | ((uint64_t)context->gs << 16) | ((uint64_t)context->fs << 32) | ((uint64_t)context->ss << 48);
 	gregs[MCONTEXT_REG_ERR] = context->error;
 	gregs[MCONTEXT_REG_TRAPNO] = context->irq;
 	gregs[MCONTEXT_REG_OLDMASK] = 0;
@@ -124,6 +130,10 @@ static inline void arch_sigframe_get_context_from_mcontext(sigframe_t *sigframe)
 	context->rflags = gregs[MCONTEXT_REG_EFL];
 	context->error = gregs[MCONTEXT_REG_ERR];
 	context->cr2 = gregs[MCONTEXT_REG_CR2];
+	context->cs = gregs[MCONTEXT_REG_CSGSFS] & 0xffff;
+	context->gs = (gregs[MCONTEXT_REG_CSGSFS] >> 16) & 0xffff;
+	context->fs = (gregs[MCONTEXT_REG_CSGSFS] >> 32) & 0xffff;
+	context->ss = (gregs[MCONTEXT_REG_CSGSFS] >> 48) & 0xffff;
 }
 
 

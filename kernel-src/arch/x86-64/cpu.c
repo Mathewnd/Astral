@@ -46,6 +46,13 @@ static void x87isr(isr_t *self, context_t *ctx) {
 	}
 }
 
+static void reload_ldt(isr_t *self, context_t *ctx) {
+	if (current_thread() == NULL || current_thread()->proc == NULL || current_thread()->proc->ldt == NULL)
+		return;
+
+	arch_ldt_invalidate();
+}
+
 void arch_nmi_isr(context_t *ctx) {
 	// we are in an NMI context, running on IST0 
 	// first load the proper gsbase to get access to cpu-local variables. 
@@ -218,6 +225,9 @@ void arch_cpu_init() {
 	interrupt_register(6, illisr, NULL, IPL_IGNORE);
 	interrupt_register(16, x87isr, NULL, IPL_IGNORE);
 	interrupt_register(19, simdisr, NULL, IPL_IGNORE);
+
+	// and the ldt reload one
+	interrupt_register(0xfc, (void *)reload_ldt, NULL, IPL_MAX);
 
 	// get vendor string for cpu and max cpuid eax
 	__get_cpuid(0, &eax, &ebx, &ecx, &edx);

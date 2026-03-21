@@ -17,8 +17,8 @@ isr_%+ i:
 
 isr_common:
 	; check if swapgs is needed
-	cmp qword [rsp+24], 0x23
-	jne .notneeded1
+	cmp qword [rsp+24], 0x8
+	je .notneeded1
 	swapgs
 	.notneeded1:
 	; push context
@@ -90,8 +90,8 @@ isr_common:
 	add rsp,8 ; remove error code
 
 	; check if swapgs is needed
-	cmp qword [rsp+8], 0x23
-	jne .notneeded2
+	cmp qword [rsp+8], 0x8
+	je .notneeded2
 	swapgs
 	.notneeded2:
 	o64 iret

@@ -8,10 +8,16 @@
 #define ARCH_CTL_GET_GSBASE 2
 #define ARCH_CTL_GET_FSBASE 3
 #define ARCH_CTL_SET_SYSTRACE 4
+#define ARCH_CTL_SET_LDT_ENTRY 5
 
 #define ARCH_CTL_SYSTRACE_OFF 0
 #define ARCH_CTL_SYSTRACE_SELF 1
 #define ARCH_CTL_SYSTRACE_ALL 2
+
+typedef struct {
+	uint64_t entry;
+	uint16_t seg;
+} archctl_ldt_request_t;
 
 static inline int copy_u64_to_user(void *ptr, uint64_t v) {
 	return usercopy_touser(ptr, &v, sizeof(v));
@@ -25,9 +31,11 @@ syscallret_t syscall_archctl(context_t *context, int func, void *arg) {
 
 	if (!IS_USER_ADDRESS(arg)) {
 		ret.errno = EFAULT;
+		ret.ret = -1;
 		return ret;
 	}
 
+	uint64_t scratch;
 	switch (func) {
 		case ARCH_CTL_SET_GSBASE:
 			// kernelgsbase because it will be switched out to user
@@ -41,6 +49,14 @@ syscallret_t syscall_archctl(context_t *context, int func, void *arg) {
 			break;
 		case ARCH_CTL_GET_FSBASE:
 			ret.errno = copy_u64_to_user(arg, rdmsr(MSR_FSBASE));
+			break;
+		case ARCH_CTL_SET_LDT_ENTRY:
+			archctl_ldt_request_t req;
+			ret.errno = usercopy_fromuser(&req, arg, sizeof(req));
+			if (ret.errno)
+				break;
+
+			ret.errno = arch_ldt_set_entry(req.seg, req.entry);
 			break;
 		case ARCH_CTL_SET_SYSTRACE:
 #ifdef SYSCALL_LOGGING
@@ -69,5 +85,6 @@ syscallret_t syscall_archctl(context_t *context, int func, void *arg) {
 			break;
 	}
 
+	ret.ret = ret.errno ? -1 : 0;
 	return ret;
 }

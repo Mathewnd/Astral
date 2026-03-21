@@ -75,7 +75,7 @@ typedef struct cpu_t {
 
 	// architecture specific, does not need to be exposed
 
-	uint64_t gdt[7];
+	uint64_t gdt[9];
 	char vendor[13];
 	ist_t ist;
 	int acpiid;
@@ -89,6 +89,11 @@ typedef struct cpu_t {
 
 #define CPU_HALT() asm volatile("hlt")
 #define CPU_PAUSE() asm volatile("pause")
+
+bool load_seg_gs(int segment);
+void load_seg_gs_fallback(void);
+bool load_seg_fs(int segment);
+void load_seg_fs_fallback(void);
 
 static inline uint32_t cpu_to_be_d(uint32_t d) {
 	return __builtin_bswap32(d);

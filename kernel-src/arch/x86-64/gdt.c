@@ -5,15 +5,35 @@
 #include <string.h>
 #include <printf.h>
 
-static uint64_t template[7] = {
+static uint64_t template[9] = {
 	0, // NULL 0x0
 	0x00af9b000000ffff, // code64 0x8
 	0x00af93000000ffff, // data64 0x10
-	0x00aff3000000ffff, // udata64 0x18
+	0x00eff3000000ffff, // udata64 0x18
 	0x00affb000000ffff, // ucode64 0x20
 	0x0020890000000000, // low ist 0x28
-	0x0000000000000000  // high ist
+	0x0000000000000000, // high ist
+	0x0000000000000000, // LDT low
+	0x0000000000000000  // LDT high
 };
+
+// should be called with preemption DISABLED
+void arch_gdt_set_ldt(void *base, size_t limit) {
+	if (base == NULL) {
+		current_cpu()->gdt[7] = 0;
+		current_cpu()->gdt[8] = 0;
+		asm volatile("lldt %%ax" : : "a"(0));
+		return;
+	}
+
+	uint64_t base_low = (uint64_t)base & 0xffffffff;
+	current_cpu()->gdt[7] = 0x82000000ffff; // present, ldt, limit 64k
+	current_cpu()->gdt[7] |= (base_low & 0xffff) << 16;
+	current_cpu()->gdt[7] |= ((base_low >> 16) & 0xff) << 32;
+	current_cpu()->gdt[7] |= ((base_low >> 24) & 0xff) << 56;
+	current_cpu()->gdt[8] = ((uint64_t)base >> 32) & 0xffffffff;
+	asm volatile("lldt %%ax" : : "a"(0x38));
+}
 
 typedef struct {
 	uint16_t size;

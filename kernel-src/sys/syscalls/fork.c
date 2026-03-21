@@ -6,6 +6,7 @@
 #include <kernel/jobctl.h>
 #include <kernel/interrupt.h>
 #include <arch/cpu.h>
+#include <logging.h>
 
 syscallret_t syscall_fork(context_t *ctx) {
 	syscallret_t ret = {
@@ -36,6 +37,14 @@ syscallret_t syscall_fork(context_t *ctx) {
 	ret.errno = fd_clone(nproc);
 	if (ret.errno)
 		goto cleanup;
+
+#ifdef __x86_64__
+	if (proc->ldt) {
+		ret.errno = arch_ldt_fork(&nproc->ldt, proc->ldt);
+		if (ret.errno)
+			goto cleanup;
+	}
+#endif
 
 	MUTEX_ACQUIRE(&proc->mutex);
 
@@ -80,5 +89,6 @@ syscallret_t syscall_fork(context_t *ctx) {
 	PROC_RELEASE(nproc);
 
 	cleanup:
+	// XXX no cleanup, TODO
 	return ret;
 }

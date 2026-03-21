@@ -13,6 +13,10 @@
 
 #include <kernel/thread.h>
 
+#ifdef __x86_64__
+#include <arch/ldt.h>
+#endif
+
 #define PROC_STATE_NORMAL 0
 #define PROC_STATE_ZOMBIE 1
 
@@ -45,6 +49,10 @@ typedef struct proc_t {
 	semaphore_t waitsem;
 	spinlock_t exiting;
 	int nice;
+
+#ifdef __x86_64__
+	ldt_entry_t *ldt;
+#endif
 
 	spinlock_t jobctllock;
 	struct {

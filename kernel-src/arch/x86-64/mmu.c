@@ -349,6 +349,16 @@ static void pfisr(isr_t *self, context_t *ctx) {
 }
 
 static void gpfisr(isr_t *self, context_t *ctx) {
+	if (ctx->rip >= (uintptr_t)load_seg_gs && ctx->rip <= (uintptr_t)load_seg_gs_fallback) {
+		ctx->rip = (uintptr_t)load_seg_gs_fallback;
+		return;
+	}
+
+	if (ctx->rip >= (uintptr_t)load_seg_fs && ctx->rip <= (uintptr_t)load_seg_fs_fallback) {
+		ctx->rip = (uintptr_t)load_seg_fs_fallback;
+		return;
+	}
+
 	thread_t *thread = current_thread();
 	if (thread && thread->usercopyctx) {
 		memcpy(ctx, thread->usercopyctx, sizeof(context_t));

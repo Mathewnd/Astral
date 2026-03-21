@@ -131,6 +131,9 @@ proc_t *proc_create() {
 }
 
 void proc_destroy(proc_t *proc) {
+#ifdef __x86_64__
+	if (proc->ldt) free(proc->ldt);
+#endif
 	free(proc->fd);
 	slab_free(processcache, proc);
 }
