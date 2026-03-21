@@ -88,11 +88,24 @@ index 1ed110d..ded9114 100644
 -	}
 +void backtrace_symbols_fd(void *const *, int, int) {
  }
+diff --git mlibc-clean/options/rtld/generic/linker.cpp mlibc-workdir/options/rtld/generic/linker.cpp
+index 07dbe11..3ece6ec 100644
+--- mlibc-clean/options/rtld/generic/linker.cpp
++++ mlibc-workdir/options/rtld/generic/linker.cpp
+@@ -29,7 +29,7 @@ uintptr_t libraryBase = 0x41000000;
+ 
+ constexpr bool verbose = false;
+ constexpr bool stillSlightlyVerbose = false;
+-constexpr bool logBaseAddresses = false;
++constexpr bool logBaseAddresses = true;
+ constexpr bool logRpath = false;
+ constexpr bool logLdPath = false;
+ constexpr bool logSymbolVersions = false;
 diff --git mlibc-clean/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
-index 939925e..eb6a6aa 100644
+index 939925e..4c8cb95 100644
 --- mlibc-clean/sysdeps/astral/generic/generic.cpp
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -47,6 +47,17 @@ namespace mlibc {
+@@ -47,6 +47,71 @@ namespace mlibc {
  		return 0;
  	}
  
@@ -100,6 +113,60 @@ index 939925e..eb6a6aa 100644
 +		int r;
 +		// unlockpt is a no-op kernel side, so use this to check for an invalid pty
 +		return sys_ioctl(fd, 0x13376167, NULL, &r);
++	}
++
++	int sys_statfs(const char *path, struct statfs *buf) {
++		struct statvfs stvfs;
++		int ret = sys_statvfs(path, &stvfs);
++		if (ret)
++			return ret;
++
++		buf->f_type = 0; /* statvfs has no f_type */
++		buf->f_blocks = stvfs.f_blocks;
++		buf->f_bfree = stvfs.f_bfree;
++		buf->f_bavail = stvfs.f_bavail;
++		buf->f_files = stvfs.f_files;
++		buf->f_ffree = stvfs.f_ffree;
++		buf->f_fsid.__val[0] = (int)(stvfs.f_fsid & 0xFFFFFFFF);
++		buf->f_fsid.__val[1] = (int)(stvfs.f_fsid >> 32);
++		buf->f_namelen = stvfs.f_namemax;
++		buf->f_flags = stvfs.f_flag;
++		buf->f_bsize  = stvfs.f_frsize;
++		buf->f_frsize = stvfs.f_bsize;
++
++		return 0;
++	}
++
++	int sys_fstatfs(int fd, struct statfs *buf) {
++		struct statvfs stvfs;
++		int ret = sys_fstatvfs(fd, &stvfs);
++		if (ret)
++			return ret;
++
++		buf->f_type = 0; /* statvfs has no f_type */
++		buf->f_bsize = stvfs.f_bsize;
++		buf->f_bfree = stvfs.f_bfree;
++		buf->f_bavail = stvfs.f_bavail;
++		buf->f_files = stvfs.f_files;
++		buf->f_ffree = stvfs.f_ffree;
++		buf->f_fsid.__val[0] = (int)(stvfs.f_fsid & 0xFFFFFFFF);
++		buf->f_fsid.__val[1] = (int)(stvfs.f_fsid >> 32);
++		buf->f_namelen = stvfs.f_namemax;
++		buf->f_flags = stvfs.f_flag;
++		buf->f_bsize  = stvfs.f_frsize;
++		buf->f_frsize = stvfs.f_bsize;
++
++		return 0;
++	}
++
++	int sys_statvfs(const char *path, struct statvfs *out) {
++		long r;
++		return syscall(SYSCALL_FSTATVFSAT, &r, AT_FDCWD, (uint64_t)path, (uint64_t)out, 0);
++	}
++
++	int sys_fstatvfs(int fd, struct statvfs *out) {
++		long r;
++		return syscall(SYSCALL_FSTATVFS, &r, fd, (uint64_t)out);
 +	}
 +
 +	void sys_yield() {
@@ -110,31 +177,47 @@ index 939925e..eb6a6aa 100644
  	int sys_readv(int fd, const struct iovec *iovs, int iovc, ssize_t *bytes_read) {
  		long r;
  		int error = syscall(SYSCALL_READV, &r, fd, (uint64_t)iovs, iovc);
+@@ -489,6 +554,7 @@ namespace mlibc {
+ 
+ 	int sys_setsockopt(int fd, int layer, int number, const void *buffer, socklen_t size) {
+ 		long ret;
++		mlibc::infoLogger() << "setsockopt: fd " << fd << " layer " << layer << " number " << number << frg::endlog;
+ 		return syscall(SYSCALL_SETSOCKOPT, &ret, fd, layer, number, (uint64_t)buffer, size);
+ 	}
+ 
 diff --git mlibc-clean/sysdeps/astral/include/astral/archctl.h mlibc-workdir/sysdeps/astral/include/astral/archctl.h
-index 7e4f2a1..a5f382d 100644
+index 7e4f2a1..ecc2677 100644
 --- mlibc-clean/sysdeps/astral/include/astral/archctl.h
 +++ mlibc-workdir/sysdeps/astral/include/astral/archctl.h
-@@ -5,6 +5,11 @@
+@@ -5,6 +5,17 @@
  #define ARCH_CTL_SET_FSBASE 1
  #define ARCH_CTL_GET_GSBASE 2
  #define ARCH_CTL_GET_FSBASE 3
 +#define ARCH_CTL_SET_SYSTRACE 4
++#define ARCH_CTL_SET_LDT_ENTRY 5
 +
 +#define ARCH_CTL_SYSTRACE_OFF 0
 +#define ARCH_CTL_SYSTRACE_SELF 1
 +#define ARCH_CTL_SYSTRACE_ALL 2
++
++typedef struct {
++	uint64_t entry;
++	uint16_t seg;
++} archctl_ldt_request_t;
  
  #ifdef __cplusplus
  extern "C" {
 diff --git mlibc-clean/sysdeps/astral/include/astral/syscall.h mlibc-workdir/sysdeps/astral/include/astral/syscall.h
-index a6c4067..d1656ca 100644
+index a6c4067..0c4f0a1 100644
 --- mlibc-clean/sysdeps/astral/include/astral/syscall.h
 +++ mlibc-workdir/sysdeps/astral/include/astral/syscall.h
-@@ -103,6 +103,7 @@
+@@ -103,6 +103,9 @@
  #define SYSCALL_SYSINFO 96
  #define SYSCALL_WRITEV 97
  #define SYSCALL_READV 98
 +#define SYSCALL_YIELD 99
++#define SYSCALL_FSTATVFS 100
++#define SYSCALL_FSTATVFSAT 101
  
  #ifndef __MLIBC_ABI_ONLY
  
