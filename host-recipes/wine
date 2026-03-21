@@ -1,14 +1,14 @@
 name=wine
 revision=1
 from_source=wine
-imagedeps="build-essential"
+imagedeps="build-essential mingw-w64 mingw-w64-i686-dev"
 hostdeps="freetype pkgconfig"
 
 configure() {
         ${source_dir}/configure \
         --prefix=/usr \
         --disable-tests \
-        --enable-win64 \
+	--enable-archs="i386,x86_64" \
         --disable-win16 \
 	--without-x
 }
