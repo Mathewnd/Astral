@@ -8,7 +8,7 @@
 void arch_interrupt_disable();
 void arch_interrupt_enable();
 
-#define SYSCALL_COUNT 99
+#define SYSCALL_COUNT 102
 #define LOGSTR(x) arch_e9_puts(x)
 
 static char *name[] = {
@@ -110,7 +110,10 @@ static char *name[] = {
 	"getcpu",
 	"sysinfo",
 	"writev",
-	"readv"
+	"readv",
+	"yield",
+	"fstatvfs",
+	"fstatvfsat",
 };
 
 static char *args[] = {
@@ -213,6 +216,9 @@ static char *args[] = {
 	"ptr %p", // sysinfo
 	"fd %d iov %p iovcnt %d", // writev
 	"fd %d iov %p iovcnt %d", // readv
+	"N/A", // yield
+	"fd %d ustat %p", // fstatvfs
+	"dirfd %d path %s ustat %p flags %d", // fstatvfsat
 };
 
 #endif

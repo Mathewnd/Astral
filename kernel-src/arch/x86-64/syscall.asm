@@ -99,6 +99,8 @@ extern syscall_sysinfo
 extern syscall_writev
 extern syscall_readv
 extern syscall_yield
+extern syscall_fstatvfs
+extern syscall_fstatvfsat
 syscalltab:
 dq syscall_print
 dq syscall_mmap
@@ -200,7 +202,9 @@ dq syscall_sysinfo
 dq syscall_writev
 dq syscall_readv
 dq syscall_yield
-syscallcount equ 100
+dq syscall_fstatvfs
+dq syscall_fstatvfsat
+syscallcount equ 102
 section .text
 global arch_syscall_entry
 ; on entry:

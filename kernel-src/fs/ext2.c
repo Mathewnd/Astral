@@ -1969,6 +1969,30 @@ static int ext2_inactive(vnode_t *vnode) {
 	return 0;
 }
 
+static int ext2_statfs(vfs_t *vfs, fsattr_t *fsattr) {
+	ext2fs_t *ext2fs = (ext2fs_t *)vfs;
+
+	fsattr->io_size = ext2fs->blocksize;
+	fsattr->block_size = ext2fs->blocksize;
+	fsattr->block_count = ext2fs->superblock.blockcount;
+	fsattr->inode_count = ext2fs->superblock.inodecount;
+
+	MUTEX_ACQUIRE(&ext2fs->superblocklock);
+
+	fsattr->free_blocks = ext2fs->superblock.unallocatedblocks;
+	fsattr->free_blocks_unprivileged = ext2fs->superblock.unallocatedblocks;
+	fsattr->free_inode_count = ext2fs->superblock.unallocatedinodes;
+	fsattr->free_inode_count_unprivileged = ext2fs->superblock.unallocatedinodes;
+
+	MUTEX_RELEASE(&ext2fs->superblocklock);
+
+	fsattr->fsid = 0; // TODO
+	fsattr->flags = 0;
+	fsattr->max_name_size = 255;
+
+	return 0;
+}
+
 // TODO move root variable to vfs
 static int ext2_root(vfs_t *vfs, vnode_t **vnodep) {
 	ext2fs_t *fs = (ext2fs_t *)vfs;
@@ -2102,7 +2126,8 @@ static int ext2_mount(vfs_t **vfs, vnode_t *mountpoint, vnode_t *backing, void *
 
 static vfsops_t vfsops = {
 	.mount = ext2_mount,
-	.root = ext2_root
+	.root = ext2_root,
+	.statfs = ext2_statfs
 };
 
 static vops_t vnops = {

@@ -560,9 +560,32 @@ static int tmpfs_unlock(vnode_t *node) {
 	return 0;
 }
 
+static int tmpfs_statfs(vfs_t *vfs, fsattr_t *fsattr) {
+	tmpfs_t *tmpfs = (tmpfs_t *)vfs;
+
+	size_t total_pages, free_pages;
+	pmm_getinfo(&total_pages, &free_pages);
+
+	fsattr->io_size = PAGE_SIZE;
+	fsattr->block_size = PAGE_SIZE;
+	fsattr->block_count = total_pages;
+	fsattr->free_blocks = free_pages;
+	fsattr->free_blocks_unprivileged = free_pages;
+	fsattr->inode_count = INT64_MAX;
+	fsattr->free_inode_count = INT64_MAX;
+	fsattr->free_inode_count_unprivileged = INT64_MAX;
+
+	fsattr->fsid = tmpfs->id;
+	fsattr->flags = 0;
+	fsattr->max_name_size = 255;
+
+	return 0;
+}
+
 static vfsops_t vfsops = {
 	.mount = tmpfs_mount,
-	.root = tmpfs_root
+	.root = tmpfs_root,
+	.statfs = tmpfs_statfs
 };
 
 static vops_t vnops = {

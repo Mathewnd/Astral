@@ -65,6 +65,20 @@ typedef struct {
 	size_t blocksused;
 } vattr_t;
 
+typedef struct {
+	size_t io_size;
+	size_t block_size;
+	size_t block_count;
+	size_t free_blocks;
+	size_t free_blocks_unprivileged;
+	size_t inode_count;
+	size_t free_inode_count;
+	size_t free_inode_count_unprivileged;
+	unsigned long fsid;
+	unsigned long flags;
+	size_t max_name_size;
+} fsattr_t;
+
 typedef struct vfs_t {
 	struct vfs_t *next;
 	struct vfsops_t *ops;
@@ -131,6 +145,7 @@ typedef struct vfsops_t {
 	int (*unmount)(vfs_t *vfs);
 	int (*sync)(vfs_t *vfs);
 	int (*root)(vfs_t *vfs, vnode_t **root);
+	int (*statfs)(vfs_t *vfs, fsattr_t *fsattr);
 } vfsops_t;
 
 struct polldata;
@@ -178,6 +193,7 @@ typedef struct vops_t {
 #define VFS_UNMOUNT(vfs) (vfs)->ops->unmount(vfs)
 #define VFS_ROOT(vfs, r) (vfs)->ops->root(vfs, r)
 #define VFS_SYNC(vfs) (vfs)->ops->sync(vfs)
+#define VFS_STATFS(vfs, f) ((vfs)->ops->statfs ? (vfs)->ops->statfs(vfs, f) : ENOSYS)
 
 #define VOP_INIT(vn, o, f, t, v) \
 	(vn)->ops = o; \
