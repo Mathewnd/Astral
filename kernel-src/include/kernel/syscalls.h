@@ -19,17 +19,17 @@ static inline int dirfd_enter(char *path, int dirfd, file_t **file, vnode_t **di
 	} else if (dirfd == AT_FDCWD) {
 		*dirnode = proc_get_cwd();
 	} else {
-		*file = fd_get(dirfd);
-		if (file == NULL) {
+		file_t *f = fd_get(dirfd);
+		if (f == NULL)
 			return EBADF;
-		}
 
-		*dirnode = (*file)->vnode;
-
-		if ((*dirnode)->type != V_TYPE_DIR) {
-			fd_release(*file);
+		if (f->vnode->type != V_TYPE_DIR) {
+			fd_release(f);
 			return ENOTDIR;
 		}
+
+		*file = f;
+		*dirnode = f->vnode;
 	}
 	return 0;
 }
