@@ -1,8 +1,8 @@
 name=bash
-version=5.1
+version=5.3
 source_method=tarball
 tarball_url="https://ftpmirror.gnu.org/gnu/bash/bash-${version}.tar.gz"
-tarball_sha512=c44a0ce381469219548a3a27589af3fea4f22eda1ca4e9434b59fc16da81b471c29ce18e31590e0860a6a251a664b68c2b45e3a17d22cfc02799ffd9a208390c
+tarball_sha512=426702c8b0fb9e0c9956259973ce5b657890fd47f4f807a64febf20077bb48d0b91474ed6e843d2ef277186b46c5fffa79b808da9b48d4ec027d5e2de1b28ed8
 
 prepare() {
 	true
