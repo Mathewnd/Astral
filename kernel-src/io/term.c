@@ -47,7 +47,10 @@ void term_write(char *str, size_t count) {
 }
 
 void term_putchar(char c) {
-	flanterm_write(term_ctx, &c, 1);
+	if (c == '\n')
+		flanterm_write(term_ctx, "\n\r", 2);
+	else
+		flanterm_write(term_ctx, &c, 1);
 }
 
 void term_getsize(size_t *x, size_t *y, size_t *fbx, size_t *fby) {

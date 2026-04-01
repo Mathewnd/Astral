@@ -29,7 +29,10 @@ size_t console_ttywrite(void *internal, char *str, size_t count) {
 }
 
 void console_putc(char c) {
-	console_write(&c, 1);
+	if (c == '\n')
+		console_write("\n\r", 2);
+	else
+		console_write(&c, 1);
 }
 
 // taken from https://en.wikipedia.org/wiki/ANSI_escape_code#Terminal_input_sequences
