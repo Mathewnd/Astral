@@ -100,46 +100,51 @@ int sockfs_setattr(vnode_t *node, vattr_t *attr, int which, cred_t *cred) {
 	return 0;
 }
 
+static int handle_ifreq(unsigned long request, ifreq_t *uifreq, cred_t *cred) {
+	ifreq_t ifreq;
+	int e = USERCOPY_POSSIBLY_FROM_USER(&ifreq, uifreq, sizeof(ifreq_t));
+	if (e)
+		return e;
+
+	netdev_t *netdev = netdev_getdev(ifreq.name);
+	if (!netdev)
+		return ENODEV;
+
+	switch (request) {
+		case SIOCSIFADDR:
+			e = auth_network_check(cred, AUTH_ACTIONS_NETWORK_CONFIGURE, NULL, netdev);
+			if (e)
+				return e;
+
+			sockaddr_t sockaddr;
+			e = sock_convertaddress(&sockaddr, &ifreq.addr);
+			if (e)
+				return e;
+			netdev->ip = sockaddr.ipv4addr.addr;
+			break;
+		case SIOCGIFHWADDR:
+			return USERCOPY_POSSIBLY_TO_USER(uifreq->addr.addr, netdev->mac.address, sizeof(mac_t));
+		case SIOCGIFMTU: {
+			int mtu = netdev->mtu;
+			return USERCOPY_POSSIBLY_TO_USER(&uifreq->mtu, &mtu, sizeof(mtu));
+		}
+		case SIOCGIFFLAGS: {
+			short flags = netdev->flags;
+			return USERCOPY_POSSIBLY_TO_USER(&uifreq->flags, &flags, sizeof(flags));
+		}
+	}
+
+	return 0;
+}
+
 // arg can be in userspace
 int sockfs_ioctl(vnode_t *node, unsigned long request, void *arg, int *result, cred_t *cred) {
 	switch (request) {
-		case SIOCSIFADDR: {
-			ifreq_t ifreq;
-			int e = USERCOPY_POSSIBLY_FROM_USER(&ifreq, arg, sizeof(ifreq_t));
-			if (e)
-				return e;
-
-			netdev_t *netdev = netdev_getdev(ifreq.name);
-			if (netdev) {
-				e = auth_network_check(cred, AUTH_ACTIONS_NETWORK_CONFIGURE, NULL, netdev);
-				if (e)
-					return e;
-
-				sockaddr_t sockaddr;
-				e = sock_convertaddress(&sockaddr, &ifreq.addr);
-				if (e)
-					return e;
-				netdev->ip = sockaddr.ipv4addr.addr;
-			} else {
-				return ENODEV;
-			}
-			break;
-		}
-		case SIOCGIFHWADDR: {
-			ifreq_t *ifreq = arg;
-			ifreq_t kifreq;
-			int e = USERCOPY_POSSIBLY_FROM_USER(&kifreq, arg, sizeof(ifreq_t));
-			if (e)
-				return e;
-
-			netdev_t *netdev = netdev_getdev(kifreq.name);
-			if (netdev) {
-				return USERCOPY_POSSIBLY_TO_USER(ifreq->addr.addr, netdev->mac.address, sizeof(mac_t));
-			} else {
-				return ENODEV;
-			}
-			break;
-		}
+		case SIOCSIFADDR:
+		case SIOCGIFHWADDR:
+		case SIOCGIFMTU:
+		case SIOCGIFFLAGS:
+			return handle_ifreq(request, arg, cred);
 		case SIOCADDRT: {
 			abirtentry_t abirtentry;
 			int e = USERCOPY_POSSIBLY_FROM_USER(&abirtentry, arg, sizeof(abirtentry_t));
@@ -199,6 +204,7 @@ int sockfs_ioctl(vnode_t *node, unsigned long request, void *arg, int *result, c
 			return USERCOPY_POSSIBLY_TO_USER(arg, &count, sizeof(int));
 		}
 			default:
+				printf("got unknown socket ioctl %lu\n", request);
 				return ENOTTY;
 	}
 	return 0;

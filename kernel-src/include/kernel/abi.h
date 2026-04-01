@@ -135,15 +135,20 @@ typedef struct {
 } msghdr_t;
 
 #define IFNAMSIZ 16
+
+#define SIOCGIFFLAGS 0x8913
+#define SIOCSIFADDR	0x8916
+#define SIOCGIFMTU 0x8921
 #define SIOCGIFHWADDR 0x8927
 #define SIOCADDRT 0x890b
-#define SIOCSIFADDR	0x8916
 #define FIONREAD 0x541B
 
 typedef struct {
 	char name[IFNAMSIZ];
 	union {
 		abisockaddr_t addr;
+		int mtu;
+		short flags;
 	};
 } ifreq_t;
 
