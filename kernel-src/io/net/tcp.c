@@ -125,6 +125,7 @@ typedef struct tcb_t {
 	size_t backlogfree;
 	ringbuffer_t backlog;
 	bool reset;
+	int shutdown;
 
 	itimer_t itimer;
 	int currentrto;
@@ -555,7 +556,10 @@ static bool tcp_queuereceivepacket(tcb_t *tcb, tcpheader_t *tcpheader, size_t pa
 	if (tcpheader->seq == tcb->rcvnext) {
 		// it is, flush into the user readable buffer
 		size_t written = 0;
-		__assert(ringbuffer_write(&tcb->receivebuffer, (void *)((uintptr_t)tcpheader + headerlen), datalen) == datalen);
+		if ((tcb->shutdown & SOCKET_SHUTDOWN_READ) == 0) {
+			__assert(ringbuffer_write(&tcb->receivebuffer, (void *)((uintptr_t)tcpheader + headerlen), datalen) == datalen);
+		}
+
 		tcb->rcvnext += datalen;
 		written += datalen;
 
@@ -566,7 +570,9 @@ static bool tcp_queuereceivepacket(tcb_t *tcb, tcpheader_t *tcpheader, size_t pa
 			if (iterator->tcpheader.seq == tcb->rcvnext) {
 				size_t iteratorheaderlen = (iterator->tcpheader.dataoffset >> 4) * 4;
 				// we can flush this segment
-				__assert(ringbuffer_write(&tcb->receivebuffer, (void *)((uintptr_t)&iterator->tcpheader + iteratorheaderlen), iterator->datalen) == iterator->datalen);
+				if ((tcb->shutdown & SOCKET_SHUTDOWN_READ) == 0) {
+					__assert(ringbuffer_write(&tcb->receivebuffer, (void *)((uintptr_t)&iterator->tcpheader + iteratorheaderlen), iterator->datalen) == iterator->datalen);
+				}
 				tcb->rcvnext += iterator->datalen;
 				written += iterator->datalen;
 
@@ -720,7 +726,7 @@ static void tcp_handledatareceive(tcb_t *tcb, tcpheader_t *tcpheader, ipv4pseudo
 		tcb->state = finstate;
 		tcb->rcvnext += 1;
 		shouldack = true;
-		poll_event(&tcb->pollheader, POLLHUP);
+		poll_event(&tcb->pollheader, POLLIN);
 	}
 
 	if (shouldack)
@@ -1145,8 +1151,6 @@ __attribute__((noreturn)) static void tcp_worker() {
 				tcp_handledatareceive(tcb, tcpheader, &ipv4, tcb->state == TCB_STATE_FINWAIT2 ? TCB_STATE_TIMEWAIT : TCB_STATE_CLOSING);
 				if (tcb->state == TCB_STATE_TIMEWAIT) {
 					itimer_pause(&tcb->itimer, NULL, NULL);
-					itimer_set(&tcb->itimer, MSL_SEC * 1000000, 0);
-					itimer_resume(&tcb->itimer);
 				}
 				break;
 			}
@@ -1160,8 +1164,6 @@ __attribute__((noreturn)) static void tcp_worker() {
 				tcp_handledatareceive(tcb, tcpheader, &ipv4, TCB_STATE_TIMEWAIT);
 				if (tcb->state == TCB_STATE_TIMEWAIT) {
 					itimer_pause(&tcb->itimer, NULL, NULL);
-					itimer_set(&tcb->itimer, MSL_SEC * 1000000, 0);
-					itimer_resume(&tcb->itimer);
 				}
 				break;
 			}
@@ -1216,23 +1218,24 @@ static int internalpoll(tcb_t *tcb, polldata_t* data, int events) {
 			break;
 		// both ends are open
 		case TCB_STATE_ESTABILISHED:
-			if (RINGBUFFER_DATACOUNT(&tcb->transmitbuffer) != TCB_RINGBUFFER_SIZE)
-				revents |= POLLOUT & events;
 		// here only our end is closed
 		case TCB_STATE_FINWAIT1:
 		case TCB_STATE_FINWAIT2:
-			if (RINGBUFFER_DATACOUNT(&tcb->receivebuffer))
+			if (RINGBUFFER_DATACOUNT(&tcb->receivebuffer) || (tcb->shutdown & SOCKET_SHUTDOWN_READ))
 				revents |= POLLIN & events;
+			if (RINGBUFFER_DATACOUNT(&tcb->transmitbuffer) != TCB_RINGBUFFER_SIZE)
+				revents |= POLLOUT & events;
 			// TODO POLLPRI
 			break;
 		// here the other end is closed 
 		case TCB_STATE_CLOSEWAIT:
+			revents |= POLLOUT & events;
 		case TCB_STATE_CLOSING:
 		case TCB_STATE_LASTACK:
 		case TCB_STATE_TIMEWAIT:
 		case TCB_STATE_CLOSED:
 			// waiting for local side to close socket
-			if (RINGBUFFER_DATACOUNT(&tcb->receivebuffer))
+			if (RINGBUFFER_DATACOUNT(&tcb->receivebuffer) || (tcb->shutdown & SOCKET_SHUTDOWN_READ))
 				revents |= POLLIN & events;
 			revents |= POLLHUP;
 			break;
@@ -1274,7 +1277,7 @@ static int tcp_send(socket_t *socket, sockdesc_t *sockdesc) {
 			goto leave;
 
 		int revents = internalpoll(tcb, &polldesc.data[0], POLLOUT);
-		if (revents & POLLHUP) {
+		if ((revents & POLLHUP) || (tcb->shutdown & SOCKET_SHUTDOWN_WRITE)) {
 			poll_leave(&polldesc);
 			poll_destroydesc(&polldesc);
 
@@ -1439,9 +1442,6 @@ static int tcp_poll(socket_t *socket, polldata_t *data, int events) {
 
 static int tcp_bind(socket_t *socket, sockaddr_t *addr, cred_t *cred) {
 	tcpsocket_t *tcpsocket = (tcpsocket_t *)socket;
-	if (addr->ipv4addr.addr != 0) {
-		printf("tcp: bind tried to bind to non zero address %x\n", addr->ipv4addr.addr);
-	}
 
 	if (addr->ipv4addr.port != 0 && addr->ipv4addr.port < 1024) {
 		// this port is reserved for privileged users
@@ -1453,7 +1453,8 @@ static int tcp_bind(socket_t *socket, sockaddr_t *addr, cred_t *cred) {
 	MUTEX_ACQUIRE(&socket->mutex);
 	tcb_t *tcb = tcpsocket->tcb;
 	if (tcb == NULL) {
-		tcb = allocatetcb(1); // smallest possible buffers TODO not even allocate those
+		int mtu = addr->ipv4addr.addr ? ipv4_getmtu(addr->ipv4addr.addr) : 1500;
+		tcb = allocatetcb(mtu);
 		if (tcb == NULL) {
 			MUTEX_RELEASE(&socket->mutex);
 			return ENOMEM;
@@ -1767,7 +1768,13 @@ static void tcp_destroy(socket_t *socket) {
 	if (tcb) {
 		MUTEX_ACQUIRE(&tcb->mutex);
 
-		if (tcb->state != TCB_STATE_CLOSED && tcb->state != TCB_STATE_ABORT)
+		if (	tcb->state != TCB_STATE_CLOSED && 
+			tcb->state != TCB_STATE_ABORT && 
+			tcb->state != TCB_STATE_FINWAIT1 && 
+			tcb->state != TCB_STATE_FINWAIT2 &&
+			tcb->state != TCB_STATE_LASTACK &&
+			tcb->state != TCB_STATE_TIMEWAIT &&
+			tcb->state != TCB_STATE_CLOSED)
 			tcp_handleclose(tcb);
 
 		MUTEX_RELEASE(&tcb->mutex);
@@ -1820,27 +1827,120 @@ static int tcp_getpeername(socket_t *socket, sockaddr_t *addr) {
 }
 
 // called with socket locked
-static int tcp_setopt(socket_t *socket, int optname, void *buffer, size_t len, cred_t *cred) {
+static int tcp_setopt(socket_t *socket, int layer, int optname, void *buffer, socklen_t len, cred_t *cred) {
 	tcpsocket_t *tcpsocket = (tcpsocket_t *)socket;
-	tcb_t *tcb = tcpsocket->tcb;
+	int error = 0;
 
-	if (tcb) {
-		MUTEX_ACQUIRE(&tcb->mutex);
-
+	if (layer == SOL_SOCKET) {
 		switch (optname) {
+			case SO_SNDLOWAT:
+			case SO_OOBINLINE:
 			case SO_KEEPALIVE:
-				// TODO this one
+			case SO_SNDBUF:
+			case SO_RCVBUF:
+			case SO_REUSEADDR:
 				break;
+			default:
+				error = ENOPROTOOPT;
 		}
-
-		MUTEX_RELEASE(&tcb->mutex);
+	} else if (layer == SOL_TCP) {
+		switch (optname) {
+			case TCP_NODELAY:
+			case TCP_KEEPINTVL:
+			case TCP_KEEPIDLE:
+				break;
+			default:
+				error = ENOPROTOOPT;
+		}
 	}
-	return 0;
+
+	if (error == ENOPROTOOPT) {
+		printf("tcp_setopt: unknown %lu %lu called\n", layer, optname);
+	}
+
+	return error;
+}
+
+static int tcp_getopt(socket_t *socket, int layer, int optname, void *unsafe_buffer, socklen_t *unsafe_len, cred_t *cred) {
+	socklen_t len;
+	int error = USERCOPY_POSSIBLY_FROM_USER(&len, unsafe_len, sizeof(len));
+	if (error)
+		return error;
+
+	if (layer == SOL_SOCKET) {
+		switch (optname) {
+			case SO_SNDLOWAT: {
+				int value = 1;
+				return USERCOPY_POSSIBLY_TO_USER(unsafe_buffer, &value, len);
+			}
+			case SO_TYPE: {
+				if (len != 4)
+					return EINVAL;
+
+				int type = SOCK_STREAM;
+				return USERCOPY_POSSIBLY_TO_USER(unsafe_buffer, &type, len);
+			}
+			case SO_OOBINLINE:
+			case SO_KEEPALIVE:
+			case SO_REUSEADDR:
+				return USERCOPY_POSSIBLY_MEMSET_TO_USER(unsafe_buffer, 0, len);
+			case SO_SNDBUF:
+			case SO_RCVBUF: {
+				if (len != 4)
+					return EINVAL;
+
+				int value = TCB_RINGBUFFER_SIZE;
+				return USERCOPY_POSSIBLY_TO_USER(unsafe_buffer, &value, 4);
+			}
+		}
+	} else if (layer == SOL_TCP) {
+		switch (optname) {
+			case TCP_NODELAY:
+			case TCP_KEEPIDLE:
+			case TCP_KEEPINTVL:
+				return USERCOPY_POSSIBLY_MEMSET_TO_USER(unsafe_buffer, 0, len);
+		}
+	}
+
+	printf("tcp_getopt unknown %lu %lu\n", layer, optname);
+	return ENOPROTOOPT;
 }
 
 static int tcp_shutdown(socket_t *socket, int how) {
-	printf("tcp: shutdown is not implemented\n");
-	return ENOSYS;
+	tcpsocket_t *tcpsocket = (tcpsocket_t *)socket;
+	MUTEX_ACQUIRE(&socket->mutex);
+
+	int new_how = socket->shutdown ^ how;
+	socket->shutdown |= new_how;
+
+	int error = 0;
+
+	tcb_t *tcb = tcpsocket->tcb;
+	if (tcb) {
+		MUTEX_ACQUIRE(&tcb->mutex);
+
+		tcb->shutdown |= new_how;
+		if ((new_how & SOCKET_SHUTDOWN_WRITE) &&
+			tcb->state != TCB_STATE_CLOSED &&
+			tcb->state != TCB_STATE_ABORT &&
+			tcb->state != TCB_STATE_FINWAIT1 &&
+			tcb->state != TCB_STATE_FINWAIT2 &&
+			tcb->state != TCB_STATE_LASTACK &&
+			tcb->state != TCB_STATE_TIMEWAIT &&
+			tcb->state != TCB_STATE_CLOSED)
+			tcp_handleclose(tcb);
+
+		if (new_how & SOCKET_SHUTDOWN_READ)
+			poll_event(&tcb->pollheader, POLLIN);
+
+		MUTEX_RELEASE(&tcb->mutex);
+	} else {
+		error = ENOTCONN;
+	}
+
+
+	MUTEX_RELEASE(&socket->mutex);
+	return error;
 }
 
 static socketops_t socketops = {
@@ -1856,7 +1956,8 @@ static socketops_t socketops = {
 	.getname = tcp_getname,
 	.getpeername = tcp_getpeername,
 	.setopt = tcp_setopt,
-	.shutdown = tcp_shutdown
+	.shutdown = tcp_shutdown,
+	.getopt = tcp_getopt
 };
 
 socket_t *tcp_createsocket() {

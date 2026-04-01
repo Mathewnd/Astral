@@ -123,6 +123,7 @@ typedef struct {
 #define SO_DOMAIN       39
 
 #define SOL_SOCKET 1
+#define SOL_TCP 6
 
 typedef unsigned socklen_t;
 
