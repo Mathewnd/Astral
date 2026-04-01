@@ -404,6 +404,8 @@ static void init_controller(pcienum_t *pci_enum) {
 		return;
 	}
 
+	netdev->netdev.flags = NETDEV_FLAGS_UP | NETDEV_FLAGS_BROADCAST | NETDEV_FLAGS_RUNNING;
+
 	// enable rx/tx
 	outb(pci_bar.address + REGISTER_COMMAND, REGISTER_COMMAND_TX_ENABLE | REGISTER_COMMAND_RX_ENABLE);
 }

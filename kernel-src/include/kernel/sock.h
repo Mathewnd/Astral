@@ -26,6 +26,7 @@ typedef struct {
 	pollheader_t pollheader;
 	int type;
 	int shutdown;
+	int error;
 } socket_t;
 
 typedef struct {

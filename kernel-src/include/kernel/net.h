@@ -20,8 +20,19 @@ typedef struct {
 } netdesc_t;
 
 typedef struct {
+	uint16_t port;
+	uint32_t addr;
+} ipv4addr_t;
+
+typedef struct {
 	uint8_t address[6];
 } __attribute__((packed)) mac_t;
+
+#define NETDEV_FLAGS_UP 0x1
+#define NETDEV_FLAGS_BROADCAST 0x2
+#define NETDEV_FLAGS_DEBUG 0x4
+#define NETDEV_FLAGS_LOOPBACK 0x8
+#define NETDEV_FLAGS_RUNNING 0x40
 
 typedef struct netdev_t {
 	mac_t mac;
@@ -29,6 +40,7 @@ typedef struct netdev_t {
 	uint32_t ip;
 	int ipcurrid; // XXX This is defined as something per peer. However, having only one of these *should* work for most cases
 	hashtable_t arpcache;
+	short flags;
 	int (*allocdesc)(struct netdev_t *netdev, size_t requestedsize, netdesc_t *desc);
 	int (*freedesc)(struct netdev_t *netdev, netdesc_t *desc);
 	int (*sendpacket)(struct netdev_t *_internal, netdesc_t desc, mac_t targetmac, int proto);
@@ -53,11 +65,6 @@ typedef struct {
 	uint16_t length;
 	uint16_t checksum;
 } __attribute__((packed)) udpframe_t;
-
-typedef struct {
-	uint16_t port;
-	uint32_t addr;
-} ipv4addr_t;
 
 #define NET_BROADCAST_MAC (mac_t){.address = {0xff,0xff,0xff,0xff,0xff,0xff}}
 

@@ -59,6 +59,7 @@ void loopback_init() {
 	loopbacknetdev.allocdesc = loopback_allocdesc;
 	loopbacknetdev.freedesc = loopback_freedesc;
 	loopbacknetdev.ip = 0x7f000001;
+	loopbacknetdev.flags = NETDEV_FLAGS_UP | NETDEV_FLAGS_LOOPBACK | NETDEV_FLAGS_RUNNING;
 	__assert(hashtable_init(&loopbacknetdev.arpcache, 30) == 0);
 
 	for (int i = 0; i < 6; ++i)
