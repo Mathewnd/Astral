@@ -369,10 +369,15 @@ int vmmcache_syncvnode(vnode_t *vnode, uintmax_t offset, size_t size) {
 		vnodedirtylist = vnodedirtylist->writenext;
 		page->writenext = NULL;
 
-		int error = syncpage(page, false);
+		// another thread could already have synced this page, verify if it is still dirty
+		if (page->flags & PAGE_FLAGS_DIRTY) {
+			int error = syncpage(page, false);
 
-		if (e == 0)
-			e = error;
+			if (e == 0)
+				e = error;
+		} else {
+			RELEASE_LOCK();
+		}
 		// syncpage returns with lock released
 	}
 
