@@ -230,6 +230,8 @@ int vionet_newdevice(viodevice_t *viodevice) {
 	char name[10];
 	snprintf(name, 10, "vionet%d", netdev->id);
 
+	netdev->netdev.flags = NETDEV_FLAGS_UP | NETDEV_FLAGS_BROADCAST | NETDEV_FLAGS_RUNNING;
+
 	__assert(netdev_register((netdev_t *)netdev, name) == 0);
 
 	return 0;
