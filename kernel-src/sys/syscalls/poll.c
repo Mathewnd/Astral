@@ -16,6 +16,11 @@ syscallret_t syscall_poll(context_t *, pollfd_t *fds, size_t nfds, int timeoutms
 		.ret = -1
 	};
 
+	if (nfds > FDTABLE_LIMIT) {
+		ret.errno = EINVAL;
+		return ret;
+	}
+
 	size_t fdsbuffsize = nfds * sizeof(pollfd_t);
 	pollfd_t *fdsbuff = alloc(fdsbuffsize);
 	if (fdsbuff == NULL) {
