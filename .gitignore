@@ -32,6 +32,8 @@ tools/prof/astral-prof
 tools/prof/main.o
 tools/systrace/systrace
 tools/systrace/main.o
+tools/netinfo/main.o
+tools/netinfo/netinfo
 initrds
 hdd.img
 netdump.dat
