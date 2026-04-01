@@ -59,8 +59,50 @@ index ed9c961..7b8413f 100755
  ac_fn_c_check_func "$LINENO" "epoll_pwait2" "ac_cv_func_epoll_pwait2"
  if test "x$ac_cv_func_epoll_pwait2" = xyes
  then :
+diff --git wine-clean/dlls/nsiproxy.sys/ip.c wine-workdir/dlls/nsiproxy.sys/ip.c
+index 2b724db..2f19151 100644
+--- wine-clean/dlls/nsiproxy.sys/ip.c
++++ wine-workdir/dlls/nsiproxy.sys/ip.c
+@@ -1377,10 +1377,11 @@ static NTSTATUS ipv4_neighbour_enumerate_all( void *key_data, UINT key_size, voi
+         free( buf );
+     }
+ #else
+-    FIXME( "not implemented\n" );
++    FIXME( "not implemented in astral\n" );
+     free( luid_tbl );
+     free( iface_static );
+-    return STATUS_NOT_IMPLEMENTED;
++    *count = 0;
++    return STATUS_SUCCESS;
+ #endif
+ 
+     if (!want_data || num <= *count)
+@@ -1692,8 +1693,9 @@ static NTSTATUS ipv4_forward_enumerate_all( void *key_data, UINT key_size, void
+         free( buf );
+     }
+ #else
+-    FIXME( "not implemented\n" );
+-    return STATUS_NOT_IMPLEMENTED;
++    FIXME( "not implemented in astral\n" );
++    *count = 0;
++    return STATUS_SUCCESS;
+ #endif
+ 
+     if (!want_data || num <= *count) *count = num;
+diff --git wine-clean/dlls/ntdll/unix/debug.c wine-workdir/dlls/ntdll/unix/debug.c
+index d4aad49..ff25987 100644
+--- wine-clean/dlls/ntdll/unix/debug.c
++++ wine-workdir/dlls/ntdll/unix/debug.c
+@@ -369,7 +369,6 @@ void dbg_init(void)
+     init_done = TRUE;
+ }
+ 
+-
+ /***********************************************************************
+  *              NtTraceControl  (NTDLL.@)
+  */
 diff --git wine-clean/dlls/ntdll/unix/signal_x86_64.c wine-workdir/dlls/ntdll/unix/signal_x86_64.c
-index 740df80..df25be7 100644
+index 740df80..3d08bb2 100644
 --- wine-clean/dlls/ntdll/unix/signal_x86_64.c
 +++ wine-workdir/dlls/ntdll/unix/signal_x86_64.c
 @@ -82,6 +82,10 @@ extern void _thread_set_tsd_base(uint64_t);
@@ -252,7 +294,7 @@ index 740df80..df25be7 100644
  #elif defined __APPLE__
                     "movq %rax,%r8\n\t"
                     "movq %rcx,%rdx\n\t"
-@@ -3415,6 +3506,14 @@ __ASM_GLOBAL_FUNC( __wine_unix_call_dispatcher,
+@@ -3415,6 +3506,16 @@ __ASM_GLOBAL_FUNC( __wine_unix_call_dispatcher,
                     "mov $158,%eax\n\t"             /* SYS_arch_prctl */
                     "syscall\n\t"
                     "2:\n\t"
@@ -262,12 +304,14 @@ index 740df80..df25be7 100644
 +                   "jz 2f\n\t"
 +		   "mov $1, %edi\n\t" /* ARCH_CTL_SET_FSBASE */
 +		   "mov $6, %eax\n\t" /* SYSCALL_ARCHCTL*/
++                   "push %rdx\n\t"
 +		   "syscall\n\t"
-+                   "2:\n\t"
++                   "pop %rdx\n\t"
++		   "2:\n\t"
  #elif defined __APPLE__
                     "movq 0x320(%r13),%rdi\n\t"     /* amd64_thread_data()->pthread_teb */
                     "xorl %esi,%esi\n\t"
-@@ -3447,6 +3546,12 @@ __ASM_GLOBAL_FUNC( __wine_unix_call_dispatcher,
+@@ -3447,6 +3548,12 @@ __ASM_GLOBAL_FUNC( __wine_unix_call_dispatcher,
                     "jz 1f\n\t"
                     "movw %dx,%fs\n"
                     "1:\n\t"
