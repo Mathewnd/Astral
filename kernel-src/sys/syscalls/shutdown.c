@@ -13,8 +13,13 @@ syscallret_t syscall_shutdown(context_t *, int fd, int how) {
 		.ret = -1
 	};
 
+	if (how > 2) {
+		ret.errno = EINVAL;
+		return ret;
+	}
+
 	++how; // convert to internal meaning
-	
+
 	file_t *file = fd_get(fd);
 	if (file == NULL) {
 		ret.errno = EBADF;
