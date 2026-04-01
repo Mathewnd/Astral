@@ -1,4 +1,4 @@
-name=mount
+name=netd
 version=0
 source_dir="tools/netd"
 
