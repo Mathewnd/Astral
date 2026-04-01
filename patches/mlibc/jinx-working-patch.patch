@@ -88,6 +88,59 @@ index 1ed110d..ded9114 100644
 -	}
 +void backtrace_symbols_fd(void *const *, int, int) {
  }
+diff --git mlibc-clean/options/posix/generic/net-if.cpp mlibc-workdir/options/posix/generic/net-if.cpp
+index 992aef7..e39c499 100644
+--- mlibc-clean/options/posix/generic/net-if.cpp
++++ mlibc-workdir/options/posix/generic/net-if.cpp
+@@ -22,11 +22,18 @@ char *if_indextoname(unsigned int index, char *name) {
+ }
+ 
+ struct if_nameindex *if_nameindex(void) {
+-	mlibc::infoLogger() << "mlibc: if_nameindex() is a no-op" << frg::endlog;
+-	errno = ENOSYS;
+-	return nullptr;
++	auto sysdep = MLIBC_CHECK_OR_ENOSYS(mlibc::sys_if_nameindex, 0);
++	struct if_nameindex *ret = 0;
++
++	if(int e = sysdep(&ret); e) {
++		errno = e;
++		return 0;
++	}
++
++	return ret;
+ }
+ 
++
+ unsigned int if_nametoindex(const char *name) {
+ 	auto sysdep = MLIBC_CHECK_OR_ENOSYS(mlibc::sys_if_nametoindex, 0);
+ 	unsigned int ret = 0;
+diff --git mlibc-clean/options/posix/generic/netdb.cpp mlibc-workdir/options/posix/generic/netdb.cpp
+index 299d9d3..d32237c 100644
+--- mlibc-clean/options/posix/generic/netdb.cpp
++++ mlibc-workdir/options/posix/generic/netdb.cpp
+@@ -371,8 +371,8 @@ int gethostbyaddr_r(const void *__restrict, socklen_t, int, struct hostent *__re
+ 
+ int gethostbyname_r(const char *__restrict, struct hostent *__restrict, char *__restrict, size_t,
+ 					struct hostent **__restrict, int *__restrict) {
+-	__ensure(!"Not implemented");
+-	__builtin_unreachable();
++	mlibc::infoLogger() << "gethostbyname_r is a stub!" << frg::endlog;
++	return -1;
+ }
+ 
+ struct protoent *getprotobyname(const char *) {
+diff --git mlibc-clean/options/posix/include/mlibc/posix-sysdeps.hpp mlibc-workdir/options/posix/include/mlibc/posix-sysdeps.hpp
+index 3666050..ecfc1ae 100644
+--- mlibc-clean/options/posix/include/mlibc/posix-sysdeps.hpp
++++ mlibc-workdir/options/posix/include/mlibc/posix-sysdeps.hpp
+@@ -230,6 +230,7 @@ int sys_vm_unmap(void *pointer, size_t size);
+ 
+ [[gnu::weak]] int sys_if_indextoname(unsigned int index, char *name);
+ [[gnu::weak]] int sys_if_nametoindex(const char *name, unsigned int *ret);
++[[gnu::weak]] int sys_if_nameindex(struct if_nameindex **);
+ 
+ [[gnu::weak]] int sys_ptsname(int fd, char *buffer, size_t length);
+ [[gnu::weak]] int sys_unlockpt(int fd);
 diff --git mlibc-clean/options/rtld/generic/linker.cpp mlibc-workdir/options/rtld/generic/linker.cpp
 index 07dbe11..3ece6ec 100644
 --- mlibc-clean/options/rtld/generic/linker.cpp
@@ -102,10 +155,207 @@ index 07dbe11..3ece6ec 100644
  constexpr bool logLdPath = false;
  constexpr bool logSymbolVersions = false;
 diff --git mlibc-clean/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
-index 939925e..4c8cb95 100644
+index 939925e..5c3ca08 100644
 --- mlibc-clean/sysdeps/astral/generic/generic.cpp
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -47,6 +47,71 @@ namespace mlibc {
+@@ -1,4 +1,5 @@
+ #include <bits/ensure.h>
++#include <net/if.h>
+ #include <mlibc/debug.hpp>
+ #include <mlibc/all-sysdeps.hpp>
+ #include <errno.h>
+@@ -13,6 +14,16 @@
+ #include <sys/stat.h>
+ #include <unistd.h>
+ #include <dirent.h>
++#include <sys/sysmacros.h>
++
++typedef struct {
++	struct sockaddr addr;
++	struct sockaddr broadaddr;
++	struct sockaddr netmask;
++	struct sockaddr hwaddr;
++	short flags;
++	int mtu;
++} astral_net_info_t;
+ 
+ namespace mlibc {
+ 	int sys_setgroups(size_t size, const gid_t *list) {
+@@ -31,13 +42,170 @@ namespace mlibc {
+ 		return 0;
+ 	}
+ 
++	int sys_setxattr(const char *path, const char *name,
++		const void *val, size_t size, int flags) {
++		return ENOTSUP;
++	}
++	int sys_lsetxattr(const char *path, const char *name,
++		const void *val, size_t size, int flags) {
++		return ENOTSUP;
++	}
++
++	int sys_fsetxattr(int fd, const char *name, const void *val,
++		size_t size, int flags) {
++		return ENOTSUP;
++	}
++
++	int sys_getxattr(const char *path, const char *name,
++		void *val, size_t size, ssize_t *nread) {
++		return ENOTSUP;
++	}
++
++	int sys_lgetxattr(const char *path, const char *name,
++		void *val, size_t size, ssize_t *nread) {
++		return ENOTSUP;
++	}
++
++	int sys_fgetxattr(int fd, const char *name, void *val,
++		size_t size, ssize_t *nread) {
++		return ENOTSUP;
++	}
++
++	int sys_listxattr(const char *path, char *list, size_t size,
++		ssize_t *nread) {
++		return ENOTSUP;
++	}
++
++	int sys_llistxattr(const char *path, char *list, size_t size,
++		ssize_t *nread) {
++		return ENOTSUP;
++	}
++
++	int sys_flistxattr(int fd, char *list, size_t size,
++		ssize_t *nread) {
++		return ENOTSUP;
++	}
++
++#ifndef MLIBC_BUILDING_RTLD
++	// XXX this might leak memory in case of an error.
++	int sys_getifaddrs(struct ifaddrs **out) {
++		struct ifaddrs *list = NULL;
++
++		int dirfd;
++		int error = sys_open("/dev/", O_DIRECTORY | O_RDONLY, 0, &dirfd);
++		if (error)
++			return error;
++
++
++		struct dirent dent;
++		size_t bytes_read;
++		for (;;) {
++			error = sys_read_entries(dirfd, &dent, sizeof(dent), &bytes_read);
++			if (error)
++				goto leave;
++
++			if (bytes_read == 0)
++				break;
++
++			struct stat st;
++			if (sys_stat(fsfd_target::fd_path, dirfd, dent.d_name, AT_SYMLINK_NOFOLLOW, &st))
++				continue;
++
++			// check if network device
++			if (!S_ISCHR(st.st_mode) || major(st.st_rdev) != 10)
++				continue;
++
++			int fd;
++			error = sys_openat(dirfd, dent.d_name, 0, 0, &fd);
++			if (error)
++				continue;
++
++			astral_net_info_t net_info;
++			int r;
++			error = sys_ioctl(fd, 0x1337631, &net_info, &r);
++			if (error) {
++				sys_close(fd);
++				continue;
++			}
++
++			struct ifaddrs *next = (struct ifaddrs *)malloc(sizeof(struct ifaddrs));
++			__ensure(next);
++
++			next->ifa_next = list;
++
++			next->ifa_name = strdup(dent.d_name);
++			__ensure(next->ifa_name);
++
++			next->ifa_flags = net_info.flags;
++
++			next->ifa_addr = (struct sockaddr *)malloc(sizeof(struct sockaddr));
++			__ensure(next->ifa_addr);
++			memcpy(next->ifa_addr, &net_info.addr, sizeof(struct sockaddr));
++
++			next->ifa_netmask = (struct sockaddr *)malloc(sizeof(struct sockaddr));
++			__ensure(next->ifa_netmask);
++			memcpy(next->ifa_netmask, &net_info.netmask, sizeof(struct sockaddr));
++
++			next->ifa_broadaddr = (struct sockaddr *)malloc(sizeof(struct sockaddr));
++			__ensure(next->ifa_broadaddr);
++			memcpy(next->ifa_broadaddr, &net_info.broadaddr, sizeof(struct sockaddr));
++
++			next->ifa_data = nullptr;
++
++			list = next;
++			sys_close(fd);
++		}
++
++		*out = list;
++
++		leave:
++		sys_close(dirfd);
++		return error;
++	}
++
++	// XXX extremely leaky.
++	int sys_if_nameindex(struct if_nameindex **out) {
++		struct ifaddrs *ifaddrs;
++		if (int e = sys_getifaddrs(&ifaddrs); e)
++			return e;
++
++		struct ifaddrs *it = ifaddrs;
++		int count = 0;
++		while (it) {
++			++count;
++			it = it->ifa_next;
++		}
++
++		struct if_nameindex *arr = (struct if_nameindex *)malloc(sizeof(struct if_nameindex) * (count + 1));
++		if (!arr)
++			return ENOMEM;
++
++		int i = 0;
++		while (ifaddrs) {
++			arr[i].if_index = i + 1;
++			arr[i].if_name = strdup(ifaddrs->ifa_name);
++			__ensure(arr[i].if_name);
++
++			++i;
++
++			ifaddrs = ifaddrs->ifa_next;
++		}
++
++		arr[count].if_index = 0;
++		arr[count].if_name = nullptr;
++
++		*out = arr;
++
++		return 0;
++	}
++#endif
++
+ 	int sys_getsockopt(int fd, int layer, int number,
+ 		void *__restrict buffer, socklen_t *__restrict size) {
+ 		(void)size;
+ 		(void)buffer;
+-		// TODO unstub
+-		mlibc::infoLogger() << "getsockopt: " << fd << " " << layer << " " << number << frg::endlog;
+-		return 0;
++		long ret;
++		return syscall(SYSCALL_GETSOCKOPT, &ret, fd, layer, number, (uint64_t)buffer, (uint64_t)size);
+ 	}
+ 
+ 	int sys_inet_configured(bool *ipv4, bool *ipv6) {
+@@ -47,6 +215,71 @@ namespace mlibc {
  		return 0;
  	}
  
@@ -177,7 +427,7 @@ index 939925e..4c8cb95 100644
  	int sys_readv(int fd, const struct iovec *iovs, int iovc, ssize_t *bytes_read) {
  		long r;
  		int error = syscall(SYSCALL_READV, &r, fd, (uint64_t)iovs, iovc);
-@@ -489,6 +554,7 @@ namespace mlibc {
+@@ -489,6 +722,7 @@ namespace mlibc {
  
  	int sys_setsockopt(int fd, int layer, int number, const void *buffer, socklen_t size) {
  		long ret;
@@ -208,16 +458,17 @@ index 7e4f2a1..ecc2677 100644
  #ifdef __cplusplus
  extern "C" {
 diff --git mlibc-clean/sysdeps/astral/include/astral/syscall.h mlibc-workdir/sysdeps/astral/include/astral/syscall.h
-index a6c4067..0c4f0a1 100644
+index a6c4067..7568e64 100644
 --- mlibc-clean/sysdeps/astral/include/astral/syscall.h
 +++ mlibc-workdir/sysdeps/astral/include/astral/syscall.h
-@@ -103,6 +103,9 @@
+@@ -103,6 +103,10 @@
  #define SYSCALL_SYSINFO 96
  #define SYSCALL_WRITEV 97
  #define SYSCALL_READV 98
 +#define SYSCALL_YIELD 99
 +#define SYSCALL_FSTATVFS 100
 +#define SYSCALL_FSTATVFSAT 101
++#define SYSCALL_GETSOCKOPT 102
  
  #ifndef __MLIBC_ABI_ONLY
  
