@@ -1,0 +1,9 @@
+name=nettle
+version=3.10.2
+source_method=tarball
+tarball_url=""https://ftp.gnu.org/gnu/nettle/nettle-${version}.tar.gz
+tarball_sha512="bf37ddd7dca8e78488da2a5286dcf16761d527d620572b42f2ad27bb8ee8c12999d92b0272e06f53766e7155a3f4a1ab7ad9c4b1c3caec47c031878b6b1772fb"
+hostdeps="automake autoconf libtool pkgconfig"
+prepare() {
+	cp -v $(find /usr/local/share/automake* -name config.sub) .
+}

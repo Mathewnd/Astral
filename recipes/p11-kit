@@ -1,0 +1,35 @@
+name=p11-kit
+revision=1
+from_source=p11-kit
+imagedeps="build-essential"
+hostdeps="xgcc xbinutils libtool pkgconfig"
+deps="base libtasn1 make-ca"
+
+configure() {
+	cp -rp ${source_dir}/* .
+
+	sed '20,$ d' -i trust/trust-extract-compat && \
+	cat >> trust/trust-extract-compat << "EOF"
+		# Copy existing anchor modifications to /etc/ssl/local
+		/usr/libexec/make-ca/copy-trust-modifications
+
+		# Update trust stores
+		/usr/sbin/make-ca -r
+EOF
+
+	mkdir buildp11
+	cd buildp11
+
+	meson setup --cross-file ${base_dir}/util/crossfile --prefix=${prefix} --buildtype=release -Dtrust_paths=/etc/pki/anchors ${source_dir}
+}
+
+build() {
+	cd buildp11
+	ninja
+}
+
+package() {
+	cd buildp11
+	DESTDIR=${dest_dir} ninja install
+	ln -sfv ../libexec/p11-kit/trust-extract-compat ${dest_dir}/usr/bin/update-ca-certificates
+}

@@ -1,0 +1,19 @@
+name=libtasn1
+revision=1
+from_source=libtasn1
+imagedeps="build-essential"
+hostdeps="xgcc xbinutils libtool pkgconfig"
+deps="base"
+
+configure() {
+	cp -rp ${source_dir}/* .
+	./configure --prefix=${prefix} --host=x86_64-astral --disable-static --disable-doc
+}
+
+build() {
+	make -j ${parallelism}
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+}

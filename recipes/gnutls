@@ -1,0 +1,19 @@
+name=gnutls
+revision=1
+from_source=gnutls
+imagedeps="build-essential automake-1.16 autoconf"
+hostdeps="xgcc xbinutils libtool pkgconfig libstdc++-v3"
+deps="base nettle make-ca libunistring libtasn1 p11-kit zlib zstd"
+
+configure() {
+	cp -rp ${source_dir}/* .
+	./configure --prefix=${prefix} --host=x86_64-astral --docdir=${prefix}/share/doc/gnutls-3.8.10 --with-default-trust-store-pkcs11="pkcs11:" --disable-static --enable-shared
+}
+
+build() {
+	make -j ${parallelism}
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+}

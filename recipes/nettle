@@ -1,0 +1,18 @@
+name=nettle
+revision=1
+from_source=nettle
+imagedeps="build-essential"
+hostdeps="xgcc xbinutils libstdc++-v3 libtool pkgconfig"
+deps="base gmp"
+
+configure() {
+	${source_dir}/configure --prefix=${prefix} --host=x86_64-astral --disable-static
+}
+
+build() {
+	make -j ${parallelism}
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+}
