@@ -6,8 +6,8 @@
 
 #define TOTAL_ARGUMENTS_CHARACTER_LIMIT 4096
 
-static volatile struct limine_kernel_file_request kernel_file_request = {
-	.id = LIMINE_KERNEL_FILE_REQUEST,
+static volatile struct limine_executable_file_request executable_file_request = {
+	.id = LIMINE_EXECUTABLE_FILE_REQUEST_ID,
 	.revision = 0
 };
 
@@ -43,8 +43,8 @@ static void insert_argument(const char *key, const char *value) {
 }
 
 void kernel_arguments_parse(void) {
-	__assert(kernel_file_request.response);
-	const char *cmdline = kernel_file_request.response->kernel_file->cmdline;
+	__assert(executable_file_request.response);
+	const char *cmdline = executable_file_request.response->executable_file->string;
 	__assert(cmdline);
 	size_t length = min(strlen(cmdline), TOTAL_ARGUMENTS_CHARACTER_LIMIT);
 	char temp_buffer[length + 1];

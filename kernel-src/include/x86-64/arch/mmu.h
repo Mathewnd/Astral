@@ -23,7 +23,7 @@
 #define ARCH_MMU_FLAGS_WB 0
 #define ARCH_MMU_FLAGS_WT (1 << 3)
 #define ARCH_MMU_FLAGS_UC (1 << 4)
-#define ARCH_MMU_FLAGS_WC ((1 << 12) | (1 << 3)) // PAT5 (limine sets up the 5th PAT entry as WC)
+#define ARCH_MMU_FLAGS_WC ((1 << 7) | (1 << 3)) // PAT5 (limine sets up the 5th PAT entry as WC)
 
 #define PAGE_MASK 0xfffffffffffff000lu
 

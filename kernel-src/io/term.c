@@ -1,5 +1,5 @@
 #include <flanterm.h>
-#include <backends/fb.h>
+#include <flanterm_backends/fb.h>
 #include <limine.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -10,6 +10,10 @@
 #include <arch/mmu.h>
 #include <kernel/init.h>
 #include <logging.h>
+
+static volatile struct limine_flanterm_fb_init_params_request flanterm_request = {
+	.id = LIMINE_FLANTERM_FB_INIT_PARAMS_REQUEST_ID
+};
 
 extern volatile struct limine_framebuffer_request fb_liminereq;
 static size_t xs, ys, fbxs, fbys;
@@ -70,26 +74,29 @@ void term_init() {
 	uint32_t defaultbg = 0x1b1c1b;
 	uint32_t defaultfg = 0xffffff;
 
-	// TODO add support for a background if desired by the user
-	term_ctx = flanterm_fb_init(internalalloc, noop, fb->address, fb->width, fb->height, fb->pitch,
-		fb->red_mask_size, fb->red_mask_shift, fb->green_mask_size, fb->green_mask_shift, fb->blue_mask_size, fb->blue_mask_shift, 
-		NULL, NULL, NULL, &defaultbg, &defaultfg, NULL, NULL, NULL,
-		0, 0, 1, 1, 1, 0);
+	if (flanterm_request.response && flanterm_request.response->entry_count) {
+		struct limine_flanterm_fb_init_params *param = flanterm_request.response->entries[0];
+		term_ctx = flanterm_fb_init(internalalloc, noop, fb->address, fb->width, fb->height, fb->pitch,
+			fb->red_mask_size, fb->red_mask_shift, fb->green_mask_size, fb->green_mask_shift, fb->blue_mask_size, fb->blue_mask_shift,
+			param->canvas, param->ansi_colours, param->ansi_bright_colours,
+			&param->default_bg, &param->default_fg, &param->default_bg_bright, &param->default_fg_bright,
+			param->font, param->font_width, param->font_height, param->font_spacing, param->font_scale_x, param->font_scale_y,
+			param->margin, param->rotation);
+	} else {
+		term_ctx = flanterm_fb_init(internalalloc, noop, fb->address, fb->width, fb->height, fb->pitch,
+			fb->red_mask_size, fb->red_mask_shift, fb->green_mask_size, fb->green_mask_shift, fb->blue_mask_size, fb->blue_mask_shift, 
+			NULL, NULL, NULL, &defaultbg, &defaultfg, NULL, NULL, NULL,
+			0, 0, 1, 1, 1, 0, 0);
+	}
 
 	__assert(term_ctx);
 
-	xs = term_ctx->cols;
-	ys = term_ctx->rows;
+	flanterm_get_dimensions(term_ctx, &xs, &ys);
 	fbxs = fb->width;
 	fbys = fb->height;
 
 	MUTEX_INIT(&term_mutex);
-
 	logging_sethook(term_putchar);
-}
-
-void term_update_framebuffer(void *fb) {
-	((struct flanterm_fb_context *)fb)->framebuffer = fb;
 }
 
 INIT_ROUTINE_DEFINE(term, INIT_ROUTINE_FLAGS_NONE, term_init, vmm);

@@ -12,22 +12,22 @@
 
 DEFINE_KERNEL_ARGUMENT(nosmp, bool);
 
-static volatile struct limine_smp_request smprequest = {
-	.id = LIMINE_SMP_REQUEST
+static volatile struct limine_mp_request smprequest = {
+	.id = LIMINE_MP_REQUEST_ID
 };
 
 // set to 1 because of the bsp
 size_t arch_smp_cpusawake = 1;
 
 // for panic. if the nosmp argument is given to the kernel, this is what the APs will jump to
-static void cpuwakeuphalt(struct limine_smp_info *info) {
+static void cpuwakeuphalt(struct limine_mp_info *info) {
 	asm("cli");
 	for (;;) CPU_HALT();
 }
 
 static long next_id = 1;
 
-static void cpuwakeup(struct limine_smp_info *info) {
+static void cpuwakeup(struct limine_mp_info *info) {
 	cpu_set((cpu_t *)info->extra_argument);
 
 	current_cpu()->internal_id = __atomic_fetch_add(&next_id, 1, __ATOMIC_SEQ_CST);
@@ -69,7 +69,7 @@ size_t arch_smp_get_cpu_count(void) {
 	if (GET_KERNEL_ARGUMENT(nosmp, bool))
 		return 1;
 
-	struct limine_smp_response *response = smprequest.response;
+	struct limine_mp_response *response = smprequest.response;
 	if (response == NULL)
 		return 1;
 
@@ -84,7 +84,7 @@ cpu_t *arch_smp_get_cpu_by_internal_id(long id) {
 }
 
 void arch_smp_wakeup(void) {
-	struct limine_smp_response *response = smprequest.response;
+	struct limine_mp_response *response = smprequest.response;
 	if (response == NULL) {
 		// TODO try to detect the other processors manually
 		printf("smp: limine smp request response not present\n");
@@ -103,7 +103,7 @@ void arch_smp_wakeup(void) {
 	smp_cpus = alloc(response->cpu_count * sizeof(cpu_t *));
 	__assert(smp_cpus);
 
-	void (*wakeupfn)(struct limine_smp_info *) = GET_KERNEL_ARGUMENT(nosmp, bool) ? cpuwakeuphalt : cpuwakeup;
+	void (*wakeupfn)(struct limine_mp_info *) = GET_KERNEL_ARGUMENT(nosmp, bool) ? cpuwakeuphalt : cpuwakeup;
 
 	// make the other processors jump to cpuwakeup()
 	for (int i = 0; i < response->cpu_count; ++i) {

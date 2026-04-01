@@ -9,7 +9,7 @@ FLANTERMOPTS=-DFLANTERM_FB_DISABLE_BUMP_ALLOC
 # required for mpaland printf so it doesn't compile with floating point support, which results in build failures
 PRINTFOPTS=-DPRINTF_DISABLE_SUPPORT_FLOAT
 # flanterm includes break if the headers are moved into the include dir in the tree
-FLANTERMINCDIR=$(shell pwd)/flanterm
+FLANTERMINCDIR=$(shell pwd)/flanterm/src
 UACPIINCDIR=$(shell pwd)/io/acpi/uacpi/include
 UACPIOPTS=-DUACPI_OVERRIDE_LIBC -DUACPI_KERNEL_INITIALIZATION -DUACPI_NATIVE_ALLOC_ZEROED
 KERNELCONFIG=#-DX86_64_ENABLE_E9 -DENABLE_PROFILING #-DSYSCALL_LOGGING

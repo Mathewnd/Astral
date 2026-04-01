@@ -7,6 +7,9 @@
 #include <kernel/initrd.h>
 #include <kernel/scheduler.h>
 #include <kernel/term.h>
+#include <limine.h>
+
+__attribute__((used)) static uint64_t base_revision[] = LIMINE_BASE_REVISION(6);
 
 static cpu_t bsp_cpu;
 

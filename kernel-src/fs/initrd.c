@@ -102,7 +102,7 @@ static void buildentry(tarentry_t *entry, void *addr) {
 }
 
 static volatile struct limine_module_request modreq = {
-	.id = LIMINE_MODULE_REQUEST,
+	.id = LIMINE_MODULE_REQUEST_ID,
 	.revision = 0
 };
 

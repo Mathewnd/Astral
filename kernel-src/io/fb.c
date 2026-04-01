@@ -70,7 +70,7 @@ typedef struct {
 #define FB_TYPE_PACKED_PIXELS 0
 
 volatile struct limine_framebuffer_request fb_liminereq = {
-	.id = LIMINE_FRAMEBUFFER_REQUEST,
+	.id = LIMINE_FRAMEBUFFER_REQUEST_ID,
 	.revision = 0
 };
 
@@ -153,7 +153,7 @@ static int mmap(int minor, void *addr, uintmax_t offset, int flags) {
 
 		memcpy(MAKE_HHDM(paddr), (void *)((uintptr_t)fbs[minor]->address + offset), size);
 
-		if (arch_mmu_map(current_vmm_context()->pagetable, paddr, addr, vnodeflagstommuflags(flags)) == false) {
+		if (arch_mmu_map(current_vmm_context()->pagetable, paddr, addr, vnodeflagstommuflags(flags) | ARCH_MMU_FLAGS_WC) == false) {
 			pmm_release(paddr);
 			return ENOMEM;
 		}
@@ -257,11 +257,6 @@ void fb_init() {
 
 		printf("%s: %dx%d %d bpp\n", name, fb->width, fb->height, fb->bpp);
 	}
-
-
-	void *fb_map = vmm_map(NULL, fbs[0]->pitch * fbs[0]->height, VMM_FLAGS_PHYSICAL, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC | ARCH_MMU_FLAGS_WC, FROM_HHDM(fbs[0]->address));
-	__assert(fb_map);
-	term_update_framebuffer(fb_map);
 }
 
 INIT_ROUTINE_DEFINE(fb, INIT_ROUTINE_FLAGS_NONE, fb_init, devfs);

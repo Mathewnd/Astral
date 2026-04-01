@@ -35,12 +35,12 @@ static section_t sections[PMM_SECTION_COUNT] = {
 };
 
 static volatile struct limine_hhdm_request hhdmreq = {
-	.id = LIMINE_HHDM_REQUEST,
+	.id = LIMINE_HHDM_REQUEST_ID,
 	.revision = 0
 };
 
 volatile struct limine_memmap_request pmm_liminemap = {
-	.id = LIMINE_MEMMAP_REQUEST,
+	.id = LIMINE_MEMMAP_REQUEST_ID,
 	.revision = 0
 };
 
@@ -235,7 +235,7 @@ void pmm_init() {
 	for (size_t i = 0; i < pmm_liminemap.response->entry_count; ++i) {
 		struct limine_memmap_entry *e = pmm_liminemap.response->entries[i];
 		printf("pmm: %016p -> %016p: %d\n", e->base, e->base + e->length, e->type);
-		if (e->type == LIMINE_MEMMAP_USABLE || e->type == LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE || e->type == LIMINE_MEMMAP_KERNEL_AND_MODULES) {
+		if (e->type == LIMINE_MEMMAP_USABLE || e->type == LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE || e->type == LIMINE_MEMMAP_EXECUTABLE_AND_MODULES) {
 			size_t sectiontop = e->base + e->length;
 			if (sectiontop > top)
 				top = sectiontop;

@@ -6,8 +6,8 @@
 #include <logging.h>
 #include <kernel/init.h>
 
-static volatile struct limine_boot_time_request timereq = {
-	.id = LIMINE_BOOT_TIME_REQUEST,
+static volatile struct limine_date_at_boot_request timereq = {
+	.id = LIMINE_DATE_AT_BOOT_REQUEST_ID,
 	.revision = 0
 };
 
@@ -135,7 +135,7 @@ void timekeeper_wait_us(time_t us) {
 
 void timekeeper_early_init(void) {
 	__assert(timereq.response);
-	boot_unix = timereq.response->boot_time;
+	boot_unix = timereq.response->timestamp;
 
 	current_cpu()->timekeeper_sync_isr = interrupt_allocate(timekeeper_sync_isr, ARCH_EOI, IPL_DPC);
 	__assert(current_cpu()->timekeeper_sync_isr);

@@ -124,6 +124,7 @@ size_t pci_initmsix(pcienum_t *e) {
 #define PCI_MSI_64BIT (1 << 7)
 
 size_t pci_initmsi(pcienum_t *e, int requested) {
+	// TODO maybe initialize mask if applicable?
 	__assert(requested == 1);
 	if (e->msi.exists == false)
 		return 0;
@@ -131,6 +132,7 @@ size_t pci_initmsi(pcienum_t *e, int requested) {
 	uint16_t msgctl = PCI_READ16(e, e->msi.offset + 2);
 	msgctl |= PCI_MSI_ENABLE;
 	msgctl &= ~(PCI_MSI_MULTIPLE_MESSAGE_SUPPORT_MASK); // no multiple message support
+
 	PCI_WRITE16(e, e->msi.offset + 2, msgctl);
 
 	pci_setcommand(e, PCI_COMMAND_IRQDISABLE, 1);
