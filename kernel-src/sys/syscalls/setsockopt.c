@@ -2,6 +2,7 @@
 #include <kernel/sock.h>
 #include <kernel/abi.h>
 #include <kernel/file.h>
+#include <kernel/usercopy.h>
 #include <errno.h>
 
 syscallret_t syscall_setsockopt(context_t *, int fd, int level, int optname, void *val, size_t len) {
@@ -9,28 +10,8 @@ syscallret_t syscall_setsockopt(context_t *, int fd, int level, int optname, voi
 		.ret = -1
 	};
 
-	if (level != SOL_SOCKET) {
-		ret.errno = ENOPROTOOPT;
-		return ret;
-	}
-
-	void *buffer = NULL;
-	if (val) {
-		buffer = alloc(len);
-		if (buffer == NULL) {
-			ret.errno = ENOMEM;
-			return ret;
-		}
-		ret.errno = usercopy_fromuser(buffer, val, len);
-		if (ret.errno) {
-			free(buffer);
-			return ret;
-		}
-	}
-
 	file_t *file = fd_get(fd);
 	if (file == NULL) {
-		free(buffer);
 		ret.errno = EBADF;
 		return ret;
 	}
@@ -42,36 +23,44 @@ syscallret_t syscall_setsockopt(context_t *, int fd, int level, int optname, voi
 
 	socket_t *socket = SOCKFS_SOCKET_FROM_NODE(file->vnode); 
 
-
 	MUTEX_ACQUIRE(&socket->mutex);
-	switch (optname) {
-		case SO_BINDTODEVICE: {
-			if (val) {
-				socket->netdev = netdev_getdev(buffer);
-				ret.errno = socket->netdev ? 0 : ENODEV;
-			} else {
-				socket->netdev = NULL;
+	if (level == SOL_SOCKET) {
+		// handle some generic cases here
+		switch (optname) {
+			case SO_BINDTODEVICE: {
+				if (val) {
+					size_t size;
+					ret.errno = usercopy_strlen(val, &size);
+					if (ret.errno)
+						break;
+
+					if (size > 32) {
+						ret.errno = EINVAL;
+						break;
+					}
+
+					char name[size + 1];
+					ret.errno = usercopy_fromuser(name, val, size);
+					if (ret.errno)
+						break;
+					name[size] = '\0';
+
+					socket->netdev = netdev_getdev(name);
+					ret.errno = socket->netdev ? 0 : ENODEV;
+				} else {
+					socket->netdev = NULL;
+				}
+				break;
 			}
-			break;
-		}
-		case SO_BROADCAST: {
-			if (val == NULL) {
-				ret.errno = EFAULT;
-			} else {
-				socket->broadcast = *((int *)buffer);
-				ret.errno = 0;
+			case SO_BROADCAST: {
+				ret.errno = usercopy_fromuser(&socket->broadcast, val, sizeof(int));
+				break;
 			}
-			break;
+			default:
+				ret.errno = socket->ops->setopt ? socket->ops->setopt(socket, level, optname, val, len, &current_thread()->proc->cred) : ENOPROTOOPT;
 		}
-		case SO_KEEPALIVE: {
-			if (val == NULL)
-				ret.errno = EFAULT;
-			else
-				ret.errno = socket->ops->setopt ? socket->ops->setopt(socket, optname, buffer, len, &current_thread()->proc->cred) : ENOPROTOOPT;
-			break;
-		}
-		default:
-		ret.errno = ENOPROTOOPT;
+	} else {
+		ret.errno = socket->ops->setopt ? socket->ops->setopt(socket, level, optname, val, len, &current_thread()->proc->cred) : ENOPROTOOPT;
 	}
 
 	MUTEX_RELEASE(&socket->mutex);
@@ -80,9 +69,6 @@ syscallret_t syscall_setsockopt(context_t *, int fd, int level, int optname, voi
 	ret.ret = ret.errno ? -1 : 0;
 
 	fd_release(file);
-
-	if (val)
-		free(buffer);
 
 	return ret;
 }
