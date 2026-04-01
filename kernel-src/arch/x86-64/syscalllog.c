@@ -8,7 +8,7 @@
 void arch_interrupt_disable();
 void arch_interrupt_enable();
 
-#define SYSCALL_COUNT 102
+#define SYSCALL_COUNT 103
 #define LOGSTR(x) arch_e9_puts(x)
 
 static char *name[] = {
@@ -114,6 +114,7 @@ static char *name[] = {
 	"yield",
 	"fstatvfs",
 	"fstatvfsat",
+	"getsockopt",
 };
 
 static char *args[] = {
@@ -219,6 +220,7 @@ static char *args[] = {
 	"N/A", // yield
 	"fd %d ustat %p", // fstatvfs
 	"dirfd %d path %s ustat %p flags %d", // fstatvfsat
+	"fd %d level %d optname %d optval %p optlen %p", // getsockopt
 };
 
 #endif

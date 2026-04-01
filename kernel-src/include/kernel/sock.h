@@ -73,7 +73,8 @@ typedef struct socketops_t {
 	int (*getpeername)(socket_t *socket, sockaddr_t *addr);
 	size_t (*datacount)(socket_t *socket);
 	void (*destroy)(socket_t *socket);
-	int (*setopt)(socket_t *socket, int optname, void *buffer, size_t len, cred_t *cred);
+	int (*setopt)(socket_t *socket, int layer, int optname, void *buffer, socklen_t len, cred_t *cred);
+	int (*getopt)(socket_t *socket, int layer, int optname, void *buffer, socklen_t *len, cred_t *cred);
 	int (*shutdown)(socket_t *socket, int how);
 } socketops_t;
 
