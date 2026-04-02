@@ -28,6 +28,8 @@ typedef struct cpu_t {
 	long hardware_id; // expected to be here by other code
 	long internal_id; // expected to be here by other code
 
+	uint64_t scratch; // expected to be here by other code
+
 	timekeeper_source_t *timekeeper_source;
 	timekeeper_source_info_t *timekeeper_source_info;
 	time_t timekeeper_source_base_ticks;

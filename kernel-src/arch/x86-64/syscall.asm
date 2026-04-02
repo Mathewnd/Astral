@@ -225,10 +225,7 @@ global arch_syscall_entry
 ; rax has return value
 arch_syscall_entry:
 	swapgs
-	; saving the syscall number on cr2 is cursed but we need this extra register
-	; and taking a page fault here would result in a triple fault anyways
-	; because it's still using the user stack
-	mov cr2, rax
+	mov [gs:40], rax ; save syscall number
 	; rax can be used just fine now
 	mov rax, [gs:0] ; thread pointer
 	mov rax, [rax] ; kernel stack top
@@ -237,7 +234,7 @@ arch_syscall_entry:
 	; push context
 	push qword 0x1b ; user SS
 	push qword rax  ; user RSP
-	mov rax, cr2 ; restore syscall number
+	mov rax, [gs:40] ; restore syscall number
 	push r11     ; rflags is stored in r11
 	push qword 0x23 ; user CS
 	push qword rcx ; save return RIP
@@ -266,8 +263,7 @@ arch_syscall_entry:
 	push rbx
 	mov rbx, gs
 	push rbx
-	mov rbx, cr2
-	push rbx
+	sub rsp, 8 ; cr2
 
 	mov rbx, 0x10
 	mov es, rbx
