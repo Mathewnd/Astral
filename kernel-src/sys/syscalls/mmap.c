@@ -34,6 +34,11 @@ syscallret_t syscall_mmap(context_t *context, void *hint, size_t len, int prot, 
 		return ret;
 	}
 
+	if (!IS_USER_ADDRESS(hint)) {
+		ret.errno = EINVAL;
+		return ret;
+	}
+
 	if ((flags & MAP_PRIVATE) && (flags & MAP_SHARED)) {
 		ret.errno = EINVAL;
 		return ret;
