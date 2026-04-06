@@ -41,6 +41,11 @@ syscallret_t syscall_futex(context_t *, uint32_t *futexp, int op, uint32_t value
 		.ret = -1
 	};
 
+	if (!IS_USER_ADDRESS(tm) || !IS_USER_ADDRESS(futexp)) {
+		ret.errno = EFAULT;
+		return ret;
+	}
+
 	if (unlikely(hashtableinit == false)) {
 		if (unlikely(hashtable_init(&hashtable, 256))) {
 			ret.errno = ENOMEM;
