@@ -281,7 +281,7 @@ arch_syscall_entry:
 	xor rbp, rbp
 
 	; call logging function
-
+	cld
 	sti
 	mov rdi, rax
 	extern arch_syscall_log
