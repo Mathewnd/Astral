@@ -65,6 +65,15 @@ size_t strlen(const char *a) {
 	return s;
 }
 
+size_t strnlen(const char *a, size_t max) {
+	size_t s = 0;
+
+	while (s < max && a[s] != '\0')
+		++s;
+
+	return s;
+}
+
 int strncmp(const char *a, const char *b, size_t c) {
 	int diff = 0;
 
