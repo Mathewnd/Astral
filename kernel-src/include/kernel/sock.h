@@ -151,7 +151,11 @@ static inline int sock_convertaddress(sockaddr_t *sockaddr, abisockaddr_t *abiso
 			break;
 		case AF_LOCAL:
 			unaddr_t *unaddr = (unaddr_t *)abisockaddr;
-			strcpy(sockaddr->path, unaddr->sun_path);
+			size_t length = strnlen(unaddr->sun_path, ABISOCKADDR_UN_MAX);
+			if (length == ABISOCKADDR_UN_MAX)
+				return EINVAL;
+
+			memcpy(sockaddr->path, unaddr->sun_path, length + 1);
 			break;
 		default:
 			return EINVAL;

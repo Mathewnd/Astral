@@ -127,9 +127,11 @@ typedef struct {
 
 typedef unsigned socklen_t;
 
+#define ABISOCKADDR_UN_MAX 108
+
 typedef struct {
 	unsigned short type;
-	char addr[14];
+	char addr[ABISOCKADDR_UN_MAX];
 } abisockaddr_t;
 
 typedef struct {
@@ -140,7 +142,7 @@ typedef struct {
 
 typedef struct {
 	uint16_t sun_family;
-	char sun_path[108];
+	char sun_path[ABISOCKADDR_UN_MAX];
 } __attribute__((packed)) unaddr_t;
 
 typedef struct {
