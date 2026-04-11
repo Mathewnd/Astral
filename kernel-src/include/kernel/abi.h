@@ -131,7 +131,7 @@ typedef unsigned socklen_t;
 
 typedef struct {
 	unsigned short type;
-	char addr[ABISOCKADDR_UN_MAX];
+	char addr[14];
 } abisockaddr_t;
 
 typedef struct {
