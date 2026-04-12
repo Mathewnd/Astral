@@ -307,9 +307,19 @@ void proc_exit(void) {
 }
 
 DEFINE_KERNEL_ARGUMENT(initarg, char *);
+DEFINE_KERNEL_ARGUMENT(init, char *);
+DEFINE_KERNEL_ARGUMENT(initconsole, char *);
 
 void proc_run_init() {
-	printf("proc: loading /init\n");
+	char *init_path = GET_KERNEL_ARGUMENT(init, char *);
+	if (init_path == NULL)
+		init_path = "/init";
+
+	char *init_console = GET_KERNEL_ARGUMENT(initconsole, char *);
+	if (init_console == NULL)
+		init_console = "console";
+
+	printf("proc: loading %s\n", init_path);
 
 	vmmcontext_t *vmmctx = vmm_newcontext();
 	__assert(vmmctx);
@@ -323,7 +333,7 @@ void proc_run_init() {
 	init_proc = proc;
 
 	vnode_t *initnode;
-	__assert(vfs_open(vfsroot, "/init", 0, &initnode) == 0);
+	__assert(vfs_open(vfsroot, init_path, 0, &initnode) == 0);
 
 	auxv64list_t auxv64;
 	char *interp = NULL;
@@ -340,7 +350,7 @@ void proc_run_init() {
 	}
 
 	vnode_t *consolenode;
-	__assert(devfs_getbyname("console", &consolenode) == 0);
+	__assert(devfs_getbyname(init_console, &consolenode) == 0);
 	VOP_LOCK(consolenode);
 	__assert(VOP_OPEN(&consolenode, V_FFLAGS_READ | V_FFLAGS_NOCTTY, &proc->cred) == 0);
 	VOP_HOLD(consolenode);
@@ -374,10 +384,10 @@ void proc_run_init() {
 	proc->root = vfsroot;
 	VOP_HOLD(vfsroot);
 
-	char *argv[] = {"/init", GET_KERNEL_ARGUMENT(initarg, char *), NULL};
-	char *envp[] = {NULL};
+	char *argv[] = {init_path, GET_KERNEL_ARGUMENT(initarg, char *), NULL};
+	char *envp[] = {"TERM=xterm-256color", NULL};
 
-	void *stack = elf_preparestack(STACK_TOP, &auxv64, argv, envp, "/init");
+	void *stack = elf_preparestack(STACK_TOP, &auxv64, argv, envp, init_path);
 	__assert(stack);
 
 	// reenter kernel context
