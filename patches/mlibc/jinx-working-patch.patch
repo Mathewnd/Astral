@@ -129,6 +129,62 @@ index 299d9d3..d32237c 100644
  }
  
  struct protoent *getprotobyname(const char *) {
+diff --git mlibc-clean/options/posix/generic/utmpx.cpp mlibc-workdir/options/posix/generic/utmpx.cpp
+index 2c6252c..1d9064c 100644
+--- mlibc-clean/options/posix/generic/utmpx.cpp
++++ mlibc-workdir/options/posix/generic/utmpx.cpp
+@@ -77,10 +77,10 @@ void setutxent(void) {
+ }
+ 
+ struct utmpx *getutxent(void) {
+-	frg::unique_lock lock{utmpxMutex};
+-
+ 	if(!utmpxFd)
+ 		setutxent();
++	frg::unique_lock lock{utmpxMutex};
++
+ 	if(!utmpxFd) {
+ 		errno = ENOENT;
+ 		return nullptr;
+@@ -95,10 +95,10 @@ struct utmpx *getutxent(void) {
+ }
+ 
+ struct utmpx *pututxline(const struct utmpx *ut) {
+-	frg::unique_lock lock{utmpxMutex};
+-
+ 	if(!utmpxFd)
+ 		setutxent();
++	frg::unique_lock lock{utmpxMutex};
++
+ 	if(!utmpxFd) {
+ 		errno = ENOENT;
+ 		return nullptr;
+@@ -135,10 +135,10 @@ int utmpxname(const char *file) {
+ }
+ 
+ struct utmpx *getutxid(const struct utmpx *ut) {
+-	frg::unique_lock lock{utmpxMutex};
+-
+ 	if(!utmpxFd)
+ 		setutxent();
++
++	frg::unique_lock lock{utmpxMutex};
+ 	if(!utmpxFd) {
+ 		errno = ENOENT;
+ 		return nullptr;
+@@ -153,10 +153,10 @@ struct utmpx *getutxid(const struct utmpx *ut) {
+ }
+ 
+ struct utmpx *getutxline(const struct utmpx *ut) {
+-	frg::unique_lock lock{utmpxMutex};
+-
+ 	if(!utmpxFd)
+ 		setutxent();
++	frg::unique_lock lock{utmpxMutex};
++
+ 	if(!utmpxFd) {
+ 		errno = ENOENT;
+ 		return nullptr;
 diff --git mlibc-clean/options/posix/include/mlibc/posix-sysdeps.hpp mlibc-workdir/options/posix/include/mlibc/posix-sysdeps.hpp
 index 3666050..ecfc1ae 100644
 --- mlibc-clean/options/posix/include/mlibc/posix-sysdeps.hpp
