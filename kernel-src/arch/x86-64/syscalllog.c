@@ -2,6 +2,7 @@
 #include <arch/e9.h>
 #include <arch/cpu.h>
 #include <kernel/vmmcache.h>
+#include <kernel/kernel_args.h>
 
 #ifdef SYSCALL_LOGGING
 
@@ -227,6 +228,7 @@ static char *args[] = {
 
 #ifdef SYSCALL_LOGGING
 static spinlock_t lock;
+DEFINE_KERNEL_ARGUMENT(global_syscall_logging, bool)
 #endif
 extern size_t freepagecount;
 __attribute__((no_caller_saved_registers)) void arch_syscall_log(int syscall, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5, uint64_t a6) {
@@ -236,7 +238,7 @@ __attribute__((no_caller_saved_registers)) void arch_syscall_log(int syscall, ui
 
 	thread_t *thread = current_thread();
 	proc_t *proc = thread->proc;
-	if (!(proc->flags & PROC_FLAG_SYSTRACE))
+	if (!(proc->flags & PROC_FLAG_SYSTRACE) && GET_KERNEL_ARGUMENT(global_syscall_logging, bool) == false)
 		return;
 
 	snprintf(argbuff, 768, syscall < SYSCALL_COUNT ? args[syscall] : "N/A", a1, a2, a3, a4, a5, a6);
@@ -256,7 +258,7 @@ __attribute__((no_caller_saved_registers)) void arch_syscall_log_return(uint64_t
 
 	thread_t *thread = current_thread();
 	proc_t *proc = thread->proc;
-	if (!(proc->flags & PROC_FLAG_SYSTRACE))
+	if (!(proc->flags & PROC_FLAG_SYSTRACE) && GET_KERNEL_ARGUMENT(global_syscall_logging, bool) == false)
 		return;
 
 	snprintf(printbuff, 1024, "\e[94msyscall return: pid %d tid %d: %lu %s (%lu cached pages, %lu free pages)\n\e[0m", proc->pid, thread->tid, ret, strerror(errno), vmmcache_cachedpages, freepagecount);
