@@ -18,7 +18,12 @@ syscallret_t syscall_waitpid(context_t *context, pid_t pid, int *status, int opt
 	if (options & ~KNOWN_FLAGS)
 		printf("waitpid: unknown %x\n", options);
 
-	if (pid < -1 || pid == 0) {
+	if (pid == 0) {
+		printf("waitpid: pid 0 is a stub, falling back to -1\n")
+		pid = -1;
+	}
+
+	if (pid < -1) {
 		printf("waitpid: unhandled pid %d\n", pid);
 		ret.errno = EOPNOTSUPP;
 		return ret;
