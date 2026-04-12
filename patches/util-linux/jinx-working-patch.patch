@@ -31,3 +31,19 @@ index d1c1840..a860cc9 100644
  ])
  
  AC_OUTPUT
+diff --git util-linux-clean/term-utils/agetty.c util-linux-workdir/term-utils/agetty.c
+index 0dfe52c..60fc168 100644
+--- util-linux-clean/term-utils/agetty.c
++++ util-linux-workdir/term-utils/agetty.c
+@@ -92,9 +92,9 @@
+ #endif
+ 
+ /* If USE_SYSLOG is undefined all diagnostics go to /dev/console. */
+-#ifdef	USE_SYSLOG
++//##ifdef	USE_SYSLOG
+ #  include <syslog.h>
+-#endif
++//#endif
+ 
+ /*
+  * Some heuristics to find out what environment we are in: if it is not

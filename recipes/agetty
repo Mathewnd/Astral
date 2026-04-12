@@ -1,0 +1,23 @@
+name=agetty
+revision=1
+from_source=util-linux
+imagedeps="build-essential python3 python3-dev"
+hostrundeps="automake autoconf xgcc xbinutils libstdc++-v3 pkgconfig libtool"
+deps="base"
+
+configure() {
+	cp -rp ${source_dir}/* .
+	rm -rf po
+	build_setsid=yes ./configure --host=x86_64-astral --prefix=${prefix} --disable-all-programs --enable-agetty
+}
+
+build() {
+	x86_64-astral-gcc -o setsid ${source_dir}/sys-utils/setsid.c -I${source_dir}/include -DHAVE_NANOSLEEP -DHAVE_REALLOCARRAY -DHAVE_FSYNC -DPACKAGE_STRING='"foo"'
+	make -j ${parallelism}
+}
+
+package() {
+	mkdir -p ${dest_dir}/usr/bin
+	cp setsid ${dest_dir}/usr/bin
+	make DESTDIR="${dest_dir}" install
+}
