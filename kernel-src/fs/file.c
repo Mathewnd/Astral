@@ -35,6 +35,13 @@ static file_t* newfile() {
 }
 
 static void cleanfile(file_t *file) {
+	if (file->advlock) {
+		// try unlocking it if applicable
+		VOP_ADVLOCK(file->vnode, ADVLOCK_UNLOCK, file->advlock);
+		ADVLOCK_UNREF(file->advlock);
+		file->advlock = NULL;
+	}
+
 	if (file->vnode) {
 		vfs_close(file->vnode, fileflagstovnodeflags(file->flags));
 		VOP_RELEASE(file->vnode);
@@ -45,12 +52,6 @@ static void cleanfile(file_t *file) {
 	file->flags = 0;
 	file->mode = 0;
 	MUTEX_INIT(&file->mutex);
-	if (file->advlock) {
-		// try unlocking it if applicable
-		VOP_ADVLOCK(file->vnode, ADVLOCK_UNLOCK, file->advlock);
-		ADVLOCK_UNREF(file->advlock);
-		file->advlock = NULL;
-	}
 	file->vnode = NULL;
 	slab_free(filecache, file);
 }
