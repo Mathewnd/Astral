@@ -12,6 +12,7 @@ typedef struct pipenode_t {
 	vattr_t attr;
 	ringbuffer_t data;
 	size_t readers, writers;
+	bool open;
 	pollheader_t pollheader;
 	eventheader_t readopenevent;
 	eventheader_t writeopenevent;

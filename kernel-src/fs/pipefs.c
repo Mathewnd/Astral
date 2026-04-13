@@ -40,6 +40,9 @@ int pipefs_close(vnode_t *node, int flags, cred_t *cred) {
 	if (pipenode->writers == 0)
 		poll_event(&pipenode->pollheader, POLLHUP);
 
+	if (pipenode->writers == 0 && pipenode->readers == 0)
+		pipenode->open = false;
+
 	INTERNAL_UNLOCK(node);
 	return 0;
 }
@@ -61,8 +64,10 @@ int pipefs_open(vnode_t **node, int flags, cred_t *cred) {
 
 	int error = 0;
 
-	if (pipenode->writers > 0 && pipenode->readers > 0)
+	if (pipenode->writers > 0 && pipenode->readers > 0) {
+		pipenode->open = true;
 		goto leave;
+	}
 
 	if (flags & V_FFLAGS_NONBLOCKING) {
 		if (flags & V_FFLAGS_READ) {
@@ -110,7 +115,7 @@ static int internalpoll(vnode_t *node, polldata_t *data, int events) {
 
 	if (events & POLLIN) {
 		events |= POLLHUP;
-		if (pipenode->writers == 0)
+		if (pipenode->writers == 0 && pipenode->open)
 			revents |= POLLHUP;
 		else if (RINGBUFFER_DATACOUNT(&pipenode->data) > 0)
 			revents |= POLLIN;
@@ -118,7 +123,7 @@ static int internalpoll(vnode_t *node, polldata_t *data, int events) {
 
 	if (events & POLLOUT) {
 		events |= POLLERR;
-		if (pipenode->readers == 0)
+		if (pipenode->readers == 0 && pipenode->open)
 			revents |= POLLERR;
 		// poll will only return POLLOUT if an atomic write can be done without blocking
 		// this is undocumented in POSIX but many unices implement it like this
