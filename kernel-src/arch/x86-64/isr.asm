@@ -57,8 +57,17 @@ isr_common:
 	mov rdi, rbp ; vec
 	mov rsi, rsp ; ctx
 
-	; set this as the end of the stack frame
-	xor rbp, rbp
+	; set this as the end of the stack frame or continue it
+	cmp qword [rsp + 184], 0x8
+	jne .zero_frame
+	push qword [rsp + 176]
+	push qword [rsp + 168]
+	jmp .keep_going
+	.zero_frame:
+	push qword 0
+	push qword 0
+	.keep_going:
+	mov rbp, rsp
 
 	cld
 	extern interrupt_isr
@@ -66,7 +75,7 @@ isr_common:
 	cli
 
 	; pop context
-	add rsp, 24 ; cr2 gs and fs are not popped.
+	add rsp, 40 ; cr2 gs and fs are not popped.
 	pop rax
 	mov es,rax
 	pop rax
