@@ -200,6 +200,7 @@ typedef struct vops_t {
 	MUTEX_INIT(&(vn)->lock); \
 	MUTEX_INIT(&(vn)->size_lock); \
 	MUTEX_INIT(&(vn)->adv_mutex); \
+	(vn)->socketbinding = NULL; \
 	(vn)->advlock = NULL; \
 	(vn)->refcount = 1; \
 	(vn)->flags = f; \
