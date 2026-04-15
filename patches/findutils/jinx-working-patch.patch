@@ -1,0 +1,14 @@
+diff --git findutils-clean/find/util.c findutils-workdir/find/util.c
+index d30a50b..7e1f268 100644
+--- findutils-clean/find/util.c
++++ findutils-workdir/find/util.c
+@@ -555,8 +555,7 @@ cleanup (void)
+       forget_non_cloexec_fds ();
+     }
+ 
+-  if (fflush (stdout) == EOF)
+-    nonfatal_nontarget_file_error (errno, "standard output");
++  fflush(stdout);
+ }
+ 
+ 
