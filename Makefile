@@ -11,20 +11,19 @@ QEMUFLAGS=\
 	-M q35 \
 	-m 2g \
 	-smp cpus=4 \
-	-no-shutdown \
-	-no-reboot \
 	-debugcon file:/dev/stdout \
-	-serial stdio \
 	-netdev user,id=net0 -device virtio-net,netdev=net0 \
 	-object filter-dump,id=f1,netdev=net0,file=netdump.dat
 QEMUISOFLAGS=-cdrom $(ISO)
-QEMUDISKFLAGS=-drive file=$(DISKNAME),if=none,id=nvme -device nvme,serial=deadc0ff,drive=nvme -boot order=dc
+QEMUDISKFLAGS=-drive file=$(DISKNAME),if=none,id=disk \
+	      -device nvme,drive=disk,serial=0xdeadbeef \
+	      -boot dc
 QEMUIMGFLAGS=-drive file=$(IMG),if=none,id=usb -device nec-usb-xhci,id=xhci -device usb-storage,bus=xhci.0,drive=usb,removable=on
 INITRD=$(JINX_DIR)/initrds/initrd
 DISTROTYPE=full
 INITRDTYPE=minimal
 
-MINIMALPACKAGES=mlibc bash coreutils init distro-files vim nano mount shadow sudo xbps net-base fastfetch
+MINIMALPACKAGES=mlibc bash coreutils openrc distro-files vim nano mount shadow sudo xbps net-base fastfetch limine dosfstools e2fsprogs parted netinfo systrace findutils sed
 
 .PHONY: all kernel clean clean-kernel iso img initrd full minimal disk distro-minimal distro-full
 
@@ -110,12 +109,12 @@ disk: disk-$(DISTROTYPE)
 disk-full: distro-full
 	cd $(JINX_DIR) && \
 	../jinx install sysroot \* && \
-	../gendisk.sh 8g sysroot $(DISKNAME)
+	../gendisk.sh 7g sysroot $(DISKNAME)
 
 disk-minimal: distro-minimal
 	cd $(JINX_DIR) && \
 	../jinx install minimalsysroot $(MINIMALPACKAGES) && \
-	../gendisk.sh 1g minimalsysroot $(DISKNAME)
+	../gendisk.sh 1900m minimalsysroot $(DISKNAME)
 
 # ------ clean targets ------
 
@@ -132,32 +131,34 @@ clean:
 # ------ run targets ------
 
 run:
-	qemu-system-x86_64 $(QEMUFLAGS) $(QEMUISOFLAGS)
+	qemu-system-x86_64 $(QEMUFLAGS) $(QEMUISOFLAGS) -serial stdio
 
 run-gdb:
-	qemu-system-x86_64 $(QEMUFLAGS) $(QEMUISOFLAGS) -S -s
+	qemu-system-x86_64 $(QEMUFLAGS) $(QEMUISOFLAGS) -S -s -serial stdio
 
 run-kvm:
-	qemu-system-x86_64 $(QEMUFLAGS) $(QEMUISOFLAGS) -enable-kvm -cpu host,migratable=off
+	qemu-system-x86_64 $(QEMUFLAGS) $(QEMUISOFLAGS) -enable-kvm -cpu host,migratable=off -serial stdio
 
 run-disk:
-	qemu-system-x86_64 $(QEMUFLAGS) $(QEMUISOFLAGS) $(QEMUDISKFLAGS)
+	qemu-system-x86_64 $(QEMUFLAGS) $(QEMUISOFLAGS) $(QEMUDISKFLAGS) -serial stdio
 
 run-disk-gdb:
-	qemu-system-x86_64 $(QEMUFLAGS) $(QEMUISOFLAGS) $(QEMUDISKFLAGS) -S -s
+	qemu-system-x86_64 $(QEMUFLAGS) $(QEMUISOFLAGS) $(QEMUDISKFLAGS) -S -s -serial stdio
 
 run-disk-kvm:
-	qemu-system-x86_64 $(QEMUFLAGS) $(QEMUISOFLAGS) $(QEMUDISKFLAGS) -enable-kvm -cpu host,migratable=off -s
+	qemu-system-x86_64 $(QEMUFLAGS) $(QEMUISOFLAGS) $(QEMUDISKFLAGS) -enable-kvm -cpu host,migratable=off -s -serial stdio
+
+run-disk-kvm-prof:
+	qemu-system-x86_64 $(QEMUFLAGS) $(QEMUISOFLAGS) $(QEMUDISKFLAGS) -enable-kvm -cpu host,migratable=off -s -serial file:profiler.out
 	
 run-disk-kvm-gdb:
-	qemu-system-x86_64 $(QEMUFLAGS) $(QEMUISOFLAGS) $(QEMUDISKFLAGS) -enable-kvm -cpu host,migratable=off -S -s
+	qemu-system-x86_64 $(QEMUFLAGS) $(QEMUISOFLAGS) $(QEMUDISKFLAGS) -enable-kvm -cpu host,migratable=off -S -s -serial stdio
 	
-
 run-img:
-	qemu-system-x86_64 $(QEMUFLAGS) $(QEMUIMGFLAGS)
+	qemu-system-x86_64 $(QEMUFLAGS) $(QEMUIMGFLAGS) -serial stdio
 
 run-img-gdb:
-	qemu-system-x86_64 $(QEMUFLAGS) $(QEMUIMGFLAGS) -S -s
+	qemu-system-x86_64 $(QEMUFLAGS) $(QEMUIMGFLAGS) -S -s -serial stdio
 
 run-img-kvm:
-	qemu-system-x86_64 $(QEMUFLAGS) $(QEMUIMGFLAGS) -enable-kvm -cpu host,migratable=off
+	qemu-system-x86_64 $(QEMUFLAGS) $(QEMUIMGFLAGS) -enable-kvm -cpu host,migratable=off -serial stdio

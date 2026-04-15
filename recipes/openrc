@@ -1,0 +1,28 @@
+name=openrc
+revision=1
+from_source=openrc
+imagedeps="gcc meson ninja-build"
+hostdeps="xgcc xbinutils pkgconfig automake autoconf"
+deps="base agetty"
+
+configure() {
+	meson \
+		--cross-file ${base_dir}/util/crossfile \
+		--prefix=${prefix} \
+		--buildtype=release \
+		-Dpam=false \
+		-Dbranding='"Astral"' \
+		-Dagetty=console,com0 \
+		-Dnewnet=false \
+		${source_dir}
+}
+
+build() {
+	ninja -j${parallelism}
+}
+
+package() {
+	DESTDIR=${dest_dir} ninja install
+	echo "respawn_max=1" > ${dest_dir}/etc/conf.d/agetty.com0
+	ln -s "sbin/openrc-init" ${dest_dir}/init
+}

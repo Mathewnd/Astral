@@ -1,0 +1,25 @@
+#!/sbin/openrc-run
+
+description="start the OpenSSH server"
+supervisor=supervise-daemon
+respawn_period="${respawn_period:-60}"
+command=/usr/sbin/sshd
+command_args_foreground="-D ${sshd_options}"
+pidfile="/run/${RC_SVCNAME}.pid"
+
+depend() {
+	after net
+}
+
+start_pre() {
+	export EINFO_QUIET="${quiet:-yes}"
+
+	ssh-keygen -A
+
+	mkdir -p /var/lib/sshd
+	chmod 0755 /var/lib/sshd
+}
+
+stop_pre() {
+	export EINFO_QUIET="${quiet:-yes}"
+}

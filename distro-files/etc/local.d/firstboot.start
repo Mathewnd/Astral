@@ -1,0 +1,9 @@
+if [ ! -f "/var/lib/.first_boot_done" ] ; then
+	mkdir -p /var/log
+	xbps-reconfigure -a > /var/log/first_install_reconfigure.log
+
+	# all done
+	touch /var/lib/.first_boot_done
+fi
+
+exit 0

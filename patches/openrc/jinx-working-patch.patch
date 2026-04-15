@@ -1,0 +1,787 @@
+diff --git openrc-clean/conf.d/meson.build openrc-workdir/conf.d/meson.build
+index 7c2c99a..bba4a69 100644
+--- openrc-clean/conf.d/meson.build
++++ openrc-workdir/conf.d/meson.build
+@@ -40,6 +40,10 @@ conf_Linux = [
+   'seedrng',
+   ]
+ 
++conf_Astral = [
++  'agetty',
++]
++
+ conf_NetBSD =  [
+   'moused',
+   'rarpd',
+@@ -57,6 +61,8 @@ elif os == 'linux'
+   conf_data = conf_data + conf_Linux
+ elif os == 'netbsd'
+   conf_data = conf_data + conf_NetBSD
++elif os == 'astral'
++  conf_data = conf_data + conf_Astral
+ endif
+ 
+ install_data(conf_data, install_dir : conf_d_dir)
+diff --git openrc-clean/init.d/bootmisc.in openrc-workdir/init.d/bootmisc.in
+index 33f676a..d544710 100644
+--- openrc-clean/init.d/bootmisc.in
++++ openrc-workdir/init.d/bootmisc.in
+@@ -220,19 +220,21 @@ start()
+ 		fi
+ 	fi
+ 
+-	if yesno $log_dmesg; then
+-		if $logw || checkpath -W /var/log; then
+-			# Create an 'after-boot' dmesg log
+-			case "$RC_SYS" in
+-				VSERVER|OPENVZ|LXC|SYSTEMD-NSPAWN) ;;
+-				*)
+-					if yesno ${previous_dmesg:-no} && [ -e /var/log/dmesg ]; then
+-						mv /var/log/dmesg /var/log/dmesg.old
+-					fi
+-					dmesg > /var/log/dmesg
+-					chmod 640 /var/log/dmesg
+-					;;
+-			esac
++	if [ "$RC_UNAME" != Astral ] ; then
++		if yesno $log_dmesg; then
++			if $logw || checkpath -W /var/log; then
++				# Create an 'after-boot' dmesg log
++				case "$RC_SYS" in
++					VSERVER|OPENVZ|LXC|SYSTEMD-NSPAWN) ;;
++					*)
++						if yesno ${previous_dmesg:-no} && [ -e /var/log/dmesg ]; then
++							mv /var/log/dmesg /var/log/dmesg.old
++						fi
++						dmesg > /var/log/dmesg
++						chmod 640 /var/log/dmesg
++						;;
++				esac
++			fi
+ 		fi
+ 	fi
+ 
+diff --git openrc-clean/init.d/devfs.in openrc-workdir/init.d/devfs.in
+index 6d67230..3584353 100644
+--- openrc-clean/init.d/devfs.in
++++ openrc-workdir/init.d/devfs.in
+@@ -127,8 +127,18 @@ restorecon_dev()
+ 
+ start()
+ {
+-	mount_dev
+-	seed_dev
+-	restorecon_dev
++	if [ "$RC_UNAME" = Linux ]; then
++		mount_dev
++		seed_dev
++		restorecon_dev
++	elif [ "$RC_UNAME" = Astral ]; then
++		mkdir -p /dev
++		mount /dev -t devfs
++		chmod 0755 /dev
++
++		mkdir -p /dev/shm
++		mount /dev/shm -t tmpfs
++		chmod 1777 /dev/shm
++	fi
+ 	return 0
+ }
+diff --git openrc-clean/init.d/localmount.in openrc-workdir/init.d/localmount.in
+index 9535b59..d86e39d 100644
+--- openrc-clean/init.d/localmount.in
++++ openrc-workdir/init.d/localmount.in
+@@ -35,7 +35,13 @@ start()
+ 		fi
+ 	fi
+ 	ebegin "Mounting local filesystems"
+-	mount -at "$types" $no_netdev
++
++	if [ "$RC_UNAME" = Astral ]; then
++		mount -a
++	else
++		mount -at "$types" $no_netdev
++	fi
++
+ 	eend $? "Some local filesystem failed to mount"
+ 	rc=$?
+ 	if [ -z "$critical_mounts" ]; then
+@@ -78,7 +84,9 @@ stop()
+ 	no_umounts_r="^($no_umounts_r)$"
+ 
+ 	# Flush all pending disk writes now
++	ebegin Syncing disks
+ 	sync
++	eend
+ 
+ 	. "$RC_LIBEXECDIR"/sh/rc-mount.sh
+ 
+@@ -109,6 +117,11 @@ stop()
+ 		done
+ 	fi
+ 
++	# no unmount support for Astral yet
++	if [ "$RC_UNAME" = Astral ] ; then
++		return 0
++	fi
++
+ 	# Umount loop devices
+ 	einfo "Unmounting loop devices"
+ 	eindent
+diff --git openrc-clean/init.d/meson.build openrc-workdir/init.d/meson.build
+index d0699dc..79c3383 100644
+--- openrc-clean/init.d/meson.build
++++ openrc-workdir/init.d/meson.build
+@@ -1,19 +1,15 @@
+ init_d_dir = get_option('sysconfdir') / 'init.d'
+ 
+ init_common =  [
+-  'bootmisc.in',
+   'fsck.in',
++  'bootmisc.in',
+   'hostname.in',
+   'local.in',
+   'localmount.in',
+-  'loopback.in',
+-  'netmount.in',
+   'osclock.in',
+   'root.in',
+   'savecache.in',
+-  'swap.in',
+   'swclock.in',
+-  'sysctl.in',
+   'runsvdir.in',
+   's6-svscan.in',
+   'user.in',
+@@ -27,6 +23,8 @@ if get_option('newnet')
+ endif
+ 
+ init_Linux =  [
++  'swap.in',
++  'netmount.in',
+   'agetty.in',
+   'binfmt.in',
+   'cgroups.in',
+@@ -47,9 +45,13 @@ init_Linux =  [
+   'seedrng.in',
+   'sysfs.in',
+   'termencoding.in',
++  'sysctl.in',
++  'loopback.in',
+   ]
+ 
+ init_BSD =  [
++  'swap.in',
++  'netmount.in',
+   'hostid.in',
+   'moused.in',
+   'newsyslog.in',
+@@ -60,9 +62,13 @@ init_BSD =  [
+   'savecore.in',
+   'syslogd.in',
+   'urandom.in',
++  'sysctl.in',
++  'loopback.in',
+   ]
+ 
+ init_FreeBSD =  [
++  'swap.in',
++  'netmount.in',
+   'adjkerntz.in',
+   'devd.in',
+   'dumpon.in',
+@@ -73,15 +79,26 @@ init_FreeBSD =  [
+   'nscd.in',
+   'powerd.in',
+   'syscons.in',
++  'sysctl.in',
++  'loopback.in',
+   ]
+ 
+ init_NetBSD =  [
++  'swap.in',
++  'netmount.in',
+   'devdb.in',
+   'swap-blk.in',
+   'ttys.in',
+   'wscons.in',
++  'sysctl.in',
++  'loopback.in',
+   ]
+ 
++init_Astral = [
++  'agetty.in',
++  'devfs.in',
++  'netd.in',
++  ]
+ init_data = init_common
+ if os == 'dragonfly'
+   init_data = init_data + init_BSD
+@@ -91,7 +108,9 @@ elif os == 'linux'
+   init_data = init_data + init_Linux
+ elif os == 'netbsd'
+   init_data = init_data + init_BSD + init_NetBSD
+-  endif
++elif os == 'astral'
++  init_data = init_data + init_Astral
++endif
+ 
+ foreach init_d_file : init_data
+   configure_file(input : init_d_file,
+@@ -104,7 +123,7 @@ install_symlink('functions.sh',
+   pointing_to: rc_shdir / 'functions.sh',
+   install_dir: init_d_dir)
+ 
+-if get_option('sysvinit') == true and os == 'linux'
++if (get_option('sysvinit') == true and os == 'linux') or os == 'astral'
+   foreach x : get_option('agetty')
+     link_name = 'agetty.' + x
+     install_symlink(link_name,
+diff --git openrc-workdir/init.d/netd.in openrc-workdir/init.d/netd.in
+new file mode 100644
+index 0000000..df17882
+--- /dev/null
++++ openrc-workdir/init.d/netd.in
+@@ -0,0 +1,22 @@
++#!@SBINDIR@/openrc-run
++
++description="start the network daemon"
++supervisor=supervise-daemon
++respawn_period="${respawn_period:-60}"
++command=/usr/sbin/netd
++command_args_foreground="${netd_options} ${netd_device}"
++pidfile="/run/${RC_SVCNAME}.pid"
++
++depend() {
++	after dev hostname
++	provide net
++}
++
++start_pre() {
++	export EINFO_QUIET="${quiet:-yes}"
++}
++
++stop_pre()
++{
++	export EINFO_QUIET="${quiet:-yes}"
++}
+diff --git openrc-clean/init.d/root.in openrc-workdir/init.d/root.in
+index 28be936..0807794 100644
+--- openrc-clean/init.d/root.in
++++ openrc-workdir/init.d/root.in
+@@ -20,6 +20,20 @@ depend()
+ 
+ start()
+ {
++	if [ "$RC_UNAME" = Astral ]; then
++		ebegin Updating /etc/mtab with root
++		# astral does not support remounting yet, nor ro mounts.
++		# add the root to /etc/mtab for accounting
++		local root_dev dev
++		root_dev=$(stat -c '%d' /)
++		for dev in /dev/*; do
++		  [ -b "$dev" ] && [ "$(stat -c '%r' "$dev")" = "$root_dev" ] && break
++		done
++		echo -e "$dev\t/\tunknown\tdefaults\t0\t0" >> /etc/mtab
++		eend
++		return 0
++	fi
++
+ 	local root_opts=",$(fstabinfo -o /),"
+ 	case "$root_opts" in
+ 		*,ro,*)
+diff --git openrc-clean/runlevels/meson.build openrc-workdir/runlevels/meson.build
+index cb41560..28cc483 100644
+--- openrc-clean/runlevels/meson.build
++++ openrc-workdir/runlevels/meson.build
+@@ -6,30 +6,39 @@ sysinit_linux = [
+   'devfs',
+   'dmesg',
+   'sysfs']
++sysinit_astral = [
++  'devfs'
++]
++
+ if os == 'linux'
+   sysinit += sysinit_linux
++elif os == 'astral'
++  sysinit += sysinit_astral
+ endif
+ 
+ boot = [
+   'bootmisc',
+-  'fsck',
+   'hostname',
+   'localmount',
+-  'loopback',
+-  'root',
+-  'swap',
+-  'sysctl']
++  'fsck',
++  'root']
+ boot_bsd = [
+   'hostid',
+   'newsyslog',
+   'savecore',
+   'syslogd',
+-  'urandom']
++  'loopback',
++  'swap',
++  'urandom',
++  'sysctl']
+ boot_freebsd = [
+   'adjkerntz',
+   'dumpon',
+   'modules',
+-  'syscons']
++  'loopback',
++  'swap',
++  'syscons',
++  'sysctl']
+ boot_linux = [
+   'binfmt',
+   'hwclock',
+@@ -40,12 +49,21 @@ boot_linux = [
+   'save-keymaps',
+   'save-termencoding',
+   'seedrng',
+-  'termencoding']
++  'loopback',
++  'swap',
++  'termencoding',
++  'sysctl']
+ boot_netbsd = [
+   'devdb',
+   'swap-blk',
+   'tys',
+-  'wscons']
++  'loopback',
++  'swap',
++  'wscons',
++  'sysctl']
++boot_astral = [
++  'netd'
++]
+ if get_option('newnet')
+   boot += [
+     'network',
+@@ -59,11 +77,12 @@ elif os == 'linux'
+   boot += boot_linux
+ elif os == 'netbsd'
+   boot += boot_bsd + boot_netbsd
++elif os == 'astral'
++  boot += boot_astral
+ endif
+ 
+ default = [
+-  'local',
+-  'netmount']
++  'local']
+ 
+ nonetwork=['local']
+ 
+@@ -71,8 +90,12 @@ shutdown = ['savecache']
+ shutdown_linux = [
+   'killprocs',
+   'mount-ro']
++shutdown_astral = [
++]
+ if os == 'linux'
+   shutdown += shutdown_linux
++elif os == 'astral'
++  shutdown += shutdown_astral
+ endif
+ 
+ runlevels = {
+@@ -89,7 +112,7 @@ foreach runlevel: runlevels.keys()
+       install_dir: runlevel_dir / runlevel,
+       pointing_to: init_d_dir / service) 
+   endforeach
+-  if get_option('sysvinit') == true and os == 'linux' and runlevel == 'default'
++  if ((get_option('sysvinit') == true and os == 'linux') or os == 'astral') and runlevel == 'default'
+     foreach tty : get_option('agetty')
+       install_symlink('agetty.' + tty,
+         install_dir: runlevel_dir / runlevel,
+diff --git openrc-workdir/sh/init.sh.Astral.in openrc-workdir/sh/init.sh.Astral.in
+new file mode 100644
+index 0000000..c180f37
+--- /dev/null
++++ openrc-workdir/sh/init.sh.Astral.in
+@@ -0,0 +1,39 @@
++#!/bin/sh
++
++ebegin "Creating /tmp"
++mkdir -p /tmp
++eend $?
++
++ebegin "Cleaning up /etc/mtab"
++echo "" > /etc/mtab
++eend $?
++
++if [ ! -d /run ]; then
++    ebegin "Creating /run"
++    mkdir -p /run
++    eend $?
++fi
++
++ebegin "Mounting /run"
++mount /run -t tmpfs
++if [ $? != 0 ]; then
++    eerror "Unable to mount tmpfs on /run."
++    eerror "Can't continue."
++    exit 1
++fi
++eend
++
++ebegin "Creating $RC_SVCDIR"
++mkdir -p $RC_SVCDIR
++eend $?
++
++ebegin "Mounting tmpfs at $RC_SVCDIR"
++mount $RC_SVCDIR -t tmpfs
++eend $?
++
++if [ -d "$RC_CACHEDIR" ]; then
++	cp -pr "$RC_CACHEDIR"/* "$RC_SVCDIR" 2>/dev/null
++fi
++
++echo sysinit >"$RC_SVCDIR"/softlevel
++exit 0
+diff --git openrc-clean/sh/meson.build openrc-workdir/sh/meson.build
+index a567380..2e04567 100644
+--- openrc-clean/sh/meson.build
++++ openrc-workdir/sh/meson.build
+@@ -43,6 +43,10 @@ elif os == 'gnu'
+   scripts_config_os = [
+     ['init.sh.GNU.in', 'init.sh'],
+     ]
++elif os == 'astral'
++  scripts_config_os = [
++    ['init.sh.Astral.in', 'init.sh'],
++    ]
+ else
+   scripts_config_os = [
+     ['init.sh.BSD.in', 'init.sh'],
+diff --git openrc-clean/src/fstabinfo/fstabinfo.c openrc-workdir/src/fstabinfo/fstabinfo.c
+index 7ae56ae..e9845a8 100644
+--- openrc-clean/src/fstabinfo/fstabinfo.c
++++ openrc-workdir/src/fstabinfo/fstabinfo.c
+@@ -28,7 +28,7 @@
+ /* Yay for linux and its non liking of POSIX functions.
+    Okay, we could use getfsent but the man page says use getmntent instead
+    AND we don't have getfsent on uclibc or dietlibc for some odd reason. */
+-#ifdef __linux__
++#if defined(__linux__) || defined(__astral__)
+ #  define HAVE_GETMNTENT
+ #  include <mntent.h>
+ 
+diff --git openrc-clean/src/halt/meson.build openrc-workdir/src/halt/meson.build
+index 059c53b..9e44df1 100644
+--- openrc-clean/src/halt/meson.build
++++ openrc-workdir/src/halt/meson.build
+@@ -1,4 +1,4 @@
+-if os == 'linux' and get_option('sysvinit')
++if (os == 'linux' and get_option('sysvinit')) or os == 'astral'
+   configure_file(input : 'halt.in',
+     output : '@BASENAME@',
+     configuration : script_conf_data,
+diff --git openrc-clean/src/librc/librc-daemon.c openrc-workdir/src/librc/librc-daemon.c
+index 1902875..ed35d00 100644
+--- openrc-clean/src/librc/librc-daemon.c
++++ openrc-workdir/src/librc/librc-daemon.c
+@@ -311,6 +311,15 @@ rc_find_pids(const char *exec, const char *const *argv, uid_t uid, pid_t pid)
+ 	return pids;
+ }
+ 
++#elif defined(__astral__)
++
++RC_PIDLIST *
++rc_find_pids(const char *exec, const char *const *argv, uid_t uid, pid_t pid)
++{
++	fprintf(stderr, "rc_find_pids: unimplemented\n");
++	return NULL;
++}
++
+ #else
+ #  error "Platform not supported!"
+ #endif
+diff --git openrc-clean/src/mountinfo/mountinfo.c openrc-workdir/src/mountinfo/mountinfo.c
+index c0187b5..75bc7f6 100644
+--- openrc-clean/src/mountinfo/mountinfo.c
++++ openrc-workdir/src/mountinfo/mountinfo.c
+@@ -30,8 +30,8 @@
+ 
+ #  define statfs statvfs
+ #  define F_FLAGS f_flag
+-#elif defined(__linux__) || (defined(__FreeBSD_kernel__) && \
+-	defined(__GLIBC__)) || defined(__GNU__)
++#elif (defined(__linux__) || (defined(__FreeBSD_kernel__) && \
++	defined(__GLIBC__)) || defined(__GNU__)) || defined(__astral__)
+ #  include <mntent.h>
+ #endif
+ 
+@@ -291,8 +291,8 @@ find_mounts(struct args *args)
+ 	return list;
+ }
+ 
+-#elif defined(__linux__) || (defined(__FreeBSD_kernel__) && \
+-	defined(__GLIBC__)) || defined(__GNU__)
++#elif (defined(__linux__) || (defined(__FreeBSD_kernel__) && \
++	defined(__GLIBC__)) || defined(__GNU__))
+ static struct mntent *
+ getmntfile(const char *file)
+ {
+@@ -355,6 +355,47 @@ find_mounts(struct args *args)
+ 	return list;
+ }
+ 
++#elif defined(__astral__)
++
++static RC_STRINGLIST *
++find_mounts(struct args *args)
++{
++	FILE *fp;
++	char *buffer;
++	size_t size;
++	char *p;
++	char *from;
++	char *to;
++	char *fst;
++	char *opts;
++	struct mntent *ent;
++	int netdev;
++	RC_STRINGLIST *list;
++
++	if ((fp = fopen("/etc/mtab", "r")) == NULL)
++		eerrorx("getmntinfo: %s", strerror(errno));
++
++	list = rc_stringlist_new();
++
++	buffer = NULL;
++	while (xgetline(&buffer, &size, fp) != -1) {
++		netdev = -1;
++		p = buffer;
++		from = strsep(&p, "\t");
++		to = strsep(&p, "\t");
++		fst = strsep(&p, "\t");
++		opts = strsep(&p, "\t");
++
++		process_mount(list, args, from, to, fst, opts, 0);
++		free(buffer);
++		buffer = NULL;
++	}
++	free(buffer);
++	fclose(fp);
++
++	return list;
++}
++
+ #else
+ #  error "Operating system not supported!"
+ #endif
+diff --git openrc-clean/src/openrc/rc-logger.c openrc-workdir/src/openrc/rc-logger.c
+index e57d380..ea9be18 100644
+--- openrc-clean/src/openrc/rc-logger.c
++++ openrc-workdir/src/openrc/rc-logger.c
+@@ -32,7 +32,7 @@
+ #include <unistd.h>
+ 
+ #if defined(__linux__) || (defined(__FreeBSD_kernel__) && defined(__GLIBC__)) \
+-	|| defined(__GNU__)
++	|| defined(__GNU__) || defined(__astral__)
+ #  include <pty.h>
+ #elif defined(__NetBSD__) || defined(__OpenBSD__)
+ #  include <util.h>
+diff --git openrc-clean/src/openrc-init/meson.build openrc-workdir/src/openrc-init/meson.build
+index c5c25c0..4bf5b54 100644
+--- openrc-clean/src/openrc-init/meson.build
++++ openrc-workdir/src/openrc-init/meson.build
+@@ -1,4 +1,4 @@
+-if os == 'linux'
++if os == 'linux' or os == 'astral'
+   executable('openrc-init', 'openrc-init.c',
+     include_directories: incdir,
+     dependencies: [rc, einfo, shared, dl_dep, selinux_dep],
+diff --git openrc-clean/src/openrc-init/openrc-init.c openrc-workdir/src/openrc-init/openrc-init.c
+index 8fc21ca..5a4bff5 100644
+--- openrc-clean/src/openrc-init/openrc-init.c
++++ openrc-workdir/src/openrc-init/openrc-init.c
+@@ -56,6 +56,10 @@ static const char *rc_default_runlevel = "default";
+ static int sigpipe[2] = { -1, -1 };
+ static bool quiet = false;
+ 
++#ifdef __astral__
++static int acpifd;
++#endif
++
+ static void do_openrc(const char *runlevel)
+ {
+ 	const char *argv[] = { "openrc", runlevel, NULL };
+@@ -91,7 +95,7 @@ static void init(const char *default_runlevel)
+ 		runlevel = rc_default_runlevel;
+ 	}
+ 	do_openrc(runlevel);
+-	log_wtmp("reboot", "~~", 0, RUN_LVL, "~~");
++	//log_wtmp("reboot", "~~", 0, RUN_LVL, "~~");
+ }
+ 
+ static void handle_reexec(char *my_name)
+@@ -104,6 +108,9 @@ static void handle_shutdown(const char *runlevel, int cmd)
+ {
+ 	const long ms_to_ns = 1000000L;
+ 	struct timespec start, now, tmp, remain;
++#ifdef __astral__
++	const char *c = "";
++#endif
+ 
+ 	do_openrc(runlevel);
+ 	if (!quiet)
+@@ -140,7 +147,33 @@ static void handle_shutdown(const char *runlevel, int cmd)
+ 		printf("Sending the final KILL signal\n");
+ 	kill(-1, SIGKILL);
+ 	sync();
++
++#ifdef __linux__
+ 	reboot(cmd);
++#elif defined(__astral__)
++	switch (cmd) {
++		case RB_AUTOBOOT:
++			c = "r";
++			break;
++		case RB_HALT_SYSTEM:
++			fprintf(stderr, "RB_HALT_SYSTEM unimplemented. Powering off in 5 seconds.\n");
++			c = "p";
++			sleep(5);
++			break;
++		case RB_POWER_OFF:
++			c = "p";
++			break;
++		case RB_KEXEC:
++			fprintf(stderr, "RB_KEXEC unimplemented. Rebooting in 5 seconds.\n");
++			c = "p";
++			sleep(5);
++			break;
++	}
++
++	write(acpifd, c, 1);
++
++	fprintf(stderr, "/dev/acpid write failed. Please power off the system manually.\n");
++#endif
+ }
+ 
+ static void run_program(const char *prog)
+@@ -308,11 +341,27 @@ int main(int argc, char **argv)
+ 	if (fifo == -1)
+ 		perror("open");
+ 
++#ifdef __astral__
++	acpifd = open("/dev/acpi", O_RDWR);
++	if (acpifd == -1)
++		perror("open /dev/acpi");
++#endif
++
+ 	for (;;) {
+-		enum { FD_FIFO, FD_SIG, FD_COUNT };
++		enum { 
++			FD_FIFO, 
++			FD_SIG, 
++#ifdef __astral__
++			FD_ACPI,
++#endif
++			FD_COUNT 
++		};
+ 		struct pollfd pfd[] = {
+ 			[FD_FIFO] = { .fd = fifo, .events = POLLIN },
+ 			[FD_SIG] = { .fd = sigpipe[0], .events = POLLIN },
++#ifdef __astral__
++			[FD_ACPI] = { .fd = acpifd, .events = POLLIN },
++#endif
+ 		};
+ 
+ 		poll(pfd, FD_COUNT, -1);
+@@ -361,6 +410,19 @@ int main(int argc, char **argv)
+ 				init(default_runlevel);
+ 			}
+ 		}
++
++#ifdef __astral__
++		if (pfd[FD_ACPI].revents & POLLIN) {
++			read(acpifd, buf, 1);
++			printf("PID1: Received '%c' from /dev/acpi...\n", buf[0]);
++
++			switch(buf[0]) {
++				case 'p':
++					handle_shutdown("shutdown", RB_POWER_OFF);
++					break;
++			}
++		}
++#endif
+ 	}
+ 	return 0;
+ }
+diff --git openrc-clean/src/openrc-run/openrc-run.c openrc-workdir/src/openrc-run/openrc-run.c
+index 9a39ca0..2c0915e 100644
+--- openrc-clean/src/openrc-run/openrc-run.c
++++ openrc-workdir/src/openrc-run/openrc-run.c
+@@ -38,7 +38,7 @@
+ #include <inttypes.h>
+ 
+ #if defined(__linux__) || (defined(__FreeBSD_kernel__) && defined(__GLIBC__)) \
+-	|| defined(__GNU__)
++	|| defined(__GNU__) || defined(__astral__)
+ #  include <pty.h>
+ #elif defined(__NetBSD__) || defined(__OpenBSD__)
+ #  include <util.h>
+diff --git openrc-clean/src/openrc-shutdown/meson.build openrc-workdir/src/openrc-shutdown/meson.build
+index 6bb7dd6..3db90b7 100644
+--- openrc-clean/src/openrc-shutdown/meson.build
++++ openrc-workdir/src/openrc-shutdown/meson.build
+@@ -1,4 +1,4 @@
+-if os == 'linux'
++if os == 'linux' or os == 'astral'
+   executable('openrc-shutdown',
+     ['openrc-shutdown.c', 'broadcast.c', 'sysvinit.c'],
+     include_directories: incdir,
+diff --git openrc-clean/src/poweroff/meson.build openrc-workdir/src/poweroff/meson.build
+index d4056db..3b4907a 100644
+--- openrc-clean/src/poweroff/meson.build
++++ openrc-workdir/src/poweroff/meson.build
+@@ -1,4 +1,4 @@
+-if os == 'linux' and get_option('sysvinit')
++if (os == 'linux' and get_option('sysvinit')) or os == 'astral'
+   configure_file(input : 'poweroff.in',
+     output : '@BASENAME@',
+     configuration : script_conf_data,
+diff --git openrc-clean/src/reboot/meson.build openrc-workdir/src/reboot/meson.build
+index 7ed1274..520c19f 100644
+--- openrc-clean/src/reboot/meson.build
++++ openrc-workdir/src/reboot/meson.build
+@@ -1,4 +1,4 @@
+-if os == 'linux' and get_option('sysvinit')
++if (os == 'linux' and get_option('sysvinit')) or os == 'astral'
+   configure_file(input : 'reboot.in',
+     output : '@BASENAME@',
+     configuration : script_conf_data,
+diff --git openrc-clean/src/shared/meson.build openrc-workdir/src/shared/meson.build
+index 2241935..28e20c9 100644
+--- openrc-clean/src/shared/meson.build
++++ openrc-workdir/src/shared/meson.build
+@@ -11,7 +11,7 @@ shared_sources = [
+   version_h,
+ ]
+ 
+-if os == 'linux'
++if os == 'linux' or os == 'astral'
+   shared_sources += 'wtmp.c'
+ endif
+ 
+diff --git openrc-clean/src/shutdown/meson.build openrc-workdir/src/shutdown/meson.build
+index 8080ca3..1d8247a 100644
+--- openrc-clean/src/shutdown/meson.build
++++ openrc-workdir/src/shutdown/meson.build
+@@ -1,4 +1,4 @@
+-if os == 'linux' and get_option('sysvinit')
++if (os == 'linux' and get_option('sysvinit')) or os == 'astral'
+   configure_file(input : 'shutdown.in',
+     output : '@BASENAME@',
+     configuration : script_conf_data,

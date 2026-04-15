@@ -17,4 +17,6 @@ package() {
 	install -v -m700 -d ${dest_dir}/var/lib/sshd
 	install -v -d ${dest_dir}/run
 	make install DESTDIR=${dest_dir}
+	mkdir -p ${dest_dir}/etc/init.d
+	cp ${base_dir}/service-scripts/sshd ${dest_dir}/etc/init.d
 }

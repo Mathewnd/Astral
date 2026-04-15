@@ -1,0 +1,2 @@
+# there is no need to set up a root filesystem here.
+none /tmp tmpfs defaults 0 0

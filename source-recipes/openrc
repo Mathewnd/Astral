@@ -1,0 +1,5 @@
+name=openrc
+version=24.2.0
+source_method=tarball
+tarball_url="https://github.com/OpenRC/openrc/archive/refs/tags/0.63.1.tar.gz"
+tarball_sha512="d1746909275bd2552ccc4a1786eb5f80ac79ba911ce08ffc12dd550f2965f3bea09ac7c4b638f17f495f92238b833ca1886782c9c7bbba868e1c905e82639a2e"
