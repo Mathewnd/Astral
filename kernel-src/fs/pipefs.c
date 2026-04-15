@@ -117,7 +117,7 @@ static int internalpoll(vnode_t *node, polldata_t *data, int events) {
 		events |= POLLHUP;
 		if (pipenode->writers == 0 && pipenode->open)
 			revents |= POLLHUP;
-		else if (RINGBUFFER_DATACOUNT(&pipenode->data) > 0)
+		if (RINGBUFFER_DATACOUNT(&pipenode->data) > 0)
 			revents |= POLLIN;
 	}
 
@@ -481,6 +481,8 @@ int pipefs_getbinding(vnode_t *node, vnode_t **pipep) {
 	return error;
 }
 
-void pipefs_leavebinding(vnode_t *pipenode) {
+void pipefs_leavebinding(vnode_t *vnode) {
+	vnode_t *pipenode = vnode->fifobinding;
+	vnode->fifobinding = NULL;
 	VOP_RELEASE(pipenode);
 }
