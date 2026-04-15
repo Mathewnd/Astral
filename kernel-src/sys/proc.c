@@ -98,7 +98,6 @@ proc_t *proc_create() {
 	proc->refcount = 1;
 	proc->fdfirst = 3;
 	MUTEX_INIT(&proc->fdmutex);
-	SEMAPHORE_INIT(&proc->waitsem, 0);
 	SPINLOCK_INIT(proc->jobctllock);
 	SPINLOCK_INIT(proc->pgrp.lock);
 	SPINLOCK_INIT(proc->signals.lock);
@@ -107,6 +106,7 @@ proc_t *proc_create() {
 	itimer_init(&proc->timer.virtualtime, vtdpc, proc);
 	itimer_init(&proc->timer.profiling, profdpc, proc);
 	SPINLOCK_INIT(proc->threadlistlock);
+	EVENT_INITHEADER(&proc->child_exit_event);
 
 	proc->fd = alloc(sizeof(fd_t) * 3);
 	if (proc->fd == NULL) {
@@ -299,10 +299,10 @@ void proc_exit(void) {
 	MUTEX_RELEASE(&proc->mutex);
 
 	signal_signalproc(proc->parent, SIGCHLD);
-	semaphore_signal(&proc->parent->waitsem);
+	EVENT_SIGNAL(&proc->parent->child_exit_event);
 	// TODO sigaction flag for this
-	for (int i = 0; i < belowzombiecount; ++i) {
-	       semaphore_signal(&init_proc->waitsem);
+	if (belowzombiecount) {
+	       EVENT_SIGNAL(&init_proc->child_exit_event);
 	}
 }
 

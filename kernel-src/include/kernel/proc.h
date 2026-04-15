@@ -31,6 +31,7 @@ typedef struct proc_t {
 	struct proc_t *sibling;
 	struct proc_t *parent;
 	struct proc_t *child;
+	eventheader_t child_exit_event;
 	pid_t pid;
 	cred_t cred;
 	spinlock_t threadlistlock;
@@ -46,7 +47,6 @@ typedef struct proc_t {
 	vnode_t *cwd;
 	vnode_t *root;
 	spinlock_t nodeslock;
-	semaphore_t waitsem;
 	spinlock_t exiting;
 	int nice;
 

@@ -11,7 +11,6 @@
 #define WCONTINUED 8
 #define KNOWN_FLAGS (WNOHANG | WSTOPPED | WCONTINUED | __WALL)
 
-// TODO use events here
 syscallret_t syscall_waitpid(context_t *context, pid_t pid, int *status, int options) {
 	syscallret_t ret = {
 		.ret = -1
@@ -44,6 +43,8 @@ syscallret_t syscall_waitpid(context_t *context, pid_t pid, int *status, int opt
 	bool continued = false;
 	bool stopped = false;
 	bool zombie = false;
+	eventlistener_t listener;
+	EVENT_INITLISTENER(&listener);
 
 	for (;;) {
 		if (iterator == NULL) {
@@ -52,15 +53,22 @@ syscallret_t syscall_waitpid(context_t *context, pid_t pid, int *status, int opt
 				MUTEX_RELEASE(&proc->mutex);
 				return ret;
 			}
-			MUTEX_RELEASE(&proc->mutex);
-			if ((options & WNOHANG) && semaphore_test(&proc->waitsem) == false) {
+
+			if (options & WNOHANG) {
+				MUTEX_RELEASE(&proc->mutex);
 				ret.errno = 0;
 				ret.ret = 0;
 				return ret;
-			} else if ((options & WNOHANG) == 0 && semaphore_wait(&proc->waitsem, true)) {
-				ret.errno = EINTR;
-				return ret;
 			}
+
+			EVENT_ATTACH(&listener, &proc->child_exit_event);
+			MUTEX_RELEASE(&proc->mutex);
+
+			ret.errno = EVENT_WAIT(&listener, 0);
+			EVENT_DETACHALL(&listener);
+			if (ret.errno)
+				return ret;
+
 			MUTEX_ACQUIRE(&proc->mutex);
 			prev = NULL;
 			iterator = proc->child;

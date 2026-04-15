@@ -411,7 +411,8 @@ void signal_signalproc(struct proc_t *proc, int signal) {
 		if (proc->parent && (proc->parent->signals.actions[SIGCHLD].flags & SA_NOCLDSTOP) == 0) {
 			signal_signalproc(proc->parent, SIGCHLD);
 		}
-		semaphore_signal(&proc->parent->waitsem);
+
+		EVENT_SIGNAL(&proc->parent->child_exit_event);
 	}
 
 	// tell the parent that a child continued
@@ -423,7 +424,7 @@ void signal_signalproc(struct proc_t *proc, int signal) {
 			signal_signalproc(proc->parent, SIGCHLD);
 		}
 
-		semaphore_signal(&proc->parent->waitsem);
+		EVENT_SIGNAL(&proc->parent->child_exit_event);
 	}
 }
 
