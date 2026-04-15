@@ -134,8 +134,9 @@ static uint32_t xid;
 static time_t discoverstart;
 
 static void usage() {
-	fprintf(stderr, "%s: usage: %s device\n", name, name);
+	fprintf(stderr, "%s: usage: %s [device]\n", name, name);
 	fprintf(stderr, "%s: example: %s vionet0\n", name, name);
+	fprintf(stderr, "%s: example (auto-detection): %s\n", name, name);
 	exit(EXIT_FAILURE);
 }
 
@@ -487,16 +488,41 @@ static void writedns(uint32_t dns) {
 	close(fd);
 }
 
+static void autodetect_device(char **device) {
+	struct if_nameindex *nameindex = if_nameindex();
+	if (nameindex == NULL) {
+		logstrerror("if_nameindex");
+		exit(EXIT_FAILURE);
+	}
+
+	for (int i = 0; nameindex[i].if_name; ++i) {
+		if (strcmp(nameindex[i].if_name, "lo")) {
+			*device = strdup(nameindex[i].if_name);
+			return;
+		}
+	}
+
+	logerr("no network devices found");
+	exit(EXIT_FAILURE);
+}
+
 int main(int argc, char *argv[]) {
 	name = argv[0];
 
-	if (argc != 2)
+	if (argc > 2)
 		usage();
 
-	if (createsocket(argv[1]))
+	char *device;
+	if (argc == 1) {
+		autodetect_device(&device);
+	} else {
+		device = argv[1];
+	}
+
+	if (createsocket(device))
 		return EXIT_FAILURE;
 
-	if (getdevicehwaddr(argv[1]))
+	if (getdevicehwaddr(device))
 		return EXIT_FAILURE;
 
 	srand(time(NULL));
@@ -568,10 +594,15 @@ int main(int argc, char *argv[]) {
 
 	printoffer(&offer);
 
-	addroute(argv[1], 0, offer.router, 0, 1);
-	addroute(argv[1], offer.clientip, 0, offer.netmask, 10);
-	setifip(argv[1], offer.clientip);
+	addroute(device, 0, offer.router, 0, 1);
+	addroute(device, offer.clientip, 0, offer.netmask, 10);
+	setifip(device, offer.clientip);
 	writedns(offer.dns);
+
+	for (;;) {
+		// TODO send keepalive packets
+		sleep(1000000);
+	}
 
 	return EXIT_SUCCESS;
 }
