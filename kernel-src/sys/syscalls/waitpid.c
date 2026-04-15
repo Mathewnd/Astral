@@ -3,6 +3,7 @@
 #include <arch/cpu.h>
 #include <errno.h>
 #include <logging.h>
+#include <kernel/jobctl.h>
 
 #define __WALL 0x40000000
 #define WNOHANG 1
@@ -10,23 +11,20 @@
 #define WCONTINUED 8
 #define KNOWN_FLAGS (WNOHANG | WSTOPPED | WCONTINUED | __WALL)
 
+// TODO use events here
 syscallret_t syscall_waitpid(context_t *context, pid_t pid, int *status, int options) {
 	syscallret_t ret = {
 		.ret = -1
 	};
 
+	bool check_pgid = false;
+
 	if (options & ~KNOWN_FLAGS)
 		printf("waitpid: unknown %x\n", options);
 
-	if (pid == 0) {
-		printf("waitpid: pid 0 is a stub, falling back to -1\n")
-		pid = -1;
-	}
-
-	if (pid < -1) {
-		printf("waitpid: unhandled pid %d\n", pid);
-		ret.errno = EOPNOTSUPP;
-		return ret;
+	if (pid < -1 || pid == 0) {
+		check_pgid = true;
+		pid = -pid;
 	}
 
 	thread_t *thread = current_thread();
@@ -70,7 +68,11 @@ syscallret_t syscall_waitpid(context_t *context, pid_t pid, int *status, int opt
 			continue;
 		}
 
-		if ((pid > 0 && iterator->pid == pid) || pid == -1) {
+		if ((pid > 0 && iterator->pid == pid) || 
+				pid == -1 ||
+				(check_pgid && ((pid == 0 && 
+				 jobctl_getpgid(proc) == jobctl_getpgid(iterator)) ||
+				jobctl_getpgid(iterator) == pid))) {
 			desired = iterator;
 			if (iterator->signals.continueunwaited && (options & WCONTINUED)) {
 				iterator->signals.continueunwaited = false;
