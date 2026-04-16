@@ -99,10 +99,10 @@ syscallret_t syscall_setitimer(context_t *context, int which, itimerval_t *unew,
 	ret.errno = 0;
 	if (uold) {
 		itimerval_t tmp;
-		uold->interval.s = oldrepeat / 1000000;
-		uold->interval.us = oldrepeat % 1000000;
-		uold->value.s = oldremaining / 1000000;
-		uold->value.us = oldremaining % 1000000;
+		tmp.interval.s = oldrepeat / 1000000;
+		tmp.interval.us = oldrepeat % 1000000;
+		tmp.value.s = oldremaining / 1000000;
+		tmp.value.us = oldremaining % 1000000;
 		ret.errno = usercopy_touser(uold, &tmp, sizeof(tmp));
 	}
 
