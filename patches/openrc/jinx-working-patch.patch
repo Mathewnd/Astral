@@ -603,7 +603,7 @@ index c5c25c0..4bf5b54 100644
      include_directories: incdir,
      dependencies: [rc, einfo, shared, dl_dep, selinux_dep],
 diff --git openrc-clean/src/openrc-init/openrc-init.c openrc-workdir/src/openrc-init/openrc-init.c
-index 8fc21ca..5a4bff5 100644
+index 8fc21ca..921a1da 100644
 --- openrc-clean/src/openrc-init/openrc-init.c
 +++ openrc-workdir/src/openrc-init/openrc-init.c
 @@ -56,6 +56,10 @@ static const char *rc_default_runlevel = "default";
@@ -636,9 +636,13 @@ index 8fc21ca..5a4bff5 100644
  
  	do_openrc(runlevel);
  	if (!quiet)
-@@ -140,7 +147,33 @@ static void handle_shutdown(const char *runlevel, int cmd)
+@@ -139,8 +146,37 @@ static void handle_shutdown(const char *runlevel, int cmd)
+ 	if (!quiet)
  		printf("Sending the final KILL signal\n");
  	kill(-1, SIGKILL);
++
++	while (waitpid(-1, NULL, 0) > 0);
++
  	sync();
 +
 +#ifdef __linux__
@@ -670,7 +674,7 @@ index 8fc21ca..5a4bff5 100644
  }
  
  static void run_program(const char *prog)
-@@ -308,11 +341,27 @@ int main(int argc, char **argv)
+@@ -308,11 +344,27 @@ int main(int argc, char **argv)
  	if (fifo == -1)
  		perror("open");
  
@@ -699,7 +703,7 @@ index 8fc21ca..5a4bff5 100644
  		};
  
  		poll(pfd, FD_COUNT, -1);
-@@ -361,6 +410,19 @@ int main(int argc, char **argv)
+@@ -361,6 +413,19 @@ int main(int argc, char **argv)
  				init(default_runlevel);
  			}
  		}
