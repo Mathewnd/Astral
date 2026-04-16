@@ -22,7 +22,7 @@ static void illisr(isr_t *self, context_t *ctx) {
 	}
 }
 
-static void div0isr(isr_t *self, context_t *ctx) {
+static void sigfpeisr(isr_t *self, context_t *ctx) {
 	if (ARCH_CONTEXT_ISUSER(ctx)) {
 		signal_signalthread(current_thread(), SIGFPE, true);
 	} else {
@@ -43,6 +43,14 @@ static void x87isr(isr_t *self, context_t *ctx) {
 		signal_signalthread(current_thread(), SIGFPE, true);
 	} else {
 		_panic("x87 Floating-Point Exception", ctx);
+	}
+}
+
+static void dbisr(isr_t *self, context_t *ctx) {
+	if (ARCH_CONTEXT_ISUSER(ctx)) {
+		signal_signalthread(current_thread(), SIGTRAP, true);
+	} else {
+		_panic("Debug Exception", ctx);
 	}
 }
 
@@ -221,7 +229,11 @@ void arch_cpu_init() {
 	x86_64_mmu_enable_global_pages();
 
 	// register some exception handlers that give out signals
-	interrupt_register(0, div0isr, NULL, IPL_IGNORE);
+	interrupt_register(0, sigfpeisr, NULL, IPL_IGNORE);
+	interrupt_register(1, dbisr, NULL, IPL_IGNORE);
+	interrupt_register(3, dbisr, NULL, IPL_IGNORE);
+	interrupt_register(4, sigfpeisr, NULL, IPL_IGNORE);
+	interrupt_register(5, sigfpeisr, NULL, IPL_IGNORE);
 	interrupt_register(6, illisr, NULL, IPL_IGNORE);
 	interrupt_register(16, x87isr, NULL, IPL_IGNORE);
 	interrupt_register(19, simdisr, NULL, IPL_IGNORE);
