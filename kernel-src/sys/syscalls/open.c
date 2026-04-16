@@ -20,6 +20,9 @@ syscallret_t syscall_openat(context_t *context, int dirfd, char *path, int flags
 
 	size_t pathsize;
 	ret.errno = usercopy_strlen(path, &pathsize);
+	if (ret.errno)
+		return ret;
+
 	char *pathbuf = alloc(pathsize + 1);
 	if (pathbuf == NULL) {
 		ret.errno = ENOMEM;
