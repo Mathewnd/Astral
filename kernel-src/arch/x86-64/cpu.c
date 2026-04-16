@@ -204,7 +204,7 @@ void arch_cpu_init() {
 	wrmsr(MSR_STAR, star);
 	wrmsr(MSR_LSTAR, (uint64_t)arch_syscall_entry);
 	wrmsr(MSR_CSTAR, 0); // no compatibility mode syscall handler
-	wrmsr(MSR_FMASK, 0x200); // disable interrupts on syscall
+	wrmsr(MSR_FMASK, 0x257fd5);
 
 	// enable SSE
 	asm volatile(
