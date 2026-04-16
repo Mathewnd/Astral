@@ -11,10 +11,15 @@
 __attribute__((noreturn)) void syscall_sigreturn(context_t *context) {
 	sigframe_t *sigframe = __builtin_alloca(ARCH_SIGFRAME_SIZE);
 	int error = usercopy_fromuser(sigframe, (void *)CTX_SP(context), ARCH_SIGFRAME_SIZE);
-	if (error || ARCH_CONTEXT_ISUSER(&sigframe->context) == false) {
+	if (error || ARCH_CONTEXT_ISUSER(&sigframe->context) == false || !IS_USER_ADDRESS(CTX_IP(&sigframe->context))) {
 		printf("syscall_sigreturn: bad return stack or bad return information\n");
 		proc_terminate(SIGSEGV);
 	}
+
+#ifdef __x86_64__
+	// CF PF AF ZF SF TF DF OF RF AC
+	sigframe->context.rflags &= 0x50DD5;
+#endif
 
 	interrupt_set(false);
 	signal_altstack(current_thread(), &sigframe->oldstack, NULL);
