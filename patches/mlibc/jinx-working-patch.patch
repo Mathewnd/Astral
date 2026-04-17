@@ -1,3 +1,16 @@
+diff --git mlibc-clean/options/ansi/generic/time.cpp mlibc-workdir/options/ansi/generic/time.cpp
+index 8edf44b..c13a2c1 100644
+--- mlibc-clean/options/ansi/generic/time.cpp
++++ mlibc-workdir/options/ansi/generic/time.cpp
+@@ -598,7 +598,7 @@ int nanosleep(const struct timespec *req, struct timespec *rem) {
+ 	int e = mlibc::sys_sleep(&tmp.tv_sec, &tmp.tv_nsec);
+ 	if (!e)
+ 		return 0;
+-	else if (e == EINTR)
++	else if (e == EINTR && rem)
+ 		*rem = tmp;
+ 
+ 	errno = e;
 diff --git mlibc-clean/options/ansi/generic/wchar.cpp mlibc-workdir/options/ansi/generic/wchar.cpp
 index b44ebc2..9339316 100644
 --- mlibc-clean/options/ansi/generic/wchar.cpp
