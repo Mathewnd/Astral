@@ -132,10 +132,19 @@ syscallret_t syscall_waitpid(context_t *context, pid_t pid, int *status, int opt
 		while (threadlist) {
 			thread_t *freethread = threadlist;
 			threadlist = threadlist->procnext;
-			volatile int *flags = (volatile int *)(&freethread->flags);
 			// wait until the thread can actually be unallocated
-			while ((*flags & THREAD_FLAGS_DEAD) == 0)
-				sched_yield();
+			eventlistener_t listener;
+			EVENT_INITLISTENER(&listener);
+			for (;;) {
+				EVENT_ATTACH(&listener, &iterator->thread_exit_event);
+				if (freethread->flags & THREAD_FLAGS_DEAD) {
+					EVENT_DETACHALL(&listener);
+					break;
+				}
+
+				EVENT_WAIT(&listener, 0);
+				EVENT_DETACHALL(&listener);
+			}
 
 			sched_destroythread(freethread);
 		}

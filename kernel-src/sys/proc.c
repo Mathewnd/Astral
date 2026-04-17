@@ -107,6 +107,7 @@ proc_t *proc_create() {
 	itimer_init(&proc->timer.profiling, profdpc, proc);
 	SPINLOCK_INIT(proc->threadlistlock);
 	EVENT_INITHEADER(&proc->child_exit_event);
+	EVENT_INITHEADER(&proc->thread_exit_event);
 
 	proc->fd = alloc(sizeof(fd_t) * 3);
 	if (proc->fd == NULL) {
@@ -173,10 +174,18 @@ void proc_stop_other_threads() {
 		threadlist = threadlist->procnext;
 	}
 
-	while (__atomic_load_n(&proc->runningthreadcount, __ATOMIC_SEQ_CST) > 1) {
-		arch_e9_puts("proc_stop_other_threads\n");
-		sched_yield();
+	eventlistener_t listener;
+	EVENT_INITLISTENER(&listener);
+	for (;;) {
+		EVENT_ATTACH(&listener, &proc->thread_exit_event);
+		if (__atomic_load_n(&proc->runningthreadcount, __ATOMIC_SEQ_CST) == 1)
+			break;
+
+		EVENT_WAIT(&listener, 0);
+		EVENT_DETACHALL(&listener);
 	}
+	EVENT_DETACHALL(&listener);
+
 
 	proc->nomorethreads = false;
 }

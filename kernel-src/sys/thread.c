@@ -70,6 +70,8 @@ static void threadexit_internal(context_t *, void *) {
 	current_cpu()->thread = NULL;
 
 	thread->flags |= THREAD_FLAGS_DEAD;
+	if (thread->proc)
+		EVENT_SIGNAL(&thread->proc->thread_exit_event);
 
 	// because a thread deallocating its own data is a nightmare, thread deallocation and such will be left to whoever frees the proc it's tied to
 	// (likely an exit(2) call)

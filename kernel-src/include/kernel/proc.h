@@ -36,6 +36,7 @@ typedef struct proc_t {
 	cred_t cred;
 	spinlock_t threadlistlock;
 	thread_t *threadlist;
+	eventheader_t thread_exit_event;
 	bool nomorethreads;
 	size_t runningthreadcount;
 	size_t fdcount;
