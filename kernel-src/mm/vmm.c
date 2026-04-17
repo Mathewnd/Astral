@@ -639,14 +639,32 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 				}
 			}
 		} else {
-			// anonymous memory. map the zero'd page
-			status = arch_mmu_map(current_vmm_context()->pagetable, zeropage, addr, range->mmuflags & ~ARCH_MMU_FLAGS_WRITE);
-			if (!status) {
-				printf("vmm: out of memory to map zero page into address space (sending SIGBUS)\n");
-				signal_signalthread(current_thread(), SIGBUS, true);
-				status = true;
+			status = true;
+			// anonymous memory.
+			if (range->mmuflags & ARCH_MMU_FLAGS_WRITE) {
+				// writeable range: allocate a new page, zero it and map it
+				void *new_page = pmm_allocpage(PMM_SECTION_DEFAULT);
+				if (new_page == NULL) {
+					printf("vmm: out of memory to allocate page to satisfy anonymous page-in (sending SIGBUS)\n");
+					signal_signalthread(current_thread(), SIGBUS, true);
+					goto cleanup;
+				}
+
+				memset(MAKE_HHDM(new_page), 0, PAGE_SIZE);
+
+				if (!arch_mmu_map(current_vmm_context()->pagetable, new_page, addr, range->mmuflags)) {
+					printf("vmm: out of memory to map page (sending SIGBUS)\n");
+					signal_signalthread(current_thread(), SIGBUS, true);
+					pmm_release(new_page);
+				}
 			} else {
-				pmm_hold(zeropage);
+				// read-only range: map a shared zero page
+				if (!arch_mmu_map(current_vmm_context()->pagetable, zeropage, addr, range->mmuflags)) {
+					printf("vmm: out of memory to map zero page into address space (sending SIGBUS)\n");
+					signal_signalthread(current_thread(), SIGBUS, true);
+				} else {
+					pmm_hold(zeropage);
+				}
 			}
 		}
 	} else if (arch_mmu_iswritable(current_vmm_context()->pagetable, addr) == false) {
