@@ -900,6 +900,8 @@ static int fatfs_unlink(vnode_t *vnode, vnode_t *child, char *name, cred_t *cred
 	fatnode_t *child_fatnode = (fatnode_t *)child;
 
 	int error = child->type == V_TYPE_DIR ? is_directory_empty(child_fatnode) : 0;
+	if (error)
+		return error;
 
 	// remove the dent
 	fatfs_dent_t dent;
@@ -1018,9 +1020,11 @@ fatnode_t *fatfs_allocate_node(vfs_t *vfs, int type) {
 	VOP_INIT(&fatnode->vnode, &fatfs_vops, 0, type, vfs);
 
 	fatnode->cluster = 0;
+	fatnode->size = 0;
+	fatnode->saved_index = 0;
+	fatnode->saved_cluster = 0;
 	fatnode->parent_dir = NULL;
 	fatnode->dent_disk_offset = 0;
-	fatnode->saved_cluster = 0;
 
 	return fatnode;
 }
