@@ -99,10 +99,8 @@ static bool intel_irq(context_t *context) {
 	uint8_t data[1 + sizeof(uintptr_t) * 256];
 
 	uint8_t size = get_backtrace(context, (uintptr_t *)(data + 1));
-	if (size) {
-		*data = size;
-		profiling_insert(size, data);
-	}
+	*data = size;
+	profiling_insert(size, data);
 
 	arch_apic_init_perf(); // SDM LVT figure says a PMC irq masks itself, so unmask it
 	reset_intel_pmc();
@@ -117,8 +115,6 @@ static bool amd_irq(context_t *context) {
 static void init_amd_pmc(void) {
 	__assert(!"Unimplemented");
 }
-
-
 
 bool arch_profiling_irq(context_t *context) {
 	if (!strcmp(current_cpu()->vendor, "AuthenticAMD"))

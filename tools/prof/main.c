@@ -22,8 +22,8 @@ static int open_or_die(const char *name, int flag, mode_t mode) {
 
 int main(int argc, char *argv[]) {
 	progname = argv[0];
-	if (argc != 2) {
-		fprintf(stderr, "%s: usage: %s FILE\n", argv[0], argv[0]);
+	if (argc < 2 || argc > 3) {
+		fprintf(stderr, "%s: usage: %s FILE [-n]\n", argv[0], argv[0]);
 		return EXIT_FAILURE;
 	}
 
@@ -42,10 +42,12 @@ int main(int argc, char *argv[]) {
 		tcsetattr(outfd, TCSANOW, &termios);
 	}
 
-	printf("%s: draining /dev/prof\n", argv[0]);
-	// empty it
-	if (ioctl(infd, 12345678, NULL) < 0)
-		return EXIT_FAILURE;
+	if (argc == 2 || (strcmp(argv[1], "-n") && strcmp(argv[2], "-n"))) {
+		printf("%s: draining /dev/prof\n", argv[0]);
+		// empty it
+		if (ioctl(infd, 12345678, NULL) < 0)
+			return EXIT_FAILURE;
+	}
 
 	struct pollfd pollfd[2];
 
@@ -68,6 +70,16 @@ int main(int argc, char *argv[]) {
 		write(outfd, buf, 8 * count);
 	}
 
+	size_t hits[2];
+	ioctl(infd, 87654321, hits);
+
+	size_t total = hits[0] + hits[1];
+	float u_ratio = (float)hits[0] / (float)total;
+	float k_ratio = 1.f - u_ratio;
+
+	printf("%s: %lu hits\n", argv[0], total);
+	printf("%s: %lu userspace hits (%01.02f%%)\n", argv[0], hits[0], u_ratio * 100);
+	printf("%s: %lu kernel hits    (%01.02f%%)\n", argv[0], hits[1], k_ratio * 100);
 	printf("%s: done\n", argv[0]);
 
 	return EXIT_SUCCESS;

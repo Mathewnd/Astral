@@ -8,6 +8,7 @@
 #include <kernel/vfs.h>
 #include <arch/smp.h>
 #include <logging.h>
+#include <kernel/usercopy.h>
 
 #ifdef ENABLE_PROFILING
 
@@ -19,9 +20,17 @@ static MUTEX_DEFINE(mutex);
 static pollheader_t pollheader;
 static semaphore_t wait_sem;
 static int remaining;
+static size_t userspace_hits;
+static size_t kernel_hits;
 
 // called from a possibly NMI context!
 void profiling_insert(uint8_t size, void *data) {
+	if (!size) {
+		__atomic_fetch_add(&userspace_hits, 1, __ATOMIC_SEQ_CST);
+		return;
+	}
+
+	__atomic_fetch_add(&kernel_hits, 1, __ATOMIC_SEQ_CST);
 	size_t write_size = sizeof(uint8_t) + sizeof(uintptr_t) * size;
 	if (current_cpu()->prof_ringbuffer && RINGBUFFER_FREESPACE(current_cpu()->prof_ringbuffer) >= write_size) {
 		size_t written = ringbuffer_write(current_cpu()->prof_ringbuffer, data, write_size);
@@ -149,19 +158,31 @@ static int device_read(int minor, iovec_iterator_t *iovec_iterator, size_t size,
 	return error;
 }
 
-static int device_ioctl(int, unsigned long request, void *, int *result, cred_t *cred) {
-	if (request != 12345678)
-		return ENOTTY;
-
+static int device_ioctl(int, unsigned long request, void *addr, int *result, cred_t *cred) {
+	*result = 0;
 	// only supported ioctl is a truncation one: remove all previous data
 
-	MUTEX_ACQUIRE(&mutex);
+	switch (request) {
+		case 12345678:
+		MUTEX_ACQUIRE(&mutex);
 
-	ringbuffer_truncate(&global_ringbuffer, PROFILING_GLOBAL_BUFFER_SIZE);
+		ringbuffer_truncate(&global_ringbuffer, PROFILING_GLOBAL_BUFFER_SIZE);
 
-	MUTEX_RELEASE(&mutex);
+		MUTEX_RELEASE(&mutex);
 
-	*result = 0;
+		__atomic_store_n(&userspace_hits, 0, __ATOMIC_SEQ_CST);
+		__atomic_store_n(&kernel_hits, 0, __ATOMIC_SEQ_CST);
+		break;
+		case 87654321:
+		size_t outputs[2] = {
+			__atomic_load_n(&userspace_hits, __ATOMIC_SEQ_CST), 
+			__atomic_load_n(&kernel_hits, __ATOMIC_SEQ_CST)
+		};
+
+		
+		return USERCOPY_POSSIBLY_TO_USER(addr, outputs, sizeof(outputs));
+	}
+
 	return 0;
 }
 
