@@ -9,16 +9,52 @@
 static spinlock_t ldt_invalidate_lock;
 static size_t done;
 
+#define LDT_ENTRIES 8192
+
+#define LDT_ENTRY_ACCESS_BYTE(entry) (((entry) >> 40) & 0xff)
+#define LDT_ENTRY_FLAGS(entry) (((entry) >> 52) & 0xf)
+
+#define LDT_ENTRY_CODE 0x08
+#define LDT_ENTRY_S 0x10
+#define LDT_ENTRY_DPL_MASK 0x60
+#define LDT_ENTRY_DPL_USER 0x60
+#define LDT_ENTRY_PRESENT 0x80
+
+#define LDT_ENTRY_LONG 0x2
+#define LDT_ENTRY_DB 0x4
+
 void arch_ldt_invalidate(void) {
 	arch_gdt_set_ldt(current_thread()->proc->ldt, 0xffff);
 	__atomic_add_fetch(&done, 1, __ATOMIC_SEQ_CST);
 }
 
-int arch_ldt_set_entry(int which, ldt_entry_t entry) {
-	// is an ldt already loaded?
+int arch_ldt_set_entry(unsigned int which, ldt_entry_t entry) {
+	if (which >= LDT_ENTRIES)
+		return EINVAL;
+
+	if (entry != 0) {
+		uint8_t access = LDT_ENTRY_ACCESS_BYTE(entry);
+		uint8_t flags = LDT_ENTRY_FLAGS(entry);
+
+		if ((access & LDT_ENTRY_S) == 0)
+			return EINVAL;
+
+		if ((access & LDT_ENTRY_DPL_MASK) != LDT_ENTRY_DPL_USER)
+			return EINVAL;
+
+		if ((access & LDT_ENTRY_PRESENT) == 0)
+			return EINVAL;
+
+		if ((access & LDT_ENTRY_CODE) == 0) {
+			if (flags & LDT_ENTRY_LONG)
+				return EINVAL;
+		} else if ((flags & (LDT_ENTRY_LONG | LDT_ENTRY_DB)) == (LDT_ENTRY_LONG | LDT_ENTRY_DB)) {
+			return EINVAL;
+		}
+	}
+
 	if (__atomic_load_n(&current_thread()->proc->ldt, __ATOMIC_RELAXED) == NULL) {
-		// allocate one and atomically set it
-		ldt_entry_t *ldt = alloc(sizeof(ldt_entry_t) * 8192);
+		ldt_entry_t *ldt = alloc(sizeof(ldt_entry_t) * LDT_ENTRIES);
 		if (ldt == NULL)
 			return ENOMEM;
 
@@ -63,10 +99,10 @@ int arch_ldt_set_entry(int which, ldt_entry_t entry) {
 }
 
 int arch_ldt_fork(ldt_entry_t **dst, ldt_entry_t *src) {
-	*dst = alloc(sizeof(ldt_entry_t) * 8192);
-	if (!*dst)
+	*dst = alloc(sizeof(ldt_entry_t) * LDT_ENTRIES);
+	if (*dst == NULL)
 		return ENOMEM;
 
-	memcpy(*dst, src, sizeof(ldt_entry_t) * 8192);
+	memcpy(*dst, src, sizeof(ldt_entry_t) * LDT_ENTRIES);
 	return 0;
 }
