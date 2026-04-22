@@ -43,20 +43,6 @@ typedef struct vmmrange_t{
 
 typedef struct {
 	mutex_t lock;
-	struct vmmcache_t *next;
-	size_t freecount;
-	uintmax_t firstfree;
-} vmmcacheheader_t;
-
-#define VMM_RANGES_PER_CACHE (PAGE_SIZE - sizeof(vmmcacheheader_t)) / sizeof(vmmrange_t)
-
-typedef struct vmmcache_t {
-	vmmcacheheader_t header;
-	vmmrange_t ranges[VMM_RANGES_PER_CACHE];
-} vmmcache_t;
-
-typedef struct {
-	mutex_t lock;
 	rbtree_t *ranges;
 	void *start;
 	void *end;

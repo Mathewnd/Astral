@@ -11,70 +11,7 @@
 
 #define RANGE_TOP(x) (void *)((uintptr_t)x->start + x->size)
 
-static vmmcache_t *newcache() {
-	vmmcache_t *ptr = pmm_allocpage(PMM_SECTION_DEFAULT);
-	if (ptr == NULL)
-		return NULL;
-	ptr = MAKE_HHDM(ptr);
-	ptr->header.freecount = VMM_RANGES_PER_CACHE; 
-	ptr->header.firstfree = 0;
-	ptr->header.next = NULL;
-	MUTEX_INIT(&ptr->header.lock);
-
-	for (uintmax_t i = 0; i < VMM_RANGES_PER_CACHE; ++i)
-		ptr->ranges[i].size = 0;
-
-	return ptr;
-}
-
-// entries are allocated directly from the pmm into these caches
-static vmmcache_t *cachelist;
-
-// only supposed to be called on locked, not fully used caches
-static uintmax_t getentrynumber(vmmcache_t *cache) {
-	for (uintmax_t i = cache->header.firstfree; i < VMM_RANGES_PER_CACHE; ++i) {
-		if (cache->ranges[i].size == 0)
-			return i;
-	}
-	__assert(!"get entry number called from full cache");
-}
-
-static vmmrange_t *allocrange() {
-	vmmcache_t *cache = cachelist;
-	vmmrange_t *range = NULL;
-	while (cache) {
-		MUTEX_ACQUIRE(&cache->header.lock);
-		if (cache->header.freecount > 0) {
-			--cache->header.freecount;
-			uintmax_t r = getentrynumber(cache);
-			cache->header.firstfree = r + 1;
-			range = &cache->ranges[r];
-			range->size = -1; // set as allocated temporarily
-			MUTEX_RELEASE(&cache->header.lock);
-			break;
-		} else if (cache->header.next == NULL)
-			cache->header.next = newcache();
-
-		vmmcache_t *next = cache->header.next;
-		MUTEX_RELEASE(&cache->header.lock);
-		cache = next;
-	}
-
-	return range;
-}
-
-static void freerange(vmmrange_t *range) {
-	vmmcache_t *cache = (vmmcache_t *)ROUND_DOWN((uintptr_t)range, PAGE_SIZE);
-	MUTEX_ACQUIRE(&cache->header.lock);
-
-	int rangeoffset = ((uintptr_t)range - (uintptr_t)cache->ranges) / sizeof(vmmrange_t);
-	range->size = 0;
-	++cache->header.freecount;
-	if (cache->header.firstfree > rangeoffset)
-		cache->header.firstfree = rangeoffset;
-
-	MUTEX_RELEASE(&cache->header.lock);
-}
+static scache_t *range_cache;
 
 // ranges are separated into kernel and user. the kernel has a temporary user context
 vmmcontext_t vmm_kernelctx;
@@ -195,7 +132,7 @@ static void insertrange(vmmspace_t *space, vmmrange_t *new_range) {
 		new_range->size += next_range->size;
 
 		rbtree_remove(&space->ranges, &next_range->rbtree_node);
-		freerange(next_range);
+		slab_free(range_cache, next_range);
 		if (new_range->flags & VMM_FLAGS_FILE) {
 			VOP_RELEASE(new_range->vnode);
 		}
@@ -206,7 +143,7 @@ static void insertrange(vmmspace_t *space, vmmrange_t *new_range) {
 		prev_range->size += new_range->size;
 
 		rbtree_remove(&space->ranges, &new_range->rbtree_node);
-		freerange(new_range);
+		slab_free(range_cache, new_range);
 		if (prev_range->flags & VMM_FLAGS_FILE) {
 			VOP_RELEASE(prev_range->vnode);
 		}
@@ -313,7 +250,7 @@ static int changemap(vmmspace_t *space, void *address, size_t size, bool free, i
 	// allocated here and as soon as its used to make sure that 
 	// even in an allocation failure there will always be a valid mapping
 	if (free == false) {
-		new_range = allocrange();
+		new_range = slab_allocate(range_cache);
 		if (new_range == NULL)
 			return ENOMEM;
 	}
@@ -350,7 +287,7 @@ static int changemap(vmmspace_t *space, void *address, size_t size, bool free, i
 			goto leave;
 		}
 
-		vmmrange_t *new = allocrange();
+		vmmrange_t *new = slab_allocate(range_cache);
 		if (range == NULL) {
 			error = ENOMEM;
 			goto leave;
@@ -433,7 +370,7 @@ static int changemap(vmmspace_t *space, void *address, size_t size, bool free, i
 
 			rbtree = rbtree_successor(&new_range->rbtree_node);
 
-			new_range = allocrange();
+			new_range = slab_allocate(range_cache);
 			if (new_range == NULL) {
 				error = ENOMEM;
 				goto leave;
@@ -456,7 +393,7 @@ static int changemap(vmmspace_t *space, void *address, size_t size, bool free, i
 		if (free) {
 			rbtree_remove(&space->ranges, &range->rbtree_node);
 			destroyrange(range, 0, range->size, 0);
-			freerange(range);
+			slab_free(range_cache, range);
 		} else {
 			// permission check
 			if ((flags & VMM_FLAGS_CREDCHECK) && (range->flags & VMM_FLAGS_SHARED) &&
@@ -513,7 +450,7 @@ static int changemap(vmmspace_t *space, void *address, size_t size, bool free, i
 
 	leave:
 	if (free == false)
-		freerange(new_range);
+		slab_free(range_cache, new_range);
 
 	return error;
 }
@@ -804,7 +741,7 @@ void *vmm_map(void *addr, volatile size_t size, int flags, mmuflags_t mmuflags, 
 	if (((flags & VMM_FLAGS_EXACT) && start != addr) || start == NULL)
 		goto cleanup;
 
-	range = allocrange();
+	range = slab_allocate(range_cache);
 	if (range == NULL)
 		goto cleanup;
 
@@ -882,8 +819,8 @@ void *vmm_map(void *addr, volatile size_t size, int flags, mmuflags_t mmuflags, 
 
 	insertrange(space, range);
 	cleanup:
-	if (start == NULL && range)
-		freerange(range);
+	if (retaddr == NULL && range)
+		slab_free(range_cache, range);
 
 	MUTEX_RELEASE(&space->lock);
 	return retaddr;
@@ -967,7 +904,7 @@ vmmcontext_t *vmm_fork(vmmcontext_t *oldcontext) {
 	rbtree_t *rbtree = oldcontext->space.ranges ? rbtree_first(oldcontext->space.ranges) : NULL;
 	while (rbtree) {
 		vmmrange_t *range = container_of(rbtree, vmmrange_t, rbtree_node);
-		vmmrange_t *newrange = allocrange();
+		vmmrange_t *newrange = slab_allocate(range_cache);
 		if (newrange == NULL)
 			goto error;
 
@@ -1026,12 +963,12 @@ extern volatile struct limine_memmap_request pmm_liminemap;
 
 void vmm_init() {
 	// set up initial state
-	__assert(sizeof(vmmcache_t) <= PAGE_SIZE);
+	range_cache = slab_create_new_cache_from_pmm(sizeof(vmmrange_t), 0, NULL, NULL);
+	__assert(range_cache);
 	MUTEX_INIT(&kernelspace.lock);
 
-	cachelist = newcache();
 	vmm_kernelctx.pagetable = arch_mmu_newtable();
-	__assert(cachelist && vmm_kernelctx.pagetable);
+	__assert(vmm_kernelctx.pagetable);
 
 	vmm_kernelctx.space.start = USERSPACE_START;
 	vmm_kernelctx.space.end = USERSPACE_END;
@@ -1067,7 +1004,7 @@ void vmm_init() {
 	printspace(&kernelspace);
 }
 
-INIT_ROUTINE_DEFINE(vmm, INIT_ROUTINE_FLAGS_NONE, vmm_init, mmu);
+INIT_ROUTINE_DEFINE(vmm, INIT_ROUTINE_FLAGS_NONE, vmm_init, mmu, slab_early);
 
 void vmm_apinit() {
 	vmm_switchcontext(&vmm_kernelctx);
