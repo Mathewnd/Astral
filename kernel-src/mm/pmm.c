@@ -110,12 +110,14 @@ static void removefromfreelist(page_t *page) {
 	else
 		*tail = page->freeprev;
 
+	page->freenext = NULL;
+	page->freeprev = NULL;
+
 	--freepagecount;
 }
 
 static void internalhold(page_t *page) {
-	__atomic_add_fetch(&page->refcount, 1, __ATOMIC_SEQ_CST);
-	if (page->refcount == 1) {
+	if (++page->refcount == 1) {
 		// this is only valid on standby pages, in case of free pages its an use after free
 		__assert((page->flags & PAGE_FLAGS_FREE) == 0);
 		removefromfreelist(page);
@@ -140,17 +142,16 @@ void pmm_hold(void *addr) {
 
 void pmm_release(void *addr) {
 	page_t *page = &pages[(uintptr_t)addr / PAGE_SIZE];
-	__assert(page->refcount != 0);
 
-	uintmax_t newrefcount = __atomic_sub_fetch(&page->refcount, 1, __ATOMIC_SEQ_CST);
-	if (newrefcount == 0) {
+	MUTEX_ACQUIRE(&freelistmutex);
+	__assert(page->refcount != 0);
+	if (--page->refcount == 0) {
 		__assert((page->flags & PAGE_FLAGS_DIRTY) == 0);
-		MUTEX_ACQUIRE(&freelistmutex);
 		insertinfreelist(page);
 		if (page->backing == NULL)
 			page->flags |= PAGE_FLAGS_FREE;
-		MUTEX_RELEASE(&freelistmutex);
 	}
+	MUTEX_RELEASE(&freelistmutex);
 }
 
 static void doalloc(page_t *page) {
