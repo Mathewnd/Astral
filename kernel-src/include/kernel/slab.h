@@ -59,6 +59,7 @@ typedef struct scache_t {
 void *slab_allocate(scache_t *cache);
 void slab_free(scache_t *cache, void *addr);
 scache_t *slab_newcache(size_t size, size_t alignment, bool (*ctor)(scache_t *, void *), void (*dtor)(scache_t *, void *));
+scache_t *slab_create_new_cache_from_pmm(size_t size, size_t alignment, bool (*ctor)(scache_t *, void *), void (*dtor)(scache_t *, void *));
 void slab_freecache(scache_t *cache);
 
 #endif

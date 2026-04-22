@@ -462,6 +462,23 @@ static scache_t *create_new_from_vmm(size_t size, size_t alignment, bool (*ctor)
 	return cache;
 }
 
+scache_t *slab_create_new_cache_from_pmm(size_t size, size_t alignment, bool (*ctor)(scache_t *, void *), void (*dtor)(scache_t *, void *)) {
+	__assert(size < SLAB_INDIRECT_CUTOFF);
+	size_t cache_size = sizeof(scache_t) + sizeof(cache_per_cpu_t) * arch_smp_get_cpu_count();
+	scache_t *cache = pmm_alloc(ROUND_UP(cache_size, PAGE_SIZE) / PAGE_SIZE, PMM_SECTION_DEFAULT);
+	__assert(cache);
+	cache = MAKE_HHDM(cache);
+	__assert(slab_initialize(cache, size, alignment, ctor, dtor));
+	return cache;
+}
+
+// initializes enough to allow for the vmm to bootstrap
+void slab_early_init(void) {
+	size_t magazine_object_size = sizeof(magazine_t) + sizeof(void *) * MAGAZINE_SIZE;
+	__assert(magazine_object_size < SLAB_INDIRECT_CUTOFF);
+	magazine_cache = slab_create_new_cache_from_pmm(magazine_object_size, 0, magazine_ctor, NULL);
+}
+
 // TODO dynamically change the size of magazines
 void slab_init(void) {
 	size_t cache_size = sizeof(scache_t) + sizeof(cache_per_cpu_t) * arch_smp_get_cpu_count();
@@ -470,9 +487,7 @@ void slab_init(void) {
 	indirect_cache = create_new_from_vmm(sizeof(slab_indirect_t), 0, NULL, NULL);
 	indirect_table_cache = create_new_from_vmm(sizeof(slab_indirect_t *) * 32, 0, NULL, NULL);
 	self_cache = create_new_from_vmm(cache_size, 0, NULL, NULL);
-
-	magazine_cache = slab_newcache(sizeof(magazine_t) + sizeof(void *) * MAGAZINE_SIZE, 0, magazine_ctor, NULL);
-	__assert(magazine_cache);
 }
 
 INIT_ROUTINE_DEFINE(slab, INIT_ROUTINE_FLAGS_NONE, slab_init, vmm);
+INIT_ROUTINE_DEFINE(slab_early, INIT_ROUTINE_FLAGS_NONE, slab_early_init, pmm);
