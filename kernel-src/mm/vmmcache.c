@@ -338,7 +338,7 @@ int vmmcache_syncvnode(vnode_t *vnode, uintmax_t offset, size_t size) {
 	page_t *page = vnode->pages;
 	page_t *vnodedirtylist = NULL;
 	for (; page; page = page->vnodenext) {
-		if (page->offset < offset || page->offset >= top || (page->flags & PAGE_FLAGS_DIRTY) == 0)
+		if (page->offset < offset || page->offset >= top || (page->flags & PAGE_FLAGS_DIRTY) == 0 || (page->flags & PAGE_FLAGS_VNODE_SYNCING))
 			continue;
 
 		// remove from write list and add to an internal list using the write pointers
@@ -355,6 +355,7 @@ int vmmcache_syncvnode(vnode_t *vnode, uintmax_t offset, size_t size) {
 
 		page->writenext = vnodedirtylist;
 		page->writeprev = NULL;
+		page->flags |= PAGE_FLAGS_VNODE_SYNCING;
 		vnodedirtylist = page;
 	}
 
@@ -368,6 +369,7 @@ int vmmcache_syncvnode(vnode_t *vnode, uintmax_t offset, size_t size) {
 		page_t *page = vnodedirtylist;
 		vnodedirtylist = vnodedirtylist->writenext;
 		page->writenext = NULL;
+		page->flags &= ~PAGE_FLAGS_VNODE_SYNCING;
 
 		// another thread could already have synced this page, verify if it is still dirty
 		if (page->flags & PAGE_FLAGS_DIRTY) {
@@ -414,14 +416,17 @@ int vmmcache_makedirty(page_t *page) {
 		// page is neither dirty nor truncated, add to dirty list and hold the page and vnode
 		page->flags |= PAGE_FLAGS_DIRTY;
 
-		page->writeprev = NULL;
-		page->writenext = dirtylist;
-		if (dirtylist)
-			dirtylist->writeprev = page;
-		else
-			dirtylistend = page;
+		if ((page->flags & PAGE_FLAGS_VNODE_SYNCING) == 0) {
+			page->writeprev = NULL;
+			page->writenext = dirtylist;
+			if (dirtylist)
+				dirtylist->writeprev = page;
+			else
+				dirtylistend = page;
 
-		dirtylist = page;
+			dirtylist = page;
+		}
+
 		pmm_hold(pmm_getpageaddress(page));
 		__assert(page->backing);
 		VOP_HOLD(page->backing);

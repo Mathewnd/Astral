@@ -15,6 +15,7 @@
 #define PAGE_FLAGS_DIRTY 8
 #define PAGE_FLAGS_READY 16
 #define PAGE_FLAGS_ERROR 32
+#define PAGE_FLAGS_VNODE_SYNCING 64
 
 typedef struct page_t {
 	struct vnode_t *backing;
