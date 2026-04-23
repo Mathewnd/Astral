@@ -1,12 +1,26 @@
 #include <kernel/syscalls.h>
 #include <kernel/sock.h>
 
+#define SOCK_CLOEXEC   0x80000
+#define SOCK_NONBLOCK  0x800
+
 syscallret_t syscall_socketpair(context_t *, int domain, int type, int protocol) {
 	syscallret_t ret = {
 		.ret = -1
 	};
 
-	// TODO flags could be OR in with type
+	bool non_blocking = false, close_exec = false;
+
+	if (type & SOCK_NONBLOCK) {
+		non_blocking = true;
+		type &= ~SOCK_NONBLOCK;
+	}
+
+	if (type & SOCK_CLOEXEC) {
+		close_exec = true;
+		type &= ~SOCK_CLOEXEC;
+	}
+
 	// we will only support pairs of local sockets
 	if (domain != AF_LOCAL || type != SOCK_STREAM) {
 		ret.errno = EOPNOTSUPP;
@@ -36,21 +50,21 @@ syscallret_t syscall_socketpair(context_t *, int domain, int type, int protocol)
 		goto error;
 
 	// create fds
-	ret.errno = fd_new(0, &file1, &fd1);
+	ret.errno = fd_new(close_exec ? O_CLOEXEC : 0, &file1, &fd1);
 	if (ret.errno)
 		goto error;
 
 	file1->vnode = node1;
-	file1->flags = FILE_WRITE | FILE_READ;
+	file1->flags = FILE_WRITE | FILE_READ | (non_blocking ? O_NONBLOCK : 0);
 	file1->offset = 0;
 	file1->mode = 0777;
 
-	ret.errno = fd_new(0, &file2, &fd2);
+	ret.errno = fd_new(close_exec ? O_CLOEXEC : 0, &file2, &fd2);
 	if (ret.errno)
 		goto error;
 
 	file2->vnode = node2;
-	file2->flags = FILE_WRITE | FILE_READ;
+	file2->flags = FILE_WRITE | FILE_READ | (non_blocking ? O_NONBLOCK : 0);
 	file2->offset = 0;
 	file2->mode = 0777;
 
