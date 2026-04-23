@@ -1294,7 +1294,7 @@ static int tcp_send(socket_t *socket, sockdesc_t *sockdesc) {
 			break;
 		}
 
-		if (revents & V_FFLAGS_NONBLOCKING) {
+		if (socket_nonblocking(socket, sockdesc->flags)) {
 			poll_leave(&polldesc);
 			poll_destroydesc(&polldesc);
 			error = EAGAIN;
@@ -1374,7 +1374,7 @@ static int tcp_recv(socket_t *socket, sockdesc_t *sockdesc) {
 			}
 		}
 
-		if (flags & V_FFLAGS_NONBLOCKING) {
+		if (socket_nonblocking(socket, flags)) {
 			error = EAGAIN;
 			poll_leave(&desc);
 			poll_destroydesc(&desc);
@@ -1587,7 +1587,7 @@ static int tcp_connect(socket_t *socket, sockaddr_t *addr, uintmax_t flags, cred
 		tcpsocket->tcb = tcb;
 	}
 
-	if (flags & V_FFLAGS_NONBLOCKING) {
+	if (socket_nonblocking(socket, flags)) {
 		error = EINPROGRESS;
 		goto cleanup;
 	}
@@ -1707,7 +1707,7 @@ static int tcp_accept(socket_t *server, socket_t *client, sockaddr_t *addr, uint
 			break;
 		}
 
-		if (flags & V_FFLAGS_NONBLOCKING) {
+		if (socket_nonblocking(server, flags)) {
 			error = EAGAIN;
 			poll_leave(&desc);
 			poll_destroydesc(&desc);

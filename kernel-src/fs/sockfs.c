@@ -195,7 +195,7 @@ int sockfs_ioctl(vnode_t *node, unsigned long request, void *arg, int *result, c
 			free(dev);
 			return e;
 		}
-			case FIONREAD: {
+		case FIONREAD: {
 			socket_t *socket = SOCKFS_SOCKET_FROM_NODE(node);
 			if (socket->ops->datacount == NULL)
 				return ENOTTY;
@@ -203,9 +203,21 @@ int sockfs_ioctl(vnode_t *node, unsigned long request, void *arg, int *result, c
 			int count = socket->ops->datacount(socket);
 			return USERCOPY_POSSIBLY_TO_USER(arg, &count, sizeof(int));
 		}
-			default:
-				printf("got unknown socket ioctl %lu\n", request);
-				return ENOTTY;
+		case FIONBIO: {
+			int nonblocking;
+			int e = USERCOPY_POSSIBLY_FROM_USER(&nonblocking, arg, sizeof(nonblocking));
+			if (e)
+				return e;
+
+			socket_t *socket = SOCKFS_SOCKET_FROM_NODE(node);
+			MUTEX_ACQUIRE(&socket->mutex);
+			socket->nonblocking = nonblocking != 0;
+			MUTEX_RELEASE(&socket->mutex);
+			return 0;
+		}
+		default:
+			printf("got unknown socket ioctl %lu\n", request);
+			return ENOTTY;
 	}
 	return 0;
 }

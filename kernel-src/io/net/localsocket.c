@@ -342,7 +342,7 @@ static int localsock_send(socket_t *socket, sockdesc_t *sockdesc) {
 			break;
 		}
 
-		if (sockdesc->flags & V_FFLAGS_NONBLOCKING) {
+		if (socket_nonblocking(socket, sockdesc->flags)) {
 			error = EAGAIN;
 			poll_leave(&desc);
 			poll_destroydesc(&desc);
@@ -433,7 +433,7 @@ static int localsock_recv(socket_t *socket, sockdesc_t *sockdesc) {
 			}
 		}
 
-		if (flags & V_FFLAGS_NONBLOCKING) {
+		if (socket_nonblocking(socket, flags)) {
 			error = EAGAIN;
 			poll_leave(&desc);
 			poll_destroydesc(&desc);
@@ -549,7 +549,7 @@ static int localsock_accept(socket_t *_server, socket_t *_clientconnection, sock
 			break;
 		}
 
-		if (flags & V_FFLAGS_NONBLOCKING) {
+		if (socket_nonblocking(&server->socket, flags)) {
 			error = EAGAIN;
 			poll_leave(&desc);
 			poll_destroydesc(&desc);
@@ -664,7 +664,7 @@ static int localsock_connect(socket_t *socket, sockaddr_t *addr, uintmax_t flags
 			break;
 		}
 
-		if (flags & V_FFLAGS_NONBLOCKING) {
+		if (socket_nonblocking(socket, flags)) {
 			error = EAGAIN;
 			poll_leave(&desc);
 			poll_destroydesc(&desc);
@@ -722,7 +722,7 @@ static int localsock_connect(socket_t *socket, sockaddr_t *addr, uintmax_t flags
 
 	// if nonblocking, return success. the userspace/whatever will
 	// poll() the client to know when they can send data or if the server gave up and closed
-	if (flags & V_FFLAGS_NONBLOCKING) {
+	if (socket_nonblocking(socket, flags)) {
 		error = 0;
 		goto leave; 
 	}

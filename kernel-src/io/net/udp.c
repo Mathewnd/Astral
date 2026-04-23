@@ -242,7 +242,7 @@ static int udp_recv(socket_t *socket, sockdesc_t *sockdesc) {
 			break;
 		}
 
-		if (flags & V_FFLAGS_NONBLOCKING) {
+		if (socket_nonblocking(socket, flags)) {
 			e = EAGAIN;
 			poll_leave(&desc);
 			poll_destroydesc(&desc);

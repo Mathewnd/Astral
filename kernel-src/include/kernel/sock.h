@@ -7,6 +7,7 @@
 #include <kernel/poll.h>
 #include <kernel/usercopy.h>
 #include <kernel/iovec.h>
+#include <stdbool.h>
 
 #define SOCKET_STATE_UNBOUND 0
 #define SOCKET_STATE_BOUND 1
@@ -27,6 +28,7 @@ typedef struct {
 	int type;
 	int shutdown;
 	int error;
+	bool nonblocking;
 } socket_t;
 
 typedef struct {
@@ -88,6 +90,10 @@ typedef struct {
 #define SOCKET_TYPE_LOCAL 1
 #define SOCKET_TYPE_TCP 2
 #define SOCKFS_SOCKET_FROM_NODE(nodep) (((socketnode_t *)(nodep))->socket)
+
+static inline bool socket_nonblocking(socket_t *socket, uintmax_t flags) {
+	return socket->nonblocking || (flags & V_FFLAGS_NONBLOCKING);
+}
 
 static inline int socket_recv(socket_t *socket, void *buffer, size_t size, uintmax_t flags, size_t *bytes_read) {
 	iovec_iterator_t iovec_iterator;

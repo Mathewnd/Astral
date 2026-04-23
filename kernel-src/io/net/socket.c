@@ -17,6 +17,7 @@ socket_t *socket_create(int type) {
 	socket->state = SOCKET_STATE_UNBOUND;
 	MUTEX_INIT(&socket->mutex);
 	socket->type = type;
+	socket->nonblocking = false;
 
 	return socket;
 }
