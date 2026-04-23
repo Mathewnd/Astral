@@ -35,7 +35,6 @@ syscallret_t syscall_archctl(context_t *context, int func, void *arg) {
 		return ret;
 	}
 
-	uint64_t scratch;
 	switch (func) {
 		case ARCH_CTL_SET_GSBASE:
 			// kernelgsbase because it will be switched out to user
