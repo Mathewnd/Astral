@@ -224,7 +224,7 @@ index 07dbe11..3ece6ec 100644
  constexpr bool logLdPath = false;
  constexpr bool logSymbolVersions = false;
 diff --git mlibc-clean/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
-index 939925e..5c3ca08 100644
+index 939925e..7841cfe 100644
 --- mlibc-clean/sysdeps/astral/generic/generic.cpp
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
 @@ -1,4 +1,5 @@
@@ -250,51 +250,93 @@ index 939925e..5c3ca08 100644
  
  namespace mlibc {
  	int sys_setgroups(size_t size, const gid_t *list) {
-@@ -31,13 +42,170 @@ namespace mlibc {
+@@ -31,13 +42,212 @@ namespace mlibc {
  		return 0;
  	}
  
 +	int sys_setxattr(const char *path, const char *name,
 +		const void *val, size_t size, int flags) {
++		(void)path;
++		(void)name;
++		(void)val;
++		(void)size;
++		(void)flags;
 +		return ENOTSUP;
 +	}
 +	int sys_lsetxattr(const char *path, const char *name,
 +		const void *val, size_t size, int flags) {
++		(void)path;
++		(void)name;
++		(void)val;
++		(void)size;
++		(void)flags;
 +		return ENOTSUP;
 +	}
 +
 +	int sys_fsetxattr(int fd, const char *name, const void *val,
 +		size_t size, int flags) {
++		(void)fd;
++		(void)name;
++		(void)val;
++		(void)size;
++		(void)flags;
 +		return ENOTSUP;
 +	}
 +
 +	int sys_getxattr(const char *path, const char *name,
 +		void *val, size_t size, ssize_t *nread) {
++		(void)path;
++		(void)name;
++		(void)val;
++		(void)size;
++		(void)nread;
 +		return ENOTSUP;
 +	}
 +
 +	int sys_lgetxattr(const char *path, const char *name,
 +		void *val, size_t size, ssize_t *nread) {
++		(void)path;
++		(void)name;
++		(void)val;
++		(void)size;
++		(void)nread;
 +		return ENOTSUP;
 +	}
 +
 +	int sys_fgetxattr(int fd, const char *name, void *val,
 +		size_t size, ssize_t *nread) {
++		(void)fd;
++		(void)name;
++		(void)val;
++		(void)size;
++		(void)nread;
 +		return ENOTSUP;
 +	}
 +
 +	int sys_listxattr(const char *path, char *list, size_t size,
 +		ssize_t *nread) {
++		(void)path;
++		(void)list;
++		(void)size;
++		(void)nread;
 +		return ENOTSUP;
 +	}
 +
 +	int sys_llistxattr(const char *path, char *list, size_t size,
 +		ssize_t *nread) {
++		(void)path;
++		(void)list;
++		(void)size;
++		(void)nread;
 +		return ENOTSUP;
 +	}
 +
 +	int sys_flistxattr(int fd, char *list, size_t size,
 +		ssize_t *nread) {
++		(void)fd;
++		(void)list;
++		(void)size;
++		(void)nread;
 +		return ENOTSUP;
 +	}
 +
@@ -424,7 +466,7 @@ index 939925e..5c3ca08 100644
  	}
  
  	int sys_inet_configured(bool *ipv4, bool *ipv6) {
-@@ -47,6 +215,71 @@ namespace mlibc {
+@@ -47,6 +257,71 @@ namespace mlibc {
  		return 0;
  	}
  
@@ -496,7 +538,7 @@ index 939925e..5c3ca08 100644
  	int sys_readv(int fd, const struct iovec *iovs, int iovc, ssize_t *bytes_read) {
  		long r;
  		int error = syscall(SYSCALL_READV, &r, fd, (uint64_t)iovs, iovc);
-@@ -489,6 +722,7 @@ namespace mlibc {
+@@ -489,6 +764,7 @@ namespace mlibc {
  
  	int sys_setsockopt(int fd, int layer, int number, const void *buffer, socklen_t size) {
  		long ret;
@@ -504,6 +546,20 @@ index 939925e..5c3ca08 100644
  		return syscall(SYSCALL_SETSOCKOPT, &ret, fd, layer, number, (uint64_t)buffer, size);
  	}
  
+@@ -932,4 +1208,13 @@ namespace mlibc {
+ 		*nanos = ts.tv_nsec;
+ 		return err;
+ 	}
++
++	int sys_clock_getres(int clock, time_t *secs, long *nanos) {
++		struct timespec ts;
++		long ret;
++		int err = syscall(SYSCALL_CLOCK_GETRES, &ret, clock, (uint64_t)&ts);
++		*secs = ts.tv_sec;
++		*nanos = ts.tv_nsec;
++		return err;
++	}
+ } // namespace mlibc
 diff --git mlibc-clean/sysdeps/astral/include/astral/archctl.h mlibc-workdir/sysdeps/astral/include/astral/archctl.h
 index 7e4f2a1..ecc2677 100644
 --- mlibc-clean/sysdeps/astral/include/astral/archctl.h
@@ -527,10 +583,10 @@ index 7e4f2a1..ecc2677 100644
  #ifdef __cplusplus
  extern "C" {
 diff --git mlibc-clean/sysdeps/astral/include/astral/syscall.h mlibc-workdir/sysdeps/astral/include/astral/syscall.h
-index a6c4067..7568e64 100644
+index a6c4067..f1e0b65 100644
 --- mlibc-clean/sysdeps/astral/include/astral/syscall.h
 +++ mlibc-workdir/sysdeps/astral/include/astral/syscall.h
-@@ -103,6 +103,10 @@
+@@ -103,6 +103,11 @@
  #define SYSCALL_SYSINFO 96
  #define SYSCALL_WRITEV 97
  #define SYSCALL_READV 98
@@ -538,6 +594,7 @@ index a6c4067..7568e64 100644
 +#define SYSCALL_FSTATVFS 100
 +#define SYSCALL_FSTATVFSAT 101
 +#define SYSCALL_GETSOCKOPT 102
++#define SYSCALL_CLOCK_GETRES 103
  
  #ifndef __MLIBC_ABI_ONLY
  

@@ -9,7 +9,7 @@
 void arch_interrupt_disable();
 void arch_interrupt_enable();
 
-#define SYSCALL_COUNT 103
+#define SYSCALL_COUNT 104
 #define LOGSTR(x) arch_e9_puts(x)
 
 static char *name[] = {
@@ -116,6 +116,7 @@ static char *name[] = {
 	"fstatvfs",
 	"fstatvfsat",
 	"getsockopt",
+	"clock_getres",
 };
 
 static char *args[] = {
@@ -222,6 +223,7 @@ static char *args[] = {
 	"fd %d ustat %p", // fstatvfs
 	"dirfd %d path %s ustat %p flags %d", // fstatvfsat
 	"fd %d level %d optname %d optval %p optlen %p", // getsockopt
+	"clockid %d timespec %p", // clock_getres
 };
 
 #endif
