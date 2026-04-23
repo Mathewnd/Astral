@@ -9,6 +9,7 @@
 #include <kernel/alloc.h>
 #include <kernel/init.h>
 #include <arch/context.h>
+#include <arch/prof.h>
 
 DEFINE_KERNEL_ARGUMENT(nosmp, bool);
 

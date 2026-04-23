@@ -5,5 +5,6 @@
 #include <stdbool.h>
 
 bool arch_profiling_irq(context_t *ctx);
+void arch_profiling_init(void);
 
 #endif
