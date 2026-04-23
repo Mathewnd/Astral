@@ -122,8 +122,15 @@ static int handle_ifreq(unsigned long request, ifreq_t *uifreq, cred_t *cred) {
 				return e;
 			netdev->ip = sockaddr.ipv4addr.addr;
 			break;
-		case SIOCGIFHWADDR:
+		case SIOCGIFHWADDR: {
+			short hwaddr_type = (netdev->flags & NETDEV_FLAGS_LOOPBACK) ? ARPHRD_LOOPBACK : ARPHRD_ETHER;
+
+			e = USERCOPY_POSSIBLY_TO_USER(&uifreq->addr.type, &hwaddr_type, sizeof(hwaddr_type));
+			if (e)
+				return e;
+
 			return USERCOPY_POSSIBLY_TO_USER(uifreq->addr.addr, netdev->mac.address, sizeof(mac_t));
+		}
 		case SIOCGIFMTU: {
 			int mtu = netdev->mtu;
 			return USERCOPY_POSSIBLY_TO_USER(&uifreq->mtu, &mtu, sizeof(mtu));
