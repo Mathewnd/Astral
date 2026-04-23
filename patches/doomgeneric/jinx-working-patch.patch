@@ -85,10 +85,11 @@ index 0000000..5f5c23a
 +
 diff --git doomgeneric-workdir/doomgeneric/doomgeneric_astral.c doomgeneric-workdir/doomgeneric/doomgeneric_astral.c
 new file mode 100644
-index 0000000..d9c5bfb
+index 0000000..0c20a2a
 --- /dev/null
 +++ doomgeneric-workdir/doomgeneric/doomgeneric_astral.c
-@@ -0,0 +1,195 @@
+@@ -0,0 +1,197 @@
++#define _GNU_SOURCE
 +#include "doomkeys.h"
 +
 +#include "doomgeneric.h"
@@ -98,6 +99,7 @@ index 0000000..d9c5bfb
 +#include <string.h>
 +#include <unistd.h>
 +#include <sys/time.h>
++#include <time.h>
 +#include <linux/fb.h>
 +#include <termios.h>
 +#include <errno.h>
