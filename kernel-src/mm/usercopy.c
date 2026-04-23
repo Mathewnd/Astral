@@ -31,7 +31,9 @@ static void memcpyinternal(context_t *ctx, void *arg) {
 	// this context with CTX_RET set to EFAULT
 	current_thread()->usercopyctx = ctx;
 
+	arch_cpu_user_access_begin();
 	memcpy(desc->dst, desc->src, desc->size);
+	arch_cpu_user_access_end();
 
 	// no errors!
 	CTX_RET(ctx) = 0;
@@ -45,7 +47,9 @@ static void strleninternal(context_t *ctx, void *arg) {
 	// this context with CTX_RET set to EFAULT
 	current_thread()->usercopyctx = ctx;
 
+	arch_cpu_user_access_begin();
 	*desc->size = strlen(desc->str);
+	arch_cpu_user_access_end();
 
 	// no errors!
 	CTX_RET(ctx) = 0;
@@ -59,7 +63,9 @@ static void atomic32internal(context_t *ctx, void *arg) {
 	// this context with CTX_RET set to EFAULT
 	current_thread()->usercopyctx = ctx;
 
+	arch_cpu_user_access_begin();
 	__atomic_load(desc->address, desc->value, __ATOMIC_SEQ_CST);
+	arch_cpu_user_access_end();
 
 	// no errors!
 	CTX_RET(ctx) = 0;
@@ -73,7 +79,9 @@ static void memset_internal(context_t *ctx, void *arg) {
 	// this context with CTX_RET set to EFAULT
 	current_thread()->usercopyctx = ctx;
 
+	arch_cpu_user_access_begin();
 	memset(desc->dst, desc->byte, desc->size);
+	arch_cpu_user_access_end();
 
 	// no errors!
 	CTX_RET(ctx) = 0;

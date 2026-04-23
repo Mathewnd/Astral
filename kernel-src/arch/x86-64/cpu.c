@@ -12,6 +12,11 @@
 #include <arch/prof.h>
 
 #define EFER_SYSCALLENABLE 1
+#define CR4_SMEP (1 << 20)
+#define CR4_SMAP (1 << 21)
+
+static bool has_smap;
+static bool has_smap_detected;
 
 void arch_syscall_entry();
 static void illisr(isr_t *self, context_t *ctx) {
@@ -59,6 +64,55 @@ static void reload_ldt(isr_t *self, context_t *ctx) {
 		return;
 
 	arch_ldt_invalidate();
+}
+
+static void enable_smep_if_available(void) {
+	if (cpuid_base_max_leaf() < 7)
+		return;
+
+	cpuid_results_t results;
+	cpuid_with_ecx(7, 0, &results);
+	if ((results.ebx & CPUID_LEAF_7_EBX_SMEP) == 0)
+		return;
+
+	uint64_t cr4;
+	asm volatile("mov %%cr4, %0" : "=r"(cr4));
+	cr4 |= CR4_SMEP;
+	asm volatile("mov %0, %%cr4" : : "r"(cr4) : "memory");
+}
+
+static bool detect_smap(void) {
+	if (cpuid_base_max_leaf() < 7)
+		return false;
+
+	cpuid_results_t results;
+	cpuid_with_ecx(7, 0, &results);
+	return results.ebx & CPUID_LEAF_7_EBX_SMAP;
+}
+
+static void enable_smap_if_available(void) {
+	if (!has_smap_detected) {
+		has_smap = detect_smap();
+		has_smap_detected = true;
+	}
+
+	if (!has_smap)
+		return;
+
+	uint64_t cr4;
+	asm volatile("mov %%cr4, %0" : "=r"(cr4));
+	cr4 |= CR4_SMAP;
+	asm volatile("mov %0, %%cr4" : : "r"(cr4) : "memory");
+}
+
+void arch_cpu_user_access_begin(void) {
+	if (has_smap)
+		asm volatile("stac" : : : "memory");
+}
+
+void arch_cpu_user_access_end(void) {
+	if (has_smap)
+		asm volatile("clac" : : : "memory");
 }
 
 void arch_nmi_isr(context_t *ctx) {
@@ -227,6 +281,8 @@ void arch_cpu_init() {
 	);
 
 	x86_64_mmu_enable_global_pages();
+	enable_smep_if_available();
+	enable_smap_if_available();
 
 	// register some exception handlers that give out signals
 	interrupt_register(0, sigfpeisr, NULL, IPL_IGNORE);

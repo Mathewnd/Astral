@@ -4,6 +4,8 @@
 #include <kernel/alloc.h>
 #include <util.h>
 #include <kernel/vmm.h>
+#include <kernel/usercopy.h>
+#include <arch/cpu.h>
 
 #ifdef	__x86_64__
 	#define ARCH_ELF_BITS 2
@@ -72,7 +74,10 @@ static int load(vnode_t *vnode, elfph64_t *ph) {
 		if (error)
 			return error;
 
-		memset(page, 0, firstpageoffset);
+		error = usercopy_memset(page, 0, firstpageoffset);
+		if (error)
+			return error;
+
 		mempos += firstpagecount;
 		msize -= firstpagecount;
 		fsize -= firstpagecount;
@@ -85,7 +90,10 @@ static int load(vnode_t *vnode, elfph64_t *ph) {
 			if (remainingmsize > ROUND_UP(mempos, PAGE_SIZE) - mempos)
 				remainingmsize = pagediff;
 
-			memset((void *)mempos, 0, remainingmsize);
+			error = usercopy_memset((void *)mempos, 0, remainingmsize);
+			if (error)
+				return error;
+
 			msize -= remainingmsize;
 			mempos += remainingmsize;
 		}
@@ -121,7 +129,10 @@ static int load(vnode_t *vnode, elfph64_t *ph) {
 		if (error)
 			return error;
 
-		memset((void *)(mempos + lastpagecount), 0, PAGE_SIZE - lastpagecount);
+		error = usercopy_memset((void *)(mempos + lastpagecount), 0, PAGE_SIZE - lastpagecount);
+		if (error)
+			return error;
+
 		msize -= msize > PAGE_SIZE ? PAGE_SIZE : msize;
 
 		error = vmm_changemmuflags((void *)mempos, PAGE_SIZE, mmuflags, 0);
@@ -266,6 +277,7 @@ void *elf_preparestack(void *top, auxv64list_t *auxv64, char **argv, char **envp
 	char **argstart = (char **)envstart - argc - 1;
 	size_t *argcptr = (size_t *)argstart - 1;
 
+	arch_cpu_user_access_begin();
 	auxv64->execfn.type = AT_EXECFN;
 	auxv64->execfn.val = (uint64_t)pathdatastart;
 
@@ -289,5 +301,6 @@ void *elf_preparestack(void *top, auxv64list_t *auxv64, char **argv, char **envp
 	*envstart = NULL;
 	*argcptr = argc;
 
+	arch_cpu_user_access_end();
 	return argcptr;
 }

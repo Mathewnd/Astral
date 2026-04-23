@@ -20,6 +20,8 @@ typedef struct {
 #define CPUID_LEAF_0x80000001_EDX_SYSCALL (1 << 11)
 #define CPUID_LEAF_1_EDX_TSC (1 << 4)
 #define CPUID_LEAF_1_EDX_HTT (1 << 28)
+#define CPUID_LEAF_7_EBX_SMEP (1 << 7)
+#define CPUID_LEAF_7_EBX_SMAP (1 << 20)
 
 static inline void cpuid_with_ecx(uint32_t leaf, uint32_t ecx, cpuid_results_t *cpuid_results) {
 	asm volatile ("cpuid"

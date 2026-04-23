@@ -324,7 +324,14 @@ static volatile struct limine_executable_address_request kaddrreq = {
 #define ERROR_FETCH   16
 
 static void pfisr(isr_t *self, context_t *ctx) {
+	if ((ctx->rflags & ARCH_CONTEXT_RFLAGS_AC) == 0 && IS_USER_ADDRESS((void *)ctx->cr2) && !IS_USER_ADDRESS((void *)ctx->rip)) {
+		_panic("SMAP/SMEP violation", ctx);
+	}
+
 	thread_t *thread = current_thread();
+	if (thread && thread->usercopyctx)
+		arch_cpu_user_access_end();
+
 	interrupt_set(true);
 	int vmmerror = 0;
 
@@ -338,6 +345,7 @@ static void pfisr(isr_t *self, context_t *ctx) {
 	if (vmm_pagefault((void *)ctx->cr2, ctx->cs != 8, vmmerror) == false) {
 		if (thread && thread->usercopyctx) {
 			memcpy(ctx, thread->usercopyctx, sizeof(context_t));
+			ctx->rflags &= ~ARCH_CONTEXT_RFLAGS_AC;
 			thread->usercopyctx = NULL;
 			CTX_RET(ctx) = EFAULT;
 		} else if (ARCH_CONTEXT_ISUSER(ctx)) {
@@ -361,7 +369,9 @@ static void gpfisr(isr_t *self, context_t *ctx) {
 
 	thread_t *thread = current_thread();
 	if (thread && thread->usercopyctx) {
+		arch_cpu_user_access_end();
 		memcpy(ctx, thread->usercopyctx, sizeof(context_t));
+		ctx->rflags &= ~ARCH_CONTEXT_RFLAGS_AC;
 		thread->usercopyctx = NULL;
 		CTX_RET(ctx) = EFAULT;
 	} else if (ARCH_CONTEXT_ISUSER(ctx)) {

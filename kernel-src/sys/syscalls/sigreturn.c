@@ -29,7 +29,10 @@ __attribute__((noreturn)) void syscall_sigreturn(context_t *context) {
 
 	__assert(ARCH_CONTEXT_ISUSER(&sigframe->context));
 
+	// XXX TODO FIXME there is a bug here that needs this temporarily.
+	arch_cpu_user_access_begin();
 	arch_extracontext_copy(&current_thread()->extracontext, &sigframe->extracontext);
+	arch_cpu_user_access_end();
 	ARCH_CONTEXT_THREADLOAD(current_thread(), context);
 	arch_context_switch(&sigframe->context);
 

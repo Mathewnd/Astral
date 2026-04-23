@@ -112,7 +112,7 @@ int iovec_iterator_copy_from_buffer(iovec_iterator_t *iovec_iterator, void *buff
 		size_t remaining_current = iovec_iterator->current->len - iovec_iterator->current_offset;
 		size_t copy_current = min(remaining_current, remaining_total);
 
-		error = USERCOPY_POSSIBLY_FROM_USER((void *)((uintptr_t)iovec_iterator->current->addr + iovec_iterator->current_offset), (void *)((uintptr_t)buffer + total_done), copy_current);
+		error = USERCOPY_POSSIBLY_TO_USER((void *)((uintptr_t)iovec_iterator->current->addr + iovec_iterator->current_offset), (void *)((uintptr_t)buffer + total_done), copy_current);
 		if (error)
 			break;
 
