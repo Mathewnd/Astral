@@ -32,8 +32,10 @@ static int netdev_ioctl(int minor, unsigned long request, void *arg, int *result
 			net_info_t *info = arg;
 			sockaddr_t addr = {0};
 			abisockaddr_t abisockaddr;
+			abisockaddr_t empty_addr = {0};
 			short flags = netdev->flags;
 			int mtu = netdev->mtu;
+			short hwaddr_type = (netdev->flags & NETDEV_FLAGS_LOOPBACK) ? ARPHRD_LOOPBACK : ARPHRD_ETHER;
 
 			addr.ipv4addr.addr = netdev->ip;
 			sock_addrtoabiaddr(SOCKET_TYPE_UDP, &addr, &abisockaddr);
@@ -41,7 +43,23 @@ static int netdev_ioctl(int minor, unsigned long request, void *arg, int *result
 			if (error)
 				return error;
 
-			error = USERCOPY_POSSIBLY_TO_USER(&info->hwaddr, &netdev->mac, sizeof(netdev->mac));
+			error = USERCOPY_POSSIBLY_TO_USER(&info->broadaddr, &empty_addr, sizeof(empty_addr));
+			if (error)
+				return error;
+
+			error = USERCOPY_POSSIBLY_TO_USER(&info->netmask, &empty_addr, sizeof(empty_addr));
+			if (error)
+				return error;
+
+			error = USERCOPY_POSSIBLY_TO_USER(&info->hwaddr, &empty_addr, sizeof(empty_addr));
+			if (error)
+				return error;
+
+			error = USERCOPY_POSSIBLY_TO_USER(&info->hwaddr.type, &hwaddr_type, sizeof(hwaddr_type));
+			if (error)
+				return error;
+
+			error = USERCOPY_POSSIBLY_TO_USER(info->hwaddr.addr, netdev->mac.address, sizeof(mac_t));
 			if (error)
 				return error;
 

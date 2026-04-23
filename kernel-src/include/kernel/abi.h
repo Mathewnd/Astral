@@ -122,6 +122,9 @@ typedef struct {
 #define SO_PROTOCOL     38
 #define SO_DOMAIN       39
 
+#define ARPHRD_ETHER    1
+#define ARPHRD_LOOPBACK 772
+
 #define SOL_SOCKET 1
 #define SOL_TCP 6
 
