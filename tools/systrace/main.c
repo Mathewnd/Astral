@@ -1,10 +1,10 @@
-#include <astral/archctl.h>
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #include <stdint.h>
+#include <astral/archctl.h>
 
 static int arch_ctl_systrace(uint64_t mode) {
 	return arch_ctl(ARCH_CTL_SET_SYSTRACE, (void *)mode);
