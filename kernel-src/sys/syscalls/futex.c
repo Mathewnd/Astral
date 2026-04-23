@@ -7,9 +7,8 @@
 #include <kernel/alloc.h>
 #include <arch/cpu.h>
 
-static mutex_t futexmutex;
-static hashtable_t hashtable;
-static bool hashtableinit;
+static MUTEX_DEFINE(futexmutex);
+HASHTABLE_DEFINE_STATIC(hashtable, 256);
 
 typedef struct {
 	pollheader_t pollheader;
@@ -44,16 +43,6 @@ syscallret_t syscall_futex(context_t *, uint32_t *futexp, int op, uint32_t value
 	if (!IS_USER_ADDRESS(tm) || !IS_USER_ADDRESS(futexp)) {
 		ret.errno = EFAULT;
 		return ret;
-	}
-
-	if (unlikely(hashtableinit == false)) {
-		if (unlikely(hashtable_init(&hashtable, 256))) {
-			ret.errno = ENOMEM;
-			return ret;
-		}
-
-		hashtableinit = true;
-		MUTEX_INIT(&futexmutex);
 	}
 
 	timespec_t timespec = {0};
