@@ -224,7 +224,7 @@ index 07dbe11..3ece6ec 100644
  constexpr bool logLdPath = false;
  constexpr bool logSymbolVersions = false;
 diff --git mlibc-clean/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
-index 939925e..7841cfe 100644
+index 939925e..f8f8c8f 100644
 --- mlibc-clean/sysdeps/astral/generic/generic.cpp
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
 @@ -1,4 +1,5 @@
@@ -250,7 +250,7 @@ index 939925e..7841cfe 100644
  
  namespace mlibc {
  	int sys_setgroups(size_t size, const gid_t *list) {
-@@ -31,13 +42,212 @@ namespace mlibc {
+@@ -31,13 +42,216 @@ namespace mlibc {
  		return 0;
  	}
  
@@ -374,7 +374,7 @@ index 939925e..7841cfe 100644
 +			if (error)
 +				continue;
 +
-+			astral_net_info_t net_info;
++			astral_net_info_t net_info = {};
 +			int r;
 +			error = sys_ioctl(fd, 0x1337631, &net_info, &r);
 +			if (error) {
@@ -382,7 +382,7 @@ index 939925e..7841cfe 100644
 +				continue;
 +			}
 +
-+			struct ifaddrs *next = (struct ifaddrs *)malloc(sizeof(struct ifaddrs));
++			struct ifaddrs *next = (struct ifaddrs *)calloc(1, sizeof(struct ifaddrs));
 +			__ensure(next);
 +
 +			next->ifa_next = list;
@@ -396,13 +396,17 @@ index 939925e..7841cfe 100644
 +			__ensure(next->ifa_addr);
 +			memcpy(next->ifa_addr, &net_info.addr, sizeof(struct sockaddr));
 +
-+			next->ifa_netmask = (struct sockaddr *)malloc(sizeof(struct sockaddr));
-+			__ensure(next->ifa_netmask);
-+			memcpy(next->ifa_netmask, &net_info.netmask, sizeof(struct sockaddr));
++			if (net_info.netmask.sa_family) {
++				next->ifa_netmask = (struct sockaddr *)malloc(sizeof(struct sockaddr));
++				__ensure(next->ifa_netmask);
++				memcpy(next->ifa_netmask, &net_info.netmask, sizeof(struct sockaddr));
++			}
 +
-+			next->ifa_broadaddr = (struct sockaddr *)malloc(sizeof(struct sockaddr));
-+			__ensure(next->ifa_broadaddr);
-+			memcpy(next->ifa_broadaddr, &net_info.broadaddr, sizeof(struct sockaddr));
++			if (net_info.broadaddr.sa_family) {
++				next->ifa_broadaddr = (struct sockaddr *)malloc(sizeof(struct sockaddr));
++				__ensure(next->ifa_broadaddr);
++				memcpy(next->ifa_broadaddr, &net_info.broadaddr, sizeof(struct sockaddr));
++			}
 +
 +			next->ifa_data = nullptr;
 +
@@ -466,7 +470,7 @@ index 939925e..7841cfe 100644
  	}
  
  	int sys_inet_configured(bool *ipv4, bool *ipv6) {
-@@ -47,6 +257,71 @@ namespace mlibc {
+@@ -47,6 +261,71 @@ namespace mlibc {
  		return 0;
  	}
  
@@ -538,7 +542,7 @@ index 939925e..7841cfe 100644
  	int sys_readv(int fd, const struct iovec *iovs, int iovc, ssize_t *bytes_read) {
  		long r;
  		int error = syscall(SYSCALL_READV, &r, fd, (uint64_t)iovs, iovc);
-@@ -489,6 +764,7 @@ namespace mlibc {
+@@ -489,6 +768,7 @@ namespace mlibc {
  
  	int sys_setsockopt(int fd, int layer, int number, const void *buffer, socklen_t size) {
  		long ret;
@@ -546,7 +550,7 @@ index 939925e..7841cfe 100644
  		return syscall(SYSCALL_SETSOCKOPT, &ret, fd, layer, number, (uint64_t)buffer, size);
  	}
  
-@@ -932,4 +1208,13 @@ namespace mlibc {
+@@ -932,4 +1212,13 @@ namespace mlibc {
  		*nanos = ts.tv_nsec;
  		return err;
  	}
