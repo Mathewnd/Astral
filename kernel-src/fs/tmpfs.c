@@ -40,7 +40,8 @@ static int tmpfs_mount(vfs_t **vfs, vnode_t *mountpoint, vnode_t *backing, void 
 static int tmpfs_getattr(vnode_t *node, vattr_t *attr, cred_t *cred) {
 	tmpfsnode_t *tmpnode = (tmpfsnode_t *)node;
 	*attr = tmpnode->attr;
-	attr->blocksused = ROUND_UP(attr->size, PAGE_SIZE) / PAGE_SIZE;
+	attr->fsblocksize = PAGE_SIZE;
+	attr->blocksused = ROUND_UP(attr->size, attr->fsblocksize) / attr->fsblocksize;
 	attr->devmajor = 0;
 	attr->devminor = ((tmpfs_t *)node->vfs)->id;
 	return 0;
