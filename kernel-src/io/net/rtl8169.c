@@ -319,9 +319,7 @@ static void init_controller(pcienum_t *pci_enum) {
 	isr_t *isr = interrupt_allocate(rtl8169_isr, ARCH_EOI, IPL_NET);
 	__assert(isr);
 	pci_msisetbase(pci_enum, INTERRUPT_IDTOVECTOR(isr->id), 1, 0);
-	outw(pci_bar.address + REGISTER_IRQ_MASK, REGISTER_IRQ_MASK_RX_OK | REGISTER_IRQ_MASK_TX_OK | REGISTER_IRQ_MASK_TX_ERROR | REGISTER_IRQ_MASK_RX_ERROR);
 
-	// register in netdev infrastructure
 	rtl8169dev_t *netdev = alloc(sizeof(rtl8169dev_t));
 	__assert(netdev);
 	netdev->netdev.mtu = 1500;
@@ -341,10 +339,6 @@ static void init_controller(pcienum_t *pci_enum) {
 	dpc_prepare(&netdev->rx_dpc, rtl8169_dpc_rx);
 
 	isr->priv = netdev;
-
-	char name[10];
-	snprintf(name, 10, "rtl8169%d", id);
-	__assert(netdev_register((netdev_t *)netdev, name) == 0);
 
 	// reset PHY
 	if (!phy_write(pci_bar, PHY_BMCR, PHY_BMCR_RESET)) {
@@ -408,6 +402,11 @@ static void init_controller(pcienum_t *pci_enum) {
 
 	// enable rx/tx
 	outb(pci_bar.address + REGISTER_COMMAND, REGISTER_COMMAND_TX_ENABLE | REGISTER_COMMAND_RX_ENABLE);
+	outw(pci_bar.address + REGISTER_IRQ_MASK, REGISTER_IRQ_MASK_RX_OK | REGISTER_IRQ_MASK_TX_OK | REGISTER_IRQ_MASK_TX_ERROR | REGISTER_IRQ_MASK_RX_ERROR);
+
+	char name[10];
+	snprintf(name, 10, "rtl8169%d", id);
+	__assert(netdev_register((netdev_t *)netdev, name) == 0);
 }
 
 static int ids[] = {
