@@ -816,12 +816,19 @@ static uint32_t getsendmss(tcpheader_t *tcpheader, tcb_t *tcb) {
 				break;
 			} else if (*options == 1) { // nop
 				++options;
+				--optionslength;
 				continue;
 			} else if (*options == OPTIONS_MSS_KIND) {
-				options += 2;
-				newsendmss = be_to_cpu_w(*(uint16_t *)options);
+				if (optionslength < OPTIONS_MSS_LEN || options[1] != OPTIONS_MSS_LEN)
+					break;
+
+				newsendmss = be_to_cpu_w(*(uint16_t *)(options + 2));
 				break;
 			} else {
+				if (optionslength < 2 || options[1] < 2 || options[1] > optionslength)
+					break;
+
+				optionslength -= options[1];
 				options += options[1];
 				continue;
 			}
@@ -970,11 +977,11 @@ __attribute__((noreturn)) static void tcp_worker() {
 				newtcb->sndmss = mtu;
 				newtcb->sndmss = getsendmss(tcpheader, newtcb);
 				newtcb->iss = getrand32();
-				newtcb->rcvwindow = 0;
 				newtcb->sndnext = newtcb->iss;
+				newtcb->sndwindow = tcpheader->window;
 				newtcb->rcvmss = MSS_LIMIT(mtu);
 				newtcb->rcvnext = tcpheader->seq + 1;
-				newtcb->rcvwindow = tcpheader->window;
+				newtcb->rcvwindow = TCB_RINGBUFFER_SIZE;
 				newtcb->rcvurgent = 0;
 				newtcb->irs = tcpheader->seq;
 
@@ -1001,8 +1008,8 @@ __attribute__((noreturn)) static void tcp_worker() {
 					.mss = newtcb->rcvmss
 				};
 
-				tcb->retransmitpacketlen = sizeof(tcpheader_t) + sizeof(synoptions_t);
-				tcp_createheader(newtcb->retransmitbuffer, newtcb, tcb->retransmitpacketlen, &synoptions, sizeof(synoptions_t), CONTROL_SYN | CONTROL_ACK, 0);
+				newtcb->retransmitpacketlen = sizeof(tcpheader_t) + sizeof(synoptions_t);
+				tcp_createheader(newtcb->retransmitbuffer, newtcb, newtcb->retransmitpacketlen, &synoptions, sizeof(synoptions_t), CONTROL_SYN | CONTROL_ACK, 0);
 
 				// ugly hack but whatever, we only add options here and in connect.
 				synoptions_t *fixptr = (synoptions_t *)((uintptr_t)newtcb->retransmitbuffer + sizeof(tcpheader_t));
@@ -1010,9 +1017,10 @@ __attribute__((noreturn)) static void tcp_worker() {
 
 				newtcb->sndunack = newtcb->sndnext;
 				newtcb->sndnext += 1;
-				if (tcp_sendpacket(newtcb->retransmitbuffer, tcb->retransmitpacketlen, key.peer, self)) {
+				if (tcp_sendpacket(newtcb->retransmitbuffer, newtcb->retransmitpacketlen, key.peer, self)) {
 					// unset the tcb and wait for a SYN retransmission
-					tcp_reset(tcb);
+					newtcb->state = TCB_STATE_ABORT;
+					tcbset(newtcb, &key, true);
 					TCB_RELEASE(newtcb);
 					break;
 				}
@@ -1627,6 +1635,8 @@ static int tcp_listen(socket_t *socket, int backlog) {
 	} else {
 		TCB_HOLD(tcb); // for the release later
 	}
+
+	MUTEX_ACQUIRE(&tcb->mutex);
 
 	int error;
 	if (tcb->state != TCB_STATE_CLOSED) {
