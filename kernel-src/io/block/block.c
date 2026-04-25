@@ -220,6 +220,25 @@ static int detectpart(blockdesc_t *desc) {
 	return ret;
 }
 
+static bool gptentryvalid(blockdesc_t *desc, gptheader_t *header, gptentry_t *entry) {
+	if (entry->typeguid[0] == 0 && entry->typeguid[1] == 0)
+		return false;
+
+	if (entry->guid[0] == 0 && entry->guid[1] == 0)
+		return false;
+
+	if (entry->startlba > entry->endlba)
+		return false;
+
+	if (entry->startlba < header->firstusable || entry->endlba > header->lastusable)
+		return false;
+
+	if (entry->endlba >= desc->blockcapacity)
+		return false;
+
+	return true;
+}
+
 static void dogpt(blockdesc_t *desc, char *name) {
 	// get header
 	void *lba1 = vmm_map(NULL, desc->blocksize, VMM_FLAGS_ALLOCATE, MAP_FLAGS, NULL);
@@ -242,7 +261,7 @@ static void dogpt(blockdesc_t *desc, char *name) {
 	for (int i = 0; i < header->entrycount; ++i) {
 		gptentry_t *entry = (gptentry_t *)((uintptr_t)tablebuffer + header->entrybytesize * i);
 
-		if (entry->typeguid[0] == 0 && entry->typeguid[1] == 0)
+		if (gptentryvalid(desc, header, entry) == false)
 			continue;
 
 		snprintf(partname, namebuflen, "%sp%d", name, partid++);
