@@ -18,6 +18,7 @@ INIT_ROUTINE_DEFINE(bsp_early, INIT_ROUTINE_FLAGS_PHONY, NULL, alloc, term, cpu)
 DEFINE_KERNEL_ARGUMENT(root, char *);
 DEFINE_KERNEL_ARGUMENT(rootfs, char *);
 DEFINE_KERNEL_ARGUMENT(initrd, bool);
+DEFINE_KERNEL_ARGUMENT(root_wait, bool);
 
 void kernel_entry() {
 	cpu_set(&bsp_cpu);
@@ -44,7 +45,14 @@ void kernel_entry() {
 
 	vnode_t *backing;
 	if (root) {
-		__assert(devfs_getbyname(root, &backing) == 0);
+		int error;
+		do {
+			printf("entry: waiting for root device %s\n", root);
+			error = devfs_getbyname(root, &backing);
+			if (error && !GET_KERNEL_ARGUMENT(root_wait, bool))
+				_panic("Root device not found", NULL);
+			sched_sleep_us(1000000);
+		} while (error != 0);
 	} else {
 		backing = NULL;
 	}
