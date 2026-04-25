@@ -1,0 +1,10 @@
+name=evtest
+version=1.36
+source_method=tarball
+tarball_url="https://gitlab.freedesktop.org/libevdev/evtest/-/archive/evtest-${version}/evtest-evtest-${version}.tar.gz"
+tarball_sha512="da48df0045c4714ef09e80210de2df1e4dac5281b9c390a78b2fb94626855c0d8df1f31f5d129c5f3cef98b6f5ddfe020de7602119e6603e568bd02cc80c5546"
+hostdeps="autoconf automake libtool pkgconfig"
+
+prepare() {
+    autoreconf -fvi
+}
