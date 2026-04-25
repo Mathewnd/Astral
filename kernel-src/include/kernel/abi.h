@@ -199,4 +199,8 @@ typedef struct {
 
 #define HOST_NAME_MAX 64
 
+#define CLOCK_REALTIME 0
+#define CLOCK_MONOTONIC 1
+#define CLOCK_BOOTTIME 7
+
 #endif

@@ -1,10 +1,7 @@
 #include <kernel/syscalls.h>
 #include <time.h>
 #include <kernel/usercopy.h>
-
-#define CLOCK_REALTIME 0
-#define CLOCK_MONOTONIC 1
-#define CLOCK_BOOTTIME 7
+#include <kernel/abi.h>
 
 syscallret_t syscall_clock_getres(context_t *, int clockid, timespec_t *res) {
 	syscallret_t ret;
