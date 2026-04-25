@@ -213,6 +213,7 @@ void *pmm_allocpage(int section) {
 }
 
 void pmm_makefree(void *address, size_t count) {
+	MUTEX_ACQUIRE(&freelistmutex);
 	memorysize += PAGE_SIZE * count;
 	__assert(((uintptr_t)address % PAGE_SIZE) == 0);
 	uintmax_t baseid = (uintptr_t)address / PAGE_SIZE;
@@ -220,8 +221,10 @@ void pmm_makefree(void *address, size_t count) {
 		uintmax_t pageid = baseid + i;
 		PAGE_BOUNDARYCHECK(pageid);
 		page_t *page = &pages[pageid];
+		page->flags |= PAGE_FLAGS_FREE;
 		insertinfreelist(page);
 	}
+	MUTEX_RELEASE(&freelistmutex);
 }
 
 void pmm_init() {
@@ -253,7 +256,7 @@ void pmm_init() {
 	memset(pages, 0, pagecount * sizeof(page_t));
 	printf("pmm: %d pages used for page list\n", ROUND_UP(pagecount * sizeof(page_t), PAGE_SIZE) / PAGE_SIZE);
 
-	// place pages in free lists
+	// initialize usable memory
 	for (size_t i = 0; i < pmm_liminemap.response->entry_count; ++i) {
 		struct limine_memmap_entry *e = pmm_liminemap.response->entries[i];
 		if (e->type == LIMINE_MEMMAP_USABLE) {
@@ -261,6 +264,11 @@ void pmm_init() {
 			for (int i = firstusablepage; i < (e->base + e->length) / PAGE_SIZE; ++i) {
 				pages[i].flags |= PAGE_FLAGS_FREE;
 				insertinfreelist(&pages[i]);
+			}
+		} else if (e->type == LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE) {
+			for (int i = 0; i < e->length / PAGE_SIZE; ++i) {
+				page_t *page = &pages[(e->base / PAGE_SIZE) + i];
+				page->refcount = 1;
 			}
 		}
 	}
@@ -323,6 +331,6 @@ void pmm_free(void *addr, size_t size) {
 }
 
 void pmm_getinfo(size_t *total_pages, size_t *free_pages) {
-	*total_pages = pagecount;
+	*total_pages = memorysize / PAGE_SIZE;
 	*free_pages = freepagecount;
 }
