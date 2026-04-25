@@ -122,6 +122,7 @@ size_t pci_initmsix(pcienum_t *e) {
 #define PCI_MSI_ENABLE 1
 #define PCI_MSI_MULTIPLE_MESSAGE_SUPPORT_MASK 0x70
 #define PCI_MSI_64BIT (1 << 7)
+#define PCI_MSI_PER_VECTOR_MASKING (1 << 8)
 
 size_t pci_initmsi(pcienum_t *e, int requested) {
 	// TODO maybe initialize mask if applicable?
@@ -158,6 +159,23 @@ void pci_msisetbase(pcienum_t *e, int base, int edgetrigger, int deassert) {
 
 	// data
 	PCI_WRITE16(e, e->msi.offset + dataoffset, data);
+}
+
+void pci_msisetmask(pcienum_t *e, int vector, int value) {
+	uint32_t msgctl = PCI_READ16(e, e->msi.offset + 2);
+
+	if (msgctl & PCI_MSI_PER_VECTOR_MASKING) {
+		uint32_t maskbits = PCI_READ32(e, e->msi.offset + 16);
+
+		if (value)
+			maskbits |= 1 << vector;
+		else
+			maskbits &= ~(1 << vector);
+
+		PCI_WRITE32(e, e->msi.offset + 16, maskbits);
+	} else {
+		printf("pci: tried to mask msi vector without support\n");
+	}
 }
 
 #define BAR_MAP_FLAGS (ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_NOEXEC)

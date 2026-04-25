@@ -92,6 +92,7 @@ void pci_msixsetmask(pcienum_t *e, int v);
 void pci_msixadd(pcienum_t *e, int msixvec, int vec, int edgetrigger, int deassert);
 size_t pci_initmsi(pcienum_t *e, int requested);
 void pci_msisetbase(pcienum_t *e, int base, int edgetrigger, int deassert);
+void pci_msisetmask(pcienum_t *e, int vector, int value);
 void pci_init();
 
 #define PCI_READ32(e, offset) pci_read32(e->bus, e->device, e->function, offset)
