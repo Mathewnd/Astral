@@ -1,0 +1,13 @@
+diff --git xf86-input-evdev-clean/configure.ac xf86-input-evdev-workdir/configure.ac
+index 378faa2..b2ca6d5 100644
+--- xf86-input-evdev-clean/configure.ac
++++ xf86-input-evdev-workdir/configure.ac
+@@ -45,7 +45,7 @@ XORG_DEFAULT_OPTIONS
+ 
+ # Obtain compiler/linker options from server and required extensions
+ PKG_CHECK_MODULES(XORG, [xorg-server >= 1.18] xproto [inputproto >= 2.1.99.3])
+-PKG_CHECK_MODULES(UDEV, libudev, [AC_DEFINE(HAVE_LIBUDEV, 1,[libudev support])])
++PKG_CHECK_MODULES(UDEV, libudev, [AC_DEFINE(HAVE_LIBUDEV, 1,[libudev support])], [:])
+ 
+ PKG_CHECK_MODULES(LIBEVDEV, [libevdev >= 0.4])
+ PKG_CHECK_MODULES(MTDEV, mtdev)

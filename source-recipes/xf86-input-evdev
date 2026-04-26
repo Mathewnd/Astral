@@ -1,0 +1,10 @@
+name=xf86-input-evdev
+version=2.11.0
+source_method=tarball
+tarball_url="https://gitlab.freedesktop.org/xorg/driver/xf86-input-evdev/-/archive/xf86-input-evdev-2.11.0/xf86-input-evdev-xf86-input-evdev-2.11.0.tar.gz"
+tarball_sha512="c61de2bec1fb57624d3051e02f4f442852b1e3abe766bbfbb031ff48ccf880ac52b0d7d0b4bcb9971cf4a8601493ff159e5ee55b78583bd9f24d6d73b1d43150"
+hostdeps="autoconf automake libtool pkgconfig util-macros"
+
+prepare() {
+    autoreconf -fvi
+}
