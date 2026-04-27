@@ -10,11 +10,458 @@ index 071bd1a..68b2e26 100644
          "/run/shm",
          "/var/tmp",
          "/tmp",
+diff --git xorg-server-clean/config/Makefile.am xorg-server-workdir/config/Makefile.am
+index 51aae47..926ab98 100644
+--- xorg-server-clean/config/Makefile.am
++++ xorg-server-workdir/config/Makefile.am
+@@ -30,10 +30,16 @@ libconfig_la_LIBADD += $(HAL_LIBS)
+ 
+ else
+ 
++if CONFIG_EVDEV
++libconfig_la_SOURCES += evdev.c
++else
++
+ if CONFIG_WSCONS
+ libconfig_la_SOURCES += wscons.c
+ endif # CONFIG_WSCONS
+ 
++endif # !CONFIG_EVDEV
++
+ endif # !CONFIG_HAL
+ 
+ endif # !CONFIG_UDEV
+diff --git xorg-server-clean/config/config-backends.h xorg-server-workdir/config/config-backends.h
+index 5f07557..69a10a5 100644
+--- xorg-server-clean/config/config-backends.h
++++ xorg-server-workdir/config/config-backends.h
+@@ -37,6 +37,9 @@ int config_udev_pre_init(void);
+ int config_udev_init(void);
+ void config_udev_fini(void);
+ void config_udev_odev_probe(config_odev_probe_proc_ptr probe_callback);
++#elif defined(CONFIG_EVDEV)
++int config_evdev_init(void);
++void config_evdev_fini(void);
+ #elif defined(CONFIG_HAL)
+ int config_hal_init(void);
+ void config_hal_fini(void);
+diff --git xorg-server-clean/config/config.c xorg-server-workdir/config/config.c
+index fb60295..dda8c7d 100644
+--- xorg-server-clean/config/config.c
++++ xorg-server-workdir/config/config.c
+@@ -49,6 +49,9 @@ config_init(void)
+ #ifdef CONFIG_UDEV
+     if (!config_udev_init())
+         ErrorF("[config] failed to initialise udev\n");
++#elif defined(CONFIG_EVDEV)
++    if (!config_evdev_init())
++        ErrorF("[config] failed to initialise evdev\n");
+ #elif defined(CONFIG_HAL)
+     if (!config_hal_init())
+         ErrorF("[config] failed to initialise HAL\n");
+@@ -63,6 +66,8 @@ config_fini(void)
+ {
+ #if defined(CONFIG_UDEV)
+     config_udev_fini();
++#elif defined(CONFIG_EVDEV)
++    config_evdev_fini();
+ #elif defined(CONFIG_HAL)
+     config_hal_fini();
+ #elif defined(CONFIG_WSCONS)
+diff --git xorg-server-workdir/config/evdev.c xorg-server-workdir/config/evdev.c
+new file mode 100644
+index 0000000..6e18738
+--- /dev/null
++++ xorg-server-workdir/config/evdev.c
+@@ -0,0 +1,303 @@
++/*
++ * Copyright © 2026 The Astral contributors
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining a
++ * copy of this software and associated documentation files (the "Software"),
++ * to deal in the Software without restriction, including without limitation
++ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
++ * and/or sell copies of the Software, and to permit persons to whom the
++ * Software is furnished to do so, subject to the following conditions:
++ *
++ * The above copyright notice and this permission notice (including the next
++ * paragraph) shall be included in all copies or substantial portions of the
++ * Software.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
++ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
++ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
++ * DEALINGS IN THE SOFTWARE.
++ */
++
++#ifdef HAVE_DIX_CONFIG_H
++#include <dix-config.h>
++#endif
++
++#include <dirent.h>
++#include <errno.h>
++#include <fcntl.h>
++#include <limits.h>
++#include <stdint.h>
++#include <stdio.h>
++#include <string.h>
++#include <sys/ioctl.h>
++#include <unistd.h>
++#include <linux/input.h>
++
++#include "input.h"
++#include "inputstr.h"
++#include "os.h"
++#include "Xprintf.h"
++#include "config-backends.h"
++
++#ifndef PATH_MAX
++#define PATH_MAX 4096
++#endif
++
++#define EVDEV_INPUT_DIR "/dev/input"
++#define EVDEV_EVENT_PREFIX "event"
++
++#define BITS_PER_LONG (sizeof(unsigned long) * 8)
++#define NBITS(x) ((((x) - 1) / BITS_PER_LONG) + 1)
++
++static Bool
++test_bit(const unsigned long *bits, int bit)
++{
++    return !!(bits[bit / BITS_PER_LONG] & (1UL << (bit % BITS_PER_LONG)));
++}
++
++static Bool
++is_event_node(const char *name)
++{
++    const char *p;
++
++    if (strncmp(name, EVDEV_EVENT_PREFIX, strlen(EVDEV_EVENT_PREFIX)) != 0)
++        return FALSE;
++
++    p = name + strlen(EVDEV_EVENT_PREFIX);
++    if (*p == '\0')
++        return FALSE;
++
++    while (*p) {
++        if (*p < '0' || *p > '9')
++            return FALSE;
++        p++;
++    }
++
++    return TRUE;
++}
++
++static Bool
++get_bits(int fd, int ev, unsigned long *bits, size_t size)
++{
++    memset(bits, 0, size);
++    return ioctl(fd, EVIOCGBIT(ev, size), bits) >= 0;
++}
++
++static Bool
++get_props(int fd, unsigned long *props, size_t size)
++{
++    memset(props, 0, size);
++    return ioctl(fd, EVIOCGPROP(size), props) >= 0;
++}
++
++static Bool
++has_keyboard_keys(const unsigned long *key_bits)
++{
++    int code;
++
++    for (code = KEY_ESC; code <= KEY_F24; code++) {
++        if (test_bit(key_bits, code))
++            return TRUE;
++    }
++
++    return FALSE;
++}
++
++static char *
++get_device_name(int fd, const char *path)
++{
++    char name[256];
++
++    memset(name, 0, sizeof(name));
++    if (ioctl(fd, EVIOCGNAME(sizeof(name) - 1), name) >= 0 && name[0])
++        return strdup(name);
++
++    return strdup(path);
++}
++
++static void
++evdev_add_device(const char *path)
++{
++    unsigned long ev_bits[NBITS(EV_MAX + 1)];
++    unsigned long key_bits[NBITS(KEY_CNT)];
++    unsigned long rel_bits[NBITS(REL_MAX + 1)];
++    unsigned long abs_bits[NBITS(ABS_MAX + 1)];
++    unsigned long prop_bits[NBITS(INPUT_PROP_MAX + 1)];
++    struct input_id id;
++    Bool have_id;
++    InputAttributes attrs = { };
++    DeviceIntPtr dev = NULL;
++    InputOption *input_options = NULL;
++    char *config_info = NULL;
++    char *name = NULL;
++    int fd, rc;
++    int flags = O_RDONLY | O_NONBLOCK;
++
++#ifdef O_CLOEXEC
++    flags |= O_CLOEXEC;
++#endif
++
++    fd = open(path, flags);
++    if (fd == -1) {
++        LogMessageVerb(X_WARNING, 10, "config/evdev: open %s: %s\n",
++                       path, strerror(errno));
++        return;
++    }
++
++    if (!get_bits(fd, 0, ev_bits, sizeof(ev_bits))) {
++        LogMessageVerb(X_WARNING, 10,
++                       "config/evdev: EVIOCGBIT failed for %s: %s\n",
++                       path, strerror(errno));
++        close(fd);
++        return;
++    }
++
++    memset(key_bits, 0, sizeof(key_bits));
++    memset(rel_bits, 0, sizeof(rel_bits));
++    memset(abs_bits, 0, sizeof(abs_bits));
++    memset(prop_bits, 0, sizeof(prop_bits));
++
++    if (test_bit(ev_bits, EV_KEY))
++        get_bits(fd, EV_KEY, key_bits, sizeof(key_bits));
++    if (test_bit(ev_bits, EV_REL))
++        get_bits(fd, EV_REL, rel_bits, sizeof(rel_bits));
++    if (test_bit(ev_bits, EV_ABS))
++        get_bits(fd, EV_ABS, abs_bits, sizeof(abs_bits));
++    get_props(fd, prop_bits, sizeof(prop_bits));
++
++    if (test_bit(ev_bits, EV_KEY)) {
++        attrs.flags |= ATTR_KEY;
++
++        if (has_keyboard_keys(key_bits))
++            attrs.flags |= ATTR_KEYBOARD;
++    }
++
++    if (test_bit(ev_bits, EV_REL) &&
++        test_bit(rel_bits, REL_X) && test_bit(rel_bits, REL_Y))
++        attrs.flags |= ATTR_POINTER;
++
++    if (test_bit(ev_bits, EV_ABS) &&
++        test_bit(abs_bits, ABS_X) && test_bit(abs_bits, ABS_Y)) {
++        if (test_bit(prop_bits, INPUT_PROP_DIRECT))
++            attrs.flags |= ATTR_TOUCHSCREEN;
++        else if (test_bit(prop_bits, INPUT_PROP_POINTER) ||
++                 test_bit(key_bits, BTN_TOOL_FINGER))
++            attrs.flags |= ATTR_TOUCHPAD;
++        else if (test_bit(key_bits, BTN_TOOL_PEN) ||
++                 test_bit(key_bits, BTN_STYLUS) ||
++                 test_bit(key_bits, BTN_STYLUS2) ||
++                 test_bit(abs_bits, ABS_PRESSURE))
++            attrs.flags |= ATTR_TABLET;
++        else
++            attrs.flags |= ATTR_POINTER;
++    }
++
++    if (test_bit(key_bits, BTN_JOYSTICK) || test_bit(key_bits, BTN_GAMEPAD))
++        attrs.flags |= ATTR_JOYSTICK;
++
++    if (attrs.flags == 0) {
++        LogMessageVerb(X_INFO, 10,
++                       "config/evdev: ignoring input device %s without "
++                       "usable event capabilities\n", path);
++        close(fd);
++        return;
++    }
++
++    memset(&id, 0, sizeof(id));
++    have_id = ioctl(fd, EVIOCGID, &id) >= 0;
++    name = get_device_name(fd, path);
++    close(fd);
++    if (!name)
++        return;
++
++    if (Xasprintf(&config_info, "evdev:%s", path) == -1) {
++        config_info = NULL;
++        goto unwind;
++    }
++
++    if (device_is_duplicate(config_info)) {
++        LogMessage(X_WARNING, "config/evdev: device %s already added. "
++                   "Ignoring.\n", name);
++        goto unwind;
++    }
++
++    input_options = input_option_new(NULL, "_source", "server/evdev");
++    if (!input_options)
++        goto unwind;
++
++    input_options = input_option_new(input_options, "name", name);
++    input_options = input_option_new(input_options, "path", path);
++    input_options = input_option_new(input_options, "device", path);
++    input_options = input_option_new(input_options, "driver", "evdev");
++    if (attrs.flags & ATTR_KEYBOARD)
++        input_options = input_option_new(input_options, "xkb_rules", "evdev");
++    input_options = input_option_new(input_options, "config_info", config_info);
++
++    attrs.product = strdup(name);
++    attrs.device = strdup(path);
++
++    if (have_id && id.vendor && id.product &&
++        Xasprintf(&attrs.usb_id, "%04x:%04x", id.vendor, id.product) == -1)
++        attrs.usb_id = NULL;
++
++    LogMessage(X_INFO, "config/evdev: Adding input device %s (%s)\n",
++               name, path);
++    rc = NewInputDeviceRequest(input_options, &attrs, &dev);
++    if (rc != Success)
++        LogMessage(X_WARNING, "config/evdev: failed to add %s\n", path);
++
++ unwind:
++    input_option_free_list(&input_options);
++    free(config_info);
++    free(name);
++    free(attrs.product);
++    free(attrs.device);
++    free(attrs.usb_id);
++}
++
++static void
++evdev_add_devices(void)
++{
++    DIR *dir;
++    struct dirent *ent;
++
++    dir = opendir(EVDEV_INPUT_DIR);
++    if (!dir) {
++        LogMessage(X_WARNING, "config/evdev: opendir %s: %s\n",
++                   EVDEV_INPUT_DIR, strerror(errno));
++        return;
++    }
++
++    while ((ent = readdir(dir)) != NULL) {
++        char path[PATH_MAX];
++
++        if (!is_event_node(ent->d_name))
++            continue;
++
++        if (snprintf(path, sizeof(path), "%s/%s", EVDEV_INPUT_DIR,
++                     ent->d_name) >= (int) sizeof(path)) {
++            LogMessage(X_WARNING, "config/evdev: path too long: %s/%s\n",
++                       EVDEV_INPUT_DIR, ent->d_name);
++            continue;
++        }
++
++        evdev_add_device(path);
++    }
++
++    closedir(dir);
++}
++
++int
++config_evdev_init(void)
++{
++    evdev_add_devices();
++    return 1;
++}
++
++void
++config_evdev_fini(void)
++{
++}
+diff --git xorg-server-clean/config/meson.build xorg-server-workdir/config/meson.build
+index 2b5ab18..021c363 100644
+--- xorg-server-clean/config/meson.build
++++ xorg-server-workdir/config/meson.build
+@@ -19,6 +19,10 @@ if build_udev
+     config_dep += udev_dep
+ endif
+ 
++if build_evdev
++    srcs_config += 'evdev.c'
++endif
++
+ if host_machine.system() == 'openbsd'
+     srcs_config += 'wscons.c'
+ endif
 diff --git xorg-server-clean/configure.ac xorg-server-workdir/configure.ac
-index 7ef8581..38c16fd 100644
+index 7ef8581..4f97781 100644
 --- xorg-server-clean/configure.ac
 +++ xorg-server-workdir/configure.ac
-@@ -1435,7 +1435,7 @@ AM_CONDITIONAL([XF86VIDMODE], [test "x$XF86VIDMODE" = xyes])
+@@ -554,6 +554,7 @@ AC_ARG_ENABLE(xf86bigfont,    AS_HELP_STRING([--enable-xf86bigfont], [Build XF86
+ AC_ARG_ENABLE(dpms,           AS_HELP_STRING([--disable-dpms], [Build DPMS extension (default: enabled)]), [DPMSExtension=$enableval], [DPMSExtension=yes])
+ AC_ARG_ENABLE(config-udev,    AS_HELP_STRING([--enable-config-udev], [Build udev support (default: auto)]), [CONFIG_UDEV=$enableval], [CONFIG_UDEV=auto])
+ AC_ARG_ENABLE(config-udev-kms,    AS_HELP_STRING([--enable-config-udev-kms], [Build udev kms support (default: auto)]), [CONFIG_UDEV_KMS=$enableval], [CONFIG_UDEV_KMS=auto])
++AC_ARG_ENABLE(config-evdev,   AS_HELP_STRING([--enable-config-evdev], [Build /dev/input evdev support (default: auto)]), [CONFIG_EVDEV=$enableval], [CONFIG_EVDEV=auto])
+ AC_ARG_ENABLE(config-hal,     AS_HELP_STRING([--disable-config-hal], [Build HAL support (default: auto)]), [CONFIG_HAL=$enableval], [CONFIG_HAL=auto])
+ AC_ARG_ENABLE(config-wscons,  AS_HELP_STRING([--enable-config-wscons], [Build wscons config support (default: auto)]), [CONFIG_WSCONS=$enableval], [CONFIG_WSCONS=auto])
+ AC_ARG_ENABLE(xfree86-utils,     AS_HELP_STRING([--enable-xfree86-utils], [Build xfree86 DDX utilities (default: enabled)]), [XF86UTILS=$enableval], [XF86UTILS=yes])
+@@ -639,6 +640,7 @@ case $host_os in
+ 		CONFIG_HAL=no
+ 		CONFIG_UDEV=no
+ 		CONFIG_UDEV_KMS=no
++		CONFIG_EVDEV=no
+ 		DGA=no
+ 		DRM=no
+ 		DRI2=no
+@@ -835,6 +837,10 @@ if test "x$CONFIG_UDEV" = xyes && test "x$CONFIG_HAL" = xyes; then
+ 	AC_MSG_ERROR([Hotplugging through both libudev and hal not allowed])
+ fi
+ 
++if test "x$CONFIG_UDEV" = xyes && test "x$CONFIG_EVDEV" = xyes; then
++	AC_MSG_ERROR([Hotplugging through both libudev and evdev not allowed])
++fi
++
+ PKG_CHECK_MODULES(UDEV, $LIBUDEV, [HAVE_LIBUDEV=yes], [HAVE_LIBUDEV=no])
+ if test "x$CONFIG_UDEV" = xauto; then
+ 	CONFIG_UDEV="$HAVE_LIBUDEV"
+@@ -883,6 +889,28 @@ if test "x$CONFIG_HAL" = xyes; then
+ fi
+ AM_CONDITIONAL(CONFIG_HAL, [test "x$CONFIG_HAL" = xyes])
+ 
++if test "x$CONFIG_EVDEV" = xauto; then
++	if test "x$CONFIG_UDEV" = xyes -o "x$CONFIG_HAL" = xyes; then
++		CONFIG_EVDEV=no
++	else
++		case $host_os in
++			*astral*)
++				CONFIG_EVDEV=yes;
++				;;
++			*)
++				CONFIG_EVDEV=no;
++				;;
++		esac
++	fi
++fi
++AM_CONDITIONAL(CONFIG_EVDEV, [test "x$CONFIG_EVDEV" = xyes])
++if test "x$CONFIG_EVDEV" = xyes; then
++	if test "x$CONFIG_UDEV" = xyes -o "x$CONFIG_HAL" = xyes; then
++		AC_MSG_ERROR([Hotplugging through evdev cannot be combined with libudev or hal])
++	fi
++	AC_DEFINE(CONFIG_EVDEV, 1, [Use /dev/input evdev nodes for input auto configuration])
++fi
++
+ if test "x$SYSTEMD_LOGIND" = xauto; then
+         if test "x$HAVE_DBUS" = xyes -a "x$CONFIG_UDEV" = xyes ; then
+                 SYSTEMD_LOGIND=yes
+@@ -1368,7 +1396,7 @@ AC_SUBST(XKB_COMPILED_DIR)
+ 
+ if test "x$XKB_DFLT_RULES" = x; then
+     case $host_os in
+-    linux*)
++    linux*|astral*)
+         dnl doesn't take AutoAddDevices into account, but whatever.
+         XKB_DFLT_RULES="evdev"
+         ;;
+@@ -1435,7 +1463,7 @@ AM_CONDITIONAL([XF86VIDMODE], [test "x$XF86VIDMODE" = xyes])
  AC_DEFINE_DIR(COMPILEDDEFAULTFONTPATH, FONTPATH, [Default font path])
  AC_DEFINE_DIR(SERVER_MISC_CONFIG_PATH, SERVERCONFIG, [Server miscellaneous config path])
  AC_DEFINE_DIR(BASE_FONT_PATH, FONTROOTDIR, [Default base font path])
@@ -23,6 +470,19 @@ index 7ef8581..38c16fd 100644
  AC_DEFINE_DIR(DRI_DRIVER_PATH, dridriverdir, [Default DRI driver path])
  AC_DEFINE_UNQUOTED(XVENDORNAME, ["$VENDOR_NAME"], [Vendor name])
  AC_DEFINE_UNQUOTED(XVENDORNAMESHORT, ["$VENDOR_NAME_SHORT"], [Short vendor name])
+@@ -2257,10 +2285,10 @@ AC_SUBST([prefix])
+ 
+ AC_CONFIG_COMMANDS([sdksyms], [touch hw/xfree86/sdksyms.dep])
+ 
+-if test "x$CONFIG_HAL" = xno && test "x$CONFIG_UDEV" = xno; then
++if test "x$CONFIG_HAL" = xno && test "x$CONFIG_UDEV" = xno && test "x$CONFIG_EVDEV" = xno; then
+     AC_MSG_WARN([
+              ***********************************************
+-             Neither HAL nor udev backend will be enabled.
++             No HAL, udev, or evdev backend will be enabled.
+              Input device hotplugging will not be available!
+              ***********************************************])
+ fi
 diff --git xorg-server-clean/hw/xfree86/common/xf86Bus.c xorg-server-workdir/hw/xfree86/common/xf86Bus.c
 index fd144db..b232e27 100644
 --- xorg-server-clean/hw/xfree86/common/xf86Bus.c
@@ -44,7 +504,7 @@ index fd144db..b232e27 100644
  
  Bool
 diff --git xorg-server-clean/hw/xfree86/common/xf86Config.c xorg-server-workdir/hw/xfree86/common/xf86Config.c
-index 5d814c1..14ebfe6 100644
+index 5d814c1..cd88cee 100644
 --- xorg-server-clean/hw/xfree86/common/xf86Config.c
 +++ xorg-server-workdir/hw/xfree86/common/xf86Config.c
 @@ -49,6 +49,8 @@
@@ -56,6 +516,15 @@ index 5d814c1..14ebfe6 100644
  #include "xf86.h"
  #include "xf86Modes.h"
  #include "xf86Parser.h"
+@@ -876,7 +878,7 @@ configServerFlags(XF86ConfFlagsPtr flagsconf, XF86OptionPtr layoutopts)
+ 
+     /* when forcing input devices, we use kbd. otherwise evdev, so use the
+      * evdev rules set. */
+-#if defined(__linux__)
++#if defined(__linux__) || defined(__astral__) || defined(CONFIG_EVDEV)
+     if (!xf86Info.forceInputDevices)
+         rules = "evdev";
+     else
 diff --git xorg-server-clean/hw/xfree86/common/xf86Configure.c xorg-server-workdir/hw/xfree86/common/xf86Configure.c
 index 4347f6d..dc929f9 100644
 --- xorg-server-clean/hw/xfree86/common/xf86Configure.c
@@ -82,6 +551,19 @@ index 395bbc7..4bf86cb 100644
  #include <X11/X.h>
  #include <X11/Xproto.h>
  #include <X11/Xatom.h>
+diff --git xorg-server-clean/hw/xfree86/common/xf86Globals.c xorg-server-workdir/hw/xfree86/common/xf86Globals.c
+index 65a3192..554c69b 100644
+--- xorg-server-clean/hw/xfree86/common/xf86Globals.c
++++ xorg-server-workdir/hw/xfree86/common/xf86Globals.c
+@@ -118,7 +118,7 @@ xf86InfoRec xf86Info = {
+     .miscModInDevEnabled = TRUE,
+     .miscModInDevAllowNonLocal = FALSE,
+     .pmFlag = TRUE,
+-#if defined(CONFIG_HAL) || defined(CONFIG_UDEV) || defined(CONFIG_WSCONS)
++#if defined(CONFIG_HAL) || defined(CONFIG_UDEV) || defined(CONFIG_WSCONS) || defined(CONFIG_EVDEV)
+     .forceInputDevices = FALSE,
+     .autoAddDevices = TRUE,
+     .autoEnableDevices = TRUE,
 diff --git xorg-server-clean/hw/xfree86/common/xf86Helper.c xorg-server-workdir/hw/xfree86/common/xf86Helper.c
 index 0389945..286f271 100644
 --- xorg-server-clean/hw/xfree86/common/xf86Helper.c
@@ -271,6 +753,46 @@ index ad8af60..88eb52f 100644
  #include <X11/X.h>
  #include <xserver_poll.h>
  #include "xf86.h"
+diff --git xorg-server-clean/include/dix-config.h.in xorg-server-workdir/include/dix-config.h.in
+index 382d706..f296741 100644
+--- xorg-server-clean/include/dix-config.h.in
++++ xorg-server-workdir/include/dix-config.h.in
+@@ -403,6 +403,9 @@
+ /* Use libudev for kms enumeration */
+ #undef CONFIG_UDEV_KMS
+ 
++/* Use /dev/input evdev nodes for input auto configuration */
++#undef CONFIG_EVDEV
++
+ /* Use udev_monitor_filter_add_match_tag() */
+ #undef HAVE_UDEV_MONITOR_FILTER_ADD_MATCH_TAG
+ 
+diff --git xorg-server-clean/include/do-not-use-config.h.in xorg-server-workdir/include/do-not-use-config.h.in
+index 341c0da..8f54a44 100644
+--- xorg-server-clean/include/do-not-use-config.h.in
++++ xorg-server-workdir/include/do-not-use-config.h.in
+@@ -42,6 +42,9 @@
+ /* Use libudev for kms enumeration */
+ #undef CONFIG_UDEV_KMS
+ 
++/* Use /dev/input evdev nodes for input auto configuration */
++#undef CONFIG_EVDEV
++
+ /* Use wscons for input auto configuration */
+ #undef CONFIG_WSCONS
+ 
+diff --git xorg-server-clean/include/meson.build xorg-server-workdir/include/meson.build
+index 3521fa3..1d6c1e7 100644
+--- xorg-server-clean/include/meson.build
++++ xorg-server-workdir/include/meson.build
+@@ -94,6 +94,7 @@ conf_data.set('HAVE_LIBBSD', libbsd_dep.found() ? '1' : false)
+ conf_data.set('HAVE_SYSTEMD_DAEMON', libsystemd_daemon_dep.found() ? '1' : false)
+ conf_data.set('CONFIG_UDEV', build_udev ? '1' : false)
+ conf_data.set('CONFIG_UDEV_KMS', build_udev_kms ? '1' : false)
++conf_data.set('CONFIG_EVDEV', build_evdev ? '1' : false)
+ conf_data.set('HAVE_DBUS', build_dbus ? '1' : false)
+ conf_data.set('CONFIG_HAL', build_hal ? '1' : false)
+ conf_data.set('SYSTEMD_LOGIND', build_systemd_logind ? '1' : false)
 diff --git xorg-server-clean/include/os.h xorg-server-workdir/include/os.h
 index bb3348b..aac6cce 100644
 --- xorg-server-clean/include/os.h
@@ -285,6 +807,52 @@ index bb3348b..aac6cce 100644
  #ifdef MONOTONIC_CLOCK
  #include <time.h>
  #endif
+diff --git xorg-server-clean/meson.build xorg-server-workdir/meson.build
+index a6afd55..43f918e 100644
+--- xorg-server-clean/meson.build
++++ xorg-server-workdir/meson.build
+@@ -166,9 +166,11 @@ glamor_option = get_option('glamor')
+ 
+ build_udev = get_option('udev')
+ build_udev_kms = get_option('udev_kms')
++evdev_option = get_option('evdev')
+ if ['windows',  'darwin', 'cygwin'].contains(host_machine.system())
+     build_udev = false
+     build_udev_kms = false
++    evdev_option = 'false'
+     hal_option = 'false'
+ endif
+ 
+@@ -276,6 +278,16 @@ if build_udev and build_hal
+     error('Hotplugging through both libudev and hal not allowed')
+ endif
+ 
++if evdev_option == 'auto'
++    build_evdev = not build_udev and not build_hal and host_machine.system() == 'astral'
++else
++    build_evdev = evdev_option == 'true'
++endif
++
++if build_evdev and (build_udev or build_hal)
++    error('Hotplugging through evdev cannot be combined with libudev or hal')
++endif
++
+ build_dbus = build_hal or build_systemd_logind
+ 
+ udev_dep = dependency('', required:false)
+diff --git xorg-server-clean/meson_options.txt xorg-server-workdir/meson_options.txt
+index b12d521..bbd91c4 100644
+--- xorg-server-clean/meson_options.txt
++++ xorg-server-workdir/meson_options.txt
+@@ -63,6 +63,8 @@ option('pciaccess', type: 'boolean', value: 'true',
+        description: 'Xorg pciaccess support')
+ option('udev', type: 'boolean', value: 'true')
+ option('udev_kms', type: 'boolean', value: 'true')
++option('evdev', type: 'combo', choices: ['true', 'false', 'auto'], value: 'auto',
++       description: 'Use /dev/input evdev nodes for input auto configuration')
+ option('hal', type: 'combo', choices: ['true', 'false', 'auto'], value: 'auto',
+        description: 'Enable HAL integration')
+ option('systemd_logind', type: 'combo', choices: ['true', 'false', 'auto'], value: 'auto',
 diff --git xorg-server-clean/os/access.c xorg-server-workdir/os/access.c
 index b170304..53b90c5 100644
 --- xorg-server-clean/os/access.c
