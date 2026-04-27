@@ -59,17 +59,18 @@ bool bitmap_get(bitmap_t *bitmap, long idx) {
 }
 
 long bitmap_find_first_set(bitmap_t *bitmap) {
-	size_t loop_size = ROUND_UP(bitmap->size, sizeof(*bitmap->data)) / sizeof(*bitmap->data);
-
-	long offset = -1;
+	size_t bits_per_long = sizeof(*bitmap->data) * 8;
+	size_t loop_size = ROUND_UP(bitmap->size, bits_per_long) / bits_per_long;
 
 	for (size_t i = 0; i < loop_size; ++i) {
-		if (bitmap->data[i] == 0)
+		unsigned long word = bitmap->data[i];
+		if (word == 0)
 			continue;
 
-		offset = i * sizeof(*bitmap->data) + __builtin_ctz(bitmap->data[i]);
-		break;
+		long offset = i * bits_per_long + __builtin_ctzl(word);
+		if (offset < bitmap->size)
+			return offset;
 	}
 
-	return offset;
+	return -1;
 }
