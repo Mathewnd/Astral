@@ -1,6 +1,9 @@
 #ifndef _APIC_H
 #define _APIC_H
 
+#include <stdbool.h>
+#include <stdint.h>
+
 #define APIC_MODE_NMI 4
 
 void arch_apic_timerinit();
