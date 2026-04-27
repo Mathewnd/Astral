@@ -277,4 +277,4 @@ void arch_ps2_init() {
 	ps2_write_data(control);
 }
 
-INIT_ROUTINE_DEFINE(ps2, INIT_ROUTINE_FLAGS_NONE, arch_ps2_init, acpi, keyboard);
+INIT_ROUTINE_DEFINE(ps2, INIT_ROUTINE_FLAGS_NONE, arch_ps2_init, acpi, input);
