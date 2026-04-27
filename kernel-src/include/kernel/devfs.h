@@ -21,6 +21,7 @@
 #define DEV_MAJOR_PTY 12
 #define DEV_MAJOR_ACPI 13
 #define DEV_MAJOR_PROF 14
+#define DEV_MAJOR_INPUT 15
 
 typedef struct {
 	int (*open)(int minor, vnode_t **vnode, int flags);
