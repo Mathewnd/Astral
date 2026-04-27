@@ -1,9 +1,0 @@
-name=xf86-input-mouse
-version=1.9.4
-source_method=tarball
-tarball_url="https://gitlab.freedesktop.org/xorg/driver/xf86-input-mouse/-/archive/xf86-input-mouse-1.9.4/xf86-input-mouse-xf86-input-mouse-1.9.4.tar.gz"
-tarball_sha512=50b9c57bac762bbebf644af8f2220b69eb13de99df12e6d69feed93feb86d3f079e809b2f2d0f45514248005b411f6a817b003610470de920f3b92927a9bf8e8
-hostdeps="autoconf automake libtool pkgconfig util-macros"
-prepare() {
-        autoreconf -fvi
-}
