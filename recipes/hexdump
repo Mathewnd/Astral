@@ -1,0 +1,20 @@
+name=hexdump
+revision=1
+from_source=util-linux
+imagedeps="build-essential python3 python3-dev"
+hostrundeps="automake autoconf xgcc xbinutils libstdc++-v3 pkgconfig libtool"
+deps="base"
+
+configure() {
+	cp -rp ${source_dir}/* .
+	rm -rf po
+	./configure --host=x86_64-astral --prefix=${prefix} --disable-all-programs --enable-hexdump
+}
+
+build() {
+	make -j ${parallelism}
+}
+
+package() {
+	make DESTDIR="${dest_dir}" install
+}
