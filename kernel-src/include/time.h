@@ -57,4 +57,12 @@ static inline bool timespec_bigger(timespec_t t1, timespec_t t2) {
 	return t1.s > t2.s || (t1.s == t2.s && t1.ns > t2.ns);
 }
 
+static inline timeval_t timespec_to_timeval(timespec_t ts) {
+	timeval_t tv = {
+		ts.s,
+		ts.ns / 1000
+	};
+	return tv;
+}
+
 #endif
