@@ -19,8 +19,6 @@
 #define IPL_DISK 500
 #define IPL_SERIAL 550
 #define IPL_INPUT 600
-#define IPL_KEYBOARD 600
-#define IPL_MOUSE 650
 #define IPL_ACPI 700
 #define IPL_DPC 900
 #define IPL_NORMAL 1000
