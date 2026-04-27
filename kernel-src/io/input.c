@@ -301,14 +301,14 @@ static int input_listener_ioctl(int minor, unsigned long request, void *arg, int
 		return USERCOPY_POSSIBLY_TO_USER(arg, &lis->device->phys, min(size, sizeof(lis->device->phys)));
 	} else if (number == EVIOCGUNIQ) {
 		return USERCOPY_POSSIBLY_TO_USER(arg, &lis->device->uniq, min(size, sizeof(lis->device->uniq)));
-		} else if (number == EVIOCGPROP) {
-			return copy_bitmap_to_user(&lis->device->prop_bits, arg, size);
-		} else if (number == EVIOCGKEY || number == EVIOCGLED || number == EVIOCGSND || number == EVIOCGSW) {
-			// TODO: maintain current device state so SYN_DROPPED recovery can
-			// report pressed keys/buttons and active LEDs/sounds/switches.
-			return copy_bitmap_to_user(NULL, arg, size);
-		} else if (number == EVIOCGBIT) {
-			return copy_bitmap_to_user(&lis->device->ev_bits, arg, size);
+	} else if (number == EVIOCGPROP) {
+		return copy_bitmap_to_user(&lis->device->prop_bits, arg, size);
+	} else if (number == EVIOCGKEY || number == EVIOCGLED || number == EVIOCGSND || number == EVIOCGSW) {
+		// TODO: maintain current device state so SYN_DROPPED recovery can
+		// report pressed keys/buttons and active LEDs/sounds/switches.
+		return copy_bitmap_to_user(NULL, arg, size);
+	} else if (number == EVIOCGBIT) {
+		return copy_bitmap_to_user(&lis->device->ev_bits, arg, size);
 	} else if (number > EVIOCGBIT && number < EVIOCGBIT + INPUT_EV_CNT) {
 		bitmap_t *bitmap = NULL;
 		if (bitmap_get(&lis->device->ev_bits, number - EVIOCGBIT)) {
