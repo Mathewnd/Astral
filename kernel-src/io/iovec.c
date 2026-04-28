@@ -9,7 +9,7 @@ static inline bool iovec_iterator_finished(iovec_iterator_t *iovec_iterator) {
 bool iovec_user_check(iovec_t *iovec, size_t count) {
 	for (int i = 0; i < count; ++i) {
 		// POSIX says that when len is zero, the addr can be an invalid buffer
-		if (iovec->len && IS_USER_ADDRESS(iovec[i].addr) == false)
+		if (iovec[i].len && IS_USER_ADDRESS(iovec[i].addr) == false)
 			return false;
 	}
 
