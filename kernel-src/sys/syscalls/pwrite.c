@@ -8,6 +8,11 @@ syscallret_t syscall_pwrite(context_t *context, int fd, void *buffer, size_t siz
 		.ret = -1
 	};
 
+	if (!IS_USER_ADDRESS(buffer)) {
+		ret.errno = EFAULT;
+		return ret;
+	}
+
 	file_t *file = fd_get(fd);
 
 	if (file == NULL || (file->flags & FILE_WRITE) == 0) {
