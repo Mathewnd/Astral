@@ -141,7 +141,7 @@ void arch_extracontext_copy(extracontext_t *dst, const extracontext_t *src) {
 	// XXX is this behavior correct? ucontext doesnt seem to save it on linux and so it will not be saved
 	dst->gsbase = src->gsbase;
 	dst->fsbase = src->fsbase;
-	dst->fs = dst->fs;
-	dst->gs = dst->gs;
+	dst->fs = src->fs;
+	dst->gs = src->gs;
 	memcpy(dst->xsave, src->xsave, arch_xsave_size);
 }
