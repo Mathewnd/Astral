@@ -11,12 +11,20 @@
 __attribute__((noreturn)) void syscall_sigreturn(context_t *context) {
 	sigframe_t *sigframe = __builtin_alloca(ARCH_SIGFRAME_SIZE);
 	int error = usercopy_fromuser(sigframe, (void *)CTX_SP(context), ARCH_SIGFRAME_SIZE);
-	if (error || ARCH_CONTEXT_ISUSER(&sigframe->context) == false || !IS_USER_ADDRESS(CTX_IP(&sigframe->context))) {
-		printf("syscall_sigreturn: bad return stack or bad return information\n");
-		proc_terminate(SIGSEGV);
-	}
+	if (error)
+		goto bad_return;
+
+	// Rebase the embedded xsave pointer onto this in-kernel copy of the frame.
+	arch_sigframe_init(sigframe);
+
+	if (ARCH_CONTEXT_ISUSER(&sigframe->context) == false || !IS_USER_ADDRESS(CTX_IP(&sigframe->context)))
+		goto bad_return;
 
 #ifdef __x86_64__
+	if (!IS_USER_ADDRESS((void *)sigframe->extracontext.gsbase) ||
+	    !IS_USER_ADDRESS((void *)sigframe->extracontext.fsbase))
+		goto bad_return;
+
 	// CF PF AF ZF SF TF DF OF RF AC
 	sigframe->context.rflags &= 0x50DD5;
 #endif
@@ -29,15 +37,15 @@ __attribute__((noreturn)) void syscall_sigreturn(context_t *context) {
 
 	__assert(ARCH_CONTEXT_ISUSER(&sigframe->context));
 
-	// XXX TODO FIXME there is a bug here that needs this temporarily.
-	arch_cpu_user_access_begin();
 	arch_extracontext_copy(&current_thread()->extracontext, &sigframe->extracontext);
-	arch_cpu_user_access_end();
 	ARCH_CONTEXT_THREADLOAD(current_thread(), context);
 	arch_context_switch(&sigframe->context);
 
 	// if we were to return normally, CTX_RET and CTX_ERRNO would be corrupted,
 	// so we will manually call arch_context_switch, which will jump to the right userland code
 	// (and also check for pending signals again)
+bad_return:
+	printf("syscall_sigreturn: bad return stack or bad return information\n");
+	proc_terminate(SIGSEGV);
 	__builtin_unreachable();
 }
