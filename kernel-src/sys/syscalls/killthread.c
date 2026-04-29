@@ -9,7 +9,7 @@ syscallret_t syscall_killthread(context_t *context, int pid, int tid, int signal
 		.ret = -1
 	};
 
-	if (pid < 1 || tid < 1 || signal < 0 || signal > NSIG) {
+	if (pid < 1 || tid < 1 || signal < 0 || signal >= NSIG) {
 		ret.errno = EINVAL;
 		return ret;
 	}

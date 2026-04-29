@@ -11,6 +11,7 @@ syscallret_t syscall_getsockopt(context_t *, int fd, int level, int optname, voi
 
 	if (!IS_USER_ADDRESS(val) || !IS_USER_ADDRESS(len)) {
 		ret.errno = EFAULT;
+		return ret;
 	}
 
 	file_t *file = fd_get(fd);

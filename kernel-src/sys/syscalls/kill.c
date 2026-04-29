@@ -9,6 +9,11 @@ syscallret_t syscall_kill(context_t *context, int pid, int signal) {
 		.ret = -1
 	};
 
+	if (signal >= NSIG) {
+		ret.errno = EINVAL;
+		return ret;
+	}
+
 	int effectivepid = -1;
 
 	if (pid > 0) // specific process

@@ -7,7 +7,7 @@ syscallret_t syscall_sigaction(context_t *, int sig, sigaction_t *new, sigaction
 		.ret = -1
 	};
 
-	if (sig > NSIG || sig == SIGKILL || sig == SIGSTOP) {
+	if (sig >= NSIG || sig == SIGKILL || sig == SIGSTOP) {
 		ret.errno = EINVAL;
 		return ret;
 	}

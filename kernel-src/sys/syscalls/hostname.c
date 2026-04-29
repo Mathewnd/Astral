@@ -59,10 +59,11 @@ syscallret_t syscall_hostname(context_t *, char *unew, size_t newsize, char *uol
 	spinlock_release(&lock);
 	interrupt_set(true);
 
+	ret.errno = 0;
+
 	if (uold)
 		ret.errno = usercopy_touser(uold, old, copysize + 1);
 
-	ret.errno = 0;
-	ret.ret = 0;
+	ret.ret = ret.errno ? -1 : 0;
 	return ret;
 }
