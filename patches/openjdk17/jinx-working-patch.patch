@@ -3,11 +3,11 @@ index 66e01db..651621e 100644
 --- openjdk17-clean/make/autoconf/flags-cflags.m4
 +++ openjdk17-workdir/make/autoconf/flags-cflags.m4
 @@ -616,7 +616,11 @@ AC_DEFUN([FLAGS_SETUP_CFLAGS_HELPER],
-   # Where does this really belong??
-   if test "x$TOOLCHAIN_TYPE" = xgcc || test "x$TOOLCHAIN_TYPE" = xclang; then
+  # Where does this really belong??
+  if test "x$TOOLCHAIN_TYPE" = xgcc || test "x$TOOLCHAIN_TYPE" = xclang; then
      PICFLAG="-fPIC"
 -    PIEFLAG="-fPIE"
-+    if test "x$OPENJDK_TARGET_OS_ENV" = xastral; then
++    if echo "$OPENJDK_TARGET_AUTOCONF_NAME" | grep -q 'astral'; then
 +      PIEFLAG=""
 +    else
 +      PIEFLAG="-fPIE"
@@ -25,7 +25,7 @@ index 23bb33e..368f5a8 100644
      # java heap.
 -    if test "x$OPENJDK_TARGET_CPU_BITS" != "x32"; then
 +    if test "x$OPENJDK_TARGET_CPU_BITS" != "x32" && \
-+        test "x$OPENJDK_TARGET_OS_ENV" != xastral; then
++        ! echo "$OPENJDK_TARGET_AUTOCONF_NAME" | grep -q 'astral'; then
        EXECUTABLE_LDFLAGS="$EXECUTABLE_LDFLAGS -pie"
      fi
    fi
