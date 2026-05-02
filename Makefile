@@ -40,14 +40,13 @@ all: $(JINX_DIR)/.astral_ok
 	@echo "|--------------------------------------------------------------|"
 	@echo
 
-jinx:
-	curl https://codeberg.org/Mintsuki/jinx/raw/commit/1c40ceb62e09befc5172d1caf53e3e440a19f624/jinx > jinx
-	chmod +x jinx
+jinx/jinx:
+	git submodule update --init --recursive jinx
 
-$(JINX_DIR)/.astral_ok: jinx
+$(JINX_DIR)/.astral_ok: jinx/jinx
 	mkdir -p $(JINX_DIR)
 	cd $(JINX_DIR) && \
-	../jinx init .. ARCH=$(JINX_ARCH) && \
+	../jinx/jinx init .. ARCH=$(JINX_ARCH) && \
 	touch .astral_ok
 
 iso: $(ISO)
@@ -73,27 +72,27 @@ kernel:
 	cd $(JINX_DIR) && \
 	rm -f builds/astral.packaged && \
 	rm -f builds/astral.built && \
-	../jinx build astral
+	../jinx/jinx build astral
 
 distro-minimal:
 	cd $(JINX_DIR) && \
-	../jinx update $(MINIMALPACKAGES)
+	../jinx/jinx update $(MINIMALPACKAGES)
 
 distro-full:
 	cd $(JINX_DIR) && \
-	../jinx update '*'
+	../jinx/jinx update '*'
 
 # ------ initrd targets ------
 
 $(INITRD)-full: distro-full
 	cd $(JINX_DIR) && \
-	../jinx install sysroot \* && \
+	../jinx/jinx install sysroot \* && \
 	mkdir -p initrds && \
 	../geninitrd.sh sysroot $(INITRD)-full
 
 $(INITRD)-minimal: distro-minimal
 	cd $(JINX_DIR) && \
-	../jinx install minimalsysroot $(MINIMALPACKAGES) && \
+	../jinx/jinx install minimalsysroot $(MINIMALPACKAGES) && \
 	mkdir -p initrds && \
 	../geninitrd.sh minimalsysroot $(INITRD)-minimal
 
@@ -108,12 +107,12 @@ disk: disk-$(DISTROTYPE)
 
 disk-full: distro-full
 	cd $(JINX_DIR) && \
-	../jinx install sysroot \* && \
+	../jinx/jinx install sysroot \* && \
 	../gendisk.sh 7g sysroot $(DISKNAME)
 
 disk-minimal: distro-minimal
 	cd $(JINX_DIR) && \
-	../jinx install minimalsysroot $(MINIMALPACKAGES) && \
+	../jinx/jinx install minimalsysroot $(MINIMALPACKAGES) && \
 	../gendisk.sh 1900m minimalsysroot $(DISKNAME)
 
 # ------ clean targets ------
@@ -125,7 +124,6 @@ clean-kernel:
 	find builds/astral/ -name *.asmo -delete
 
 clean:
-	rm -rf jinx
 	rm -rf sources
 	rm -rf $(JINX_DIR)
 # ------ run targets ------

@@ -1,3 +1,6 @@
 [submodule "kernel-src/io/acpi/uacpi"]
 	path = kernel-src/io/acpi/uacpi
 	url = https://github.com/UltraOS/uACPI
+[submodule "jinx"]
+	path = jinx
+	url = https://codeberg.org/Mintsuki/jinx.git
