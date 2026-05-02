@@ -7,7 +7,7 @@ clean_workdirs=no
 deps="mlibc"
 
 build() {
-	cd ${base_dir}/build-${JINX_ARCH}/host-builds/xgcc
+	cd ${build_dir}/host-builds/xgcc
 	make all-target-libstdc++-v3 -j7
 }
 
