@@ -4,6 +4,7 @@ from_source=gcc
 imagedeps="build-essential libmpfr-dev libmpc-dev libgmp-dev"
 hostdeps="automake autoconf xbinutils pkgconfig"
 deps="mlibc-headers"
+clean_workdirs=no
 
 configure() {
 	${source_dir}/configure --target=x86_64-astral --prefix=${prefix} --with-sysroot=${sysroot_dir} --enable-languages=c,c++ -enable-threads=posix --disable-multilib --enable-shared --enable-host-shared --with-pic
