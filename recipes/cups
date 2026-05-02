@@ -19,6 +19,7 @@ configure() {
 		--with-tls=no \
 		--with-components=libcups
 	sed -i s/-Werror//g Makedefs
+	sed -i 's/[[:space:]]*-fPIE -pie//g' Makedefs
 }
 
 build() {
