@@ -1,3 +1,34 @@
+diff --git openjdk17-clean/make/autoconf/flags-cflags.m4 openjdk17-workdir/make/autoconf/flags-cflags.m4
+index 66e01db..651621e 100644
+--- openjdk17-clean/make/autoconf/flags-cflags.m4
++++ openjdk17-workdir/make/autoconf/flags-cflags.m4
+@@ -616,7 +616,11 @@ AC_DEFUN([FLAGS_SETUP_CFLAGS_HELPER],
+   # Where does this really belong??
+   if test "x$TOOLCHAIN_TYPE" = xgcc || test "x$TOOLCHAIN_TYPE" = xclang; then
+     PICFLAG="-fPIC"
+-    PIEFLAG="-fPIE"
++    if test "x$OPENJDK_TARGET_OS_ENV" = xastral; then
++      PIEFLAG=""
++    else
++      PIEFLAG="-fPIE"
++    fi
+   elif test "x$TOOLCHAIN_TYPE" = xxlc; then
+     # '-qpic' defaults to 'qpic=small'. This means that the compiler generates only
+     # one instruction for accessing the TOC. If the TOC grows larger than 64K, the linker
+diff --git openjdk17-clean/make/autoconf/flags-ldflags.m4 openjdk17-workdir/make/autoconf/flags-ldflags.m4
+index 23bb33e..368f5a8 100644
+--- openjdk17-clean/make/autoconf/flags-ldflags.m4
++++ openjdk17-workdir/make/autoconf/flags-ldflags.m4
+@@ -132,7 +132,8 @@ AC_DEFUN([FLAGS_SETUP_LDFLAGS_HELPER],
+     EXECUTABLE_LDFLAGS="$EXECUTABLE_LDFLAGS -Wl,--allow-shlib-undefined"
+     # Enabling pie on 32 bit builds prevents the JVM from allocating a continuous
+     # java heap.
+-    if test "x$OPENJDK_TARGET_CPU_BITS" != "x32"; then
++    if test "x$OPENJDK_TARGET_CPU_BITS" != "x32" && \
++        test "x$OPENJDK_TARGET_OS_ENV" != xastral; then
+       EXECUTABLE_LDFLAGS="$EXECUTABLE_LDFLAGS -pie"
+     fi
+   fi
 diff --git openjdk17-clean/make/autoconf/platform.m4 openjdk17-workdir/make/autoconf/platform.m4
 index eb66266..891759b 100644
 --- openjdk17-clean/make/autoconf/platform.m4
