@@ -41,7 +41,7 @@ all: $(JINX_DIR)/.astral_ok
 	@echo
 
 jinx:
-	curl https://codeberg.org/Mintsuki/jinx/raw/commit/fba7f3150aa0bd13d27161968b1f441836d06279/jinx > jinx
+	curl https://codeberg.org/Mintsuki/jinx/raw/commit/1c40ceb62e09befc5172d1caf53e3e440a19f624/jinx > jinx
 	chmod +x jinx
 
 $(JINX_DIR)/.astral_ok: jinx
@@ -77,11 +77,11 @@ kernel:
 
 distro-minimal:
 	cd $(JINX_DIR) && \
-	../jinx build-if-needed $(MINIMALPACKAGES)
+	../jinx update $(MINIMALPACKAGES)
 
 distro-full:
 	cd $(JINX_DIR) && \
-	../jinx build-if-needed '*'
+	../jinx update '*'
 
 # ------ initrd targets ------
 

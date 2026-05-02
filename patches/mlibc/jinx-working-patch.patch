@@ -1,153 +1,3 @@
-diff --git mlibc-clean/options/ansi/generic/time.cpp mlibc-workdir/options/ansi/generic/time.cpp
-index 8edf44b..c13a2c1 100644
---- mlibc-clean/options/ansi/generic/time.cpp
-+++ mlibc-workdir/options/ansi/generic/time.cpp
-@@ -598,7 +598,7 @@ int nanosleep(const struct timespec *req, struct timespec *rem) {
- 	int e = mlibc::sys_sleep(&tmp.tv_sec, &tmp.tv_nsec);
-	if (!e)
-		return 0;
--	else if (e == EINTR)
-+	else if (e == EINTR && rem)
-		*rem = tmp;
-
-	errno = e;
-diff --git mlibc-clean/options/internal/include/mlibc/strtol.hpp mlibc-workdir/options/internal/include/mlibc/strtol.hpp
-index a77d9d0..9f3fe08 100644
---- mlibc-clean/options/internal/include/mlibc/strtol.hpp
-+++ mlibc-workdir/options/internal/include/mlibc/strtol.hpp
-@@ -4,6 +4,7 @@
- #include <type_traits>
- #include <ctype.h>
- #include <wctype.h>
-+#include <errno.h>
- #include <limits.h>
- 
- namespace mlibc {
-diff --git mlibc-clean/options/ansi/generic/inttypes.cpp mlibc-workdir/options/ansi/generic/inttypes.cpp
-index 6478680..1ca08f4 100644
---- mlibc-clean/options/ansi/generic/inttypes.cpp
-+++ mlibc-workdir/options/ansi/generic/inttypes.cpp
-@@ -1,11 +1,7 @@
--
--#include <ctype.h>
- #include <inttypes.h>
--#include <string.h>
-+#include <mlibc/strtol.hpp>
- 
- #include <bits/ensure.h>
- #include <mlibc/debug.hpp>
--
--static const char *__mlibc_digits = "0123456789abcdefghijklmnopqrstuvwxyz";
- 
- intmax_t imaxabs(intmax_t num) {
-@@ -16,83 +14,17 @@ imaxdiv_t imaxdiv(intmax_t number, intmax_t denom) {
- 	return r;
- }
- 
--template <class T> T strtoxmax(const char *it, char **out, int base) {
--	T v = 0;
--	bool negate = false;
--	const unsigned char *s = (const unsigned char *)it;
--	int c;
--
--	if(std::is_signed_v<T>) {
--		if(*s == '+') {
--			s++;
--		}else if(*s == '-') {
--			negate = true;
--			s++;
--		}
--	}
--
--	do {
--		c = *s++;
--	} while (isspace(c));
--	if ((base == 0 || base == 16) && c == '0' && (*s == 'x' || *s == 'X')) {
--		c = s[1];
--		s += 2;
--		base = 16;
--	}
--	if (base == 0)
--		base = c == '0' ? 8 : 10;
--
--	if(base == 8) {
--		if(*it != 0)
--			goto parse_digits;
--		it++;
--	}else if(base == 16) {
--		if(*it != 0)
--			goto parse_digits;
--		it++;
--		if(*it != 'x' && *it != 'X')
--			goto parse_digits;
--		it++;
--	}
--
--parse_digits:
--	while(*it) {
--		if(isspace(*it)) {
--			it++;
--			continue;
--		}
--
--		__ensure(base <= 10); // TODO: For base > 10 we need to implement tolower().
--		//auto c = strchr(__mlibc_digits, tolower(*it));
--		auto c = strchr(__mlibc_digits, *it);
--		if(!c || (c - __mlibc_digits) >= base)
--			break;
--		v = v * base + (c - __mlibc_digits);
--		it++;
--	}
--
--	if(std::is_signed_v<T>) {
--		if(negate)
--			v = -v;
--	}
--
--	if(out)
--		*out = const_cast<char *>(it);
--	return v;
--}
--
--intmax_t strtoimax(const char *it, char **out, int base) {
--	// TODO: This function has to check for overflow!
--	return strtoxmax<intmax_t>(it, out, base);
-+intmax_t strtoimax(const char *string, char **end, int base) {
-+	return mlibc::stringToInteger<intmax_t, char>(string, end, base);
- }
--uintmax_t strtoumax(const char *it, char **out, int base) {
--	return strtoxmax<uintmax_t>(it, out, base);
-+uintmax_t strtoumax(const char *string, char **end, int base) {
-+	return mlibc::stringToInteger<uintmax_t, char>(string, end, base);
- }
- intmax_t wcstoimax(const wchar_t *__restrict, wchar_t **__restrict, int) {
- 	__ensure(!"Not implemented");
- 	__builtin_unreachable();
- }
- uintmax_t wcstoumax(const wchar_t *__restrict, wchar_t **__restrict, int) {
- 	__ensure(!"Not implemented");
- 	__builtin_unreachable();
- }
-diff --git mlibc-clean/options/ansi/generic/wchar.cpp mlibc-workdir/options/ansi/generic/wchar.cpp
-index b44ebc2..9339316 100644
---- mlibc-clean/options/ansi/generic/wchar.cpp
-+++ mlibc-workdir/options/ansi/generic/wchar.cpp
-@@ -54,8 +54,13 @@ size_t mbrlen(const char *__restrict mbs, size_t mb_limit, mbstate_t *__restrict
- 
- 	mlibc::code_seq<const char> nseq{mbs, mbs + mb_limit};
- 	mlibc::code_seq<wchar_t> wseq{&wc, &wc + 1};
--	if(auto e = cc->decode_wtranscode(nseq, wseq, *stp); e != mlibc::charcode_error::null)
--		__ensure(!"decode_wtranscode() errors are not handled");
-+	if(auto e = cc->decode_wtranscode(nseq, wseq, *stp); e != mlibc::charcode_error::null) {
-+		if(e == mlibc::charcode_error::input_underflow)
-+			return static_cast<size_t>(-1);
-+		__ensure(e == mlibc::charcode_error::illegal_input);
-+		errno = EILSEQ;
-+		return static_cast<size_t>(-1);
-+	}
- 	return nseq.it - mbs;
- }
- 
 diff --git mlibc-clean/options/glibc/generic/execinfo.cpp mlibc-workdir/options/glibc/generic/execinfo.cpp
 index 1ed110d..ded9114 100644
 --- mlibc-clean/options/glibc/generic/execinfo.cpp
@@ -218,140 +68,216 @@ index 1ed110d..ded9114 100644
 -	}
 +void backtrace_symbols_fd(void *const *, int, int) {
  }
+diff --git mlibc-clean/options/internal/generic/global-config.cpp mlibc-workdir/options/internal/generic/global-config.cpp
+index 3b7b862..3d86e7a 100644
+--- mlibc-clean/options/internal/generic/global-config.cpp
++++ mlibc-workdir/options/internal/generic/global-config.cpp
+@@ -1,9 +1,15 @@
+ #include <stdlib.h>
+-#include <string.h>
++#include <mlibc/allocator.hpp>
+ #include <mlibc/global-config.hpp>
+ 
+ namespace mlibc {
+ 
++namespace {
++
++constinit mlibc::lazy_eternal<GlobalConfig> globalConfigInstance;
++
++} // namespace
++
+ struct GlobalConfigGuard {
+ 	GlobalConfigGuard();
+ };
+@@ -12,7 +18,7 @@ GlobalConfigGuard guard;
+ 
+ GlobalConfigGuard::GlobalConfigGuard() {
+ 	// Force the config to be created during initialization of libc.so.
+-	mlibc::globalConfig();
++	globalConfigInstance.get();
+ }
+ 
+ static bool envEnabled(const char *env) {
+@@ -29,4 +35,8 @@ GlobalConfig::GlobalConfig() {
+ 	debugMonetaryLengths = envEnabled("MLIBC_DEBUG_MONETARY_LENGTHS");
+ }
+ 
++const GlobalConfig &globalConfig() {
++	return globalConfigInstance.get();
++}
++
+ } // namespace mlibc
+diff --git mlibc-clean/options/internal/include/mlibc/allocator.hpp mlibc-workdir/options/internal/include/mlibc/allocator.hpp
+index 852620a..a1bfb0a 100644
+--- mlibc-clean/options/internal/include/mlibc/allocator.hpp
++++ mlibc-workdir/options/internal/include/mlibc/allocator.hpp
+@@ -3,6 +3,7 @@
+ 
+ #include <mlibc/lock.hpp>
+ #include <bits/ensure.h>
++#include <frg/manual_box.hpp>
+ #include <frg/slab.hpp>
+ #include <internal-config.h>
+ 
+@@ -35,4 +36,34 @@ MemoryAllocator &getAllocator();
+ 
+ #endif // !MLIBC_DEBUG_ALLOCATOR
+ 
++namespace mlibc {
++
++template <typename T>
++struct lazy_eternal {
++	constexpr lazy_eternal() = default;
++
++	template <typename Self>
++	auto &get(this Self &&self) {
++		if (__atomic_load_n(&self.initialized_, __ATOMIC_ACQUIRE))
++			return *self.box_.get();
++
++		{
++			frg::unique_lock lock{self.lock_};
++			if (!__atomic_load_n(&self.initialized_, __ATOMIC_RELAXED)) {
++				self.box_.initialize();
++				__atomic_store_n(&self.initialized_, 1, __ATOMIC_RELEASE);
++			}
++		}
++
++		return *self.box_.get();
++	}
++
++private:
++	mutable uint32_t initialized_ = 0;
++	mutable FutexLock lock_;
++	mutable frg::manual_box<T> box_;
++};
++
++} // namespace mlibc
++
+ #endif // MLIBC_FRIGG_ALLOC
+diff --git mlibc-clean/options/internal/include/mlibc/global-config.hpp mlibc-workdir/options/internal/include/mlibc/global-config.hpp
+index 0235c54..3fad411 100644
+--- mlibc-clean/options/internal/include/mlibc/global-config.hpp
++++ mlibc-workdir/options/internal/include/mlibc/global-config.hpp
+@@ -14,11 +14,8 @@ struct GlobalConfig {
+ 	bool debugMonetaryLengths;
+ };
+ 
+-inline const GlobalConfig &globalConfig() {
+-	static GlobalConfig cached;
+-	return cached;
+-}
++const GlobalConfig &globalConfig();
+ 
+-}
++} // namespace mlibc
+ 
+ #endif // MLIBC_GLOBAL_CONFIG
+diff --git mlibc-clean/options/internal/include/mlibc/lock.hpp mlibc-workdir/options/internal/include/mlibc/lock.hpp
+index f447741..ab44667 100644
+--- mlibc-clean/options/internal/include/mlibc/lock.hpp
++++ mlibc-workdir/options/internal/include/mlibc/lock.hpp
+@@ -14,7 +14,7 @@
+ 
+ template<bool Recursive>
+ struct alignas(4) FutexLockImpl {
+-	FutexLockImpl() : _state{0}, _recursion{0} { }
++	constexpr FutexLockImpl() : _state{0}, _recursion{0} { }
+ 
+ 	FutexLockImpl(const FutexLockImpl &) = delete;
+ 
+diff --git mlibc-clean/options/internal/include/mlibc/sysdep-signatures.hpp mlibc-workdir/options/internal/include/mlibc/sysdep-signatures.hpp
+index d639e43..bff59a5 100644
+--- mlibc-clean/options/internal/include/mlibc/sysdep-signatures.hpp
++++ mlibc-workdir/options/internal/include/mlibc/sysdep-signatures.hpp
+@@ -23,6 +23,10 @@
+ 
+ #include <mlibc/sysdep-tags.hpp>
+ 
++#if __MLIBC_POSIX_OPTION
++#include <net/if.h>
++#endif
++
+ namespace mlibc {
+ 
+ template<typename Tag>
+@@ -235,6 +239,7 @@ SYSDEP_FUNC(SetRegid, gid_t rgid, gid_t egid);
+ SYSDEP_FUNC(GetLoginR, char *name, size_t name_len);
+ SYSDEP_FUNC(IfIndextoname, unsigned int index, char *name);
+ SYSDEP_FUNC(IfNametoindex, const char *name, unsigned int *ret);
++SYSDEP_FUNC(IfNameindex, struct if_nameindex **ret);
+ SYSDEP_FUNC(Ptsname, int fd, char *buffer, size_t length);
+ SYSDEP_FUNC(Unlockpt, int fd);
+ SYSDEP_FUNC(ThreadSetname, void *tcb, const char *name);
+diff --git mlibc-clean/options/internal/include/mlibc/sysdep-tags.hpp mlibc-workdir/options/internal/include/mlibc/sysdep-tags.hpp
+index 17cf422..b90d201 100644
+--- mlibc-clean/options/internal/include/mlibc/sysdep-tags.hpp
++++ mlibc-workdir/options/internal/include/mlibc/sysdep-tags.hpp
+@@ -476,6 +476,8 @@ struct GetLoginR {};
+ struct IfIndextoname {};
+ // int sys_if_nametoindex(const char *name, unsigned int *ret);
+ struct IfNametoindex {};
++// int sys_if_nameindex(struct if_nameindex **ret);
++struct IfNameindex {};
+ // int sys_ptsname(int fd, char *buffer, size_t length);
+ struct Ptsname {};
+ // int sys_unlockpt(int fd);
 diff --git mlibc-clean/options/posix/generic/net-if.cpp mlibc-workdir/options/posix/generic/net-if.cpp
-index 992aef7..e39c499 100644
+index ed0c463..8df2580 100644
 --- mlibc-clean/options/posix/generic/net-if.cpp
 +++ mlibc-workdir/options/posix/generic/net-if.cpp
-@@ -22,11 +22,18 @@ char *if_indextoname(unsigned int index, char *name) {
+@@ -6,8 +6,13 @@
+ #include <mlibc/all-sysdeps.hpp>
+ #include <mlibc/debug.hpp>
+ 
+-void if_freenameindex(struct if_nameindex *) {
+-	mlibc::infoLogger() << "mlibc: if_freenameindex is a no-op" << frg::endlog;
++void if_freenameindex(struct if_nameindex *index) {
++	if(!index)
++		return;
++
++	for(struct if_nameindex *it = index; it->if_index || it->if_name; ++it)
++		free(it->if_name);
++	free(index);
+ }
+ 
+ char *if_indextoname(unsigned int index, char *name) {
+@@ -20,9 +25,13 @@ char *if_indextoname(unsigned int index, char *name) {
  }
  
  struct if_nameindex *if_nameindex(void) {
 -	mlibc::infoLogger() << "mlibc: if_nameindex() is a no-op" << frg::endlog;
 -	errno = ENOSYS;
 -	return nullptr;
-+	auto sysdep = MLIBC_CHECK_OR_ENOSYS(mlibc::sys_if_nameindex, 0);
-+	struct if_nameindex *ret = 0;
-+
-+	if(int e = sysdep(&ret); e) {
++	struct if_nameindex *ret = nullptr;
++	if(int e = mlibc::sysdep_or_enosys<IfNameindex>(&ret); e) {
 +		errno = e;
-+		return 0;
++		return nullptr;
 +	}
 +
 +	return ret;
  }
  
-+
  unsigned int if_nametoindex(const char *name) {
- 	auto sysdep = MLIBC_CHECK_OR_ENOSYS(mlibc::sys_if_nametoindex, 0);
- 	unsigned int ret = 0;
-diff --git mlibc-clean/options/posix/generic/netdb.cpp mlibc-workdir/options/posix/generic/netdb.cpp
-index 299d9d3..d32237c 100644
---- mlibc-clean/options/posix/generic/netdb.cpp
-+++ mlibc-workdir/options/posix/generic/netdb.cpp
-@@ -371,8 +371,8 @@ int gethostbyaddr_r(const void *__restrict, socklen_t, int, struct hostent *__re
- 
- int gethostbyname_r(const char *__restrict, struct hostent *__restrict, char *__restrict, size_t,
- 					struct hostent **__restrict, int *__restrict) {
--	__ensure(!"Not implemented");
--	__builtin_unreachable();
-+	mlibc::infoLogger() << "gethostbyname_r is a stub!" << frg::endlog;
-+	return -1;
- }
- 
- struct protoent *getprotobyname(const char *) {
-diff --git mlibc-clean/options/posix/generic/utmpx.cpp mlibc-workdir/options/posix/generic/utmpx.cpp
-index 2c6252c..1d9064c 100644
---- mlibc-clean/options/posix/generic/utmpx.cpp
-+++ mlibc-workdir/options/posix/generic/utmpx.cpp
-@@ -77,10 +77,10 @@ void setutxent(void) {
- }
- 
- struct utmpx *getutxent(void) {
--	frg::unique_lock lock{utmpxMutex};
--
- 	if(!utmpxFd)
- 		setutxent();
-+	frg::unique_lock lock{utmpxMutex};
-+
- 	if(!utmpxFd) {
- 		errno = ENOENT;
- 		return nullptr;
-@@ -95,10 +95,10 @@ struct utmpx *getutxent(void) {
- }
- 
- struct utmpx *pututxline(const struct utmpx *ut) {
--	frg::unique_lock lock{utmpxMutex};
--
- 	if(!utmpxFd)
- 		setutxent();
-+	frg::unique_lock lock{utmpxMutex};
-+
- 	if(!utmpxFd) {
- 		errno = ENOENT;
- 		return nullptr;
-@@ -135,10 +135,10 @@ int utmpxname(const char *file) {
- }
- 
- struct utmpx *getutxid(const struct utmpx *ut) {
--	frg::unique_lock lock{utmpxMutex};
--
- 	if(!utmpxFd)
- 		setutxent();
-+
-+	frg::unique_lock lock{utmpxMutex};
- 	if(!utmpxFd) {
- 		errno = ENOENT;
- 		return nullptr;
-@@ -153,10 +153,10 @@ struct utmpx *getutxid(const struct utmpx *ut) {
- }
- 
- struct utmpx *getutxline(const struct utmpx *ut) {
--	frg::unique_lock lock{utmpxMutex};
--
- 	if(!utmpxFd)
- 		setutxent();
-+	frg::unique_lock lock{utmpxMutex};
-+
- 	if(!utmpxFd) {
- 		errno = ENOENT;
- 		return nullptr;
-diff --git mlibc-clean/options/posix/include/mlibc/posix-sysdeps.hpp mlibc-workdir/options/posix/include/mlibc/posix-sysdeps.hpp
-index 3666050..ecfc1ae 100644
---- mlibc-clean/options/posix/include/mlibc/posix-sysdeps.hpp
-+++ mlibc-workdir/options/posix/include/mlibc/posix-sysdeps.hpp
-@@ -230,6 +230,7 @@ int sys_vm_unmap(void *pointer, size_t size);
- 
- [[gnu::weak]] int sys_if_indextoname(unsigned int index, char *name);
- [[gnu::weak]] int sys_if_nametoindex(const char *name, unsigned int *ret);
-+[[gnu::weak]] int sys_if_nameindex(struct if_nameindex **);
- 
- [[gnu::weak]] int sys_ptsname(int fd, char *buffer, size_t length);
- [[gnu::weak]] int sys_unlockpt(int fd);
-diff --git mlibc-clean/options/rtld/generic/linker.cpp mlibc-workdir/options/rtld/generic/linker.cpp
-index 07dbe11..3ece6ec 100644
---- mlibc-clean/options/rtld/generic/linker.cpp
-+++ mlibc-workdir/options/rtld/generic/linker.cpp
-@@ -29,7 +29,7 @@ uintptr_t libraryBase = 0x41000000;
- 
- constexpr bool verbose = false;
- constexpr bool stillSlightlyVerbose = false;
--constexpr bool logBaseAddresses = false;
-+constexpr bool logBaseAddresses = true;
- constexpr bool logRpath = false;
- constexpr bool logLdPath = false;
- constexpr bool logSymbolVersions = false;
 diff --git mlibc-clean/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
-index 939925e..f8f8c8f 100644
+index 3b04372..a4b934a 100644
 --- mlibc-clean/sysdeps/astral/generic/generic.cpp
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -1,4 +1,5 @@
+@@ -1,7 +1,9 @@
  #include <bits/ensure.h>
 +#include <net/if.h>
  #include <mlibc/debug.hpp>
  #include <mlibc/all-sysdeps.hpp>
  #include <errno.h>
-@@ -13,6 +14,16 @@
++#include <ifaddrs.h>
+ #include <astral/syscall.h>
+ #include <astral/archctl.h>
+ #include <string.h>
+@@ -11,8 +13,20 @@
+ #include <sys/select.h>
+ #include <stdio.h>
  #include <sys/stat.h>
++#include <sys/statfs.h>
++#include <sys/statvfs.h>
  #include <unistd.h>
  #include <dirent.h>
 +#include <sys/sysmacros.h>
@@ -366,21 +292,27 @@ index 939925e..f8f8c8f 100644
 +} astral_net_info_t;
  
  namespace mlibc {
- 	int sys_setgroups(size_t size, const gid_t *list) {
-@@ -31,13 +42,216 @@ namespace mlibc {
+ 	int Sysdeps<SetGroups>::operator()(size_t size, const gid_t *list) {
+@@ -31,14 +45,214 @@ namespace mlibc {
  		return 0;
  	}
  
-+	int sys_setxattr(const char *path, const char *name,
+-	int Sysdeps<GetSockopt>::operator()(int fd, int layer, int number,
+-		void *__restrict buffer, socklen_t *__restrict size) {
++	int Sysdeps<Setxattr>::operator()(const char *path, const char *name,
 +		const void *val, size_t size, int flags) {
 +		(void)path;
 +		(void)name;
 +		(void)val;
-+		(void)size;
+ 		(void)size;
+-		(void)buffer;
+-		// TODO unstub
+-		mlibc::infoLogger() << "getsockopt: " << fd << " " << layer << " " << number << frg::endlog;
 +		(void)flags;
 +		return ENOTSUP;
 +	}
-+	int sys_lsetxattr(const char *path, const char *name,
++
++	int Sysdeps<Lsetxattr>::operator()(const char *path, const char *name,
 +		const void *val, size_t size, int flags) {
 +		(void)path;
 +		(void)name;
@@ -390,7 +322,7 @@ index 939925e..f8f8c8f 100644
 +		return ENOTSUP;
 +	}
 +
-+	int sys_fsetxattr(int fd, const char *name, const void *val,
++	int Sysdeps<Fsetxattr>::operator()(int fd, const char *name, const void *val,
 +		size_t size, int flags) {
 +		(void)fd;
 +		(void)name;
@@ -400,7 +332,7 @@ index 939925e..f8f8c8f 100644
 +		return ENOTSUP;
 +	}
 +
-+	int sys_getxattr(const char *path, const char *name,
++	int Sysdeps<Getxattr>::operator()(const char *path, const char *name,
 +		void *val, size_t size, ssize_t *nread) {
 +		(void)path;
 +		(void)name;
@@ -410,7 +342,7 @@ index 939925e..f8f8c8f 100644
 +		return ENOTSUP;
 +	}
 +
-+	int sys_lgetxattr(const char *path, const char *name,
++	int Sysdeps<Lgetxattr>::operator()(const char *path, const char *name,
 +		void *val, size_t size, ssize_t *nread) {
 +		(void)path;
 +		(void)name;
@@ -420,7 +352,7 @@ index 939925e..f8f8c8f 100644
 +		return ENOTSUP;
 +	}
 +
-+	int sys_fgetxattr(int fd, const char *name, void *val,
++	int Sysdeps<Fgetxattr>::operator()(int fd, const char *name, void *val,
 +		size_t size, ssize_t *nread) {
 +		(void)fd;
 +		(void)name;
@@ -430,7 +362,7 @@ index 939925e..f8f8c8f 100644
 +		return ENOTSUP;
 +	}
 +
-+	int sys_listxattr(const char *path, char *list, size_t size,
++	int Sysdeps<Listxattr>::operator()(const char *path, char *list, size_t size,
 +		ssize_t *nread) {
 +		(void)path;
 +		(void)list;
@@ -439,7 +371,7 @@ index 939925e..f8f8c8f 100644
 +		return ENOTSUP;
 +	}
 +
-+	int sys_llistxattr(const char *path, char *list, size_t size,
++	int Sysdeps<Llistxattr>::operator()(const char *path, char *list, size_t size,
 +		ssize_t *nread) {
 +		(void)path;
 +		(void)list;
@@ -448,7 +380,7 @@ index 939925e..f8f8c8f 100644
 +		return ENOTSUP;
 +	}
 +
-+	int sys_flistxattr(int fd, char *list, size_t size,
++	int Sysdeps<Flistxattr>::operator()(int fd, char *list, size_t size,
 +		ssize_t *nread) {
 +		(void)fd;
 +		(void)list;
@@ -459,43 +391,41 @@ index 939925e..f8f8c8f 100644
 +
 +#ifndef MLIBC_BUILDING_RTLD
 +	// XXX this might leak memory in case of an error.
-+	int sys_getifaddrs(struct ifaddrs **out) {
-+		struct ifaddrs *list = NULL;
++	int Sysdeps<Getifaddrs>::operator()(struct ifaddrs **out) {
++		struct ifaddrs *list = nullptr;
 +
 +		int dirfd;
-+		int error = sys_open("/dev/", O_DIRECTORY | O_RDONLY, 0, &dirfd);
-+		if (error)
++		int error = sysdep<Open>("/dev/", O_DIRECTORY | O_RDONLY, 0, &dirfd);
++		if(error)
 +			return error;
-+
 +
 +		struct dirent dent;
 +		size_t bytes_read;
-+		for (;;) {
-+			error = sys_read_entries(dirfd, &dent, sizeof(dent), &bytes_read);
-+			if (error)
++		for(;;) {
++			error = sysdep<ReadEntries>(dirfd, &dent, sizeof(dent), &bytes_read);
++			if(error)
 +				goto leave;
 +
-+			if (bytes_read == 0)
++			if(bytes_read == 0)
 +				break;
 +
 +			struct stat st;
-+			if (sys_stat(fsfd_target::fd_path, dirfd, dent.d_name, AT_SYMLINK_NOFOLLOW, &st))
++			if(sysdep<Stat>(fsfd_target::fd_path, dirfd, dent.d_name, AT_SYMLINK_NOFOLLOW, &st))
 +				continue;
 +
-+			// check if network device
-+			if (!S_ISCHR(st.st_mode) || major(st.st_rdev) != 10)
++			if(!S_ISCHR(st.st_mode) || major(st.st_rdev) != 10)
 +				continue;
 +
 +			int fd;
-+			error = sys_openat(dirfd, dent.d_name, 0, 0, &fd);
-+			if (error)
++			error = sysdep<Openat>(dirfd, dent.d_name, 0, 0, &fd);
++			if(error)
 +				continue;
 +
 +			astral_net_info_t net_info = {};
 +			int r;
-+			error = sys_ioctl(fd, 0x1337631, &net_info, &r);
-+			if (error) {
-+				sys_close(fd);
++			error = sysdep<Ioctl>(fd, 0x1337631, &net_info, &r);
++			if(error) {
++				sysdep<Close>(fd);
 +				continue;
 +			}
 +
@@ -513,13 +443,13 @@ index 939925e..f8f8c8f 100644
 +			__ensure(next->ifa_addr);
 +			memcpy(next->ifa_addr, &net_info.addr, sizeof(struct sockaddr));
 +
-+			if (net_info.netmask.sa_family) {
++			if(net_info.netmask.sa_family) {
 +				next->ifa_netmask = (struct sockaddr *)malloc(sizeof(struct sockaddr));
 +				__ensure(next->ifa_netmask);
 +				memcpy(next->ifa_netmask, &net_info.netmask, sizeof(struct sockaddr));
 +			}
 +
-+			if (net_info.broadaddr.sa_family) {
++			if(net_info.broadaddr.sa_family) {
 +				next->ifa_broadaddr = (struct sockaddr *)malloc(sizeof(struct sockaddr));
 +				__ensure(next->ifa_broadaddr);
 +				memcpy(next->ifa_broadaddr, &net_info.broadaddr, sizeof(struct sockaddr));
@@ -528,35 +458,35 @@ index 939925e..f8f8c8f 100644
 +			next->ifa_data = nullptr;
 +
 +			list = next;
-+			sys_close(fd);
++			sysdep<Close>(fd);
 +		}
 +
 +		*out = list;
 +
-+		leave:
-+		sys_close(dirfd);
++leave:
++		sysdep<Close>(dirfd);
 +		return error;
 +	}
 +
 +	// XXX extremely leaky.
-+	int sys_if_nameindex(struct if_nameindex **out) {
++	int Sysdeps<IfNameindex>::operator()(struct if_nameindex **out) {
 +		struct ifaddrs *ifaddrs;
-+		if (int e = sys_getifaddrs(&ifaddrs); e)
++		if(int e = sysdep<Getifaddrs>(&ifaddrs); e)
 +			return e;
 +
 +		struct ifaddrs *it = ifaddrs;
 +		int count = 0;
-+		while (it) {
++		while(it) {
 +			++count;
 +			it = it->ifa_next;
 +		}
 +
 +		struct if_nameindex *arr = (struct if_nameindex *)malloc(sizeof(struct if_nameindex) * (count + 1));
-+		if (!arr)
++		if(!arr)
 +			return ENOMEM;
 +
 +		int i = 0;
-+		while (ifaddrs) {
++		while(ifaddrs) {
 +			arr[i].if_index = i + 1;
 +			arr[i].if_name = strdup(ifaddrs->ifa_name);
 +			__ensure(arr[i].if_name);
@@ -571,36 +501,32 @@ index 939925e..f8f8c8f 100644
 +
 +		*out = arr;
 +
-+		return 0;
-+	}
+ 		return 0;
+ 	}
 +#endif
 +
- 	int sys_getsockopt(int fd, int layer, int number,
- 		void *__restrict buffer, socklen_t *__restrict size) {
- 		(void)size;
- 		(void)buffer;
--		// TODO unstub
--		mlibc::infoLogger() << "getsockopt: " << fd << " " << layer << " " << number << frg::endlog;
--		return 0;
++	int Sysdeps<GetSockopt>::operator()(int fd, int layer, int number,
++		void *__restrict buffer, socklen_t *__restrict size) {
 +		long ret;
 +		return syscall(SYSCALL_GETSOCKOPT, &ret, fd, layer, number, (uint64_t)buffer, (uint64_t)size);
- 	}
++	}
  
- 	int sys_inet_configured(bool *ipv4, bool *ipv6) {
+ 	int Sysdeps<InetConfigured>::operator()(bool *ipv4, bool *ipv6) {
+ 		// there is no ipv6 support in the kernel currently and no way of checking for configured interfaces
 @@ -47,6 +261,71 @@ namespace mlibc {
  		return 0;
  	}
  
-+	int sys_unlockpt(int fd) {
++	int Sysdeps<Unlockpt>::operator()(int fd) {
 +		int r;
 +		// unlockpt is a no-op kernel side, so use this to check for an invalid pty
-+		return sys_ioctl(fd, 0x13376167, NULL, &r);
++		return sysdep<Ioctl>(fd, 0x13376167, nullptr, &r);
 +	}
 +
-+	int sys_statfs(const char *path, struct statfs *buf) {
++	int Sysdeps<Statfs>::operator()(const char *path, struct statfs *buf) {
 +		struct statvfs stvfs;
-+		int ret = sys_statvfs(path, &stvfs);
-+		if (ret)
++		int ret = sysdep<Statvfs>(path, &stvfs);
++		if(ret)
 +			return ret;
 +
 +		buf->f_type = 0; /* statvfs has no f_type */
@@ -619,10 +545,10 @@ index 939925e..f8f8c8f 100644
 +		return 0;
 +	}
 +
-+	int sys_fstatfs(int fd, struct statfs *buf) {
++	int Sysdeps<Fstatfs>::operator()(int fd, struct statfs *buf) {
 +		struct statvfs stvfs;
-+		int ret = sys_fstatvfs(fd, &stvfs);
-+		if (ret)
++		int ret = sysdep<Fstatvfs>(fd, &stvfs);
++		if(ret)
 +			return ret;
 +
 +		buf->f_type = 0; /* statvfs has no f_type */
@@ -641,38 +567,55 @@ index 939925e..f8f8c8f 100644
 +		return 0;
 +	}
 +
-+	int sys_statvfs(const char *path, struct statvfs *out) {
++	int Sysdeps<Statvfs>::operator()(const char *path, struct statvfs *out) {
 +		long r;
 +		return syscall(SYSCALL_FSTATVFSAT, &r, AT_FDCWD, (uint64_t)path, (uint64_t)out, 0);
 +	}
 +
-+	int sys_fstatvfs(int fd, struct statvfs *out) {
++	int Sysdeps<Fstatvfs>::operator()(int fd, struct statvfs *out) {
 +		long r;
 +		return syscall(SYSCALL_FSTATVFS, &r, fd, (uint64_t)out);
 +	}
 +
-+	void sys_yield() {
++	void Sysdeps<Yield>::operator()() {
 +		long r;
 +		syscall(SYSCALL_YIELD, &r);
 +	}
 +
- 	int sys_readv(int fd, const struct iovec *iovs, int iovc, ssize_t *bytes_read) {
+ 	int Sysdeps<Readv>::operator()(int fd, const struct iovec *iovs, int iovc, ssize_t *bytes_read) {
  		long r;
  		int error = syscall(SYSCALL_READV, &r, fd, (uint64_t)iovs, iovc);
 @@ -489,6 +768,7 @@ namespace mlibc {
  
- 	int sys_setsockopt(int fd, int layer, int number, const void *buffer, socklen_t size) {
+ 	int Sysdeps<SetSockopt>::operator()(int fd, int layer, int number, const void *buffer, socklen_t size) {
  		long ret;
 +		mlibc::infoLogger() << "setsockopt: fd " << fd << " layer " << layer << " number " << number << frg::endlog;
  		return syscall(SYSCALL_SETSOCKOPT, &ret, fd, layer, number, (uint64_t)buffer, size);
  	}
  
-@@ -932,4 +1212,13 @@ namespace mlibc {
+@@ -562,6 +842,16 @@ namespace mlibc {
+ 		return sysdep<Ioctl>(fd, TCSETS, (void *)attr, &res);
+ 	}
+ 
++	int Sysdeps<Tcgetwinsize>::operator()(int fd, struct winsize *winsz) {
++		int res;
++		return sysdep<Ioctl>(fd, TIOCGWINSZ, (void *)winsz, &res);
++	}
++
++	int Sysdeps<Tcsetwinsize>::operator()(int fd, const struct winsize *winsz) {
++		int res;
++		return sysdep<Ioctl>(fd, TIOCSWINSZ, (void *)winsz, &res);
++	}
++
+ 	int Sysdeps<Poll>::operator()(struct pollfd *fds, nfds_t count, int timeout, int *num_events) {
+ 		long ret;
+ 		long error = syscall(SYSCALL_POLL, &ret, (uint64_t)fds, count, timeout);
+@@ -932,4 +1222,13 @@ namespace mlibc {
  		*nanos = ts.tv_nsec;
  		return err;
  	}
 +
-+	int sys_clock_getres(int clock, time_t *secs, long *nanos) {
++	int Sysdeps<ClockGetres>::operator()(int clock, time_t *secs, long *nanos) {
 +		struct timespec ts;
 +		long ret;
 +		int err = syscall(SYSCALL_CLOCK_GETRES, &ret, clock, (uint64_t)&ts);
@@ -718,4 +661,51 @@ index a6c4067..f1e0b65 100644
 +#define SYSCALL_CLOCK_GETRES 103
  
  #ifndef __MLIBC_ABI_ONLY
+ 
+diff --git mlibc-clean/sysdeps/astral/include/mlibc/sysdeps.hpp mlibc-workdir/sysdeps/astral/include/mlibc/sysdeps.hpp
+index ce91084..e7e9b6d 100644
+--- mlibc-clean/sysdeps/astral/include/mlibc/sysdeps.hpp
++++ mlibc-workdir/sysdeps/astral/include/mlibc/sysdeps.hpp
+@@ -7,8 +7,25 @@ namespace mlibc {
+ struct AstralSysdepTags :
+ 	SetGroups,
+ 	GetGroups,
++	Setxattr,
++	Lsetxattr,
++	Fsetxattr,
++	Getxattr,
++	Lgetxattr,
++	Fgetxattr,
++	Listxattr,
++	Llistxattr,
++	Flistxattr,
++	Getifaddrs,
++	IfNameindex,
+ 	GetSockopt,
+ 	InetConfigured,
++	Unlockpt,
++	Statfs,
++	Fstatfs,
++	Statvfs,
++	Fstatvfs,
++	Yield,
+ 	Readv,
+ 	Writev,
+ 	Sysinfo,
+@@ -85,6 +102,8 @@ struct AstralSysdepTags :
+ 	Sleep,
+ 	Tcgetattr,
+ 	Tcsetattr,
++	Tcgetwinsize,
++	Tcsetwinsize,
+ 	Poll,
+ 	Ppoll,
+ 	Pselect,
+@@ -135,6 +154,7 @@ struct AstralSysdepTags :
+ 	VmUnmap,
+ 	Isatty,
+ 	ClockGet,
++	ClockGetres,
+ 	PrepareStack
+ {};
  

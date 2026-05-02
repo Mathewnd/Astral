@@ -1,5 +1,5 @@
 diff --git llvm-clean/clang/lib/Basic/Targets/OSTargets.h llvm-workdir/clang/lib/Basic/Targets/OSTargets.h
-index 4366c11..a2f2a26 100644
+index 4366c11..46ff0e0 100644
 --- llvm-clean/clang/lib/Basic/Targets/OSTargets.h
 +++ llvm-workdir/clang/lib/Basic/Targets/OSTargets.h
 @@ -447,6 +447,36 @@ public:
@@ -40,7 +40,7 @@ index 4366c11..a2f2a26 100644
  template <typename Target>
  class LLVM_LIBRARY_VISIBILITY PS3PPUTargetInfo : public OSTargetInfo<Target> {
 diff --git llvm-clean/clang/lib/Basic/Targets.cpp llvm-workdir/clang/lib/Basic/Targets.cpp
-index e328351..c67fbc8 100644
+index e328351..180c537 100644
 --- llvm-clean/clang/lib/Basic/Targets.cpp
 +++ llvm-workdir/clang/lib/Basic/Targets.cpp
 @@ -174,6 +174,10 @@ std::unique_ptr<TargetInfo> AllocateTarget(const llvm::Triple &Triple,
@@ -75,7 +75,7 @@ index e328351..c67fbc8 100644
        return std::make_unique<X86_64TargetInfo>(Triple, Opts);
      }
 diff --git llvm-clean/clang/lib/Driver/CMakeLists.txt llvm-workdir/clang/lib/Driver/CMakeLists.txt
-index 58427e3..9fd4eb1 100644
+index 58427e3..26dae28 100644
 --- llvm-clean/clang/lib/Driver/CMakeLists.txt
 +++ llvm-workdir/clang/lib/Driver/CMakeLists.txt
 @@ -79,6 +79,7 @@ add_clang_library(clangDriver
@@ -87,7 +87,7 @@ index 58427e3..9fd4eb1 100644
    ToolChains/XCore.cpp
    ToolChains/PPCLinux.cpp
 diff --git llvm-clean/clang/lib/Driver/Driver.cpp llvm-workdir/clang/lib/Driver/Driver.cpp
-index 93cddf7..5930d07 100644
+index 93cddf7..e2f5d7a 100644
 --- llvm-clean/clang/lib/Driver/Driver.cpp
 +++ llvm-workdir/clang/lib/Driver/Driver.cpp
 @@ -46,6 +46,7 @@
@@ -108,52 +108,9 @@ index 93cddf7..5930d07 100644
      case llvm::Triple::LiteOS:
        TC = std::make_unique<toolchains::OHOS>(*this, Target, Args);
        break;
-diff --git llvm-clean/clang/lib/Driver/ToolChains/Gnu.cpp llvm-workdir/clang/lib/Driver/ToolChains/Gnu.cpp
-index e5e1b1d..5d2d67e 100644
---- llvm-clean/clang/lib/Driver/ToolChains/Gnu.cpp
-+++ llvm-workdir/clang/lib/Driver/ToolChains/Gnu.cpp
-@@ -228,6 +228,8 @@ static const char *getLDMOption(const llvm::Triple &T, const ArgList &Args) {
-       return "elf_iamcu";
-     return "elf_i386";
-   case llvm::Triple::aarch64:
-+    if (T.getOS() == llvm::Triple::Astral)
-+      return "aarch64astral";
-     return "aarch64linux";
-   case llvm::Triple::aarch64_be:
-     return "aarch64linuxb";
-@@ -2452,7 +2454,7 @@ void Generic_GCC::GCCInstallationDetector::AddDefaultGCCPrefixes(
-   static const char *const AArch64LibDirs[] = {"/lib64", "/lib"};
-   static const char *const AArch64Triples[] = {
-       "aarch64-none-linux-gnu", "aarch64-linux-gnu", "aarch64-redhat-linux",
--      "aarch64-suse-linux"};
-+      "aarch64-suse-linux", "aarch64-astral"};
-   static const char *const AArch64beLibDirs[] = {"/lib"};
-   static const char *const AArch64beTriples[] = {"aarch64_be-none-linux-gnu",
-                                                  "aarch64_be-linux-gnu"};
-@@ -2482,7 +2484,8 @@ void Generic_GCC::GCCInstallationDetector::AddDefaultGCCPrefixes(
-       "x86_64-redhat-linux",    "x86_64-suse-linux",
-       "x86_64-manbo-linux-gnu", "x86_64-linux-gnu",
-       "x86_64-slackware-linux", "x86_64-unknown-linux",
--      "x86_64-amazon-linux"};
-+      "x86_64-amazon-linux", "x86_64-astral"};
-+
-   static const char *const X32Triples[] = {"x86_64-linux-gnux32",
-                                            "x86_64-pc-linux-gnux32"};
-   static const char *const X32LibDirs[] = {"/libx32", "/lib"};
-@@ -2558,7 +2561,9 @@ void Generic_GCC::GCCInstallationDetector::AddDefaultGCCPrefixes(
-   static const char *const RISCV64LibDirs[] = {"/lib64", "/lib"};
-   static const char *const RISCV64Triples[] = {"riscv64-unknown-linux-gnu",
-                                                "riscv64-linux-gnu",
--                                               "riscv64-unknown-elf"};
-+                                               "riscv64-unknown-elf",
-+                                               "riscv64-astral",
-+
- 
-   static const char *const SPARCv8LibDirs[] = {"/lib32", "/lib"};
-   static const char *const SPARCv8Triples[] = {"sparc-linux-gnu",
 diff --git llvm-workdir/clang/lib/Driver/ToolChains/Astral.cpp llvm-workdir/clang/lib/Driver/ToolChains/Astral.cpp
 new file mode 100644
-index 0000000..c087c3d
+index 0000000..ec626e1
 --- /dev/null
 +++ llvm-workdir/clang/lib/Driver/ToolChains/Astral.cpp
 @@ -0,0 +1,230 @@
@@ -389,7 +346,7 @@ index 0000000..c087c3d
 +}
 diff --git llvm-workdir/clang/lib/Driver/ToolChains/Astral.h llvm-workdir/clang/lib/Driver/ToolChains/Astral.h
 new file mode 100644
-index 0000000..d422f8d
+index 0000000..c680298
 --- /dev/null
 +++ llvm-workdir/clang/lib/Driver/ToolChains/Astral.h
 @@ -0,0 +1,54 @@
@@ -447,8 +404,63 @@ index 0000000..d422f8d
 +} // end namespace clang
 +
 +#endif // LLVM_CLANG_LIB_DRIVER_TOOLCHAINS_ASTRAL_H
+diff --git llvm-clean/clang/lib/Driver/ToolChains/Gnu.cpp llvm-workdir/clang/lib/Driver/ToolChains/Gnu.cpp
+index e5e1b1d..9ef11b3 100644
+--- llvm-clean/clang/lib/Driver/ToolChains/Gnu.cpp
++++ llvm-workdir/clang/lib/Driver/ToolChains/Gnu.cpp
+@@ -228,6 +228,8 @@ static const char *getLDMOption(const llvm::Triple &T, const ArgList &Args) {
+       return "elf_iamcu";
+     return "elf_i386";
+   case llvm::Triple::aarch64:
++    if (T.getOS() == llvm::Triple::Astral)
++      return "aarch64astral";
+     return "aarch64linux";
+   case llvm::Triple::aarch64_be:
+     return "aarch64linuxb";
+@@ -2452,7 +2454,7 @@ void Generic_GCC::GCCInstallationDetector::AddDefaultGCCPrefixes(
+   static const char *const AArch64LibDirs[] = {"/lib64", "/lib"};
+   static const char *const AArch64Triples[] = {
+       "aarch64-none-linux-gnu", "aarch64-linux-gnu", "aarch64-redhat-linux",
+-      "aarch64-suse-linux"};
++      "aarch64-suse-linux", "aarch64-astral"};
+   static const char *const AArch64beLibDirs[] = {"/lib"};
+   static const char *const AArch64beTriples[] = {"aarch64_be-none-linux-gnu",
+                                                  "aarch64_be-linux-gnu"};
+@@ -2482,7 +2484,8 @@ void Generic_GCC::GCCInstallationDetector::AddDefaultGCCPrefixes(
+       "x86_64-redhat-linux",    "x86_64-suse-linux",
+       "x86_64-manbo-linux-gnu", "x86_64-linux-gnu",
+       "x86_64-slackware-linux", "x86_64-unknown-linux",
+-      "x86_64-amazon-linux"};
++      "x86_64-amazon-linux", "x86_64-astral"};
++
+   static const char *const X32Triples[] = {"x86_64-linux-gnux32",
+                                            "x86_64-pc-linux-gnux32"};
+   static const char *const X32LibDirs[] = {"/libx32", "/lib"};
+@@ -2558,7 +2561,9 @@ void Generic_GCC::GCCInstallationDetector::AddDefaultGCCPrefixes(
+   static const char *const RISCV64LibDirs[] = {"/lib64", "/lib"};
+   static const char *const RISCV64Triples[] = {"riscv64-unknown-linux-gnu",
+                                                "riscv64-linux-gnu",
+-                                               "riscv64-unknown-elf"};
++                                               "riscv64-unknown-elf",
++                                               "riscv64-astral",
++
+ 
+   static const char *const SPARCv8LibDirs[] = {"/lib32", "/lib"};
+   static const char *const SPARCv8Triples[] = {"sparc-linux-gnu",
+diff --git llvm-clean/llvm/include/llvm/ADT/SmallVector.h llvm-workdir/llvm/include/llvm/ADT/SmallVector.h
+index 09676d7..1744414 100644
+--- llvm-clean/llvm/include/llvm/ADT/SmallVector.h
++++ llvm-workdir/llvm/include/llvm/ADT/SmallVector.h
+@@ -19,6 +19,7 @@
+ #include <algorithm>
+ #include <cassert>
+ #include <cstddef>
++#include <cstdint>
+ #include <cstdlib>
+ #include <cstring>
+ #include <functional>
 diff --git llvm-clean/llvm/include/llvm/ADT/bit.h llvm-workdir/llvm/include/llvm/ADT/bit.h
-index c42b5e6..5745ec3 100644
+index c42b5e6..b7b8101 100644
 --- llvm-clean/llvm/include/llvm/ADT/bit.h
 +++ llvm-workdir/llvm/include/llvm/ADT/bit.h
 @@ -29,7 +29,7 @@
@@ -461,7 +473,7 @@ index c42b5e6..5745ec3 100644
  #elif defined(_AIX)
  #include <sys/machine.h>
 diff --git llvm-clean/llvm/include/llvm/TargetParser/Triple.h llvm-workdir/llvm/include/llvm/TargetParser/Triple.h
-index 49ec8de..17e97e6 100644
+index 49ec8de..36f00c1 100644
 --- llvm-clean/llvm/include/llvm/TargetParser/Triple.h
 +++ llvm-workdir/llvm/include/llvm/TargetParser/Triple.h
 @@ -226,7 +226,8 @@ public:
@@ -486,7 +498,7 @@ index 49ec8de..17e97e6 100644
    enum ObjectFormatType {
      UnknownObjectFormat,
 diff --git llvm-clean/llvm/lib/Support/Unix/Path.inc llvm-workdir/llvm/lib/Support/Unix/Path.inc
-index 9f89d63..fc8db42 100644
+index 9f89d63..cfb29f2 100644
 --- llvm-clean/llvm/lib/Support/Unix/Path.inc
 +++ llvm-workdir/llvm/lib/Support/Unix/Path.inc
 @@ -112,7 +112,7 @@ typedef uint_t uint;
@@ -528,7 +540,7 @@ index 9f89d63..fc8db42 100644
    // conservative answer.
    return false;
 diff --git llvm-clean/llvm/lib/TargetParser/Triple.cpp llvm-workdir/llvm/lib/TargetParser/Triple.cpp
-index 0bbe8a3..fd175c4 100644
+index 0bbe8a3..0124236 100644
 --- llvm-clean/llvm/lib/TargetParser/Triple.cpp
 +++ llvm-workdir/llvm/lib/TargetParser/Triple.cpp
 @@ -276,6 +276,7 @@ StringRef Triple::getOSTypeName(OSType Kind) {

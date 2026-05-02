@@ -4,8 +4,7 @@ source_method=tarball
 tarball_url="https://www.gnupg.org/ftp/gcrypt/gnutls/v3.8/gnutls-${version}.tar.xz"
 tarball_sha512="d453bd4527af95cb3905ce8753ceafd969e3f442ad1d148544a233ebf13285b999930553a805a0511293cc25390bb6a040260df5544a7c55019640f920ad3d92"
 imagedeps="autoconf automake gtk-doc-tools"
-hostdeps="libtool pkgconfig automake"
+hostdeps="libtool"
 prepare() {
 	autoreconf -fvi
-	cp -v $(find /usr/local/share/automake* -name config.sub) build-aux
 }

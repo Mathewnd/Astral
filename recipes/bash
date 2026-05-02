@@ -7,7 +7,7 @@ deps="readline base"
 
 configure() {
 	cp -rp ${source_dir}/* .
-	./configure --host=x86_64-astral --prefix=${prefix} --without-bash-malloc
+	CFLAGS_FOR_BUILD="-std=gnu17 -g" ./configure --host=x86_64-astral --prefix=${prefix} --without-bash-malloc
 }
 
 build() {

@@ -1,7 +1,7 @@
 name=qemu
 revision=1
 from_source=qemu
-imagedeps="build-essential python3-venv python3-sphinx ninja-build meson git"
+imagedeps="build-essential python3-pip python3-venv python3-distlib python3-sphinx ninja-build meson git"
 hostdeps="xgcc xbinutils pkgconfig libtool"
 deps="base sdl2 glib libiconv libintl"
 allow_network="yes"

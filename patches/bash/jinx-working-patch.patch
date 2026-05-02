@@ -1,18 +1,18 @@
 diff --git bash-clean/externs.h bash-workdir/externs.h
-index 3d7716c..8fb66a8 100644
+index 47b80f6..063912f 100644
 --- bash-clean/externs.h
 +++ bash-workdir/externs.h
-@@ -290,7 +290,7 @@ extern int getdtablesize PARAMS((void));
+@@ -308,7 +308,7 @@ extern int getdtablesize (void);
  #endif /* !HAVE_GETDTABLESIZE */
  
  #if !defined (HAVE_GETHOSTNAME)
--extern int gethostname PARAMS((char *, int));
-+extern int gethostname PARAMS((char *, size_t));
+-extern int gethostname (char *, int);
++extern int gethostname (char *, size_t);
  #endif /* !HAVE_GETHOSTNAME */
  
- extern int getmaxgroups PARAMS((void));
+ extern int getmaxgroups (void);
 diff --git bash-clean/subst.c bash-workdir/subst.c
-index 9ccbf33..909bac9 100644
+index e9d3e75..f787665 100644
 --- bash-clean/subst.c
 +++ bash-workdir/subst.c
 @@ -32,6 +32,7 @@
@@ -24,29 +24,29 @@ index 9ccbf33..909bac9 100644
  #if defined (HAVE_UNISTD_H)
  #  include <unistd.h>
 diff --git bash-clean/support/config.sub bash-workdir/support/config.sub
-index c874b7a..8e4744e 100755
+index 4aaae46..dfefff8 100644
 --- bash-clean/support/config.sub
 +++ bash-workdir/support/config.sub
-@@ -1720,7 +1720,7 @@ case $os in
- 	     | skyos* | haiku* | rdos* | toppers* | drops* | es* \
- 	     | onefs* | tirtos* | phoenix* | fuchsia* | redox* | bme* \
- 	     | midnightbsd* | amdhsa* | unleashed* | emscripten* | wasi* \
--	     | nsk* | powerunix* | genode* | zvmoe* | qnx* | emx*)
-+	     | nsk* | powerunix* | genode* | zvmoe* | qnx* | emx* | astral*)
- 		;;
- 	# This one is extra strict with allowed versions
- 	sco3.2v2 | sco3.2v[4-9]* | sco5v6*)
+@@ -1974,6 +1974,7 @@ case $os in
+ 	| aos* \
+ 	| aros* \
+ 	| atheos* \
++	| astral* \
+ 	| auroraux* \
+ 	| aux* \
+ 	| beos* \
 diff --git bash-clean/support/shobj-conf bash-workdir/support/shobj-conf
-index 5a3f977..4d21483 100755
+index c3df351..0576089 100755
 --- bash-clean/support/shobj-conf
 +++ bash-workdir/support/shobj-conf
-@@ -79,6 +79,9 @@ nsk-cc-tandem|nsk-c99-tandem)
+@@ -79,6 +79,10 @@ nsk-cc-tandem|nsk-c99-tandem)
  	SHOBJ_LDFLAGS='-shared -bglobalized -unres_symbols ignore'
  	;;
  
 +astral*-*gcc*)
 +	SHOBJ_CFLAGS=-fpic
 +	;;
++
  sunos4*-*gcc*)
  	SHOBJ_CFLAGS=-fpic
  	SHOBJ_LD=/usr/bin/ld

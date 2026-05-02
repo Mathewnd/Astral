@@ -2,8 +2,8 @@ name=glib
 revision=1
 from_source=glib
 imagedeps="gcc meson ninja-build"
-hostdeps="xgcc xbinutils pkgconfig automake autoconf util-macros libtool"
-deps="base libiconv pcre2 libffi libintl"
+hostdeps="xgcc xbinutils libstdc++-v3 pkgconfig automake autoconf util-macros libtool"
+deps="base pcre2 libffi"
 
 configure() {
 	meson --cross-file ${base_dir}/util/crossfile --prefix=${prefix} --buildtype=release -Dxattr=false ${source_dir}

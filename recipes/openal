@@ -1,8 +1,8 @@
 name=openal
 revision=1
 from_source=openal
-imagedeps="build-essential cmake"
-hostdeps="xgcc xbinutils libstdc++-v3 pkgconfig"
+imagedeps="build-essential"
+hostdeps="xgcc xbinutils libstdc++-v3 pkgconfig cmake"
 deps="base alsa-lib"
 
 configure() {

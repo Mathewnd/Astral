@@ -1,0 +1,12 @@
+diff --git cmake-clean/Utilities/cmcppdap/include/dap/network.h cmake-workdir/Utilities/cmcppdap/include/dap/network.h
+index 9d14f6b..4c5868f 100644
+--- cmake-clean/Utilities/cmcppdap/include/dap/network.h
++++ cmake-workdir/Utilities/cmcppdap/include/dap/network.h
+@@ -17,6 +17,7 @@
+ 
+ #include <functional>
+ #include <memory>
++#include <cstdint>
+ 
+ namespace dap {
+ class ReaderWriter;

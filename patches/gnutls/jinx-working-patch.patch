@@ -1,0 +1,12 @@
+diff --git gnutls-clean/build-aux/config.sub gnutls-workdir/build-aux/config.sub
+index 4aaae46..cd5a02a 100755
+--- gnutls-clean/build-aux/config.sub
++++ gnutls-workdir/build-aux/config.sub
+@@ -2109,6 +2109,7 @@ case $os in
+ 	| solaris* \
+ 	| solidbsd* \
+ 	| sortix* \
++        | astral* \
+ 	| storm-chaos* \
+ 	| sunos \
+ 	| sunos[34]* \

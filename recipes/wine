@@ -2,7 +2,7 @@ name=wine
 revision=1
 from_source=wine
 imagedeps="build-essential mingw-w64"
-hostdeps="xgcc xbinutils pkgconfig wine freetype"
+hostdeps="xgcc xbinutils pkgconfig libtool wine freetype"
 deps="base libxcursor libxfixes libxi libxrandr libxrender libxxf86vm libx11 libxext mesa fontconfig sdl2 freetype glib xorgproto openssl gnutls"
 
 configure() {
