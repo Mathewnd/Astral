@@ -40,7 +40,7 @@ configure() {
 	--with-opengl \
         --with-mingw \
         --with-x \
-        --with-wine-tools="${base_dir}/build-${JINX_ARCH}/host-builds/wine/"
+        --with-wine-tools="${build_dir}/host-builds/wine"
 }
 
 build() {
