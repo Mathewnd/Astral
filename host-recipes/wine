@@ -1,6 +1,7 @@
 name=wine
-revision=1
+revision=2
 from_source=wine
+clean_workdirs=no
 imagedeps="build-essential mingw-w64 mingw-w64-i686-dev"
 hostdeps="freetype pkgconfig"
 
