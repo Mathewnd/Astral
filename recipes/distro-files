@@ -1,5 +1,5 @@
 name=distro-files
-revision=1
+revision=2
 from_source=distro-files
 
 package() {
@@ -22,4 +22,10 @@ package() {
 	ln -fvs /usr/share/games/doom/DOOM1.WAD ${dest_dir}/root/DOOM1.WAD
 	ln -fvs /usr/share/games/doom/DOOM1.WAD ${dest_dir}/home/astral/DOOM1.WAD
 	ln -fvs /usr/share/games/doom/DOOM1.WAD ${dest_dir}/etc/skel/DOOM1.WAD
+
+	chmod -R u+rw,go+rX ${dest_dir}/*
+	chmod +x ${dest_dir}/etc/local.d/firstboot.start
+	chmod +x ${dest_dir}/usr/bin/astral-bootstrap
+	chmod +x ${dest_dir}/usr/bin/astral-chroot
+	chmod +x ${dest_dir}/root/hello.sh ${dest_dir}/home/astral/hello.sh ${dest_dir}/etc/skel/hello.sh
 }
