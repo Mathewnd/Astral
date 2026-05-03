@@ -53,7 +53,7 @@ index e1c99f1..c78164d 100644
 +++ xbps-workdir/data/repod-main.conf
 @@ -1 +1 @@
 -repository=https://repo-default.voidlinux.org/current
-+repository=https://astral-os.org/repository
++repository=https://astral-os.org/repository/x86_64
 diff --git xbps-clean/lib/fetch/ftp.c xbps-workdir/lib/fetch/ftp.c
 index 877b70d..a303d18 100644
 --- xbps-clean/lib/fetch/ftp.c
