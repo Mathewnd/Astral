@@ -62,10 +62,10 @@ index 33f676a..d544710 100644
  	fi
  
 diff --git openrc-clean/init.d/devfs.in openrc-workdir/init.d/devfs.in
-index 6d67230..3584353 100644
+index 6d67230..2947fe0 100644
 --- openrc-clean/init.d/devfs.in
 +++ openrc-workdir/init.d/devfs.in
-@@ -127,8 +127,18 @@ restorecon_dev()
+@@ -127,8 +127,21 @@ restorecon_dev()
  
  start()
  {
@@ -84,14 +84,17 @@ index 6d67230..3584353 100644
 +		mkdir -p /dev/shm
 +		mount /dev/shm -t tmpfs
 +		chmod 1777 /dev/shm
++
++		chmod 0755 /dev/pts
++		chmod 0755 /dev/input
 +	fi
  	return 0
  }
 diff --git openrc-clean/init.d/localmount.in openrc-workdir/init.d/localmount.in
-index 9535b59..d86e39d 100644
+index 9535b59..05ef312 100644
 --- openrc-clean/init.d/localmount.in
 +++ openrc-workdir/init.d/localmount.in
-@@ -35,7 +35,13 @@ start()
+@@ -35,7 +35,15 @@ start()
  		fi
  	fi
  	ebegin "Mounting local filesystems"
@@ -99,6 +102,8 @@ index 9535b59..d86e39d 100644
 +
 +	if [ "$RC_UNAME" = Astral ]; then
 +		mount -a
++		# HACK: mount options are still not supported. to allow normal /tmp use, chmod it here
++		chmod 1777 /tmp
 +	else
 +		mount -at "$types" $no_netdev
 +	fi
@@ -106,7 +111,7 @@ index 9535b59..d86e39d 100644
  	eend $? "Some local filesystem failed to mount"
  	rc=$?
  	if [ -z "$critical_mounts" ]; then
-@@ -78,7 +84,9 @@ stop()
+@@ -78,7 +86,9 @@ stop()
  	no_umounts_r="^($no_umounts_r)$"
  
  	# Flush all pending disk writes now
@@ -116,7 +121,7 @@ index 9535b59..d86e39d 100644
  
  	. "$RC_LIBEXECDIR"/sh/rc-mount.sh
  
-@@ -109,6 +117,11 @@ stop()
+@@ -109,6 +119,11 @@ stop()
  		done
  	fi
  
