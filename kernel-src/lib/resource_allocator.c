@@ -39,6 +39,7 @@ size_t resource_allocate(resource_allocator_t *allocator, size_t count) {
 		sched_prepare_sleep(false);
 		spinlock_release(&allocator->spinlock);
 		sched_yield();
+		interrupt_set(status);
 		return count;
 	}
 
