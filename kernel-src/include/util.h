@@ -23,6 +23,13 @@ static inline unsigned long log2(unsigned long x) {
 	return sizeof(unsigned long) * 8 - __builtin_clzll(x) - 1;
 }
 
+static inline unsigned long ceil_log2(unsigned long x) {
+	if (x <= 1)
+		return 0;
+
+	return log2(x - 1) + 1;
+}
+
 #define min(x, y) (x > y ? y : x)
 #define max(x, y) (x < y ? y : x)
 
