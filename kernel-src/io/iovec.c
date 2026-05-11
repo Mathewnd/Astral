@@ -7,6 +7,7 @@ static inline bool iovec_iterator_finished(iovec_iterator_t *iovec_iterator) {
 }
 
 bool iovec_user_check(iovec_t *iovec, size_t count) {
+	// TODO add size overflow check
 	for (int i = 0; i < count; ++i) {
 		// POSIX says that when len is zero, the addr can be an invalid buffer
 		if (iovec[i].len && IS_USER_ADDRESS(iovec[i].addr) == false)
@@ -250,7 +251,7 @@ int iovec_iterator_next_page(iovec_iterator_t *iovec_iterator, size_t *page_offs
 		return EFAULT;
 
 	*page_offset = offset_in_page;
-	*page_remaining = min(PAGE_SIZE, remaining);
+	*page_remaining = min(PAGE_SIZE - offset_in_page, remaining);
 	*page = phys;
 	iovec_iterator_skip(iovec_iterator, *page_remaining);
 	return 0;
