@@ -3,6 +3,8 @@
 #include <kernel/vfs.h>
 #include <kernel/auth.h>
 
+#define FCHOWNAT_KNOWN_FLAGS (AT_EMPTY_PATH | AT_SYMLINK_NOFOLLOW)
+
 syscallret_t syscall_fchownat(context_t *, int fd, char *upath, uid_t owner, gid_t group, int flags) {
 	syscallret_t ret = {
 		.ret = -1
@@ -50,14 +52,21 @@ syscallret_t syscall_fchownat(context_t *, int fd, char *upath, uid_t owner, gid
 			goto cleanup;
 	}
 
-	ret.errno = auth_filesystem_check(&current_thread()->proc->cred, AUTH_ACTIONS_FILESYSTEM_SETATTR, node, NULL);
+	cred_t *cred = &current_thread()->proc->cred;
+	ret.errno = auth_filesystem_check(cred, AUTH_ACTIONS_FILESYSTEM_SETATTR, node, NULL);
 	if (ret.errno) {
 		VOP_UNLOCK(node);
 		goto cleanup;
 	}
 
+	if ((group != -1 && !CRED_IS_ESU(cred) && group != cred->gid && group != cred->egid && group != cred->sgid) || (owner != -1 && !CRED_IS_ESU(cred))) {
+		ret.errno = EPERM;
+		VOP_UNLOCK(node);
+		goto cleanup;
+	}
+
 	vattr_t attr;
-	ret.errno = VOP_GETATTR(node, &attr, &current_thread()->proc->cred);
+	ret.errno = VOP_GETATTR(node, &attr, cred);
 	if (ret.errno) {
 		VOP_UNLOCK(node);
 		goto cleanup;
@@ -65,9 +74,18 @@ syscallret_t syscall_fchownat(context_t *, int fd, char *upath, uid_t owner, gid
 
 	attr.uid = owner;
 	attr.gid = group;
-	attr.mode = (attr.mode) & ~(V_ATTR_MODE_SGID | V_ATTR_MODE_SUID);
 
-	ret.errno = VOP_SETATTR(node, &attr, ((owner == -1) ? 0 : V_ATTR_UID) | ((group == -1) ? 0 : V_ATTR_GID) | ((group + owner == -2) ? 0 : V_ATTR_MODE), &current_thread()->proc->cred);
+	int attrs = 0;
+	if (owner != -1)
+		attrs |= V_ATTR_UID;
+	if (group != -1)
+		attrs |= V_ATTR_GID;
+	if (attrs) {
+		attr.mode &= ~(V_ATTR_MODE_SGID | V_ATTR_MODE_SUID);
+		attrs |= V_ATTR_MODE;
+	}
+
+	ret.errno = VOP_SETATTR(node, &attr, attrs, cred);
 	ret.ret = ret.errno ? -1 : 0;
 
 	VOP_UNLOCK(node);
