@@ -168,6 +168,7 @@ typedef struct {
 #define INPUT_KEY_BTN_MIDDLE 0x112
 #define INPUT_KEY_BTN_SIDE 0x113
 #define INPUT_KEY_BTN_EXTRA 0x114
+#define INPUT_KEY_BTN_FORWARD 0x115
 #define INPUT_KEY_MAX 0x2ff
 #define INPUT_KEY_CNT (INPUT_KEY_MAX + 1)
 
