@@ -1,8 +1,26 @@
 diff --git wine-clean/configure wine-workdir/configure
-index ed9c961..20d3b8a 100755
+index ed9c961..11d6f38 100755
 --- wine-clean/configure
 +++ wine-workdir/configure
-@@ -10219,12 +10219,14 @@ then :
+@@ -10087,12 +10087,17 @@ then :
+   printf "%s\n" "#define HAVE_LINUX_USERFAULTFD_H 1" >>confdefs.h
+ 
+ fi
++case $host_os in
++  astral*) ;;
++  *)
+ ac_fn_c_check_header_compile "$LINENO" "linux/wireless.h" "ac_cv_header_linux_wireless_h" "$ac_includes_default"
+ if test "x$ac_cv_header_linux_wireless_h" = xyes
+ then :
+   printf "%s\n" "#define HAVE_LINUX_WIRELESS_H 1" >>confdefs.h
+ 
+ fi
++ ;;
++esac
+ ac_fn_c_check_header_compile "$LINENO" "lwp.h" "ac_cv_header_lwp_h" "$ac_includes_default"
+ if test "x$ac_cv_header_lwp_h" = xyes
+ then :
+@@ -10219,12 +10224,14 @@ then :
    printf "%s\n" "#define HAVE_SYS_CDIO_H 1" >>confdefs.h
  
  fi
@@ -22,7 +40,7 @@ index ed9c961..20d3b8a 100755
  ac_fn_c_check_header_compile "$LINENO" "sys/event.h" "ac_cv_header_sys_event_h" "$ac_includes_default"
  if test "x$ac_cv_header_sys_event_h" = xyes
  then :
-@@ -10387,12 +10389,12 @@ then :
+@@ -10387,12 +10394,12 @@ then :
    printf "%s\n" "#define HAVE_SYS_VNODE_H 1" >>confdefs.h
  
  fi
@@ -40,7 +58,26 @@ index ed9c961..20d3b8a 100755
  ac_fn_c_check_header_compile "$LINENO" "syscall.h" "ac_cv_header_syscall_h" "$ac_includes_default"
  if test "x$ac_cv_header_syscall_h" = xyes
  then :
-@@ -12255,6 +12257,74 @@ fi
+@@ -11031,6 +11038,9 @@ then :
+   printf "%s\n" "#define HAVE_LINUX_IRDA_H 1" >>confdefs.h
+ 
+ fi
++case $host_os in
++  astral*) ;;
++  *)
+ ac_fn_c_check_header_compile "$LINENO" "linux/rtnetlink.h" "ac_cv_header_linux_rtnetlink_h" "#include <sys/types.h>
+      #include <sys/socket.h>
+      #ifdef HAVE_ASM_TYPES_H
+@@ -11045,6 +11055,8 @@ then :
+   printf "%s\n" "#define HAVE_LINUX_RTNETLINK_H 1" >>confdefs.h
+ 
+ fi
++ ;;
++esac
+ 
+ 
+ ac_fn_c_check_header_compile "$LINENO" "resolv.h" "ac_cv_header_resolv_h" "#include <sys/types.h>
+@@ -12255,6 +12267,74 @@ fi
      WINEPRELOADER_LDFLAGS="-nostartfiles -nodefaultlibs"
  
      case $host_os in
@@ -115,7 +152,7 @@ index ed9c961..20d3b8a 100755
        linux*)
          as_fn_append WINELOADER_LDFLAGS " -pie"
          case $HOST_ARCH in
-@@ -21321,12 +21391,12 @@ then :
+@@ -21321,12 +21401,12 @@ then :
    printf "%s\n" "#define HAVE_DLINFO 1" >>confdefs.h
  
  fi
@@ -134,11 +171,251 @@ index ed9c961..20d3b8a 100755
  ac_fn_c_check_func "$LINENO" "epoll_pwait2" "ac_cv_func_epoll_pwait2"
  if test "x$ac_cv_func_epoll_pwait2" = xyes
  then :
-@@ -25067,4 +25137,3 @@ printf "%s\n" "
+@@ -25066,5 +25146,3 @@ IFS="$ac_save_IFS"
+ printf "%s\n" "
  $as_me: Finished.  Do '${MAKE-make}' to compile Wine.
  " >&6
- 
 -
+-
+diff --git wine-clean/dlls/dnsapi/dnsapi.h wine-workdir/dlls/dnsapi/dnsapi.h
+index d2b57b9..2eb8034 100644
+--- wine-clean/dlls/dnsapi/dnsapi.h
++++ wine-workdir/dlls/dnsapi/dnsapi.h
+@@ -98,6 +98,7 @@ static inline char *strdup_ua( const char *src )
+ }
+ 
+ extern const char *debugstr_type( unsigned short );
++extern BOOL dnsapi_no_libresolv;
+ 
+ struct get_searchlist_params
+ {
+@@ -130,4 +131,4 @@ enum unix_funcs
+     unix_funcs_count
+ };
+ 
+-#define RESOLV_CALL( func, params ) WINE_UNIX_CALL( unix_ ## func, params )
++#define RESOLV_CALL( func, params ) (dnsapi_no_libresolv ? DNS_ERROR_RCODE_NOT_IMPLEMENTED : WINE_UNIX_CALL( unix_ ## func, params ))
+diff --git wine-clean/dlls/dnsapi/main.c wine-workdir/dlls/dnsapi/main.c
+index 9b057a0..aeb649d 100644
+--- wine-clean/dlls/dnsapi/main.c
++++ wine-workdir/dlls/dnsapi/main.c
+@@ -32,6 +32,8 @@
+ 
+ WINE_DEFAULT_DEBUG_CHANNEL(dnsapi);
+ 
++BOOL dnsapi_no_libresolv;
++
+ BOOL WINAPI DllMain( HINSTANCE hinst, DWORD reason, LPVOID reserved )
+ {
+     TRACE( "(%p, %lu, %p)\n", hinst, reason, reserved );
+@@ -41,7 +43,10 @@ BOOL WINAPI DllMain( HINSTANCE hinst, DWORD reason, LPVOID reserved )
+     case DLL_PROCESS_ATTACH:
+         DisableThreadLibraryCalls( hinst );
+         if (__wine_init_unix_call())
++        {
++            dnsapi_no_libresolv = TRUE;
+             ERR( "No libresolv support, expect problems\n" );
++        }
+         break;
+     case DLL_PROCESS_DETACH:
+         break;
+diff --git wine-clean/dlls/dnsapi/query.c wine-workdir/dlls/dnsapi/query.c
+index a28d98f..6fa81fa 100644
+--- wine-clean/dlls/dnsapi/query.c
++++ wine-workdir/dlls/dnsapi/query.c
+@@ -418,22 +418,36 @@ DNS_STATUS WINAPI DnsQueryConfig( DNS_CONFIG_TYPE config, DWORD flag, const WCHA
+     case DnsConfigDnsServersUnspec:
+     {
+         struct get_serverlist_params params = { AF_UNSPEC, buffer, len };
++        if (dnsapi_no_libresolv) return DNS_ERROR_NO_DNS_SERVERS;
+         return RESOLV_CALL( get_serverlist, &params );
+     }
+     case DnsConfigDnsServersIpv4:
+     {
+         struct get_serverlist_params params = { AF_INET, buffer, len };
++        if (dnsapi_no_libresolv) return DNS_ERROR_NO_DNS_SERVERS;
+         return RESOLV_CALL( get_serverlist, &params );
+     }
+     case DnsConfigDnsServersIpv6:
+     {
+         struct get_serverlist_params params = { AF_INET6, buffer, len };
++        if (dnsapi_no_libresolv) return DNS_ERROR_NO_DNS_SERVERS;
+         return RESOLV_CALL( get_serverlist, &params );
+     }
+     /* Windows does not implement this, but we need it in iphlpapi. */
+     case DnsConfigSearchList:
+     {
+         struct get_searchlist_params params = { buffer, len };
++        if (dnsapi_no_libresolv)
++        {
++            if (!buffer || *len < sizeof(WCHAR))
++            {
++                *len = sizeof(WCHAR);
++                return !buffer ? ERROR_SUCCESS : ERROR_MORE_DATA;
++            }
++            *(WCHAR *)buffer = 0;
++            *len = sizeof(WCHAR);
++            return ERROR_SUCCESS;
++        }
+         return RESOLV_CALL( get_searchlist, &params );
+     }
+     default:
+diff --git wine-clean/dlls/iphlpapi/iphlpapi_main.c wine-workdir/dlls/iphlpapi/iphlpapi_main.c
+index fe2de41..769f411 100644
+--- wine-clean/dlls/iphlpapi/iphlpapi_main.c
++++ wine-workdir/dlls/iphlpapi/iphlpapi_main.c
+@@ -1019,6 +1019,7 @@ err:
+ 
+ static DWORD gateway_and_prefix_addresses_alloc( IP_ADAPTER_ADDRESSES *aa, ULONG family, ULONG flags )
+ {
++    static volatile BOOL skip_route_tables = TRUE;
+     struct nsi_ipv4_forward_key *key4;
+     struct nsi_ipv6_forward_key *key6;
+     struct nsi_ip_forward_rw *rw;
+@@ -1030,6 +1031,17 @@ static DWORD gateway_and_prefix_addresses_alloc( IP_ADAPTER_ADDRESSES *aa, ULONG
+     NET_LUID *luid;
+     void *key;
+ 
++    if (skip_route_tables)
++    {
++        while (aa)
++        {
++            if (family == AF_INET) aa->Ipv4Metric = ~0u;
++            else                   aa->Ipv6Metric = ~0u;
++            aa = aa->Next;
++        }
++        return ERROR_SUCCESS;
++    }
++
+     err = NsiAllocateAndGetTable( 1, ip_module_id( family ), NSI_IP_FORWARD_TABLE, &key, key_size,
+                                   (void **)&rw, sizeof(*rw), NULL, 0, NULL, 0, &count, 0 );
+     if (err) return err;
+@@ -1173,6 +1185,7 @@ static DWORD dns_servers_query_code( ULONG family )
+ 
+ static DWORD dns_info_alloc( IP_ADAPTER_ADDRESSES *aa, ULONG family, ULONG flags )
+ {
++    static volatile BOOL skip_dns_config = TRUE;
+     char buf[FIELD_OFFSET(DNS_ADDR_ARRAY, AddrArray[3])];
+     IP_ADAPTER_DNS_SERVER_ADDRESS *dns, **next;
+     DWORD query = dns_servers_query_code( family );
+@@ -1181,12 +1194,24 @@ static DWORD dns_info_alloc( IP_ADAPTER_ADDRESSES *aa, ULONG family, ULONG flags
+     DNS_ADDR_ARRAY *servers;
+     WCHAR *search;
+ 
++    if (skip_dns_config)
++    {
++        while (aa)
++        {
++            aa->DnsSuffix = HeapAlloc( GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(WCHAR) );
++            if (!aa->DnsSuffix) return ERROR_NOT_ENOUGH_MEMORY;
++            aa = aa->Next;
++        }
++        return ERROR_SUCCESS;
++    }
++
+     while (aa)
+     {
+         MultiByteToWideChar( CP_ACP, 0, aa->AdapterName, -1, name, ARRAY_SIZE(name) );
+         if (!(flags & GAA_FLAG_SKIP_DNS_SERVER))
+         {
+             servers = (DNS_ADDR_ARRAY *)buf;
++            size = sizeof(buf);
+             for (attempt = 0; attempt < 5; attempt++)
+             {
+                 err = DnsQueryConfig( query, 0, name, NULL, servers, &size );
+@@ -1199,6 +1224,7 @@ static DWORD dns_info_alloc( IP_ADAPTER_ADDRESSES *aa, ULONG family, ULONG flags
+                     break;
+                 }
+             }
++            if (err == DNS_ERROR_NO_DNS_SERVERS) err = ERROR_SUCCESS;
+             if (!err)
+             {
+                 next = &aa->FirstDnsServerAddress;
+@@ -1248,7 +1274,7 @@ static DWORD dns_info_alloc( IP_ADAPTER_ADDRESSES *aa, ULONG family, ULONG flags
+ 
+ static DWORD adapters_addresses_alloc( ULONG family, ULONG flags, IP_ADAPTER_ADDRESSES **info, ULONG *count )
+ {
+-    IP_ADAPTER_ADDRESSES *aa;
++    IP_ADAPTER_ADDRESSES *aa = NULL;
+     NET_LUID *luids;
+     struct nsi_ndis_ifinfo_rw *rw;
+     struct nsi_ndis_ifinfo_dynamic *dyn;
+@@ -1261,6 +1287,11 @@ static DWORD adapters_addresses_alloc( ULONG family, ULONG flags, IP_ADAPTER_ADD
+                                   (void **)&rw, sizeof(*rw), (void **)&dyn, sizeof(*dyn),
+                                   (void **)&stat, sizeof(*stat), count, 0 );
+     if (err) return err;
++    if (!*count)
++    {
++        err = ERROR_NO_DATA;
++        goto err;
++    }
+ 
+     needed = *count * (sizeof(*aa) + ((CHARS_IN_GUID + 1) & ~1) + sizeof(stat->descr.String));
+     needed += *count * sizeof(rw->alias.String); /* GAA_FLAG_SKIP_FRIENDLY_NAME is ignored */
+diff --git wine-clean/dlls/ndis.sys/main.c wine-workdir/dlls/ndis.sys/main.c
+index 64fcbb8..7c24a07 100644
+--- wine-clean/dlls/ndis.sys/main.c
++++ wine-workdir/dlls/ndis.sys/main.c
+@@ -149,6 +149,7 @@ static int add_device(DRIVER_OBJECT *driver, const WCHAR *guidstrW, MIB_IF_ROW2
+ 
+     if (!(status = IoCreateDevice( driver, sizeof(*netdev), &name, 0, 0, FALSE, &device )))
+         status = IoCreateSymbolicLink( &link, &name );
++    if (status == STATUS_OBJECT_NAME_COLLISION) return 1;
+     if (status)
+     {
+         FIXME( "failed to create device error %lx\n", status );
+diff --git wine-clean/dlls/nsi/nsi.c wine-workdir/dlls/nsi/nsi.c
+index 14be842..4831925 100644
+--- wine-clean/dlls/nsi/nsi.c
++++ wine-workdir/dlls/nsi/nsi.c
+@@ -191,16 +191,25 @@ DWORD WINAPI NsiEnumerateObjectsAllParametersEx( struct nsi_enumerate_all_ex *pa
+     if (err == ERROR_SUCCESS || err == ERROR_MORE_DATA)
+     {
+         params->count = *(DWORD *)out;
+-        ptr = out + sizeof(DWORD);
+-        if (params->key_size) memcpy( params->key_data, ptr, params->key_size * params->count );
+-        ptr += params->key_size * in.count;
+-        if (params->rw_size) memcpy( params->rw_data, ptr, params->rw_size * params->count );
+-        ptr += params->rw_size * in.count;
+-        if (params->dynamic_size) memcpy( params->dynamic_data, ptr, params->dynamic_size * params->count );
+-        ptr += params->dynamic_size * in.count;
+-        if (params->static_size) memcpy( params->static_data, ptr, params->static_size * params->count );
++        if (err == ERROR_SUCCESS)
++        {
++            if (params->count > in.count)
++            {
++                err = ERROR_MORE_DATA;
++                goto done;
++            }
++            ptr = out + sizeof(DWORD);
++            if (params->key_size) memcpy( params->key_data, ptr, params->key_size * params->count );
++            ptr += params->key_size * in.count;
++            if (params->rw_size) memcpy( params->rw_data, ptr, params->rw_size * params->count );
++            ptr += params->rw_size * in.count;
++            if (params->dynamic_size) memcpy( params->dynamic_data, ptr, params->dynamic_size * params->count );
++            ptr += params->dynamic_size * in.count;
++            if (params->static_size) memcpy( params->static_data, ptr, params->static_size * params->count );
++        }
+     }
+ 
++done:
+     free( out );
+ 
+     return err;
+diff --git wine-clean/dlls/nsiproxy.sys/device.c wine-workdir/dlls/nsiproxy.sys/device.c
+index 4595bf8..07562ea 100644
+--- wine-clean/dlls/nsiproxy.sys/device.c
++++ wine-workdir/dlls/nsiproxy.sys/device.c
+@@ -105,7 +105,8 @@ static NTSTATUS nsiproxy_enumerate_all( IRP *irp )
+     status = nsiproxy_call( nsi_enumerate_all_ex, &enum_all );
+     if (status == STATUS_SUCCESS || status == STATUS_BUFFER_OVERFLOW)
+     {
+-        irp->IoStatus.Information = out_len;
++        irp->IoStatus.Information = sizeof(UINT) +
++            (in->key_size + in->rw_size + in->dynamic_size + in->static_size) * min( enum_all.count, in->count );
+         *(UINT *)out = enum_all.count;
+     }
+     else irp->IoStatus.Information = 0;
 diff --git wine-clean/dlls/nsiproxy.sys/ip.c wine-workdir/dlls/nsiproxy.sys/ip.c
 index 2b724db..2f19151 100644
 --- wine-clean/dlls/nsiproxy.sys/ip.c
@@ -169,6 +446,311 @@ index 2b724db..2f19151 100644
  #endif
  
      if (!want_data || num <= *count) *count = num;
+diff --git wine-clean/dlls/nsiproxy.sys/ndis.c wine-workdir/dlls/nsiproxy.sys/ndis.c
+index 8c15186..393c32d 100644
+--- wine-clean/dlls/nsiproxy.sys/ndis.c
++++ wine-workdir/dlls/nsiproxy.sys/ndis.c
+@@ -311,6 +311,8 @@ static unsigned int update_if_table( void )
+     struct if_nameindex *indices = if_nameindex(), *entry;
+     unsigned int append_count = 0;
+ 
++    if (!indices) return 0;
++
+     for (entry = indices; entry->if_index; entry++)
+     {
+         if (!find_entry_from_index( entry->if_index ) && add_entry( entry->if_index, entry->if_name ))
+diff --git wine-clean/dlls/nsiproxy.sys/nsi.c wine-workdir/dlls/nsiproxy.sys/nsi.c
+index 7fe1e1c..bc75aa9 100644
+--- wine-clean/dlls/nsiproxy.sys/nsi.c
++++ wine-workdir/dlls/nsiproxy.sys/nsi.c
+@@ -25,6 +25,8 @@
+ #include <stdarg.h>
+ #include <assert.h>
+ #include <errno.h>
++#include <stdlib.h>
++#include <string.h>
+ #include <unistd.h>
+ #include <sys/socket.h>
+ #include <limits.h>
+@@ -352,3 +354,278 @@ const unixlib_entry_t __wine_unix_call_funcs[] =
+     unix_nsi_get_parameter_ex,
+     unix_nsi_get_notification,
+ };
++
++#ifdef _WIN64
++
++typedef ULONG PTR32;
++
++struct icmp_listen_params32
++{
++    icmp_handle handle;
++    PTR32 reply;
++    ULONGLONG user_reply_ptr;
++    unsigned int bits, reply_len;
++    int timeout;
++};
++
++struct icmp_send_echo_params32
++{
++    PTR32 src;
++    PTR32 dst;
++    PTR32 request, reply;
++    UINT request_size, reply_len;
++    BYTE bits, ttl, tos;
++    int hop_limit;
++    PTR32 handle;
++};
++
++struct nsi_enumerate_all_ex32
++{
++    PTR32 unknown[2];
++    PTR32 module;
++    UINT table;
++    UINT first_arg;
++    UINT second_arg;
++    PTR32 key_data;
++    UINT key_size;
++    PTR32 rw_data;
++    UINT rw_size;
++    PTR32 dynamic_data;
++    UINT dynamic_size;
++    PTR32 static_data;
++    UINT static_size;
++    UINT count;
++};
++
++struct nsi_get_all_parameters_ex32
++{
++    PTR32 unknown[2];
++    PTR32 module;
++    UINT table;
++    UINT first_arg;
++    UINT unknown2;
++    PTR32 key;
++    UINT key_size;
++    PTR32 rw_data;
++    UINT rw_size;
++    PTR32 dynamic_data;
++    UINT dynamic_size;
++    PTR32 static_data;
++    UINT static_size;
++};
++
++struct nsi_get_parameter_ex32
++{
++    PTR32 unknown[2];
++    PTR32 module;
++    UINT table;
++    UINT first_arg;
++    UINT unknown2;
++    PTR32 key;
++    UINT key_size;
++    UINT param_type;
++    PTR32 data;
++    UINT data_size;
++    UINT data_offset;
++};
++
++static BOOL is_native_wow64_args( const void *args )
++{
++    return (ULONG_PTR)args >> 32;
++}
++
++static void *copy_wow64_buffer( PTR32 ptr, UINT size, void *stack, UINT stack_size )
++{
++    void *src = ULongToPtr( ptr ), *dst;
++
++    if (!size) return NULL;
++    if (!src) return NULL;
++
++    if (size <= stack_size) dst = stack;
++    else if (!(dst = malloc( size ))) return NULL;
++
++    memcpy( dst, src, size );
++    return dst;
++}
++
++static void free_wow64_buffer( void *ptr, void *stack )
++{
++    if (ptr && ptr != stack) free( ptr );
++}
++
++static BOOL is_empty_forward_table( const NPI_MODULEID *module, UINT table )
++{
++#ifndef __linux__
++    if (table != NSI_IP_FORWARD_TABLE) return FALSE;
++    return NmrIsEqualNpiModuleId( module, &NPI_MS_IPV4_MODULEID ) ||
++           NmrIsEqualNpiModuleId( module, &NPI_MS_IPV6_MODULEID );
++#else
++    return FALSE;
++#endif
++}
++
++static NTSTATUS wow64_icmp_listen( void *args )
++{
++    struct icmp_listen_params32 *params32 = args;
++    struct icmp_listen_params params;
++    NTSTATUS status;
++
++    params.handle = params32->handle;
++    params.reply = ULongToPtr( params32->reply );
++    params.user_reply_ptr = params32->user_reply_ptr;
++    params.bits = params32->bits;
++    params.reply_len = params32->reply_len;
++    params.timeout = params32->timeout;
++
++    status = icmp_listen( &params );
++    params32->reply_len = params.reply_len;
++    return status;
++}
++
++static NTSTATUS wow64_icmp_send_echo( void *args )
++{
++    struct icmp_send_echo_params32 *params32 = args;
++    struct icmp_send_echo_params params;
++    NTSTATUS status;
++
++    params.src = ULongToPtr( params32->src );
++    params.dst = ULongToPtr( params32->dst );
++    params.request = ULongToPtr( params32->request );
++    params.reply = ULongToPtr( params32->reply );
++    params.request_size = params32->request_size;
++    params.reply_len = params32->reply_len;
++    params.bits = params32->bits;
++    params.ttl = params32->ttl;
++    params.tos = params32->tos;
++    params.hop_limit = params32->hop_limit;
++    params.handle = ULongToPtr( params32->handle );
++
++    status = icmp_send_echo( &params );
++    params32->reply_len = params.reply_len;
++    return status;
++}
++
++static NTSTATUS wow64_nsi_enumerate_all_ex( void *args )
++{
++    struct nsi_enumerate_all_ex32 *params32 = args;
++    struct nsi_enumerate_all_ex params;
++    NPI_MODULEID module;
++    NTSTATUS status;
++
++    if (is_native_wow64_args( args )) return unix_nsi_enumerate_all_ex( args );
++    if (!params32->module) return STATUS_INVALID_PARAMETER;
++
++    params.unknown[0] = ULongToPtr( params32->unknown[0] );
++    params.unknown[1] = ULongToPtr( params32->unknown[1] );
++    module = *(NPI_MODULEID *)ULongToPtr( params32->module );
++    params.module = &module;
++    params.table = params32->table;
++    if (is_empty_forward_table( &module, params.table ))
++    {
++        params32->count = 0;
++        return STATUS_SUCCESS;
++    }
++    params.first_arg = params32->first_arg;
++    params.second_arg = params32->second_arg;
++    params.key_data = ULongToPtr( params32->key_data );
++    params.key_size = params32->key_size;
++    params.rw_data = ULongToPtr( params32->rw_data );
++    params.rw_size = params32->rw_size;
++    params.dynamic_data = ULongToPtr( params32->dynamic_data );
++    params.dynamic_size = params32->dynamic_size;
++    params.static_data = ULongToPtr( params32->static_data );
++    params.static_size = params32->static_size;
++    params.count = params32->count;
++
++    status = nsi_enumerate_all_ex( &params );
++    params32->count = params.count;
++    return status;
++}
++
++static NTSTATUS wow64_nsi_get_all_parameters_ex( void *args )
++{
++    struct nsi_get_all_parameters_ex32 *params32 = args;
++    struct nsi_get_all_parameters_ex params;
++    BYTE key_stack[128];
++    NPI_MODULEID module;
++    void *key;
++    NTSTATUS status;
++
++    if (is_native_wow64_args( args )) return unix_nsi_get_all_parameters_ex( args );
++    if (!params32->module) return STATUS_INVALID_PARAMETER;
++    if (params32->key_size && !params32->key) return STATUS_INVALID_PARAMETER;
++
++    key = copy_wow64_buffer( params32->key, params32->key_size, key_stack, sizeof(key_stack) );
++    if (params32->key_size && !key) return STATUS_NO_MEMORY;
++
++    params.unknown[0] = ULongToPtr( params32->unknown[0] );
++    params.unknown[1] = ULongToPtr( params32->unknown[1] );
++    module = *(NPI_MODULEID *)ULongToPtr( params32->module );
++    params.module = &module;
++    params.table = params32->table;
++    params.first_arg = params32->first_arg;
++    params.unknown2 = params32->unknown2;
++    params.key = key;
++    params.key_size = params32->key_size;
++    params.rw_data = ULongToPtr( params32->rw_data );
++    params.rw_size = params32->rw_size;
++    params.dynamic_data = ULongToPtr( params32->dynamic_data );
++    params.dynamic_size = params32->dynamic_size;
++    params.static_data = ULongToPtr( params32->static_data );
++    params.static_size = params32->static_size;
++
++    status = nsi_get_all_parameters_ex( &params );
++    free_wow64_buffer( key, key_stack );
++    return status;
++}
++
++static NTSTATUS wow64_nsi_get_parameter_ex( void *args )
++{
++    struct nsi_get_parameter_ex32 *params32 = args;
++    struct nsi_get_parameter_ex params;
++    BYTE key_stack[128];
++    NPI_MODULEID module;
++    void *key;
++    NTSTATUS status;
++
++    if (is_native_wow64_args( args )) return unix_nsi_get_parameter_ex( args );
++    if (!params32->module) return STATUS_INVALID_PARAMETER;
++    if (params32->key_size && !params32->key) return STATUS_INVALID_PARAMETER;
++
++    key = copy_wow64_buffer( params32->key, params32->key_size, key_stack, sizeof(key_stack) );
++    if (params32->key_size && !key) return STATUS_NO_MEMORY;
++
++    params.unknown[0] = ULongToPtr( params32->unknown[0] );
++    params.unknown[1] = ULongToPtr( params32->unknown[1] );
++    module = *(NPI_MODULEID *)ULongToPtr( params32->module );
++    params.module = &module;
++    params.table = params32->table;
++    params.first_arg = params32->first_arg;
++    params.unknown2 = params32->unknown2;
++    params.key = key;
++    params.key_size = params32->key_size;
++    params.param_type = params32->param_type;
++    params.data = ULongToPtr( params32->data );
++    params.data_size = params32->data_size;
++    params.data_offset = params32->data_offset;
++
++    status = nsi_get_parameter_ex( &params );
++    free_wow64_buffer( key, key_stack );
++    return status;
++}
++
++const unixlib_entry_t __wine_unix_call_wow64_funcs[] =
++{
++    icmp_cancel_listen,
++    icmp_close,
++    wow64_icmp_listen,
++    wow64_icmp_send_echo,
++    wow64_nsi_enumerate_all_ex,
++    wow64_nsi_get_all_parameters_ex,
++    wow64_nsi_get_parameter_ex,
++    unix_nsi_get_notification,
++};
++
++C_ASSERT( ARRAYSIZE(__wine_unix_call_wow64_funcs) == ARRAYSIZE(__wine_unix_call_funcs) );
++
++#endif
 diff --git wine-clean/dlls/ntdll/unix/debug.c wine-workdir/dlls/ntdll/unix/debug.c
 index d4aad49..ff25987 100644
 --- wine-clean/dlls/ntdll/unix/debug.c
