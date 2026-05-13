@@ -37,7 +37,7 @@ void xhci_handle_port_change_event(xhci_ctrl_t *xhci, int global_port) {
 			usb_hub_event_disconnect(&hub->hub, local_port);
 		usb_hub_event_connect(&hub->hub, local_port);
 	} else if (reset_event) {
-		usb_hub_event_reset(&hub->hub, local_port);
+		usb_hub_event_reset(&hub->hub, local_port, USB_SPEED_UNKNOWN);
 	}
 
 	xhci->portregs[global_port - 1].portsc = (portsc & XHCI_PORTSC_PRESERVE_BITS) |

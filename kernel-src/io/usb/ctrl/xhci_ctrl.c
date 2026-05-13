@@ -90,6 +90,35 @@ static void xhci_update_input_context(xhci_ctrl_t *ctrl, xhci_device_t *dev) {
 	memset(input_ctx, 0, sizeof(uint32_t) * 2);
 }
 
+static int xhci_update_hub_slot_context(usb_device_t *dev, volatile xhci_slot_ctx_t *slot_ctx) {
+	if (dev->hub_desc == NULL)
+		return 0;
+
+	slot_ctx->dw0.hub = 1;
+
+	if (dev->hub_desc->bDescriptorType == USB_DESCRIPTOR_TYPE_SS_HUB) {
+		if (dev->hub_desc->bLength < sizeof(usb_ss_hub_desc_t))
+			return EINVAL;
+
+		usb_ss_hub_desc_t *hub_desc = (usb_ss_hub_desc_t *)dev->hub_desc;
+		slot_ctx->dw0.mtt = 0;
+		slot_ctx->dw1.number_of_ports = hub_desc->bNbrPorts;
+		return 0;
+	}
+
+	if (dev->hub_desc->bDescriptorType == USB_DESCRIPTOR_TYPE_HUB) {
+		if (dev->hub_desc->bLength < sizeof(usb_hub_desc_t))
+			return EINVAL;
+
+		usb_hub_desc_t *hub_desc = (usb_hub_desc_t *)dev->hub_desc;
+		slot_ctx->dw0.mtt = dev->desc.bDeviceProtocol == USB_HUB_PROTOCOL_MULTI_TT;
+		slot_ctx->dw1.number_of_ports = hub_desc->bNbrPorts;
+		return 0;
+	}
+
+	return EINVAL;
+}
+
 static void xhci_release_device_resources(xhci_ctrl_t *xhci, xhci_device_t *dev) {
 	for (int i = 0; i < 31; ++i) {
 		if (dev->ep_rings[i].ring != NULL)
@@ -324,7 +353,7 @@ static void address_device_create_slot_callback(usb_device_t *device, void *ctx,
 	xhci_ring_command_doorbell(xhci);
 }
 
-static int xhci_ctrl_address_device(usb_ctrl_t *ctrl, usb_hub_t *hub, uint8_t port, usb_address_device_callback_t callback) {
+static int xhci_ctrl_address_device(usb_ctrl_t *ctrl, usb_hub_t *hub, uint8_t port, usb_speed_t speed, usb_address_device_callback_t callback) {
 	++port; // convert to the format xhci expects
 
 	xhci_ctrl_t *xhci = container_of(ctrl, xhci_ctrl_t, ctrl);
@@ -378,7 +407,6 @@ static int xhci_ctrl_address_device(usb_ctrl_t *ctrl, usb_hub_t *hub, uint8_t po
 		xhci_dev->root_port_number = port;
 	}
 
-	// TODO the device speed is gonna come from elsewhere and not from the (just now allocated) usb device
 	if (hub->device == NULL) {
 		// this is a root hub! we can just take the speed directly from the portsc register
 		xhci_root_hub_t *rh = container_of(hub, xhci_root_hub_t, hub);
@@ -386,10 +414,13 @@ static int xhci_ctrl_address_device(usb_ctrl_t *ctrl, usb_hub_t *hub, uint8_t po
 		uint32_t port_speed = (portsc >> 10) & 0xf;
 		xhci_dev->ctrl_speed = port_speed;
 		xhci_dev->device.speed = xhci_speed_to_usb_speed(port_speed);
-	} else if (!usb_speed_to_xhci_speed(xhci_dev->device.speed, &xhci_dev->ctrl_speed)) {
-		// this is a super speed plus device behind a hub.
-		// we can't know its speed in advance, so set it as super speed and figure it out later.
-		xhci_dev->ctrl_speed = XHCI_PORT_SPEED_SUPER;
+	} else {
+		xhci_dev->device.speed = speed;
+		if (!usb_speed_to_xhci_speed(xhci_dev->device.speed, &xhci_dev->ctrl_speed)) {
+			// This is a super speed plus device behind a hub.
+			// We can't know its speed in advance, so set it as super speed and figure it out later.
+			xhci_dev->ctrl_speed = XHCI_PORT_SPEED_SUPER;
+		}
 	}
 
 	xhci_submission_t xhci_submission = {
@@ -462,6 +493,13 @@ static int xhci_ctrl_configure_ep(usb_ctrl_t *ctrl, usb_device_t *dev, usb_endpo
 
 	if (slot_ctx->dw0.ctx_entries < ep_index)
 		slot_ctx->dw0.ctx_entries = ep_index;
+
+	int error = xhci_update_hub_slot_context(dev, slot_ctx);
+	if (error) {
+		free(configure_ctx);
+		xhci_release_ep_ring(xhci_dev, ep_index);
+		return error;
+	}
 
 	// Set up the endpoint context.
 	uint8_t ep_type = ep->desc->bmAttributes & USB_ENDPOINT_ATTRIB_TYPE_MASK;

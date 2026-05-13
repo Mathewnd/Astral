@@ -294,7 +294,6 @@ static int hid_attach(usb_device_t *dev, usb_interface_t *interface) {
 }
 
 static int hid_probe(usb_device_t *, usb_interface_t *interface) {
-
 	if (interface->desc->bInterfaceClass == USB_INTERFACE_CLASS_HID)
 		return USB_DRIVER_SCORE_CLASS_MATCH;
 
