@@ -6,14 +6,36 @@
 #include <logging.h>
 #include <kernel/auth.h>
 
+static int open_flags_to_file_flags(int *file_flags) {
+	int access = *file_flags & O_ACCMODE;
+
+	*file_flags &= ~O_ACCMODE;
+	switch (access) {
+		case O_RDONLY:
+			*file_flags |= FILE_READ;
+			break;
+		case O_WRONLY:
+			*file_flags |= FILE_WRITE;
+			break;
+		case O_RDWR:
+			*file_flags |= FILE_READ | FILE_WRITE;
+			break;
+		default:
+			return EINVAL;
+	}
+
+	return 0;
+}
+
 syscallret_t syscall_openat(context_t *context, int dirfd, char *path, int flags, mode_t mode) {
 	syscallret_t ret = {
 		.ret = -1,
 		.errno = -1
 	};
 
-	// transform O_RDONLY, O_WRONLY, O_RDWR into FILE_READ and FILE_WRITE
-	++flags;
+	ret.errno = open_flags_to_file_flags(&flags);
+	if (ret.errno)
+		return ret;
 
 	vnode_t *dirnode = NULL;
 	file_t *dirfile = NULL;
