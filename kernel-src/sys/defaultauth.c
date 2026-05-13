@@ -94,6 +94,15 @@ static int filesystem(cred_t *cred, int actions, void *arg0, void *arg1, void *a
 		DONE_CHECK(actions);
 	}
 
+	if (actions & AUTH_ACTIONS_FILESYSTEM_MKNOD) {
+		if (CRED_IS_ESU(cred))
+			weight += 1;
+		else
+			return AUTH_DECISION_DENY;
+
+		DONE_CHECK(actions);
+	}
+
 	if (actions & (AUTH_ACTIONS_FILESYSTEM_UNLINK | AUTH_ACTIONS_FILESYSTEM_RENAME)) {
 		__assert(dirvnode);
 

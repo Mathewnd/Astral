@@ -337,6 +337,12 @@ int vfs_create(vnode_t *ref, char *path, vattr_t *attr, int type, vnode_t **node
 		goto cleanup_parent;
 	}
 
+	if (type == V_TYPE_CHDEV || type == V_TYPE_BLKDEV) {
+		err = auth_filesystem_check(getcred(), AUTH_ACTIONS_FILESYSTEM_MKNOD, parent, NULL);
+		if (err)
+			goto cleanup_parent;
+	}
+
 	vnode_t *ret;
 	err = VOP_CREATE(parent, component, attr, type, &ret, getcred());
 	if (err)
