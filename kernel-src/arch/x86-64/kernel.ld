@@ -20,7 +20,7 @@ SECTIONS
 	} :text
 
 	. = ALIGN(4K);
-	_text_end = .;	
+	_text_end = .;
 	_rodata_start = .;
 	.rodata : {
 		*(.rodata .rodata.*);
@@ -32,7 +32,14 @@ SECTIONS
 		*(.timekeeper_sources);
 		timekeeper_sources_end = .;
 	} :rodata
-	
+
+	. = ALIGN(8);
+	.usb_class_drivers : {
+		usb_class_drivers = .;
+		*(.usb_class_drivers);
+		usb_class_drivers_end = .;
+	} :rodata
+
 	. = ALIGN(8);
 	.init_routines : {
 		init_routines = .;
@@ -60,7 +67,7 @@ SECTIONS
 		*(COMMON)
 		*(.bss .bss.*)
 	} :data
-	
+
 	. = ALIGN(4K);
 	_data_end = .;
 }

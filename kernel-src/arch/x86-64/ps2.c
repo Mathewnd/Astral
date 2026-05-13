@@ -132,7 +132,13 @@ bool ps2_init_device(int port, bool *mouse) {
 
 void arch_ps2_init() {
 	// XXX actually check if the controller is there
-	ps2_write_command(PS2_CTLR_CMD_DISABLEP1);
+	bool t;
+	ps2_write_command_timeout(PS2_CTLR_CMD_DISABLEP1, 10, &t);
+	if (t) {
+		printf("ps2: no controller on this machine\n");
+		return;
+	}
+
 	ps2_write_command(PS2_CTLR_CMD_DISABLEP2);
 
 	// just to make sure

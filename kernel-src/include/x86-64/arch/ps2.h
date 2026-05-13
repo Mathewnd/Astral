@@ -63,6 +63,21 @@ static inline void ps2_write_command(uint8_t cmd) {
 	outb(PS2_PORT_COMMAND, cmd);
 }
 
+static inline void ps2_write_command_timeout(uint8_t cmd, int ms, bool *timeout) {
+	timespec_t initial = timekeeper_timefromboot();
+
+	while (ps2_inbuffer_full()) {
+		timespec_t current = timekeeper_timefromboot();
+		if (timespec_diffms(initial, current) >= ms) {
+			*timeout = true;
+			return;
+		}
+	}
+
+	*timeout = false;
+	outb(PS2_PORT_COMMAND, cmd);
+}
+
 static inline void ps2_write_data(uint8_t cmd) {
 	while (ps2_inbuffer_full());
 	outb(PS2_PORT_DATA, cmd);
