@@ -1,10 +1,11 @@
 name=fastfetch
 version=1.0
-revision=1
+revision=2
 from_source=fastfetch
 imagedeps="build-essential cmake"
 hostdeps="xgcc xbinutils pkgconfig libstdc++-v3"
-deps="base libxrandr"
+builddeps="libxrandr"
+deps="base"
 
 configure() {
 	cmake \
@@ -12,6 +13,7 @@ configure() {
 	-DCMAKE_TOOLCHAIN_FILE=${base_dir}/util/cmake \
 	-DCMAKE_INSTALL_PREFIX=${prefix} \
 	-DCMAKE_BUILD_TYPE=Release \
+	-DBINARY_LINK_TYPE=dlopen \
 	${source_dir}
 }
 

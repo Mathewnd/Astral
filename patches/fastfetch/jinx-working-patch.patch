@@ -1,7 +1,8 @@
-diff --color -urN --no-dereference -x.git /home/bloba/Documents/fastfetch-clean/CMakeLists.txt fastfetch/CMakeLists.txt
---- /home/bloba/Documents/fastfetch-clean/CMakeLists.txt	2026-02-23 17:55:25.821527603 +0000
-+++ fastfetch/CMakeLists.txt	2026-02-28 19:28:59.961691077 +0000
-@@ -45,6 +45,8 @@
+diff --git fastfetch-clean/CMakeLists.txt fastfetch-workdir/CMakeLists.txt
+index 725b2b6..c5891a3 100644
+--- fastfetch-clean/CMakeLists.txt
++++ fastfetch-workdir/CMakeLists.txt
+@@ -45,6 +45,8 @@ elseif("${CMAKE_SYSTEM_NAME}" STREQUAL "Haiku")
      set(Haiku TRUE CACHE BOOL "..." FORCE)
  elseif("${CMAKE_SYSTEM_NAME}" STREQUAL "GNU")
      set(GNU TRUE CACHE BOOL "..." FORCE)
@@ -10,7 +11,7 @@ diff --color -urN --no-dereference -x.git /home/bloba/Documents/fastfetch-clean/
  elseif(NOT APPLE AND NOT WIN32)
      message(FATAL_ERROR "Unsupported platform: ${CMAKE_SYSTEM_NAME}")
  endif()
-@@ -72,7 +74,7 @@
+@@ -72,7 +74,7 @@ include(CMakeDependentOption)
  cmake_dependent_option(ENABLE_VULKAN "Enable vulkan" ON "LINUX OR APPLE OR FreeBSD OR OpenBSD OR NetBSD OR WIN32 OR ANDROID OR SunOS OR Haiku OR GNU" OFF)
  cmake_dependent_option(ENABLE_WAYLAND "Enable wayland-client" ON "LINUX OR FreeBSD OR OpenBSD OR NetBSD OR GNU" OFF)
  cmake_dependent_option(ENABLE_XCB_RANDR "Enable xcb-randr" ON "LINUX OR FreeBSD OR OpenBSD OR NetBSD OR ANDROID OR SunOS OR GNU" OFF)
@@ -19,7 +20,7 @@ diff --color -urN --no-dereference -x.git /home/bloba/Documents/fastfetch-clean/
  cmake_dependent_option(ENABLE_DRM "Enable libdrm" ON "LINUX OR FreeBSD OR OpenBSD OR NetBSD OR SunOS OR GNU" OFF)
  cmake_dependent_option(ENABLE_DRM_AMDGPU "Enable libdrm_amdgpu" ON "LINUX OR FreeBSD OR GNU" OFF)
  cmake_dependent_option(ENABLE_GIO "Enable gio-2.0" ON "LINUX OR FreeBSD OR OpenBSD OR NetBSD OR ANDROID OR SunOS OR GNU" OFF)
-@@ -1301,6 +1303,79 @@
+@@ -1301,6 +1303,79 @@ elseif(GNU)
          src/detection/wmtheme/wmtheme_linux.c
          src/detection/camera/camera_nosupport.c
     )
@@ -48,7 +49,7 @@ diff --color -urN --no-dereference -x.git /home/bloba/Documents/fastfetch-clean/
 +        src/detection/cpuusage/cpuusage_nosupport.c
 +        src/detection/cursor/cursor_nosupport.c
 +        src/detection/de/de_nosupport.c
-+        src/detection/disk/disk_nosupport.c
++        src/detection/disk/disk_astral.c
 +        src/detection/diskio/diskio_nosupport.c
 +        src/detection/displayserver/linux/common.c
 +        src/detection/displayserver/linux/displayserver_linux.c
@@ -66,9 +67,9 @@ diff --color -urN --no-dereference -x.git /home/bloba/Documents/fastfetch-clean/
 +        src/detection/icons/icons_nosupport.c
 +        src/detection/initsystem/initsystem_nosupport.c
 +        src/detection/keyboard/keyboard_nosupport.c
-+        src/detection/libc/libc_linux.c
++        src/detection/libc/libc_astral.c
 +        src/detection/lm/lm_nosupport.c
-+        src/detection/loadavg/loadavg_nosupport.c
++        src/detection/loadavg/loadavg_astral.c
 +        src/detection/locale/locale_linux.c
 +        src/detection/localip/localip_linux.c
 +        src/detection/media/media_nosupport.c
@@ -77,11 +78,11 @@ diff --color -urN --no-dereference -x.git /home/bloba/Documents/fastfetch-clean/
 +        src/detection/netio/netio_nosupport.c
 +        src/detection/opengl/opengl_linux.c
 +        src/detection/os/os_linux.c
-+        src/detection/packages/packages_nosupport.c
++        src/detection/packages/packages_astral.c
 +        src/detection/physicaldisk/physicaldisk_nosupport.c
 +        src/detection/physicalmemory/physicalmemory_nosupport.c
 +        src/detection/poweradapter/poweradapter_nosupport.c
-+        src/detection/processes/processes_nosupport.c
++        src/detection/processes/processes_astral.c
 +        src/detection/sound/sound_nosupport.c
 +        src/detection/terminalfont/terminalfont_linux.c
 +        src/detection/terminalsize/terminalsize_linux.c
@@ -99,7 +100,7 @@ diff --color -urN --no-dereference -x.git /home/bloba/Documents/fastfetch-clean/
  endif()
  
  if(ENABLE_DIRECTX_HEADERS)
-@@ -1437,6 +1512,8 @@
+@@ -1437,6 +1512,8 @@ elseif(Haiku)
  elseif(GNU)
      # On Hurd PATH_MAX is not defined. Set an arbitrary limit as workaround.
      target_compile_definitions(libfastfetch PUBLIC _GNU_SOURCE PATH_MAX=4096 O_PATH=0)
@@ -108,10 +109,11 @@ diff --color -urN --no-dereference -x.git /home/bloba/Documents/fastfetch-clean/
  endif()
  
  if(APPLE)
-diff --color -urN --no-dereference -x.git /home/bloba/Documents/fastfetch-clean/src/common/impl/FFPlatform_unix.c fastfetch/src/common/impl/FFPlatform_unix.c
---- /home/bloba/Documents/fastfetch-clean/src/common/impl/FFPlatform_unix.c	2026-02-23 17:55:25.829412128 +0000
-+++ fastfetch/src/common/impl/FFPlatform_unix.c	2026-03-08 20:18:25.956179074 +0000
-@@ -141,6 +141,8 @@
+diff --git fastfetch-clean/src/common/impl/FFPlatform_unix.c fastfetch-workdir/src/common/impl/FFPlatform_unix.c
+index 985494b..97a141d 100644
+--- fastfetch-clean/src/common/impl/FFPlatform_unix.c
++++ fastfetch-workdir/src/common/impl/FFPlatform_unix.c
+@@ -62,6 +62,8 @@ static void getExePath(FFPlatform* platform)
                  break;
              }
          }
@@ -120,9 +122,11 @@ diff --color -urN --no-dereference -x.git /home/bloba/Documents/fastfetch-clean/
      #endif
      if (exePathLen > 0)
      {
-diff --color -urN --no-dereference -x.git /home/bloba/Documents/fastfetch-clean/src/detection/cpu/cpu_astral.c fastfetch/src/detection/cpu/cpu_astral.c
---- /home/bloba/Documents/fastfetch-clean/src/detection/cpu/cpu_astral.c	1970-01-01 01:00:00.000000000 +0100
-+++ fastfetch/src/detection/cpu/cpu_astral.c	2026-02-28 22:23:58.806961218 +0000
+diff --git fastfetch-workdir/src/detection/cpu/cpu_astral.c fastfetch-workdir/src/detection/cpu/cpu_astral.c
+new file mode 100644
+index 0000000..0814baa
+--- /dev/null
++++ fastfetch-workdir/src/detection/cpu/cpu_astral.c
 @@ -0,0 +1,44 @@
 +#include "cpu.h"
 +#include <cpuid.h>
@@ -168,9 +172,140 @@ diff --color -urN --no-dereference -x.git /home/bloba/Documents/fastfetch-clean/
 +    ffCPUDetectByCpuid(cpu);
 +    return NULL;
 +}
-diff --color -urN --no-dereference -x.git /home/bloba/Documents/fastfetch-clean/src/detection/memory/memory_astral.c fastfetch/src/detection/memory/memory_astral.c
---- /home/bloba/Documents/fastfetch-clean/src/detection/memory/memory_astral.c	1970-01-01 01:00:00.000000000 +0100
-+++ fastfetch/src/detection/memory/memory_astral.c	2026-02-28 22:24:36.069963259 +0000
+diff --git fastfetch-workdir/src/detection/disk/disk_astral.c fastfetch-workdir/src/detection/disk/disk_astral.c
+new file mode 100644
+index 0000000..2f94822
+--- /dev/null
++++ fastfetch-workdir/src/detection/disk/disk_astral.c
+@@ -0,0 +1,88 @@
++#include "disk.h"
++
++#include "common/stringUtils.h"
++
++#include <mntent.h>
++#include <string.h>
++#include <sys/statvfs.h>
++
++static bool isPhysicalDevice(const struct mntent* device)
++{
++    if(ffStrEquals(device->mnt_dir, "/"))
++        return true;
++
++    return ffStrStartsWith(device->mnt_fsname, "/dev/");
++}
++
++static void detectName(FFDisk* disk)
++{
++    if(!ffStrbufStartsWithS(&disk->mountFrom, "/dev/"))
++        return;
++
++    const char* slash = strrchr(disk->mountFrom.chars, '/');
++    if(slash != NULL && slash[1] != '\0')
++        ffStrbufAppendS(&disk->name, slash + 1);
++}
++
++static void detectStats(FFDisk* disk)
++{
++    struct statvfs fs;
++    if(statvfs(disk->mountpoint.chars, &fs) != 0)
++        memset(&fs, 0, sizeof(fs));
++
++    disk->bytesTotal = fs.f_blocks * (uint64_t) fs.f_frsize;
++    disk->bytesFree = fs.f_bfree * (uint64_t) fs.f_frsize;
++    disk->bytesAvailable = fs.f_bavail * (uint64_t) fs.f_frsize;
++    disk->bytesUsed = 0;
++
++    if(fs.f_files >= fs.f_ffree)
++    {
++        disk->filesTotal = (uint32_t) fs.f_files;
++        disk->filesUsed = (uint32_t) (fs.f_files - fs.f_ffree);
++    }
++
++    disk->createTime = 0;
++}
++
++const char* ffDetectDisksImpl(FFDiskOptions* options, FFlist* disks)
++{
++    FILE* mountsFile = setmntent(FASTFETCH_TARGET_DIR_ROOT "/etc/mtab", "r");
++    if(mountsFile == NULL)
++        return "setmntent(\"/etc/mtab\", \"r\") == NULL";
++
++    struct mntent* device;
++    while((device = getmntent(mountsFile)) != NULL)
++    {
++        if(__builtin_expect(options->folders.length > 0, false))
++        {
++            if(!ffStrbufSeparatedContainS(&options->folders, device->mnt_dir, FF_DISK_FOLDER_SEPARATOR))
++                continue;
++        }
++        else if(!isPhysicalDevice(device))
++            continue;
++
++        if(options->hideFolders.length && ffDiskMatchesFolderPatterns(&options->hideFolders, device->mnt_dir, FF_DISK_FOLDER_SEPARATOR))
++            continue;
++
++        if(options->hideFS.length && ffStrbufSeparatedContainS(&options->hideFS, device->mnt_type, ':'))
++            continue;
++
++        FFDisk* disk = ffListAdd(disks);
++        disk->type = FF_DISK_VOLUME_TYPE_REGULAR_BIT;
++
++        ffStrbufInitS(&disk->mountFrom, device->mnt_fsname);
++        ffStrbufInitS(&disk->mountpoint, device->mnt_dir);
++        ffStrbufInitS(&disk->filesystem, device->mnt_type);
++
++        ffStrbufInit(&disk->name);
++        detectName(disk);
++
++        if(hasmntopt(device, MNTOPT_RO))
++            disk->type |= FF_DISK_VOLUME_TYPE_READONLY_BIT;
++
++        detectStats(disk);
++    }
++
++    endmntent(mountsFile);
++    return NULL;
++}
+diff --git fastfetch-workdir/src/detection/libc/libc_astral.c fastfetch-workdir/src/detection/libc/libc_astral.c
+new file mode 100644
+index 0000000..d5344f6
+--- /dev/null
++++ fastfetch-workdir/src/detection/libc/libc_astral.c
+@@ -0,0 +1,8 @@
++#include "libc.h"
++
++const char* ffDetectLibc(FFLibcResult* result)
++{
++    result->name = "mlibc";
++    result->version = NULL;
++    return NULL;
++}
+diff --git fastfetch-workdir/src/detection/loadavg/loadavg_astral.c fastfetch-workdir/src/detection/loadavg/loadavg_astral.c
+new file mode 100644
+index 0000000..762524a
+--- /dev/null
++++ fastfetch-workdir/src/detection/loadavg/loadavg_astral.c
+@@ -0,0 +1,15 @@
++#include "loadavg.h"
++
++#include <sys/sysinfo.h>
++
++const char* ffDetectLoadavg(double result[3])
++{
++    struct sysinfo si;
++    if(sysinfo(&si) < 0)
++        return "sysinfo() failed";
++
++    for(int i = 0; i < 3; ++i)
++        result[i] = (double) si.loads[i] / (1 << SI_LOAD_SHIFT);
++
++    return NULL;
++}
+diff --git fastfetch-workdir/src/detection/memory/memory_astral.c fastfetch-workdir/src/detection/memory/memory_astral.c
+new file mode 100644
+index 0000000..3eb849c
+--- /dev/null
++++ fastfetch-workdir/src/detection/memory/memory_astral.c
 @@ -0,0 +1,16 @@
 +#include "memory.h"
 +#include <sys/sysinfo.h>
@@ -188,9 +323,93 @@ diff --color -urN --no-dereference -x.git /home/bloba/Documents/fastfetch-clean/
 +
 +    return NULL;
 +}
-diff --color -urN --no-dereference -x.git /home/bloba/Documents/fastfetch-clean/src/detection/swap/swap_astral.c fastfetch/src/detection/swap/swap_astral.c
---- /home/bloba/Documents/fastfetch-clean/src/detection/swap/swap_astral.c	1970-01-01 01:00:00.000000000 +0100
-+++ fastfetch/src/detection/swap/swap_astral.c	2026-02-28 22:24:28.934962868 +0000
+diff --git fastfetch-workdir/src/detection/packages/packages_astral.c fastfetch-workdir/src/detection/packages/packages_astral.c
+new file mode 100644
+index 0000000..04b46bf
+--- /dev/null
++++ fastfetch-workdir/src/detection/packages/packages_astral.c
+@@ -0,0 +1,57 @@
++#include "packages.h"
++
++#include "common/io.h"
++#include "common/stringUtils.h"
++
++#include <dirent.h>
++#include <string.h>
++
++static uint32_t countStrings(const char* path, const char* needle)
++{
++    FF_STRBUF_AUTO_DESTROY content = ffStrbufCreate();
++    if(!ffReadFileBuffer(path, &content))
++        return 0;
++
++    uint32_t count = 0;
++    char* iter = content.chars;
++    size_t needleLength = strlen(needle);
++
++    while((iter = memmem(iter, content.length - (size_t) (iter - content.chars), needle, needleLength)) != NULL)
++    {
++        ++count;
++        iter += needleLength;
++    }
++
++    return count;
++}
++
++static uint32_t getXBPS(void)
++{
++    FF_STRBUF_AUTO_DESTROY path = ffStrbufCreateStatic(FASTFETCH_TARGET_DIR_ROOT "/var/db/xbps");
++    uint32_t baseLength = path.length;
++
++    FF_AUTO_CLOSE_DIR DIR* dir = opendir(path.chars);
++    if(dir == NULL)
++        return 0;
++
++    struct dirent* entry;
++    while((entry = readdir(dir)) != NULL)
++    {
++        if(!ffStrStartsWithIgnCase(entry->d_name, "pkgdb-"))
++            continue;
++
++        ffStrbufAppendC(&path, '/');
++        ffStrbufAppendS(&path, entry->d_name);
++        uint32_t result = countStrings(path.chars, "<key>pkgver</key>");
++        ffStrbufSubstrBefore(&path, baseLength);
++        return result;
++    }
++
++    return 0;
++}
++
++void ffDetectPackagesImpl(FFPackagesResult* result, FFPackagesOptions* options)
++{
++    if(!(options->disabled & FF_PACKAGES_FLAG_XBPS_BIT))
++        result->xbps = getXBPS();
++}
+diff --git fastfetch-workdir/src/detection/processes/processes_astral.c fastfetch-workdir/src/detection/processes/processes_astral.c
+new file mode 100644
+index 0000000..59380e5
+--- /dev/null
++++ fastfetch-workdir/src/detection/processes/processes_astral.c
+@@ -0,0 +1,13 @@
++#include "processes.h"
++
++#include <sys/sysinfo.h>
++
++const char* ffDetectProcesses(uint32_t* result)
++{
++    struct sysinfo si;
++    if(sysinfo(&si) < 0)
++        return "sysinfo() failed";
++
++    *result = si.procs;
++    return NULL;
++}
+diff --git fastfetch-workdir/src/detection/swap/swap_astral.c fastfetch-workdir/src/detection/swap/swap_astral.c
+new file mode 100644
+index 0000000..f75b857
+--- /dev/null
++++ fastfetch-workdir/src/detection/swap/swap_astral.c
 @@ -0,0 +1,18 @@
 +#include "swap.h"
 +#include <sys/sysinfo.h>
@@ -210,9 +429,11 @@ diff --color -urN --no-dereference -x.git /home/bloba/Documents/fastfetch-clean/
 +
 +    return NULL;
 +}
-diff --color -urN --no-dereference -x.git /home/bloba/Documents/fastfetch-clean/src/logo/ascii/astral.txt fastfetch/src/logo/ascii/astral.txt
---- /home/bloba/Documents/fastfetch-clean/src/logo/ascii/astral.txt	1970-01-01 01:00:00.000000000 +0100
-+++ fastfetch/src/logo/ascii/astral.txt	2026-02-23 18:05:56.586945191 +0000
+diff --git fastfetch-workdir/src/logo/ascii/astral.txt fastfetch-workdir/src/logo/ascii/astral.txt
+new file mode 100644
+index 0000000..7afd656
+--- /dev/null
++++ fastfetch-workdir/src/logo/ascii/astral.txt
 @@ -0,0 +1,11 @@
 +$2                      .::.
 +                   .:'  .:
@@ -226,10 +447,11 @@ diff --color -urN --no-dereference -x.git /home/bloba/Documents/fastfetch-clean/
 +$2:'  .:'
 +$2'::'                *
 \ No newline at end of file
-diff --color -urN --no-dereference -x.git /home/bloba/Documents/fastfetch-clean/src/logo/builtin.c fastfetch/src/logo/builtin.c
---- /home/bloba/Documents/fastfetch-clean/src/logo/builtin.c	2026-02-23 17:55:25.859979947 +0000
-+++ fastfetch/src/logo/builtin.c	2026-02-26 21:42:41.065526790 +0000
-@@ -679,6 +679,17 @@
+diff --git fastfetch-clean/src/logo/builtin.c fastfetch-workdir/src/logo/builtin.c
+index c2f2207..06ecef1 100644
+--- fastfetch-clean/src/logo/builtin.c
++++ fastfetch-workdir/src/logo/builtin.c
+@@ -679,6 +679,17 @@ static const FFlogo A[] = {
          .colorKeys = FF_COLOR_FG_RED,
          .colorTitle = FF_COLOR_FG_DEFAULT,
      },
@@ -247,10 +469,11 @@ diff --color -urN --no-dereference -x.git /home/bloba/Documents/fastfetch-clean/
      // Ataraxia
      {
          .names = {"Ataraxia Linux", "Ataraxia"},
-diff --color -urN --no-dereference -x.git /home/bloba/Documents/fastfetch-clean/src/options/general.h fastfetch/src/options/general.h
---- /home/bloba/Documents/fastfetch-clean/src/options/general.h	2026-02-23 17:55:25.870622959 +0000
-+++ fastfetch/src/options/general.h	2026-02-23 18:34:44.677964995 +0000
-@@ -16,7 +16,7 @@
+diff --git fastfetch-clean/src/options/general.h fastfetch-workdir/src/options/general.h
+index 2248201..d0153ac 100644
+--- fastfetch-clean/src/options/general.h
++++ fastfetch-workdir/src/options/general.h
+@@ -16,7 +16,7 @@ typedef struct FFOptionsGeneral
      bool detectVersion;
  
      // Module options that cannot be put in module option structure
