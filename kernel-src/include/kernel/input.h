@@ -212,6 +212,7 @@ struct input_device {
 	bitmap_t key_bits;
 	bitmap_t rel_bits;
 	bitmap_t abs_bits;
+	input_absinfo_t abs_info[INPUT_ABS_CNT];
 
 	uint16_t id_bus;
 	uint16_t id_vendor;

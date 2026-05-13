@@ -334,14 +334,7 @@ static int input_listener_ioctl(int minor, unsigned long request, void *arg, int
 		if (!bitmap_get(&lis->device->abs_bits, abs_code))
 			return EINVAL;
 
-		input_absinfo_t absinfo;
-		absinfo.value = -1;
-		absinfo.min = -1;
-		absinfo.max = -1;
-		absinfo.fuzz = 0;
-		absinfo.flat = 0;
-		absinfo.res = 0;
-		return USERCOPY_POSSIBLY_TO_USER(arg, &absinfo, sizeof(input_absinfo_t));
+		return USERCOPY_POSSIBLY_TO_USER(arg, &lis->device->abs_info[abs_code], sizeof(input_absinfo_t));
 	} else {
 		printf("input_ioctl: unhandled ioctl %lu (%u, %u, %u)\n", request, number, type, size);
 		return ENOTTY;
@@ -477,6 +470,11 @@ void input_queue_packet(input_device_t *dev, input_event_t *events, int count) {
 	console_process_events(events, count);
 
 	long ipl = spinlock_acquire_raise_ipl(&dev->lock, IPL_INPUT);
+
+	for (int i = 0; i < count; ++i) {
+		if (events[i].type == INPUT_EV_ABS && events[i].code < INPUT_ABS_CNT)
+			dev->abs_info[events[i].code].value = events[i].value;
+	}
 
 	list_for_each(&dev->listeners, node) {
 		input_listener_t *lis = container_of(node, input_listener_t, node);
