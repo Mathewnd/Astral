@@ -64,7 +64,8 @@
 #define HID_BUTTON_TERTIARY 0x03
 #define HID_BUTTON_SIDE 0x04
 #define HID_BUTTON_EXTRA 0x05
-#define HID_BUTTON_MAX HID_BUTTON_EXTRA
+#define HID_BUTTON_FORWARD 0x06
+#define HID_BUTTON_MAX HID_BUTTON_FORWARD
 
 #define HID_KEYBOARD_KEYPAD_MAX 0xe7
 
@@ -996,6 +997,8 @@ static uint16_t hid_button_to_input_key(uint32_t usage) {
 			return INPUT_KEY_BTN_SIDE;
 		case HID_BUTTON_EXTRA:
 			return INPUT_KEY_BTN_EXTRA;
+		case HID_BUTTON_FORWARD:
+			return INPUT_KEY_BTN_FORWARD;
 		default:
 			return INPUT_KEY_RESERVED;
 	}
