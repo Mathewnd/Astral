@@ -643,12 +643,10 @@ static void hid_emit_event_keyboard_keypad(hid_application_t *application, hid_i
 }
 
 static uint16_t hid_generic_desktop_to_input_rel(uint32_t usage);
+static uint16_t hid_generic_desktop_to_input_abs(uint32_t usage);
 
 static void hid_emit_event_generic_desktop(hid_input_t *input, hid_usage_t *usage, size_t idx, uint64_t value, input_event_t *events, size_t *events_emitted) {
 	if (input->flags & HID_INPUT_CONSTANT)
-		return;
-
-	if ((input->flags & HID_INPUT_RELATIVE) == 0)
 		return;
 
 	uint32_t hid_usage = USAGE(usage->usage);
@@ -658,18 +656,30 @@ static void hid_emit_event_generic_desktop(hid_input_t *input, hid_usage_t *usag
 			return;
 	}
 
-	uint16_t code = hid_generic_desktop_to_input_rel(hid_usage);
-	if (code > INPUT_REL_MAX)
-		return;
-
 	int64_t signed_value = hid_input_value_signed(input, value);
-	if (signed_value == 0)
-		return;
 
 	input_event_t event = {0};
-	event.type = INPUT_EV_REL;
-	event.code = code;
 	event.value = signed_value;
+
+	if (input->flags & HID_INPUT_RELATIVE) {
+		if (signed_value == 0)
+			return;
+
+		uint16_t code = hid_generic_desktop_to_input_rel(hid_usage);
+		if (code > INPUT_REL_MAX)
+			return;
+
+		event.type = INPUT_EV_REL;
+		event.code = code;
+	} else {
+		uint16_t code = hid_generic_desktop_to_input_abs(hid_usage);
+		if (code > INPUT_ABS_MAX)
+			return;
+
+		event.type = INPUT_EV_ABS;
+		event.code = code;
+	}
+
 	push_event(event, events, events_emitted);
 }
 
@@ -914,26 +924,62 @@ static uint16_t hid_generic_desktop_to_input_rel(uint32_t usage) {
 	}
 }
 
+static uint16_t hid_generic_desktop_to_input_abs(uint32_t usage) {
+	switch (usage) {
+		case HID_GD_X:
+			return INPUT_ABS_X;
+		case HID_GD_Y:
+			return INPUT_ABS_Y;
+		default:
+			return INPUT_ABS_MAX + 1;
+	}
+}
+
+static int32_t hid_abs_initial_value(hid_input_t *input) {
+	if (input->logical_minimum > 0)
+		return input->logical_minimum;
+	if (input->logical_maximum < 0)
+		return input->logical_maximum;
+	return 0;
+}
+
+static void hid_advertise_abs(input_device_t *device, hid_input_t *input, uint16_t code) {
+	if (code > INPUT_ABS_MAX)
+		return;
+
+	bitmap_set(&device->ev_bits, INPUT_EV_ABS, 1);
+	bitmap_set(&device->abs_bits, code, 1);
+	device->abs_info[code].value = hid_abs_initial_value(input);
+	device->abs_info[code].min = input->logical_minimum;
+	device->abs_info[code].max = input->logical_maximum;
+}
+
 static void hid_advertise_generic_desktop(input_device_t *device, hid_input_t *input, hid_usage_t *usage) {
 	if (input->flags & HID_INPUT_CONSTANT)
 		return;
 
-	if ((input->flags & HID_INPUT_RELATIVE) == 0)
-		return;
-
 	if (usage->minimum == 0 && usage->maximum == 0) {
-		uint16_t code = hid_generic_desktop_to_input_rel(USAGE(usage->usage));
-		if (code <= INPUT_REL_MAX) {
-			bitmap_set(&device->ev_bits, INPUT_EV_REL, 1);
-			bitmap_set(&device->rel_bits, code, 1);
+		uint32_t hid_usage = USAGE(usage->usage);
+		if (input->flags & HID_INPUT_RELATIVE) {
+			uint16_t code = hid_generic_desktop_to_input_rel(hid_usage);
+			if (code <= INPUT_REL_MAX) {
+				bitmap_set(&device->ev_bits, INPUT_EV_REL, 1);
+				bitmap_set(&device->rel_bits, code, 1);
+			}
+		} else {
+			hid_advertise_abs(device, input, hid_generic_desktop_to_input_abs(hid_usage));
 		}
 	}
 
 	for (uint32_t hid_usage = usage->minimum; hid_usage <= usage->maximum && hid_usage <= HID_GD_WHEEL; ++hid_usage) {
-		uint16_t code = hid_generic_desktop_to_input_rel(hid_usage);
-		if (code <= INPUT_REL_MAX) {
-			bitmap_set(&device->ev_bits, INPUT_EV_REL, 1);
-			bitmap_set(&device->rel_bits, code, 1);
+		if (input->flags & HID_INPUT_RELATIVE) {
+			uint16_t code = hid_generic_desktop_to_input_rel(hid_usage);
+			if (code <= INPUT_REL_MAX) {
+				bitmap_set(&device->ev_bits, INPUT_EV_REL, 1);
+				bitmap_set(&device->rel_bits, code, 1);
+			}
+		} else {
+			hid_advertise_abs(device, input, hid_generic_desktop_to_input_abs(hid_usage));
 		}
 	}
 }
