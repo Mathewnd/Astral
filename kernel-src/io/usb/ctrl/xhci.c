@@ -398,7 +398,6 @@ static int xhci_run(xhci_ctrl_t *ctrl) {
 	return 0;
 }
 
-
 static volatile uint32_t *xhci_ext_caps(pcibar_t bar0) {
 	volatile xhci_caps_t *caps = (xhci_caps_t *)bar0.address;
 	uint32_t xecp = (caps->hccparams1 >> 16) & 0xffff;
@@ -447,6 +446,39 @@ static int xhci_handoff(pcibar_t bar0) {
 	}
 
 	return 0;
+}
+
+#define XHCI_INTEL_VENDOR_ID 0x8086
+#define XHCI_INTEL_XUSB2PR 0xd0
+#define XHCI_INTEL_USB2PRM 0xd4
+#define XHCI_INTEL_USB3_PSSEN 0xd8
+#define XHCI_INTEL_USB3PRM 0xdc
+
+static bool xhci_intel_has_ehci_companion(void) {
+	return pci_getenum(PCI_CLASS_SERIAL_BUS, PCI_SUBCLASS_SERIAL_BUS_USB, PCI_PROGIF_USB_EHCI, XHCI_INTEL_VENDOR_ID, -1, -1, 0) != NULL;
+}
+
+static void xhci_intel_route_ports_to_xhci(pcienum_t *e) {
+	if (e->vendor != XHCI_INTEL_VENDOR_ID)
+		return;
+
+	if (!xhci_intel_has_ehci_companion())
+		return;
+
+	uint32_t usb2_mask = PCI_READ32(e, XHCI_INTEL_USB2PRM);
+	uint32_t usb3_mask = PCI_READ32(e, XHCI_INTEL_USB3PRM);
+	uint32_t usb2_before = PCI_READ32(e, XHCI_INTEL_XUSB2PR);
+	uint32_t usb3_before = PCI_READ32(e, XHCI_INTEL_USB3_PSSEN);
+
+	if (usb3_mask != 0 && usb3_mask != UINT32_MAX)
+		PCI_WRITE32(e, XHCI_INTEL_USB3_PSSEN, usb3_mask);
+	if (usb2_mask != 0 && usb2_mask != UINT32_MAX)
+		PCI_WRITE32(e, XHCI_INTEL_XUSB2PR, usb2_mask);
+
+	uint32_t usb2_after = PCI_READ32(e, XHCI_INTEL_XUSB2PR);
+	uint32_t usb3_after = PCI_READ32(e, XHCI_INTEL_USB3_PSSEN);
+
+	printf("xhci: Intel routed ports to xHCI: usb2 %08x->%08x usb3 %08x->%08x\n", usb2_before, usb2_after, usb3_before, usb3_after);
 }
 
 
@@ -688,6 +720,8 @@ static void init_ctrl(pcienum_t *e) {
 	pcibar_t bar0 = pci_getbar(e, 0);
 	if (xhci_handoff(bar0) != 0)
 		return;
+
+	xhci_intel_route_ports_to_xhci(e);
 
 	pci_setcommand(e, PCI_COMMAND_IO, 0);
 	pci_setcommand(e, PCI_COMMAND_IRQDISABLE, 1);

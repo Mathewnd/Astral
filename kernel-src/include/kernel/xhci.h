@@ -200,10 +200,16 @@ _Static_assert(sizeof(xhci_input_ctx_t) == XHCI_CONTEXT_SIZE, "xHCI input contro
 #define XHCI_PORTSC_PP (1 << 9) // port power
 #define XHCI_PORTSC_CSC (1 << 17) // connect status change
 #define XHCI_PORTSC_PEC (1 << 18) // port enabled change
+#define XHCI_PORTSC_WRC (1 << 19) // warm reset change
 #define XHCI_PORTSC_OCC (1 << 20) // over current change
 #define XHCI_PORTSC_PRC (1 << 21) // port reset change
+#define XHCI_PORTSC_PLC (1 << 22) // port link state change
+#define XHCI_PORTSC_CEC (1 << 23) // config error change
+#define XHCI_PORTSC_CAS (1 << 24) // cold attach status
+#define XHCI_PORTSC_DR (1 << 30) // device removable
+#define XHCI_PORTSC_WPR (1u << 31) // warm port reset
 
-#define XHCI_PORTSC_CHANGE_BITS (XHCI_PORTSC_CSC | XHCI_PORTSC_PEC | XHCI_PORTSC_OCC | XHCI_PORTSC_PRC)
+#define XHCI_PORTSC_CHANGE_BITS (XHCI_PORTSC_CSC | XHCI_PORTSC_PEC | XHCI_PORTSC_WRC | XHCI_PORTSC_OCC | XHCI_PORTSC_PRC | XHCI_PORTSC_PLC | XHCI_PORTSC_CEC)
 #define XHCI_PORTSC_PRESERVE_BITS XHCI_PORTSC_PP
 
 #define XHCI_TRB_DW2_TR_LEN(LEN) (uint32_t)((LEN) & 0x1ffff)
