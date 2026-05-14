@@ -324,8 +324,14 @@ static volatile struct limine_executable_address_request kaddrreq = {
 #define ERROR_FETCH   16
 
 static void pfisr(isr_t *self, context_t *ctx) {
-	if ((ctx->rflags & ARCH_CONTEXT_RFLAGS_AC) == 0 && IS_USER_ADDRESS((void *)ctx->cr2) && !IS_USER_ADDRESS((void *)ctx->rip)) {
-		_panic("SMAP/SMEP violation", ctx);
+	if (!ARCH_CONTEXT_ISUSER(ctx) && IS_USER_ADDRESS((void *)ctx->cr2)) {
+		if ((ctx->error & ERROR_FETCH) && arch_cpu_smep_enabled()) {
+			_panic("SMEP violation", ctx);
+		}
+
+		if ((ctx->error & ERROR_FETCH) == 0 && (ctx->rflags & ARCH_CONTEXT_RFLAGS_AC) == 0 && arch_cpu_smap_enabled()) {
+			_panic("SMAP violation", ctx);
+		}
 	}
 
 	thread_t *thread = current_thread();

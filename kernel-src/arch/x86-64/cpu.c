@@ -17,6 +17,7 @@
 
 static bool has_smap;
 static bool has_smap_detected;
+static bool has_smep;
 
 void arch_syscall_entry();
 static void illisr(isr_t *self, context_t *ctx) {
@@ -79,6 +80,7 @@ static void enable_smep_if_available(void) {
 	asm volatile("mov %%cr4, %0" : "=r"(cr4));
 	cr4 |= CR4_SMEP;
 	asm volatile("mov %0, %%cr4" : : "r"(cr4) : "memory");
+	has_smep = true;
 }
 
 static bool detect_smap(void) {
@@ -113,6 +115,14 @@ void arch_cpu_user_access_begin(void) {
 void arch_cpu_user_access_end(void) {
 	if (has_smap)
 		asm volatile("clac" : : : "memory");
+}
+
+bool arch_cpu_smep_enabled(void) {
+	return has_smep;
+}
+
+bool arch_cpu_smap_enabled(void) {
+	return has_smap;
 }
 
 void arch_nmi_isr(context_t *ctx) {

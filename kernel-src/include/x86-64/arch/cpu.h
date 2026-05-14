@@ -116,6 +116,8 @@ static inline uint16_t be_to_cpu_w(uint16_t w) {
 cpu_t *get_bsp(void);
 void arch_cpu_user_access_begin(void);
 void arch_cpu_user_access_end(void);
+bool arch_cpu_smep_enabled(void);
+bool arch_cpu_smap_enabled(void);
 
 static inline thread_t *current_thread(void) {
 	thread_t *thread;
