@@ -83,12 +83,24 @@ index 0000000..5f5c23a
 +print:
 +	@echo OBJS: $(OBJS)
 +
+diff --git doomgeneric-clean/doomgeneric/doomgeneric.h doomgeneric-workdir/doomgeneric/doomgeneric.h
+index c2dc4b5..9c1849f 100644
+--- doomgeneric-clean/doomgeneric/doomgeneric.h
++++ doomgeneric-workdir/doomgeneric/doomgeneric.h
+@@ -16,6 +16,7 @@ void DG_DrawFrame();
+ void DG_SleepMs(uint32_t ms);
+ uint32_t DG_GetTicksMs();
+ int DG_GetKey(int* pressed, unsigned char* key);
++int DG_GetJoystickState(int *buttons, int *x, int *y);
+ void DG_SetWindowTitle(const char * title);
+ 
+ #endif //DOOM_GENERIC
 diff --git doomgeneric-workdir/doomgeneric/doomgeneric_astral.c doomgeneric-workdir/doomgeneric/doomgeneric_astral.c
 new file mode 100644
-index 0000000..0c20a2a
+index 0000000..b8e0de9
 --- /dev/null
 +++ doomgeneric-workdir/doomgeneric/doomgeneric_astral.c
-@@ -0,0 +1,197 @@
+@@ -0,0 +1,441 @@
 +#define _GNU_SOURCE
 +#include "doomkeys.h"
 +
@@ -101,18 +113,290 @@ index 0000000..0c20a2a
 +#include <sys/time.h>
 +#include <time.h>
 +#include <linux/fb.h>
++#include <linux/input.h>
 +#include <termios.h>
 +#include <errno.h>
 +#include <fcntl.h>
++#include <sys/ioctl.h>
++
++extern int ioctl(int fd, unsigned long request, ...);
 +
 +static int fbfd;
-+static int kbfd;
++static int kbfd = -1;
++static int joyfd = -1;
 +static struct fb_var_screeninfo fbvs;
 +static struct fb_fix_screeninfo fbfs;
-+static void* frame;
 +static struct termios ttysave;
 +
-+static struct timespec starttime;
++#define MAX_EVDEV_DEVICES 32
++#define BITMAP_LONG_BITS (sizeof(unsigned long) * 8)
++#define BITMAP_LONGS(bits) (((bits) + BITMAP_LONG_BITS - 1) / BITMAP_LONG_BITS)
++#define JOYSTICK_BUTTONS 6
++#define JOYSTICK_DEAD_ZONE (32768 / 3)
++
++typedef struct {
++	int code;
++	int value;
++	int min;
++	int max;
++} axis_state_t;
++
++static axis_state_t joystick_axes[2] = {
++	{ABS_X, 0, -32767, 32767},
++	{ABS_Y, 0, -32767, 32767},
++};
++static int joystick_buttons[JOYSTICK_BUTTONS];
++
++static int bitmap_test(unsigned long *bits, int bit)
++{
++	return (bits[bit / BITMAP_LONG_BITS] & (1UL << (bit % BITMAP_LONG_BITS))) != 0;
++}
++
++static int evdev_has_bit(int fd, int ev, int code)
++{
++	unsigned long bits[BITMAP_LONGS(KEY_CNT)] = {0};
++	size_t bytes = sizeof(bits);
++
++	if (ev == EV_ABS)
++		bytes = BITMAP_LONGS(ABS_CNT) * sizeof(unsigned long);
++	else if (ev == EV_SYN)
++		bytes = BITMAP_LONGS(EV_CNT) * sizeof(unsigned long);
++
++	if (ioctl(fd, EVIOCGBIT(ev, bytes), bits) == -1)
++		return 0;
++
++	return bitmap_test(bits, code);
++}
++
++static int is_keyboard(int fd)
++{
++	return evdev_has_bit(fd, EV_SYN, EV_KEY)
++	    && evdev_has_bit(fd, EV_KEY, KEY_A)
++	    && evdev_has_bit(fd, EV_KEY, KEY_ENTER);
++}
++
++static int evdev_button_to_index(int code)
++{
++	switch (code) {
++		case BTN_LEFT:
++		case BTN_TRIGGER:
++		case BTN_SOUTH:
++			return 0;
++		case BTN_RIGHT:
++		case BTN_THUMB:
++		case BTN_EAST:
++			return 1;
++		case BTN_MIDDLE:
++		case BTN_THUMB2:
++		case BTN_C:
++			return 2;
++		case BTN_SIDE:
++		case BTN_TOP:
++		case BTN_NORTH:
++			return 3;
++		case BTN_EXTRA:
++		case BTN_TOP2:
++		case BTN_WEST:
++			return 4;
++		case BTN_FORWARD:
++		case BTN_PINKIE:
++		case BTN_Z:
++			return 5;
++		default:
++			return -1;
++	}
++}
++
++static int is_joystick(int fd)
++{
++	int i;
++
++	if (!evdev_has_bit(fd, EV_SYN, EV_ABS)
++	    || !evdev_has_bit(fd, EV_ABS, ABS_X)
++	    || !evdev_has_bit(fd, EV_ABS, ABS_Y))
++		return 0;
++
++	for (i = 0; i < JOYSTICK_BUTTONS; ++i) {
++		if (evdev_has_bit(fd, EV_KEY, BTN_LEFT + i)
++		    || evdev_has_bit(fd, EV_KEY, BTN_TRIGGER + i)
++		    || evdev_has_bit(fd, EV_KEY, BTN_SOUTH + i))
++			return 1;
++	}
++
++	return 0;
++}
++
++static int open_evdev_device(int index)
++{
++	char path[32];
++
++	snprintf(path, sizeof(path), "/dev/input/event%d", index);
++	return open(path, O_RDONLY | O_NONBLOCK, 0);
++}
++
++static void init_axis(int fd, axis_state_t *axis)
++{
++	struct input_absinfo info;
++
++	if (ioctl(fd, EVIOCGABS(axis->code), &info) == 0) {
++		axis->value = info.value;
++		axis->min = info.minimum;
++		axis->max = info.maximum;
++	}
++}
++
++static void init_evdev(void)
++{
++	for (int i = 0; i < MAX_EVDEV_DEVICES; ++i) {
++		int fd = open_evdev_device(i);
++		if (fd == -1)
++			continue;
++
++		if (kbfd == -1 && is_keyboard(fd)) {
++			kbfd = fd;
++			continue;
++		}
++
++		if (joyfd == -1 && is_joystick(fd)) {
++			joyfd = fd;
++			init_axis(joyfd, &joystick_axes[0]);
++			init_axis(joyfd, &joystick_axes[1]);
++			continue;
++		}
++
++		close(fd);
++	}
++}
++
++static unsigned char evdev_key_to_doom(int code)
++{
++	switch (code) {
++		case KEY_A:
++			return KEY_LEFTARROW;
++		case KEY_W:
++		case KEY_UP:
++			return KEY_UPARROW;
++		case KEY_S:
++		case KEY_DOWN:
++			return KEY_DOWNARROW;
++		case KEY_D:
++			return KEY_RIGHTARROW;
++		case KEY_LEFT:
++			return KEY_LEFTARROW;
++		case KEY_RIGHT:
++			return KEY_RIGHTARROW;
++		case KEY_ENTER:
++		case KEY_KPENTER:
++			return KEY_ENTER;
++		case KEY_LEFTCTRL:
++		case KEY_RIGHTCTRL:
++			return KEY_FIRE;
++		case KEY_LEFTSHIFT:
++		case KEY_RIGHTSHIFT:
++			return KEY_RSHIFT;
++		case KEY_ESC:
++			return KEY_ESCAPE;
++		case KEY_SPACE:
++			return KEY_USE;
++		case KEY_TAB:
++			return KEY_TAB;
++		case KEY_BACKSPACE:
++			return KEY_BACKSPACE;
++		case KEY_MINUS:
++			return '-';
++		case KEY_EQUAL:
++			return '=';
++		case KEY_LEFTBRACE:
++			return '[';
++		case KEY_RIGHTBRACE:
++			return ']';
++		case KEY_SEMICOLON:
++			return ';';
++		case KEY_APOSTROPHE:
++			return '\'';
++		case KEY_GRAVE:
++			return '`';
++		case KEY_BACKSLASH:
++			return '\\';
++		case KEY_COMMA:
++			return ',';
++		case KEY_DOT:
++			return '.';
++		case KEY_SLASH:
++			return '/';
++		case KEY_1:
++			return '1';
++		case KEY_2:
++			return '2';
++		case KEY_3:
++			return '3';
++		case KEY_4:
++			return '4';
++		case KEY_5:
++			return '5';
++		case KEY_6:
++			return '6';
++		case KEY_7:
++			return '7';
++		case KEY_8:
++			return '8';
++		case KEY_9:
++			return '9';
++		case KEY_0:
++			return '0';
++		default:
++			if (code >= KEY_Q && code <= KEY_P)
++				return "qwertyuiop"[code - KEY_Q];
++			if (code >= KEY_A && code <= KEY_L)
++				return "asdfghjkl"[code - KEY_A];
++			if (code >= KEY_Z && code <= KEY_M)
++				return "zxcvbnm"[code - KEY_Z];
++			return 0;
++	}
++}
++
++static int normalize_axis(axis_state_t *axis)
++{
++	long long range = (long long)axis->max - axis->min;
++	long long centered;
++	int value;
++
++	if (range <= 0)
++		return 0;
++
++	centered = ((long long)axis->value - axis->min) * 65534 / range - 32767;
++	if (centered < -32767)
++		centered = -32767;
++	else if (centered > 32767)
++		centered = 32767;
++
++	value = (int)centered;
++	if (value > -JOYSTICK_DEAD_ZONE && value < JOYSTICK_DEAD_ZONE)
++		value = 0;
++
++	return value;
++}
++
++static void poll_joystick(void)
++{
++	struct input_event event;
++
++	if (joyfd == -1)
++		return;
++
++	while (read(joyfd, &event, sizeof(event)) == sizeof(event)) {
++		if (event.type == EV_ABS) {
++			if (event.code == joystick_axes[0].code)
++				joystick_axes[0].value = event.value;
++			else if (event.code == joystick_axes[1].code)
++				joystick_axes[1].value = event.value;
++		} else if (event.type == EV_KEY) {
++			int button = evdev_button_to_index(event.code);
++			if (button >= 0)
++				joystick_buttons[button] = event.value != 0;
++		}
++	}
++}
 +
 +static int seekordie(int fd, off_t offset, int whence){
 +	int ret = lseek(fd, offset, whence);
@@ -126,7 +410,7 @@ index 0000000..0c20a2a
 +static int ioctlordie(int fd, unsigned long request, void* arg){
 +	int ret = ioctl(fd, request, arg);
 +	if(ret == -1){
-+		printf("doomgeneric: ioctl failed on fd %d: %s\n", fd, strerror(errno));	
++		printf("doomgeneric: ioctl failed on fd %d: %s\n", fd, strerror(errno));
 +		exit(errno);
 +	}
 +	return ret;
@@ -151,34 +435,29 @@ index 0000000..0c20a2a
 +	return writec;
 +}
 +
-+static int readordie(int fd, void* buff, size_t count){
-+	int readc = read(fd, buff, count);
-+	if(readc == -1){
-+		printf("doomgeneric: read failed on fd %d: %s\n", fd, strerror(errno));
-+		exit(errno);
-+	}
-+	return readc;
-+}
-+
 +void cleanup(){
 +	tcsetattr(1, TCSAFLUSH, &ttysave);
 +}
 +
 +void DG_Init(){
-+	
++
 +	// open needed files
 +
 +	fbfd = openordie("/dev/fb0", O_WRONLY, 0);
-+	kbfd = openordie("/dev/keyboard0", O_RDONLY | O_NONBLOCK, 0);
++	init_evdev();
++	if(kbfd == -1){
++		printf("doomgeneric: failed to find evdev keyboard\n");
++		exit(ENODEV);
++	}
 +
 +	// get needed fb info
-+	
++
 +	ioctlordie(fbfd, FBIOGET_VSCREENINFO, &fbvs);
 +	ioctlordie(fbfd, FBIOGET_FSCREENINFO, &fbfs);
 +
 +
 +	// make tty raw and nonblocking
-+	
++
 +	struct termios tty;
 +
 +	tcgetattr(1, &tty);
@@ -188,88 +467,65 @@ index 0000000..0c20a2a
 +	tcsetattr(1, TCSAFLUSH, &tty);
 +	atexit(cleanup);
 +
-+	char a[100];	
-+	while (read(kbfd, a, 100)) ;
++	struct input_event event;
++	while (read(kbfd, &event, sizeof(event)) == sizeof(event)) ;
 +}
 +
 +void DG_DrawFrame(){
 +	// prepare the frame for writing
 +
 +	// TODO handle bpp stuff
-+	
++
 +	off_t moffset = fbfs.line_length * (fbvs.yres / 2 - DOOMGENERIC_RESY/2) + (fbvs.xres / 2 - DOOMGENERIC_RESX / 2) * (fbvs.bits_per_pixel / 8);
 +
 +	for(uintmax_t y = 0; y < DOOMGENERIC_RESY; ++y){
-+		uintptr_t foffset = 0;
-+		foffset = fbfs.line_length * y;
 +		seekordie(fbfd, moffset + fbfs.line_length * y, SEEK_SET);
 +		writeordie(fbfd, DG_ScreenBuffer + DOOMGENERIC_RESX*y, DOOMGENERIC_RESX*4);
 +	}
 +
 +}
 +
-+typedef struct {
-+        char ascii;
-+        uintmax_t keycode;
-+        int flags;
-+} kbpacket_t;
-+
-+#define KEYCODE_A 30
-+#define KEYCODE_S 31
-+#define KEYCODE_D 32
-+#define KEYCODE_W 17
-+#define KEYCODE_LEFTCTRL 29
-+#define KEYCODE_ENTER 28
-+#define KEYCODE_ESCAPE 1
-+#define KEYCODE_RIGHTSHIFT 54
-+#define KEYCODE_LEFTSHIFT 42
-+#define KEYCODE_SPACE 57
-+#define KEYCODE_RIGHTCTRL 97
-+#define KBPACKET_FLAGS_RELEASED 1
-+
 +int DG_GetKey(int* pressed, unsigned char* doomkey){
-+	kbpacket_t buff;
-+	if(readordie(kbfd, &buff, sizeof(kbpacket_t)) == 0)
-+		return 0;
++	struct input_event event;
++	ssize_t count;
 +
-+	char key;
-+	switch(buff.keycode){
-+		case KEYCODE_A:
-+			key = KEY_LEFTARROW;
-+			break;
-+		case KEYCODE_W:
-+			key = KEY_UPARROW;
-+			break;
-+		case KEYCODE_S:
-+			key = KEY_DOWNARROW;
-+			break;
-+		case KEYCODE_D:
-+			key = KEY_RIGHTARROW;
-+			break;
-+		case KEYCODE_ENTER:
-+			key = KEY_ENTER;
-+			break;
-+		case KEYCODE_LEFTCTRL:
-+		case KEYCODE_RIGHTCTRL:
-+			key = KEY_FIRE;
-+			break;
-+		case KEYCODE_LEFTSHIFT:
-+		case KEYCODE_RIGHTSHIFT:
-+			key = KEY_RSHIFT;
-+			break;
-+		case KEYCODE_ESCAPE:
-+			key = KEY_ESCAPE;
-+			break;
-+		case KEYCODE_SPACE:
-+			key = KEY_USE;
-+			break;
-+		default:
-+			key = buff.ascii;
-+			break;
++	while ((count = read(kbfd, &event, sizeof(event))) == sizeof(event)) {
++		if (event.type != EV_KEY || event.value == 2)
++			continue;
++
++		*doomkey = evdev_key_to_doom(event.code);
++		if (*doomkey == 0)
++			continue;
++
++		*pressed = event.value != 0;
++		return 1;
 +	}
 +
-+	*doomkey = key;
-+	*pressed = buff.flags & KBPACKET_FLAGS_RELEASED ? 0 : 1;
++	if(count == -1 && errno != EAGAIN && errno != EWOULDBLOCK){
++		printf("doomgeneric: read failed on keyboard fd: %s\n", strerror(errno));
++		exit(errno);
++	}
++
++	return 0;
++}
++
++int DG_GetJoystickState(int *buttons, int *x, int *y)
++{
++	int button_state = 0;
++
++	if (joyfd == -1)
++		return 0;
++
++	poll_joystick();
++
++	for (int i = 0; i < JOYSTICK_BUTTONS; ++i) {
++		if (joystick_buttons[i])
++			button_state |= 1 << i;
++	}
++
++	*buttons = button_state;
++	*x = normalize_axis(&joystick_axes[0]);
++	*y = normalize_axis(&joystick_axes[1]);
 +	return 1;
 +}
 +
@@ -286,3 +542,217 @@ index 0000000..0c20a2a
 +}
 +
 +void DG_SetWindowTitle(const char* title){}
+diff --git doomgeneric-clean/doomgeneric/i_joystick.c doomgeneric-workdir/doomgeneric/i_joystick.c
+index 755aec3..f7ed1c7 100644
+--- doomgeneric-clean/doomgeneric/i_joystick.c
++++ doomgeneric-workdir/doomgeneric/i_joystick.c
+@@ -28,6 +28,7 @@
+ #include "d_event.h"
+ #include "i_joystick.h"
+ #include "i_system.h"
++#include "doomgeneric.h"
+ 
+ #include "m_config.h"
+ #include "m_misc.h"
+@@ -41,6 +42,10 @@
+ static SDL_Joystick *joystick = NULL;
+ #endif
+ 
++static int joystick_available = 0;
++static int joystick_buttons_state = 0;
++static int joystick_axis_state[2] = {0, 0};
++
+ // Configuration variables:
+ 
+ // Standard default.cfg Joystick enable/disable
+@@ -165,6 +170,17 @@ void I_InitJoystick(void)
+ 
+     I_AtExit(I_ShutdownJoystick, true);
+ #endif
++    int buttons;
++    int x;
++    int y;
++
++    joystick_available = DG_GetJoystickState(&buttons, &x, &y);
++    if (joystick_available)
++    {
++        joystick_buttons_state = buttons;
++        joystick_axis_state[0] = x;
++        joystick_axis_state[1] = y;
++    }
+ }
+ 
+ #ifdef ORIGCODE
+@@ -318,6 +334,81 @@ static int GetAxisState(int axis, int invert)
+     return result;
+ }
+ #endif
++
++static int ReadButtonState(int vbutton)
++{
++    int physbutton;
++
++    if (vbutton < NUM_VIRTUAL_BUTTONS)
++    {
++        physbutton = joystick_physical_buttons[vbutton];
++    }
++    else
++    {
++        physbutton = vbutton;
++    }
++
++    if (physbutton < 0 || physbutton >= 6)
++    {
++        return 0;
++    }
++
++    return (joystick_buttons_state & (1 << physbutton)) != 0;
++}
++
++static int GetButtonsState(void)
++{
++    int i;
++    int result;
++
++    result = 0;
++
++    for (i = 0; i < NUM_VIRTUAL_BUTTONS; ++i)
++    {
++        if (ReadButtonState(i))
++        {
++            result |= 1 << i;
++        }
++    }
++
++    return result;
++}
++
++static int GetAxisState(int axis, int invert)
++{
++    int result;
++
++    if (axis < 0)
++    {
++        return 0;
++    }
++
++    result = 0;
++
++    if (IS_BUTTON_AXIS(axis))
++    {
++        if (ReadButtonState(BUTTON_AXIS_NEG(axis)))
++        {
++            result -= 32767;
++        }
++        if (ReadButtonState(BUTTON_AXIS_POS(axis)))
++        {
++            result += 32767;
++        }
++    }
++    else if (axis < 2)
++    {
++        result = joystick_axis_state[axis];
++    }
++
++    if (invert)
++    {
++        result = -result;
++    }
++
++    return result;
++}
++
+ void I_UpdateJoystick(void)
+ {
+ #ifdef ORIGCODE
+@@ -334,6 +425,23 @@ void I_UpdateJoystick(void)
+         D_PostEvent(&ev);
+     }
+ #endif
++    event_t ev;
++
++    joystick_available = DG_GetJoystickState(&joystick_buttons_state,
++                                             &joystick_axis_state[0],
++                                             &joystick_axis_state[1]);
++    if (!joystick_available)
++    {
++        return;
++    }
++
++    ev.type = ev_joystick;
++    ev.data1 = GetButtonsState();
++    ev.data2 = GetAxisState(joystick_x_axis, joystick_x_invert);
++    ev.data3 = GetAxisState(joystick_y_axis, joystick_y_invert);
++    ev.data4 = GetAxisState(joystick_strafe_axis, joystick_strafe_invert);
++
++    D_PostEvent(&ev);
+ }
+ 
+ void I_BindJoystickVariables(void)
+@@ -356,4 +464,3 @@ void I_BindJoystickVariables(void)
+         M_BindVariable(name, &joystick_physical_buttons[i]);
+     }
+ }
+-
+diff --git doomgeneric-clean/doomgeneric/i_video.c doomgeneric-workdir/doomgeneric/i_video.c
+index bf63035..2c84bcc 100644
+--- doomgeneric-clean/doomgeneric/i_video.c
++++ doomgeneric-workdir/doomgeneric/i_video.c
+@@ -1,4 +1,4 @@
+-// Emacs style mode select   -*- C++ -*- 
++// Emacs style mode select   -*- C++ -*-
+ //-----------------------------------------------------------------------------
+ //
+ // $Id:$
+@@ -63,7 +63,7 @@ struct FB_ScreenInfo
+ 	uint32_t yres_virtual;
+ 
+ 	uint32_t bits_per_pixel;		/* guess what			*/
+-	
++
+ 							/* >1 = FOURCC			*/
+ 	struct FB_BitField red;		/* bitfield in s_Fb mem if true color, */
+ 	struct FB_BitField green;	/* else only length is significant */
+@@ -85,6 +85,7 @@ struct color {
+ static struct color colors[256];
+ 
+ void I_GetEvent(void);
++void I_UpdateJoystick(void);
+ 
+ // The screen buffer; this is modified to draw things to the screen
+ 
+@@ -134,7 +135,7 @@ void cmap_to_rgb565(uint16_t * out, uint8_t * in, int in_pixels)
+ 
+     for (i = 0; i < in_pixels; i++)
+     {
+-        c = colors[*in]; 
++        c = colors[*in];
+         r = ((uint16_t)(c.r >> 3)) << 11;
+         g = ((uint16_t)(c.g >> 2)) << 5;
+         b = ((uint16_t)(c.b >> 3)) << 0;
+@@ -194,7 +195,7 @@ void I_InitGraphics (void)
+ 	s_Fb.green.offset = 8;
+ 	s_Fb.red.offset = 16;
+ 	s_Fb.transp.offset = 24;
+-	
++
+ 
+     printf("I_InitGraphics: framebuffer: x_res: %d, y_res: %d, x_virtual: %d, y_virtual: %d, bpp: %d\n",
+             s_Fb.xres, s_Fb.yres, s_Fb.xres_virtual, s_Fb.yres_virtual, s_Fb.bits_per_pixel);
+@@ -240,6 +241,7 @@ void I_StartFrame (void)
+ void I_StartTic (void)
+ {
+ 	I_GetEvent();
++	I_UpdateJoystick();
+ }
+ 
+ void I_UpdateNoBlit (void)
+@@ -325,7 +327,7 @@ void I_SetPalette (byte* palette)
+ 
+ 	//	palette += 3;
+ 	//}
+-    
++
+ 
+     /* performance boost:
+      * map to the right pixel format over here! */
