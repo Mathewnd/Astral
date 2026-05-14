@@ -13,6 +13,7 @@ Astral is a 64 bit operating system with its own kernel written in C for the x86
 - Filesystems: tmpfs, devfs, ext2, fat{12,16,32}
 - Block devices: NVMe, virtio-block, AHCI
 - Network devices: virtio-net, rtl8169
+- USB: xHCI, HID, Hubs
 - ACPI: thanks to [uACPI](https://github.com/UltraOS/uACPI), there is ACPI support with proper poweroff, etc.
 - Multiple user support
 - Package management using xbps
