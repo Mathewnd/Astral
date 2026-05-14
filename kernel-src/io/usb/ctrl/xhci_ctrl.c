@@ -402,9 +402,10 @@ static int xhci_ctrl_address_device(usb_ctrl_t *ctrl, usb_hub_t *hub, uint8_t po
 		xhci_device_t *xhci_hub_device = (xhci_device_t *)hub->device;
 		xhci_dev->root_port_number = xhci_hub_device->root_port_number;
 	} else {
+		xhci_root_hub_t *rh = container_of(hub, xhci_root_hub_t, hub);
 		xhci_dev->device_tier = 0;
 		xhci_dev->route_string = 0;
-		xhci_dev->root_port_number = port;
+		xhci_dev->root_port_number = rh->port_offset + port;
 	}
 
 	if (hub->device == NULL) {
