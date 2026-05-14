@@ -133,8 +133,15 @@ typedef struct {
 typedef struct {
 	uint16_t ignore0[100];
 	uint16_t lba48_size[4];
-	uint16_t ignore1[152];
+	uint16_t ignore1[2];
+	uint16_t sector_size_info;
+	uint16_t ignore2[10];
+	uint16_t logical_sector_size[2];
+	uint16_t ignore3[137];
 } identify_t;
+
+#define IDENTIFY_SECTOR_SIZE_VALID(x) (((x) & (1 << 14)) && (((x) & (1 << 15)) == 0))
+#define IDENTIFY_LOGICAL_SECTOR_LONGER (1 << 12)
 
 struct ahci_t;
 typedef struct {
@@ -159,8 +166,8 @@ typedef struct ahci_t {
 } ahci_t;
 
 #define FOR_EACH_PORT(ahci) \
-	for (int i = 0, _pi = (ahci)->implemented_ports; _pi; i++, _pi >>= 1) \
-		if (_pi & 1)
+	for (int i = 0; i < 32; ++i) \
+		if ((ahci)->implemented_ports & (1u << i))
 
 void ahci_dpc(context_t *, dpcarg_t arg) {
 	port_data_t *port_data = arg;
@@ -426,6 +433,19 @@ static void init_port(ahci_t *ahci, int port) {
 	memset(identify, 0, 512);
 
 	if (cmd_identify(ahci, port, identify_phys)) {
+		pmm_release(identify_phys);
+		return;
+	}
+
+	uint64_t logical_sector_size = 512;
+	if (IDENTIFY_SECTOR_SIZE_VALID(identify->sector_size_info) && (identify->sector_size_info & IDENTIFY_LOGICAL_SECTOR_LONGER)) {
+		uint32_t logical_sector_words = identify->logical_sector_size[0] |
+			((uint32_t)identify->logical_sector_size[1] << 16);
+		logical_sector_size = logical_sector_words * sizeof(uint16_t);
+	}
+
+	if (logical_sector_size != 512) {
+		printf("ahci%dp%d: unsupported logical sector size %lu\n", ahci->id, port, logical_sector_size);
 		pmm_release(identify_phys);
 		return;
 	}
