@@ -15,7 +15,7 @@ new file mode 100644
 index 0000000..4fda5e7
 --- /dev/null
 +++ parted-workdir/libparted/arch/astral.c
-@@ -0,0 +1,561 @@
+@@ -0,0 +1,564 @@
 +/*
 +    libparted - a library for manipulating disk partitions
 +    Copyright (C) 2006-2007, 2009-2014, 2019-2023 Free Software Foundation,
@@ -144,6 +144,9 @@ index 0000000..4fda5e7
 +
 +	if (dev->path && strstr(dev->path, "vioblk"))
 +		return PED_DEVICE_VIRTBLK;
++
++	if (dev->path && strstr(dev->path, "ahci"))
++		return PED_DEVICE_SCSI;
 +
 +	return PED_DEVICE_UNKNOWN;
 +error:
