@@ -131,7 +131,7 @@ size_t pci_initmsi(pcienum_t *e, int requested) {
 		return 0;
 
 	uint16_t msgctl = PCI_READ16(e, e->msi.offset + 2);
-	msgctl |= PCI_MSI_ENABLE;
+	msgctl &= ~PCI_MSI_ENABLE;
 	msgctl &= ~(PCI_MSI_MULTIPLE_MESSAGE_SUPPORT_MASK); // no multiple message support
 
 	PCI_WRITE16(e, e->msi.offset + 2, msgctl);
@@ -159,22 +159,25 @@ void pci_msisetbase(pcienum_t *e, int base, int edgetrigger, int deassert) {
 
 	// data
 	PCI_WRITE16(e, e->msi.offset + dataoffset, data);
+
+	uint16_t msgctl = PCI_READ16(e, e->msi.offset + 2);
+	PCI_WRITE16(e, e->msi.offset + 2, msgctl | PCI_MSI_ENABLE);
 }
 
 void pci_msisetmask(pcienum_t *e, int vector, int value) {
 	uint32_t msgctl = PCI_READ16(e, e->msi.offset + 2);
 
 	if (msgctl & PCI_MSI_PER_VECTOR_MASKING) {
-		uint32_t maskbits = PCI_READ32(e, e->msi.offset + 16);
+		bool is64bit = msgctl & PCI_MSI_64BIT;
+		int maskoffset = e->msi.offset + (is64bit ? 16 : 12);
+		uint32_t maskbits = PCI_READ32(e, maskoffset);
 
 		if (value)
 			maskbits |= 1 << vector;
 		else
 			maskbits &= ~(1 << vector);
 
-		PCI_WRITE32(e, e->msi.offset + 16, maskbits);
-	} else {
-		printf("pci: tried to mask msi vector without support\n");
+		PCI_WRITE32(e, maskoffset, maskbits);
 	}
 }
 
