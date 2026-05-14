@@ -50,6 +50,13 @@ static bool endpoint_requires_ss_companion(usb_device_t *dev, usb_endpoint_t *en
 	return (endpoint->desc->bmAttributes & USB_ENDPOINT_ATTRIB_TYPE_MASK) != USB_ENDPOINT_ATTRIB_TYPE_CONTROL;
 }
 
+static uint8_t hub_descriptor_type(usb_device_t *dev) {
+	if (dev->speed == USB_SPEED_SUPER || dev->speed == USB_SPEED_SUPER_PLUS)
+		return USB_DESCRIPTOR_TYPE_SS_HUB;
+
+	return USB_DESCRIPTOR_TYPE_HUB;
+}
+
 static bool device_port_stale(usb_device_t *dev) {
 	return dev->hub->ports[dev->port_number].generation != dev->port_generation;
 }
@@ -144,6 +151,8 @@ static void post_config_cleanup(usb_device_t *dev) {
 			free(dev->interfaces[i].endpoints);
 	}
 
+	if (dev->hub_desc)
+		free(dev->hub_desc);
 	free(dev->interfaces);
 	free(dev->config_desc);
 	dev->hub->ctrl->ops->deaddress_device(dev->hub->ctrl, dev);
@@ -169,6 +178,76 @@ static void endpoint_configured(usb_device_t *dev, void *ctx, usb_status_t statu
 	post_config_cleanup(dev);
 }
 
+static void marked_as_hub(usb_device_t *dev, void *, usb_status_t status, size_t) {
+	if (status != USB_STATUS_SUCCESS) {
+		printf("usb: failed to mark device as hub\n");
+		post_config_cleanup(dev);
+		return;
+	}
+
+	if (device_port_stale(dev)) {
+		post_config_cleanup(dev);
+		return;
+	}
+
+	if (configure_next_endpoint(dev, 0, 0)) {
+		printf("usb: failed to configure first endpoint\n");
+		post_config_cleanup(dev);
+		return;
+	}
+}
+
+static void get_hub_desc_done(usb_device_t *dev, void *, usb_status_t status, size_t) {
+	if (status != USB_STATUS_SUCCESS) {
+		printf("usb: failed to get full hub descriptor\n");
+		post_config_cleanup(dev);
+		return;
+	}
+
+	if (device_port_stale(dev)) {
+		post_config_cleanup(dev);
+		return;
+	}
+
+	if (dev->hub->ctrl->ops->mark_as_hub) {
+		if (dev->hub->ctrl->ops->mark_as_hub(dev->hub->ctrl, dev, marked_as_hub, NULL)) {
+			printf("usb: mark_as_hub failed\n");
+			post_config_cleanup(dev);
+		}
+	} else {
+		if (configure_next_endpoint(dev, 0, 0)) {
+			printf("usb: failed to configure first endpoint of device\n");
+			post_config_cleanup(dev);
+		}
+	}
+}
+
+static void get_hub_desc_header_done(usb_device_t *dev, void *, usb_status_t status, size_t transferred) {
+	if (status != USB_STATUS_SUCCESS) {
+		printf("usb: failed to get hub descriptor header\n");
+		post_config_cleanup(dev);
+		return;
+	}
+
+	if (device_port_stale(dev)) {
+		post_config_cleanup(dev);
+		return;
+	}
+
+	void *p = realloc(dev->hub_desc, dev->hub_desc->bLength);
+	if (p == NULL) {
+		printf("usb: out of memory to get full hub descriptor\n");
+		post_config_cleanup(dev);
+		return;
+	}
+	dev->hub_desc = p;
+
+	if (usb_get_class_device_descriptor(dev, hub_descriptor_type(dev), 0, dev->hub_desc, dev->hub_desc->bLength, get_hub_desc_done, NULL)) {
+		printf("usb: usb_get_class_device_descriptor failed\n");
+		post_config_cleanup(dev);
+	}
+}
+
 // allocate and populate interface and endpoint datastructures, then start configuring endpoints
 static void set_configuration_done(usb_device_t *dev, void *, usb_status_t status, size_t transferred) {
 	if (status != USB_STATUS_SUCCESS) {
@@ -192,6 +271,7 @@ static void set_configuration_done(usb_device_t *dev, void *, usb_status_t statu
 		return;
 	}
 
+	bool has_hub = dev->desc.bDeviceClass == USB_CLASS_HUB;
 	// set up interface data
 	usb_for_each_descriptor(dev->config_desc, desc) {
 		// since this is the first pass over the configure descriptor,
@@ -223,6 +303,9 @@ static void set_configuration_done(usb_device_t *dev, void *, usb_status_t statu
 			printf("usb: duplicate interface description\n");
 			goto interface_setup_error;
 		}
+
+		if (interface_desc->bInterfaceClass == USB_CLASS_HUB)
+			has_hub = true;
 
 		interface->desc = interface_desc;
 		if (interface_desc->bNumEndpoints > 0) {
@@ -322,8 +405,22 @@ static void set_configuration_done(usb_device_t *dev, void *, usb_status_t statu
 		}
 	}
 
-	if (configure_next_endpoint(dev, 0, 0) == 0)
-		return; // success, wait for endpoint to be configured.
+	if (has_hub) {
+		// to set up the context in xhci
+		dev->hub_desc = alloc(sizeof(usb_desc_hdr_t));
+		if (dev->hub_desc == NULL) {
+			printf("usb: out of memory to get hub descriptor header\n");
+			post_config_cleanup(dev);
+			return;
+		}
+
+		if (usb_get_class_device_descriptor(dev, hub_descriptor_type(dev), 0, dev->hub_desc, sizeof(usb_desc_hdr_t), get_hub_desc_header_done, NULL) == 0)
+			return;
+
+		printf("usb: usb_get_class_device_descriptor failed\n");
+	} else if (configure_next_endpoint(dev, 0, 0) == 0) {
+			return; // success, wait for endpoint to be configured.
+	}
 
 interface_setup_error:
 	post_config_cleanup(dev);
@@ -435,8 +532,8 @@ static void address_done(usb_hub_t *hub, uint8_t port, usb_device_t *dev) {
 }
 
 // address device
-void usb_hub_event_reset(usb_hub_t *hub, int port) {
-	if (hub->ctrl->ops->address_device(hub->ctrl, hub, port, address_done)) {
+void usb_hub_event_reset(usb_hub_t *hub, int port, usb_speed_t speed) {
+	if (hub->ctrl->ops->address_device(hub->ctrl, hub, port, speed, address_done)) {
 		printf("usb_hub %s: failed to address device\n", hub->name);
 	}
 }

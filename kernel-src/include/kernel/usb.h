@@ -23,6 +23,8 @@ typedef struct usb_class_driver usb_class_driver_t;
 #define USB_DESCRIPTOR_TYPE_INTERFACE 4
 #define USB_DESCRIPTOR_TYPE_ENDPOINT 5
 #define USB_DESCRIPTOR_TYPE_SS_EP_COMPANION 48
+#define USB_DESCRIPTOR_TYPE_HUB 0x29
+#define USB_DESCRIPTOR_TYPE_SS_HUB 0x2A
 
 typedef struct {
 	uint8_t bLength;
@@ -30,6 +32,7 @@ typedef struct {
 } usb_desc_hdr_t;
 
 #define USB_MAX_CONFIG_DESC_SIZE 4096
+#define USB_CLASS_HUB 0x09
 
 typedef struct {
 	uint8_t bLength;
@@ -102,6 +105,28 @@ typedef struct {
 	uint8_t bmAttributes;
 	uint16_t wBytesPerInterval;
 } __attribute__((packed)) usb_ss_ep_companion_desc_t;
+
+#define USB_HUB_PROTOCOL_MULTI_TT 2
+
+typedef struct {
+	uint8_t bLength;
+	uint8_t bDescriptorType;
+	uint8_t bNbrPorts;
+	uint16_t wHubCharacteristics;
+	uint8_t bPwrOn2PwrGood;
+	uint8_t bHubContrCurrent;
+} __attribute__((packed)) usb_hub_desc_t;
+
+typedef struct {
+	uint8_t bLength;
+	uint8_t bDescriptorType;
+	uint8_t bNbrPorts;
+	uint16_t wHubCharacteristics;
+	uint8_t bPwrOn2PwrGood;
+	uint8_t bHubContrCurrent;
+	uint8_t bHubHdrDecLat;
+	uint16_t wHubDelay;
+} __attribute__((packed)) usb_ss_hub_desc_t;
 
 #define USB_REQUEST_RECIP_DEVICE 0x00
 #define USB_REQUEST_RECIP_INTERFACE 0x01
@@ -246,6 +271,7 @@ struct usb_device {
 	// Descriptors for device
 	usb_device_desc_t desc;
 	usb_config_desc_t *config_desc;
+	usb_desc_hdr_t *hub_desc;
 	// Port number on the parent hub.
 	uint8_t port_number;
 	// Hub-port generation captured when enumeration started.
@@ -313,9 +339,11 @@ typedef void (*usb_address_device_callback_t)(usb_hub_t *hub, uint8_t port, usb_
 
 typedef struct {
 	// Allocate, enable and address a USB device.
-	int (*address_device)(usb_ctrl_t *, usb_hub_t *, uint8_t port, usb_address_device_callback_t callback);
+	int (*address_device)(usb_ctrl_t *, usb_hub_t *, uint8_t port, usb_speed_t speed, usb_address_device_callback_t callback);
 	// Deaddress, disable and free a USB device
 	void (*deaddress_device)(usb_ctrl_t *, usb_device_t *);
+	// Mark a device as a hub in the controller
+	int (*mark_as_hub)(usb_ctrl_t *, usb_device_t *, usb_completion_callback_t callback, void *callback_ctx);
 	// Configure an endpoint.
 	int (*configure_ep)(usb_ctrl_t *, usb_device_t *, usb_endpoint_t *, usb_completion_callback_t callback, void *callback_ctx);
 	// Execute a control or data transfer.
@@ -330,13 +358,14 @@ int usb_submit_xfer(usb_device_t *dev, usb_xfer_t *xfer);
 int usb_control_xfer(usb_device_t *dev, usb_setup_t *setup, void *buffer, usb_completion_callback_t callback, void *ctx);
 
 int usb_get_device_descriptor(usb_device_t *dev, uint8_t desc_type, uint8_t desc_index, void *buffer, uint16_t length, usb_completion_callback_t callback, void *callback_ctx);
+int usb_get_class_device_descriptor(usb_device_t *dev, uint8_t desc_type, uint8_t desc_index, void *buffer, uint16_t length, usb_completion_callback_t callback, void *callback_ctx);
 int usb_get_interface_descriptor(usb_device_t *dev, uint16_t interface_number, uint8_t desc_type, uint8_t desc_index, void *buffer, uint16_t length, usb_completion_callback_t callback, void *callback_ctx);
 int usb_get_endpoint_descriptor(usb_device_t *dev, uint16_t endpoint_address, uint8_t desc_type, uint8_t desc_index, void *buffer, uint16_t length, usb_completion_callback_t callback, void *callback_ctx);
 int usb_set_configuration(usb_device_t *dev, uint8_t config_value, usb_completion_callback_t callback);
 
 void usb_hub_event_connect(usb_hub_t *hub, int port);
 void usb_hub_event_disconnect(usb_hub_t *hub, int port);
-void usb_hub_event_reset(usb_hub_t *hub, int port);
+void usb_hub_event_reset(usb_hub_t *hub, int port, usb_speed_t speed);
 
 #define USB_DRIVER_SCORE_NONE 0
 #define USB_DRIVER_SCORE_GENERIC 10
