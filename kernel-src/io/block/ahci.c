@@ -175,6 +175,14 @@ void ahci_dpc(context_t *, dpcarg_t arg) {
 	if (error_happened) {
 		// an error happened, restart the port and notify last waiter
 		uint32_t ci = port_data->ahci->ports[port].ci;
+		if (ci == 0) {
+			port_data->ahci->ports[port].serr = port_data->ahci->ports[port].serr;
+			// TODO: handle asynchronous port errors separately from command errors.
+			if (port_data->waiters[port_data->command_waiting])
+				error_slot = port_data->command_waiting;
+			goto notify_waiters;
+		}
+
 		port_data->ahci->ports[port].cmd &= ~(CMD_ST | CMD_FRE);
 		while (port_data->ahci->ports[port].cmd & (CMD_CR | CMD_FR)) CPU_PAUSE();
 		port_data->ahci->ports[port].serr = port_data->ahci->ports[port].serr;
@@ -203,6 +211,7 @@ void ahci_dpc(context_t *, dpcarg_t arg) {
 		}
 	}
 
+	notify_waiters:
 	// notify waiters about command completion
 	while (port_data->waiters[port_data->command_waiting] &&
 	(port_data->ahci->ports[port].ci & (1 << port_data->command_waiting)) == 0) {
@@ -226,15 +235,16 @@ void ahci_isr(isr_t *isr, context_t *) {
 	if (!ports_pending)
 		return;
 
-	for (int i = __builtin_ctz(ports_pending); ports_pending; i = __builtin_ctz(ports_pending)) {
-		if (ahci->port_data[i] == NULL)
-			continue;
+	while (ports_pending) {
+		int i = __builtin_ctz(ports_pending);
+		uint32_t port_bit = 1 << i;
+		ports_pending &= ~port_bit;
 
-		dpc_enqueue(&ahci->port_data[i]->dpc, ahci->port_data[i]);
+		if (ahci->port_data[i])
+			dpc_enqueue(&ahci->port_data[i]->dpc, ahci->port_data[i]);
 
-		ports_pending &= ~(1 << i);
 		ahci->ports[i].is = ahci->ports[i].is;
-		ahci->ghc->is = 1 << i;
+		ahci->ghc->is = port_bit;
 	}
 }
 
@@ -273,7 +283,7 @@ static int cmd_identify(ahci_t *ahci, int port, identify_t *results_phys) {
 	command_header.table_base_high = ((uintptr_t)command_table_phys >> 32) & 0xffffffff;
 
 	command_table_t *command_table = MAKE_HHDM(command_table_phys);
-	memset(command_table, 0, sizeof(command_table_t));
+	memset(command_table, 0, PAGE_SIZE);
 	command_table->fis.type = FIS_TYPE_H2D;
 	command_table->fis.command = ATA_COMMAND_IDENTIFY;
 	command_table->fis.flags = FIS_H2D_FLAGS_COMMAND;
@@ -288,23 +298,32 @@ static int cmd_identify(ahci_t *ahci, int port, identify_t *results_phys) {
 	return error;
 }
 
+static void release_prdt(command_table_t *command_table, uint16_t prdtl) {
+	for (int i = 0; i < prdtl; ++i) {
+		void *address = (void *)((uint64_t)command_table->prdt[i].base_low | ((uint64_t)command_table->prdt[i].base_high << 32));
+		pmm_release(address);
+	}
+}
+
 #define PRDTL_LIMIT ((PAGE_SIZE - sizeof(command_table_t)) / sizeof(prdt_t))
 static int setup_prdt(iovec_iterator_t *iterator, command_table_t *command_table, uint16_t *prdtl, size_t *requested_size) {
 	int err;
 	size_t block_done = 0;
 	size_t prdt_done = 0;
+	size_t start_offset = iovec_iterator_total_offset(iterator);
 	while (block_done < *requested_size && prdt_done < PRDTL_LIMIT) {
 		void *page;
 		size_t page_offset, page_remaining;
 		err = iovec_iterator_next_page(iterator, &page_offset, &page_remaining, &page);
 		if (err)
-			return err;
+			goto cleanup;
 
 		__assert(page);
 		// not block aligned
 		if (page_remaining % 512) {
 			pmm_release(page);
-			return EINVAL;
+			err = EINVAL;
+			goto cleanup;
 		}
 
 		size_t blocks_in_page = min(page_remaining / 512, *requested_size - block_done);
@@ -326,13 +345,11 @@ static int setup_prdt(iovec_iterator_t *iterator, command_table_t *command_table
 	*requested_size = block_done;
 	*prdtl = prdt_done;
 	return 0;
-}
 
-static void release_prdt(command_table_t *command_table, uint16_t prdtl) {
-	for (int i = 0; i < prdtl; ++i) {
-		void *address = (void *)((uint64_t)command_table->prdt[i].base_low | ((uint64_t)command_table->prdt[i].base_high << 32));
-		pmm_release(address);
-	}
+	cleanup:
+	release_prdt(command_table, prdt_done);
+	iovec_iterator_set(iterator, start_offset);
+	return err;
 }
 
 static int rw(port_data_t *port_data, iovec_iterator_t *iterator, uintmax_t lba, size_t count, bool write) {
@@ -351,7 +368,7 @@ static int rw(port_data_t *port_data, iovec_iterator_t *iterator, uintmax_t lba,
 	command_header.table_base_high = ((uintptr_t)command_table_phys >> 32) & 0xffffffff;
 
 	command_table_t *command_table = MAKE_HHDM(command_table_phys);
-	memset(command_table, 0, sizeof(command_table_t));
+	memset(command_table, 0, PAGE_SIZE);
 	command_table->fis.type = FIS_TYPE_H2D;
 	command_table->fis.command = write ? ATA_COMMAND_WRITE_DMA_EXT : ATA_COMMAND_READ_DMA_EXT;
 	command_table->fis.flags = FIS_H2D_FLAGS_COMMAND;
@@ -415,11 +432,12 @@ static void init_port(ahci_t *ahci, int port) {
 
 	ahci->port_data[port]->sector_count = (uint64_t)identify->lba48_size[0] | ((uint64_t)identify->lba48_size[1] << 16) |
 				((uint64_t)identify->lba48_size[2] << 32) | ((uint64_t)identify->lba48_size[3] << 48);
+	pmm_release(identify_phys);
 
 	printf("ahci%dp%d: ATA drive with %lu sectors\n", ahci->id, port, ahci->port_data[port]->sector_count);
 
-	char name[10];
-	snprintf(name, 10, "ahci%lup%lu", ahci->id, port);
+	char name[16];
+	snprintf(name, sizeof(name), "ahci%dp%d", ahci->id, port);
 
 	blockdesc_t desc = {
 		.private = ahci->port_data[port],
@@ -607,7 +625,8 @@ static void init_controller(pcienum_t *pci_enum) {
 		port_data->ahci = ahci;
 		port_data->command_list = MAKE_HHDM(cmd_ptr);
 		SPINLOCK_INIT(port_data->command_lock);
-		SEMAPHORE_INIT(&port_data->command_semaphore, ahci->command_slot_count);
+		// TODO: implement NCQ before allowing more than one outstanding command per port.
+		SEMAPHORE_INIT(&port_data->command_semaphore, 1);
 		dpc_prepare(&port_data->dpc, ahci_dpc);
 
 		ahci->port_data[i] = port_data;
