@@ -189,6 +189,26 @@ static void address_device_failed_before_slot(xhci_ctrl_t *xhci, xhci_device_t *
 	callback(hub, port, NULL);
 }
 
+static void address_device_get_full_descriptor_callback(usb_device_t *device, void *ctx, usb_status_t status, size_t transferred) {
+	usb_address_device_callback_t callback = ctx;
+	xhci_device_t *xhci_dev = container_of(device, xhci_device_t, device);
+
+	if (status != USB_STATUS_SUCCESS) {
+		printf("xhci: failed to get full device descriptor on slot %u\n", xhci_dev->slot_id);
+		address_device_failed_cleanup(device, callback);
+		return;
+	}
+
+	if (!usb_device_desc_valid(&device->desc, device->speed, transferred)) {
+		printf("xhci: malformed device descriptor\n");
+		address_device_failed_cleanup(device, callback);
+		return;
+	}
+
+	// Tell the original caller that the device has been addressed.
+	callback(xhci_dev->device.hub, xhci_dev->device.port_number, &xhci_dev->device);
+}
+
 static void address_device_evaluate_ctx_callback(usb_device_t *device, void *ctx, usb_status_t status, size_t) {
 	usb_address_device_callback_t callback = ctx;
 	xhci_device_t *xhci_dev = container_of(device, xhci_device_t, device);
@@ -202,23 +222,35 @@ static void address_device_evaluate_ctx_callback(usb_device_t *device, void *ctx
 	// Update the input context again.
 	xhci_update_input_context(xhci, xhci_dev);
 
-	// Tell the original caller that the device has been addresses
-	callback(xhci_dev->device.hub, xhci_dev->device.port_number, &xhci_dev->device);
+	if (usb_get_device_descriptor(
+				&xhci_dev->device,
+				USB_DESCRIPTOR_TYPE_DEVICE,
+				0,
+				&xhci_dev->device.desc,
+				sizeof(xhci_dev->device.desc),
+				address_device_get_full_descriptor_callback,
+				callback
+				)) {
+		printf("xhci: usb_get_device_descriptor failed\n");
+		address_device_failed_cleanup(device, callback);
+	}
 }
 
-static void address_device_get_descriptor_callback(usb_device_t *device, void *ctx, usb_status_t status, size_t transferred) {
+static void address_device_get_initial_descriptor_callback(usb_device_t *device, void *ctx, usb_status_t status, size_t transferred) {
 	usb_address_device_callback_t callback = ctx;
 	xhci_device_t *xhci_dev = container_of(device, xhci_device_t, device);
 	xhci_ctrl_t *xhci = (xhci_ctrl_t *)xhci_dev->device.hub->ctrl;
 
 	if (status != USB_STATUS_SUCCESS) {
-		printf("xhci: failed to get device descriptor on slot %u\n", xhci_dev->slot_id);
+		printf("xhci: failed to get initial device descriptor on slot %u\n", xhci_dev->slot_id);
 		address_device_failed_cleanup(device, callback);
 		return;
 	}
 
-	if (!usb_device_desc_valid(&device->desc, device->speed, transferred)) {
-		printf("xhci: malformed device descriptor\n");
+	if (transferred < 8 ||
+		device->desc.bLength != sizeof(usb_device_desc_t) ||
+		device->desc.bDescriptorType != USB_DESCRIPTOR_TYPE_DEVICE) {
+		printf("xhci: malformed initial device descriptor\n");
 		address_device_failed_cleanup(device, callback);
 		return;
 	}
@@ -271,8 +303,8 @@ static void address_device_addressed_callback(usb_device_t *device, void *ctx, u
 				USB_DESCRIPTOR_TYPE_DEVICE, 
 				0, 
 				&xhci_dev->device.desc, 
-				sizeof(xhci_dev->device.desc), 
-				address_device_get_descriptor_callback,
+				8,
+				address_device_get_initial_descriptor_callback,
 				callback
 				)) {
 		printf("xhci: usb_get_device_descriptor failed\n");
