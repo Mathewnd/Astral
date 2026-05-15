@@ -778,11 +778,11 @@ index bf63035..2c84bcc 100644
      printf("I_InitGraphics: framebuffer: x_res: %d, y_res: %d, x_virtual: %d, y_virtual: %d, bpp: %d\n",
              s_Fb.xres, s_Fb.yres, s_Fb.xres_virtual, s_Fb.yres_virtual, s_Fb.bits_per_pixel);
 @@ -240,6 +241,7 @@ void I_StartFrame (void)
-void I_StartTic (void)
-{
-	I_GetEvent();
+ void I_StartTic (void)
+ {
+ 	I_GetEvent();
 +	I_UpdateJoystick();
-}
+ }
  
  void I_UpdateNoBlit (void)
 @@ -325,7 +327,7 @@ void I_SetPalette (byte* palette)
