@@ -12,7 +12,7 @@ PRINTFOPTS=-DPRINTF_DISABLE_SUPPORT_FLOAT
 FLANTERMINCDIR=$(shell pwd)/flanterm/src
 UACPIINCDIR=$(shell pwd)/io/acpi/uacpi/include
 UACPIOPTS=-DUACPI_OVERRIDE_LIBC -DUACPI_KERNEL_INITIALIZATION -DUACPI_NATIVE_ALLOC_ZEROED
-KERNELCONFIG=#-DX86_64_ENABLE_E9 -DENABLE_PROFILING #-DSYSCALL_LOGGING
+KERNELCONFIG=-DX86_64_ENABLE_E9 #-DENABLE_PROFILING#-DSYSCALL_LOGGING
 CFLAGS=-g -ffreestanding -mcmodel=kernel -O2 -mno-red-zone -mgeneral-regs-only -mno-mmx -mno-sse -mno-sse2 -nostdlib -Wall -MMD -I "$(INCDIR)" -I "$(ARCHINCDIR)" -I "$(FLANTERMINCDIR)" -I "$(UACPIINCDIR)" $(UACPIOPTS) $(PRINTFOPTS) $(KERNELCONFIG) $(FLANTERMOPTS) -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -std=gnu17 -Wno-error=implicit-function-declaration
 ASFLAGS=-felf64
 DEPS=$(CSOURCES:.c=.d)

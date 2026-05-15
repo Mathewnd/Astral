@@ -8,11 +8,16 @@ DISKNAME=$(JINX_DIR)/hdd.img
 LIMINEDIR=$(JINX_DIR)/host-pkgs/limine/usr/local/share/limine/
 KERNEL=$(JINX_DIR)/builds/astral/astral
 QEMUFLAGS=\
-	-M q35 \
-	-m 2g \
-	-smp cpus=4 \
+	-M q35,i8042=off \
+	-m 8g \
+	-smp cpus=1 \
 	-debugcon file:/dev/stdout \
 	-netdev user,id=net0 -device virtio-net,netdev=net0 \
+	-device qemu-xhci,id=input-xhci \
+	-device usb-hub,bus=input-xhci.0,port=1 \
+	-device usb-kbd,bus=input-xhci.0,port=1.1 \
+	-device usb-hub,bus=input-xhci.0,port=2 \
+	-device usb-tablet,bus=input-xhci.0,port=2.1 \
 	-object filter-dump,id=f1,netdev=net0,file=netdump.dat
 QEMUISOFLAGS=-cdrom $(ISO)
 QEMUDISKFLAGS=-drive file=$(DISKNAME),if=none,id=disk \
@@ -25,7 +30,7 @@ INITRDTYPE=minimal
 
 MINIMALPACKAGES=mlibc bash coreutils openrc distro-files vim nano mount shadow sudo xbps net-base fastfetch limine dosfstools e2fsprogs parted netinfo systrace findutils sed
 
-.PHONY: all kernel clean clean-kernel iso img initrd full minimal disk distro-minimal distro-full
+.PHONY: all kernel clean clean-kernel iso img initrd full minimal disk distro-minimal distro-full download
 
 all: $(JINX_DIR)/.astral_ok
 	git submodule update --init --recursive
@@ -101,6 +106,16 @@ initrd:
 	rm $(INITRD)-$(INITRDTYPE) && \
 	make $(INITRD)-$(INITRDTYPE)
 
+# ------ download targets ------
+
+download-full:
+	cd $(JINX_DIR) && \
+	../jinx/jinx download '*'
+	
+download-minimal:
+	cd $(JINX_DIR) && \
+	../jinx/jinx download $(MINIMALPACKAGES)
+
 # ------ disk targets ------
 
 disk: disk-$(DISTROTYPE)
@@ -114,6 +129,12 @@ disk-minimal: distro-minimal
 	cd $(JINX_DIR) && \
 	../jinx/jinx install minimalsysroot $(MINIMALPACKAGES) && \
 	../gendisk.sh 1900m minimalsysroot $(DISKNAME)
+
+# ------ download targets ------
+
+download: $(JINX_DIR)/.astral_ok
+	cd $(JINX_DIR) && \
+	../jinx/jinx download '*'
 
 # ------ clean targets ------
 

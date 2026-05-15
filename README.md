@@ -24,15 +24,17 @@ Astral is a 64 bit operating system with its own kernel written in C for the x86
 - Installation program
 - Fully self hosting
 
+## Running
+If you built it from source, run ``make run-kvm`` or ``make run-disk-kvm``
+
+There are prebuilt images and instructions at https://astral-os.org/about.html.
+
 ## Building
 
-The build process only needs xorriso, curl, zstd, fakeroot and bsdtar on the host. If you wish to use the ``make img`` option, you will need mtools. All other needed packages will be installed/built on the container.
+The build process dependencies are specified [here](https://github.com/Mintsuki/Jinx/blob/1c40ceb62e09befc5172d1caf53e3e440a19f624/README.md). If you wish to use the ``make img`` option, you will need mtools. All other needed packages will be installed/built on a container.
+
+It is highly recommended you download pre-built packages from the official repository by running ``make download``. This greatly reduces the compilation time as it will only need to build the host tools.
 
 To build the project, run ``make``. This will create a file named ``astral.iso``
 
 After this, if you wish to create an ext2 disk image, run ``make disk``
-
-## Running
-If you built it from source, run ``make run-kvm`` or ``make run-disk-kvm``
-
-There are prebuilt images and instructions at https://astral-os.org/about.html. 
