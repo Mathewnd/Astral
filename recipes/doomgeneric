@@ -1,5 +1,5 @@
 name=doomgeneric
-revision=2
+revision=4
 from_source=doomgeneric
 imagedeps="build-essential"
 hostdeps="xgcc xbinutils"
