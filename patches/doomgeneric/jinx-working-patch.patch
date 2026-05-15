@@ -97,10 +97,10 @@ index c2dc4b5..9c1849f 100644
  #endif //DOOM_GENERIC
 diff --git doomgeneric-workdir/doomgeneric/doomgeneric_astral.c doomgeneric-workdir/doomgeneric/doomgeneric_astral.c
 new file mode 100644
-index 0000000..b8e0de9
+index 0000000..8d1914d
 --- /dev/null
 +++ doomgeneric-workdir/doomgeneric/doomgeneric_astral.c
-@@ -0,0 +1,479 @@
+@@ -0,0 +1,480 @@
 +#define _GNU_SOURCE
 +#include "doomkeys.h"
 +
@@ -483,10 +483,6 @@ index 0000000..b8e0de9
 +
 +	fbfd = openordie("/dev/fb0", O_WRONLY, 0);
 +	init_evdev();
-+	if(kbfd == -1){
-+		printf("doomgeneric: failed to find evdev keyboard\n");
-+		exit(ENODEV);
-+	}
 +
 +	// get needed fb info
 +
@@ -505,8 +501,10 @@ index 0000000..b8e0de9
 +	tcsetattr(1, TCSAFLUSH, &tty);
 +	atexit(cleanup);
 +
-+	struct input_event event;
-+	while (read(kbfd, &event, sizeof(event)) == sizeof(event)) ;
++	if (kbfd != -1) {
++		struct input_event event;
++		while (read(kbfd, &event, sizeof(event)) == sizeof(event)) ;
++	}
 +}
 +
 +void DG_DrawFrame(){
@@ -526,6 +524,9 @@ index 0000000..b8e0de9
 +int DG_GetKey(int* pressed, unsigned char* doomkey){
 +	struct input_event event;
 +	ssize_t count;
++
++	if (kbfd == -1)
++		return 0;
 +
 +	while ((count = read(kbfd, &event, sizeof(event))) == sizeof(event)) {
 +		if (event.type != EV_KEY || event.value == 2)
@@ -793,10 +794,9 @@ index bf63035..2c84bcc 100644
 +
  
      /* performance boost:
-     * map to the right pixel format over here! */
-
+      * map to the right pixel format over here! */
 diff --git doomgeneric-clean/doomgeneric/m_controls.c doomgeneric-workdir/doomgeneric/m_controls.c
-index 10e46aa..0f9d79d 100644
+index f0ffa01..813b630 100644
 --- doomgeneric-clean/doomgeneric/m_controls.c
 +++ doomgeneric-workdir/doomgeneric/m_controls.c
 @@ -190,7 +190,7 @@ int joybjump = -1;
@@ -806,5 +806,5 @@ index 10e46aa..0f9d79d 100644
 -int joybmenu = -1;
 +int joybmenu = 4;
  
- // Control whether if a mouse button is double clicked, it acts like
+ // Control whether if a mouse button is double clicked, it acts like 
  // "use" has been pressed
