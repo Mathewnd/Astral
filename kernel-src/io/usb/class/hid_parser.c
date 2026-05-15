@@ -65,7 +65,7 @@
 #define HID_BUTTON_SIDE 0x04
 #define HID_BUTTON_EXTRA 0x05
 #define HID_BUTTON_FORWARD 0x06
-#define HID_BUTTON_MAX HID_BUTTON_FORWARD
+#define HID_BUTTON_MAX 16
 
 #define HID_KEYBOARD_KEYPAD_MAX 0xe7
 
@@ -646,6 +646,38 @@ static void hid_emit_event_keyboard_keypad(hid_application_t *application, hid_i
 static uint16_t hid_generic_desktop_to_input_rel(uint32_t usage);
 static uint16_t hid_generic_desktop_to_input_abs(uint32_t usage);
 
+static void hid_emit_event_hat_switch(hid_input_t *input, uint64_t value, input_event_t *events, size_t *events_emitted) {
+	static const int hat_to_axis[8][2] = {
+		{ 0, -1 },
+		{ 1, -1 },
+		{ 1, 0 },
+		{ 1, 1 },
+		{ 0, 1 },
+		{ -1, 1 },
+		{ -1, 0 },
+		{ -1, -1 }
+	};
+
+	int64_t hat = hid_input_value_signed(input, value) - input->logical_minimum;
+	int x = 0;
+	int y = 0;
+	if (hat >= 0 && hat < 8) {
+		x = hat_to_axis[hat][0];
+		y = hat_to_axis[hat][1];
+	}
+
+	input_event_t event = {
+		.type = INPUT_EV_ABS,
+		.code = INPUT_ABS_HAT0X,
+		.value = x
+	};
+	push_event(event, events, events_emitted);
+
+	event.code = INPUT_ABS_HAT0Y;
+	event.value = y;
+	push_event(event, events, events_emitted);
+}
+
 static void hid_emit_event_generic_desktop(hid_input_t *input, hid_usage_t *usage, size_t idx, uint64_t value, input_event_t *events, size_t *events_emitted) {
 	if (input->flags & HID_INPUT_CONSTANT)
 		return;
@@ -655,6 +687,11 @@ static void hid_emit_event_generic_desktop(hid_input_t *input, hid_usage_t *usag
 		hid_usage = usage->minimum + idx;
 		if (hid_usage > usage->maximum)
 			return;
+	}
+
+	if ((input->flags & HID_INPUT_RELATIVE) == 0 && hid_usage == HID_GD_HAT_SWITCH) {
+		hid_emit_event_hat_switch(input, value, events, events_emitted);
+		return;
 	}
 
 	int64_t signed_value = hid_input_value_signed(input, value);
@@ -812,7 +849,7 @@ static void hid_handle_key_changes(hid_application_t *application, input_event_t
 	}
 }
 
-static uint16_t hid_button_to_input_key(uint32_t usage);
+static uint16_t hid_button_to_input_key(hid_application_t *application, uint32_t usage);
 
 static void hid_handle_button_changes(hid_application_t *application, input_event_t *events, size_t *events_emitted, uint64_t old_buttons) {
 	uint64_t changes = old_buttons ^ application->pressed_buttons;
@@ -822,7 +859,7 @@ static void hid_handle_button_changes(hid_application_t *application, input_even
 
 		input_event_t event = {0};
 		event.type = INPUT_EV_KEY;
-		event.code = hid_button_to_input_key(button);
+		event.code = hid_button_to_input_key(application, button);
 		if (event.code != INPUT_KEY_RESERVED) {
 			event.value = (application->pressed_buttons & (1ull << bit)) ? 1 : 0;
 			push_event(event, events, events_emitted);
@@ -931,6 +968,20 @@ static uint16_t hid_generic_desktop_to_input_abs(uint32_t usage) {
 			return INPUT_ABS_X;
 		case HID_GD_Y:
 			return INPUT_ABS_Y;
+		case HID_GD_Z:
+			return INPUT_ABS_Z;
+		case HID_GD_RX:
+			return INPUT_ABS_RX;
+		case HID_GD_RY:
+			return INPUT_ABS_RY;
+		case HID_GD_RZ:
+			return INPUT_ABS_RZ;
+		case HID_GD_SLIDER:
+			return INPUT_ABS_THROTTLE;
+		case HID_GD_DIAL:
+			return INPUT_ABS_RUDDER;
+		case HID_GD_WHEEL:
+			return INPUT_ABS_WHEEL;
 		default:
 			return INPUT_ABS_MAX + 1;
 	}
@@ -955,6 +1006,16 @@ static void hid_advertise_abs(input_device_t *device, hid_input_t *input, uint16
 	device->abs_info[code].max = input->logical_maximum;
 }
 
+static void hid_advertise_hat_switch(input_device_t *device) {
+	bitmap_set(&device->ev_bits, INPUT_EV_ABS, 1);
+	bitmap_set(&device->abs_bits, INPUT_ABS_HAT0X, 1);
+	bitmap_set(&device->abs_bits, INPUT_ABS_HAT0Y, 1);
+	device->abs_info[INPUT_ABS_HAT0X].min = -1;
+	device->abs_info[INPUT_ABS_HAT0X].max = 1;
+	device->abs_info[INPUT_ABS_HAT0Y].min = -1;
+	device->abs_info[INPUT_ABS_HAT0Y].max = 1;
+}
+
 static void hid_advertise_generic_desktop(input_device_t *device, hid_input_t *input, hid_usage_t *usage) {
 	if (input->flags & HID_INPUT_CONSTANT)
 		return;
@@ -968,11 +1029,14 @@ static void hid_advertise_generic_desktop(input_device_t *device, hid_input_t *i
 				bitmap_set(&device->rel_bits, code, 1);
 			}
 		} else {
-			hid_advertise_abs(device, input, hid_generic_desktop_to_input_abs(hid_usage));
+			if (hid_usage == HID_GD_HAT_SWITCH)
+				hid_advertise_hat_switch(device);
+			else
+				hid_advertise_abs(device, input, hid_generic_desktop_to_input_abs(hid_usage));
 		}
 	}
 
-	for (uint32_t hid_usage = usage->minimum; hid_usage <= usage->maximum && hid_usage <= HID_GD_WHEEL; ++hid_usage) {
+	for (uint32_t hid_usage = usage->minimum; hid_usage <= usage->maximum && hid_usage <= HID_GD_HAT_SWITCH; ++hid_usage) {
 		if (input->flags & HID_INPUT_RELATIVE) {
 			uint16_t code = hid_generic_desktop_to_input_rel(hid_usage);
 			if (code <= INPUT_REL_MAX) {
@@ -980,12 +1044,100 @@ static void hid_advertise_generic_desktop(input_device_t *device, hid_input_t *i
 				bitmap_set(&device->rel_bits, code, 1);
 			}
 		} else {
-			hid_advertise_abs(device, input, hid_generic_desktop_to_input_abs(hid_usage));
+			if (hid_usage == HID_GD_HAT_SWITCH)
+				hid_advertise_hat_switch(device);
+			else
+				hid_advertise_abs(device, input, hid_generic_desktop_to_input_abs(hid_usage));
 		}
 	}
 }
 
-static uint16_t hid_button_to_input_key(uint32_t usage) {
+static inline bool hid_application_is_gamepad(hid_application_t *application) {
+	return USAGE_PAGE(application->usage) == HID_USAGE_PAGE_GENERIC_DESKTOP && USAGE(application->usage) == HID_GD_GAMEPAD;
+}
+
+static inline bool hid_application_is_joystick(hid_application_t *application) {
+	if (USAGE_PAGE(application->usage) != HID_USAGE_PAGE_GENERIC_DESKTOP)
+		return false;
+
+	switch (USAGE(application->usage)) {
+		case HID_GD_JOYSTICK:
+		case HID_GD_MULTI_AXIS_CONTROLLER:
+			return true;
+		default:
+			return false;
+	}
+}
+
+static uint16_t hid_gamepad_button_to_input_key(uint32_t usage) {
+	switch (usage) {
+		case 1:
+			return INPUT_KEY_BTN_SOUTH;
+		case 2:
+			return INPUT_KEY_BTN_EAST;
+		case 3:
+			return INPUT_KEY_BTN_C;
+		case 4:
+			return INPUT_KEY_BTN_NORTH;
+		case 5:
+			return INPUT_KEY_BTN_WEST;
+		case 6:
+			return INPUT_KEY_BTN_Z;
+		case 7:
+			return INPUT_KEY_BTN_TL;
+		case 8:
+			return INPUT_KEY_BTN_TR;
+		case 9:
+			return INPUT_KEY_BTN_TL2;
+		case 10:
+			return INPUT_KEY_BTN_TR2;
+		case 11:
+			return INPUT_KEY_BTN_SELECT;
+		case 12:
+			return INPUT_KEY_BTN_START;
+		case 13:
+			return INPUT_KEY_BTN_MODE;
+		case 14:
+			return INPUT_KEY_BTN_THUMBL;
+		case 15:
+			return INPUT_KEY_BTN_THUMBR;
+		default:
+			return INPUT_KEY_RESERVED;
+	}
+}
+
+static uint16_t hid_joystick_button_to_input_key(uint32_t usage) {
+	switch (usage) {
+		case 1:
+			return INPUT_KEY_BTN_TRIGGER;
+		case 2:
+			return INPUT_KEY_BTN_THUMB;
+		case 3:
+			return INPUT_KEY_BTN_THUMB2;
+		case 4:
+			return INPUT_KEY_BTN_TOP;
+		case 5:
+			return INPUT_KEY_BTN_TOP2;
+		case 6:
+			return INPUT_KEY_BTN_PINKIE;
+		case 7:
+			return INPUT_KEY_BTN_BASE;
+		case 8:
+			return INPUT_KEY_BTN_BASE2;
+		case 9:
+			return INPUT_KEY_BTN_BASE3;
+		case 10:
+			return INPUT_KEY_BTN_BASE4;
+		case 11:
+			return INPUT_KEY_BTN_BASE5;
+		case 12:
+			return INPUT_KEY_BTN_BASE6;
+		default:
+			return INPUT_KEY_RESERVED;
+	}
+}
+
+static uint16_t hid_mouse_button_to_input_key(uint32_t usage) {
 	switch (usage) {
 		case HID_BUTTON_PRIMARY:
 			return INPUT_KEY_BTN_LEFT;
@@ -1004,12 +1156,21 @@ static uint16_t hid_button_to_input_key(uint32_t usage) {
 	}
 }
 
-static void hid_advertise_button(input_device_t *device, hid_input_t *input, hid_usage_t *usage) {
+static uint16_t hid_button_to_input_key(hid_application_t *application, uint32_t usage) {
+	if (hid_application_is_gamepad(application))
+		return hid_gamepad_button_to_input_key(usage);
+	if (hid_application_is_joystick(application))
+		return hid_joystick_button_to_input_key(usage);
+
+	return hid_mouse_button_to_input_key(usage);
+}
+
+static void hid_advertise_button(hid_application_t *application, input_device_t *device, hid_input_t *input, hid_usage_t *usage) {
 	if (input->flags & HID_INPUT_CONSTANT)
 		return;
 
 	if (usage->minimum == 0 && usage->maximum == 0) {
-		uint16_t code = hid_button_to_input_key(USAGE(usage->usage));
+		uint16_t code = hid_button_to_input_key(application, USAGE(usage->usage));
 		if (code != INPUT_KEY_RESERVED) {
 			bitmap_set(&device->ev_bits, INPUT_EV_KEY, 1);
 			bitmap_set(&device->key_bits, code, 1);
@@ -1017,7 +1178,7 @@ static void hid_advertise_button(input_device_t *device, hid_input_t *input, hid
 	}
 
 	for (uint32_t button = usage->minimum; button <= usage->maximum && button <= HID_BUTTON_MAX; ++button) {
-		uint16_t code = hid_button_to_input_key(button);
+		uint16_t code = hid_button_to_input_key(application, button);
 		if (code != INPUT_KEY_RESERVED) {
 			bitmap_set(&device->ev_bits, INPUT_EV_KEY, 1);
 			bitmap_set(&device->key_bits, code, 1);
@@ -1040,7 +1201,7 @@ static void hid_advertise_input(hid_parser_t *parser, hid_input_t *input) {
 				hid_advertise_keyboard_keypad(device, input, usage);
 				break;
 			case HID_USAGE_PAGE_BUTTON:
-				hid_advertise_button(device, input, usage);
+				hid_advertise_button(application, device, input, usage);
 				break;
 		}
 	}
