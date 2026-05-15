@@ -1,6 +1,7 @@
 JINX_MAJOR_VER=0.8
 JINX_DEBIAN_SNAPSHOT=20260430T144239Z
 JINX_BASE_PACKAGES="autopoint bison cmake docbook-xsl docbook-xml docbook-xsl-ns docbook5-xml doxygen file flex gettext groff m4 make meson ninja-build perl python3 texinfo w3m which xmlto xsltproc"
+JINX_REPO_URL="https://astral-os.org/repository/${JINX_ARCH}/"
 
 export CFLAGS="-O2 -march=x86-64 -pipe -mtune=generic"
 export CXXFLAGS="${CFLAGS}"
