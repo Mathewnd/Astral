@@ -303,9 +303,9 @@ static int input_listener_ioctl(int minor, unsigned long request, void *arg, int
 		return USERCOPY_POSSIBLY_TO_USER(arg, &lis->device->uniq, min(size, sizeof(lis->device->uniq)));
 	} else if (number == EVIOCGPROP) {
 		return copy_bitmap_to_user(&lis->device->prop_bits, arg, size);
-	} else if (number == EVIOCGKEY || number == EVIOCGLED || number == EVIOCGSND || number == EVIOCGSW) {
-		// TODO: maintain current device state so SYN_DROPPED recovery can
-		// report pressed keys/buttons and active LEDs/sounds/switches.
+	} else if (number == EVIOCGKEY) {
+		return copy_bitmap_to_user(&lis->device->key_state, arg, size);
+	} else if (number == EVIOCGLED || number == EVIOCGSND || number == EVIOCGSW) {
 		return copy_bitmap_to_user(NULL, arg, size);
 	} else if (number == EVIOCGBIT) {
 		return copy_bitmap_to_user(&lis->device->ev_bits, arg, size);
@@ -380,6 +380,10 @@ input_device_t *input_new() {
 	if (res != 0)
 		goto cleanup;
 
+	res = bitmap_init(&dev->key_state, INPUT_KEY_CNT);
+	if (res != 0)
+		goto cleanup;
+
 	res = bitmap_init(&dev->rel_bits, INPUT_REL_CNT);
 	if (res != 0)
 		goto cleanup;
@@ -411,6 +415,8 @@ cleanup:
 		bitmap_destroy(&dev->syn_bits);
 	if (dev->key_bits.data != NULL)
 		bitmap_destroy(&dev->key_bits);
+	if (dev->key_state.data != NULL)
+		bitmap_destroy(&dev->key_state);
 	if (dev->rel_bits.data != NULL)
 		bitmap_destroy(&dev->rel_bits);
 	if (dev->abs_bits.data != NULL)
@@ -472,6 +478,8 @@ void input_queue_packet(input_device_t *dev, input_event_t *events, int count) {
 	long ipl = spinlock_acquire_raise_ipl(&dev->lock, IPL_INPUT);
 
 	for (int i = 0; i < count; ++i) {
+		if (events[i].type == INPUT_EV_KEY && events[i].code < INPUT_KEY_CNT)
+			bitmap_set(&dev->key_state, events[i].code, events[i].value != 0);
 		if (events[i].type == INPUT_EV_ABS && events[i].code < INPUT_ABS_CNT)
 			dev->abs_info[events[i].code].value = events[i].value;
 	}

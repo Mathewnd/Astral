@@ -276,6 +276,7 @@ struct input_device {
 	bitmap_t ev_bits;
 	bitmap_t syn_bits;
 	bitmap_t key_bits;
+	bitmap_t key_state;
 	bitmap_t rel_bits;
 	bitmap_t abs_bits;
 	input_absinfo_t abs_info[INPUT_ABS_CNT];
