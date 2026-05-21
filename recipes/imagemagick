@@ -1,0 +1,18 @@
+name=imagemagick
+revision=1
+from_source=imagemagick
+imagedeps="gcc perl"
+hostdeps="xgcc xbinutils pkgconfig automake autoconf libstdc++-v3"
+deps="base zlib libjpeg-turbo libpng freetype fontconfig bzip2 xz zstd libx11 perl"
+
+configure() {
+	${source_dir}/configure --prefix=${prefix} --host=x86_64-astral --disable-static
+}
+
+build() {
+	make -j${parallelism}
+}
+
+package() {
+	make DESTDIR=${dest_dir} install
+}

@@ -1,0 +1,10 @@
+name=imagemagick
+version=7.1.2
+source_method=tarball
+tarball_url="https://github.com/ImageMagick/ImageMagick/archive/refs/tags/${version}-23.tar.gz"
+tarball_sha512="04ac6181773dfd1a079e0bccc369198b92712f9ef3a7f295ba1eee66dfc99f936859140fa079a7baa269a19e0f367990eb68fbc5c07082b0c86e91f6e086aeb2"
+hostdeps="autoconf automake libtool pkgconfig"
+
+prepare() {
+    autoreconf -fvi
+}
