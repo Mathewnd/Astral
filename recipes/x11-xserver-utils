@@ -1,0 +1,4 @@
+name=x11-xserver-utils
+version=1
+revision=1
+deps="iceauth rgb sessreg xcmsdb xgamma xhost xmodmap xrandr xrdb xrefresh xset xsetmode xsetpointer xsetroot xstdcmap xvidtune"
