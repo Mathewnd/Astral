@@ -1,0 +1,18 @@
+name=groff
+revision=1
+from_source=groff
+imagedeps="build-essential groff"
+hostdeps="xgcc xbinutils libstdc++-v3"
+deps="base ncurses libx11 libxaw"
+
+configure() {
+	${source_dir}/configure --host=x86_64-astral --prefix=${prefix} --with-x gl_cv_func_getopt_gnu=yes
+}
+
+build() {
+	make -j ${parallelism} GROFFBIN="/usr/bin/groff" GROFF_BIN_PATH="/usr/bin" PDFMOMBIN="/usr/bin/pdfmom"
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+}

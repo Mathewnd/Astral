@@ -1,0 +1,22 @@
+diff --git groff-clean/Makefile.in groff-workdir/Makefile.in
+index 72ae6fd..42db143 100644
+--- groff-clean/Makefile.in
++++ groff-workdir/Makefile.in
+@@ -5877,7 +5877,7 @@ mom_srcdir = $(top_srcdir)/contrib/mom
+ #
+ # Use '-K utf8', not '-k', in case 'configure' didn't find uchardet.
+ MOMPDFMOM = \
+-  GROFF_COMMAND=test-groff \
++  GROFF_COMMAND=true \
+   GROFF_COMMAND_PREFIX= \
+   GROFF_BIN_PATH="$(GROFF_BIN_PATH)" \
+   $(PDFMOMBIN) $(FFLAG) $(MFLAG) -M$(mom_srcdir) -K utf8 -p -e -t \
+@@ -6020,7 +6020,7 @@ DOC_GROFF = \
+ @HAVE_URW_FONTS_TRUE@pdfmomoption = -P-W
+ @HAVE_URW_FONTS_TRUE@groffmanpagesoption = -P-e
+ DOC_PDFMOM = \
+-  GROFF_COMMAND=test-groff \
++  GROFF_COMMAND=true \
+   GROFF_COMMAND_PREFIX= \
+   GROFF_BIN_PATH="$(GROFF_BIN_PATH)" \
+   $(PDFMOMBIN) $(MFLAG) $(FFLAG) -ww -b $(pdfmomoption) --roff

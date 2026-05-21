@@ -1,0 +1,10 @@
+name=groff
+version=1.24.1
+source_method=tarball
+tarball_url="https://ftp.gnu.org/gnu/groff/groff-${version}.tar.gz"
+tarball_sha512=86545c67042ad034a464a371d0587f8f0b449070c82fb1cfbcd0368c2e249624778d43e95d6cacd79cbe5b441142db96fdc3ab6222638337702f05a71c0990be
+hostdeps="automake"
+
+prepare() {
+	cp -v $(find /usr/local/share/automake* -name config.sub) ./build-aux/        
+}
