@@ -1,0 +1,5 @@
+name=stalonetray
+version=1.2.0
+source_method=tarball
+tarball_url="https://github.com/d3adb5/stalonetray/releases/download/${version}/stalonetray-${version}.tar.xz"
+tarball_sha512="a75d9e9bf7697e03f168e8485a7af832b12f59de3c00582e39049edbc9cb55bc2ba0007a95e0f7851271aa368f54fc57bca0b1bb3854a22f21f9ac5f8ebc288a"
