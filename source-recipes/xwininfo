@@ -1,0 +1,10 @@
+name=xwininfo
+version=1.1.6
+source_method=tarball
+tarball_url="https://www.x.org/releases/individual/app/xwininfo-${version}.tar.xz"
+tarball_sha512="c6df4ed3dcf97772450612f2786ecab8313a43bb78e0b8020cc9ec228b3f466f55090313ad02c8159a73a6892d117322ad85e28d9d76e38bb84c9750712c20bc"
+hostdeps="autoconf automake util-macros pkgconfig libtool"
+prepare() {
+	cp -v $(find /usr/local/share/automake* -name config.sub) .
+	true
+}

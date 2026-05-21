@@ -1,0 +1,9 @@
+name=xrefresh
+version=1.1.0
+source_method=tarball
+tarball_url="https://www.x.org/releases/individual/app/xrefresh-${version}.tar.xz"
+tarball_sha512="d46988c0423c3c6efb21a2eec0df427934d041afa6dcbbfd33f2dff19bf5e077baf10bd96780d98326d3a3e34cbf5824da822b6cb0091873cc1baade0aa05c26"
+hostdeps="autoconf automake util-macros pkgconfig libtool"
+prepare() {
+	autoreconf -fvi
+}

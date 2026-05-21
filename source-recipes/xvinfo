@@ -1,0 +1,9 @@
+name=xvinfo
+version=1.1.5
+source_method=tarball
+tarball_url="https://www.x.org/releases/individual/app/xvinfo-${version}.tar.xz"
+tarball_sha512="18467161b248c68f6bde15e1c1b4b8cf812daf46777602558aee5fb7cb4d2649218de88fa93842fea4f316d954440f03a37d71fa4fda92eda3c7d80970e19cbb"
+hostdeps="autoconf automake util-macros pkgconfig libtool"
+prepare() {
+	autoreconf -fvi
+}

@@ -1,0 +1,9 @@
+name=xfd
+version=1.1.5
+source_method=tarball
+tarball_url="https://www.x.org/releases/individual/app/xfd-${version}.tar.xz"
+tarball_sha512="6a8838e90c4751ae357832da7856d65d2cc65f3626655e24d22b25e7623f1a47d41dea0d093c0f250ceee2651214a746b3e7bd7f152c5b1718ce28aa5f217fa4"
+hostdeps="autoconf automake util-macros pkgconfig libtool"
+prepare() {
+	autoreconf -fvi
+}

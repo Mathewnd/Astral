@@ -1,0 +1,9 @@
+name=xcmsdb
+version=1.0.7
+source_method=tarball
+tarball_url="https://www.x.org/releases/individual/app/xcmsdb-${version}.tar.xz"
+tarball_sha512="87bd13930385c16689bfb6eefe47860f3741ccede9ddee4a860bb763937828808aca2c2fcc56637c06c3b9f1a5ee5ffd5cadc039d93ff7b2375a004867ef9f22"
+hostdeps="autoconf automake util-macros pkgconfig libtool"
+prepare() {
+	autoreconf -fvi
+}

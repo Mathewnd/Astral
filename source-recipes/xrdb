@@ -1,0 +1,10 @@
+name=xrdb
+version=1.2.2
+source_method=tarball
+tarball_url="https://www.x.org/releases/individual/app/xrdb-${version}.tar.xz"
+tarball_sha512="c8a6fc94e270e9cb5602e055150553de103d545298285157ecd8924f163a10ebeb9acfff56d1fafbf48d339809c76340213792478cdf3270012d3cd05486001c"
+hostdeps="autoconf automake util-macros pkgconfig libtool"
+prepare() {
+	cp -v $(find /usr/local/share/automake* -name config.sub) .
+	true
+}

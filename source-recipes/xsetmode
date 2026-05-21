@@ -1,0 +1,9 @@
+name=xsetmode
+version=1.0.0
+source_method=tarball
+tarball_url="https://www.x.org/releases/individual/app/xsetmode-${version}.tar.gz"
+tarball_sha512="22a46baa05a2e322cfcba6ab4cc083604640d79dab4947d7a7dbcc72bf089d22a5a1b1781d135c85bbdec5677ecb80bffc673f38a3c467a19f550af6eccae1fb"
+hostdeps="autoconf automake util-macros pkgconfig libtool"
+prepare() {
+	autoreconf -fvi
+}

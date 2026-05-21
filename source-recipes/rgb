@@ -1,0 +1,9 @@
+name=rgb
+version=1.1.1
+source_method=tarball
+tarball_url="https://www.x.org/releases/individual/app/rgb-${version}.tar.xz"
+tarball_sha512="8dd40232e149105d680b5689875da8e7444942265b4f64c4f91a5018193d0eb92af4035e51c6457ea57262fe2cab39d85024f70f3f649e17af78644f00a1d0ae"
+hostdeps="autoconf automake util-macros pkgconfig libtool"
+prepare() {
+	autoreconf -fvi
+}

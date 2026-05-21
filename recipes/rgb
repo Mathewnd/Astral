@@ -1,0 +1,18 @@
+name=rgb
+revision=1
+from_source=rgb
+imagedeps="gcc"
+hostdeps="xgcc xbinutils pkgconfig"
+deps="base xorgproto xorg-server"
+
+configure() {
+	${source_dir}/configure --prefix=${prefix} --host=x86_64-astral
+}
+
+build() {
+	make -j${parallelism}
+}
+
+package() {
+	make DESTDIR=${dest_dir} install
+}

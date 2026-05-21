@@ -1,0 +1,9 @@
+name=xdpyinfo
+version=1.4.0
+source_method=tarball
+tarball_url="https://www.x.org/releases/individual/app/xdpyinfo-${version}.tar.xz"
+tarball_sha512="478dd3de58950eeca213a51820445e62a5a63b2fa9ff3505f22802a7980f855fc11f1465e57ff4c34cdf8df0a0ff3c576804ef44f11f3b52c1c9da4ecc5a62d3"
+hostdeps="autoconf automake util-macros pkgconfig libtool"
+prepare() {
+	autoreconf -fvi
+}

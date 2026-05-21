@@ -1,0 +1,9 @@
+name=xkill
+version=1.0.7
+source_method=tarball
+tarball_url="https://www.x.org/releases/individual/app/xkill-${version}.tar.xz"
+tarball_sha512="af5444da74b2af45dabd093e74b4c2e906c4742593067b6fecced6593a27b2b493e868e91672ffc17571851621b4e6716741d2eb91c5459c5bcf9867d4812d9a"
+hostdeps="autoconf automake util-macros pkgconfig libtool"
+prepare() {
+	autoreconf -fvi
+}

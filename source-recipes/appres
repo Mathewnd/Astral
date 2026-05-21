@@ -1,0 +1,9 @@
+name=appres
+version=1.0.7
+source_method=tarball
+tarball_url="https://www.x.org/releases/individual/app/appres-${version}.tar.xz"
+tarball_sha512="5948f869124dd7160ffe109b0fc7ccdca45c3b3f551a382a0bcf2c2af9e3832b0d4451e2868ca93a38de8e8e2caf1946ac72936b3256e99a32437d0ddd937a60"
+hostdeps="autoconf automake util-macros pkgconfig libtool"
+prepare() {
+	autoreconf -fvi
+}

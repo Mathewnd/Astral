@@ -1,0 +1,18 @@
+name=luit
+revision=1
+from_source=luit
+imagedeps="gcc"
+hostdeps="xgcc xbinutils pkgconfig"
+deps="base libfontenc libx11"
+
+configure() {
+	${source_dir}/configure --prefix=${prefix} --host=x86_64-astral
+}
+
+build() {
+	make -j${parallelism}
+}
+
+package() {
+	make DESTDIR=${dest_dir} install
+}

@@ -1,0 +1,9 @@
+name=xmessage
+version=1.0.7
+source_method=tarball
+tarball_url="https://www.x.org/releases/individual/app/xmessage-${version}.tar.xz"
+tarball_sha512="0c44f7973f7ed8d7993aaeb457a8921301cb0de905e45d92bd99d49463223b54c704a28bef376fe6038b4aec7156be873a34294741c8537bb7a5a57e1f152cce"
+hostdeps="autoconf automake util-macros pkgconfig libtool"
+prepare() {
+	autoreconf -fvi
+}

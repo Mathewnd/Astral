@@ -1,0 +1,9 @@
+name=viewres
+version=1.0.8
+source_method=tarball
+tarball_url="https://www.x.org/releases/individual/app/viewres-${version}.tar.xz"
+tarball_sha512="3cd5dc23ab1b3289eb1433cf7373cc4edab84ef39166013056d4ffad90bb4f926e7471f7691a4c6bcb81cf6bfd203478a0ae2fb53300e838b1c5d1cc82ff8da0"
+hostdeps="autoconf automake util-macros pkgconfig libtool"
+prepare() {
+	autoreconf -fvi
+}

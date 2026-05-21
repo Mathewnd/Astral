@@ -1,0 +1,9 @@
+name=xlsatoms
+version=1.1.4
+source_method=tarball
+tarball_url="https://www.x.org/releases/individual/app/xlsatoms-${version}.tar.xz"
+tarball_sha512="82f0d1e17850770537eac82947eff4514639f8122bd864e02685ede49db110a4c90c7782702ffb677a2b581f3eacd10dba80e63e29e7a1ed1c9255ee163fe0c4"
+hostdeps="autoconf automake util-macros pkgconfig libtool"
+prepare() {
+	autoreconf -fvi
+}

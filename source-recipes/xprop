@@ -1,0 +1,9 @@
+name=xprop
+version=1.2.8
+source_method=tarball
+tarball_url="https://www.x.org/releases/individual/app/xprop-${version}.tar.xz"
+tarball_sha512="bdd9b02c4ee738bb4661c3acc901330e635b9967de5efb1615297f6b0ff3cdbd0eab6f63f80a605539090e8d62c611bb603da17477e16e3c0b26ff4314d0b664"
+hostdeps="autoconf automake util-macros pkgconfig libtool"
+prepare() {
+	autoreconf -fvi
+}

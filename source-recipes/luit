@@ -1,0 +1,9 @@
+name=luit
+version=1.1.1
+source_method=tarball
+tarball_url="https://www.x.org/releases/individual/app/luit-${version}.tar.gz"
+tarball_sha512="b12d1d4dd6ee80311d4ebcc43fdcb4e8f0a15e441aae011faa823f494584421b80f67a625338135c3fbf611488e261ec6aa6532dafec1ef9e668526627da198e"
+hostdeps="autoconf automake util-macros pkgconfig libtool"
+prepare() {
+	autoreconf -fvi
+}

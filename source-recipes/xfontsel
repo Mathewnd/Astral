@@ -1,0 +1,9 @@
+name=xfontsel
+version=1.1.1
+source_method=tarball
+tarball_url="https://www.x.org/releases/individual/app/xfontsel-${version}.tar.xz"
+tarball_sha512="fdb1f20dc86e2e74da77ef5e62d9465ea24d1af965f1ff3a6334ffefb239130fcf28f7cde9b4e7d7e6c9cf12fcb637784e7af209cffcee3dbe304025d33abcdd"
+hostdeps="autoconf automake util-macros pkgconfig libtool"
+prepare() {
+	autoreconf -fvi
+}

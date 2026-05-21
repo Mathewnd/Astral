@@ -1,0 +1,10 @@
+name=iceauth
+version=1.0.11
+source_method=tarball
+tarball_url="https://www.x.org/releases/individual/app/iceauth-${version}.tar.xz"
+tarball_sha512="7b3dffb2c1209e00bc11301ace3f802f052ae1062fba20011787ac185e2fd3a6c96ede3ddf37d9be3e41fa91f381e42e71fd61a7e63e8e3945351e16af2f57a6"
+hostdeps="autoconf automake util-macros pkgconfig libtool"
+prepare() {
+	cp -v $(find /usr/local/share/automake* -name config.sub) .
+	true
+}

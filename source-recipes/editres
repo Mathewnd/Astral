@@ -1,0 +1,9 @@
+name=editres
+version=1.1.1
+source_method=tarball
+tarball_url="https://www.x.org/releases/individual/app/editres-${version}.tar.xz"
+tarball_sha512="0a0dba9d80363296e333d6f0cefb622cdb38b596b6e5a2ea1fb458c5cb136b2e53a3e3965e1e3699c4346699a6f541f49e3ec27d619f7236b5a13ea20d5c5237"
+hostdeps="autoconf automake util-macros pkgconfig libtool"
+prepare() {
+	autoreconf -fvi
+}

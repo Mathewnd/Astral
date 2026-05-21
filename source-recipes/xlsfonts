@@ -1,0 +1,9 @@
+name=xlsfonts
+version=1.0.8
+source_method=tarball
+tarball_url="https://www.x.org/releases/individual/app/xlsfonts-${version}.tar.xz"
+tarball_sha512="401c86d902f173c440c08a22067a51e7238949c8d3c71eba7a8df11955edfec27525c8cbbcf2e96ed444fa20b15f98cf65a01343215d1ed9ba84fce849d02927"
+hostdeps="autoconf automake util-macros pkgconfig libtool"
+prepare() {
+	autoreconf -fvi
+}

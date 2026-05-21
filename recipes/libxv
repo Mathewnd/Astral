@@ -1,0 +1,18 @@
+name=libxv
+revision=1
+from_source=libxv
+imagedeps="gcc"
+hostdeps="xgcc xbinutils pkgconfig util-macros"
+deps="base libx11 libxext xorgproto"
+
+configure() {
+	${source_dir}/configure --prefix=${prefix} --host=x86_64-astral --enable-shared --disable-static --disable-malloc0returnsnull
+}
+
+build() {
+	make -j${parallelism}
+}
+
+package() {
+	make DESTDIR=${dest_dir} install
+}

@@ -1,0 +1,9 @@
+name=xsetpointer
+version=1.0.1
+source_method=tarball
+tarball_url="https://www.x.org/releases/individual/app/xsetpointer-${version}.tar.gz"
+tarball_sha512="52e92e42bed8ed999941966ee5b0dfde8e944ab3507000b8b76cfaf1003c0be1e75df38a905679556c10077b45c45ab6457aa2d085b2af0ce59ef033d42e6806"
+hostdeps="autoconf automake util-macros pkgconfig libtool"
+prepare() {
+	autoreconf -fvi
+}

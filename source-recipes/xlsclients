@@ -1,0 +1,9 @@
+name=xlsclients
+version=1.1.5
+source_method=tarball
+tarball_url="https://www.x.org/releases/individual/app/xlsclients-${version}.tar.xz"
+tarball_sha512="3896643378603876438772475e89ad5c066f98c16593245db5fa066418ff793798247f976d2bf7aa401d2590fc9807b80c9758bcbcc91566f02ceb856d9702bf"
+hostdeps="autoconf automake util-macros pkgconfig libtool"
+prepare() {
+	autoreconf -fvi
+}

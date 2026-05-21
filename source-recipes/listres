@@ -1,0 +1,9 @@
+name=listres
+version=1.0.7
+source_method=tarball
+tarball_url="https://www.x.org/releases/individual/app/listres-${version}.tar.xz"
+tarball_sha512="2e3eb837eb2901134263b3341b54a525a854144c31a793bad4aefcec02db549ea9f1135c32914ed8ec0f3136be7913f9259090f5a8f55f611be3c46c3b3c580e"
+hostdeps="autoconf automake util-macros pkgconfig libtool"
+prepare() {
+	autoreconf -fvi
+}

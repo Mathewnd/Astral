@@ -1,0 +1,9 @@
+name=sessreg
+version=1.1.4
+source_method=tarball
+tarball_url="https://www.x.org/releases/individual/app/sessreg-${version}.tar.xz"
+tarball_sha512="836d2cfa60448de9b4af1b79693905854ba5c1135d623654bba627d125271eb74111bac2b4437a86f4cbd362695e796fc0279d4f4684f2cd5080cdd953318686"
+hostdeps="autoconf automake util-macros pkgconfig libtool"
+prepare() {
+	autoreconf -fvi
+}

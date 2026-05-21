@@ -1,0 +1,9 @@
+name=xset
+version=1.2.5
+source_method=tarball
+tarball_url="https://www.x.org/releases/individual/app/xset-${version}.tar.xz"
+tarball_sha512="12b53d7cd6b7ccf6515c03f68151490fce6b2629e99b8d85ac5d760f4ed93394a457213c3947533809fbbb04acd1ed260aeea1256099a10397660eef3088150d"
+hostdeps="autoconf automake util-macros pkgconfig libtool"
+prepare() {
+	autoreconf -fvi
+}
