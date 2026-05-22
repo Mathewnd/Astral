@@ -1,0 +1,12 @@
+name=fonts-dejavu
+from_source=fonts-dejavu
+revision=1
+
+build() {
+	true
+}
+
+package() {
+	install -v -d -m755 ${dest_dir}/${prefix}/share/fonts/dejavu
+	install -v -m644 ${source_dir}/ttf/*.ttf ${dest_dir}/${prefix}/share/fonts/dejavu
+}

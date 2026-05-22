@@ -1,0 +1,5 @@
+name=fonts-dejavu
+version=2.37
+source_method=tarball
+tarball_url="http://sourceforge.net/projects/dejavu/files/dejavu/${version}/dejavu-fonts-ttf-${version}.tar.bz2"
+tarball_sha512="bafa39321021097432777f0825d700190c23f917d754a4504722cd8946716c22c083836294dab7f3ae7cf20af63c4d0944f3423bf4aa25dbca562d1f30e00654"
