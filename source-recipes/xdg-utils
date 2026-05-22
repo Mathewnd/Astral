@@ -1,0 +1,9 @@
+name=xdg-utils
+version=1.2.1
+source_method=tarball
+tarball_url="https://gitlab.freedesktop.org/xdg/xdg-utils/-/archive/v${version}/xdg-utils-v${version}.tar.gz"
+tarball_sha512="9b031d9c65247d0bbe0ce11fba10f88e68fa11e8d0fe5d1b09876edd21f59896a4d3be9a23f10afb7436446580b4d38fba99c622767eecec3951be4f5e4aad3e"
+hostdeps="autoconf automake util-macros pkgconfig libtool"
+prepare() {
+        autoreconf -fvi
+}

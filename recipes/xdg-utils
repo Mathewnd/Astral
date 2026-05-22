@@ -1,0 +1,19 @@
+name=xdg-utils
+revision=1
+from_source=xdg-utils
+imagedeps="meson build-essential xmlto"
+hostdeps="xgcc xbinutils pkgconfig"
+deps="base"
+
+configure() {
+	cp -rp ${source_dir}/* .
+	${source_dir}/configure --prefix=${prefix} --host=x86_64-astral
+}
+
+build() {
+	make -j${parallelism}
+}
+
+package() {
+	make DESTDIR=${dest_dir} install
+}
