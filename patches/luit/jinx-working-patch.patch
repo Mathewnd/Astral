@@ -1,0 +1,17 @@
+diff --git luit-clean/configure.ac luit-workdir/configure.ac
+index c214d85..ba7b129 100644
+--- luit-clean/configure.ac
++++ luit-workdir/configure.ac
+@@ -59,10 +59,10 @@ case $host_os in
+     darwin*)
+         OS_CFLAGS=
+         ;;
+-    linux*)
++    linux* | astral*)
+         AC_CHECK_HEADERS([poll.h])
+         AC_CHECK_FUNCS([poll])
+-        OS_CFLAGS="-D_XOPEN_SOURCE=500"
++        OS_CFLAGS="-D_XOPEN_SOURCE=600"
+         ;;
+     *)
+         AC_CHECK_HEADERS([poll.h])

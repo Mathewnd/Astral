@@ -1,0 +1,5 @@
+name=libxkbcommon
+version=1.13.1
+source_method=tarball
+tarball_url="https://github.com/lfs-book/libxkbcommon/archive/v${version}/libxkbcommon-${version}.tar.gz"
+tarball_sha512="7cee7fc498c9bae19fc09356d0c989f1a3bb1f60f56768bc2e8bad9b2e89b9ccac9539228f5e14efe151f0b55b2b52db4fe047e166541121511a991e260bce4b"

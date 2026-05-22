@@ -1,0 +1,13 @@
+diff --git xhost-clean/xhost.c xhost-workdir/xhost.c
+index 7a5e41a..c7a0711 100644
+--- xhost-clean/xhost.c
++++ xhost-workdir/xhost.c
+@@ -171,7 +171,7 @@ XFamily(int af)
+ }
+ #endif /* NEEDSOCKETS */
+ 
+-#if defined(__CYGWIN__) || defined(WIN32)
++#if defined(__CYGWIN__) || defined(WIN32) || defined(__astral__)
+ void sethostent(int x)
+ {}
+ 

@@ -1,0 +1,14 @@
+diff --git xdotool-clean/xdo.h xdotool-workdir/xdo.h
+index 24d9865..b5ccac7 100644
+--- xdotool-clean/xdo.h
++++ xdotool-workdir/xdo.h
+@@ -8,6 +8,9 @@
+ #define __USE_XOPEN
+ #endif /* __USE_XOPEN */
+ 
++typedef unsigned int useconds_t;
++
++#include <time.h>
+ #include <sys/types.h>
+ #include <X11/Xlib.h>
+ #include <X11/X.h>

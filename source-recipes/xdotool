@@ -1,0 +1,5 @@
+name=xdotool
+version=4.20260303.1
+source_method=tarball
+tarball_url="https://github.com/jordansissel/xdotool/archive/refs/tags/v${version}.tar.gz"
+tarball_sha512="2ec84a0856797d24c3fe7aa75cb643e37d1b2a2ff7dc332a11f9e88321592c4f0e2aa7a7e981ca98ca624fc120d1abb0021d97537555c43be77afc1b9a72803c"
