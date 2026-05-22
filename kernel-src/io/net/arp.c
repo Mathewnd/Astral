@@ -144,6 +144,10 @@ static void send_reply(netdev_t *netdev, uint32_t ip, mac_t mac) {
 	if (e)
 		return;
 
+	if (desc.curroffset + sizeof(frame) > desc.size) {
+		netdev->freedesc(netdev, &desc);
+		return;
+	}
 	memcpy((void *)((uintptr_t)desc.address + desc.curroffset), &frame, sizeof(frame));
 
 	e = netdev->sendpacket(netdev, desc, mac, ETH_PROTO_ARP);
@@ -234,6 +238,10 @@ static int sendrequest(netdev_t *netdev, uint32_t ip) {
 	if (e)
 		return e;
 
+	if (desc.curroffset + sizeof(frame) > desc.size) {
+		netdev->freedesc(netdev, &desc);
+		return EOVERFLOW;
+	}
 	memcpy((void *)((uintptr_t)desc.address + desc.curroffset), &frame, sizeof(frame));
 
 	e = netdev->sendpacket(netdev, desc, NET_BROADCAST_MAC, ETH_PROTO_ARP);
