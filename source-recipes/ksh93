@@ -1,0 +1,11 @@
+name=ksh93
+version=1.0.10
+source_method=tarball
+tarball_url="https://github.com/Mathewnd/ksh/archive/c02707d6d8c596b03d4d7407af86148cbe0329d2.tar.gz"
+tarball_sha512=1baeef8f9515e23858ad52758d855ecf9cf9dff339040bd2044d7d23e0ab3e025dd0ec73c72ac00157ac42207b5f5b702f74f0ce107adc1399bba6a9c055924e
+hostdeps="autoconf automake libtool pkgconfig"
+
+prepare() {
+	autoreconf -fvi
+	automake --copy --add-missing --force || true
+}

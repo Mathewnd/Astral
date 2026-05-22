@@ -1,0 +1,148 @@
+diff --git ksh93-clean/src/cmd/builtin/features/pty ksh93-workdir/src/cmd/builtin/features/pty
+index 335f0d6..23f3062 100644
+--- ksh93-clean/src/cmd/builtin/features/pty
++++ ksh93-workdir/src/cmd/builtin/features/pty
+@@ -14,41 +14,11 @@ lib	cfmakeraw termios.h
+ typ	useconds_t = uint32_t
+ 
+ tst output{
+-	#include	<fcntl.h>
+-	#if _lib_ptsname
+-	#include	<stdlib.h>
+-	#endif
+-	#include	<unistd.h>
+-	#include	<sys/types.h>
+-	#include	<sys/stat.h>
+-	#include	<sfio.h>
++	#include	<stdio.h>
+ 	int main(void)
+ 	{
+-		size_t		i;
+-		struct stat	statb;
+-		static char*	pty[] = { "/dev/ptyp0000", "/dev/ptym/ptyp0", "/dev/ptyp0" };
+-	#if _lib_ptsname
+-		int		fd;
+-		static char*	ptc[] = { "/dev/ptmx", "/dev/ptc", "/dev/ptmx_bsd" };
+-
+-		for (i = 0; i < sizeof(ptc) / sizeof(ptc[0]); i++)
+-			if((fd = open(ptc[i], 2))>=0)
+-			{
+-				if (ptsname(fd))
+-				{
+-					sfprintf(sfstdout, "#define _pty_clone\t\"%s\"\n", ptc[i]);
+-					close(fd);
+-					break;
+-				}
+-				close(fd);
+-			}
+-	#endif
+-		for (i = 0;; i++)
+-			if(i >= (sizeof(pty) / sizeof(pty[0]) - 1) || stat(pty[i], &statb)>=0)
+-			{
+-				sfprintf(sfstdout, "#define _pty_first\t\"%s\"\n", pty[i]);
+-				break;
+-			}
++		printf("#define _pty_clone\t\"/dev/ptmx\"\n");
++		printf("#define _pty_first\t\"/dev/ptyp0\"\n");
+ 		return 0;
+ 	}
+ }end fail{
+diff --git ksh93-clean/src/cmd/ksh93/sh/init.c ksh93-workdir/src/cmd/ksh93/sh/init.c
+index 34fa8e0..359bff1 100644
+--- ksh93-clean/src/cmd/ksh93/sh/init.c
++++ ksh93-workdir/src/cmd/ksh93/sh/init.c
+@@ -654,7 +654,7 @@ static Sfdouble_t nget_rand(Namval_t *np, Namfun_t *fp)
+ 	sh_save_rand_seed(rp, 1);
+ 	do
+ 		/* don't use lower bits when generating large numbers */
+-		cur = (nrand48(rp->rand_seed) >> 3) & RANDMASK;
++		cur = ((uint32_t)jrand48(rp->rand_seed) >> 3) & RANDMASK;
+ 	while(cur==last);
+ 	*lp = cur;
+ 	return (Sfdouble_t)cur;
+diff --git ksh93-clean/src/cmd/ksh93/sh/lex.c ksh93-workdir/src/cmd/ksh93/sh/lex.c
+index ab97b48..b6c6f85 100644
+--- ksh93-clean/src/cmd/ksh93/sh/lex.c
++++ ksh93-workdir/src/cmd/ksh93/sh/lex.c
+@@ -37,6 +37,7 @@
+ #include	"shlex.h"
+ #include	"builtins.h"
+ #include	<ast_release.h>
++#include	<wctype.h>
+ 
+ #define TEST_RE		3
+ #define SYNBAD		3	/* exit value for syntax errors */
+diff --git ksh93-clean/src/lib/libast/features/fs ksh93-workdir/src/lib/libast/features/fs
+index fe875ff..2378b6f 100644
+--- ksh93-clean/src/lib/libast/features/fs
++++ ksh93-workdir/src/lib/libast/features/fs
+@@ -11,6 +11,10 @@ extern	stat		int	(const char*, struct stat*)
+ 
+ define	FS_default	"ufs"
+ 
++cat{
++	#include <sys/sysmacros.h>
++}end
++
+ macro{
+ 	#include <sys/types.h>
+ 	#include <sys/stat.h>
+diff --git ksh93-clean/src/lib/libast/features/lib ksh93-workdir/src/lib/libast/features/lib
+index 7e07aca..01414e9 100644
+--- ksh93-clean/src/lib/libast/features/lib
++++ ksh93-workdir/src/lib/libast/features/lib
+@@ -36,7 +36,7 @@ lib	rand_r
+ lib	rewinddir,setlocale
+ lib	setpgrp,setpgrp2,setreuid,setuid
+ lib	socketpair
+-lib	clone,spawn,spawnve
++lib	spawn,spawnve
+ lib	strlcat,strlcpy
+ lib	strmode,strftime,symlink,sysconf,sysinfo
+ lib	telldir,tmpnam,tzset,universe,unlink,utime,wctype
+diff --git ksh93-clean/src/lib/libast/features/wchar ksh93-workdir/src/lib/libast/features/wchar
+index c078fa8..8c51d8e 100644
+--- ksh93-clean/src/lib/libast/features/wchar
++++ ksh93-workdir/src/lib/libast/features/wchar
+@@ -20,6 +20,7 @@ run{
+ 	cat <<!
+ 	#ifndef _SFSTDIO_H
+ 	#include <ast_common.h>
++	#define _MLIBC_INTERNAL_FILE_T_H 1
+ 	#include <stdio.h> /* NODEP */
+ 	#endif
+ 	!
+@@ -137,6 +138,9 @@ run{
+ 	#if !_lib_wcstombs
+ 	extern size_t		wcstombs(char*, const wchar_t*, size_t);
+ 	#endif
++	#if _lib_wcwidth
++	extern int		wcwidth(wchar_t);
++	#endif
+ 
+ 	extern int		fwprintf(FILE*, const wchar_t*, ...);
+ 	extern int		fwscanf(FILE*, const wchar_t*, ...);
+diff --git ksh93-clean/src/lib/libast/include/ast_std.h ksh93-workdir/src/lib/libast/include/ast_std.h
+index e89ce52..93404da 100644
+--- ksh93-clean/src/lib/libast/include/ast_std.h
++++ ksh93-workdir/src/lib/libast/include/ast_std.h
+@@ -55,6 +55,9 @@ struct _sfio_s;
+ #ifndef _FILEDEFED
+ #define _FILEDEFED	1
+ #endif
++#ifndef _MLIBC_INTERNAL_FILE_T_H
++#define _MLIBC_INTERNAL_FILE_T_H 1
++#endif
+ #endif
+ #endif
+ 
+@@ -93,6 +96,9 @@ struct _sfio_s;
+ #ifndef __DEFINED_FILE
+ #define __DEFINED_FILE 1
+ #endif
++#ifndef _MLIBC_INTERNAL_FILE_T_H
++#define _MLIBC_INTERNAL_FILE_T_H 1
++#endif
+ #endif
+ 
+ /* locale stuff */

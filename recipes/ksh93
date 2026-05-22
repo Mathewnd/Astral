@@ -1,0 +1,18 @@
+name=ksh93
+revision=1
+from_source=ksh93
+imagedeps="build-essential"
+hostdeps="xgcc xbinutils"
+deps="base"
+
+configure() {
+	ksh_cv_cross_feature_cache=yes ${source_dir}/configure --host=x86_64-astral --prefix=${prefix} --enable-multibyte
+}
+
+build() {
+	make -j ${parallelism}
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+}
