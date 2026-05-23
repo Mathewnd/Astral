@@ -1,5 +1,5 @@
 name=ksh93
-revision=1
+revision=2
 from_source=ksh93
 imagedeps="build-essential"
 hostdeps="xgcc xbinutils"
@@ -15,4 +15,5 @@ build() {
 
 package() {
 	make install DESTDIR=${dest_dir}
+	ln -sv ksh ${dest_dir}/${prefix}/bin/ksh93
 }
