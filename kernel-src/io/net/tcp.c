@@ -1846,6 +1846,7 @@ static int tcp_setopt(socket_t *socket, int layer, int optname, void *buffer, so
 			case SO_SNDLOWAT:
 			case SO_OOBINLINE:
 			case SO_KEEPALIVE:
+			case SO_NO_CHECK:
 			case SO_SNDBUF:
 			case SO_RCVBUF:
 			case SO_REUSEADDR:
@@ -1893,6 +1894,7 @@ static int tcp_getopt(socket_t *socket, int layer, int optname, void *unsafe_buf
 			case SO_OOBINLINE:
 			case SO_KEEPALIVE:
 			case SO_REUSEADDR:
+			case SO_NO_CHECK:
 				return USERCOPY_POSSIBLY_MEMSET_TO_USER(unsafe_buffer, 0, len);
 			case SO_SNDBUF:
 			case SO_RCVBUF: {
