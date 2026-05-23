@@ -1,3 +1,12 @@
+diff --git grep-clean/src/egrep.sh grep-workdir/src/egrep.sh
+index a0d1694..d584c3f 100644
+--- grep-clean/src/egrep.sh
++++ grep-workdir/src/egrep.sh
+@@ -1,4 +1,3 @@
+ #!@SHELL@
+ cmd=${0##*/}
+-echo "$cmd: warning: $cmd is obsolescent; using @grep@ @option@" >&2
+ exec @grep@ @option@ "$@"
 diff --git grep-clean/src/grep.c grep-workdir/src/grep.c
 index 491dd02..5a0250a 100644
 --- grep-clean/src/grep.c
