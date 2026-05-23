@@ -43,8 +43,6 @@ syscallret_t syscall_waitpid(context_t *context, pid_t pid, int *status, int opt
 	bool continued = false;
 	bool stopped = false;
 	bool zombie = false;
-	eventlistener_t listener;
-	EVENT_INITLISTENER(&listener);
 
 	for (;;) {
 		if (iterator == NULL) {
@@ -61,6 +59,8 @@ syscallret_t syscall_waitpid(context_t *context, pid_t pid, int *status, int opt
 				return ret;
 			}
 
+			eventlistener_t listener;
+			EVENT_INITLISTENER(&listener);
 			EVENT_ATTACH(&listener, &proc->child_exit_event);
 			MUTEX_RELEASE(&proc->mutex);
 
@@ -133,9 +133,9 @@ syscallret_t syscall_waitpid(context_t *context, pid_t pid, int *status, int opt
 			thread_t *freethread = threadlist;
 			threadlist = threadlist->procnext;
 			// wait until the thread can actually be unallocated
-			eventlistener_t listener;
-			EVENT_INITLISTENER(&listener);
 			for (;;) {
+				eventlistener_t listener;
+				EVENT_INITLISTENER(&listener);
 				EVENT_ATTACH(&listener, &iterator->thread_exit_event);
 				if (freethread->flags & THREAD_FLAGS_DEAD) {
 					EVENT_DETACHALL(&listener);
