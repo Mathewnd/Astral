@@ -1045,7 +1045,71 @@ static int localsock_shutdown(socket_t *socket, int how) {
 
 	MUTEX_RELEASE(&socket->mutex);
 	return error;
+}
 
+// called with socket locked
+static int localsock_setopt(socket_t *socket, int layer, int optname, void *buffer, socklen_t len, cred_t *cred) {
+	int error = 0;
+
+	if (layer == SOL_SOCKET) {
+		switch (optname) {
+			case SO_SNDLOWAT:
+			case SO_OOBINLINE:
+			case SO_KEEPALIVE:
+			case SO_SNDBUF:
+			case SO_RCVBUF:
+			case SO_REUSEADDR:
+			case SO_NO_CHECK:
+				break;
+			default:
+				error = ENOPROTOOPT;
+		}
+	}
+
+	if (error == ENOPROTOOPT) {
+		printf("localsock_setopt: unknown %lu %lu called\n", layer, optname);
+	}
+
+	return error;
+}
+
+static int localsock_getopt(socket_t *socket, int layer, int optname, void *unsafe_buffer, socklen_t *unsafe_len, cred_t *cred) {
+	socklen_t len;
+	int error = USERCOPY_POSSIBLY_FROM_USER(&len, unsafe_len, sizeof(len));
+	if (error)
+		return error;
+
+	if (layer == SOL_SOCKET) {
+		switch (optname) {
+			case SO_SNDLOWAT: {
+				int value = 1;
+				return USERCOPY_POSSIBLY_TO_USER(unsafe_buffer, &value, len);
+			}
+			case SO_TYPE: {
+				if (len != 4)
+					return EINVAL;
+
+				int type = SOCK_STREAM;
+				return USERCOPY_POSSIBLY_TO_USER(unsafe_buffer, &type, len);
+			}
+			case SO_OOBINLINE:
+			case SO_KEEPALIVE:
+			case SO_REUSEADDR:
+			case SO_NO_CHECK:
+				return USERCOPY_POSSIBLY_MEMSET_TO_USER(unsafe_buffer, 0, len);
+			case SO_SNDBUF:
+			case SO_RCVBUF: {
+				if (len != 4)
+					return EINVAL;
+
+				int value = SOCKET_BUFFER;
+				return USERCOPY_POSSIBLY_TO_USER(unsafe_buffer, &value, 4);
+			}
+		}
+	}
+
+	printf("localsock_getopt unknown %lu %lu\n", layer, optname);
+	return ENOPROTOOPT;
 }
 
 static socketops_t socketops = {
@@ -1060,7 +1124,9 @@ static socketops_t socketops = {
 	.datacount = localsocket_datacount,
 	.getname = localsock_getname,
 	.getpeername = localsock_getpeername,
-	.shutdown = localsock_shutdown
+	.shutdown = localsock_shutdown,
+	.getopt = localsock_getopt,
+	.setopt = localsock_setopt
 };
 
 socket_t *localsock_createsocket() {

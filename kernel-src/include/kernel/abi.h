@@ -114,7 +114,9 @@ typedef struct {
 #define SO_RCVBUF       8
 #define SO_KEEPALIVE    9
 #define SO_OOBINLINE    10
+#define SO_NO_CHECK	11
 #define SO_LINGER       13
+#define SO_PEERCRED	17
 #define SO_RCVLOWAT     18
 #define SO_SNDLOWAT     19
 #define SO_BINDTODEVICE 25
