@@ -10,6 +10,12 @@
 #define FILE_COUNT 16
 #define BARRIER_SIZE 16
 
+typedef struct {
+	pid_t pid;
+	uid_t uid;
+	gid_t gid;
+} localsock_cred_t;
+
 struct localpair_t;
 struct binding_t;
 typedef struct {
@@ -29,6 +35,7 @@ typedef struct {
 	uintmax_t barrierwrite; // shared with pair
 	int filesremaining[BARRIER_SIZE]; // shared with pair
 	int bytesremaining[BARRIER_SIZE]; // shared with pair
+	localsock_cred_t cred;
 } localsocket_t;
 
 // created by the client socket
@@ -575,6 +582,9 @@ static int localsock_accept(socket_t *_server, socket_t *_clientconnection, sock
 	clientconnection->pair = pair;
 	pair->server = clientconnection;
 
+	if (current_thread()->proc)
+		clientconnection->cred = server->cred;
+
 	// signal to the client that they can start sending data now
 	poll_event(&pair->client->socket.pollheader, POLLOUT);
 
@@ -606,6 +616,12 @@ static int localsock_connect(socket_t *socket, sockaddr_t *addr, uintmax_t flags
 	if (localsocket->pair) {
 		error = EISCONN;
 		goto leave;
+	}
+
+	if (current_thread()->proc) {
+		localsocket->cred.pid = current_thread()->proc->pid;
+		localsocket->cred.uid = current_thread()->proc->cred.euid;
+		localsocket->cred.uid = current_thread()->proc->cred.egid;
 	}
 
 	// get the vnode specified in addr
@@ -774,6 +790,12 @@ static int localsock_listen(socket_t *socket, int backlogsize) {
 	if (localsocket->pair || localsocket->binding == NULL) {
 		error = EOPNOTSUPP;
 		goto leave;
+	}
+
+	if (current_thread()->proc) {
+		localsocket->cred.pid = current_thread()->proc->pid;
+		localsocket->cred.uid = current_thread()->proc->cred.euid;
+		localsocket->cred.uid = current_thread()->proc->cred.egid;
 	}
 
 	MUTEX_ACQUIRE(&localsocket->binding->mutex);
@@ -985,6 +1007,13 @@ int localsock_pair(socket_t **ret1, socket_t **ret2) {
 	((localsocket_t *)socket1)->pair = pair;
 	((localsocket_t *)socket2)->pair = pair;
 
+	if (current_thread()->proc) {
+		pair->server->cred.pid = current_thread()->proc->pid;
+		pair->server->cred.uid = current_thread()->proc->cred.euid;
+		pair->server->cred.uid = current_thread()->proc->cred.egid;
+		pair->client->cred = pair->server->cred;
+	}
+
 	*ret1 = socket1;
 	*ret2 = socket2;
 	return 0;
@@ -1074,6 +1103,7 @@ static int localsock_setopt(socket_t *socket, int layer, int optname, void *buff
 }
 
 static int localsock_getopt(socket_t *socket, int layer, int optname, void *unsafe_buffer, socklen_t *unsafe_len, cred_t *cred) {
+	localsocket_t *localsocket = (localsocket_t *)socket;
 	socklen_t len;
 	int error = USERCOPY_POSSIBLY_FROM_USER(&len, unsafe_len, sizeof(len));
 	if (error)
@@ -1081,6 +1111,32 @@ static int localsock_getopt(socket_t *socket, int layer, int optname, void *unsa
 
 	if (layer == SOL_SOCKET) {
 		switch (optname) {
+			case SO_PEERCRED: {
+				if (len != sizeof(localsock_cred_t))
+					return EINVAL;
+
+				localpair_t *pair = localsocket->pair;
+				// socket not connected
+				if (pair == NULL) {
+					MUTEX_RELEASE(&socket->mutex);
+					return ENOTCONN;
+				}
+
+				MUTEX_ACQUIRE(&pair->mutex);
+				localsocket_t *peer = pair->client == localsocket ? pair->server : pair->client;
+				if (peer == NULL) {
+					MUTEX_RELEASE(&pair->mutex);
+					MUTEX_RELEASE(&socket->mutex);
+					return ENOTCONN;
+				}
+
+				localsock_cred_t cred = peer->cred;
+
+				MUTEX_RELEASE(&pair->mutex);
+
+				int error = USERCOPY_POSSIBLY_TO_USER(unsafe_buffer, &cred, sizeof(cred));
+				return error;
+			}
 			case SO_SNDLOWAT: {
 				int value = 1;
 				return USERCOPY_POSSIBLY_TO_USER(unsafe_buffer, &value, len);
