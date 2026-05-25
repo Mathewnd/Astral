@@ -1,9 +1,9 @@
 name=fvwm
-revision=1
+revision=2
 from_source=fvwm
 imagedeps="build-essential"
 hostdeps="xgcc xbinutils pkgconfig libtool"
-deps="base libx11 libxinerama libxcursor libxt libevent libxrandr freetype libpng libxft"
+deps="base libx11 libxinerama libxcursor libxt libevent libxrandr freetype libpng libxft libxpm"
 
 configure() {
 	cp -rvp ${source_dir}/* .
