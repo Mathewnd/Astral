@@ -199,7 +199,7 @@ index f447741..ab44667 100644
  	FutexLockImpl(const FutexLockImpl &) = delete;
  
 diff --git mlibc-clean/options/internal/include/mlibc/sysdep-signatures.hpp mlibc-workdir/options/internal/include/mlibc/sysdep-signatures.hpp
-index d639e43..bff59a5 100644
+index d639e43..694021a 100644
 --- mlibc-clean/options/internal/include/mlibc/sysdep-signatures.hpp
 +++ mlibc-workdir/options/internal/include/mlibc/sysdep-signatures.hpp
 @@ -23,6 +23,10 @@
@@ -213,7 +213,15 @@ index d639e43..bff59a5 100644
  namespace mlibc {
  
  template<typename Tag>
-@@ -235,6 +239,7 @@ SYSDEP_FUNC(SetRegid, gid_t rgid, gid_t egid);
+@@ -156,6 +160,7 @@ SYSDEP_FUNC(Linkat, int olddirfd, const char *old_path, int newdirfd, const char
+ SYSDEP_FUNC(Symlink, const char *target_path, const char *link_path);
+ SYSDEP_FUNC(Symlinkat, const char *target_path, int dirfd, const char *link_path);
+ SYSDEP_FUNC(Renameat, int olddirfd, const char *old_path, int newdirfd, const char *new_path);
++SYSDEP_FUNC(Renameat2, int olddirfd, const char *old_path, int newdirfd, const char *new_path, unsigned int flags);
+ SYSDEP_FUNC(Fcntl, int fd, int request, va_list args, int *result);
+ SYSDEP_FUNC(Ttyname, int fd, char *buf, size_t size);
+ SYSDEP_FUNC(Fadvise, int fd, off_t offset, off_t length, int advice);
+@@ -235,6 +240,7 @@ SYSDEP_FUNC(SetRegid, gid_t rgid, gid_t egid);
  SYSDEP_FUNC(GetLoginR, char *name, size_t name_len);
  SYSDEP_FUNC(IfIndextoname, unsigned int index, char *name);
  SYSDEP_FUNC(IfNametoindex, const char *name, unsigned int *ret);
@@ -222,10 +230,19 @@ index d639e43..bff59a5 100644
  SYSDEP_FUNC(Unlockpt, int fd);
  SYSDEP_FUNC(ThreadSetname, void *tcb, const char *name);
 diff --git mlibc-clean/options/internal/include/mlibc/sysdep-tags.hpp mlibc-workdir/options/internal/include/mlibc/sysdep-tags.hpp
-index 17cf422..b90d201 100644
+index 17cf422..01941c1 100644
 --- mlibc-clean/options/internal/include/mlibc/sysdep-tags.hpp
 +++ mlibc-workdir/options/internal/include/mlibc/sysdep-tags.hpp
-@@ -476,6 +476,8 @@ struct GetLoginR {};
+@@ -316,6 +316,8 @@ struct Symlink {};
+ struct Symlinkat {};
+ // int sys_renameat(int olddirfd, const char *old_path, int newdirfd, const char *new_path);
+ struct Renameat {};
++// int sys_renameat2(int olddirfd, const char *old_path, int newdirfd, const char *new_path, unsigned int flags);
++struct Renameat2 {};
+ // int sys_fcntl(int fd, int request, va_list args, int *result);
+ struct Fcntl {};
+ // int sys_ttyname(int fd, char *buf, size_t size);
+@@ -476,6 +478,8 @@ struct GetLoginR {};
  struct IfIndextoname {};
  // int sys_if_nametoindex(const char *name, unsigned int *ret);
  struct IfNametoindex {};
@@ -271,6 +288,24 @@ index ed0c463..8df2580 100644
  }
  
  unsigned int if_nametoindex(const char *name) {
+diff --git mlibc-clean/options/posix/generic/posix_stdio.cpp mlibc-workdir/options/posix/generic/posix_stdio.cpp
+index 8592ea5..94ceba1 100644
+--- mlibc-clean/options/posix/generic/posix_stdio.cpp
++++ mlibc-workdir/options/posix/generic/posix_stdio.cpp
+@@ -233,7 +233,10 @@ int renameat(int olddirfd, const char *old_path, int newdirfd, const char *new_p
+ 	return 0;
+ }
+ 
+-int renameat2(int, const char *, int, const char *, unsigned int) {
+-	__ensure(!"Not implemented");
+-	__builtin_unreachable();
++int renameat2(int olddirfd, const char *old_path, int newdirfd, const char *new_path, unsigned int flags) {
++	if(int e = mlibc::sysdep_or_enosys<Renameat2>(olddirfd, old_path, newdirfd, new_path, flags); e) {
++		errno = e;
++		return -1;
++	}
++	return 0;
+ }
 diff --git mlibc-clean/options/rtld/x86_64/runtime.S mlibc-workdir/options/rtld/x86_64/runtime.S
 index ba9a520..b958ef3 100644
 --- mlibc-clean/options/rtld/x86_64/runtime.S
@@ -281,7 +316,7 @@ index ba9a520..b958ef3 100644
  .section .note.GNU-stack,"",%progbits
 -
 diff --git mlibc-clean/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
-index 3b04372..e8ef8d5 100644
+index 3b04372..d987ac3 100644
 --- mlibc-clean/sysdeps/astral/generic/generic.cpp
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
 @@ -1,7 +1,9 @@
@@ -686,7 +721,19 @@ index 3b04372..e8ef8d5 100644
  		return syscall(SYSCALL_SETSOCKOPT, &ret, fd, layer, number, (uint64_t)buffer, size);
  	}
  
-@@ -562,6 +913,16 @@ namespace mlibc {
+@@ -511,6 +862,11 @@ namespace mlibc {
+ 		return err;
+ 	}
+ 
++	int Sysdeps<Renameat2>::operator()(int old_dirfd, const char *old_path, int new_dirfd, const char *new_path, unsigned int flags) {
++		long ret;
++		return syscall(SYSCALL_RENAMEAT, &ret, old_dirfd, (uint64_t)old_path, new_dirfd, (uint64_t)new_path, flags);
++	}
++
+ 	int Sysdeps<Renameat>::operator()(int olddirfd, const char *old_path, int newdirfd, const char *new_path) {
+ 		long ret;
+ 		return syscall(SYSCALL_RENAMEAT, &ret, olddirfd, (uint64_t)old_path, newdirfd, (uint64_t)new_path);
+@@ -562,6 +918,16 @@ namespace mlibc {
  		return sysdep<Ioctl>(fd, TCSETS, (void *)attr, &res);
  	}
  
@@ -703,7 +750,7 @@ index 3b04372..e8ef8d5 100644
  	int Sysdeps<Poll>::operator()(struct pollfd *fds, nfds_t count, int timeout, int *num_events) {
  		long ret;
  		long error = syscall(SYSCALL_POLL, &ret, (uint64_t)fds, count, timeout);
-@@ -932,4 +1293,13 @@ namespace mlibc {
+@@ -932,4 +1298,13 @@ namespace mlibc {
  		*nanos = ts.tv_nsec;
  		return err;
  	}
@@ -756,7 +803,7 @@ index a6c4067..f1e0b65 100644
  #ifndef __MLIBC_ABI_ONLY
  
 diff --git mlibc-clean/sysdeps/astral/include/mlibc/sysdeps.hpp mlibc-workdir/sysdeps/astral/include/mlibc/sysdeps.hpp
-index ce91084..8af97e2 100644
+index ce91084..fddb9d0 100644
 --- mlibc-clean/sysdeps/astral/include/mlibc/sysdeps.hpp
 +++ mlibc-workdir/sysdeps/astral/include/mlibc/sysdeps.hpp
 @@ -7,8 +7,27 @@ namespace mlibc {
@@ -787,7 +834,15 @@ index ce91084..8af97e2 100644
  	Readv,
  	Writev,
  	Sysinfo,
-@@ -85,6 +104,8 @@ struct AstralSysdepTags :
+@@ -77,6 +96,7 @@ struct AstralSysdepTags :
+ 	Bind,
+ 	Socket,
+ 	Renameat,
++	Renameat2,
+ 	Rename,
+ 	Utimensat,
+ 	Fchownat,
+@@ -85,6 +105,8 @@ struct AstralSysdepTags :
  	Sleep,
  	Tcgetattr,
  	Tcsetattr,
@@ -796,7 +851,7 @@ index ce91084..8af97e2 100644
  	Poll,
  	Ppoll,
  	Pselect,
-@@ -135,6 +156,7 @@ struct AstralSysdepTags :
+@@ -135,6 +157,7 @@ struct AstralSysdepTags :
  	VmUnmap,
  	Isatty,
  	ClockGet,
@@ -804,3 +859,21 @@ index ce91084..8af97e2 100644
  	PrepareStack
  {};
  
+diff --git mlibc-clean/sysdeps/linux/generic/sysdeps.cpp mlibc-workdir/sysdeps/linux/generic/sysdeps.cpp
+index a07ed53..1474470 100644
+--- mlibc-clean/sysdeps/linux/generic/sysdeps.cpp
++++ mlibc-workdir/sysdeps/linux/generic/sysdeps.cpp
+@@ -1060,6 +1060,13 @@ int Sysdeps<Renameat>::operator()(int old_dirfd, const char *old_path, int new_d
+ 	return 0;
+ }
+ 
++int Sysdeps<Renameat2>::operator()(int old_dirfd, const char *old_path, int new_dirfd, const char *new_path, unsigned int flags) {
++	auto ret = do_syscall(SYS_renameat2, old_dirfd, old_path, new_dirfd, new_path, flags);
++	if (int e = sc_error(ret); e)
++		return e;
++	return 0;
++}
++
+ int Sysdeps<Fcntl>::operator()(int fd, int cmd, va_list args, int *result) {
+ 	auto arg = va_arg(args, unsigned long);
+ 	// TODO: the api for linux differs for each command so fcntl()s might fail with -EINVAL
