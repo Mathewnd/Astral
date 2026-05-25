@@ -1,0 +1,19 @@
+name=nscde
+revision=1
+from_source=nscde
+imagedeps="build-essential ksh93u+m"
+hostdeps="xgcc xbinutils pkgconfig libtool"
+deps="base fvwm ksh93 imagemagick x11-utils x11-xserver-utils xterm python python3-yaml python3-xdg xdotool stalonetray xsettingsd python3-psutil gcc xdg-utils fonts-dejavu groff libxpm"
+
+configure() {
+	cp -rp ${source_dir}/* .
+	./configure --prefix=${prefix} --host=x86_64-astral
+}
+
+build() {
+	 make -j${parallelism} libevent_LIBS="-levent"
+}
+
+package() {
+	make DESTDIR=${dest_dir} install
+}
