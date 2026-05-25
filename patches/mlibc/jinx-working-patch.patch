@@ -1,3 +1,16 @@
+diff --git mlibc-clean/options/ansi/generic/stdio.cpp mlibc-workdir/options/ansi/generic/stdio.cpp
+index 71033d0..4d40869 100644
+--- mlibc-clean/options/ansi/generic/stdio.cpp
++++ mlibc-workdir/options/ansi/generic/stdio.cpp
+@@ -1224,6 +1224,8 @@ int do_scanf(H &handler, const Char *fmt, __builtin_va_list args) {
+ 					if (tolower(c) == 'x') {
+ 						handler.consume();
+ 						c = handler.look_ahead();
++					} else {
++						++count;
+ 					}
+ 				}
+ 				while (true) {
 diff --git mlibc-clean/options/glibc/generic/execinfo.cpp mlibc-workdir/options/glibc/generic/execinfo.cpp
 index 1ed110d..ded9114 100644
 --- mlibc-clean/options/glibc/generic/execinfo.cpp
