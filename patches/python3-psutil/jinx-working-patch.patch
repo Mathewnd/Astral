@@ -1,0 +1,343 @@
+diff --git python3-psutil-clean/psutil/__init__.py python3-psutil-workdir/psutil/__init__.py
+index f10598e..ff7678d 100644
+--- python3-psutil-clean/psutil/__init__.py
++++ python3-psutil-workdir/psutil/__init__.py
+@@ -37,6 +37,7 @@ except ImportError:
+ 
+ from . import _common
+ from . import _ntuples as _ntp
++from ._common import ASTRAL
+ from ._common import AIX
+ from ._common import BSD
+ from ._common import CONN_CLOSE
+@@ -86,7 +87,10 @@ from ._common import debug
+ from ._common import memoize_when_activated
+ from ._common import wrap_numbers as _wrap_numbers
+ 
+-if LINUX:
++if ASTRAL:
++    from . import _psastral as _psplatform
++
++elif LINUX:
+     # This is public API and it will be retrieved from _pslinux.py
+     # via sys.modules.
+     PROCFS_PATH = "/proc"
+diff --git python3-psutil-clean/psutil/_common.py python3-psutil-workdir/psutil/_common.py
+index 33b6282..111504b 100644
+--- python3-psutil-clean/psutil/_common.py
++++ python3-psutil-workdir/psutil/_common.py
+@@ -37,8 +37,8 @@ _DEFAULT = object()
+ # fmt: off
+ __all__ = [
+     # OS constants
+-    'FREEBSD', 'BSD', 'LINUX', 'NETBSD', 'OPENBSD', 'MACOS', 'OSX', 'POSIX',
+-    'SUNOS', 'WINDOWS',
++    'ASTRAL', 'FREEBSD', 'BSD', 'LINUX', 'NETBSD', 'OPENBSD', 'MACOS', 'OSX',
++    'POSIX', 'SUNOS', 'WINDOWS',
+     # connection constants
+     'CONN_CLOSE', 'CONN_CLOSE_WAIT', 'CONN_CLOSING', 'CONN_ESTABLISHED',
+     'CONN_FIN_WAIT1', 'CONN_FIN_WAIT2', 'CONN_LAST_ACK', 'CONN_LISTEN',
+@@ -71,7 +71,8 @@ __all__ = [
+ 
+ POSIX = os.name == "posix"
+ WINDOWS = os.name == "nt"
+-LINUX = sys.platform.startswith("linux")
++ASTRAL = sys.platform.startswith("astral")
++LINUX = sys.platform.startswith("linux") or ASTRAL
+ MACOS = sys.platform.startswith("darwin")
+ OSX = MACOS  # deprecated alias
+ FREEBSD = sys.platform.startswith(("freebsd", "midnightbsd"))
+diff --git python3-psutil-workdir/psutil/_psastral.py python3-psutil-workdir/psutil/_psastral.py
+new file mode 100644
+index 0000000..44ed0db
+--- /dev/null
++++ python3-psutil-workdir/psutil/_psastral.py
+@@ -0,0 +1,247 @@
++# Copyright (c) 2009, Giampaolo Rodola'. All rights reserved.
++# Use of this source code is governed by a BSD-style license that can be
++# found in the LICENSE file.
++
++"""Minimal Astral backend.
++
++Astral does not expose the Linux /proc and syscall interfaces psutil's native
++backends are built around. Keep import and conservative POSIX APIs working, and
++raise NotImplementedError where the kernel does not currently provide data.
++"""
++
++import os
++import resource
++import signal
++import socket
++import time
++
++from . import _psposix
++from . import _common
++from . import _ntuples as _ntp
++
++AF_LINK = getattr(socket, "AF_LINK", socket.AF_UNSPEC)
++__extra__all__ = []
++
++
++class cext:
++    version = 722
++    __file__ = __file__
++
++    @staticmethod
++    def check_pid_range(pid):
++        if pid < 0:
++            raise ValueError("pid must be a positive integer")
++
++    @staticmethod
++    def set_debug(value):
++        return None
++
++
++def _unsupported():
++    raise NotImplementedError("psutil support for Astral is incomplete")
++
++
++def pids():
++    return [os.getpid()]
++
++
++def pid_exists(pid):
++    return _psposix.pid_exists(pid)
++
++
++def cpu_count_logical():
++    count = os.cpu_count()
++    return 1 if count is None else count
++
++
++def cpu_count_cores():
++    return None
++
++
++def cpu_times():
++    return _ntp.scputimes(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
++
++
++def per_cpu_times():
++    return [cpu_times()]
++
++
++def cpu_stats():
++    return _ntp.scpustats(0, 0, 0, 0)
++
++
++def cpu_freq():
++    return None
++
++
++def virtual_memory():
++    total = 0
++    return _ntp.svmem(total, total, 0.0, 0, total, 0, 0, 0, 0, 0, 0)
++
++
++def swap_memory():
++    return _ntp.sswap(0, 0, 0, 0.0, 0, 0)
++
++
++def disk_usage(path):
++    return _psposix.disk_usage(path)
++
++
++def disk_partitions(all=False):
++    return []
++
++
++def disk_io_counters(perdisk=False):
++    return {} if perdisk else None
++
++
++def net_io_counters():
++    return {}
++
++
++def net_connections(kind="inet"):
++    return []
++
++
++def net_if_addrs():
++    return {}
++
++
++def net_if_stats():
++    return {}
++
++
++def sensors_temperatures():
++    return {}
++
++
++def sensors_fans():
++    return {}
++
++
++def sensors_battery():
++    return None
++
++
++def boot_time():
++    return 0.0
++
++
++def users():
++    return []
++
++
++def heap_info():
++    return (0, 0)
++
++
++def heap_trim():
++    return 0
++
++
++class Process:
++    def __init__(self, pid):
++        self.pid = pid
++        self._name = None
++        if not pid_exists(pid):
++            raise _common.NoSuchProcess(pid)
++
++    def oneshot_enter(self):
++        return None
++
++    def oneshot_exit(self):
++        return None
++
++    def name(self):
++        if self.pid == os.getpid():
++            return os.path.basename(self.exe()) or "python"
++        return str(self.pid)
++
++    def exe(self):
++        if self.pid == os.getpid():
++            return ""
++        raise _common.AccessDenied(self.pid)
++
++    def cmdline(self):
++        if self.pid == os.getpid():
++            return []
++        raise _common.AccessDenied(self.pid)
++
++    def environ(self):
++        if self.pid == os.getpid():
++            return dict(os.environ)
++        raise _common.AccessDenied(self.pid)
++
++    def terminal(self):
++        return None
++
++    def cpu_times(self):
++        usage = resource.getrusage(resource.RUSAGE_SELF)
++        return _ntp.pcputimes(usage.ru_utime, usage.ru_stime, 0.0, 0.0)
++
++    def wait(self, timeout=None):
++        return _psposix.wait_pid(self.pid, timeout)
++
++    def create_time(self, monotonic=False, fast_only=False):
++        return time.monotonic() if monotonic else time.time()
++
++    def memory_info(self):
++        return _ntp.pmem(0, 0, 0, 0, 0, 0, 0)
++
++    def memory_full_info(self):
++        return _ntp.pfullmem(0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
++
++    def cwd(self):
++        if self.pid == os.getpid():
++            return os.getcwd()
++        raise _common.AccessDenied(self.pid)
++
++    def num_ctx_switches(self):
++        return _ntp.pctxsw(0, 0)
++
++    def num_threads(self):
++        return 1
++
++    def nice_get(self):
++        return os.nice(0)
++
++    def nice_set(self, value):
++        os.nice(value - os.nice(0))
++
++    def status(self):
++        return _common.STATUS_RUNNING
++
++    def open_files(self):
++        return []
++
++    def net_connections(self, kind="inet"):
++        return []
++
++    def num_fds(self):
++        return 0
++
++    def ppid(self):
++        return os.getppid() if self.pid == os.getpid() else 0
++
++    def uids(self):
++        uid = os.getuid()
++        return _ntp.puids(uid, os.geteuid(), uid)
++
++    def gids(self):
++        gid = os.getgid()
++        return _ntp.pgids(gid, os.getegid(), gid)
++
++    def username(self):
++        return str(os.getuid())
++
++    def send_signal(self, sig):
++        os.kill(self.pid, sig)
++
++    def suspend(self):
++        self.send_signal(signal.SIGSTOP)
++
++    def resume(self):
++        self.send_signal(signal.SIGCONT)
++
++    def kill(self):
++        self.send_signal(signal.SIGKILL)
+diff --git python3-psutil-clean/setup.py python3-psutil-workdir/setup.py
+index 9603b29..609a905 100755
+--- python3-psutil-clean/setup.py
++++ python3-psutil-workdir/setup.py
+@@ -56,6 +56,7 @@ HERE = os.path.abspath(os.path.dirname(__file__))
+ sys.path.insert(0, os.path.join(HERE, "psutil"))
+ 
+ from _common import AIX  # noqa: E402
++from _common import ASTRAL  # noqa: E402
+ from _common import BSD  # noqa: E402
+ from _common import FREEBSD  # noqa: E402
+ from _common import LINUX  # noqa: E402
+@@ -117,6 +118,7 @@ DEV_DEPS = TEST_DEPS + [
+ # The pre-processor macros that are passed to the C compiler when
+ # building the extension.
+ macros = []
++ext = None
+ 
+ if POSIX:
+     macros.append(("PSUTIL_POSIX", 1))
+@@ -269,7 +271,10 @@ def unix_can_compile(c_code):
+         shutil.rmtree(tempdir)
+ 
+ 
+-if WINDOWS:
++if os.environ.get("PSUTIL_ASTRAL") == "1":
++    pass
++
++elif WINDOWS:
+ 
+     def get_winver():
+         maj, min = sys.getwindowsversion()[0:2]
+@@ -482,7 +487,7 @@ def main():
+         platforms='Platform Independent',
+         license='BSD-3-Clause',
+         packages=['psutil'],
+-        ext_modules=[ext],
++        ext_modules=[] if ext is None else [ext],
+         options=options,
+         classifiers=[
+             'Development Status :: 5 - Production/Stable',
