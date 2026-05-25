@@ -1,0 +1,27 @@
+name=python3-psutil
+revision=1
+from_source=python3-psutil
+imagedeps="build-essential python3"
+hostdeps="xgcc xbinutils python"
+deps="base python"
+
+build() {
+	cp -rp ${source_dir}/* .
+	_PYTHON_SYSCONFIGDATA_NAME=_sysconfigdata__astral_ \
+		PYTHONPATH=${sysroot_dir}/${prefix}/lib/python3.10 \
+		CC=x86_64-astral-gcc \
+		CFLAGS="-I${sysroot_dir}/${prefix}/include/python3.10" \
+		LDSHARED="x86_64-astral-gcc -shared" \
+		PSUTIL_ASTRAL=1 \
+		/usr/bin/env python3 setup.py build
+}
+
+package() {
+	_PYTHON_SYSCONFIGDATA_NAME=_sysconfigdata__astral_ \
+		PYTHONPATH=${sysroot_dir}/${prefix}/lib/python3.10 \
+		CC=x86_64-astral-gcc \
+		CFLAGS="-I${sysroot_dir}/${prefix}/include/python3.10" \
+		LDSHARED="x86_64-astral-gcc -shared" \
+		PSUTIL_ASTRAL=1 \
+		/usr/bin/env python3 setup.py install --prefix=${prefix} --root=${dest_dir}
+}

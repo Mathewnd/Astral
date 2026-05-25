@@ -1,0 +1,13 @@
+name=python3-xdg
+revision=1
+from_source=python3-xdg
+hostdeps="python"
+deps="base python"
+
+build() {
+	cp -rp ${source_dir}/* .
+}
+
+package() {
+	/usr/bin/env python3 setup.py install --prefix=${prefix} --root=${dest_dir}
+}

@@ -1,0 +1,13 @@
+name=python3-yaml
+revision=1
+from_source=python3-yaml
+hostdeps="python"
+deps="base python"
+
+build() {
+	cp -rp ${source_dir}/* .
+}
+
+package() {
+	/usr/bin/env python3 setup.py --without-libyaml install --prefix=${prefix} --root=${dest_dir}
+}

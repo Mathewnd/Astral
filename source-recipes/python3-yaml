@@ -1,0 +1,5 @@
+name=python3-yaml
+version=6.0.3
+source_method=tarball
+tarball_url="https://files.pythonhosted.org/packages/05/8e/961c0007c59b8dd7729d542c61a4d537767a59645b82a0b521206e1e25c2/pyyaml-${version}.tar.gz"
+tarball_sha512=0df64497f51bd07ee01d7676afc4cf3eff228e1a73d4b1c7f034c7cba762f3451aa686e594af54e8e359173262cc0e47c110491bc7e29c3dd712a66c4316b2cf
