@@ -34,6 +34,8 @@ typedef struct {
 	vnode_t *mastervnode;
 	spinlock_t sessionlock;
 	struct proc_t *session;
+	size_t opened;
+	bool has_been_opened;
 } tty_t;
 
 void tty_init();
@@ -41,5 +43,6 @@ tty_t *tty_create(char *name, ttydevicewritefn_t writefn, ttyinactivefn_t inacti
 void tty_process(tty_t *tty, char c);
 void tty_unregister(tty_t *tty);
 int tty_ioctl(tty_t *tty, unsigned long req, void *arg, int *result, cred_t *cred);
+size_t tty_opened(tty_t *tty);
 
 #endif

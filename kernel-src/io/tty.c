@@ -426,7 +426,10 @@ static int open(int minor, vnode_t **vnode, int flags) {
 		}
 
 		VOP_RELEASE(*vnode);
+		__atomic_fetch_add(&ctty->opened, 1, __ATOMIC_SEQ_CST);
+		ctty->has_been_opened = true;
 		*vnode = (vnode_t *)(ctty->mastervnode);
+		return 0;
 	} else if (tty == NULL) {
 		return ENODEV;
 	} else if ((flags & V_FFLAGS_NOCTTY) == 0) {
@@ -434,6 +437,18 @@ static int open(int minor, vnode_t **vnode, int flags) {
 		jobctl_setctty(current_thread()->proc, tty, false);
 	}
 
+	__atomic_fetch_add(&tty->opened, 1, __ATOMIC_SEQ_CST);
+	tty->has_been_opened = true;
+	return 0;
+}
+
+static int close(int minor, int flags) {
+	tty_t *tty = ttyget(minor);
+	if (tty == NULL)
+		return ENODEV;
+
+	int count = __atomic_fetch_sub(&tty->opened, 1, __ATOMIC_SEQ_CST);
+	__assert(count != 0);
 	return 0;
 }
 
@@ -484,6 +499,7 @@ static devops_t devops = {
 	.ioctl = ioctl,
 	.isatty = isatty,
 	.open = open,
+	.close = close,
 	.inactive = inactive
 };
 
@@ -574,6 +590,9 @@ void tty_unregister(tty_t *tty) {
 	}
 }
 
+size_t tty_opened(tty_t *tty) {
+	return __atomic_load_n(&tty->opened, __ATOMIC_SEQ_CST);
+}
 
 void tty_init() {
 	__assert(devfs_register(&devops, "tty", V_TYPE_CHDEV, DEV_MAJOR_TTY, CONTROLLING_TTY_MINOR, 0666, NULL) == 0);

@@ -87,12 +87,6 @@ static int hup_check(void *_pty) {
 	return pty->hangup;
 }
 
-static void inactivepty(void *_pty) {
-	pty_t *pty = _pty;
-	freeptyminor(pty->minor);
-	freepty(pty);
-}
-
 static int isatty(int minor) {
 	return 0;
 }
@@ -119,8 +113,12 @@ static int close(int minor, int flags) {
 	return 0;
 }
 
+// TODO: also signal POLLHUP on tty close
 static int internalpoll(pty_t *pty, polldata_t *data, int events) {
 	int revents = 0;
+
+	if (pty->tty->has_been_opened && tty_opened(pty->tty) == 0)
+		revents |= POLLHUP;
 
 	if (events & POLLOUT)
 		revents |= POLLOUT;
@@ -230,6 +228,15 @@ static int write(int minor, iovec_iterator_t *iovec_iterator, size_t size, uintm
 	return 0;
 }
 
+static void inactive(int minor) {
+	pty_t *pty = ptyget(minor);
+	if (pty == NULL)
+		return;
+
+	freeptyminor(pty->minor);
+	freepty(pty);
+}
+
 static devops_t devops = {
 	.open = open,
 	.isatty = isatty,
@@ -237,7 +244,8 @@ static devops_t devops = {
 	.close = close,
 	.poll = poll,
 	.read = read,
-	.ioctl = ioctl
+	.ioctl = ioctl,
+	.inactive = inactive
 };
 
 static int open(int oldminor, vnode_t **vnode, int flags) {
@@ -276,7 +284,7 @@ static int open(int oldminor, vnode_t **vnode, int flags) {
 	// create a pairing slave device
 
 	snprintf(tmpname, 20, "pts/%d", newminor);
-	pty->tty = tty_create(tmpname, writetopty, inactivepty, NULL, hup_check, pty);
+	pty->tty = tty_create(tmpname, writetopty, NULL, NULL, hup_check, pty);
 	if (pty->tty == NULL) {
 		VOP_RELEASE(pty->mastervnode);
 		return ENOMEM;
