@@ -243,7 +243,9 @@ __attribute__((no_caller_saved_registers)) void arch_syscall_log(int syscall, ui
 	if (!(proc->flags & PROC_FLAG_SYSTRACE) && GET_KERNEL_ARGUMENT(global_syscall_logging, bool) == false)
 		return;
 
+	arch_cpu_user_access_begin();
 	snprintf(argbuff, 768, syscall < SYSCALL_COUNT ? args[syscall] : "N/A", a1, a2, a3, a4, a5, a6);
+	arch_cpu_user_access_end();
 	snprintf(printbuff, 1024, "\e[92msyscall: pid %d tid %d: %s: %s (%lu cached pages, %lu free pages)\n\e[0m", proc->pid, thread->tid, syscall < SYSCALL_COUNT ? name[syscall] : "invalid syscall", argbuff, vmmcache_cachedpages, freepagecount);
 
 	arch_interrupt_disable();
