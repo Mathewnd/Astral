@@ -81,6 +81,60 @@ index 1ed110d..ded9114 100644
 -	}
 +void backtrace_symbols_fd(void *const *, int, int) {
  }
+diff --git mlibc-clean/options/glibc/generic/stdio_ext.cpp mlibc-workdir/options/glibc/generic/stdio_ext.cpp
+index ccb3725..3dfa27a 100644
+--- mlibc-clean/options/glibc/generic/stdio_ext.cpp
++++ mlibc-workdir/options/glibc/generic/stdio_ext.cpp
+@@ -71,14 +71,38 @@ size_t __freadahead(FILE *file_base) {
+ 	return file_base->__valid_limit - file_base->__offset;
+ }
+ 
+-const char *__freadptr(FILE *, size_t *) {
+-	__ensure(!"Not implemented");
+-	__builtin_unreachable();
++const char *__freadptr(FILE *file_base, size_t *size) {
++	if(file_base->__io_mode != 0) {
++		mlibc::infoLogger() << "mlibc: __freadptr() called but file is not open for reading" << frg::endlog;
++		*size = 0;
++		return nullptr;
++	}
++
++	if(file_base->__unget_ptr != file_base->__buffer_ptr) {
++		*size = file_base->__buffer_ptr - file_base->__unget_ptr;
++		return file_base->__unget_ptr;
++	}
++
++	if(file_base->__offset == file_base->__valid_limit) {
++		*size = 0;
++		return nullptr;
++	}
++
++	*size = file_base->__valid_limit - file_base->__offset;
++	return file_base->__buffer_ptr + file_base->__offset;
+ }
+ 
+-void __freadptrinc(FILE *, size_t) {
+-	__ensure(!"Not implemented");
+-	__builtin_unreachable();
++void __freadptrinc(FILE *file_base, size_t increment) {
++	size_t unget_size = file_base->__buffer_ptr ? file_base->__buffer_ptr - file_base->__unget_ptr : 0;
++	if(increment <= unget_size) {
++		file_base->__unget_ptr += increment;
++		return;
++	}
++
++	increment -= unget_size;
++	file_base->__unget_ptr = file_base->__buffer_ptr;
++	__ensure(file_base->__offset + increment <= file_base->__valid_limit);
++	file_base->__offset += increment;
+ }
+ 
+ void __fseterr(FILE *file_base) {
+@@ -87,4 +111,3 @@ void __fseterr(FILE *file_base) {
+ 	// set the error indicator for the stream
+ 	file->__status_bits |= __MLIBC_ERROR_BIT;
+ }
+-
 diff --git mlibc-clean/options/internal/generic/global-config.cpp mlibc-workdir/options/internal/generic/global-config.cpp
 index 3b7b862..3d86e7a 100644
 --- mlibc-clean/options/internal/generic/global-config.cpp
@@ -334,7 +388,7 @@ index ba9a520..b958ef3 100644
  .section .note.GNU-stack,"",%progbits
 -
 diff --git mlibc-clean/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
-index 3b04372..d987ac3 100644
+index 3b04372..028fa48 100644
 --- mlibc-clean/sysdeps/astral/generic/generic.cpp
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
 @@ -1,7 +1,9 @@
@@ -347,12 +401,14 @@ index 3b04372..d987ac3 100644
  #include <astral/syscall.h>
  #include <astral/archctl.h>
  #include <string.h>
-@@ -11,8 +13,29 @@
+@@ -11,8 +13,31 @@
  #include <sys/select.h>
  #include <stdio.h>
  #include <sys/stat.h>
 +#include <sys/statfs.h>
 +#include <sys/statvfs.h>
++#include <sys/sysinfo.h>
++#include <sys/times.h>
  #include <unistd.h>
  #include <dirent.h>
 +#include <sys/sysmacros.h>
@@ -377,12 +433,43 @@ index 3b04372..d987ac3 100644
  
  namespace mlibc {
  	int Sysdeps<SetGroups>::operator()(size_t size, const gid_t *list) {
-@@ -31,14 +54,276 @@ namespace mlibc {
+@@ -31,14 +56,307 @@ namespace mlibc {
  		return 0;
  	}
  
 -	int Sysdeps<GetSockopt>::operator()(int fd, int layer, int number,
 -		void *__restrict buffer, socklen_t *__restrict size) {
++	int Sysdeps<GetLoadavg>::operator()(double *samples) {
++		struct sysinfo si;
++		if(int e = sysdep<Sysinfo>(&si); e)
++			return e;
++
++		for(int i = 0; i < 3; i++)
++			samples[i] = (double)si.loads[i] / (1 << SI_LOAD_SHIFT);
++
++		return 0;
++	}
++
++	int Sysdeps<Times>::operator()(struct tms *tms, clock_t *out) {
++		if(tms) {
++			tms->tms_utime = 0;
++			tms->tms_stime = 0;
++			tms->tms_cutime = 0;
++			tms->tms_cstime = 0;
++		}
++
++		*out = 0;
++		return 0;
++	}
++
++	int Sysdeps<Fadvise>::operator()(int fd, off_t offset, off_t length, int advice) {
++		(void)fd;
++		(void)offset;
++		(void)length;
++		(void)advice;
++		return 0;
++	}
++
 +	int Sysdeps<Setxattr>::operator()(const char *path, const char *name,
 +		const void *val, size_t size, int flags) {
 +		(void)path;
@@ -659,7 +746,7 @@ index 3b04372..d987ac3 100644
  
  	int Sysdeps<InetConfigured>::operator()(bool *ipv4, bool *ipv6) {
  		// there is no ipv6 support in the kernel currently and no way of checking for configured interfaces
-@@ -47,6 +332,71 @@ namespace mlibc {
+@@ -47,6 +365,71 @@ namespace mlibc {
  		return 0;
  	}
  
@@ -731,7 +818,20 @@ index 3b04372..d987ac3 100644
  	int Sysdeps<Readv>::operator()(int fd, const struct iovec *iovs, int iovc, ssize_t *bytes_read) {
  		long r;
  		int error = syscall(SYSCALL_READV, &r, fd, (uint64_t)iovs, iovc);
-@@ -489,6 +839,7 @@ namespace mlibc {
+@@ -444,6 +827,12 @@ namespace mlibc {
+ 		return ret;
+ 	}
+ 
++	int Sysdeps<ThreadSetname>::operator()(void *tcb, const char *name) {
++		(void)tcb;
++		(void)name;
++		return 0;
++	}
++
+ 	#ifndef MLIBC_BUILDING_RTLD
+ 
+ 	[[noreturn]] void Sysdeps<ThreadExit>::operator()() {
+@@ -489,6 +878,7 @@ namespace mlibc {
  
  	int Sysdeps<SetSockopt>::operator()(int fd, int layer, int number, const void *buffer, socklen_t size) {
  		long ret;
@@ -739,7 +839,7 @@ index 3b04372..d987ac3 100644
  		return syscall(SYSCALL_SETSOCKOPT, &ret, fd, layer, number, (uint64_t)buffer, size);
  	}
  
-@@ -511,6 +862,11 @@ namespace mlibc {
+@@ -511,6 +901,11 @@ namespace mlibc {
  		return err;
  	}
  
@@ -751,7 +851,7 @@ index 3b04372..d987ac3 100644
  	int Sysdeps<Renameat>::operator()(int olddirfd, const char *old_path, int newdirfd, const char *new_path) {
  		long ret;
  		return syscall(SYSCALL_RENAMEAT, &ret, olddirfd, (uint64_t)old_path, newdirfd, (uint64_t)new_path);
-@@ -562,6 +918,16 @@ namespace mlibc {
+@@ -562,6 +957,16 @@ namespace mlibc {
  		return sysdep<Ioctl>(fd, TCSETS, (void *)attr, &res);
  	}
  
@@ -768,7 +868,7 @@ index 3b04372..d987ac3 100644
  	int Sysdeps<Poll>::operator()(struct pollfd *fds, nfds_t count, int timeout, int *num_events) {
  		long ret;
  		long error = syscall(SYSCALL_POLL, &ret, (uint64_t)fds, count, timeout);
-@@ -932,4 +1298,13 @@ namespace mlibc {
+@@ -932,4 +1337,13 @@ namespace mlibc {
  		*nanos = ts.tv_nsec;
  		return err;
  	}
@@ -821,13 +921,16 @@ index a6c4067..f1e0b65 100644
  #ifndef __MLIBC_ABI_ONLY
  
 diff --git mlibc-clean/sysdeps/astral/include/mlibc/sysdeps.hpp mlibc-workdir/sysdeps/astral/include/mlibc/sysdeps.hpp
-index ce91084..fddb9d0 100644
+index ce91084..5e96961 100644
 --- mlibc-clean/sysdeps/astral/include/mlibc/sysdeps.hpp
 +++ mlibc-workdir/sysdeps/astral/include/mlibc/sysdeps.hpp
-@@ -7,8 +7,27 @@ namespace mlibc {
+@@ -7,8 +7,30 @@ namespace mlibc {
  struct AstralSysdepTags :
  	SetGroups,
  	GetGroups,
++	GetLoadavg,
++	Times,
++	Fadvise,
 +	Setxattr,
 +	Lsetxattr,
 +	Fsetxattr,
@@ -852,7 +955,15 @@ index ce91084..fddb9d0 100644
  	Readv,
  	Writev,
  	Sysinfo,
-@@ -77,6 +96,7 @@ struct AstralSysdepTags :
+@@ -66,6 +88,7 @@ struct AstralSysdepTags :
+ 	SetSid,
+ 	FutexTid,
+ 	GetTid,
++	ThreadSetname,
+ 	ThreadExit,
+ 	Clone,
+ 	Listen,
+@@ -77,6 +100,7 @@ struct AstralSysdepTags :
  	Bind,
  	Socket,
  	Renameat,
@@ -860,7 +971,7 @@ index ce91084..fddb9d0 100644
  	Rename,
  	Utimensat,
  	Fchownat,
-@@ -85,6 +105,8 @@ struct AstralSysdepTags :
+@@ -85,6 +109,8 @@ struct AstralSysdepTags :
  	Sleep,
  	Tcgetattr,
  	Tcsetattr,
@@ -869,7 +980,7 @@ index ce91084..fddb9d0 100644
  	Poll,
  	Ppoll,
  	Pselect,
-@@ -135,6 +157,7 @@ struct AstralSysdepTags :
+@@ -135,6 +161,7 @@ struct AstralSysdepTags :
  	VmUnmap,
  	Isatty,
  	ClockGet,
