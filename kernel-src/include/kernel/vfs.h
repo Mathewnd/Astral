@@ -119,6 +119,7 @@ typedef struct advlock_t {
 #define V_FFLAGS_EXEC 16
 #define V_FFLAGS_NOCTTY 32
 #define V_FFLAGS_NOCACHE 64
+#define V_FFLAGS_CLOSE_URGENT 128
 
 typedef struct vnode_t {
 	struct vops_t *ops;

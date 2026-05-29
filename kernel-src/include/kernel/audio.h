@@ -1,0 +1,49 @@
+#ifndef _AUDIO_H
+#define _AUDIO_H
+
+#include <ringbuffer.h>
+#include <mutex.h>
+#include <stdbool.h>
+#include <kernel/poll.h>
+
+typedef struct audio_stream audio_stream_t;
+
+#define AUDIO_STREAM_INFO_FRAGMENT_SIZE 1
+#define AUDIO_STREAM_INFO_SPEED 2
+#define AUDIO_STREAM_INFO_CHANNELS 3
+#define AUDIO_STREAM_INFO_FORMAT 4
+#define AUDIO_STREAM_INFO_FIFO_FRAMES 5
+#define AUDIO_STREAM_INFO_PLAYED_FRAMES 6
+
+#define AUDIO_FORMAT_S16_LE 0x10
+
+#define AUDIO_TRIGGER_INPUT 1
+#define AUDIO_TRIGGER_OUTPUT 2
+
+typedef struct {
+	void (*start)(audio_stream_t *);
+	void (*stop)(audio_stream_t *);
+	void (*wait_for_playback)(audio_stream_t *);
+	void (*reset)(audio_stream_t *);
+	void (*get_info)(audio_stream_t *, int what, void *buf);
+} audio_stream_ops_t;
+
+typedef struct audio_stream {
+	mutex_t mutex;
+	ringbuffer_t ringbuffer;
+	pollheader_t pollheader;
+	audio_stream_ops_t *ops;
+	bool opened;
+	bool playing;
+	int trigger;
+	size_t underruns;
+	size_t bytes_submitted;
+	size_t bytes_written;
+	size_t bytes_played;
+} audio_stream_t;
+
+bool audio_take_stream_data(audio_stream_t *stream, void *buffer, size_t size);
+int audio_initialize_stream(audio_stream_t *stream, audio_stream_ops_t *stream_ops);
+int audio_register_stream(audio_stream_t *stream);
+
+#endif

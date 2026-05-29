@@ -15,6 +15,7 @@
 #define IPL_IGNORE  -1
 #define IPL_MAX 0
 #define IPL_TIMER 1
+#define IPL_AUDIO 300
 #define IPL_NET 400
 #define IPL_DISK 500
 #define IPL_SERIAL 550

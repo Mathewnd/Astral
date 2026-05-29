@@ -12,16 +12,17 @@
 #define DEV_MAJOR_ZERO 3
 #define DEV_MAJOR_TTY 4
 #define DEV_MAJOR_FB 5
-#define DEV_MAJOR_KEYBOARD 6
+#define DEV_MAJOR_KEYBOARD 6 // unused, kept as to not reuse numbers
 #define DEV_MAJOR_BLOCK 7
 #define DEV_MAJOR_E9 8
 #define DEV_MAJOR_URANDOM 9
 #define DEV_MAJOR_NET 10
-#define DEV_MAJOR_MOUSE 11
+#define DEV_MAJOR_MOUSE 11 // unused, kept as to not reuse numbers
 #define DEV_MAJOR_PTY 12
 #define DEV_MAJOR_ACPI 13
 #define DEV_MAJOR_PROF 14
 #define DEV_MAJOR_INPUT 15
+#define DEV_MAJOR_AUDIO 16
 
 typedef struct {
 	int (*open)(int minor, vnode_t **vnode, int flags);
