@@ -17,10 +17,10 @@ Astral is a 64 bit operating system with its own kernel written in C for the x86
 - ACPI: thanks to [uACPI](https://github.com/UltraOS/uACPI), there is ACPI support with proper poweroff, etc.
 - Multiple user support
 - Package management using xbps
+- Audio: Intel HD Audio driver with mixing done by sndiod.
 
 ## Current Goals
 
-- Audio
 - Installation program
 - Fully self hosting
 
