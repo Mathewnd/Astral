@@ -3,7 +3,7 @@ revision=1
 from_source=openal
 imagedeps="build-essential"
 hostdeps="xgcc xbinutils libstdc++-v3 pkgconfig cmake"
-deps="base alsa-lib"
+deps="base sndio"
 
 configure() {
 	cmake \
@@ -11,6 +11,8 @@ configure() {
 	-DCMAKE_INSTALL_PREFIX=${prefix} \
 	-DCMAKE_BUILD_TYPE=Release \
 	-DCMAKE_INSTALL_LIBDIR=lib \
+	-DALSOFT_BACKEND_SNDIO=ON \
+	-DALSOFT_REQUIRE_SNDIO=ON \
 	${source_dir}
 }
 
