@@ -839,6 +839,7 @@ static void localsock_destroy(socket_t *socket) {
 		if (*peerp == NULL) {
 			free(pair);
 		} else {
+			poll_event(&(*peerp)->socket.pollheader, POLLHUP);
 			*ourp = NULL;
 			MUTEX_RELEASE(&pair->mutex);
 		}
