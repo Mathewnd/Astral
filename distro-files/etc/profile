@@ -11,4 +11,5 @@ alias grep="grep --color=auto"
 if [ $(tty) == "/dev/console" ]
 then
 	alias startwm="exec /usr/libexec/astral/startwm"
+	alias startnscde="exec /usr/libexec/astral/startnscde"
 fi

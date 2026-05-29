@@ -1,5 +1,5 @@
 name=distro-files
-revision=2
+revision=3
 from_source=distro-files
 
 package() {
@@ -27,5 +27,7 @@ package() {
 	chmod +x ${dest_dir}/etc/local.d/firstboot.start
 	chmod +x ${dest_dir}/usr/bin/astral-bootstrap
 	chmod +x ${dest_dir}/usr/bin/astral-chroot
+	chmod +x ${dest_dir}/usr/libexec/astral/startwm
+	chmod +x ${dest_dir}/usr/libexec/astral/startnscde
 	chmod +x ${dest_dir}/root/hello.sh ${dest_dir}/home/astral/hello.sh ${dest_dir}/etc/skel/hello.sh
 }

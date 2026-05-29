@@ -1,0 +1,22 @@
+#!/usr/bin/bash
+export DISPLAY=":0"
+X &
+while [ 1 ]
+do
+  if [ -S /tmp/.X11-unix/X0 ]
+  then
+    break
+  fi
+
+  if [ $SECONDS -gt 15 ]
+  then
+    echo timeout
+    exit 1
+  fi
+
+  sleep 0.5
+done
+stty -echo -echoctl -isig -icanon min 0 time 0
+nscde &> /tmp/.nscdestderr > /tmp/.nscdestdout
+stty -echo -echoctl -isig -icanon min 0 time 0
+cat -
