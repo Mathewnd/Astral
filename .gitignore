@@ -34,3 +34,4 @@ build-*
 graph_kernel_deps.png
 profiler.out
 *.svg
+*.swp
