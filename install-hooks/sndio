@@ -1,0 +1,19 @@
+#!/usr/bin/bash
+
+set -e
+
+case "$1" in
+	pre)
+		;;
+	post)
+		if ! grep -q '^sndiod:' /etc/group; then
+			groupadd -r sndiod
+		fi
+
+		if ! grep -q '^sndiod:' /etc/passwd; then
+			useradd -r -g sndiod -d /var/empty -s /bin/false -c "sndio daemon" sndiod
+		fi
+		;;
+esac
+
+exit 0

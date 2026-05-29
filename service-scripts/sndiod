@@ -1,0 +1,11 @@
+#!/sbin/openrc-run
+
+description="start the sndio audio server"
+command=/usr/bin/sndiod
+command_args="${sndiod_options}"
+retry="${retry:-TERM/5/KILL/5}"
+
+depend() {
+	need localmount
+	after bootmisc
+}

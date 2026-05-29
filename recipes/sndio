@@ -1,0 +1,22 @@
+name=sndio
+revision=2
+from_source=sndio
+imagedeps="build-essential"
+hostdeps="xgcc xbinutils"
+deps="base oss shadow" # shadow is here for the post-install hook
+
+configure() {
+	cp -rp ${source_dir}/* .
+	  UNAME=Astral ./configure --prefix=${prefix} CFLAGS="-I'${sysroot_dir}/usr/lib/oss/include' ${CFLAGS}" CC=x86_64-astral-gcc
+}
+
+build() {
+	make -j ${parallelism}
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+	mkdir -p ${dest_dir}/etc/init.d
+	cp ${base_dir}/service-scripts/sndiod ${dest_dir}/etc/init.d
+	copy_install_hook
+}

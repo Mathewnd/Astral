@@ -1,0 +1,71 @@
+diff --git sndio-clean/configure sndio-workdir/configure
+index d36e767..547c8fb 100755
+--- sndio-clean/configure
++++ sndio-workdir/configure
+@@ -63,10 +63,20 @@ unset defs				# no extra #defines
+ unset ldadd				# no extra libraries (-l options)
+ unset dev
+ 
++: "${UNAME:=`uname`}"
++
+ #
+ # guess OS-specific parameters
+ #
+-case `uname` in
++case ${UNAME} in
++	Astral)
++		oss=yes
++		ldadd="-lrt -lm"
++		user=sndiod
++		so_link="libsndio.so libsndio.so.\${MAJ} libsndio.so.\${MAJ}.0"
++		so_ldflags="-Wl,-soname=libsndio.so.\${MAJ}"
++		defs='-D_GNU_SOURCE -DHAVE_SOCK_CLOEXEC -DHAVE_CLOCK_GETTIME'
++		;;
+ 	Linux)
+ 		alsa=yes
+ 		ldadd="-lrt -lm"
+diff --git sndio-clean/libsndio/sio_oss.c sndio-workdir/libsndio/sio_oss.c
+index 7614497..1fc8ad6 100644
+--- sndio-clean/libsndio/sio_oss.c
++++ sndio-workdir/libsndio/sio_oss.c
+@@ -66,15 +66,6 @@ static struct sio_oss_fmt formats[] = {
+ 	{ AFMT_S24_BE, 24, 3, 1, 0, 1 },
+ 	{ AFMT_S24_LE, 24, 3, 1, 1, 0 },
+ 	{ AFMT_S24_LE, 24, 3, 1, 1, 1 },
+-	{ AFMT_U24_BE, 24, 3, 0, 0, 0 },
+-	{ AFMT_U24_BE, 24, 3, 0, 0, 1 },
+-	{ AFMT_U24_LE, 24, 3, 0, 1, 0 },
+-	{ AFMT_U24_LE, 24, 3, 0, 1, 1 },
+-
+-	{ AFMT_S32_BE, 32, 4, 1, 0, 1 },
+-	{ AFMT_S32_LE, 32, 4, 1, 1, 1 },
+-	{ AFMT_U32_BE, 32, 4, 0, 0, 1 },
+-	{ AFMT_U32_LE, 32, 4, 0, 1, 1 },
+ };
+ 
+ struct sio_oss_hdl {
+@@ -147,8 +138,7 @@ sio_oss_getcap(struct sio_hdl *sh, struct sio_cap *cap)
+ 		48000, 64000, 88200, 96000, 192000
+ 	};
+ 	static int afmts[] = {
+-		AFMT_U8, AFMT_S16_LE, AFMT_S16_BE, AFMT_S24_LE, AFMT_U24_LE,
+-		AFMT_S32_LE, AFMT_U32_LE
++		AFMT_U8, AFMT_S16_LE, AFMT_S16_BE, AFMT_S24_LE,
+ 	};
+ 	struct sio_oss_hdl *hdl = (struct sio_oss_hdl *)sh;
+ 	unsigned int nconf = 0;
+@@ -287,12 +277,14 @@ sio_oss_getfd(const char *str, unsigned int mode, int nbio)
+ 		return -1;
+ 	}
+ 
++#ifndef __astral__
+ 	val = 1;
+ 	if (ioctl(fd, SNDCTL_DSP_LOW_WATER, &val) == -1) {
+ 		DPERROR("sio_oss_start: LOW_WATER");
+ 		close(fd);
+ 		return -1;
+ 	}
++#endif
+ 	return fd;
+ }
+ 

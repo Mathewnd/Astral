@@ -1,0 +1,5 @@
+name=sndio
+version=1.10.0
+source_method=tarball
+tarball_url="https://sndio.org/sndio-${version}.tar.gz"
+tarball_sha512="c35462976a1bffd128eacb185165964dac6b03505255e9ab9a933e24be5ed146cd9ac6995fd7af23247cb9133c010cce0876572db53b783ebabeb563fec7a1cf"
