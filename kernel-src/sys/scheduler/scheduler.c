@@ -14,7 +14,7 @@
 #include <arch/smp.h>
 #include <kernel/init.h>
 
-#define QUANTUM_US 100000
+#define QUANTUM_US 10000
 #define SCHEDULER_STACK_SIZE PAGE_SIZE * 16
 
 static __attribute__((noreturn)) void switch_thread(thread_t *thread) {
