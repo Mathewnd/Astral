@@ -1,16 +1,19 @@
 name=sdl2
-revision=2
+revision=3
 from_source=sdl2
 imagedeps="meson ninja-build build-essential"
 hostdeps="xgcc xbinutils pkgconfig cmake libstdc++-v3"
+builddeps="sndio"
 deps="base libx11 libxext libxcursor libxinerama libxi libxfixes libxrandr libxrender libxxf86vm mesa libiconv"
 
 configure() {
 	cmake \
 	-GNinja \
+	-DPKG_CONFIG_EXECUTABLE=$(which x86_64-astral-pkg-config) \
 	-DCMAKE_TOOLCHAIN_FILE=${base_dir}/util/cmake \
 	-DCMAKE_INSTALL_PREFIX=${prefix} \
 	-DCMAKE_BUILD_TYPE=Release \
+	-DSDL_AUDIO=ON \
 	-DSDL_ALTIVEC=OFF \
 	-DSDL_DISKAUDIO=OFF \
 	-DSDL_DIRECTFB=ON \
@@ -18,14 +21,15 @@ configure() {
 	-DSDL_OPENGLES=ON \
 	-DSDL_PTHREADS=ON \
 	-DSDL_PTHREADS_SEM=OFF \
-	-DSDL_OSS=ON \
+	-DSDL_OSS=OFF \
 	-DSDL_ALSA=OFF \
 	-DSDL_JACK=OFF \
 	-DSDL_ESD=OFF \
 	-DSDL_PULSEAUDIO=OFF \
 	-DSDL_ARTS=OFF \
 	-DSDL_NAS=OFF \
-	-DSDL_SNDIO=OFF \
+	-DSDL_SNDIO=ON \
+	-DSDL_SNDIO_SHARED=ON \
 	-DSDL_FUSIONSOUND=OFF \
 	-DSDL_LIBSAMPLERATE=OFF \
 	-DSDL_RPATH=OFF \
