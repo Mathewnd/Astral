@@ -1,0 +1,18 @@
+name=mocp
+revision=1
+from_source=mocp
+imagedeps="build-essential"
+hostdeps="xgcc xbinutils pkgconfig libtool"
+deps="base sndio libmad libvorbis libogg libsndfile curl ncurses libtool libid3tag"
+
+configure() {
+	${source_dir}/configure --host=x86_64-astral --prefix=${prefix} --with-mp3 --disable-cache --enable-shared --disable-static
+}
+
+build() {
+	make -j ${parallelism}
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+}

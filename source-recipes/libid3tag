@@ -1,0 +1,11 @@
+name=libid3tag
+version=0.15.1b
+source_method=tarball
+tarball_url="https://downloads.sourceforge.net/mad/libid3tag-0.15.1b.tar.gz"
+tarball_sha512=ade7ce2a43c3646b4c9fdc642095174b9d4938b078b205cd40906d525acd17e87ad76064054a961f391edcba6495441450af2f68be69f116549ca666b069e6d3
+hostdeps="autoconf automake libtool pkgconfig libtool"
+
+prepare() {
+	touch NEWS AUTHORS ChangeLog  
+	autoreconf -fvi
+}

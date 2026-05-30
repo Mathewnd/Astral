@@ -1,0 +1,18 @@
+name=flac
+revision=1
+from_source=flac
+imagedeps="build-essential"
+hostdeps="xgcc xbinutils pkgconfig libtool libstdc++-v3"
+deps="base libogg"
+
+configure() {
+	${source_dir}/configure --host=x86_64-astral --prefix=${prefix} --disable-static
+}
+
+build() {
+	make -j ${parallelism} --trace
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+}
