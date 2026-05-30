@@ -8,7 +8,7 @@
 syscallret_t syscall_sendmsg(context_t *, int fd, msghdr_t *umsghdr, int flags)  {
 	syscallret_t ret;
 
-	if (flags & ~MSG_NOSIGNAL)
+	if (flags & ~(MSG_DONTWAIT | MSG_NOSIGNAL))
 		printf("sendmsg: unknown %x\n", flags);
 
 	msghdr_t msghdr;
@@ -51,12 +51,20 @@ syscallret_t syscall_sendmsg(context_t *, int fd, msghdr_t *umsghdr, int flags) 
 
 	socket_t *socket = SOCKFS_SOCKET_FROM_NODE(file->vnode);
 
+	int sendflags = 0;
+
+	if (flags & MSG_NOSIGNAL)
+		sendflags |= SOCKET_SEND_FLAGS_NOSIGNAL;
+
+	if (flags & MSG_DONTWAIT)
+		sendflags |= V_FFLAGS_NONBLOCKING;
+
 	iovec_iterator_t iovec_iterator;
 	sockdesc_t desc = {
 		.addr = msghdr.addr ? &sockaddr : NULL,
 		.iovec_iterator = &iovec_iterator,
 		.count = buffersize,
-		.flags = fileflagstovnodeflags(file->flags) | ((flags & MSG_NOSIGNAL) ? SOCKET_SEND_FLAGS_NOSIGNAL : 0),
+		.flags = fileflagstovnodeflags(file->flags) | sendflags,
 		.donecount = 0,
 		.ctrl = msghdr.msgctrl,
 		.ctrllen = msghdr.ctrllen,
