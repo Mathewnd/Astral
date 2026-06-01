@@ -1,0 +1,19 @@
+name=glib-networking
+revision=1
+from_source=glib-networking
+imagedeps="gcc meson ninja-build libglib2.0-dev libglib2.0-dev-bin"
+hostdeps="xgcc xbinutils pkgconfig"
+deps="base glib gnutls gsettings-desktop-schemas make-ca"
+
+configure() {
+	cp -rp ${source_dir}/* .
+	meson setup build --cross-file ${base_dir}/util/crossfile --prefix=${prefix} --buildtype=release -Dlibproxy=disabled
+}
+
+build() {
+	ninja -C build -j${parallelism}
+}
+
+package() {
+	DESTDIR=${dest_dir} ninja -C build install
+}

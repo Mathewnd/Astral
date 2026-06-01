@@ -1,0 +1,25 @@
+diff --git gst-plugins-sndio-clean/Makefile gst-plugins-sndio-workdir/Makefile
+index a1aa363..4bfcfe5 100644
+--- gst-plugins-sndio-clean/Makefile
++++ gst-plugins-sndio-workdir/Makefile
+@@ -1,9 +1,9 @@
+ BSD_INSTALL_LIB?=	install -s -m 444
+ MKDIR?=	mkdir -p
+ 
+-GST_CFLAGS!=	pkg-config --cflags gstreamer-plugins-base-1.0 gstreamer-audio-1.0
+-GST_LIBS!=	pkg-config --libs gstreamer-plugins-base-1.0 gstreamer-audio-1.0
+-GST_PLUGINDIR!=	pkg-config --variable=pluginsdir gstreamer-plugins-base-1.0
++GST_CFLAGS!= ${PKGCONFIG} --cflags gstreamer-plugins-base-1.0 gstreamer-audio-1.0
++GST_LIBS!= ${PKGCONFIG} --libs gstreamer-plugins-base-1.0 gstreamer-audio-1.0
++GST_PLUGINDIR!=	${PKGCONFIG} --variable=pluginsdir gstreamer-plugins-base-1.0
+ 
+ CFLAGS+=	-DHAVE_CONFIG_H -fPIC ${GST_CFLAGS}
+ 
+@@ -22,5 +22,5 @@ clean:
+ 	rm -f libgstsndio.so ${OBJS}
+ 
+ install:
+-	${MKDIR} ${DESTDIR}${GST_PLUGINDIR}
+-	${BSD_INSTALL_LIB} libgstsndio.so ${DESTDIR}${GST_PLUGINDIR}
++	${MKDIR} ${DESTDIR}/usr/lib/gstreamer-1.0
++	${BSD_INSTALL_LIB} libgstsndio.so ${DESTDIR}/usr/lib/gstreamer-1.0/

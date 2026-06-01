@@ -1,0 +1,5 @@
+name=libtiff
+version=4.7.0
+source_method=tarball
+tarball_url=https://download.osgeo.org/libtiff/tiff-${version}.tar.gz
+tarball_sha512=a77a050d1d8777c6d86077c3c26e8d35f98717fe14bb3c049e2b82fbfbb374e96f83a0c1ff67ffb21591a9a7abf0d3e18c3d7695c96939326cc19a9712dd2492

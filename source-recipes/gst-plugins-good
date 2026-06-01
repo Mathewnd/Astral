@@ -1,0 +1,5 @@
+name=gst-plugins-good
+version=1.26.5
+source_method=tarball
+tarball_url="https://gstreamer.freedesktop.org/src/gst-plugins-good/gst-plugins-good-${version}.tar.xz"
+tarball_sha512="68f5d09acb081c1c56223a71e544b823c9a8bf6f2bf8cc726d2cd1a2b59e2474476a769b5a913f46b410f7d178ac8a5af6edd15e3989aa9744f12c12beeb6ca6"

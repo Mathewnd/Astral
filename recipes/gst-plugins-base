@@ -1,0 +1,18 @@
+name=gst-plugins-base
+revision=1
+from_source=gst-plugins-base
+imagedeps="gcc meson ninja-build libglib2.0-dev-bin"
+hostdeps="xgcc xbinutils pkgconfig libstdc++-v3"
+deps="base glib gtk3 gstreamer alsa-lib iso-codes libjpeg-turbo libogg libpng libvorbis mesa pango graphene sdl2 libx11"
+
+configure() {
+	meson --cross-file ${base_dir}/util/crossfile --prefix=${prefix} --buildtype=release --wrap-mode=nodownload ${source_dir}
+}
+
+build() {
+	ninja -j${parallelism}
+}
+
+package() {
+	DESTDIR=${dest_dir} ninja install
+}

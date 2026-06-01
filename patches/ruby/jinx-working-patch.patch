@@ -1,0 +1,31 @@
+diff --git ruby-clean/configure.ac ruby-workdir/configure.ac
+index fced42e..f7563a5 100644
+--- ruby-clean/configure.ac
++++ ruby-workdir/configure.ac
+@@ -1287,6 +1287,10 @@ main()
+ 		ac_cv_func_round=no
+ 		ac_cv_func___builtin_setjmp=no
+ 		],
++[astral*],[
++		RUBY_APPEND_OPTIONS(CFLAGS, -D_XOPEN_SOURCE -D_GNU_SOURCE)
++		RUBY_APPEND_OPTIONS(CPPFLAGS, -D_XOPEN_SOURCE -D_GNU_SOURCE)
++		],
+ [linux*],[	LIBS="-lm $LIBS"
+ 		# __builtin_longjmp in ppc64* Linux does not restore
+ 		# the TOC register (r2), which is problematic
+diff --git ruby-clean/math.c ruby-workdir/math.c
+index 2394fe9..7266696 100644
+--- ruby-clean/math.c
++++ ruby-workdir/math.c
+@@ -9,6 +9,11 @@
+ 
+ **********************************************************************/
+ 
++double __lgamma_r(double, int *);
++double lgamma_r(double v, int *p) {
++	return __lgamma_r(v, p);
++}
++
+ #include "ruby/internal/config.h"
+ 
+ #ifdef _MSC_VER

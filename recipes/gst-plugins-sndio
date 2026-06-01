@@ -1,0 +1,18 @@
+name=gst-plugins-sndio
+revision=1
+from_source=gst-plugins-sndio
+imagedeps="gcc meson ninja-build"
+hostdeps="xgcc xbinutils pkgconfig"
+deps="base glib gstreamer gst-plugins-base sndio"
+
+configure () {
+	cp -rp ${source_dir}/* .
+}
+
+build() {
+	PKGCONFIG=x86_64-astral-pkg-config CC=x86_64-astral-gcc make -j8
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+}

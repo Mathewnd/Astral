@@ -1,0 +1,5 @@
+name=gstreamer
+version=1.26.5
+source_method=tarball
+tarball_url="https://gstreamer.freedesktop.org/src/gstreamer/gstreamer-${version}.tar.xz"
+tarball_sha512="2fdd396add501edaf75baf4f1dff63e94dea8c19ea685a44141991d598fb12339c90199ca060a83e97c932a7324b3013aec814b37275332590eab8a5a4a3ffea"

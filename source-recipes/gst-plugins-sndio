@@ -1,0 +1,5 @@
+name=gst-plugins-sndio
+version=1.24.0
+source_method=tarball
+tarball_url="https://github.com/BSDKaffee/gstreamer1-plugins-sndio/archive/refs/tags/v${version}.tar.gz"
+tarball_sha512="5587db1f32b590f047cfac4382579c8088f5f927a314d76d798a78e9d9880fca172d29c6433c5c395921622d31e8aa22b8006090705ebe6a2755df49e253c133"

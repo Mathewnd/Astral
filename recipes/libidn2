@@ -1,0 +1,19 @@
+name=libidn2
+revision=1
+from_source=libidn2
+imagedeps="build-essential"
+hostdeps="xgcc xbinutils pkgconfig libtool"
+deps="base libunistring libiconv"
+
+configure() {
+	cp -rp ${source_dir}/* .
+	./configure --host=x86_64-astral --prefix=${prefix} --disable-static --with-libunistring-prefix=/usr --without-included-libunistring --disable-doc
+}
+
+build() {
+	make -j ${parallelism}
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+}

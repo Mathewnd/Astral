@@ -1,0 +1,5 @@
+name=libaom
+version=3.12.1
+source_method=tarball
+tarball_url=https://storage.googleapis.com/aom-releases/libaom-${version}.tar.gz
+tarball_sha512=27521fe1cffd89a8875552f1758de89c19a47aa1640ee20930ac420a03d964eb9ae10c4b0f55e518c37d4d59f06657aee2bfa84eedad35683648bd658e06da73

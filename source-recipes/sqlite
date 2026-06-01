@@ -1,0 +1,6 @@
+name=sqlite
+version=3.50.4
+source_method=tarball
+tarball_url="https://sqlite.org/2025/sqlite-autoconf-3500400.tar.gz"
+tarball_sha512=5862fc81fc087fd7280d9c7a701f972c35288d9f1fee4863443c35201e8db43a642a5f0d6eb81f8d0637859303a38301b459ffd1c39cd8283e18cbc4ae413aa1
+hostdeps="autoconf automake libtool pkgconfig libtool"

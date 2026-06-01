@@ -1,0 +1,10 @@
+name=mpg123
+version=1.33.2
+source_method=tarball
+tarball_url="https://downloads.sourceforge.net/mpg123/mpg123-${version}.tar.bz2"
+tarball_sha512=9e9a4d6433e9073470c4cee909dfbfcd4717b1f1534eefeee453870993967026155f913c12b6ca187fb96059e73d9184e71df8a62736b43092d3842b9814c980
+hostdeps="autoconf automake libtool pkgconfig libtool"
+
+prepare() {
+	autoreconf -fvi
+}

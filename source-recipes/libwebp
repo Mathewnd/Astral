@@ -1,0 +1,10 @@
+name=libwebp
+version=1.6.0
+source_method=tarball
+tarball_url="https://storage.googleapis.com/downloads.webmproject.org/releases/webp/libwebp-${version}.tar.gz"
+tarball_sha512=5c159d9760efcb92749092536daada22c0a73c20926c76097a5f0448ddbf874cf761324ca97925ca5f578b30477564b2b072b47667e504673797128b31cafcbf
+hostdeps="autoconf automake libtool pkgconfig libtool"
+
+prepare() {
+	autoreconf -fvi
+}

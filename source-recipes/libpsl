@@ -1,0 +1,5 @@
+name=libpsl
+version=0.21.5
+source_method=tarball
+tarball_url="https://github.com/rockdaboot/libpsl/releases/download/0.21.5/libpsl-0.21.5.tar.gz"
+tarball_sha512="c14d575cecc0f1693894dd79565b6b9220084ddfa43b908a1cefe16d147cdd5ec47796eb0c2135e2f829a951abaf39d8a371ab5c1352f57b36e610e25adf91f5"

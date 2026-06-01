@@ -1,0 +1,18 @@
+name=vala
+revision=1
+from_source=vala
+imagedeps="build-essential"
+hostdeps="xgcc xbinutils pkgconfig libtool"
+deps="base glib"
+
+configure() {
+	${source_dir}/configure --host=x86_64-astral --prefix=${prefix} --disable-static GI_GIRDIR=${sysroot}/usr/share/gir-1.0 --disable-valadoc
+}
+
+build() {
+	make -j ${parallelism}
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+}

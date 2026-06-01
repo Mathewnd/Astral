@@ -1,0 +1,10 @@
+name=libidn2
+version=2.3.8
+source_method=tarball
+tarball_url="https://ftp.gnu.org/gnu/libidn/libidn2-${version}.tar.gz"
+tarball_sha512=4d8427c0f115268132f7544e80a808c883ab1406338f6c529b1a586b016d57aedb0857f66166eb8d9f37d70efc9dccf907b673b43b17bcf258c8797db1e829ce
+hostdeps="autoconf automake libtool pkgconfig libtool"
+
+prepare() {
+	autoreconf -fvi
+}

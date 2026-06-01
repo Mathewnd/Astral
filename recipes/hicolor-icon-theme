@@ -1,0 +1,17 @@
+name=hicolor-icon-theme
+revision=1
+from_source=hicolor-icon-theme
+imagedeps="gcc meson ninja-build"
+hostdeps="xgcc xbinutils pkgconfig"
+
+configure() {
+	meson --cross-file ${base_dir}/util/crossfile --prefix=${prefix} --buildtype=release ${source_dir}
+}
+
+build() {
+	ninja -j${parallelism}
+}
+
+package() {
+	DESTDIR=${dest_dir} ninja install
+}

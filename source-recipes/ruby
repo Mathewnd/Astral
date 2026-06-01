@@ -1,0 +1,11 @@
+name=ruby
+version=3.4.5
+source_method=tarball
+tarball_url="https://cache.ruby-lang.org/pub/ruby/3.4/ruby-${version}.tar.xz"
+tarball_sha512=1f5d2fd527d15bd81ca8f49767d6426533367c1018a1d275d34721a96410b51204236173224e5198a42b56162c6e7a7b0c060fc032a9fd7f250b44e05c7af560
+hostdeps="autoconf automake libtool pkgconfig libtool"
+
+prepare() {
+	autoreconf -fvi
+	 cp -v $(find /usr/local/share/automake* -name config.sub) tool
+}

@@ -1,0 +1,19 @@
+name=ruby
+revision=1
+from_source=ruby
+imagedeps="build-essential ruby"
+hostdeps="xgcc xbinutils pkgconfig libtool"
+deps="base libyaml"
+
+configure() {
+	cp -rp ${source_dir}/* .
+	./configure --host=x86_64-astral --prefix=${prefix} --disable-static --disable-rpath --enable-shared --without-valgrind --with-baseruby="$(command -v ruby)" ac_cv_func_qsort_r=no LD=x86_64-astral-gcc LDSHARED='x86_64-astral-gcc -shared' --disable-install-rdoc
+}
+
+build() {
+	make -j ${parallelism}
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+}

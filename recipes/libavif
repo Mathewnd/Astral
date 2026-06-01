@@ -1,0 +1,29 @@
+name=libavif
+revision=1
+from_source=libavif
+imagedeps="build-essential cmake"
+hostdeps="xgcc xbinutils pkgconfig libtool"
+deps="base libaom gdk-pixbuf"
+
+configure() {
+	cmake \
+	-DPKG_CONFIG_EXECUTABLE="/usr/local/bin/x86_64-astral-pkg-config" \
+	-DCMAKE_TOOLCHAIN_FILE=${base_dir}/util/cmake \
+	-DCMAKE_INSTALL_PREFIX=${prefix} \
+	-DCMAKE_BUILD_TYPE=Release \
+	-DENABLE_STATIC=FALSE \
+	-DCMAKE_INSTALL_LIBDIR=lib \
+	-D AVIF_CODEC_AOM=SYSTEM \
+	-D AVIF_BUILD_GDK_PIXBUF=ON \
+	-D AVIF_LIBYUV=OFF \
+	-G Ninja \
+	${source_dir}
+}
+
+build() {
+	ninja -j${parallelism}
+}
+
+package() {
+	DESTDIR=${dest_dir} ninja install
+}

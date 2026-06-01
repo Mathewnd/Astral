@@ -1,0 +1,10 @@
+name=libyaml
+version=0.2.5
+source_method=tarball
+tarball_url="https://github.com/yaml/libyaml/releases/download/${version}/yaml-${version}.tar.gz"
+tarball_sha512=dadd7d8e0d88b5ebab005e5d521d56d541580198aa497370966b98c904586e642a1cd4f3881094eb57624f218d50db77417bbfd0ffdce50340f011e35e8c4c02
+hostdeps="autoconf automake libtool pkgconfig libtool"
+
+prepare() {
+	autoreconf -fvi
+}

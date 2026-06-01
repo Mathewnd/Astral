@@ -1,0 +1,18 @@
+name=enchant
+revision=1
+from_source=enchant
+imagedeps="build-essential"
+hostdeps="xgcc xbinutils pkgconfig libtool automake autoconf"
+deps="base glib aspell vala"
+
+configure() {
+	${source_dir}/configure --host=x86_64-astral --prefix=${prefix} --disable-static 
+}
+
+build() {
+	make -j ${parallelism}
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+}

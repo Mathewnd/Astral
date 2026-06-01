@@ -1,0 +1,12 @@
+diff --git sqlite-clean/autosetup/autosetup-config.sub sqlite-workdir/autosetup/autosetup-config.sub
+index 4aaae46..8f3e836 100755
+--- sqlite-clean/autosetup/autosetup-config.sub
++++ sqlite-workdir/autosetup/autosetup-config.sub
+@@ -2108,6 +2108,7 @@ case $os in
+ 	| skyos* \
+ 	| solaris* \
+ 	| solidbsd* \
++	| astral* \
+ 	| sortix* \
+ 	| storm-chaos* \
+ 	| sunos \

@@ -1,0 +1,5 @@
+name=openjpeg
+version=2.5.3
+source_method=tarball
+tarball_url=https://github.com/uclouvain/openjpeg/archive/v2.5.3/openjpeg-2.5.3.tar.gz
+tarball_sha512=22378f5c38c1eb8ade853716897201d8a253024638bdf94fd9851d6a456601071e705c797c5ffeeb6924be14d7356f9a67f15c2b99e96f7d27fc375a9d94505a

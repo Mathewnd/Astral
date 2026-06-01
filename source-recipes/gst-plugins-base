@@ -1,0 +1,5 @@
+name=gst-plugins-base
+version=1.26.5
+source_method=tarball
+tarball_url="https://gstreamer.freedesktop.org/src/gst-plugins-base/gst-plugins-base-${version}.tar.xz"
+tarball_sha512="23b437aa118d8f8a0cd66f2a624d4ee76ec6c935653ed63eae5a146526a347f6a3a1e564192d6ec135b2d6acf17103c9134ad32a6359af715bc773632418fd5d"

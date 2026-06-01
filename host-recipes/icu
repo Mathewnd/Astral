@@ -1,0 +1,16 @@
+name=icu
+revision=1
+from_source=icu
+imagedeps="build-essential"
+
+configure() {
+	${source_dir}/source/configure --prefix=${prefix} --disable-static
+}
+
+build() {
+	make -j ${parallelism}
+}
+
+package() {
+	true
+}

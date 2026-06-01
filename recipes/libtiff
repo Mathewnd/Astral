@@ -1,0 +1,24 @@
+name=libtiff
+revision=1
+from_source=libtiff
+imagedeps="build-essential cmake"
+hostdeps="xgcc xbinutils pkgconfig libtool libstdc++-v3"
+deps="base"
+
+configure() {
+	cmake \
+	-DCMAKE_TOOLCHAIN_FILE=${base_dir}/util/cmake \
+	-D CMAKE_POLICY_VERSION_MINIMUM=3.5 \
+	-DCMAKE_INSTALL_PREFIX=${prefix} \
+	-DCMAKE_BUILD_TYPE=Release \
+	-DENABLE_STATIC=FALSE \
+	${source_dir}
+}
+
+build() {
+	make -j${parallelism}
+}
+
+package() {
+	DESTDIR=${dest_dir} make install
+}

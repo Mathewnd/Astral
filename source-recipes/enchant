@@ -1,0 +1,10 @@
+name=enchant
+version=2.8.12
+source_method=tarball
+tarball_url="https://github.com/rrthomas/enchant/releases/download/v${version}/enchant-${version}.tar.gz"
+tarball_sha512=2bcd22afd97e348bc2925c41cb25f7aec9cb67debca4bcf58f6e30ac06dd09582e01896728e8943ba549b76854905b43b9d51c4ca720dd9e5dcd19d7c996d13b
+hostdeps="autoconf automake libtool"
+
+prepare() {
+	cp -v $(find /usr/local/share/automake* -name config.sub) build-aux/.
+}

@@ -1,0 +1,10 @@
+name=nghttp2
+version=1.66.0
+source_method=tarball
+tarball_url="https://github.com/nghttp2/nghttp2/releases/download/v${version}/nghttp2-${version}.tar.xz"
+tarball_sha512=23b4cae2bbd4b3c11c50093e2fc14f3b08241bb6a85c38409e9a1a328b81ad51f107179493a0ce4c6a767b557cafeca9ba638c491095639dcfd9a2d95fa8b80d
+hostdeps="autoconf automake libtool pkgconfig libtool"
+
+prepare() {
+	autoreconf -fvi
+}

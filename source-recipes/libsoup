@@ -1,0 +1,5 @@
+name=libsoup
+version=3.6.5
+source_method=tarball
+tarball_url="https://download.gnome.org/sources/libsoup/3.6/libsoup-${version}.tar.xz"
+tarball_sha512="cb44d93b16048d31ae04a8c2416bbe233e0e9bdaf2d9bfe2879260fd3da27e90a0bb05cddbd82cdf81a4a778bd451ad172a14dd31e2fd113c3bbbe13c0029b03"

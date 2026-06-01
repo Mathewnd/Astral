@@ -1,0 +1,19 @@
+name=aspell
+revision=1
+from_source=aspell
+imagedeps="build-essential"
+hostdeps="xgcc xbinutils pkgconfig libtool libstdc++-v3"
+deps="base"
+
+configure() {
+	${source_dir}/configure --host=x86_64-astral --prefix=${prefix} --disable-static
+}
+
+build() {
+	make -j ${parallelism}
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+	ln -svfn aspell-0.60 ${dest_dir}/${prefix}/bin/aspell 
+}

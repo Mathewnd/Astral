@@ -1,0 +1,15 @@
+diff --git libsecret-clean/libsecret/meson.build libsecret-workdir/libsecret/meson.build
+index 3c534d0..74480e9 100644
+--- libsecret-clean/libsecret/meson.build
++++ libsecret-workdir/libsecret/meson.build
+@@ -62,6 +62,10 @@ _dbus_generated = gnome.gdbus_codegen('secret-dbus-generated',
+   sources: 'org.freedesktop.Secrets.xml',
+   interface_prefix: 'org.freedesktop.Secret.',
+   namespace: '_SecretGen',
++  extra_args: [
++    '--glib-min-required=2.30',
++    '--glib-max-allowed=2.80',
++  ],
+ )
+ 
+ _enums_generated = gnome.mkenums('secret-enum-types',

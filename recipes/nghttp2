@@ -1,0 +1,19 @@
+name=nghttp2
+revision=1
+from_source=nghttp2
+imagedeps="build-essential"
+hostdeps="xgcc xbinutils pkgconfig libtool"
+deps="base libxml"
+
+configure() {
+	cp -rp ${source_dir}/* .
+	./configure --host=x86_64-astral --prefix=${prefix} --disable-static --enable-lib-only --disable-dependency-tracking
+}
+
+build() {
+	make -j ${parallelism}
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+}

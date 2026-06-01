@@ -1,0 +1,34 @@
+diff --git openjpeg-clean/src/bin/jp2/opj_decompress.c openjpeg-workdir/src/bin/jp2/opj_decompress.c
+index ba26bfb..165945e 100644
+--- openjpeg-clean/src/bin/jp2/opj_decompress.c
++++ openjpeg-workdir/src/bin/jp2/opj_decompress.c
+@@ -39,6 +39,8 @@
+  */
+ #include "opj_apps_config.h"
+ 
++#include <sys/time.h>
++#include <sys/resource.h>
+ #include <stdio.h>
+ #include <string.h>
+ #include <stdlib.h>
+@@ -1000,7 +1002,7 @@ static OPJ_FLOAT64 opj_clock(void)
+     QueryPerformanceCounter(& t) ;
+     return freq.QuadPart ? ((OPJ_FLOAT64)t.QuadPart / (OPJ_FLOAT64)freq.QuadPart) :
+            0;
+-#elif defined(__linux)
++#elif defined(__linux) || defined(__astral__)
+     struct timespec ts;
+     clock_gettime(CLOCK_REALTIME, &ts);
+     return ((OPJ_FLOAT64)ts.tv_sec + (OPJ_FLOAT64)ts.tv_nsec * 1e-9);
+diff --git openjpeg-clean/src/lib/openjp2/opj_clock.c openjpeg-workdir/src/lib/openjp2/opj_clock.c
+index 24f79a9..3915e96 100644
+--- openjpeg-clean/src/lib/openjp2/opj_clock.c
++++ openjpeg-workdir/src/lib/openjp2/opj_clock.c
+@@ -29,6 +29,7 @@
+  * POSSIBILITY OF SUCH DAMAGE.
+  */
+ 
++#include <sys/resource.h> 
+ #include "opj_includes.h"
+ 
+ #ifdef _WIN32

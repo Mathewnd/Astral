@@ -1,0 +1,11 @@
+name=lame
+version=3.100
+source_method=tarball
+tarball_url="https://downloads.sourceforge.net/lame/lame-${version}.tar.gz"
+tarball_sha512=0844b9eadb4aacf8000444621451277de365041cc1d97b7f7a589da0b7a23899310afd4e4d81114b9912aa97832621d20588034715573d417b2923948c08634b
+imagedeps="gettext"
+hostdeps="autoconf automake libtool pkgconfig libtool"
+
+prepare() {
+	ACLOCAL_PATH=/usr/share/aclocal autoreconf -fvi
+}
