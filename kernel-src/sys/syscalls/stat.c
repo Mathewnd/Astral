@@ -77,13 +77,13 @@ syscallret_t syscall_fstatat(context_t *ctx, int dirfd, char *upath, stat_t *ust
 		return ret;
 	}
 
+	vnode_t *node = NULL;
 	vnode_t *dirnode = NULL;
 	file_t *file = NULL;
 	ret.errno = dirfd_enter(path, dirfd, &file, &dirnode);
 	if (ret.errno)
 		goto cleanup;
 
-	vnode_t *node = NULL;
 	ret.errno = vfs_lookup(&node, dirnode, path, NULL, flags & AT_SYMLINK_NOFOLLOW ? VFS_LOOKUP_NOLINK : 0);
 	if (ret.errno)
 		goto cleanup;
