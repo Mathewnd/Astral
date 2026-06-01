@@ -1,0 +1,8 @@
+name=pango
+version=1.50.14
+source_method=tarball
+tarball_url="https://download.gnome.org/sources/pango/1.50/pango-${version}.tar.xz"
+tarball_sha512="2c9330b65920fdd0ab6d645aed785a364158d78068bdcd7ba15b6a7368835677f06f2f8fd158cd23b05f98a37fb903e29526ade8f4d62913dbc5809f737d5166"
+prepare() {
+	sed -i "/subdir('tests')/d" meson.build
+}

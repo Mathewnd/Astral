@@ -1,0 +1,18 @@
+name=gsettings-desktop-schemas
+revision=1
+from_source=gsettings-desktop-schemas
+imagedeps="gcc meson ninja-build libglib2.0-dev"
+hostdeps="xgcc xbinutils pkgconfig"
+deps="base glib"
+
+configure() {
+	meson --cross-file ${base_dir}/util/crossfile --prefix=${prefix} --buildtype=release -Dintrospection=false ${source_dir}
+}
+
+build() {
+	ninja -j${parallelism}
+}
+
+package() {
+	DESTDIR=${dest_dir} ninja install
+}

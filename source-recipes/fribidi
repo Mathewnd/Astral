@@ -1,0 +1,5 @@
+name=fribidi
+version=1.0.16
+source_method=tarball
+tarball_url="https://github.com/fribidi/fribidi/releases/download/v${version}/fribidi-${version}.tar.xz"
+tarball_sha512="e3a56f36155f6813e3609473639fc533de742309f561c463012dc90b412a1ac7694b765d92669b2cbfaee973ca0e92fa5e926e68a1a078921f26ef17d82ab651"

@@ -1,0 +1,5 @@
+name=at-spi2-core
+version=2.56.4
+source_method=tarball
+tarball_url="https://download.gnome.org/sources/at-spi2-core/2.56/at-spi2-core-${version}.tar.xz"
+tarball_sha512="dedf45876d055b56088cc196639e67a0bbb8107882925939562c53bd851e5d7e98b71d4ef560d10b61092f2ac9c0df8fc255438da35141efa161888c2b612341"

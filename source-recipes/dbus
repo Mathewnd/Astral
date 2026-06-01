@@ -1,0 +1,5 @@
+name=dbus
+version=1.16.2
+source_method=tarball
+tarball_url="https://dbus.freedesktop.org/releases/dbus/dbus-${version}.tar.xz"
+tarball_sha512="5c26f52d85984bb9ae1dde8d7e73921eacbdf020a61ff15f00a4c240cb38a121553ee04bd66e62b28425ff9bc50f4f5e15135166573ac0888332a01a0db1faa2"

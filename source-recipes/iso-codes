@@ -1,0 +1,5 @@
+name=iso-codes
+version=4.18.0
+source_method=tarball
+tarball_url="https://salsa.debian.org/iso-codes-team/iso-codes/-/archive/v${version}/iso-codes-v${version}.tar.gz"
+tarball_sha512="4f9766b3e73a155df3213d5684f0b4c2aefe3efcdc30b2a969913a90deb73e1cbd32a63c2f00c736517c1feed790944d12155410d3c4d381749c39ecd1f71f96"

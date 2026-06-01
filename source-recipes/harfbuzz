@@ -1,0 +1,5 @@
+name=harfbuzz
+version=11.4.1
+source_method=tarball
+tarball_url="https://github.com/harfbuzz/harfbuzz/releases/download/${version}/harfbuzz-${version}.tar.xz"
+tarball_sha512="e5f8f903abfde1681d8fcfd1ac56cb01e8d11191abe41e54dc879742fd326681fd589b944bfaa05d76bfa7436e29ddb40367878864fed1b8d41d65ee408eef5d"

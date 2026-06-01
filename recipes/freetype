@@ -1,12 +1,12 @@
 name=freetype
-revision=1
+revision=2
 from_source=freetype
 imagedeps="gcc build-essential"
 hostdeps="xgcc xbinutils pkgconfig"
 deps="base"
 
 configure() {
-	${source_dir}/configure --prefix=${prefix} --host=x86_64-astral --enable-shared --disable-static
+	${source_dir}/configure --prefix=${prefix} --host=x86_64-astral --enable-shared --disable-static --with-harfbuzz=no
 }
 
 build() {

@@ -1,0 +1,18 @@
+name=adwaita-icon-theme
+revision=1
+from_source=adwaita-icon-theme
+imagedeps="meson ninja-build gtk-update-icon-cache"
+hostdeps="pkgconfig"
+deps="base"
+
+configure() {
+	meson --prefix=${prefix} --buildtype=release ${source_dir}
+}
+
+build() {
+	ninja -j${parallelism}
+}
+
+package() {
+	DESTDIR=${dest_dir} ninja install
+}

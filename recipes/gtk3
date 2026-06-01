@@ -1,0 +1,19 @@
+name=gtk3
+revision=1
+from_source=gtk3
+imagedeps="gcc meson ninja-build libglib2.0-dev"
+hostdeps="xgcc xbinutils pkgconfig"
+deps="base at-spi2-core cairo fontconfig freetype fribidi gdk-pixbuf glib harfbuzz iso-codes libepoxy libx11 libxcursor libxdamage libxext libxfixes libxi libxinerama libxkbcommon libxrandr libxrender pango"
+rundeps="adwaita-icon-theme gsettings-desktop-schemas"
+
+configure() {
+	CFLAGS="${CFLAGS} -DGLIB_VERSION_2_84=39059456" meson --cross-file ${base_dir}/util/crossfile --prefix=${prefix} --buildtype=release --wrap-mode=nofallback -Dx11_backend=true -Dwayland_backend=false -Dbroadway_backend=false -Dintrospection=false -Dgtk_doc=false -Dman=false -Dtests=false -Dinstalled_tests=false -Dexamples=false -Dprint_backends=file -Dxinerama=yes ${source_dir}
+}
+
+build() {
+	ninja -j${parallelism}
+}
+
+package() {
+	DESTDIR=${dest_dir} ninja install
+}

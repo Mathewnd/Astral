@@ -1,0 +1,8 @@
+name=gsettings-desktop-schemas
+version=48.0
+source_method=tarball
+tarball_url="https://download.gnome.org/sources/gsettings-desktop-schemas/48/gsettings-desktop-schemas-${version}.tar.xz"
+tarball_sha512="2c438b14c21a8dd0da12d3eca0b0e77e75d900f4c5ce9365312578e874f4e4fadc16caeefe89dcf1b8482305d3755ee81bfa20ab54e7a77d180fb2a8bf2c39b7"
+prepare() {
+	sed -i -r 's:"(/system):"/org/gnome\1:g' schemas/*.in
+}

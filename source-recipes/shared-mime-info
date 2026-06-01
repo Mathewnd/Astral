@@ -1,0 +1,8 @@
+name=shared-mime-info
+version=2.4
+source_method=tarball
+tarball_url="https://gitlab.freedesktop.org/xdg/shared-mime-info/-/archive/${version}/shared-mime-info-${version}.tar.gz"
+tarball_sha512="17b443c2c09a432d09e4c83db956f8c0c3a768cfa9ffb8c87cd2d7c9002b95d010094e2bc64dd35946205a0f8b2d87c4f8f0a1faec86443e2edd502aa8f7cc8f"
+prepare() {
+	sed -i "s/find_program('xmllint')/find_program('xmllint', required: false)/" meson.build
+}

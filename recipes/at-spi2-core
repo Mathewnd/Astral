@@ -1,0 +1,20 @@
+name=at-spi2-core
+revision=1
+from_source=at-spi2-core
+imagedeps="gcc meson ninja-build libglib2.0-dev"
+hostdeps="xgcc xbinutils pkgconfig"
+deps="base dbus glib gsettings-desktop-schemas libxml libx11 libxi libxtst"
+rundeps="gsettings-desktop-schemas"
+
+configure() {
+	meson --cross-file ${base_dir}/util/crossfile --prefix=${prefix} --buildtype=release -Dintrospection=disabled -Duse_systemd=false -Dgtk2_atk_adaptor=false -Ddocs=false -Dx11=enabled -Dsystemd_user_dir=/tmp ${source_dir}
+}
+
+build() {
+	ninja -j${parallelism}
+}
+
+package() {
+	DESTDIR=${dest_dir} ninja install
+	rm -f ${dest_dir}/tmp/at-spi-dbus-bus.service
+}

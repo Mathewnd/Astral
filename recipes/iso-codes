@@ -1,0 +1,18 @@
+name=iso-codes
+revision=1
+from_source=iso-codes
+imagedeps="build-essential python3"
+hostdeps="xgcc xbinutils pkgconfig"
+deps="base"
+
+configure() {
+	${source_dir}/configure --prefix=${prefix}
+}
+
+build() {
+	make -j${parallelism}
+}
+
+package() {
+	make DESTDIR=${dest_dir} install LN_S='ln -sfn'
+}

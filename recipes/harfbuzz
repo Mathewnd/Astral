@@ -1,0 +1,18 @@
+name=harfbuzz
+revision=1
+from_source=harfbuzz
+imagedeps="gcc meson ninja-build libglib2.0-dev"
+hostdeps="xgcc xbinutils pkgconfig libstdc++-v3"
+deps="base freetype glib"
+
+configure() {
+	meson --cross-file ${base_dir}/util/crossfile --prefix=${prefix} --buildtype=release --wrap-mode=nofallback -Dintrospection=disabled -Ddocs=disabled -Dtests=disabled -Dutilities=disabled -Dglib=enabled -Dgobject=enabled -Dfreetype=enabled -Dicu=disabled -Dgraphite2=disabled -Dcairo=disabled ${source_dir}
+}
+
+build() {
+	ninja -j${parallelism}
+}
+
+package() {
+	DESTDIR=${dest_dir} ninja install
+}

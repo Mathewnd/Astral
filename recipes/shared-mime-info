@@ -1,0 +1,18 @@
+name=shared-mime-info
+revision=1
+from_source=shared-mime-info
+imagedeps="gcc meson ninja-build gettext"
+hostdeps="xgcc xbinutils pkgconfig libstdc++-v3"
+deps="base glib libxml"
+
+configure() {
+	meson --cross-file ${base_dir}/util/crossfile --prefix=${prefix} --buildtype=release --wrap-mode=nofallback -Dupdate-mimedb=false -Dbuild-translations=false -Dbuild-tests=false ${source_dir}
+}
+
+build() {
+	ninja -j${parallelism}
+}
+
+package() {
+	DESTDIR=${dest_dir} ninja install
+}

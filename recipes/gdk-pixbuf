@@ -1,0 +1,18 @@
+name=gdk-pixbuf
+revision=1
+from_source=gdk-pixbuf
+imagedeps="gcc meson ninja-build libglib2.0-dev"
+hostdeps="xgcc xbinutils pkgconfig"
+deps="base glib libjpeg-turbo libpng shared-mime-info"
+
+configure() {
+	meson --cross-file ${base_dir}/util/crossfile --prefix=${prefix} --buildtype=release --wrap-mode=nofallback -Dintrospection=disabled -Dman=false -Dtests=false -Dinstalled_tests=false -Dtiff=disabled -Dothers=enabled ${source_dir}
+}
+
+build() {
+	ninja -j${parallelism}
+}
+
+package() {
+	DESTDIR=${dest_dir} ninja install
+}
