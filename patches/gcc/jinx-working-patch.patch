@@ -12,7 +12,7 @@ index 38f3d03..ee981b0 100755
  	# This one is extra strict with allowed versions
  	sco3.2v2 | sco3.2v[4-9]* | sco5v6*)
 diff --git gcc-clean/fixincludes/mkfixinc.sh gcc-workdir/fixincludes/mkfixinc.sh
-index 7112f4d..0acd4a7 100755
+index df90720..aebfb82 100755
 --- gcc-clean/fixincludes/mkfixinc.sh
 +++ gcc-workdir/fixincludes/mkfixinc.sh
 @@ -11,6 +11,8 @@ target=fixinc.sh
@@ -22,8 +22,8 @@ index 7112f4d..0acd4a7 100755
 +    *-astral* | \
 +    *-*-astral* | \
      i?86-*-cygwin* | \
-     *-mingw32* | \
-     powerpc-*-eabisim* | \
+     i?86-*-mingw32* | \
+     x86_64-*-mingw32* | \
 diff --git gcc-workdir/gcc/config/astral.h gcc-workdir/gcc/config/astral.h
 new file mode 100644
 index 0000000..1768e2c
@@ -83,6 +83,18 @@ index a3566f5..93b4acc 100644
  aarch64*-*-elf | aarch64*-*-fuchsia* | aarch64*-*-rtems*)
  	tm_file="${tm_file} elfos.h newlib-stdint.h"
  	tm_file="${tm_file} aarch64/aarch64-elf.h aarch64/aarch64-errata.h aarch64/aarch64-elf-raw.h"
+diff --git gcc-clean/libatomic/configure.tgt gcc-workdir/libatomic/configure.tgt
+index 4237f28..6adebf9 100644
+--- gcc-clean/libatomic/configure.tgt
++++ gcc-workdir/libatomic/configure.tgt
+@@ -150,6 +150,7 @@ case "${target}" in
+ 
+   *-*-linux* | *-*-gnu* | *-*-k*bsd*-gnu \
+   | *-*-netbsd* | *-*-freebsd* | *-*-openbsd* | *-*-dragonfly* \
++  | *-*-astral* \
+   | *-*-solaris2* | *-*-sysv4* | *-*-irix6* | *-*-osf* | *-*-hpux11* \
+   | *-*-darwin* | *-*-aix* | *-*-cygwin*)
+ 	# POSIX system.  The OS is supported.
 diff --git gcc-clean/libgcc/config.host gcc-workdir/libgcc/config.host
 index ee10e99..411a213 100644
 --- gcc-clean/libgcc/config.host

@@ -1,0 +1,80 @@
+diff --git enchant-clean/configure enchant-workdir/configure
+index 6b76c6e..257e273 100755
+--- enchant-clean/configure
++++ enchant-workdir/configure
+@@ -10206,7 +10206,7 @@ irix5* | irix6* | nonstopux*)
+   ;;
+ 
+ # This must be glibc/ELF.
+-linux* | k*bsd*-gnu | kopensolaris*-gnu | gnu*)
++linux* | k*bsd*-gnu | kopensolaris*-gnu | gnu* | astral*)
+   lt_cv_deplibs_check_method=pass_all
+   ;;
+ 
+@@ -13617,7 +13617,7 @@ lt_prog_compiler_static=
+       lt_prog_compiler_static='-non_shared'
+       ;;
+ 
+-    linux* | k*bsd*-gnu | kopensolaris*-gnu | gnu*)
++    linux* | k*bsd*-gnu | kopensolaris*-gnu | gnu* | astral*)
+       case $cc_basename in
+       # old Intel for x86_64, which still supported -KPIC.
+       ecc*)
+@@ -14291,7 +14291,7 @@ _LT_EOF
+       archive_expsym_cmds='$SED "s|^|_|" $export_symbols >$output_objdir/$soname.expsym~$CC -shared $pic_flag $libobjs $deplibs $compiler_flags $wl-h,$soname $wl--retain-symbols-file,$output_objdir/$soname.expsym $wl--image-base,`expr ${RANDOM-$$} % 4096 / 2 \* 262144 + 1342177280` -o $lib'
+       ;;
+ 
+-    gnu* | linux* | tpf* | k*bsd*-gnu | kopensolaris*-gnu)
++    gnu* | linux* | tpf* | k*bsd*-gnu | kopensolaris*-gnu | astral*)
+       tmp_diet=no
+       if test linux-dietlibc = "$host_os"; then
+ 	case $cc_basename in
+@@ -16119,7 +16119,7 @@ linux*android*)
+   ;;
+ 
+ # This must be glibc/ELF.
+-linux* | k*bsd*-gnu | kopensolaris*-gnu | gnu*)
++linux* | k*bsd*-gnu | kopensolaris*-gnu | gnu* | astral*)
+   version_type=linux # correct to gnu/linux during the next big refactor
+   need_lib_prefix=no
+   need_version=no
+@@ -18235,7 +18235,7 @@ fi
+         inherit_rpath_CXX=yes
+         ;;
+ 
+-      linux* | k*bsd*-gnu | kopensolaris*-gnu | gnu*)
++      linux* | k*bsd*-gnu | kopensolaris*-gnu | gnu* | astral*)
+         case $cc_basename in
+           KCC*)
+ 	    # Kuck and Associates, Inc. (KAI) C++ Compiler
+@@ -19051,7 +19051,7 @@ lt_prog_compiler_static_CXX=
+ 	    ;;
+ 	esac
+ 	;;
+-      linux* | k*bsd*-gnu | kopensolaris*-gnu | gnu*)
++      linux* | k*bsd*-gnu | kopensolaris*-gnu | gnu* | astral*)
+ 	case $cc_basename in
+ 	  KCC*)
+ 	    # KAI C++ Compiler
+@@ -20123,7 +20123,7 @@ linux*android*)
+   ;;
+ 
+ # This must be glibc/ELF.
+-linux* | k*bsd*-gnu | kopensolaris*-gnu | gnu*)
++linux* | k*bsd*-gnu | kopensolaris*-gnu | gnu* | astral*)
+   version_type=linux # correct to gnu/linux during the next big refactor
+   need_lib_prefix=no
+   need_version=no
+diff --git enchant-clean/configure.ac enchant-workdir/configure.ac
+index 3e3268e..d93d626 100644
+--- enchant-clean/configure.ac
++++ enchant-workdir/configure.ac
+@@ -12,7 +12,7 @@
+ # You should have received a copy of the GNU Lesser General Public License
+ # along with this program; if not, see <https://www.gnu.org/licenses/>.
+ 
+-AC_PREREQ([2.71])
++AC_PREREQ([2.69])
+ AC_INIT([Enchant],[2.8.12])
+ AC_CONFIG_SRCDIR(lib/enchant.h)
+ AC_CONFIG_AUX_DIR([build-aux])

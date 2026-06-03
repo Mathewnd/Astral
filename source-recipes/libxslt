@@ -1,0 +1,10 @@
+name=libxslt
+version=1.1.43
+source_method=tarball
+tarball_url="https://download.gnome.org/sources/libxslt/1.1/libxslt-${version}.tar.xz"
+tarball_sha512=96110b0397a8f5791f489127574e2143845feb61bea0581d7b7e3c1101fd0718483bae81a7ce417b971bd678293bfd95daddad0dadd3e256c87d41a69faed85a
+hostdeps="automake libtool pkgconfig autoconf"
+
+prepare() {
+	autoreconf -fvi
+}

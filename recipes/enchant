@@ -1,5 +1,5 @@
 name=enchant
-revision=1
+revision=2
 from_source=enchant
 imagedeps="build-essential"
 hostdeps="xgcc xbinutils pkgconfig libtool automake autoconf"

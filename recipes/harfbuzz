@@ -1,12 +1,12 @@
 name=harfbuzz
-revision=1
+revision=2
 from_source=harfbuzz
 imagedeps="gcc meson ninja-build libglib2.0-dev"
 hostdeps="xgcc xbinutils pkgconfig libstdc++-v3"
-deps="base freetype glib"
+deps="base freetype glib icu"
 
 configure() {
-	meson --cross-file ${base_dir}/util/crossfile --prefix=${prefix} --buildtype=release --wrap-mode=nofallback -Dintrospection=disabled -Ddocs=disabled -Dtests=disabled -Dutilities=disabled -Dglib=enabled -Dgobject=enabled -Dfreetype=enabled -Dicu=disabled -Dgraphite2=disabled -Dcairo=disabled ${source_dir}
+	meson --cross-file ${base_dir}/util/crossfile --prefix=${prefix} --buildtype=release --wrap-mode=nofallback -Dintrospection=disabled -Ddocs=disabled -Dtests=disabled -Dutilities=disabled -Dglib=enabled -Dgobject=enabled -Dfreetype=enabled -Dicu=enabled -Dgraphite2=disabled -Dcairo=disabled ${source_dir}
 }
 
 build() {

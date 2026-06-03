@@ -2,6 +2,7 @@ name=icu
 revision=1
 from_source=icu
 imagedeps="build-essential"
+clean_workdirs=no
 
 configure() {
 	${source_dir}/source/configure --prefix=${prefix} --disable-static

@@ -6,5 +6,5 @@ tarball_sha512=2bcd22afd97e348bc2925c41cb25f7aec9cb67debca4bcf58f6e30ac06dd09582
 hostdeps="autoconf automake libtool"
 
 prepare() {
-	cp -v $(find /usr/local/share/automake* -name config.sub) build-aux/.
+	cp -v $(find /usr/local/share/automake* -name config.sub) build-aux
 }
