@@ -113,21 +113,21 @@ static int internalpoll(vnode_t *node, polldata_t *data, int events) {
 	pipenode_t *pipenode = (pipenode_t *)node;
 	int revents = 0;
 
+	if (pipenode->writers == 0 && pipenode->open)
+		revents |= POLLHUP;
+
+	if (pipenode->readers == 0 && pipenode->open)
+		revents |= POLLHUP;
+
 	if (events & POLLIN) {
-		events |= POLLHUP;
-		if (pipenode->writers == 0 && pipenode->open)
-			revents |= POLLHUP;
 		if (RINGBUFFER_DATACOUNT(&pipenode->data) > 0)
 			revents |= POLLIN;
 	}
 
 	if (events & POLLOUT) {
-		events |= POLLERR;
-		if (pipenode->readers == 0 && pipenode->open)
-			revents |= POLLERR;
 		// poll will only return POLLOUT if an atomic write can be done without blocking
 		// this is undocumented in POSIX but many unices implement it like this
-		else if (RINGBUFFER_DATACOUNT(&pipenode->data) < BUFFER_SIZE - PIPE_ATOMIC_SIZE)
+		if (RINGBUFFER_DATACOUNT(&pipenode->data) < BUFFER_SIZE - PIPE_ATOMIC_SIZE)
 			revents |= POLLOUT;
 	}
 
@@ -231,7 +231,7 @@ int pipefs_write(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size, u
 	while (1) {
 		// check for space or if the read end has been closed
 		int revents = internalpoll(node, NULL, POLLOUT);
-		if (revents & POLLERR)
+		if (revents & (POLLERR | POLLHUP))
 			break;
 
 		size_t freebytes = RINGBUFFER_FREESPACE(&pipenode->data);
