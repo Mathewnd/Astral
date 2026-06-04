@@ -103,10 +103,13 @@ syscallret_t syscall_futex(context_t *, uint32_t *futexp, int op, uint32_t value
 					ret.errno = ENOMEM;
 					break;
 				}
+				POLL_INITHEADER(&futex->pollheader);
 
 				ret.errno = setfutex(futex, physical);
-				if (ret.errno)
+				if (ret.errno) {
+					free(futex);
 					break;
+				}
 			}
 
 			++futex->waiting;
@@ -127,6 +130,8 @@ syscallret_t syscall_futex(context_t *, uint32_t *futexp, int op, uint32_t value
 				} else if (futex->waking == 0) {
 					// should go back to sleep
 					poll_leave(&desc);
+					desc.event = NULL;
+					desc.data[0].revents = 0;
 					continue;
 				} else {
 					// can leave normally!
@@ -137,16 +142,17 @@ syscallret_t syscall_futex(context_t *, uint32_t *futexp, int op, uint32_t value
 
 				// clean up if needed
 				if (futex->waiting == 0) {
+					poll_leave(&desc);
 					doleave = false;
-					free(futex);
 					removefutex(physical);
+					free(futex);
 				}
 
 				ret.ret = 0;
 				break;
 			}
 			break;
-			default:
+		default:
 			ret.errno = ENOSYS;
 	}
 
