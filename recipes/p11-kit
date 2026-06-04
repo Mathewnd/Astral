@@ -1,7 +1,7 @@
 name=p11-kit
-revision=1
+revision=2
 from_source=p11-kit
-imagedeps="build-essential"
+imagedeps="build-essential libtasn1-bin"
 hostdeps="xgcc xbinutils libtool pkgconfig"
 deps="base libtasn1 make-ca"
 
@@ -20,7 +20,7 @@ EOF
 	mkdir buildp11
 	cd buildp11
 
-	meson setup --cross-file ${base_dir}/util/crossfile --prefix=${prefix} --buildtype=release -Dtrust_paths=/etc/pki/anchors ${source_dir}
+	meson setup --cross-file ${base_dir}/util/crossfile --prefix=${prefix} --buildtype=release -Dtrust_module=enabled -Dtrust_paths=/etc/pki/anchors ${source_dir}
 }
 
 build() {
