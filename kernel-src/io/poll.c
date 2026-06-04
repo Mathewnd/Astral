@@ -67,6 +67,7 @@ void poll_leave(polldesc_t *desc) {
 		bool intstate = interrupt_set(false);
 		spinlock_acquire(&header->lock);
 		removefromlist(&header->data, &desc->data[i]);
+		desc->data[i].header = NULL;
 		spinlock_release(&header->lock);
 		interrupt_set(intstate);
 	}
@@ -115,7 +116,7 @@ int poll_dowait(polldesc_t *desc, size_t ustimeout) {
 		ret = EINTR;
 	}
 
-	if (ustimeout != 0 && ret != ETIMEDOUT) {
+	if (ustimeout != 0) {
 		timer_remove(current_cpu()->timer, &sleepentry);
 		sched_target_cpu(NULL);
 	}
