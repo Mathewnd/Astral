@@ -109,7 +109,7 @@ static int clientpoll(localsocket_t *localsocket, int events) {
 
 	// server disconnected
 	if (server == NULL)
-		return POLLHUP;
+		return POLLHUP | ((events & POLLIN) ? POLLIN : 0);
 
 	// the client has one more possible poll check:
 	// it can still be connecting with the other end
@@ -125,7 +125,7 @@ static int serverpoll(localsocket_t *localsocket, int events) {
 
 	// client disconnected
 	if (client == NULL)
-		return POLLHUP;
+		return POLLHUP | ((events & POLLIN) ? POLLIN : 0);
 
 	return datapoll(localsocket, client, events);
 }
