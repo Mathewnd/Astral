@@ -621,7 +621,7 @@ static int localsock_connect(socket_t *socket, sockaddr_t *addr, uintmax_t flags
 	if (current_thread()->proc) {
 		localsocket->cred.pid = current_thread()->proc->pid;
 		localsocket->cred.uid = current_thread()->proc->cred.euid;
-		localsocket->cred.uid = current_thread()->proc->cred.egid;
+		localsocket->cred.gid = current_thread()->proc->cred.egid;
 	}
 
 	// get the vnode specified in addr
@@ -795,7 +795,7 @@ static int localsock_listen(socket_t *socket, int backlogsize) {
 	if (current_thread()->proc) {
 		localsocket->cred.pid = current_thread()->proc->pid;
 		localsocket->cred.uid = current_thread()->proc->cred.euid;
-		localsocket->cred.uid = current_thread()->proc->cred.egid;
+		localsocket->cred.gid = current_thread()->proc->cred.egid;
 	}
 
 	MUTEX_ACQUIRE(&localsocket->binding->mutex);
@@ -1011,7 +1011,7 @@ int localsock_pair(socket_t **ret1, socket_t **ret2) {
 	if (current_thread()->proc) {
 		pair->server->cred.pid = current_thread()->proc->pid;
 		pair->server->cred.uid = current_thread()->proc->cred.euid;
-		pair->server->cred.uid = current_thread()->proc->cred.egid;
+		pair->server->cred.gid = current_thread()->proc->cred.egid;
 		pair->client->cred = pair->server->cred;
 	}
 
@@ -1118,16 +1118,13 @@ static int localsock_getopt(socket_t *socket, int layer, int optname, void *unsa
 
 				localpair_t *pair = localsocket->pair;
 				// socket not connected
-				if (pair == NULL) {
-					MUTEX_RELEASE(&socket->mutex);
+				if (pair == NULL)
 					return ENOTCONN;
-				}
 
 				MUTEX_ACQUIRE(&pair->mutex);
 				localsocket_t *peer = pair->client == localsocket ? pair->server : pair->client;
 				if (peer == NULL) {
 					MUTEX_RELEASE(&pair->mutex);
-					MUTEX_RELEASE(&socket->mutex);
 					return ENOTCONN;
 				}
 
