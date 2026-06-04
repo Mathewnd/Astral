@@ -90,6 +90,7 @@ typedef struct {
 #define SOCK_STREAM 1
 #define SOCK_DGRAM 2
 #define SOCK_RAW 3
+#define SOCK_SEQPACKET 5
 
 #define MSG_CMSG_CLOEXEC 0x40000000
 #define MSG_CTRUNC 0x8

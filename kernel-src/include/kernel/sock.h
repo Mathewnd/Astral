@@ -263,19 +263,24 @@ static inline void sock_freemsghdr(msghdr_t *hdr) {
 		free(hdr->msgctrl);
 }
 
-#define SOCK_CTRL_NEXT(c) ((sockctrl_t *)((uintptr_t)(c) + (c)->length))
+#define SOCK_CTRL_ALIGN(x) (((x) + sizeof(size_t) - 1) & ~(sizeof(size_t) - 1))
+#define SOCK_CTRL_LEN(x) (SOCK_CTRL_ALIGN(sizeof(sockctrl_t)) + (x))
+#define SOCK_CTRL_SPACE(x) (SOCK_CTRL_ALIGN(sizeof(sockctrl_t)) + SOCK_CTRL_ALIGN(x))
+#define SOCK_CTRL_DATALEN(c) ((c)->length - SOCK_CTRL_ALIGN(sizeof(sockctrl_t)))
+#define SOCK_CTRL_NEXT(c) ((sockctrl_t *)((uintptr_t)(c) + SOCK_CTRL_ALIGN((c)->length)))
 
 static inline size_t sock_countctrl(sockctrl_t *ctrl, size_t len) {
 	size_t count = 0;
-	uintmax_t offset = 0;
+	size_t offset = 0;
 
 	while (offset < len) {
-		if (ctrl->length < sizeof(sockctrl_t))
+		if (ctrl->length < SOCK_CTRL_LEN(0))
 			break;
 
-		offset += ctrl->length;
+		size_t alignedlen = SOCK_CTRL_ALIGN(ctrl->length);
+		offset += alignedlen;
 
-		if (offset > len || offset < ctrl->length)
+		if (offset > len || offset < alignedlen)
 			break;
 
 		++count;
