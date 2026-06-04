@@ -138,15 +138,24 @@ void poll_event(pollheader_t *header, int events) {
 		polldata_t *next = iterator->next;
 		spinlock_acquire(&desc->eventlock);
 		int revents = (iterator->events | POLLHUP | POLLERR) & events;
-
-		if (revents == 0 || spinlock_try(&desc->lock) == false || spinlock_try(&desc->wakeuplock) == false) {
-			removefromlist(&pending, iterator);
-			insertinheader(header, iterator);
-		}
+		bool wake = false;
 
 		if (desc->event == NULL && revents) {
 			iterator->revents = revents;
 			desc->event = iterator;
+
+			if (spinlock_try(&desc->lock)) {
+				if (spinlock_try(&desc->wakeuplock)) {
+					wake = true;
+				} else {
+					spinlock_release(&desc->lock);
+				}
+			}
+		}
+
+		if (wake == false) {
+			removefromlist(&pending, iterator);
+			insertinheader(header, iterator);
 		}
 
 		spinlock_release(&desc->eventlock);
