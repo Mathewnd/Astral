@@ -195,47 +195,61 @@ static inline int sock_copymsghdr(msghdr_t *khdr, msghdr_t *uhdr) {
 	if (usercopy_fromuser(khdr, uhdr, sizeof(msghdr_t)))
 		return EFAULT;
 
-	iovec_t *iovectmp = alloc(sizeof(iovec_t) * khdr->iovcount);
-	if (iovectmp == NULL)
-		return ENOMEM;
+	iovec_t *iovectmp = NULL;
+	if (khdr->iovcount) {
+		iovectmp = alloc(sizeof(iovec_t) * khdr->iovcount);
+		if (iovectmp == NULL)
+			return ENOMEM;
 
-	if (usercopy_fromuser(iovectmp, khdr->iov, sizeof(iovec_t) * khdr->iovcount))
-		return EFAULT;
+		if (usercopy_fromuser(iovectmp, khdr->iov, sizeof(iovec_t) * khdr->iovcount)) {
+			free(iovectmp);
+			return EFAULT;
+		}
+	}
 
 	khdr->iov = iovectmp;
 
 	if (khdr->addr) {
 		abisockaddr_t *addrtmp = alloc(khdr->addrlen);
 		if (addrtmp == NULL) {
-			free(iovectmp);
+			if (iovectmp);
+				free(iovectmp);
 			return ENOMEM;
 		}
 
 		if (usercopy_fromuser(addrtmp, khdr->addr, khdr->addrlen)) {
-			free(iovectmp);
+			if (iovectmp)
+				free(iovectmp);
+			free(addrtmp);
 			return EFAULT;
 		}
 
 		khdr->addr = addrtmp;
 	}
 
-	if (khdr->msgctrl) {
+	if (khdr->msgctrl && khdr->ctrllen) {
 		void *ctrltmp = alloc(khdr->ctrllen);
 		if (ctrltmp == NULL) {
 			if (khdr->addr)
 				free(khdr->addr);
-			free(iovectmp);
+			if (iovectmp)
+				free(iovectmp);
 			return ENOMEM;
 		}
 
 		if (usercopy_fromuser(ctrltmp, khdr->msgctrl, khdr->ctrllen)) {
 			if (khdr->addr)
 				free(khdr->addr);
-			free(iovectmp);
+			if (iovectmp)
+				free(iovectmp);
+			free(ctrltmp);
 			return EFAULT;
 		}
 
 		khdr->msgctrl = ctrltmp;
+	} else {
+		khdr->msgctrl = NULL;
+		khdr->ctrllen = 0;
 	}
 
 	return 0;
