@@ -1,8 +1,8 @@
 name=libaom
 revision=1
 from_source=libaom
-imagedeps="build-essential cmake nasm"
-hostdeps="xgcc xbinutils pkgconfig libtool libstdc++-v3"
+imagedeps="build-essential yasm"
+hostdeps="xgcc xbinutils pkgconfig libtool libstdc++-v3 cmake"
 deps="base"
 
 configure() {
