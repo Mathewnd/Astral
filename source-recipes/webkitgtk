@@ -1,0 +1,5 @@
+name=webkitgtk
+version=2.52.0
+source_method=tarball
+tarball_url=https://webkitgtk.org/releases/webkitgtk-${version}.tar.xz
+tarball_sha512=acb9cb5748b7b7e3a28076116cfd5acc5136e14e416bbac5d318d21af7b20471a91fd4341a39cc8cd2dc04c997e5ab122ea8a2306bea9e66472445ac268aa28c

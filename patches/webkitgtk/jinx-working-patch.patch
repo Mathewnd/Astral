@@ -1,0 +1,338 @@
+diff --git webkitgtk-clean/Source/JavaScriptCore/heap/BlockDirectory.cpp webkitgtk-workdir/Source/JavaScriptCore/heap/BlockDirectory.cpp
+index fd02685..9f32baa 100644
+--- webkitgtk-clean/Source/JavaScriptCore/heap/BlockDirectory.cpp
++++ webkitgtk-workdir/Source/JavaScriptCore/heap/BlockDirectory.cpp
+@@ -69,7 +69,7 @@ void BlockDirectory::updatePercentageOfPagedOutPages(SimpleStats& stats)
+     // FIXME: We should figure out a solution for Windows and PlayStation.
+     // QNX doesn't have mincore(), though the information can be had. But since all mapped
+     // pages are resident, does it matter?
+-#if OS(UNIX) && !PLATFORM(PLAYSTATION) && !OS(QNX) && !OS(HAIKU)
++#if OS(UNIX) && !PLATFORM(PLAYSTATION) && !OS(QNX) && !OS(HAIKU) && !OS(ASTRAL)
+     size_t pageSize = WTF::pageSize();
+     ASSERT(!(MarkedBlock::blockSize % pageSize));
+     auto numberOfPagesInMarkedBlock = MarkedBlock::blockSize / pageSize;
+diff --git webkitgtk-clean/Source/JavaScriptCore/heap/StructureAlignedMemoryAllocator.cpp webkitgtk-workdir/Source/JavaScriptCore/heap/StructureAlignedMemoryAllocator.cpp
+index 4d4f048..15165e9 100644
+--- webkitgtk-clean/Source/JavaScriptCore/heap/StructureAlignedMemoryAllocator.cpp
++++ webkitgtk-workdir/Source/JavaScriptCore/heap/StructureAlignedMemoryAllocator.cpp
+@@ -56,6 +56,16 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
+ #include <sys/mman.h>
+ #endif
+ 
++#ifndef bmalloc_try_allocate_auxiliary_with_alignment_inline
++#define bmalloc_try_allocate_auxiliary_with_alignment_inline \
++    bmalloc_try_allocate_auxiliary_with_alignment
++#endif
++
++#ifndef bmalloc_deallocate_inline
++#define bmalloc_deallocate_inline \
++    bmalloc_deallocate
++#endif
++
+ namespace JSC {
+ 
+ StructureAlignedMemoryAllocator::StructureAlignedMemoryAllocator() = default;
+diff --git webkitgtk-clean/Source/JavaScriptCore/runtime/MachineContext.h webkitgtk-workdir/Source/JavaScriptCore/runtime/MachineContext.h
+index 50353c7..c2eb800 100644
+--- webkitgtk-clean/Source/JavaScriptCore/runtime/MachineContext.h
++++ webkitgtk-workdir/Source/JavaScriptCore/runtime/MachineContext.h
+@@ -187,7 +187,7 @@ static inline void*& stackPointerImpl(mcontext_t& machineContext)
+ #error Unknown Architecture
+ #endif
+ 
+-#elif OS(FUCHSIA) || OS(LINUX) || OS(HURD)
++#elif OS(FUCHSIA) || OS(LINUX) || OS(HURD) || OS(ASTRAL)
+ 
+ #if CPU(X86_64)
+     return reinterpret_cast<void*&>((uintptr_t&) machineContext.gregs[REG_RSP]);
+@@ -304,7 +304,7 @@ static inline void*& framePointerImpl(mcontext_t& machineContext)
+ #error Unknown Architecture
+ #endif
+ 
+-#elif OS(FUCHSIA) || OS(LINUX) || OS(HURD)
++#elif OS(FUCHSIA) || OS(LINUX) || OS(HURD) || OS(ASTRAL)
+ 
+ // The following sequence depends on glibc's sys/ucontext.h.
+ #if CPU(X86_64)
+@@ -462,7 +462,7 @@ static inline void*& instructionPointerImpl(mcontext_t& machineContext)
+ #error Unknown Architecture
+ #endif
+ 
+-#elif OS(FUCHSIA) || OS(LINUX) || OS(HURD)
++#elif OS(FUCHSIA) || OS(LINUX) || OS(HURD) || OS(ASTRAL)
+ 
+ // The following sequence depends on glibc's sys/ucontext.h.
+ #if CPU(X86_64)
+@@ -634,7 +634,7 @@ inline void*& argumentPointer<1>(mcontext_t& machineContext)
+ #error Unknown Architecture
+ #endif
+ 
+-#elif OS(FUCHSIA) || OS(LINUX) || OS(HURD)
++#elif OS(FUCHSIA) || OS(LINUX) || OS(HURD) || OS(ASTRAL)
+ 
+ // The following sequence depends on glibc's sys/ucontext.h.
+ #if CPU(X86_64)
+@@ -691,7 +691,7 @@ inline void* wasmInstancePointer(const mcontext_t& machineContext)
+ #error Unknown Architecture
+ #endif
+ 
+-#elif OS(FUCHSIA) || OS(LINUX) || OS(HURD)
++#elif OS(FUCHSIA) || OS(LINUX) || OS(HURD) || OS(ASTRAL)
+ 
+ // The following sequence depends on glibc's sys/ucontext.h.
+ #if CPU(X86_64)
+@@ -808,7 +808,7 @@ inline void*& llintInstructionPointer(mcontext_t& machineContext)
+ #error Unknown Architecture
+ #endif
+ 
+-#elif OS(FUCHSIA) || OS(LINUX) || OS(HURD)
++#elif OS(FUCHSIA) || OS(LINUX) || OS(HURD) || OS(ASTRAL)
+ 
+ // The following sequence depends on glibc's sys/ucontext.h.
+ #if CPU(X86_64)
+diff --git webkitgtk-clean/Source/ThirdParty/ANGLE/src/common/SimpleMutex.cpp webkitgtk-workdir/Source/ThirdParty/ANGLE/src/common/SimpleMutex.cpp
+index 4ed0af5..60de5f8 100644
+--- webkitgtk-clean/Source/ThirdParty/ANGLE/src/common/SimpleMutex.cpp
++++ webkitgtk-workdir/Source/ThirdParty/ANGLE/src/common/SimpleMutex.cpp
+@@ -13,7 +13,7 @@
+ #    include <limits.h>
+ #    include <stdint.h>
+ 
+-#    if defined(ANGLE_PLATFORM_LINUX) || defined(ANGLE_PLATFORM_ANDROID)
++#    if (defined(ANGLE_PLATFORM_LINUX) && !defined(__astral__)) || defined(ANGLE_PLATFORM_ANDROID)
+ #        include <linux/futex.h>
+ #        include <sys/syscall.h>
+ #        include <unistd.h>
+@@ -28,7 +28,7 @@ namespace angle
+ {
+ namespace priv
+ {
+-#    if defined(ANGLE_PLATFORM_LINUX) || defined(ANGLE_PLATFORM_ANDROID)
++#    if (defined(ANGLE_PLATFORM_LINUX) && !defined(__astral__)) || defined(ANGLE_PLATFORM_ANDROID)
+ namespace
+ {
+ ANGLE_INLINE void SysFutex(void *addr, int op, int val, int val3)
+diff --git webkitgtk-clean/Source/ThirdParty/ANGLE/src/common/SimpleMutex.h webkitgtk-workdir/Source/ThirdParty/ANGLE/src/common/SimpleMutex.h
+index 84ffa1a..3966189 100644
+--- webkitgtk-clean/Source/ThirdParty/ANGLE/src/common/SimpleMutex.h
++++ webkitgtk-workdir/Source/ThirdParty/ANGLE/src/common/SimpleMutex.h
+@@ -44,6 +44,10 @@
+ #    endif  // defined(ANGLE_PLATFORM_LINUX) || defined(ANGLE_PLATFORM_ANDROID)
+ #endif      // !defined(ANGLE_WITH_TSAN)
+ 
++#if defined(__astral__)
++# undef ANGLE_USE_FUTEX
++#endif
++
+ namespace angle
+ {
+ namespace priv
+diff --git webkitgtk-clean/Source/ThirdParty/ANGLE/src/common/platform.h webkitgtk-workdir/Source/ThirdParty/ANGLE/src/common/platform.h
+index 48d6c5d..5229492 100644
+--- webkitgtk-clean/Source/ThirdParty/ANGLE/src/common/platform.h
++++ webkitgtk-workdir/Source/ThirdParty/ANGLE/src/common/platform.h
+@@ -25,7 +25,7 @@
+ #    define ANGLE_PLATFORM_POSIX 1
+ #elif defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__) ||              \
+     defined(__DragonFly__) || defined(__sun) || defined(__GLIBC__) || defined(__GNU__) || \
+-    defined(__QNX__) || defined(__Fuchsia__) || defined(__HAIKU__)
++    defined(__QNX__) || defined(__Fuchsia__) || defined(__HAIKU__) || defined(__astral__)
+ #    define ANGLE_PLATFORM_POSIX 1
+ #else
+ #    error Unsupported platform.
+diff --git webkitgtk-clean/Source/WTF/wtf/InlineASM.h webkitgtk-workdir/Source/WTF/wtf/InlineASM.h
+index 2937c45..48c620a 100644
+--- webkitgtk-clean/Source/WTF/wtf/InlineASM.h
++++ webkitgtk-workdir/Source/WTF/wtf/InlineASM.h
+@@ -43,7 +43,7 @@
+ #define THUMB_FUNC_PARAM(name)
+ #endif
+ 
+-#if (OS(LINUX) || OS(FREEBSD) || OS(HAIKU) || OS(QNX)) && CPU(X86_64)
++#if (OS(LINUX) || OS(FREEBSD) || OS(HAIKU) || OS(QNX) || OS(ASTRAL)) && CPU(X86_64)
+ #define GLOBAL_REFERENCE(name) #name "@plt"
+ #elif OS(LINUX) && CPU(X86) && defined(__PIC__)
+ #define GLOBAL_REFERENCE(name) SYMBOL_STRING(name) "@plt"
+@@ -70,7 +70,8 @@
+     || OS(HPUX)                \
+     || OS(NETBSD)              \
+     || OS(OPENBSD)             \
+-    || OS(QNX)
++    || OS(QNX)		       \
++    || OS(ASTRAL)
+     // ELF platform
+ #define HIDE_SYMBOL(name) ".hidden " #name
+ #else
+@@ -90,7 +91,8 @@
+     || OS(HURD)                \
+     || OS(NETBSD)              \
+     || OS(QNX)                 \
+-    || OS(WINDOWS)
++    || OS(WINDOWS)	       \
++    || OS(ASTRAL)
+     // GNU as-compatible syntax.
+ #define LOCAL_LABEL_STRING(name) ".L" #name
+ #endif
+diff --git webkitgtk-clean/Source/WTF/wtf/PlatformHave.h webkitgtk-workdir/Source/WTF/wtf/PlatformHave.h
+index 5c545ea..1ddfe40 100644
+--- webkitgtk-clean/Source/WTF/wtf/PlatformHave.h
++++ webkitgtk-workdir/Source/WTF/wtf/PlatformHave.h
+@@ -240,7 +240,7 @@
+ #define HAVE_MACH_MEMORY_ENTRY 1
+ #endif
+ 
+-#if OS(DARWIN) || OS(FUCHSIA) || ((OS(FREEBSD) || OS(HAIKU) || OS(NETBSD) || OS(OPENBSD) || OS(LINUX) || OS(HURD) || OS(QNX)) && (CPU(X86_64) || CPU(ARM) || CPU(ARM64) || CPU(RISCV64)))
++#if OS(ASTRAL) || OS(DARWIN) || OS(FUCHSIA) || ((OS(FREEBSD) || OS(HAIKU) || OS(NETBSD) || OS(OPENBSD) || OS(LINUX) || OS(HURD) || OS(QNX)) && (CPU(X86_64) || CPU(ARM) || CPU(ARM64) || CPU(RISCV64)))
+ #define HAVE_MACHINE_CONTEXT 1
+ #endif
+ 
+@@ -249,7 +249,7 @@
+ #define HAVE_BACKTRACE_SYMBOLS 1
+ #endif
+ 
+-#if OS(DARWIN) || OS(HAIKU) || OS(LINUX) || OS(HURD)
++#if OS(DARWIN) || OS(HAIKU) || OS(LINUX) || OS(HURD) || OS(ASTRAL)
+ #define HAVE_DLADDR 1
+ #endif
+ 
+diff --git webkitgtk-clean/Source/WTF/wtf/PlatformOS.h webkitgtk-workdir/Source/WTF/wtf/PlatformOS.h
+index e3184e9..f95d4e0 100644
+--- webkitgtk-clean/Source/WTF/wtf/PlatformOS.h
++++ webkitgtk-workdir/Source/WTF/wtf/PlatformOS.h
+@@ -131,9 +131,13 @@
+ #define WTF_OS_WINDOWS 1
+ #endif
+ 
++#if defined(__astral__)
++#define WTF_OS_ASTRAL 1
++#endif
+ 
+ /* OS(UNIX) - Any Unix-like system */
+ #if    OS(AIX)              \
++    || OS(ASTRAL)	    \
+     || OS(DARWIN)           \
+     || OS(FREEBSD)          \
+     || OS(FUCHSIA)          \
+diff --git webkitgtk-clean/Source/WTF/wtf/glib/FileSystemGlib.cpp webkitgtk-workdir/Source/WTF/wtf/glib/FileSystemGlib.cpp
+index 3983070..d8db326 100644
+--- webkitgtk-clean/Source/WTF/wtf/glib/FileSystemGlib.cpp
++++ webkitgtk-workdir/Source/WTF/wtf/glib/FileSystemGlib.cpp
+@@ -89,6 +89,11 @@ CString currentExecutablePath()
+         return { };
+     return CString(unsafeMakeSpan(readBuffer, static_cast<size_t>(result)));
+ }
++#elif OS(ASTRAL)
++CString currentExecutablePath()
++{
++    return { };
++}
+ #elif OS(UNIX)
+ CString currentExecutablePath()
+ {
+@@ -96,7 +101,7 @@ CString currentExecutablePath()
+     ssize_t result = readlink("/proc/curproc/file", readLinkBuffer, PATH_MAX);
+     if (result == -1)
+         return { };
+-    return CString(readLinkBuffer, result);
++    return CString(readLinkBuffer, static_cast<size_t>(result));
+ }
+ #elif OS(WINDOWS)
+ CString currentExecutablePath()
+diff --git webkitgtk-clean/Source/WebCore/platform/unix/SharedMemoryUnix.cpp webkitgtk-workdir/Source/WebCore/platform/unix/SharedMemoryUnix.cpp
+index c534f8f..9010c7f 100644
+--- webkitgtk-clean/Source/WebCore/platform/unix/SharedMemoryUnix.cpp
++++ webkitgtk-workdir/Source/WebCore/platform/unix/SharedMemoryUnix.cpp
+@@ -47,8 +47,10 @@
+ 
+ #if HAVE(LINUX_MEMFD_H)
+ #include <linux/memfd.h>
++#ifndef __astral__
+ #include <sys/syscall.h>
+ #endif
++#endif
+ 
+ namespace WebCore {
+ 
+@@ -80,7 +82,7 @@ static UnixFileDescriptor createSharedMemory()
+ {
+     int fileDescriptor = -1;
+ 
+-#if HAVE(LINUX_MEMFD_H)
++#if 0//HAVE(LINUX_MEMFD_H)
+     static bool isMemFdAvailable = true;
+     if (isMemFdAvailable) {
+         do {
+diff --git webkitgtk-clean/Source/bmalloc/bmalloc/BPlatform.h webkitgtk-workdir/Source/bmalloc/bmalloc/BPlatform.h
+index ce799ec..252d889 100644
+--- webkitgtk-clean/Source/bmalloc/bmalloc/BPlatform.h
++++ webkitgtk-workdir/Source/bmalloc/bmalloc/BPlatform.h
+@@ -66,6 +66,10 @@
+ #define BOS_LINUX 1
+ #endif
+ 
++#ifdef __astral__
++#define BOS_ASTRAL 1
++#endif
++
+ #if defined(__FreeBSD__) || defined(__DragonFly__) || defined(__FreeBSD_kernel__)
+ #define BOS_FREEBSD 1
+ #endif
+@@ -379,7 +383,7 @@
+ 
+ /* BENABLE(LIBPAS) is enabling libpas build. But this does not mean we use libpas for bmalloc replacement. */
+ #if !defined(BENABLE_LIBPAS)
+-#if BCPU(ADDRESS64) && (BOS(DARWIN) || BOS(WINDOWS) || (BOS(LINUX) && (BCPU(X86_64) || BCPU(ARM64))) || BPLATFORM(PLAYSTATION))
++#if BCPU(ADDRESS64) && (BOS(DARWIN) || BOS(WINDOWS) || (BOS(LINUX) && (BCPU(X86_64) || BCPU(ARM64))) || BPLATFORM(PLAYSTATION) || BOS(ASTRAL))
+ #define BENABLE_LIBPAS 1
+ #ifndef PAS_BMALLOC
+ #define PAS_BMALLOC 1
+diff --git webkitgtk-clean/Source/bmalloc/libpas/src/libpas/pas_committed_pages_vector.h webkitgtk-workdir/Source/bmalloc/libpas/src/libpas/pas_committed_pages_vector.h
+index a9fdd78..d0718fb 100644
+--- webkitgtk-clean/Source/bmalloc/libpas/src/libpas/pas_committed_pages_vector.h
++++ webkitgtk-workdir/Source/bmalloc/libpas/src/libpas/pas_committed_pages_vector.h
+@@ -56,7 +56,7 @@ static inline bool pas_committed_pages_vector_is_committed(pas_committed_pages_v
+                                                            size_t page_index)
+ {
+     PAS_ASSERT(page_index < vector->size);
+-#if PAS_OS(LINUX) || PAS_OS(WINDOWS)
++#if PAS_OS(LINUX) || PAS_OS(WINDOWS) || PAS_OS(ASTRAL)
+     return vector->raw_data[page_index];
+ #else
+     return vector->raw_data[page_index] & (MINCORE_REFERENCED |
+diff --git webkitgtk-clean/Source/bmalloc/libpas/src/libpas/pas_monotonic_time.c webkitgtk-workdir/Source/bmalloc/libpas/src/libpas/pas_monotonic_time.c
+index cc5c30b..4bcedce 100644
+--- webkitgtk-clean/Source/bmalloc/libpas/src/libpas/pas_monotonic_time.c
++++ webkitgtk-workdir/Source/bmalloc/libpas/src/libpas/pas_monotonic_time.c
+@@ -88,6 +88,15 @@ uint64_t pas_get_current_monotonic_time_nanoseconds(void)
+     return ts.tv_sec * 1.0e9 + ts.tv_nsec;
+ }
+ 
++#elif PAS_OS(ASTRAL)
++
++uint64_t pas_get_current_monotonic_time_nanoseconds(void)
++{
++    struct timespec ts;
++    clock_gettime(CLOCK_MONOTONIC, &ts);
++    return ts.tv_sec * 1.0e9 + ts.tv_nsec;
++}
++
+ #elif PAS_PLATFORM(PLAYSTATION)
+ 
+ uint64_t pas_get_current_monotonic_time_nanoseconds(void)
+diff --git webkitgtk-clean/Source/bmalloc/libpas/src/libpas/pas_platform.h webkitgtk-workdir/Source/bmalloc/libpas/src/libpas/pas_platform.h
+index 906a03a..89abd84 100644
+--- webkitgtk-clean/Source/bmalloc/libpas/src/libpas/pas_platform.h
++++ webkitgtk-workdir/Source/bmalloc/libpas/src/libpas/pas_platform.h
+@@ -124,7 +124,11 @@
+ #define PAS_OS_DARWIN 1
+ #endif
+ 
+-#if defined(__unix) || defined(__unix__)
++#ifdef __astral__
++#define PAS_OS_ASTRAL 1
++#endif
++
++#if defined(__unix) || defined(__unix__) || defined(__astral__)
+ #define PAS_OS_UNIX 1
+ #endif
+ 
