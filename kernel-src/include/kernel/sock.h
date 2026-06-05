@@ -89,6 +89,7 @@ typedef struct {
 #define SOCKET_TYPE_UDP 0
 #define SOCKET_TYPE_LOCAL 1
 #define SOCKET_TYPE_TCP 2
+#define SOCKET_TYPE_LOCAL_SEQPACKET 3
 #define SOCKFS_SOCKET_FROM_NODE(nodep) (((socketnode_t *)(nodep))->socket)
 
 static inline bool socket_nonblocking(socket_t *socket, uintmax_t flags) {
@@ -180,6 +181,7 @@ static inline int sock_addrtoabiaddr(int socktype, sockaddr_t *sockaddr, abisock
 			inaddr->sin_port = cpu_to_be_w(sockaddr->ipv4addr.port);
 			break;
 		case SOCKET_TYPE_LOCAL:
+		case SOCKET_TYPE_LOCAL_SEQPACKET:
 			abisockaddr->type = AF_LOCAL;
 			unaddr_t *unaddr = (unaddr_t *)abisockaddr;
 			strcpy(unaddr->sun_path, sockaddr->path);
@@ -212,7 +214,7 @@ static inline int sock_copymsghdr(msghdr_t *khdr, msghdr_t *uhdr) {
 	if (khdr->addr) {
 		abisockaddr_t *addrtmp = alloc(khdr->addrlen);
 		if (addrtmp == NULL) {
-			if (iovectmp);
+			if (iovectmp)
 				free(iovectmp);
 			return ENOMEM;
 		}
@@ -292,7 +294,9 @@ static inline size_t sock_countctrl(sockctrl_t *ctrl, size_t len) {
 
 void localsock_leavebinding(vnode_t *vnode);
 int localsock_pair(socket_t **ret1, socket_t **ret2);
-socket_t *localsock_createsocket();
+int localsock_pair_seqpacket(socket_t **ret1, socket_t **ret2);
+socket_t *localsock_createsocket(void);
+socket_t *localsock_create_seqpacket_socket(void);
 socket_t *udp_createsocket();
 socket_t *tcp_createsocket();
 socket_t *socket_create(int type);

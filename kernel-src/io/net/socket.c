@@ -4,7 +4,8 @@
 static socket_t *(*createsocket[])() = {
 	udp_createsocket,
 	localsock_createsocket,
-	tcp_createsocket
+	tcp_createsocket,
+	localsock_create_seqpacket_socket
 };
 
 socket_t *socket_create(int type) {

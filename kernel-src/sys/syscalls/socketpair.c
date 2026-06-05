@@ -22,7 +22,7 @@ syscallret_t syscall_socketpair(context_t *, int domain, int type, int protocol)
 	}
 
 	// we will only support pairs of local sockets
-	if (domain != AF_LOCAL || type != SOCK_STREAM) {
+	if (domain != AF_LOCAL || (type != SOCK_STREAM && type != SOCK_SEQPACKET)) {
 		ret.errno = EOPNOTSUPP;
 		return ret;
 	}
@@ -36,7 +36,10 @@ syscallret_t syscall_socketpair(context_t *, int domain, int type, int protocol)
 	socket_t *sock2 = NULL;
 
 	// create pair
-	ret.errno = localsock_pair(&sock1, &sock2);
+	if (type == SOCK_SEQPACKET)
+		ret.errno = localsock_pair_seqpacket(&sock1, &sock2);
+	else
+		ret.errno = localsock_pair(&sock1, &sock2);
 	if (ret.errno)
 		return ret;
 

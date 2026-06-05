@@ -10,6 +10,8 @@
 #define FILE_COUNT 16
 #define BARRIER_SIZE 16
 
+#define LOCALSOCK_CTRL_FILE 1
+
 typedef struct {
 	pid_t pid;
 	uid_t uid;
@@ -35,6 +37,7 @@ typedef struct {
 	uintmax_t barrierwrite; // shared with pair
 	int filesremaining[BARRIER_SIZE]; // shared with pair
 	int bytesremaining[BARRIER_SIZE]; // shared with pair
+	bool seqpacket;
 	localsock_cred_t cred;
 } localsocket_t;
 
@@ -74,6 +77,67 @@ static inline localpair_t *popbacklog(localsocket_t *server) {
 	return pair;
 }
 
+static bool is_barrier_used(localsocket_t *localsocket, uintmax_t barrier) {
+	size_t index = barrier % BARRIER_SIZE;
+	return localsocket->bytesremaining[index] || localsocket->filesremaining[index];
+}
+
+static bool has_barrier_space(localsocket_t *peer) {
+	return !(is_barrier_used(peer, peer->barrierwrite) && peer->barrierwrite + 1 == peer->barriercurrent + BARRIER_SIZE);
+}
+
+static size_t control_file_count(sockctrl_t *ctrl, size_t len) {
+	if (ctrl == NULL)
+		return 0;
+
+	size_t fdcount = 0;
+	size_t ctrlcount = sock_countctrl(ctrl, len);
+	for (size_t i = 0; i < ctrlcount; ++i) {
+		if (ctrl->level == SOL_SOCKET && ctrl->type == LOCALSOCK_CTRL_FILE)
+			fdcount += SOCK_CTRL_DATALEN(ctrl) / sizeof(int);
+
+		ctrl = SOCK_CTRL_NEXT(ctrl);
+	}
+
+	return fdcount;
+}
+
+static bool control_space_available(localsocket_t *peer, size_t fdcount) {
+	if (fdcount > RINGBUFFER_FREESPACE(&peer->fds) / sizeof(file_t *))
+		return false;
+
+	if ((fdcount || peer->seqpacket) && !has_barrier_space(peer))
+		return false;
+
+	return true;
+}
+
+static bool data_space_available(localsocket_t *localsocket, localsocket_t *peer, size_t count) {
+	if (localsocket->seqpacket)
+		return RINGBUFFER_FREESPACE(&peer->ringbuffer) >= count;
+
+	return RINGBUFFER_DATACOUNT(&peer->ringbuffer) != SOCKET_BUFFER;
+}
+
+static void advance_barrier(localsocket_t *localsocket) {
+	while (localsocket->barriercurrent != localsocket->barrierwrite && is_barrier_used(localsocket, localsocket->barriercurrent) == false)
+		++localsocket->barriercurrent;
+}
+
+static void prepare_barrier(localsocket_t *localsocket) {
+	if (is_barrier_used(localsocket, localsocket->barrierwrite)) {
+		__assert(localsocket->barrierwrite + 1 != localsocket->barriercurrent + BARRIER_SIZE);
+		++localsocket->barrierwrite;
+	}
+}
+
+static void record_bytes(localsocket_t *localsocket, size_t datasent) {
+	if (localsocket->seqpacket)
+		prepare_barrier(localsocket);
+
+	localsocket->bytesremaining[localsocket->barrierwrite % BARRIER_SIZE] += datasent;
+}
+
 static int datapoll(localsocket_t *local, localsocket_t *peer, int events) {
 	int revents = 0;
 
@@ -84,6 +148,7 @@ static int datapoll(localsocket_t *local, localsocket_t *peer, int events) {
 	// XXX is this the correct behaviour?
 	if ((events & POLLOUT) && (peer->socket.shutdown & SOCKET_SHUTDOWN_READ))
 		revents |= POLLHUP;
+
 	// space to write?
 	else if ((events & POLLOUT) && RINGBUFFER_DATACOUNT(&peer->ringbuffer) != SOCKET_BUFFER)
 		revents |= POLLOUT;
@@ -184,29 +249,34 @@ int localsock_poll(socket_t *socket, polldata_t *data, int events) {
 static int sendctrl(socket_t *socket, sockctrl_t *ctrl, size_t len, size_t datasent) {
 	localsocket_t *localsocket = (localsocket_t *)socket;
 	localsocket_t *peer = localsocket->pair->client == localsocket ? localsocket->pair->server : localsocket->pair->client;
-	if (ctrl == NULL) {
-		// if there is no control data, there is no need to add a barrier
-		// increase the bytes in the current section
-		peer->bytesremaining[peer->barrierwrite % BARRIER_SIZE] += datasent;
-		return 0;
-	}
-
 	if (peer == NULL)
 		return 0;
 
-	size_t ctrlcount = sock_countctrl(ctrl, len);
-	if (ctrlcount == 0)
+	if (ctrl == NULL) {
+		// if there is no control data, we just need to do byte accounting.
+		record_bytes(peer, datasent);
 		return 0;
+	}
+
+	size_t ctrlcount = sock_countctrl(ctrl, len);
+	if (ctrlcount == 0) {
+		// if there is no control data, we just need to do byte accounting.
+		record_bytes(peer, datasent);
+		return 0;
+	}
 
 	int error = 0;
+	bool files_sent = false;
 
-	for (int i = 0; i < ctrlcount; ++i) {
+	for (size_t i = 0; i < ctrlcount; ++i) {
 		if (ctrl->level != SOL_SOCKET)
-			continue;
+			goto nextctrl;
 
 		if (ctrl->type == LOCALSOCK_CTRL_FILE) {
 			int *fds = (int *)ctrl->data;
-			size_t fdcount = (ctrl->length - sizeof(sockctrl_t)) / sizeof(int);
+			size_t fdcount = SOCK_CTRL_DATALEN(ctrl) / sizeof(int);
+			if (fdcount == 0)
+				goto nextctrl;
 
 			// if theres no space in the ringbuffer for all fds, return ENOMEM
 			// NOTE: I wasn't able to find what happens in this case in other implementations,
@@ -214,14 +284,14 @@ static int sendctrl(socket_t *socket, sockctrl_t *ctrl, size_t len, size_t datas
 			if (fdcount > RINGBUFFER_FREESPACE(&peer->fds) / sizeof(file_t *)) {
 				error = ENOMEM;
 				break;
-			}
+	}
 
 			file_t *files[fdcount];
-			memset(files, 0, fdcount);
+			memset(files, 0, sizeof(files));
 
-			for (int i = 0; i < fdcount; ++i) {
-				files[i] = fd_get(fds[i]);
-				if (files[i] == NULL) {
+			for (size_t j = 0; j < fdcount; ++j) {
+				files[j] = fd_get(fds[j]);
+				if (files[j] == NULL) {
 					error = EBADF;
 					break;
 				}
@@ -229,11 +299,11 @@ static int sendctrl(socket_t *socket, sockctrl_t *ctrl, size_t len, size_t datas
 
 			if (error) {
 				// release all fds we acquired in case of error
-				for (int i = 0; i < fdcount; ++i) {
-					if (files[i] == NULL)
+				for (size_t j = 0; j < fdcount; ++j) {
+					if (files[j] == NULL)
 						break;
 
-					fd_release(files[i]);
+					fd_release(files[j]);
 				}
 				break;
 			}
@@ -242,17 +312,21 @@ static int sendctrl(socket_t *socket, sockctrl_t *ctrl, size_t len, size_t datas
 			__assert(ringbuffer_write(&peer->fds, files, fdcount * sizeof(file_t *)) == fdcount * sizeof(file_t *));
 
 			// create a new barrier secion
-			__assert(peer->barrierwrite != peer->barriercurrent + BARRIER_SIZE);
-
-			if (peer->bytesremaining[peer->barrierwrite % BARRIER_SIZE])
-				++peer->barrierwrite;
+			prepare_barrier(peer);
 
 			peer->filesremaining[peer->barrierwrite % BARRIER_SIZE] = fdcount;
 			peer->bytesremaining[peer->barrierwrite % BARRIER_SIZE] = datasent;
+
+			files_sent = true;
 		}
 
+		nextctrl:
 		ctrl = SOCK_CTRL_NEXT(ctrl);
 	}
+
+	// in case we have not sent any files, we still need to record the bytes
+	if (error == 0 && !files_sent)
+		record_bytes(peer, datasent);
 
 	return error;
 }
@@ -260,30 +334,34 @@ static int sendctrl(socket_t *socket, sockctrl_t *ctrl, size_t len, size_t datas
 static int recvctrl(socket_t *socket, sockctrl_t *ctrl, size_t len, bool *truncated, size_t *receivedlen, uintmax_t flags) {
 	localsocket_t *localsocket = (localsocket_t *)socket;
 	int error = 0;
+	*truncated = false;
 	*receivedlen = 0;
+	size_t current = localsocket->barriercurrent % BARRIER_SIZE;
 
 	// ctlr can be null to discard any control data
-	if (ctrl != NULL) {
+	if (ctrl != NULL && len >= SOCK_CTRL_LEN(0)) {
 		// files in the buffer
 		size_t filecount = RINGBUFFER_DATACOUNT(&localsocket->fds) / sizeof(file_t *);
+		size_t capacity = (len - SOCK_CTRL_ALIGN(sizeof(sockctrl_t))) / sizeof(int);
 
 		// actual number that actually will be read will be the smallest of one of the following:
 		// - number fds that fit in the data of the control
 		// - files in the current section
 		// - files actually in the ringbuffer
-		size_t actualcount = min(min((len - sizeof(sockctrl_t)) / sizeof(int), filecount), localsocket->filesremaining[localsocket->barriercurrent % BARRIER_SIZE]);
+		size_t actualcount = min(min(capacity, filecount), localsocket->filesremaining[current]);
 		if (actualcount == 0)
 			goto discard;
 
-		size_t donecount = 0;
+		size_t donecount;
+		size_t readcount = 0;
 		int fds[actualcount];
 
 		for (donecount = 0; donecount < actualcount; ++donecount) {
 			// read the file pointers and insert them into the process fd table
 			file_t *file;
 			__assert(ringbuffer_read(&localsocket->fds, &file, sizeof(file_t *)) == sizeof(file_t *));
+			++readcount;
 			if (fd_insert(file, &fds[donecount], (flags & SOCKET_RECV_FLAGS_CLOEXEC_CTRL) ? O_CLOEXEC : 0)) {
-				++donecount;
 				fd_release(file);
 				break;
 			}
@@ -292,44 +370,59 @@ static int recvctrl(socket_t *socket, sockctrl_t *ctrl, size_t len, bool *trunca
 			fd_release(file);
 		}
 
-		// prepare the ctrl that will be returned
-		ctrl->length = donecount * sizeof(int) + sizeof(sockctrl_t);
-		ctrl->level = SOL_SOCKET;
-		ctrl->type = LOCALSOCK_CTRL_FILE;
-		memcpy(ctrl->data, fds, donecount * sizeof(int));
+		if (readcount != donecount)
+			*truncated = true;
 
-		// prepare for discarding the rest later
-		localsocket->filesremaining[localsocket->barriercurrent % BARRIER_SIZE] -= donecount;
+		if (donecount) {
+			// prepare the ctrl that will be returned
+			ctrl->length = donecount * sizeof(int) + sizeof(sockctrl_t);
+			ctrl->level = SOL_SOCKET;
+			ctrl->type = LOCALSOCK_CTRL_FILE;
+			memcpy(ctrl->data, fds, donecount * sizeof(int));
 
-		*receivedlen += ctrl->length;
+			*receivedlen += ctrl->length;
+		}
+
+		localsocket->filesremaining[current] -= readcount;
 	}
 
 	discard:
 	// discard the rest
 	file_t *file = NULL;
-	for (int i = 0; i < localsocket->filesremaining[localsocket->barriercurrent % BARRIER_SIZE]; ++i) {
+	for (int i = 0; i < localsocket->filesremaining[current]; ++i) {
 		ringbuffer_read(&localsocket->fds, &file, sizeof(file_t *));
 		fd_release(file);
 	}
 
-	*truncated = file != NULL;
+	*truncated = *truncated || file != NULL;
 
-	localsocket->filesremaining[localsocket->barriercurrent % BARRIER_SIZE] = 0;
+	localsocket->filesremaining[current] = 0;
+	advance_barrier(localsocket);
 
 	return error;
 }
 
 static int localsock_send(socket_t *socket, sockdesc_t *sockdesc) {
 	localsocket_t *localsocket = (localsocket_t *)socket;
-	MUTEX_ACQUIRE(&socket->mutex);
-	int error;
 
+	size_t fdcount = control_file_count(sockdesc->ctrl, sockdesc->ctrllen);
+	if (fdcount > FILE_COUNT)
+		return EINVAL;
+
+	if (localsocket->seqpacket && sockdesc->count > SOCKET_BUFFER)
+		return EMSGSIZE;
+
+	MUTEX_ACQUIRE(&socket->mutex);
+
+	int error;
 	localpair_t *pair = localsocket->pair;
 	// socket not connected
 	if (pair == NULL) {
 		error = ENOTCONN;
 		goto leave;
 	}
+
+	localsocket_t *peer = pair->client == localsocket ? pair->server : pair->client;
 
 	MUTEX_ACQUIRE(&pair->mutex);
 
@@ -342,12 +435,18 @@ static int localsock_send(socket_t *socket, sockdesc_t *sockdesc) {
 
 		// if the client has closed this will return POLLHUP
 		int revents = internalpoll(socket, &desc.data[0], POLLOUT);
+		bool dataready = peer == NULL || data_space_available(localsocket, peer, sockdesc->count);
+		bool ctrlready = peer == NULL || control_space_available(peer, fdcount);
 
-		if (revents) {
+		if ((revents && dataready && ctrlready) || (revents & POLLHUP)) {
 			poll_leave(&desc);
 			poll_destroydesc(&desc);
 			break;
 		}
+
+		// add ourselves back to the loop to wait for more control space
+		if (revents)
+			poll_add(&socket->pollheader, &desc.data[0], POLLOUT);
 
 		if (socket_nonblocking(socket, sockdesc->flags)) {
 			error = EAGAIN;
@@ -367,7 +466,6 @@ static int localsock_send(socket_t *socket, sockdesc_t *sockdesc) {
 			goto leave;
 	}
 
-	localsocket_t *peer = pair->client == localsocket ? pair->server : pair->client;
 	if (peer == NULL) {
 		if (current_thread()->proc && (sockdesc->flags & SOCKET_SEND_FLAGS_NOSIGNAL) == 0)
 			signal_signalproc(current_thread()->proc, SIGPIPE);
@@ -382,11 +480,15 @@ static int localsock_send(socket_t *socket, sockdesc_t *sockdesc) {
 		goto leave;
 	}
 
+	if (localsocket->seqpacket)
+		__assert(sockdesc->donecount == sockdesc->count);
+
 	__assert(sockdesc->donecount > 0);
 
 	error = sendctrl(socket, sockdesc->ctrl, sockdesc->ctrllen, sockdesc->donecount);
 	if (error) {
-		// TODO remove the data that was just sent
+		ringbuffer_remove(&peer->ringbuffer, sockdesc->donecount);
+		sockdesc->donecount = 0;
 		goto leave;
 	}
 
@@ -458,14 +560,16 @@ static int localsock_recv(socket_t *socket, sockdesc_t *sockdesc) {
 			goto leave;
 	}
 
-	// receive control data
-	bool truncated;
-	error = recvctrl(socket, sockdesc->ctrl, sockdesc->ctrllen, &truncated, &sockdesc->ctrldone, flags);
-	if (error)
-		goto leave;
+	if ((flags & SOCKET_RECV_FLAGS_PEEK) == 0) {
+		// receive control data
+		bool truncated;
+		error = recvctrl(socket, sockdesc->ctrl, sockdesc->ctrllen, &truncated, &sockdesc->ctrldone, flags);
+		if (error)
+			goto leave;
 
-	if (truncated)
-		sockdesc->flags |= SOCKET_RECV_FLAGS_CTRLTRUNCATED;
+		if (truncated)
+			sockdesc->flags |= SOCKET_RECV_FLAGS_CTRLTRUNCATED;
+	}
 
 	size_t recvcount = min(sockdesc->count, RINGBUFFER_DATACOUNT(&localsocket->ringbuffer));
 
@@ -473,12 +577,16 @@ static int localsock_recv(socket_t *socket, sockdesc_t *sockdesc) {
 	if (localsocket->bytesremaining[localsocket->barriercurrent % BARRIER_SIZE]) {
 		recvcount = min(recvcount, localsocket->bytesremaining[localsocket->barriercurrent % BARRIER_SIZE]);
 
-		// check if we should step forward from that barrier
-		localsocket->bytesremaining[localsocket->barriercurrent % BARRIER_SIZE] -= recvcount;
-		if (localsocket->bytesremaining[localsocket->barriercurrent % BARRIER_SIZE] == 0 &&
-		    localsocket->bytesremaining[(localsocket->barriercurrent + 1) % BARRIER_SIZE])
-			++localsocket->barriercurrent;
+		if ((flags & SOCKET_RECV_FLAGS_PEEK) == 0) {
+			// check if we should step forward from that barrier
+			localsocket->bytesremaining[localsocket->barriercurrent % BARRIER_SIZE] -= recvcount;
+			if (localsocket->bytesremaining[localsocket->barriercurrent % BARRIER_SIZE] == 0 &&
+			    localsocket->bytesremaining[(localsocket->barriercurrent + 1) % BARRIER_SIZE])
+				++localsocket->barriercurrent;
+		}
 	}
+
+	advance_barrier(localsocket);
 
 	if (flags & SOCKET_RECV_FLAGS_PEEK) {
 		sockdesc->donecount = iovec_iterator_peek_from_ringbuffer(sockdesc->iovec_iterator, &localsocket->ringbuffer, 0, recvcount);
@@ -489,7 +597,7 @@ static int localsock_recv(socket_t *socket, sockdesc_t *sockdesc) {
 	} else {
 		sockdesc->donecount = iovec_iterator_read_from_ringbuffer(sockdesc->iovec_iterator, &localsocket->ringbuffer, recvcount);
 		if (sockdesc->donecount == RINGBUFFER_USER_COPY_FAILED) {
-			error = EPIPE;
+			error = EFAULT;
 			goto leave;
 		}
 
@@ -660,6 +768,11 @@ static int localsock_connect(socket_t *socket, sockaddr_t *addr, uintmax_t flags
 	localsocket_t *server = binding->server;
 	if (server == NULL || server->backlog == NULL) {
 		error = ECONNREFUSED;
+		goto leave;
+	}
+
+	if (server->seqpacket != localsocket->seqpacket) {
+		error = EPROTOTYPE;
 		goto leave;
 	}
 
@@ -1020,6 +1133,20 @@ int localsock_pair(socket_t **ret1, socket_t **ret2) {
 	return 0;
 }
 
+int localsock_pair_seqpacket(socket_t **ret1, socket_t **ret2) {
+	int error = localsock_pair(ret1, ret2);
+	if (error)
+		return error;
+
+	localsocket_t *localsocket1 = (localsocket_t *)*ret1;
+	localsocket_t *localsocket2 = (localsocket_t *)*ret2;
+
+	localsocket1->seqpacket = true;
+	localsocket2->seqpacket = true;
+
+	return 0;
+}
+
 static int localsock_getname(socket_t *socket, sockaddr_t *addr) {
 	localsocket_t *localsocket = (localsocket_t *)socket;
 	MUTEX_ACQUIRE(&socket->mutex);
@@ -1143,7 +1270,7 @@ static int localsock_getopt(socket_t *socket, int layer, int optname, void *unsa
 				if (len != 4)
 					return EINVAL;
 
-				int type = SOCK_STREAM;
+				int type = localsocket->seqpacket ? SOCK_SEQPACKET : SOCK_STREAM;
 				return USERCOPY_POSSIBLY_TO_USER(unsafe_buffer, &type, len);
 			}
 			case SO_OOBINLINE:
@@ -1183,7 +1310,7 @@ static socketops_t socketops = {
 	.setopt = localsock_setopt
 };
 
-socket_t *localsock_createsocket() {
+socket_t *localsock_createsocket(void) {
 	// XXX possibly move this to a slab?
 	localsocket_t *socket = alloc(sizeof(localsocket_t));
 	if (socket == NULL)
@@ -1204,4 +1331,13 @@ socket_t *localsock_createsocket() {
 	socket->socket.ops = &socketops;
 
 	return (socket_t *)socket;
+}
+
+socket_t *localsock_create_seqpacket_socket(void) {
+	localsocket_t *localsocket = (localsocket_t *)localsock_createsocket();
+	if (localsocket == NULL)
+		return NULL;
+
+	localsocket->seqpacket = true;
+	return &localsocket->socket;
 }
