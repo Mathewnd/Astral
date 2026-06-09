@@ -276,16 +276,24 @@ static inline size_t sock_countctrl(sockctrl_t *ctrl, size_t len) {
 	size_t offset = 0;
 
 	while (offset < len) {
+		size_t remaining = len - offset;
+
+		if (remaining < SOCK_CTRL_LEN(0))
+			break;
+
 		if (ctrl->length < SOCK_CTRL_LEN(0))
 			break;
 
-		size_t alignedlen = SOCK_CTRL_ALIGN(ctrl->length);
-		offset += alignedlen;
-
-		if (offset > len || offset < alignedlen)
+		if (ctrl->length > remaining)
 			break;
 
 		++count;
+
+		size_t alignedlen = SOCK_CTRL_ALIGN(ctrl->length);
+		if (alignedlen > remaining || alignedlen < ctrl->length)
+			break;
+
+		offset += alignedlen;
 		ctrl = SOCK_CTRL_NEXT(ctrl);
 	}
 
