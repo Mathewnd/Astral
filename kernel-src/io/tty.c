@@ -590,6 +590,10 @@ void tty_unregister(tty_t *tty) {
 	}
 }
 
+void tty_release(tty_t *tty) {
+	VOP_RELEASE(tty->mastervnode);
+}
+
 size_t tty_opened(tty_t *tty) {
 	return __atomic_load_n(&tty->opened, __ATOMIC_SEQ_CST);
 }

@@ -411,6 +411,37 @@ index ba9a520..b958ef3 100644
  
  .section .note.GNU-stack,"",%progbits
 -
+diff --git mlibc-clean/sysdeps/astral/generic/astral.cpp mlibc-workdir/sysdeps/astral/generic/astral.cpp
+index a86353f..3e1a18c 100644
+--- mlibc-clean/sysdeps/astral/generic/astral.cpp
++++ mlibc-workdir/sysdeps/astral/generic/astral.cpp
+@@ -1,13 +1,25 @@
+ #include <astral/syscall.h>
+ #include <astral/archctl.h>
++#include <astral/sysctl.h>
+ #include <errno.h>
+ 
+ #ifndef MLIBC_BUILDING_RTLD
+ 
++int sysctl(const int *name, size_t name_len, void *oldp, size_t *old_lenp, void *newp, size_t new_len) {
++	long ret;
++	long error = syscall(SYSCALL_SYSCTL, &ret, (uint64_t)name, name_len, (uint64_t)oldp, (uint64_t)old_lenp, (uint64_t)newp, new_len);
++	if (error) {
++		errno = error;
++		return -1;
++	}
++
++	return 0;
++}
++
+ int arch_ctl(int func, void *arg) {
+ 	long ret;
+ 	long error = syscall(SYSCALL_ARCHCTL, &ret, func, (uint64_t)arg);
+-	if(error)
++	if (error)
+ 		errno = error;
+ 	return error ? -1 : ret;
+ }
 diff --git mlibc-clean/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
 index 3b04372..b7a8ab7 100644
 --- mlibc-clean/sysdeps/astral/generic/generic.cpp
@@ -942,10 +973,10 @@ index 7e4f2a1..ecc2677 100644
  #ifdef __cplusplus
  extern "C" {
 diff --git mlibc-clean/sysdeps/astral/include/astral/syscall.h mlibc-workdir/sysdeps/astral/include/astral/syscall.h
-index a6c4067..fd38197 100644
+index a6c4067..160a140 100644
 --- mlibc-clean/sysdeps/astral/include/astral/syscall.h
 +++ mlibc-workdir/sysdeps/astral/include/astral/syscall.h
-@@ -103,6 +103,12 @@
+@@ -103,6 +103,13 @@
  #define SYSCALL_SYSINFO 96
  #define SYSCALL_WRITEV 97
  #define SYSCALL_READV 98
@@ -955,9 +986,72 @@ index a6c4067..fd38197 100644
 +#define SYSCALL_GETSOCKOPT 102
 +#define SYSCALL_CLOCK_GETRES 103
 +#define SYSCALL_SETPRIORITY 104
++#define SYSCALL_SYSCTL 105
  
  #ifndef __MLIBC_ABI_ONLY
  
+diff --git mlibc-workdir/sysdeps/astral/include/astral/sysctl.h mlibc-workdir/sysdeps/astral/include/astral/sysctl.h
+new file mode 100644
+index 0000000..161f634
+--- /dev/null
++++ mlibc-workdir/sysdeps/astral/include/astral/sysctl.h
+@@ -0,0 +1,56 @@
++#ifndef _ASTRAL_SYSCTL_H
++#define _ASTRAL_SYSCTL_H
++
++#include <bits/size_t.h>
++#include <abi-bits/uid_t.h>
++#include <abi-bits/gid_t.h>
++#include <abi-bits/pid_t.h>
++#include <bits/ansi/timespec.h>
++
++#define SYS_CTL_NAME_MAX 6
++
++#define SYS_CTL_KERN 1
++#define SYS_CTL_KERN_PROC 1
++#define SYS_CTL_KERN_PROC_ALL 1
++
++#define SYS_CTL_KERN_PROC_INFO_NAME_SIZE 64
++#define SYS_CTL_KERN_PROC_INFO_TTY_NAME_SIZE 64
++
++typedef struct {
++	pid_t pid;
++	uid_t uid;
++	uid_t euid;
++	uid_t suid;
++	gid_t gid;
++	gid_t egid;
++	gid_t sgid;
++	size_t thread_count;
++	char name[SYS_CTL_KERN_PROC_INFO_NAME_SIZE];
++	pid_t ppid;
++	pid_t pgid;
++	pid_t sid;
++	struct timespec start_timestamp;
++	struct timespec total_runtime;
++	int state;
++	int cpu_time;
++	int nice;
++	size_t virtual_pages;
++	size_t physical_pages;
++	char tty_name[SYS_CTL_KERN_PROC_INFO_TTY_NAME_SIZE];
++} sysctl_proc_info_t;
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++#ifndef __MLIBC_ABI_ONLY
++
++int sysctl(const int *__name, size_t __name_len, void *__oldp, size_t *__old_lenp, void *__newp, size_t __new_len);
++
++#endif /* !__MLIBC_ABI_ONLY */
++
++#ifdef __cplusplus
++}
++#endif
++
++#endif /* _ASTRAL_SYSCTL_H */
 diff --git mlibc-clean/sysdeps/astral/include/mlibc/sysdeps.hpp mlibc-workdir/sysdeps/astral/include/mlibc/sysdeps.hpp
 index ce91084..54ee08e 100644
 --- mlibc-clean/sysdeps/astral/include/mlibc/sysdeps.hpp
@@ -1030,6 +1124,18 @@ index ce91084..54ee08e 100644
  {};
  
  template<typename Tag>
+diff --git mlibc-clean/sysdeps/astral/meson.build mlibc-workdir/sysdeps/astral/meson.build
+index 43dd6b0..3e01e87 100644
+--- mlibc-clean/sysdeps/astral/meson.build
++++ mlibc-workdir/sysdeps/astral/meson.build
+@@ -86,6 +86,7 @@ if not no_headers
+         install_headers(
+                 'include/astral/syscall.h',
+                 'include/astral/archctl.h',
++                'include/astral/sysctl.h',
+                 subdir: 'astral',
+                 follow_symlinks: true,
+         )
 diff --git mlibc-clean/sysdeps/linux/generic/sysdeps.cpp mlibc-workdir/sysdeps/linux/generic/sysdeps.cpp
 index a07ed53..1474470 100644
 --- mlibc-clean/sysdeps/linux/generic/sysdeps.cpp

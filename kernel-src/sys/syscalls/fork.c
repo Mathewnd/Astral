@@ -76,10 +76,19 @@ syscallret_t syscall_fork(context_t *ctx) {
 	memcpy(&nproc->signals.pending, &proc->signals.pending, sizeof(sigset_t));
 	memcpy(&nproc->signals.actions, &proc->signals.actions[0], sizeof(sigaction_t) * NSIG);
 
+	strncpy(nproc->name, proc->name, sizeof(proc->name));
+	nproc->start_time = proc->start_time;
+
 	// copy thread scheduling metrics over
 	// raised to IPL_DPC to prevent scheduling
 	long ipl = interrupt_raiseipl(IPL_DPC);
+
+	spinlock_acquire(&proc->runtime_lock);
+	nproc->total_runtime = proc->total_runtime;
+	spinlock_release(&proc->runtime_lock);
+
 	memcpy(&nthread->metrics, &current_thread()->metrics, sizeof(nthread->metrics));
+
 	interrupt_loweripl(ipl);
 
 	ret.ret = nproc->pid;

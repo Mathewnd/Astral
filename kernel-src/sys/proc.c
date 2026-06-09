@@ -33,6 +33,24 @@ size_t proc_get_count(void) {
 	return count;
 }
 
+size_t proc_get_table(proc_t **procs, size_t count) {
+	MUTEX_ACQUIRE(&proc_pid_table_mutex);
+
+	size_t done_count = 0;
+	HASHTABLE_FOREACH(&pid_table) {
+		if (done_count == count)
+			goto leave;
+
+		proc_t *current = entry->value;
+		PROC_HOLD(current);
+		procs[done_count++] = current;
+	}
+
+leave:
+	MUTEX_RELEASE(&proc_pid_table_mutex);
+	return done_count;
+}
+
 proc_t *proc_get_from_pid(int pid) {
 	MUTEX_ACQUIRE(&proc_pid_table_mutex);
 	void *_proc = NULL;
@@ -108,6 +126,8 @@ proc_t *proc_create() {
 	SPINLOCK_INIT(proc->threadlistlock);
 	EVENT_INITHEADER(&proc->child_exit_event);
 	EVENT_INITHEADER(&proc->thread_exit_event);
+	SPINLOCK_INIT(proc->runtime_lock);
+	memset(&proc->total_runtime, 0, sizeof(proc->total_runtime));
 
 	proc->fd = alloc(sizeof(fd_t) * 3);
 	if (proc->fd == NULL) {
@@ -311,7 +331,8 @@ void proc_exit(void) {
 	EVENT_SIGNAL(&proc->parent->child_exit_event);
 	// TODO sigaction flag for this
 	if (belowzombiecount) {
-	       EVENT_SIGNAL(&init_proc->child_exit_event);
+		signal_signalproc(proc->parent, SIGCHLD);
+		EVENT_SIGNAL(&init_proc->child_exit_event);
 	}
 }
 
@@ -323,6 +344,17 @@ void proc_run_init() {
 	char *init_path = GET_KERNEL_ARGUMENT(init, char *);
 	if (init_path == NULL)
 		init_path = "/init";
+
+	char *last_component = strrchr(init_path, '/');
+	if (last_component) {
+		++last_component;
+		if (*last_component == '\0') {
+			_panic("Bad init path. Do not append a '/' to init=", NULL);
+		}
+	} else {
+		last_component = init_path;
+	}
+
 
 	char *init_console = GET_KERNEL_ARGUMENT(initconsole, char *);
 	if (init_console == NULL)
@@ -340,6 +372,9 @@ void proc_run_init() {
 	__assert(proc);
 
 	init_proc = proc;
+
+	strncpy(proc->name, last_component, sizeof(proc->name));
+	proc->start_time = timekeeper_timefromboot();
 
 	vnode_t *initnode;
 	__assert(vfs_open(vfsroot, init_path, 0, &initnode) == 0);

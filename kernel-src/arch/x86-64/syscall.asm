@@ -104,6 +104,7 @@ extern syscall_fstatvfsat
 extern syscall_getsockopt
 extern syscall_clock_getres
 extern syscall_setpriority
+extern syscall_sysctl
 syscalltab:
 dq syscall_print
 dq syscall_mmap
@@ -210,7 +211,8 @@ dq syscall_fstatvfsat
 dq syscall_getsockopt
 dq syscall_clock_getres
 dq syscall_setpriority
-syscallcount equ 105
+dq syscall_sysctl
+syscallcount equ 106
 section .text
 global arch_syscall_entry
 ; on entry:

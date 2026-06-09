@@ -44,7 +44,14 @@ void sched_thread_running_callback(thread_t *thread) {
 
 void sched_thread_stopping_callback(thread_t *thread, bool sleeping) {
 	timespec_t now = timekeeper_time();
-	offset_times(thread, timespec_diffus(thread->metrics.run_start, now), 0);
+	size_t us_diff = timespec_diffus(thread->metrics.run_start, now);
+	offset_times(thread, us_diff, 0);
+
+	if (thread->proc) {
+		spinlock_acquire(&thread->proc->runtime_lock);
+		thread->proc->total_runtime = timespec_add(thread->proc->total_runtime, timespec_from_us(us_diff));
+		spinlock_release(&thread->proc->runtime_lock);
+	}
 
 	if (sleeping)
 		thread->metrics.sleep_start = now;

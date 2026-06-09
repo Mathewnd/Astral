@@ -13,6 +13,8 @@
 
 #include <kernel/thread.h>
 
+#include <kernel/sysctl.h>
+
 #ifdef __x86_64__
 #include <arch/ldt.h>
 #endif
@@ -90,6 +92,11 @@ typedef struct proc_t {
 		itimer_t virtualtime;
 		itimer_t profiling;
 	} timer;
+
+	char name[SYS_CTL_KERN_PROC_INFO_NAME_SIZE];
+	timespec_t start_time;
+	spinlock_t runtime_lock;
+	timespec_t total_runtime;
 } proc_t;
 
 
@@ -125,5 +132,6 @@ void proc_init(void);
 void proc_exit(void);
 void proc_run_init();
 size_t proc_get_count(void);
+size_t proc_get_table(proc_t **procs, size_t count);
 
 #endif

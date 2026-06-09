@@ -122,6 +122,37 @@ long long atoll(const char *c) {
 	return first == '-' ? -v : v;
 }
 
+char *strrchr(const char *s, char c) {
+	char *f = NULL;
+	while (*s) {
+		if (*s == c)
+			f = (char *)s;
+
+		++s;
+	}
+
+	if (c == '\0')
+		return (char *)s;
+
+	return f;
+}
+
+char *strncpy(char *dest, const char *src, size_t n) {
+	char *copy = dest;
+
+	while (n && *src) {
+		*dest = *src;
+		++src;
+		++dest;
+		--n;
+	}
+
+	for (size_t i = 0; i < n; ++i)
+		dest[i] = '\0';
+
+	return copy;
+}
+
 #define DO_NAME(e) \
 	case e: \
 		return #e;

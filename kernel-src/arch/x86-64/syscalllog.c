@@ -9,7 +9,7 @@
 void arch_interrupt_disable();
 void arch_interrupt_enable();
 
-#define SYSCALL_COUNT 105
+#define SYSCALL_COUNT 106
 #define LOGSTR(x) arch_e9_puts(x)
 
 static char *name[] = {
@@ -118,6 +118,7 @@ static char *name[] = {
 	"getsockopt",
 	"clock_getres",
 	"setpriority",
+	"sysctl",
 };
 
 static char *args[] = {
@@ -226,6 +227,7 @@ static char *args[] = {
 	"fd %d level %d optname %d optval %p optlen %p", // getsockopt
 	"clockid %d timespec %p", // clock_getres
 	"which %d who %d prio %d", // setpriority
+	"name %p name_len %lu oldp %p old_size %p newp %p new_size %lu", // sysctl
 };
 
 #endif

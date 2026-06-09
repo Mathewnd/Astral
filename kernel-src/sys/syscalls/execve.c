@@ -51,6 +51,18 @@ static syscallret_t execve(context_t *context, char *upath, char *uargv[], char 
 		return ret;
 	}
 
+	char *last_component = strrchr(path, '/');
+	if (last_component) {
+		++last_component;
+		if (*last_component == '\0') {
+			ret.errno = EISDIR;
+			free(path);
+			return ret;
+		}
+	} else {
+		last_component = path;
+	}
+
 	size_t argsize = 0;
 	size_t envsize = 0;
 	char **argv = NULL;
@@ -314,6 +326,10 @@ static syscallret_t execve(context_t *context, char *upath, char *uargv[], char 
 	CTX_IP(context) = (uint64_t)entry;
 
 	cred_doexec(&current_thread()->proc->cred, suid, sgid);
+
+	strncpy(current_thread()->proc->name, last_component, sizeof(current_thread()->proc->name));
+	proc->start_time = timekeeper_timefromboot();
+	memset(&proc->total_runtime, 0, sizeof(proc->total_runtime));
 
 	error:
 	free(path);
