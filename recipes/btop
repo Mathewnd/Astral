@@ -1,0 +1,27 @@
+name=btop
+revision=1
+from_source=btop
+imagedeps="build-essential"
+hostdeps="xgcc xbinutils libstdc++-v3 pkgconfig"
+builddeps="ncurses"
+deps="base ncurses"
+
+configure() {
+	cp -rp ${source_dir}/* .
+}
+
+build() {
+	make \
+		-j${parallelism} \
+		PLATFORM=astral \
+		CXX=x86_64-astral-g++ \
+		PREFIX=${prefix} \
+		GPU_SUPPORT=false
+}
+
+package() {
+	make \
+		DESTDIR=${dest_dir} \
+		PREFIX=${prefix} \
+		install
+}

@@ -1,0 +1,527 @@
+diff --git btop-clean/Makefile btop-workdir/Makefile
+index 0bb9cbd..3dad342 100644
+--- btop-clean/Makefile
++++ btop-workdir/Makefile
+@@ -132,6 +132,10 @@ else ifeq ($(PLATFORM_LC),netbsd)
+ 	override ADDFLAGS += -lkvm -lprop
+ 	export MAKE = gmake
+ 	SU_GROUP := wheel
++else ifeq ($(PLATFORM_LC),astral)
++	PLATFORM_DIR := astral
++	THREADS	:= $(shell getconf _NPROCESSORS_ONLN 2>/dev/null || echo 1)
++	SU_GROUP := root
+ else
+ $(error $(shell printf "\033[1;91mERROR: \033[97mUnsupported platform ($(PLATFORM))\033[0m"))
+ endif
+diff --git btop-workdir/src/astral/btop_collect.cpp btop-workdir/src/astral/btop_collect.cpp
+new file mode 100644
+index 0000000..97b9358
+--- /dev/null
++++ btop-workdir/src/astral/btop_collect.cpp
+@@ -0,0 +1,472 @@
++#include <algorithm>
++#include <arpa/inet.h>
++#include <array>
++#include <astral/sysctl.h>
++#include <cmath>
++#include <cstdint>
++#include <cstdlib>
++#include <cstring>
++#include <ifaddrs.h>
++#include <iterator>
++#include <net/if.h>
++#include <netinet/in.h>
++#include <pwd.h>
++#include <ranges>
++#include <stdexcept>
++#include <string>
++#include <sys/sysinfo.h>
++#include <unistd.h>
++#include <vector>
++
++#include "btop_config.hpp"
++#include "btop_shared.hpp"
++#include "btop_tools.hpp"
++
++using namespace Tools;
++using std::cmp_greater;
++
++namespace {
++	constexpr double load_scale = 1 << SI_LOAD_SHIFT;
++
++	auto read_sysinfo() -> struct sysinfo {
++		struct sysinfo info {};
++		if (sysinfo(&info) != 0)
++			throw std::runtime_error("sysinfo() failed");
++		return info;
++	}
++
++	auto mem_bytes(unsigned long pages, unsigned int unit) -> uint64_t {
++		return static_cast<uint64_t>(pages) * static_cast<uint64_t>(unit ? unit : 1);
++	}
++
++	auto user_name(uid_t uid) -> string {
++		if (auto *pw = getpwuid(uid); pw != nullptr and pw->pw_name != nullptr)
++			return pw->pw_name;
++		return std::to_string(uid);
++	}
++
++	auto proc_runtime_seconds(const sysctl_proc_info_t& info) -> uint64_t {
++		return static_cast<uint64_t>(info.total_runtime.tv_sec);
++	}
++
++	auto proc_start_seconds(const sysctl_proc_info_t& info) -> uint64_t {
++		return static_cast<uint64_t>(info.start_timestamp.tv_sec);
++	}
++
++	auto proc_state(int state) -> char {
++		(void)state;
++		// TODO: Astral sysctl currently exposes a placeholder process state.
++		return 'W';
++	}
++
++	auto get_processes() -> vector<sysctl_proc_info_t> {
++		size_t limit = 256;
++		for (;;) {
++			int mib[] = {
++				SYS_CTL_KERN,
++				SYS_CTL_KERN_PROC,
++				SYS_CTL_KERN_PROC_ALL,
++				0,
++				static_cast<int>(sizeof(sysctl_proc_info_t)),
++				static_cast<int>(limit),
++			};
++
++			size_t len = sizeof(sysctl_proc_info_t) * limit;
++			vector<sysctl_proc_info_t> procs(limit);
++			if (sysctl(mib, std::size(mib), procs.data(), &len, nullptr, 0) == 0) {
++				procs.resize(len / sizeof(sysctl_proc_info_t));
++				return procs;
++			}
++
++			if (errno != ENOMEM)
++				throw std::runtime_error("Astral process sysctl failed");
++			limit *= 2;
++		}
++	}
++}
++
++namespace Cpu {
++	string cpuName = "Astral";
++	string cpuHz;
++	vector<string> available_fields = {"Auto", "total"};
++	vector<string> available_sensors;
++	bool got_sensors{};
++	bool cpu_temp_only{};
++	bool supports_watts{};
++	bool has_battery = false; // TODO: no existing battery ABI.
++	tuple<int, float, long, string> current_bat = {0, 0.0F, 0, ""};
++	std::unordered_map<int, int> core_mapping;
++	cpu_info current_cpu;
++
++	auto get_cpuHz() -> string {
++		return "";
++	}
++
++	auto get_battery() -> tuple<int, float, long, string> {
++		// TODO: no existing battery ABI.
++		return current_bat;
++	}
++
++	auto get_core_mapping() -> std::unordered_map<int, int> {
++		return {};
++	}
++
++	auto collect(bool no_update) -> cpu_info& {
++		if (Runner::stopping or (no_update and not current_cpu.cpu_percent.at("total").empty()))
++			return current_cpu;
++
++		auto info = read_sysinfo();
++		current_cpu.load_avg = {
++			static_cast<double>(info.loads[0]) / load_scale,
++			static_cast<double>(info.loads[1]) / load_scale,
++			static_cast<double>(info.loads[2]) / load_scale,
++		};
++
++		for (auto& [field, values] : current_cpu.cpu_percent) {
++			// TODO: Astral does not expose CPU tick counters to userland yet.
++			values.push_back(0);
++			while (cmp_greater(values.size(), width * 2))
++				values.pop_front();
++		}
++
++		if (current_cpu.core_percent.size() != static_cast<size_t>(Shared::coreCount))
++			current_cpu.core_percent.assign(Shared::coreCount, {});
++		for (auto& values : current_cpu.core_percent) {
++			// TODO: no per-core CPU utilization API is currently available.
++			values.push_back(0);
++			while (cmp_greater(values.size(), width * 2))
++				values.pop_front();
++		}
++
++		current_cpu.temp.assign(Shared::coreCount + 1, {});
++		current_cpu.temp_max = 0; // TODO: no sensors API.
++		current_cpu.usage_watts = 0; // TODO: no power sensors API.
++		return current_cpu;
++	}
++}
++
++namespace Mem {
++	bool has_swap{};
++	int disk_ios{};
++	mem_info current_mem {};
++
++	uint64_t get_totalMem() {
++		auto info = read_sysinfo();
++		return mem_bytes(info.totalram, info.mem_unit);
++	}
++
++	auto collect(bool no_update) -> mem_info& {
++		if (Runner::stopping or (no_update and not current_mem.percent.at("used").empty()))
++			return current_mem;
++
++		auto show_swap = Config::getB("show_swap");
++		auto info = read_sysinfo();
++		auto total = mem_bytes(info.totalram, info.mem_unit);
++		auto free = mem_bytes(info.freeram, info.mem_unit);
++		auto cached = mem_bytes(info.bufferram, info.mem_unit);
++		auto available = std::min(total, free + cached);
++
++		current_mem.stats.at("free") = free;
++		current_mem.stats.at("cached") = cached;
++		current_mem.stats.at("available") = available;
++		current_mem.stats.at("used") = total > available ? total - available : 0;
++		current_mem.stats.at("swap_total") = mem_bytes(info.totalswap, info.mem_unit);
++		current_mem.stats.at("swap_free") = mem_bytes(info.freeswap, info.mem_unit);
++		current_mem.stats.at("swap_used") = current_mem.stats.at("swap_total") > current_mem.stats.at("swap_free")
++			? current_mem.stats.at("swap_total") - current_mem.stats.at("swap_free")
++			: 0;
++
++		for (const auto& name : mem_names) {
++			current_mem.percent.at(name).push_back(total == 0 ? 0 : std::round(static_cast<double>(current_mem.stats.at(name)) * 100.0 / total));
++			while (cmp_greater(current_mem.percent.at(name).size(), width * 2))
++				current_mem.percent.at(name).pop_front();
++		}
++
++		has_swap = show_swap and current_mem.stats.at("swap_total") > 0;
++		if (has_swap) {
++			for (const auto& name : swap_names) {
++				current_mem.percent.at(name).push_back(std::round(static_cast<double>(current_mem.stats.at(name)) * 100.0 / current_mem.stats.at("swap_total")));
++				while (cmp_greater(current_mem.percent.at(name).size(), width * 2))
++					current_mem.percent.at(name).pop_front();
++			}
++		}
++
++		current_mem.disks.clear();
++		current_mem.disks_order.clear();
++		disk_ios = 0; // TODO: no existing disk enumeration or disk IO API.
++		return current_mem;
++	}
++}
++
++namespace Shared {
++	long pageSize, clkTck, coreCount, page_size, clk_tck;
++
++	void init() {
++		coreCount = sysconf(_SC_NPROCESSORS_ONLN);
++		if (coreCount < 1)
++			coreCount = 1;
++
++		pageSize = sysconf(_SC_PAGESIZE);
++		if (pageSize <= 0)
++			pageSize = 4096;
++		page_size = pageSize;
++
++		clkTck = sysconf(_SC_CLK_TCK);
++		if (clkTck <= 0)
++			clkTck = 100;
++		clk_tck = clkTck;
++
++		(void)read_sysinfo();
++
++		Cpu::current_cpu.core_percent.assign(coreCount, {});
++		Cpu::current_cpu.temp.assign(coreCount + 1, {});
++		Cpu::cpuName = "Astral";
++		Cpu::cpuHz.clear();
++		Cpu::has_battery = false; // TODO: no battery API.
++		Cpu::got_sensors = false; // TODO: no sensors API.
++		Cpu::supports_watts = false; // TODO: no power sensors API.
++		Cpu::available_fields.clear();
++		for (const auto& [field, ignored] : Cpu::current_cpu.cpu_percent)
++			Cpu::available_fields.push_back(field);
++		Cpu::core_mapping = Cpu::get_core_mapping();
++		Cpu::collect();
++
++		Mem::collect();
++		Proc::collect();
++		Net::collect();
++
++		Logger::debug("Shared::init() : Initialized Astral collector.");
++	}
++}
++
++namespace Net {
++	std::unordered_map<string, net_info> current_net;
++	net_info empty_net = {};
++	vector<string> interfaces;
++	string selected_iface;
++	std::unordered_map<string, uint64_t> graph_max = {{"download", {}}, {"upload", {}}};
++	bool rescale{true};
++
++	auto collect(bool no_update) -> net_info& {
++		if (Runner::stopping)
++			return empty_net;
++		if (no_update and not selected_iface.empty() and current_net.contains(selected_iface))
++			return current_net.at(selected_iface);
++
++		IfAddrsPtr if_addrs {};
++		if (if_addrs.get_status() != 0)
++			return empty_net;
++
++		interfaces.clear();
++		char ip[INET6_ADDRSTRLEN] {};
++
++		for (auto *ifa = if_addrs.get(); ifa != nullptr; ifa = ifa->ifa_next) {
++			if (ifa->ifa_addr == nullptr or ifa->ifa_name == nullptr)
++				continue;
++
++			const string iface = ifa->ifa_name;
++			if (not v_contains(interfaces, iface)) {
++				interfaces.push_back(iface);
++				current_net[iface].connected = (ifa->ifa_flags & IFF_RUNNING) != 0;
++				current_net[iface].ipv4.clear();
++				current_net[iface].ipv6.clear();
++			}
++
++			if (ifa->ifa_addr->sa_family == AF_INET and current_net[iface].ipv4.empty()) {
++				auto *addr = reinterpret_cast<struct sockaddr_in*>(ifa->ifa_addr);
++				if (inet_ntop(AF_INET, &addr->sin_addr, ip, sizeof(ip)) != nullptr)
++					current_net[iface].ipv4 = ip;
++			}
++			else if (ifa->ifa_addr->sa_family == AF_INET6 and current_net[iface].ipv6.empty()) {
++				auto *addr = reinterpret_cast<struct sockaddr_in6*>(ifa->ifa_addr);
++				if (inet_ntop(AF_INET6, &addr->sin6_addr, ip, sizeof(ip)) != nullptr)
++					current_net[iface].ipv6 = ip;
++			}
++		}
++
++		for (const auto& iface : interfaces) {
++			for (const string dir : {"download", "upload"}) {
++				auto& netif = current_net[iface];
++				auto& stat = netif.stat.at(dir);
++				auto& bandwidth = netif.bandwidth.at(dir);
++				// TODO: getifaddrs() exposes addresses, not Astral RX/TX byte counters.
++				stat.speed = 0;
++				stat.total = 0;
++				bandwidth.push_back(0);
++				while (cmp_greater(bandwidth.size(), width * 2))
++					bandwidth.pop_front();
++			}
++		}
++
++		for (auto it = current_net.begin(); it != current_net.end();) {
++			if (not v_contains(interfaces, it->first))
++				it = current_net.erase(it);
++			else
++				++it;
++		}
++
++		if (current_net.empty())
++			return empty_net;
++
++		auto& config_iface = Config::getS("net_iface");
++		if (selected_iface.empty() or not v_contains(interfaces, selected_iface)) {
++			if (not config_iface.empty() and v_contains(interfaces, config_iface))
++				selected_iface = config_iface;
++			else
++				selected_iface = interfaces.front();
++			redraw = true;
++			rescale = true;
++		}
++
++		return current_net.at(selected_iface);
++	}
++}
++
++namespace Proc {
++	vector<proc_info> current_procs;
++	string current_sort;
++	string current_filter;
++	bool current_rev{};
++	bool is_tree_mode{};
++	atomic<int> numpids{};
++	int filter_found{};
++	int collapse = -1, expand = -1, toggle_children = -1, collapse_all = -1;
++	detail_container detailed;
++
++	static void collect_details(size_t pid, vector<proc_info>& procs) {
++		auto p_info = std::ranges::find(procs, pid, &proc_info::pid);
++		if (p_info == procs.end())
++			return;
++		if (pid != detailed.last_pid) {
++			detailed = {};
++			detailed.last_pid = pid;
++		}
++		detailed.entry = *p_info;
++		detailed.status = proc_states.contains(detailed.entry.state) ? proc_states.at(detailed.entry.state) : "Unknown";
++		detailed.parent.clear();
++		if (auto parent = std::ranges::find(procs, detailed.entry.ppid, &proc_info::pid); parent != procs.end())
++			detailed.parent = parent->name;
++		detailed.memory = floating_humanizer(detailed.entry.mem);
++		detailed.mem_bytes.push_back(detailed.entry.mem);
++		while (cmp_greater(detailed.mem_bytes.size(), width))
++			detailed.mem_bytes.pop_front();
++		// TODO: no per-process IO counters are exposed by the current API.
++		detailed.io_read = "0 B";
++		detailed.io_write = "0 B";
++	}
++
++	auto collect(bool no_update) -> vector<proc_info>& {
++		if (Runner::stopping)
++			return current_procs;
++
++		const auto& sorting = Config::getS("proc_sorting");
++		auto reverse = Config::getB("proc_reversed");
++		const auto& filter = Config::getS("proc_filter");
++		auto tree = Config::getB("proc_tree");
++		auto show_detailed = Config::getB("show_detailed");
++		const size_t detailed_pid = Config::getI("detailed_pid");
++		bool should_filter = current_filter != filter;
++		bool sorted_change = sorting != current_sort or reverse != current_rev or should_filter;
++		bool tree_mode_change = tree != is_tree_mode;
++		if (should_filter)
++			current_filter = filter;
++		if (sorted_change) {
++			current_sort = sorting;
++			current_rev = reverse;
++		}
++		if (tree_mode_change)
++			is_tree_mode = tree;
++
++		if (not no_update) {
++			auto total_mem = Mem::get_totalMem();
++			vector<size_t> found;
++			auto snapshot = get_processes();
++
++			for (const auto& proc : snapshot) {
++				found.push_back(proc.pid);
++				auto existing = std::ranges::find(current_procs, static_cast<size_t>(proc.pid), &proc_info::pid);
++				if (existing == current_procs.end()) {
++					current_procs.push_back({static_cast<size_t>(proc.pid)});
++					existing = current_procs.end() - 1;
++				}
++
++				auto& entry = *existing;
++				entry.name = proc.name[0] ? proc.name : std::to_string(proc.pid);
++				entry.cmd = entry.name; // TODO: Astral sysctl does not expose argv yet.
++				entry.short_cmd = entry.cmd;
++				entry.threads = proc.thread_count;
++				entry.user = user_name(proc.uid);
++				entry.ppid = proc.ppid;
++				entry.p_nice = proc.nice;
++				entry.state = proc_state(proc.state);
++				entry.cpu_s = proc_start_seconds(proc);
++				entry.cpu_t = proc_runtime_seconds(proc);
++				entry.cpu_p = 0.0; // TODO: no process CPU percentage ABI.
++				entry.cpu_c = 0.0; // TODO: no process CPU counters suitable for cumulative percentages.
++				entry.mem = static_cast<uint64_t>(proc.physical_pages) * Shared::pageSize;
++				if (entry.mem == 0)
++					entry.mem = static_cast<uint64_t>(proc.virtual_pages) * Shared::pageSize;
++				if (entry.mem > total_mem)
++					entry.mem = total_mem;
++				// TODO: RSS/virtual memory stay zero when Astral sysctl returns zero page counts.
++			}
++
++			auto eraser = std::ranges::remove_if(current_procs, [&](const auto& entry) {
++				return not v_contains(found, entry.pid);
++			});
++			current_procs.erase(eraser.begin(), eraser.end());
++			should_filter = true;
++		}
++
++		if (show_detailed)
++			collect_details(detailed_pid, current_procs);
++
++		if (should_filter) {
++			filter_found = 0;
++			for (auto& proc : current_procs) {
++				if (not tree and not filter.empty() and not matches_filter(proc, filter)) {
++					proc.filtered = true;
++					filter_found++;
++				}
++				else
++					proc.filtered = false;
++			}
++		}
++
++		if (sorted_change or tree_mode_change or not no_update)
++			proc_sorter(current_procs, sorting, reverse, tree);
++
++		if (tree and not current_procs.empty() and (not no_update or should_filter or sorted_change)) {
++			if (collapse_all != -1) {
++				toggle_tree_collapse(current_procs);
++				collapse_all = -1;
++			}
++			if (auto find_pid = collapse != -1 ? collapse : expand; find_pid != -1) {
++				if (auto collapser = std::ranges::find(current_procs, static_cast<size_t>(find_pid), &proc_info::pid); collapser != current_procs.end())
++					collapser->collapsed = collapse != -1;
++				collapse = expand = -1;
++			}
++
++			vector<tree_proc> tree_procs;
++			tree_procs.reserve(current_procs.size());
++			std::ranges::stable_sort(current_procs, std::ranges::less{}, &proc_info::ppid);
++			for (auto& proc : std::ranges::equal_range(current_procs, current_procs.front().ppid, std::ranges::less{}, &proc_info::ppid))
++				_tree_gen(proc, current_procs, tree_procs, 0, false, filter, false, no_update, should_filter);
++
++			int index = 0;
++			tree_sort(tree_procs, sorting, reverse, false, index, current_procs.size());
++			for (auto t = tree_procs.begin(); t != tree_procs.end(); ++t)
++				_collect_prefixes(*t, t == tree_procs.end() - 1);
++			std::ranges::stable_sort(current_procs, std::ranges::less{}, &proc_info::tree_index);
++		}
++
++		numpids = static_cast<int>(current_procs.size()) - filter_found;
++		return current_procs;
++	}
++}
++
++namespace Tools {
++	double system_uptime() {
++		return static_cast<double>(read_sysinfo().uptime);
++	}
++}
+diff --git btop-clean/src/btop.cpp btop-workdir/src/btop.cpp
+index c04295c..e2c1772 100644
+--- btop-clean/src/btop.cpp
++++ btop-workdir/src/btop.cpp
+@@ -214,7 +214,7 @@ void clean_quit(int sig) {
+ 	Global::quitting = true;
+ 	Runner::stop();
+ 	if (Global::_runner_started) {
+-	#if defined __APPLE__ || defined __OpenBSD__ || defined __NetBSD__
++	#if defined __APPLE__ || defined __OpenBSD__ || defined __NetBSD__ || defined __astral__
+ 		if (pthread_join(Runner::runner_id, nullptr) != 0) {
+ 			Logger::warning("Failed to join _runner thread on exit!");
+ 			pthread_cancel(Runner::runner_id);
+diff --git btop-clean/src/btop_shared.cpp btop-workdir/src/btop_shared.cpp
+index 462cba7..a88a9e4 100644
+--- btop-clean/src/btop_shared.cpp
++++ btop-workdir/src/btop_shared.cpp
+@@ -95,10 +95,16 @@ namespace Gpu {
+ 
+ namespace Proc {
+ bool set_priority(pid_t pid, int priority) {
++#ifdef __astral__
++  (void)pid;
++  (void)priority;
++  return false;
++#else
+   if (setpriority(PRIO_PROCESS, pid, priority) == 0) {
+     return true;
+   }
+   return false;
++#endif
+ }
+ 
+ 	void proc_sorter(vector<proc_info>& proc_vec, const string& sorting, bool reverse, bool tree) {

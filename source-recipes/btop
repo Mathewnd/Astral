@@ -1,0 +1,9 @@
+name=btop
+version=1.4.7
+source_method=tarball
+tarball_url="https://github.com/aristocratos/btop/archive/refs/tags/v${version}.tar.gz"
+tarball_sha512="49f2d2aa4fa83816f4fdaebc7239b3036d6e776b45b059d40ec535867762f207dcd9e79df16e410b37965e10c758404bd6aab8106a8c8b8e0761d3950e8856ef"
+
+prepare() {
+	true
+}
