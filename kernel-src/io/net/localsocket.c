@@ -7,8 +7,8 @@
 #include <kernel/file.h>
 
 #define SOCKET_BUFFER (256 * 1024)
-#define FILE_COUNT 16
-#define BARRIER_SIZE 16
+#define FILE_COUNT 256
+#define BARRIER_SIZE 256
 
 #define LOCALSOCK_CTRL_FILE 1
 
