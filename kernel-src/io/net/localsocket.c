@@ -27,10 +27,8 @@ typedef struct {
 	struct localpair_t *pair;
 	// listening server
 	struct binding_t *binding;
-	struct localpair_t **backlog; // shared with binding
-	int backlogsize; // shared with binding
-	uintmax_t backlogcurrentwrite; // shared with binding
-	uintmax_t backlogcurrentread; // shared with binding
+	ringbuffer_t backlog; // shared with binding
+	bool listening; // shared with binding
 	char *bindpath;
 	ringbuffer_t fds; // shared with pair
 	uintmax_t barriercurrent; // shared with pair
@@ -65,15 +63,23 @@ typedef struct binding_t {
 	mutex_t mutex;
 } binding_t;
 
+static inline bool backlog_has_data(localsocket_t *server) {
+	return RINGBUFFER_DATACOUNT(&server->backlog) >= sizeof(localpair_t *);
+}
+
+static inline bool backlog_has_space(localsocket_t *server) {
+	return RINGBUFFER_FREESPACE(&server->backlog) >= sizeof(localpair_t *);
+}
+
 static inline void pushbacklog(localsocket_t *server, localpair_t *pair) {
-	__assert(server->backlogcurrentwrite < server->backlogcurrentread + server->backlogsize);
-	server->backlog[server->backlogcurrentwrite++] = pair;
+	__assert(backlog_has_space(server));
+	__assert(ringbuffer_write(&server->backlog, &pair, sizeof(pair)) == sizeof(pair));
 }
 
 static inline localpair_t *popbacklog(localsocket_t *server) {
-	__assert(server->backlogcurrentread < server->backlogcurrentwrite);
-	localpair_t *pair = server->backlog[server->backlogcurrentread];
-	server->backlog[server->backlogcurrentread++] = NULL;
+	__assert(backlog_has_data(server));
+	localpair_t *pair = NULL;
+	__assert(ringbuffer_read(&server->backlog, &pair, sizeof(pair)) == sizeof(pair));
 	return pair;
 }
 
@@ -159,11 +165,11 @@ static int datapoll(localsocket_t *local, localsocket_t *peer, int events) {
 static int listeningpoll(localsocket_t *localsocket, int events) {
 	int revents = 0;
 	// can insert into backlog?
-	if (localsocket->backlogcurrentwrite < localsocket->backlogcurrentread + localsocket->backlogsize)
+	if (backlog_has_space(localsocket))
 		revents |= (events & POLLOUT) ? POLLOUT : 0;
 
 	// can accept()?
-	if (localsocket->backlogcurrentwrite != localsocket->backlogcurrentread)
+	if (backlog_has_data(localsocket))
 		revents |= (events & POLLIN) ? POLLIN : 0;
 
 	return revents;
@@ -179,7 +185,7 @@ static int clientpoll(localsocket_t *localsocket, int events) {
 	// the client has one more possible poll check:
 	// it can still be connecting with the other end
 	// so check if server has a backlog. if so, nothing can be done yet
-	if (server->backlog)
+	if (server->listening)
 		return 0;
 
 	return datapoll(localsocket, server, events);
@@ -201,8 +207,8 @@ static int internalpoll(socket_t *socket, polldata_t *data, int events) {
 	int revents = 0;
 	// 4 possible cases:
 	// socket is listening
-	if (localsocket->backlog)
-		 revents = listeningpoll(localsocket, events);
+	if (localsocket->listening)
+		revents = listeningpoll(localsocket, events);
 
 	// socket is client
 	else if (localsocket->pair && localsocket->pair->client == localsocket)
@@ -626,13 +632,13 @@ static int localsock_accept(socket_t *_server, socket_t *_clientconnection, sock
 	int error;
 
 	if (binding == NULL) {
-		error = EINVAL;
-		goto leave;
+		MUTEX_RELEASE(&server->socket.mutex);
+		return EINVAL;
 	}
 
 	MUTEX_ACQUIRE(&server->binding->mutex);
 
-	if (server->backlog == NULL) {
+	if (server->listening == false) {
 		error = EINVAL;
 		goto leave;
 	}
@@ -679,7 +685,7 @@ static int localsock_accept(socket_t *_server, socket_t *_clientconnection, sock
 		poll_destroydesc(&desc);
 
 		if (error)
-			goto leave;
+			goto leave_nobinding;
 
 		MUTEX_ACQUIRE(&binding->mutex);
 	}
@@ -699,9 +705,8 @@ static int localsock_accept(socket_t *_server, socket_t *_clientconnection, sock
 	MUTEX_RELEASE(&pair->mutex);
 
 	leave:
-	if (binding)
-		MUTEX_RELEASE(&binding->mutex);
-
+	MUTEX_RELEASE(&binding->mutex);
+	leave_nobinding:
 	MUTEX_RELEASE(&server->socket.mutex);
 	return error;
 }
@@ -715,7 +720,7 @@ static int localsock_connect(socket_t *socket, sockaddr_t *addr, uintmax_t flags
 
 	MUTEX_ACQUIRE(&socket->mutex);
 	// listening/bound socket
-	if (localsocket->backlog || localsocket->binding) {
+	if (localsocket->listening || localsocket->binding) {
 		error = EOPNOTSUPP;
 		goto leave;
 	}
@@ -766,7 +771,7 @@ static int localsock_connect(socket_t *socket, sockaddr_t *addr, uintmax_t flags
 	// and if the server has not closed the socket and is listening
 	MUTEX_ACQUIRE(&binding->mutex);
 	localsocket_t *server = binding->server;
-	if (server == NULL || server->backlog == NULL) {
+	if (server == NULL || server->listening == false) {
 		error = ECONNREFUSED;
 		goto leave;
 	}
@@ -801,7 +806,8 @@ static int localsock_connect(socket_t *socket, sockaddr_t *addr, uintmax_t flags
 		}
 
 		// to make sure the binding doesn't get destroyed once we stop locking it, reference the vnode
-		VOP_HOLD(binding->vnode);
+		vnode_t *vn = binding->vnode;
+		VOP_HOLD(vn);
 		MUTEX_RELEASE(&binding->mutex);
 
 		error = poll_dowait(&desc, 0);
@@ -809,19 +815,33 @@ static int localsock_connect(socket_t *socket, sockaddr_t *addr, uintmax_t flags
 		poll_leave(&desc);
 		poll_destroydesc(&desc);
 
-		if (error)
-			goto leave;
+		if (error) {
+			VOP_RELEASE(vn);
+			binding = NULL;
+			goto leave_nobinding;
+		}
 
 		MUTEX_ACQUIRE(&binding->mutex);
-		if (binding->server == NULL) {
+		server = binding->server;
+		if (server == NULL || server->listening == false) {
 			// server closed while we waited!
 			// release the vnode so it can get deleted and set the binding to NULL as we can't be sure on its state anymore.
-			VOP_RELEASE(binding->vnode);
+			MUTEX_RELEASE(&binding->mutex);
+			VOP_RELEASE(vn);
 			binding = NULL;
 			error = ECONNREFUSED;
 			goto leave;
 		}
-		VOP_RELEASE(binding->vnode);
+
+		if (server->seqpacket != localsocket->seqpacket) {
+			MUTEX_RELEASE(&binding->mutex);
+			VOP_RELEASE(vn);
+			binding = NULL;
+			error = EPROTOTYPE;
+			goto leave;
+		}
+
+		VOP_RELEASE(vn);
 	}
 
 	localpair_t *pair = alloc(sizeof(localpair_t));
@@ -853,7 +873,7 @@ static int localsock_connect(socket_t *socket, sockaddr_t *addr, uintmax_t flags
 	// poll() the client to know when they can send data or if the server gave up and closed
 	if (socket_nonblocking(socket, flags)) {
 		error = 0;
-		goto leave; 
+		goto leave;
 	}
 
 	// otherwise, we will just do the same thing as userspace (but here)
@@ -873,13 +893,11 @@ static int localsock_connect(socket_t *socket, sockaddr_t *addr, uintmax_t flags
 	poll_leave(&desc);
 	poll_destroydesc(&desc);
 
-	if (error)
-		goto leave;
-
 	leave:
 	if (binding)
 		MUTEX_RELEASE(&binding->mutex);
 
+	leave_nobinding:
 	if (result)
 		VOP_RELEASE(result);
 
@@ -896,7 +914,7 @@ static int localsock_listen(socket_t *socket, int backlogsize) {
 	
 	int error = 0;
 	// already listening
-	if (localsocket->backlog)
+	if (localsocket->listening)
 		goto leave;
 
 	// connected/unbound socket
@@ -913,14 +931,13 @@ static int localsock_listen(socket_t *socket, int backlogsize) {
 
 	MUTEX_ACQUIRE(&localsocket->binding->mutex);
 
-	localsocket->backlog = alloc(backlogsize * sizeof(localpair_t *));
-	if (localsocket->backlog == NULL) {
+	error = ringbuffer_init(&localsocket->backlog, backlogsize * sizeof(localpair_t *));
+	if (error) {
 		MUTEX_RELEASE(&localsocket->binding->mutex);
-		error = ENOMEM;
 		goto leave;
 	}
 
-	localsocket->backlogsize = backlogsize;
+	localsocket->listening = true;
 
 	MUTEX_RELEASE(&localsocket->binding->mutex);
 
@@ -969,12 +986,9 @@ static void localsock_destroy(socket_t *socket) {
 	}
 
 	// destroy backlog (for listening sockets)
-	if (localsocket->backlog) {
-		for (int i = 0; i < localsocket->backlogsize; ++i) {
-			localpair_t *pair = localsocket->backlog[i];
-			if (pair == NULL)
-				continue;
-
+	if (localsocket->listening) {
+		localpair_t *pair = NULL;
+		while (ringbuffer_read(&localsocket->backlog, &pair, sizeof(pair)) == sizeof(pair)) {
 			MUTEX_ACQUIRE(&pair->mutex);
 			if (pair->client == NULL) {
 				// client gave up
@@ -986,8 +1000,8 @@ static void localsock_destroy(socket_t *socket) {
 			}
 		}
 
-		free(localsocket->backlog);
-		localsocket->backlog = NULL;
+		ringbuffer_destroy(&localsocket->backlog);
+		localsocket->listening = false;
 	}
 
 	poll_event(&socket->pollheader, POLLHUP);
