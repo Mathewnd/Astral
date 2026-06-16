@@ -14,9 +14,10 @@ struct mtab_list {
 
 static const char *argv0;
 static struct mtab_list *mtab_list;
+static bool force = false;
 
 void usage(void) {
-	fprintf(stderr, "%s: usage: %s [-a] [-d device] [-t filesystem] [mountpoint]\n", argv0, argv0);
+	fprintf(stderr, "%s: usage: %s [-a] [-f] [-d device] [-t filesystem] [mountpoint]\n", argv0, argv0);
 	exit(EXIT_FAILURE);
 }
 
@@ -25,15 +26,17 @@ static int mount_filesystem(char *device, char *path, char *filesystem, unsigned
 		device = NULL;
 
 	// check if device already mounted
-	for (struct mtab_list *it = mtab_list; it; it = it->next) {
-		if (strcmp(path, it->mntent.mnt_dir) == 0 && strcmp(filesystem, it->mntent.mnt_type) == 0 && strcmp(it->mntent.mnt_fsname, "none") == 0) {
-			fprintf(stderr, "%s: virtual filesystem %s already mounted at %s\n", argv0, filesystem, path);
-			return EXIT_SUCCESS;
-		}
+	if (!force) {
+		for (struct mtab_list *it = mtab_list; it; it = it->next) {
+			if (strcmp(path, it->mntent.mnt_dir) == 0 && strcmp(filesystem, it->mntent.mnt_type) == 0 && strcmp(it->mntent.mnt_fsname, "none") == 0) {
+				fprintf(stderr, "%s: virtual filesystem %s already mounted at %s\n", argv0, filesystem, path);
+				return EXIT_SUCCESS;
+			}
 
-		if (device && strcmp(device, it->mntent.mnt_fsname) == 0 && strcmp(it->mntent.mnt_fsname, "none")) {
-			fprintf(stderr, "%s: %s already mounted at %s\n", argv0, device, path);
-			return EXIT_SUCCESS;
+			if (device && strcmp(device, it->mntent.mnt_fsname) == 0 && strcmp(it->mntent.mnt_fsname, "none")) {
+				fprintf(stderr, "%s: %s already mounted at %s\n", argv0, device, path);
+				return EXIT_SUCCESS;
+			}
 		}
 	}
 
@@ -49,7 +52,6 @@ static int mount_filesystem(char *device, char *path, char *filesystem, unsigned
 	struct mtab_list *entry = malloc(sizeof(struct mtab_list));
 	if (entry == NULL)
 		return EXIT_FAILURE;
-
 
 	entry->mntent.mnt_fsname = device ? strdup(device) : "none";
 	entry->mntent.mnt_dir = strdup(path);
@@ -247,6 +249,12 @@ int main(int argc, char *argv[]) {
 
 		if (strcmp(argv[i], "-a") == 0) {
 			all = true;
+			continue;
+		}
+
+		if (strcmp(argv[i], "-f") == 0) {
+			force = true;
+			continue;
 		}
 
 		if (devnext) {
