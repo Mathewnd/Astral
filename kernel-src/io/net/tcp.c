@@ -1374,7 +1374,7 @@ static int tcp_recv(socket_t *socket, sockdesc_t *sockdesc) {
 			if ((revents & POLLHUP) == 0 && (flags & SOCKET_RECV_FLAGS_WAITALL) &&
 				(flags & SOCKET_RECV_FLAGS_PEEK) == 0 && RINGBUFFER_DATACOUNT(&tcb->receivebuffer) < sockdesc->count) {
 				// wait for more data (WAITALL is set)
-				poll_add(&socket->pollheader, &desc.data[0], POLLIN);
+				poll_add(&tcb->pollheader, &desc.data[0], POLLIN);
 			} else {
 				poll_leave(&desc);
 				poll_destroydesc(&desc);
