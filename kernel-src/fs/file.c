@@ -269,9 +269,8 @@ int fd_dup(int oldfd, int newfd, bool exact, int fdflags, int *retfd) {
 		int fd = getfree(newfd);
 
 		if (fd == -1) {
-			size_t newsize = newfd < proc->fdcount ? proc->fdcount + 1 : newfd;
-			fd = newsize - 1;
-			err = growtable(newsize);
+			fd = newfd < proc->fdcount ? proc->fdcount : newfd;
+			err = growtable(fd + 1);
 			if (err)
 				goto cleanup;
 		}
