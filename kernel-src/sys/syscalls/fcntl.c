@@ -32,7 +32,8 @@ syscallret_t syscall_fcntl(context_t *, int fd, int cmd, uint64_t arg) {
 			{
 			int f;
 			ret.errno = fd_dup(fd, arg, false, (cmd == F_DUPFD_CLOEXEC) ? O_CLOEXEC : 0, &f);
-			ret.ret = f;
+			if (ret.errno == 0)
+				ret.ret = f;
 			}
 			break;
 		case F_GETFL:
@@ -49,12 +50,14 @@ syscallret_t syscall_fcntl(context_t *, int fd, int cmd, uint64_t arg) {
 			break;
 		case F_SETFD:
 			ret.errno = fd_setflags(fd, (arg & FD_CLOEXEC) ? O_CLOEXEC : 0);
-			ret.ret = 0;
+			if (ret.errno == 0)
+				ret.ret = 0;
 			break;
 		case F_GETFD:
 			int flg;
 			ret.errno = fd_getflags(fd, &flg);
-			ret.ret = flg ? FD_CLOEXEC : 0;
+			if (ret.errno == 0)
+				ret.ret = flg ? FD_CLOEXEC : 0;
 			break;
 		case F_SETLK64:
 		case F_SETLKW64:
@@ -65,7 +68,6 @@ syscallret_t syscall_fcntl(context_t *, int fd, int cmd, uint64_t arg) {
 			ret.errno = EINVAL;
 			goto cleanup;
 	}
-	ret.errno = 0;
 
 	cleanup:
 	ret.ret = ret.errno ? -1 : ret.ret;
