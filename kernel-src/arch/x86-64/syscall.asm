@@ -306,6 +306,11 @@ arch_syscall_entry:
 	.return:
 	cli
 
+	; save the syscall return values into the saved context before
+	; signal delivery can rewrite it for a user handler
+	mov [rsp + 48], rax ; context->rax
+	mov [rsp + 72], rdx ; context->rdx
+
 	; call return logging function
 	mov rdi, rax
 	mov rsi, rdx
@@ -328,10 +333,10 @@ arch_syscall_entry:
 	mov es,rbx
 	pop rbx
 	mov ds,rbx
-	add rsp, 8 ; rax
+	pop rax
 	pop rbx
 	pop rcx
-	add rsp, 8 ; rdx
+	pop rdx
 	pop r8
 	pop r9
 	pop r10
