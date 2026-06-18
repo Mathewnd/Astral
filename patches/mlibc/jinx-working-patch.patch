@@ -199,7 +199,7 @@ index 3b7b862..3d86e7a 100644
 +
  } // namespace mlibc
 diff --git mlibc-clean/options/internal/include/mlibc/allocator.hpp mlibc-workdir/options/internal/include/mlibc/allocator.hpp
-index 852620a..a1bfb0a 100644
+index 852620a..7f1aa89 100644
 --- mlibc-clean/options/internal/include/mlibc/allocator.hpp
 +++ mlibc-workdir/options/internal/include/mlibc/allocator.hpp
 @@ -3,6 +3,7 @@
@@ -210,7 +210,16 @@ index 852620a..a1bfb0a 100644
  #include <frg/slab.hpp>
  #include <internal-config.h>
  
-@@ -35,4 +36,34 @@ MemoryAllocator &getAllocator();
+@@ -13,6 +14,8 @@ public:
+ 	uintptr_t map(size_t length);
+ 
+ 	void unmap(uintptr_t address, size_t length);
++
++	static constexpr size_t num_buckets = 14;
+ };
+ 
+ typedef frg::slab_pool<VirtualAllocator, FutexLock> MemoryPool;
+@@ -35,4 +38,34 @@ MemoryAllocator &getAllocator();
  
  #endif // !MLIBC_DEBUG_ALLOCATOR
  

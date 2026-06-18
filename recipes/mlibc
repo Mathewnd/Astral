@@ -1,6 +1,6 @@
 name=mlibc
 from_source=mlibc
-revision=7
+revision=8
 hostdeps="xgcc xbinutils pkgconfig"
 builddeps="freestnd-c-hdrs freestnd-cxx-hdrs frigg libsmarter"
 imagedeps="meson ninja-build git build-essential binutils"
