@@ -148,8 +148,9 @@ void signal_suspend(sigset_t *sigset) {
 	thread_t *thread = current_thread();
 	THREAD_ENTER(thread);
 
+	sigset_t oldmask = thread->signals.mask;
 	memcpy(&thread->signals.mask, sigset, sizeof(sigset_t));
-	signal_returnmask(thread, sigset);
+	signal_returnmask(thread, &oldmask);
 
 	THREAD_LEAVE(thread);
 
@@ -586,7 +587,7 @@ bool signal_check(struct thread_t *thread, context_t *context, bool syscall, uin
 		if ((action->flags & SA_NODEFER) == 0)
 			SIGNAL_SETON(&thread->signals.mask, signal);
 
-		for (int i = 1; i < signal; ++i) {
+		for (int i = 1; i < NSIG; ++i) {
 			if (SIGNAL_GET(&action->mask, i) == 0)
 				continue;
 
