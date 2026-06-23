@@ -1,0 +1,9 @@
+name=xinit
+version=1.4.4
+source_method=tarball
+tarball_url="https://www.x.org/releases/individual/app/xinit-${version}.tar.xz"
+tarball_sha512="387285c952bbe074d2ed2dbbf745d1634763bb71f7f7edb22b3306b9e96ae4e28e59ecd6c48cc646b12dbdbcc68d42036bd127da75ef3c16fabdae87794ad6d1"
+hostdeps="autoconf automake util-macros pkgconfig libtool"
+prepare() {
+	autoreconf -fvi
+}

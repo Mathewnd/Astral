@@ -1,0 +1,13 @@
+diff --git xinit-clean/startx.in xinit-workdir/startx.in
+index 9b224af..6c69eab 100644
+--- xinit-clean/startx.in
++++ xinit-workdir/startx.in
+@@ -267,7 +267,7 @@ if [ "$enable_xauth" = 1 ] ; then
+     hostname="$(uname -n)"
+ 
+     authdisplay=${display:-:0}
+-    if [ -n "$has_cookie_maker" ] && [ -n "$mk_cookie" ] ; then
++    if [ -n "$has_cookie_maker" ] && [ -n "$mk_cookie" ] && command -v "$mk_cookie" >/dev/null 2>&1 ; then
+         mcookie=$($mk_cookie)
+     else
+         if [ -r /dev/urandom ]; then

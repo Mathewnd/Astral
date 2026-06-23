@@ -1,0 +1,18 @@
+name=xinit
+revision=1
+from_source=xinit
+imagedeps="gcc"
+hostdeps="xgcc xbinutils pkgconfig"
+deps="base xorg-server xauth xclock xrdb xmodmap xterm twm"
+
+configure() {
+	${source_dir}/configure --prefix=${prefix} --host=x86_64-astral --with-xinitdir=${prefix}/lib/X11/xinit
+}
+
+build() {
+	make -j${parallelism}
+}
+
+package() {
+	make DESTDIR=${dest_dir} install
+}
