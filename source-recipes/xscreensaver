@@ -1,0 +1,18 @@
+name=xscreensaver
+version=6.15
+source_method=tarball
+tarball_url="https://astral-os.org/mirror/xscreensaver-${version}.tar.gz"
+tarball_sha512="2a01c6c450c85e427cf2194b96d85017d3817d7e76821f36db9f643dd0c0a30b5197d431044c6a451dc3c3d74252b77e25bd8b51203a5f5c23ddef6e1bd02fb6"
+hostdeps="autoconf automake util-macros pkgconfig libtool"
+prepare() {
+	autoreconf -fvi
+	found_config_sub=
+	for config_sub in /usr/local/share/automake*/config.sub /usr/share/automake*/config.sub; do
+		if [ -f "$config_sub" ]; then
+			cp -v "$config_sub" .
+			found_config_sub=yes
+			break
+		fi
+	done
+	test -n "$found_config_sub"
+}

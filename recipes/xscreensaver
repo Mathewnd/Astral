@@ -1,0 +1,15 @@
+name=xscreensaver
+revision=1
+from_source=xscreensaver
+imagedeps="meson ninja-build build-essential intltool libglib2.0-dev-bin"
+hostdeps="xgcc xbinutils pkgconfig"
+deps="mlibc libxcrypt libx11 libxt libjpeg-turbo libpng libxft libxext libxi mesa glu gtk3 gdk-pixbuf"
+
+build() {
+	${source_dir}/configure --prefix=${prefix} --host=x86_64-astral --with-glx
+	make -j${parallelism}
+}
+
+package() {
+	make DESTDIR=${dest_dir} install
+}
