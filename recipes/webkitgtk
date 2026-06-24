@@ -42,7 +42,7 @@ configure() {
 }
 
 build() {
-	ninja -j4
+	ninja -j2
 }
 
 package() {
