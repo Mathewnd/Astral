@@ -1,0 +1,24 @@
+diff --git libxt-clean/src/Initialize.c libxt-workdir/src/Initialize.c
+index 8ae54b4..d0f0968 100644
+--- libxt-clean/src/Initialize.c
++++ libxt-workdir/src/Initialize.c
+@@ -197,7 +197,7 @@ _XtInherit(void)
+ #define _XtInherit __XtInherit
+ #endif
+ 
+-#if defined (WIN32) || defined(__CYGWIN__)
++#if defined (WIN32) || defined(__CYGWIN__) || defined(__astral__)
+ /*
+  * The Symbol _XtInherit is used in two different manners.
+  * First it could be used as a generic function and second
+@@ -246,8 +246,8 @@ _XtInherit(void)
+  * cygwin-xfree: http://www.cygwin.com/ml/cygwin-xfree/2003-10/msg00000.html
+  */
+ 
+-#ifdef __x86_64__
+-asm(".section .trampoline, \"dwx\" \n\
++#if defined(__x86_64__)
++asm(".section .trampoline, \"awx\", @progbits \n\
+  .globl _XtInherit        \n\
+  _XtInherit:              \n\
+     jmp *_y(%rip)         \n\
