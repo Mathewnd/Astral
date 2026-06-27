@@ -1,0 +1,5 @@
+name=double-conversion
+version=3.3.1
+source_method=tarball
+tarball_url=https://github.com/google/double-conversion/archive/v${version}/double-conversion-${version}.tar.gz
+tarball_sha512=60cab2fe623204cfa8737150e6ffcae091266180461dba377231e4fe8dccf712e74c643cd317b62266240ab82f1c0f820cf825038d627934d2dd0af1426f0cca

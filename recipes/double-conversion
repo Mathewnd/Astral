@@ -1,0 +1,27 @@
+name=double-conversion
+revision=1
+from_source=double-conversion
+imagedeps="build-essential cmake"
+hostdeps="xgcc xbinutils pkgconfig libtool libstdc++-v3"
+deps="base"
+
+configure() {
+	cmake \
+	-DPKG_CONFIG_EXECUTABLE="/usr/local/bin/x86_64-astral-pkg-config" \
+	-DCMAKE_TOOLCHAIN_FILE=${base_dir}/util/cmake \
+	-DCMAKE_INSTALL_PREFIX=${prefix} \
+	-DCMAKE_BUILD_TYPE=Release \
+	-DENABLE_STATIC=FALSE \
+	-DBUILD_SHARED_LIBS=ON \
+	-DCMAKE_INSTALL_LIBDIR=lib \
+	-D CMAKE_POLICY_VERSION_MINIMUM=3.5 \
+	${source_dir}
+}
+
+build() {
+	make -j${parallelism}
+}
+
+package() {
+	DESTDIR=${dest_dir} make install
+}
