@@ -1,0 +1,18 @@
+diff --git xfile-clean/src/res/prefs.ad xfile-workdir/src/res/prefs.ad
+index 8a95e7d..700d911 100644
+--- xfile-clean/src/res/prefs.ad
++++ xfile-workdir/src/res/prefs.ad
+@@ -28,7 +28,7 @@ XFile*toolsMenu.terminal.positionIndex: 0
+ ! Environment variables used by the file type database
+ !-----------------------------------------------------------------------------
+ XFile.variable.terminal: xterm -e
+-XFile.variable.textEditor: xedit
++XFile.variable.textEditor: xnedit
+ XFile.variable.imageViewer: ximaging
+ XFile.variable.imageEditor: xpaint
+ XFile.variable.audioPlayer: mplayer
+@@ -47,4 +47,3 @@ XFile.variable.webBrowser: links -g
+ *FileList.lookupTimeout: 3
+ *FileList.shortenLabels: 0
+ *FileList.caseSensitive: False
+-

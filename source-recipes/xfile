@@ -1,0 +1,5 @@
+name=xfile
+version=1.2.0
+source_method=tarball
+tarball_url="https://fastestcode.org/dl/xfile-src-${version}.tar.xz"
+tarball_sha512="69befa5638f33ff82f1d4d24bb29fd953c6320f16f24af63f823819e349840a1b02fc486dfdac17675af818f742ecbbb03e15cfae7e70c5617d5a70043996d4d"

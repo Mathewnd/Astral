@@ -1,0 +1,49 @@
+name=xfile
+revision=2
+from_source=xfile
+imagedeps="build-essential"
+hostdeps="xgcc xbinutils pkgconfig"
+deps="base openmotif libx11 libxinerama libxpm libxt libxft fontconfig"
+
+configure() {
+	cp -rp ${source_dir}/* .
+	ln -sf ../mf/Makefile.generic src/Makefile
+}
+
+build() {
+	make -C src -j${parallelism} \
+		CC=x86_64-astral-gcc \
+		PREFIX=${prefix} \
+		MANDIR=${prefix}/share/man \
+		SHAREDIR=${prefix}/share/xfile \
+		APPLRESDIR=/etc/X11/app-defaults \
+		INCDIRS="-I${sysroot_dir}${prefix}/include -I${sysroot_dir}${prefix}/include/X11" \
+		LIBDIRS="-L${sysroot_dir}${prefix}/lib" \
+		X_LIBS="-lX11 -lXinerama -lXm -lXt -lXpm $(x86_64-astral-pkg-config --libs xft fontconfig)" \
+		CFLAGS="${CFLAGS}" \
+		LDFLAGS="${LDFLAGS}"
+}
+
+package() {
+	install -d ${dest_dir}${prefix}/bin
+	install -m755 src/xfile ${dest_dir}${prefix}/bin/xfile
+	ln -sf xfile ${dest_dir}${prefix}/bin/xfile-open
+
+	install -d ${dest_dir}${prefix}/share/man/man1
+	install -m644 src/xfile.1 ${dest_dir}${prefix}/share/man/man1/xfile.1
+
+	install -d ${dest_dir}/etc/X11/app-defaults
+	install -m644 src/xfile.ad ${dest_dir}/etc/X11/app-defaults/XFile
+
+	install -d ${dest_dir}${prefix}/share/xfile/types
+	install -m644 src/default.db ${dest_dir}${prefix}/share/xfile/types/system.db
+
+	install -d ${dest_dir}${prefix}/share/xfile/icons
+	install -m644 src/icons/*.xpm ${dest_dir}${prefix}/share/xfile/icons/
+	install -m644 src/icons/README ${dest_dir}${prefix}/share/xfile/README.icons
+
+	if [ -f src/xbm/cabinet.xpm ]; then
+		install -d ${dest_dir}${prefix}/share/pixmaps
+		install -m644 src/xbm/cabinet.xpm ${dest_dir}${prefix}/share/pixmaps/xfile_48x48.xpm
+	fi
+}
