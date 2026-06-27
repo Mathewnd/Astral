@@ -1,0 +1,11 @@
+#!/usr/bin/bash
+
+case "$1" in
+	pre)
+		;;
+	post)
+		glib-compile-schemas /usr/share/glib-2.0/schemas
+		;;
+esac
+
+exit 0

@@ -1,5 +1,5 @@
 name=libavif
-revision=1
+revision=2
 from_source=libavif
 imagedeps="build-essential cmake"
 hostdeps="xgcc xbinutils pkgconfig libtool"
@@ -26,4 +26,5 @@ build() {
 
 package() {
 	DESTDIR=${dest_dir} ninja install
+	copy_install_hook
 }
