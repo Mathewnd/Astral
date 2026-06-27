@@ -1,0 +1,659 @@
+diff --git xnedit-clean/Makefile xnedit-workdir/Makefile
+index 8c694f1..fb3f7f5 100644
+--- xnedit-clean/Makefile
++++ xnedit-workdir/Makefile
+@@ -35,7 +35,7 @@ all:
+ 	(cd Xlt;    $(MAKE) -f Makefile.$@ libXlt.a)
+ 	(cd Microline/XmL;    $(MAKE) -f Makefile.$@ libXmL.a)
+ 	(cd source; $(MAKE) -f Makefile.$@ xnedit xnc)
+-	@source/xnedit -V
++	@true
+ 
+ # This should not be in the default build, as users may not have Perl
+ # installed.  This is only interesting to developers.
+diff --git xnedit-clean/Microline/XmL/Folder.c xnedit-workdir/Microline/XmL/Folder.c
+index e2dc7f6..1a7e2d9 100644
+--- xnedit-clean/Microline/XmL/Folder.c
++++ xnedit-workdir/Microline/XmL/Folder.c
+@@ -61,6 +61,7 @@ int fprintf(FILE *, char *, ...);
+ 
+ /* Create and Destroy */
+ static void ClassInitialize();
++static void ClassPartInitialize(WidgetClass wc);
+ static void Initialize(Widget req, Widget newW, 
+ 	ArgList args, Cardinal *nargs);
+ static void Destroy(Widget w);
+@@ -383,7 +384,7 @@ XmLFolderClassRec xmlFolderClassRec =
+ 		"XmLFolder",                              /* class_name         */
+ 		sizeof(XmLFolderRec),                     /* widget_size        */
+ 		ClassInitialize,                          /* class_init         */
+-		0,                                        /* class_part_init    */
++		ClassPartInitialize,                      /* class_part_init    */
+ 		FALSE,                                    /* class_inited       */
+ 		(XtInitProc)Initialize,                   /* initialize         */
+ 		0,                                        /* initialize_hook    */
+@@ -402,7 +403,7 @@ XmLFolderClassRec xmlFolderClassRec =
+ 		(XtExposeProc)Redisplay,                  /* expose             */
+ 		(XtSetValuesFunc)SetValues,               /* set_values         */
+ 		0,                                        /* set_values_hook    */
+-		XtInheritSetValuesAlmost,                 /* set_values_almost  */
++		0,                                        /* set_values_almost  */
+ 		0,                                        /* get_values_hook    */
+ 		0,                                        /* accept_focus       */
+ 		XtVersion,                                /* version            */
+@@ -415,8 +416,8 @@ XmLFolderClassRec xmlFolderClassRec =
+ 		{ /* composite_class */
+ 		(XtGeometryHandler)GeometryManager,       /* geometry_manager   */
+ 		(XtWidgetProc)ChangeManaged,              /* change_managed     */
+-		XtInheritInsertChild,                     /* insert_child       */
+-		XtInheritDeleteChild,                     /* delete_child       */
++		0,                                        /* insert_child       */
++		0,                                        /* delete_child       */
+ 		0,                                        /* extension          */
+ 		},
+ 		{ /* constraint_class */
+@@ -429,12 +430,12 @@ XmLFolderClassRec xmlFolderClassRec =
+ 		0,                                        /* extension          */
+ 		},
+ 		{ /* manager_class */
+-		XtInheritTranslations,                    /* translations       */
++		0,                                        /* translations       */
+ 		0,                                        /* syn resources      */
+ 		0,                                        /* num syn_resources  */
+ 		0,                                        /* get_cont_resources */
+ 		0,                                        /* num_get_cont_resrc */
+-		XmInheritParentProcess,                   /* parent_process     */
++		0,                                        /* parent_process     */
+ 		0,                                        /* extension          */
+ 		},
+ 		{ /* folder_class */
+@@ -444,6 +445,24 @@ XmLFolderClassRec xmlFolderClassRec =
+ 
+ WidgetClass xmlFolderWidgetClass = (WidgetClass)&xmlFolderClassRec;
+ 
++static void
++ClassPartInitialize(WidgetClass wc)
++	{
++	XmLFolderWidgetClass c;
++	XmManagerWidgetClass sc;
++
++	c = (XmLFolderWidgetClass)wc;
++	sc = (XmManagerWidgetClass)c->core_class.superclass;
++
++	c->core_class.set_values_almost = sc->core_class.set_values_almost;
++	c->composite_class.insert_child =
++		((CompositeWidgetClass)sc)->composite_class.insert_child;
++	c->composite_class.delete_child =
++		((CompositeWidgetClass)sc)->composite_class.delete_child;
++	c->manager_class.translations = sc->manager_class.translations;
++	c->manager_class.parent_process = sc->manager_class.parent_process;
++	}
++
+ 
+ 
+ static void 
+diff --git xnedit-clean/Microline/XmL/Grid.c xnedit-workdir/Microline/XmL/Grid.c
+index d0128de..723416a 100644
+--- xnedit-clean/Microline/XmL/Grid.c
++++ xnedit-workdir/Microline/XmL/Grid.c
+@@ -1351,7 +1351,7 @@ XmLGridClassRec xmlGridClassRec =
+ 		(XtExposeProc)Redisplay,                  /* expose             */
+ 		(XtSetValuesFunc)SetValues,               /* set_values         */
+ 		0,                                        /* set_values_hook    */
+-		XtInheritSetValuesAlmost,                 /* set_values_almost  */
++		0,                                        /* set_values_almost  */
+ 		(XtArgsProc)GetSubValues,                 /* get_values_hook    */
+ 		0,                                        /* accept_focus       */
+ 		XtVersion,                                /* version            */
+@@ -1364,8 +1364,8 @@ XmLGridClassRec xmlGridClassRec =
+ 		{ /* composite_class */
+ 		(XtGeometryHandler)GeometryManager,       /* geometry_manager   */
+ 		(XtWidgetProc)ChangeManaged,              /* change_managed     */
+-		XtInheritInsertChild,                     /* insert_child       */
+-		XtInheritDeleteChild,                     /* delete_child       */
++		0,                                        /* insert_child       */
++		0,                                        /* delete_child       */
+ 		0,                                        /* extension          */
+ 		},
+ 		{ /* constraint_class */
+@@ -1378,18 +1378,18 @@ XmLGridClassRec xmlGridClassRec =
+ 		0,                                        /* extension          */
+ 		},
+ 		{ /* manager_class */
+-		XtInheritTranslations,                    /* translations       */
++		0,                                        /* translations       */
+ 		0,                                        /* syn resources      */
+ 		0,                                        /* num syn_resources  */
+ 		0,                                        /* get_cont_resources */
+ 		0,                                        /* num_get_cont_res   */
+-		XmInheritParentProcess,                   /* parent_process     */
++		0,                                        /* parent_process     */
+ 		0,                                        /* extension          */
+ 		},
+ 		{ /* grid_class */
+ 		0,                                        /* initial rows       */
+ 		0,                                        /* initial columns    */
+-		XmInheritGridPreLayout,                   /* pre layout         */
++		0,                                        /* pre layout         */
+ 		sizeof(struct _XmLGridRowRec),            /* row rec size       */
+ 		_GridRowNew,                              /* row new            */
+ 		_GridRowFree,                             /* row free           */
+@@ -1486,30 +1486,22 @@ static void
+ ClassPartInitialize(WidgetClass wc)
+ 	{
+ 	XmLGridWidgetClass c, sc;
++	XmManagerWidgetClass msc;
+ 
+ 	c = (XmLGridWidgetClass)wc;
+ 	sc = (XmLGridWidgetClass)c->core_class.superclass;
++	msc = (XmManagerWidgetClass)c->core_class.superclass;
+ 
+-#define INHERIT_PROC(proc, inherit) \
+-	if (c->grid_class.proc == inherit) \
+-		c->grid_class.proc = sc->grid_class.proc;
++	c->core_class.set_values_almost = msc->core_class.set_values_almost;
++	c->composite_class.insert_child =
++		((CompositeWidgetClass)msc)->composite_class.insert_child;
++	c->composite_class.delete_child =
++		((CompositeWidgetClass)msc)->composite_class.delete_child;
++	c->manager_class.translations = msc->manager_class.translations;
++	c->manager_class.parent_process = msc->manager_class.parent_process;
++	if (c->core_class.superclass != (WidgetClass)&xmManagerClassRec)
++		c->grid_class.preLayoutProc = sc->grid_class.preLayoutProc;
+ 
+-	INHERIT_PROC(rowNewProc, XmInheritGridRowNew)
+-	INHERIT_PROC(rowFreeProc, XmInheritGridRowFree)
+-	INHERIT_PROC(getRowValueMaskProc, XmInheritGridGetRowValueMask)
+-	INHERIT_PROC(getRowValueProc, XmInheritGridGetRowValue)
+-	INHERIT_PROC(setRowValuesProc, XmInheritGridSetRowValues)
+-
+-	INHERIT_PROC(columnNewProc, XmInheritGridColumnNew)
+-	INHERIT_PROC(columnFreeProc, XmInheritGridColumnFree)
+-	INHERIT_PROC(getColumnValueMaskProc, XmInheritGridGetColumnValueMask)
+-	INHERIT_PROC(getColumnValueProc, XmInheritGridGetColumnValue)
+-	INHERIT_PROC(setColumnValuesProc, XmInheritGridSetColumnValues)
+-
+-	INHERIT_PROC(setCellValuesResizeProc, XmInheritGridSetCellValuesResize)
+-	INHERIT_PROC(cellActionProc, XmInheritGridCellAction)
+-
+-#undef INHERIT_PROC
+ 	}
+ 
+ static void 
+@@ -2983,7 +2975,7 @@ VertLayout(XmLGridWidget g,
+ 
+ 	maxRow = maxPos = maxHeight = newHeight = horizSizeChanged = 0;
+ 	preLayoutProc = XmLGridClassPartOfWidget(g).preLayoutProc;
+-	if (g->grid.layoutStack < 2 && preLayoutProc != XmInheritGridPreLayout)
++	if (g->grid.layoutStack < 2 && preLayoutProc != 0)
+ 		horizSizeChanged = preLayoutProc(g, 1);
+ 
+ 	scrollChanged = 0;
+@@ -3244,7 +3236,7 @@ HorizLayout(XmLGridWidget g,
+ 
+ 	maxCol = maxPos = newWidth = vertSizeChanged = 0;
+ 	preLayoutProc = XmLGridClassPartOfWidget(g).preLayoutProc;
+-	if (g->grid.layoutStack < 2 && preLayoutProc != XmInheritGridPreLayout)
++	if (g->grid.layoutStack < 2 && preLayoutProc != 0)
+ 		vertSizeChanged = preLayoutProc(g, 0);
+ 
+ 	scrollChanged = 0;
+diff --git xnedit-clean/Microline/XmL/Progress.c xnedit-workdir/Microline/XmL/Progress.c
+index eca3e8c..c91e099 100644
+--- xnedit-clean/Microline/XmL/Progress.c
++++ xnedit-workdir/Microline/XmL/Progress.c
+@@ -52,9 +52,11 @@
+ #include <time.h>
+ 
+ static void ClassInitialize(void);
++static void ClassPartInitialize(WidgetClass wc);
+ static void Initialize(Widget , Widget, ArgList, Cardinal *);
+ static void Resize(Widget);
+ static void Destroy(Widget);
++static void NoopBorder(Widget);
+ static void Realize(Widget w, XtValueMask *valueMask,
+ 	XSetWindowAttributes *attr);
+ static void Redisplay(Widget, XEvent *, Region);
+@@ -137,7 +139,7 @@ XmLProgressClassRec xmlProgressClassRec =
+ 		"XmLProgress",                          /* class_name */
+ 		sizeof(XmLProgressRec),                 /* widget_size */
+ 		ClassInitialize,                        /* class_initialize */
+-		NULL,                                   /* class_part_initialize */
++		ClassPartInitialize,                    /* class_part_initialize */
+ 		FALSE,                                  /* class_inited */
+ 		(XtInitProc)Initialize,                 /* initialize */
+ 		NULL,                                   /* initialize_hook */
+@@ -156,20 +158,20 @@ XmLProgressClassRec xmlProgressClassRec =
+ 		(XtExposeProc)Redisplay,                /* expose */
+ 		(XtSetValuesFunc)SetValues,             /* set_values */
+ 		NULL,                                   /* set_values_hook */
+-		XtInheritSetValuesAlmost,               /* set_values_almost */
++		NULL,                                   /* set_values_almost */
+ 		NULL,                                   /* get_values_hook */
+ 		NULL,                                   /* accept_focus */
+ 		XtVersion,                              /* version */
+ 		NULL,                                   /* callback_private */
+-		XtInheritTranslations,                  /* tm_table */
++		NULL,                                   /* tm_table */
+ 		NULL,                                   /* query_geometry */
+ 		NULL,                                   /* display_accelerator */
+ 		NULL,                                   /* extension */
+ 		},
+ 		{ /* Primitive */
+-		(XtWidgetProc)_XtInherit,               /* border_highlight */
+-		(XtWidgetProc)_XtInherit,               /* border_unhighlight */
+-		XtInheritTranslations,                  /* translations */
++		NoopBorder,                             /* border_highlight */
++		NoopBorder,                             /* border_unhighlight */
++		NULL,                                   /* translations */
+ 		NULL,                                   /* arm_and_activate */
+ 		NULL,                                   /* syn_resources */
+ 		0,                                      /* num_syn_resources */
+@@ -182,6 +184,26 @@ XmLProgressClassRec xmlProgressClassRec =
+ 
+ WidgetClass xmlProgressWidgetClass = (WidgetClass)&xmlProgressClassRec;
+ 
++static void
++ClassPartInitialize(WidgetClass wc)
++	{
++	XmLProgressWidgetClass c;
++	XmPrimitiveWidgetClass sc;
++
++	c = (XmLProgressWidgetClass)wc;
++	sc = (XmPrimitiveWidgetClass)c->core_class.superclass;
++
++	c->core_class.set_values_almost = sc->core_class.set_values_almost;
++	c->core_class.tm_table = sc->core_class.tm_table;
++	c->primitive_class.translations = sc->primitive_class.translations;
++	}
++
++static void
++NoopBorder(Widget w)
++	{
++	(void)w;
++	}
++
+ static void 
+ CheckSetRenderTable(Widget wid,
+ 		    int offset,
+@@ -650,5 +672,3 @@ XmLCreateProgress(Widget parent,
+ 	return XtCreateWidget(name, xmlProgressWidgetClass, parent,
+ 		arglist, argcount);
+ 	}
+-
+-
+diff --git xnedit-clean/Microline/XmL/Tree.c xnedit-workdir/Microline/XmL/Tree.c
+index abad5c9..8752d95 100644
+--- xnedit-clean/Microline/XmL/Tree.c
++++ xnedit-workdir/Microline/XmL/Tree.c
+@@ -51,6 +51,7 @@
+ #include <stdio.h>
+ 
+ static void Initialize(Widget req, Widget newW, ArgList args, Cardinal *nargs);
++static void ClassPartInitialize(WidgetClass wc);
+ static void Destroy(Widget w);
+ static Boolean SetValues(Widget curW, Widget, Widget newW, 
+ 	ArgList args, Cardinal *nargs);
+@@ -145,11 +146,11 @@ XmLTreeClassRec xmlTreeClassRec =
+ 		"XmLTree",                                /* class_name         */
+ 		sizeof(XmLTreeRec),                       /* widget_size        */
+ 		(XtProc)NULL,                             /* class_init         */
+-		0,                                        /* class_part_init    */
++		ClassPartInitialize,                      /* class_part_init    */
+ 		FALSE,                                    /* class_inited       */
+ 		(XtInitProc)Initialize,                   /* initialize         */
+ 		0,                                        /* initialize_hook    */
+-		XtInheritRealize,                         /* realize            */
++		0,                                        /* realize            */
+ 		NULL,                                     /* actions            */
+ 		0,                                        /* num_actions        */
+ 		resources,                                /* resources          */
+@@ -160,25 +161,25 @@ XmLTreeClassRec xmlTreeClassRec =
+ 		TRUE,                                     /* compress_enterleav */
+ 		TRUE,                                     /* visible_interest   */
+ 		(XtWidgetProc)Destroy,                    /* destroy            */
+-		XtInheritResize,                          /* resize             */
+-		XtInheritExpose,                          /* expose             */
++		0,                                        /* resize             */
++		0,                                        /* expose             */
+ 		(XtSetValuesFunc)SetValues,               /* set_values         */
+ 		0,                                        /* set_values_hook    */
+-		XtInheritSetValuesAlmost,                 /* set_values_almost  */
++		0,                                        /* set_values_almost  */
+ 		0,                                        /* get_values_hook    */
+ 		0,                                        /* accept_focus       */
+ 		XtVersion,                                /* version            */
+ 		0,                                        /* callback_private   */
+-		XtInheritTranslations,                    /* tm_table           */
++		0,                                        /* tm_table           */
+ 		0,                                        /* query_geometry     */
+ 		0,                                        /* display_accelerato */
+ 		0,                                        /* extension          */
+ 		},
+ 		{ /* composite_class */
+-		XtInheritGeometryManager,                 /* geometry_manager   */
+-		XtInheritChangeManaged,                   /* change_managed     */
+-		XtInheritInsertChild,                     /* insert_child       */
+-		XtInheritDeleteChild,                     /* delete_child       */
++		0,                                        /* geometry_manager   */
++		0,                                        /* change_managed     */
++		0,                                        /* insert_child       */
++		0,                                        /* delete_child       */
+ 		0,                                        /* extension          */
+ 		},
+ 		{ /* constraint_class */
+@@ -191,12 +192,12 @@ XmLTreeClassRec xmlTreeClassRec =
+ 		0,                                        /* extension          */
+ 		},
+ 		{ /* manager_class */
+-		XtInheritTranslations,                    /* translations       */
++		0,                                        /* translations       */
+ 		0,                                        /* syn resources      */
+ 		0,                                        /* num syn_resources  */
+ 		0,                                        /* get_cont_resources */
+ 		0,                                        /* num_get_cont_resou */
+-		XmInheritParentProcess,                   /* parent_process     */
++		0,                                        /* parent_process     */
+ 		0,                                        /* extension          */
+ 		},
+ 		{ /* grid_class */
+@@ -205,16 +206,16 @@ XmLTreeClassRec xmlTreeClassRec =
+ 		_PreLayout,                               /* post layout        */
+ 		sizeof(struct _XmLTreeRowRec),            /* row rec size       */
+ 		_RowNew,                                  /* row new            */
+-		XmInheritGridRowFree,                     /* row free           */
++		0,                                        /* row free           */
+ 		_GetRowValueMask,                         /* get row value mask */
+ 		_GetRowValue,                             /* get row value      */
+ 		_SetRowValues,                            /* set row values     */
+ 		sizeof(struct _XmLGridColumnRec),         /* column rec size    */
+-		XmInheritGridColumnNew,                   /* column new         */
+-		XmInheritGridColumnFree,                  /* column free        */
+-		XmInheritGridGetColumnValueMask,          /* get col value mask */
+-		XmInheritGridGetColumnValue,              /* get column value   */
+-		XmInheritGridSetColumnValues,             /* set column values  */
++		0,                                        /* column new         */
++		0,                                        /* column free        */
++		0,                                        /* get col value mask */
++		0,                                        /* get column value   */
++		0,                                        /* set column values  */
+ 		_SetCellValuesResize,                     /* set cell vl resize */
+ 		_TreeCellAction,                          /* cell action        */
+ 		},
+@@ -225,6 +226,42 @@ XmLTreeClassRec xmlTreeClassRec =
+ 
+ WidgetClass xmlTreeWidgetClass = (WidgetClass)&xmlTreeClassRec;
+ 
++static void
++ClassPartInitialize(WidgetClass wc)
++	{
++	XmLTreeWidgetClass c, sc;
++	XmManagerWidgetClass msc;
++
++	c = (XmLTreeWidgetClass)wc;
++	sc = (XmLTreeWidgetClass)c->core_class.superclass;
++	msc = (XmManagerWidgetClass)c->core_class.superclass;
++
++	c->core_class.realize = sc->core_class.realize;
++	c->core_class.resize = sc->core_class.resize;
++	c->core_class.expose = sc->core_class.expose;
++	c->core_class.set_values_almost = sc->core_class.set_values_almost;
++	c->core_class.tm_table = sc->core_class.tm_table;
++
++	c->composite_class.geometry_manager =
++		((CompositeWidgetClass)sc)->composite_class.geometry_manager;
++	c->composite_class.change_managed =
++		((CompositeWidgetClass)sc)->composite_class.change_managed;
++	c->composite_class.insert_child =
++		((CompositeWidgetClass)sc)->composite_class.insert_child;
++	c->composite_class.delete_child =
++		((CompositeWidgetClass)sc)->composite_class.delete_child;
++
++	c->manager_class.translations = msc->manager_class.translations;
++	c->manager_class.parent_process = msc->manager_class.parent_process;
++
++	c->grid_class.rowFreeProc = sc->grid_class.rowFreeProc;
++	c->grid_class.columnNewProc = sc->grid_class.columnNewProc;
++	c->grid_class.columnFreeProc = sc->grid_class.columnFreeProc;
++	c->grid_class.getColumnValueMaskProc = sc->grid_class.getColumnValueMaskProc;
++	c->grid_class.getColumnValueProc = sc->grid_class.getColumnValueProc;
++	c->grid_class.setColumnValuesProc = sc->grid_class.setColumnValuesProc;
++	}
++
+ static void
+ Initialize(Widget reqW,
+ 	   Widget newW,
+@@ -1407,4 +1444,3 @@ XmLTreeDeleteChildren(Widget w,
+     if (jj > 0)
+         XmLGridDeleteRows(w, XmCONTENT, row + 1, jj);
+ }
+-
+diff --git xnedit-clean/Xlt/BubbleButton.c xnedit-workdir/Xlt/BubbleButton.c
+index 1000864..d9f6e1f 100644
+--- xnedit-clean/Xlt/BubbleButton.c
++++ xnedit-workdir/Xlt/BubbleButton.c
+@@ -151,7 +151,7 @@ XltBubbleButtonClassRec xrwsBubbleButtonClassRec = {
+ 	/* class_inited          */ False,
+ 	/* initialize            */ initialize,
+ 	/* initialize_hook       */ NULL,
+-	/* realize               */ XtInheritRealize,
++	/* realize               */ NULL,
+ 	/* actions               */ actions,
+ 	/* num_actions           */ XtNumber(actions),
+ 	/* resources             */ resources,
+@@ -162,35 +162,35 @@ XltBubbleButtonClassRec xrwsBubbleButtonClassRec = {
+ 	/* compress_enterleave   */ True,
+ 	/* visible_interest      */ False,
+ 	/* destroy               */ destroy,
+-	/* resize                */ XtInheritResize,
+-	/* expose                */ XtInheritExpose,
++	/* resize                */ NULL,
++	/* expose                */ NULL,
+ 	/* set_values            */ set_values,
+ 	/* set_values_hook       */ NULL,
+-	/* set_values_almost     */ XtInheritSetValuesAlmost,
++	/* set_values_almost     */ NULL,
+ 	/* get_values_hook       */ NULL,
+ 	/* accept_focus          */ NULL,
+ 	/* version               */ XtVersion,
+ 	/* callback offsets      */ NULL,
+ 	/* tm_table              */ NULL,
+-	/* query_geometry        */ XtInheritQueryGeometry,
++	/* query_geometry        */ NULL,
+ 	/* display_accelerator   */ NULL,
+ 	/* extension             */ (XtPointer)NULL
+     },
+     /* Primitive Class part */
+     {
+-	/* border_highlight      */ XmInheritBorderHighlight,
+-       	/* border_unhighlight    */ XmInheritBorderUnhighlight,
+-       	/* translations          */ XtInheritTranslations,
+-       	/* arm_and_activate_proc */ XmInheritArmAndActivate,
++	/* border_highlight      */ NULL,
++       	/* border_unhighlight    */ NULL,
++       	/* translations          */ NULL,
++       	/* arm_and_activate_proc */ NULL,
+        	/* synthetic resources   */ syn_resources, 
+         /* num syn res           */ XtNumber(syn_resources),
+ 	/* extension             */ (XtPointer)NULL
+     },
+     /* Label Class part */
+     {
+-        /* setOverrideCallback */ XmInheritSetOverrideCallback,
+-        /* menuProcs           */ XmInheritMenuProc,
+-        /* translations        */ XtInheritTranslations,
++        /* setOverrideCallback */ NULL,
++        /* menuProcs           */ NULL,
++        /* translations        */ NULL,
+ 	/* extension           */ NULL
+     },
+     /* PushButton Class part */
+@@ -226,6 +226,28 @@ class_initialize(void)
+ static void
+ class_part_initialize(WidgetClass widget_class)
+ {
++    XltBubbleButtonWidgetClass c = (XltBubbleButtonWidgetClass)widget_class;
++    XltBubbleButtonWidgetClass sc =
++        (XltBubbleButtonWidgetClass)c->core_class.superclass;
++
++    c->core_class.realize = sc->core_class.realize;
++    c->core_class.resize = sc->core_class.resize;
++    c->core_class.expose = sc->core_class.expose;
++    c->core_class.set_values_almost = sc->core_class.set_values_almost;
++    c->core_class.query_geometry = sc->core_class.query_geometry;
++
++    c->primitive_class.border_highlight =
++        sc->primitive_class.border_highlight;
++    c->primitive_class.border_unhighlight =
++        sc->primitive_class.border_unhighlight;
++    c->primitive_class.translations = sc->primitive_class.translations;
++    c->primitive_class.arm_and_activate =
++        sc->primitive_class.arm_and_activate;
++
++    c->label_class.setOverrideCallback =
++        sc->label_class.setOverrideCallback;
++    c->label_class.menuProcs = sc->label_class.menuProcs;
++    c->label_class.translations = sc->label_class.translations;
+ }
+ 
+ static void
+@@ -611,4 +633,3 @@ XltCreateBubbleButton(Widget parent,
+ {
+ 	return XtCreateWidget(name, xrwsBubbleButtonWidgetClass, parent, arglist, argCount);
+ }
+-
+diff --git xnedit-clean/source/text.c xnedit-workdir/source/text.c
+index 3fd61b6..0287274 100644
+--- xnedit-clean/source/text.c
++++ xnedit-workdir/source/text.c
+@@ -83,6 +83,7 @@
+ #define VERTICAL_SCROLL_DELAY 50
+ 
+ static void initialize(TextWidget request, TextWidget new);
++static void classPartInitialize(WidgetClass wc);
+ static void handleHidePointer(Widget w, XtPointer unused, 
+         XEvent *event, Boolean *continue_to_dispatch);
+ static void handleShowPointer(Widget w, XtPointer unused, 
+@@ -263,6 +264,7 @@ static int hasKey(const char *key, const String *args, const Cardinal *nArgs);
+ static int max(int i1, int i2);
+ static int min(int i1, int i2);
+ static void ringIfNecessary(Boolean silent, Widget w);
++static void noopBorder(Widget widget);
+ 
+ static XftColor defaultAnsiColors[16];
+ 
+@@ -795,7 +797,7 @@ static TextClassRec textClassRec = {
+     "Text",                         /* class_name            */
+     sizeof(TextRec),                /* widget_size           */
+     NULL,                           /* class_initialize      */
+-    NULL,                           /* class_part_initialize */
++    classPartInitialize,            /* class_part_initialize */
+     FALSE,                          /* class_inited          */
+     (XtInitProc)initialize,         /* initialize            */
+     NULL,                           /* initialize_hook       */
+@@ -814,7 +816,7 @@ static TextClassRec textClassRec = {
+     (XtExposeProc)redisplay,        /* expose                */
+     (XtSetValuesFunc)setValues,     /* set_values            */
+     NULL,                           /* set_values_hook       */
+-    XtInheritSetValuesAlmost,       /* set_values_almost     */
++    NULL,                           /* set_values_almost     */
+     NULL,                           /* get_values_hook       */
+     NULL,                           /* accept_focus          */
+     XtVersion,                      /* version               */
+@@ -826,8 +828,8 @@ static TextClassRec textClassRec = {
+   },
+   /* Motif primitive class fields */
+   {
+-     (XtWidgetProc)_XtInherit,   	/* Primitive border_highlight   */
+-     (XtWidgetProc)_XtInherit,   	/* Primitive border_unhighlight */
++     noopBorder,   	                /* Primitive border_highlight   */
++     noopBorder,   	                /* Primitive border_unhighlight */
+      NULL, /*XtInheritTranslations,*/	/* translations                 */
+      NULL,				/* arm_and_activate             */
+      NULL,				/* get resources      		*/
+@@ -841,6 +843,19 @@ static TextClassRec textClassRec = {
+ };
+ 
+ WidgetClass textWidgetClass = (WidgetClass)&textClassRec;
++static void classPartInitialize(WidgetClass wc)
++{
++    TextClassRec *c = (TextClassRec *)wc;
++    XmPrimitiveWidgetClass sc =
++            (XmPrimitiveWidgetClass)c->core_class.superclass;
++
++    c->core_class.set_values_almost = sc->core_class.set_values_almost;
++}
++
++static void noopBorder(Widget widget)
++{
++    (void)widget;
++}
+ #define NEDIT_HIDE_CURSOR_MASK (KeyPressMask)
+ #define NEDIT_SHOW_CURSOR_MASK (FocusChangeMask | PointerMotionMask | ButtonMotionMask | ButtonPressMask | ButtonReleaseMask)
+ static char empty_bits[] = {0x00, 0x00, 0x00, 0x00};
+diff --git xnedit-clean/util/textfield.c xnedit-workdir/util/textfield.c
+index 794c281..a2359a8 100644
+--- xnedit-clean/util/textfield.c
++++ xnedit-workdir/util/textfield.c
+@@ -45,6 +45,8 @@
+ static NFont *defaultFont;
+ 
+ static void textfield_class_init(void);
++static void textfield_class_part_init(WidgetClass wc);
++static void textfield_noop_border(Widget w);
+ 
+ static void mouse1DownAP(Widget w, XEvent *event, String *args, Cardinal *nArgs);
+ static void mouse1UpAP(Widget w, XEvent *event, String *args, Cardinal *nArgs);
+@@ -209,7 +211,7 @@ TextFieldClassRec tfWidgetClassRec = {
+         "XmTextField",                   // class_name
+         sizeof(TextFieldRec),            // widget_size
+         textfield_class_init,            // class_initialize
+-        NULL,                            // class_part_initialize
++        textfield_class_part_init,       // class_part_initialize
+         FALSE,                           // class_inited
+         textfield_init,                  // initialize
+         NULL,                            // initialize_hook
+@@ -228,20 +230,20 @@ TextFieldClassRec tfWidgetClassRec = {
+         textfield_expose,                // expose
+         textfield_set_values,            // set_values
+         NULL,                            // set_values_hook
+-        XtInheritSetValuesAlmost,        // set_values_almost
++        NULL,                            // set_values_almost
+         NULL,                            // get_values_hook
+         textfield_acceptfocus,           // accept_focus
+         XtVersion,                       // version
+         NULL,                            // callback_offsets
+         defaultTranslations,             // tm_table
+-        XtInheritQueryGeometry,          // query_geometry
++        NULL,                            // query_geometry
+         NULL,                            // display_accelerator
+         NULL,                            // extension
+     },
+     // XmPrimitive
+     {
+-        (XtWidgetProc)_XtInherit,        // border_highlight
+-        (XtWidgetProc)_XtInherit,        // border_unhighlight
++        textfield_noop_border,           // border_highlight
++        textfield_noop_border,           // border_unhighlight
+         NULL,                            // translations
+         NULL,                            // arm_and_activate
+         NULL,                            // syn_resources
+@@ -256,6 +258,18 @@ TextFieldClassRec tfWidgetClassRec = {
+ 
+ WidgetClass textfieldWidgetClass = (WidgetClass)&tfWidgetClassRec;
+ 
++static void textfield_class_part_init(WidgetClass wc) {
++    TextFieldClassRec *c = (TextFieldClassRec *)wc;
++    XmPrimitiveWidgetClass sc =
++            (XmPrimitiveWidgetClass)c->core_class.superclass;
++
++    c->core_class.set_values_almost = sc->core_class.set_values_almost;
++    c->core_class.query_geometry = sc->core_class.query_geometry;
++}
++
++static void textfield_noop_border(Widget w) {
++    (void)w;
++}
+ 
+ static Boolean XftFontConvert(
+     Display*   dpy,

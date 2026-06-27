@@ -1,0 +1,20 @@
+name=xnedit
+revision=2
+from_source=xnedit
+imagedeps="build-essential"
+hostdeps="xgcc xbinutils pkgconfig"
+deps="base openmotif libx11 libxt libxrender libxft fontconfig libiconv"
+
+configure() {
+	cp -rp ${source_dir}/* .
+}
+
+build() {
+	make -j${parallelism} generic CC=x86_64-astral-gcc AR=x86_64-astral-ar \
+		CFLAGS="${CFLAGS} -std=gnu99 -I${sysroot_dir}${prefix}/include -I${sysroot_dir}${prefix}/include/X11 -DUSE_LPR_PRINT_CMD $(x86_64-astral-pkg-config --cflags xft fontconfig)" \
+		LIBS="-L${sysroot_dir}${prefix}/lib -lXm -lXt -lX11 -lXrender -lm -lpthread $(x86_64-astral-pkg-config --libs xft fontconfig) -liconv"
+}
+
+package() {
+	make DESTDIR=${dest_dir} PREFIX=${prefix} install
+}

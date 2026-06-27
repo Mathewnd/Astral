@@ -1,0 +1,5 @@
+name=xnedit
+version=1.6.3
+source_method=tarball
+tarball_url="https://github.com/unixwork/xnedit/releases/download/v${version}/xnedit-${version}.tar.gz"
+tarball_sha512="517d4908073b60bad9a1abd54882cf5dd57f164e0c965a5ab299b73cff49617d5d3e20a6874c43562ae9dd16ffabe66d3373cafdf23587643c3859278ec2e286"
