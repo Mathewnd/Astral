@@ -1,0 +1,138 @@
+diff --git openmotif-workdir/AUTHORS openmotif-workdir/AUTHORS
+new file mode 100644
+index 0000000..e69de29
+diff --git openmotif-workdir/NEWS openmotif-workdir/NEWS
+new file mode 100644
+index 0000000..e69de29
+diff --git openmotif-clean/lib/Xm/XpmCrBufFrI.c openmotif-workdir/lib/Xm/XpmCrBufFrI.c
+index 5fa9563..089d892 100644
+--- openmotif-clean/lib/Xm/XpmCrBufFrI.c
++++ openmotif-workdir/lib/Xm/XpmCrBufFrI.c
+@@ -44,6 +44,7 @@
+ /* October 2004, source code review by Thomas Biege <thomas@suse.de> */
+ 
+ #include "XpmI.h"
++#include <string.h>
+ 
+ LFUNC(WriteColors, int, (char **dataptr, unsigned int *data_size,
+ 			 unsigned int *used_size, XpmColor *colors,
+diff --git openmotif-clean/lib/Xm/XpmCrDatFrI.c openmotif-workdir/lib/Xm/XpmCrDatFrI.c
+index 5d34114..6b5e34b 100644
+--- openmotif-clean/lib/Xm/XpmCrDatFrI.c
++++ openmotif-workdir/lib/Xm/XpmCrDatFrI.c
+@@ -41,6 +41,7 @@
+ /* October 2004, source code review by Thomas Biege <thomas@suse.de> */
+ 
+ #include "XpmI.h"
++#include <string.h>
+ 
+ LFUNC(CreateColors, int, (char **dataptr, unsigned int *data_size,
+ 			  XpmColor *colors, unsigned int ncolors,
+diff --git openmotif-clean/lib/Xm/XpmRdFToI.c openmotif-workdir/lib/Xm/XpmRdFToI.c
+index 6af58dc..cf18366 100644
+--- openmotif-clean/lib/Xm/XpmRdFToI.c
++++ openmotif-workdir/lib/Xm/XpmRdFToI.c
+@@ -41,6 +41,7 @@
+ /* October 2004, source code review by Thomas Biege <thomas@suse.de> */
+ 
+ #include "XpmI.h"
++#include <string.h>
+ #include <sys/stat.h>
+ #include <sys/param.h>
+ #if !defined(NO_ZPIPE) && defined(WIN32)
+diff --git openmotif-clean/lib/Xm/XpmWrFFrBuf.c openmotif-workdir/lib/Xm/XpmWrFFrBuf.c
+index b3663b5..7f84f96 100644
+--- openmotif-clean/lib/Xm/XpmWrFFrBuf.c
++++ openmotif-workdir/lib/Xm/XpmWrFFrBuf.c
+@@ -41,6 +41,7 @@
+ /* October 2004, source code review by Thomas Biege <thomas@suse.de> */
+ 
+ #include "XpmI.h"
++#include <string.h>
+ 
+ int
+ XpmWriteFileFromBuffer(filename, buffer)
+diff --git openmotif-clean/lib/Xm/XpmWrFFrI.c openmotif-workdir/lib/Xm/XpmWrFFrI.c
+index 1eaf1c9..6c3ae58 100644
+--- openmotif-clean/lib/Xm/XpmWrFFrI.c
++++ openmotif-workdir/lib/Xm/XpmWrFFrI.c
+@@ -41,6 +41,7 @@
+ /* October 2004, source code review by Thomas Biege <thomas@suse.de> */
+ 
+ #include "XpmI.h"
++#include <string.h>
+ #if !defined(NO_ZPIPE) && defined(WIN32)
+ # define popen _popen
+ # define pclose _pclose
+diff --git openmotif-clean/lib/Xm/Xpmcreate.c openmotif-workdir/lib/Xm/Xpmcreate.c
+index d0f3c3b..e865ec2 100644
+--- openmotif-clean/lib/Xm/Xpmcreate.c
++++ openmotif-workdir/lib/Xm/Xpmcreate.c
+@@ -47,6 +47,7 @@
+ /* October 2004, source code review by Thomas Biege <thomas@suse.de> */
+ 
+ #include "XpmI.h"
++#include <string.h>
+ #include <ctype.h>
+ 
+ LFUNC(xpmVisualType, int, (Visual *visual));
+diff --git openmotif-clean/lib/Xm/Xpmdata.c openmotif-workdir/lib/Xm/Xpmdata.c
+index d65ae57..0819195 100644
+--- openmotif-clean/lib/Xm/Xpmdata.c
++++ openmotif-workdir/lib/Xm/Xpmdata.c
+@@ -47,6 +47,7 @@ static char *RCS_Id = "$XpmId: xpm.shar,v 3.62 96/09/14 02:33:07 lehors Exp $";
+ 
+ 
+ #include "XpmI.h"
++#include <string.h>
+ #include <ctype.h>
+ 
+ 
+diff --git openmotif-clean/lib/Xm/Xpmhashtab.c openmotif-workdir/lib/Xm/Xpmhashtab.c
+index 2548912..d951f1b 100644
+--- openmotif-clean/lib/Xm/Xpmhashtab.c
++++ openmotif-workdir/lib/Xm/Xpmhashtab.c
+@@ -40,6 +40,7 @@
+ 
+ 
+ #include "XpmI.h"
++#include <string.h>
+ 
+ LFUNC(AtomMake, xpmHashAtom, (char *name, void *data));
+ LFUNC(HashTableGrows, int, (xpmHashTable * table));
+diff --git openmotif-clean/lib/Xm/Xpmmisc.c openmotif-workdir/lib/Xm/Xpmmisc.c
+index d51e110..3bab47d 100644
+--- openmotif-clean/lib/Xm/Xpmmisc.c
++++ openmotif-workdir/lib/Xm/Xpmmisc.c
+@@ -41,6 +41,7 @@
+ /* we don't want the XpmFree macro since we define the XpmFree function here */
+ #define NO_XPMFREE_MACRO
+ #include "XpmI.h"
++#include <string.h>
+ 
+ #ifdef NEED_STRDUP
+ /*
+diff --git openmotif-clean/lib/Xm/Xpmrgb.c openmotif-workdir/lib/Xm/Xpmrgb.c
+index 1234042..342e10c 100644
+--- openmotif-clean/lib/Xm/Xpmrgb.c
++++ openmotif-workdir/lib/Xm/Xpmrgb.c
+@@ -49,6 +49,7 @@
+ 
+ 
+ #include "XpmI.h"
++#include <string.h>
+ #include <ctype.h>
+ 
+ #ifndef FOR_MSW				/* normal part first, MSW part at
+diff --git openmotif-clean/lib/Xm/Xpmscan.c openmotif-workdir/lib/Xm/Xpmscan.c
+index f458b6d..4225f25 100644
+--- openmotif-clean/lib/Xm/Xpmscan.c
++++ openmotif-workdir/lib/Xm/Xpmscan.c
+@@ -46,6 +46,7 @@
+ /* October 2004, source code review by Thomas Biege <thomas@suse.de> */
+ 
+ #include "XpmI.h"
++#include <string.h>
+ 
+ #define MAXPRINTABLE 92			/* number of printable ascii chars
+ 					 * minus \ and " for string compat

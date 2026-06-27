@@ -1,0 +1,10 @@
+name=openmotif
+version=2.3.8
+source_method=tarball
+tarball_url="https://sourceforge.net/projects/motif/files/Motif%202.3.8%20Source%20Code/motif-${version}.tar.gz/download"
+tarball_sha512="1ab8e8eece25ef97e948592b5fa3e19d98e932695290a18b7a8e90f1aa2766bc4f082bdbc3999dff5660e684821178a149040f76bb477163e53ca06474d02b55"
+hostdeps="autoconf automake util-macros pkgconfig libtool"
+
+prepare() {
+	autoreconf -fvi
+}

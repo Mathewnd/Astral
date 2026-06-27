@@ -1,0 +1,29 @@
+name=openmotif
+revision=1
+from_source=openmotif
+imagedeps="build-essential"
+hostdeps="xgcc xbinutils pkgconfig libtool"
+deps="base libx11 libxext libxft libxmu libxpm libxt fontconfig freetype xbitmaps xorgproto"
+
+configure() {
+	ac_cv_func_setpgrp_void=yes ac_cv_func_memcmp_working=yes \
+		CPPFLAGS="${CPPFLAGS} -D_GNU_SOURCE -I${sysroot_dir}${prefix}/include/freetype2" \
+		${source_dir}/configure --prefix=${prefix} --host=x86_64-astral --enable-shared --disable-static --disable-printing
+}
+
+build() {
+	for dir in bindings bitmaps config localized; do
+		make -C ${dir} -j1
+	done
+	${CC_FOR_BUILD:-cc} -std=gnu89 -I${sysroot_dir}${prefix}/include -Iinclude -Ilib/Xm -I${source_dir}/config/util \
+		-o config/util/makestrs ${source_dir}/config/util/makestrs.c
+	for dir in lib include; do
+		make -C ${dir} -j1
+	done
+}
+
+package() {
+	for dir in bindings bitmaps localized lib include; do
+		make -C ${dir} DESTDIR=${dest_dir} install
+	done
+}
