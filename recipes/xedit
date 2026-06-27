@@ -1,12 +1,12 @@
 name=xedit
-revision=1
+revision=2
 from_source=xedit
 imagedeps="gcc"
 hostdeps="xgcc xbinutils pkgconfig"
 deps="base libx11 xorgproto libxt libxaw libxmu"
 
 configure() {
-	${source_dir}/configure --prefix=${prefix} --host=x86_64-astral
+	${source_dir}/configure --prefix=${prefix} --host=x86_64-astral --with-appdefaultdir=${prefix}/lib/X11/app-defaults
 }
 
 build() {
