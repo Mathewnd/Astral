@@ -1,0 +1,185 @@
+diff --git nscde-clean/configure.ac nscde-workdir/configure.ac
+index 5253593..1a65e08 100644
+--- nscde-clean/configure.ac
++++ nscde-workdir/configure.ac
+@@ -360,7 +360,18 @@ if test -d "./.git"; then
+    VERSION="${VERSION}-git${VERSIONINFO}"
+ fi
+ 
+-OS_PLUS_MACHINE_ARCH=`uname -sm | tr ' ' '_'`
++case "$host_os" in
++linux*) NSCDE_HOST_SYSNAME=Linux ;;
++freebsd*) NSCDE_HOST_SYSNAME=FreeBSD ;;
++dragonfly*) NSCDE_HOST_SYSNAME=DragonFly ;;
++netbsd*) NSCDE_HOST_SYSNAME=NetBSD ;;
++openbsd*) NSCDE_HOST_SYSNAME=OpenBSD ;;
++sunos*|solaris*) NSCDE_HOST_SYSNAME=SunOS ;;
++astral*) NSCDE_HOST_SYSNAME=Astral ;;
++*) NSCDE_HOST_SYSNAME="$host_os" ;;
++esac
++
++OS_PLUS_MACHINE_ARCH="${NSCDE_HOST_SYSNAME}_${host_cpu}"
+ AC_SUBST(OS_PLUS_MACHINE_ARCH)
+ 
+ AC_OUTPUT(
+@@ -474,7 +485,7 @@ echo "
+ NsCDE Configuration Summary:
+ 
+ NsCDE Version:        ${VERSION}
+-Platform:             `uname -srm`
++Platform:             ${host}
+ Detected FVWM:        $FVWM
+ Detected Python 3:    `$PYTHON -V`
+ 
+@@ -492,4 +503,3 @@ Locale:               ${my_localedir}
+ Docs:                 ${my_docdir}
+ *********************************************************************
+ "
+-
+diff --git nscde-clean/data/defaults/FrontPanel.actions nscde-workdir/data/defaults/FrontPanel.actions
+index f5c3a71..92d9bd6 100644
+--- nscde-clean/data/defaults/FrontPanel.actions
++++ nscde-workdir/data/defaults/FrontPanel.actions
+@@ -14,7 +14,7 @@ Btn2,__APPLET__,M1,"Swallow (Respawn|FvwmModule) \\"FPMonthDayApplet\\" \\"Modul
+ Btn2,,M2,FVWM,Nop
+ Btn2,,M3,FVWM,f_FrontPanelPropsMenu 2 $[gt.Calendar]
+ 
+-Btn3,NsCDE/Fphome.l.pm,M1,$[infostore.filemgr],$[infostore.filemgr]
++Btn3,NsCDE/Fphome.l.pm,M1,NOCHK,$[infostore.filemgr]
+ Btn3,,M2,FVWM,Nop
+ Btn3,,M3,FVWM,f_FrontPanelPropsMenu 3 $[gt.File Manager]
+ 
+diff --git nscde-clean/data/fallback/app-catalog/filemgr nscde-workdir/data/fallback/app-catalog/filemgr
+index 111f80a..b207915 100644
+--- nscde-clean/data/fallback/app-catalog/filemgr
++++ nscde-workdir/data/fallback/app-catalog/filemgr
+@@ -1,5 +1,6 @@
+ pcmanfm-qt
+ pcmanfm
++xfile
+ spacefm
+ krusader
+ thunar
+diff --git nscde-clean/data/fallback/app-catalog/text-editor nscde-workdir/data/fallback/app-catalog/text-editor
+index 122d744..11a5019 100644
+--- nscde-clean/data/fallback/app-catalog/text-editor
++++ nscde-workdir/data/fallback/app-catalog/text-editor
+@@ -1,5 +1,6 @@
+ gvim
+ nedit
++xnedit
+ emacs
+ xemacs
+ mousepad
+diff --git nscde-clean/data/fvwm/FrontPanel.fvwm3.fvwmconf nscde-workdir/data/fvwm/FrontPanel.fvwm3.fvwmconf
+index b539a2b..f29ecf6 100644
+--- nscde-clean/data/fvwm/FrontPanel.fvwm3.fvwmconf
++++ nscde-workdir/data/fvwm/FrontPanel.fvwm3.fvwmconf
+@@ -558,4 +558,3 @@ Test (EnvMatch infostore.FP.Launchers-Enabled *R6*) \
+ *FrontPanel: (1x78+20+1, Colorset 15, Id IconifyBtnGapV, Frame 0, Padding 0 0)
+ 
+ *FrontPanel: (End)
+-
+diff --git nscde-clean/data/fvwm/Functions.fvwmconf.in nscde-workdir/data/fvwm/Functions.fvwmconf.in
+index 1282e38..dfb5433 100644
+--- nscde-clean/data/fvwm/Functions.fvwmconf.in
++++ nscde-workdir/data/fvwm/Functions.fvwmconf.in
+@@ -1054,7 +1054,7 @@ AddToFunc f_ShowGlobalPager
+ # It defines terminal, filemgr, xeditor and such if NsCDE.conf does not defines them.
+ DestroyFunc f_FindApp
+ AddToFunc f_FindApp
+-+ I Test (x $[infostore.$$0]) Break 1
+++ I Test (x $[infostore.$$0], !EnvMatch infostore.$$0 true) Break 1
+ + I Test (!f $[NSCDE_DATADIR]/fallback/app-catalog/$1) f_Notifier \
+                   "$[gt.App Finder]" \
+                   "$[gt.Dismiss]" \
+@@ -2507,4 +2507,3 @@ AddToFunc f_Upgrade_1x_to_2x
+ + I Test (!EnvMatch FVWM_IS_FVWM3 1, Version < 2.6.8) Schedule 1800 All ("migrate_nscde_1x_2x", CirculateHit) Maximize ewmhiwa
+ + I Schedule 2000 All ("migrate_nscde_1x_2x", CirculateHit) Layer 0 6
+ + I Break
+-
+diff --git nscde-clean/data/fvwm/NsCDE.conf nscde-workdir/data/fvwm/NsCDE.conf
+index 00d3018..508489d 100644
+--- nscde-clean/data/fvwm/NsCDE.conf
++++ nscde-workdir/data/fvwm/NsCDE.conf
+@@ -61,7 +61,7 @@ InfoStoreAdd desknum 4
+ InfoStoreAdd pagematrixX 2
+ InfoStoreAdd pagematrixY 2
+ # InfoStoreAdd terminal xterm
+-# InfoStoreAdd browser firefox
++InfoStoreAdd browser /usr/libexec/webkit2gtk-4.1/MiniBrowser
+ # InfoStoreAdd docsbrowser khelpcenter
+ # InfoStoreAdd taskmgr qps
+ # InfoStoreAdd mailreader thunderbird
+diff --git nscde-clean/lib/python/ThemeGtk.py.in nscde-workdir/lib/python/ThemeGtk.py.in
+index c0be848..ff38eea 100644
+--- nscde-clean/lib/python/ThemeGtk.py.in
++++ nscde-workdir/lib/python/ThemeGtk.py.in
+@@ -15,7 +15,19 @@ import shutil
+ try:
+    from PyQt4 import QtCore, QtGui
+ except ImportError:
+-   from PyQt5 import QtCore, QtGui
++   try:
++      from PyQt5 import QtCore, QtGui
++   except ImportError:
++      try:
++         from PyQt6 import QtCore, QtGui
++      except ImportError:
++         print(themegen)
++         sys.exit(1)
++
++try:
++   MASK_OUT_COLOR = QtCore.Qt.MaskOutColor
++except AttributeError:
++   MASK_OUT_COLOR = QtCore.Qt.MaskMode.MaskOutColor
+ 
+ from SpritesGtk2 import spriteLWHXYgtk2
+ import MotifColors
+@@ -147,7 +159,7 @@ def gengtk3colors(filename,opts):
+             f.write(l)
+ 
+ def replaceColorsInPixmap(pixmap,fromcolor,tocolor):
+-        mask = pixmap.createMaskFromColor(QtGui.QColor(fromcolor), QtCore.Qt.MaskOutColor)
++        mask = pixmap.createMaskFromColor(QtGui.QColor(fromcolor), MASK_OUT_COLOR)
+         p = QtGui.QPainter(pixmap)
+         p.setPen(QtGui.QColor(tocolor))
+         p.drawPixmap(pixmap.rect(), mask, mask.rect())
+diff --git nscde-clean/nscde_tools/themegen.in nscde-workdir/nscde_tools/themegen.in
+index a716eb0..a7227f6 100644
+--- nscde-clean/nscde_tools/themegen.in
++++ nscde-workdir/nscde_tools/themegen.in
+@@ -24,17 +24,21 @@ if not nscde_datadir:
+ 
+ themegen="""
+ For this script to work you need to install the Python 3
+-Qt4 (PyQt4) modules, or Python 3 Qt5 (PyQt5) modules.
++Qt4 (PyQt4) modules, Python 3 Qt5 (PyQt5) modules or Python 3 Qt6 (PyQT6) modules.
+ """
+ 
++
+ try:
+    from PyQt4 import QtCore, QtGui
+ except ImportError:
+    try:
+       from PyQt5 import QtCore, QtGui
+    except ImportError:
+-      print (themegen)
+-      sys.exit(1)
++      try:
++         from PyQt6 import QtCore, QtGui
++      except ImportError:
++         print(themegen)
++         sys.exit(1)
+ 
+ import Globals
+ from Theme import Theme
+@@ -82,7 +86,7 @@ if len(sys.argv)!=5:
+ 
+ try: # PyQt4
+     app = QtGui.QApplication(sys.argv)
+-except AttributeError: # using PyQt5 ...
++except AttributeError: # using PyQt5/PyQt6
+     app = QtGui.QGuiApplication(sys.argv)
+ 
+ opts=Opts()
