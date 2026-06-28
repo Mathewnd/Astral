@@ -1764,8 +1764,9 @@ static size_t tcp_datacount(socket_t *socket) {
 
 	count = RINGBUFFER_DATACOUNT(&tcpsocket->tcb->receivebuffer);
 
-	cleanup:
 	MUTEX_RELEASE(&tcpsocket->tcb->mutex);
+
+	cleanup:
 	MUTEX_RELEASE(&socket->mutex);
 	return count;
 }
