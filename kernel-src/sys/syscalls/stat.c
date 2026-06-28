@@ -65,32 +65,46 @@ syscallret_t syscall_fstatat(context_t *ctx, int dirfd, char *upath, stat_t *ust
 	if (ret.errno)
 		return ret;
 
-	char *path = alloc(pathlen + 1);
-	if (path == NULL) {
-		ret.errno = ENOMEM;
-		return ret;
-	}
-
-	ret.errno = usercopy_fromuser(path, upath, pathlen);
-	if (ret.errno) {
-		free(path);
-		return ret;
-	}
-
 	vnode_t *node = NULL;
 	vnode_t *dirnode = NULL;
 	file_t *file = NULL;
-	ret.errno = dirfd_enter(path, dirfd, &file, &dirnode);
-	if (ret.errno)
-		goto cleanup;
+	char *path = NULL;
+	if (pathlen == 0 && (flags & AT_EMPTY_PATH)) {
+		file = fd_get(dirfd);
+		if (file == NULL) {
+			ret.errno = EBADF;
+			goto cleanup;
+		}
 
-	ret.errno = vfs_lookup(&node, dirnode, path, NULL, flags & AT_SYMLINK_NOFOLLOW ? VFS_LOOKUP_NOLINK : 0);
-	if (ret.errno)
-		goto cleanup;
+		node = file->vnode;
+		VOP_HOLD(node);
+		fd_release(file);
+		VOP_LOCK(node);
+		file = NULL;
+	} else {
+		path = alloc(pathlen + 1);
+		if (path == NULL) {
+			ret.errno = ENOMEM;
+			return ret;
+		}
+
+		ret.errno = usercopy_fromuser(path, upath, pathlen);
+		if (ret.errno) {
+			free(path);
+			return ret;
+		}
+
+		ret.errno = dirfd_enter(path, dirfd, &file, &dirnode);
+		if (ret.errno)
+			goto cleanup;
+
+		ret.errno = vfs_lookup(&node, dirnode, path, NULL, flags & AT_SYMLINK_NOFOLLOW ? VFS_LOOKUP_NOLINK : 0);
+		if (ret.errno)
+			goto cleanup;
+	}
 
 	stat_t buf;
 	ret.errno = dostat(node, &buf);
-	// locked by vfs_lookup
 	VOP_UNLOCK(node);
 	if (ret.errno)
 		goto cleanup;
@@ -105,7 +119,8 @@ syscallret_t syscall_fstatat(context_t *ctx, int dirfd, char *upath, stat_t *ust
 	if (dirnode)
 		dirfd_leave(dirnode, file);
 
-	free(path);
+	if (path)
+		free(path);
 
 	return ret;
 }
