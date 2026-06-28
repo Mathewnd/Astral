@@ -1,0 +1,268 @@
+diff --git qtbase6-clean/cmake/QtMkspecHelpers.cmake qtbase6-workdir/cmake/QtMkspecHelpers.cmake
+index 8b133d185b1a..bba52a0992f 100644
+--- qtbase6-clean/cmake/QtMkspecHelpers.cmake
++++ qtbase6-workdir/cmake/QtMkspecHelpers.cmake
+@@ -50,6 +50,12 @@ macro(qt_internal_setup_platform_definitions_and_mkspec)
+         elseif(CLANG)
+             set(QT_DEFAULT_MKSPEC linux-clang)
+         endif()
++    elseif(ASTRAL)
++        if(GCC)
++            set(QT_DEFAULT_MKSPEC astral-g++)
++        else()
++            message(FATAL_ERROR "Unknown compiler in use!")
++        endif()
+     elseif(ANDROID)
+         if(GCC)
+             set(QT_DEFAULT_MKSPEC android-g++)
+diff --git qtbase6-clean/cmake/FindXKB_COMMON_X11.cmake qtbase6-workdir/cmake/FindXKB_COMMON_X11.cmake
+index 550e7aef554..384c9ac107d 100644
+--- qtbase6-clean/cmake/FindXKB_COMMON_X11.cmake
++++ qtbase6-workdir/cmake/FindXKB_COMMON_X11.cmake
+@@ -5,6 +5,16 @@ find_package(PkgConfig QUIET)
+ 
+ pkg_check_modules(XKB_COMMON_X11 IMPORTED_TARGET "xkbcommon-x11>=0.4.1")
+ 
+-if (NOT TARGET PkgConfig::XKB_COMMON_X11)
+-    set(XKB_COMMON_X11_FOUND 0)
++if(NOT TARGET PkgConfig::XKB_COMMON_X11)
++    find_path(XKB_COMMON_X11_INCLUDE_DIR xkbcommon/xkbcommon-x11.h)
++    find_library(XKB_COMMON_X11_LIBRARY xkbcommon-x11)
++
++    if(XKB_COMMON_X11_INCLUDE_DIR AND XKB_COMMON_X11_LIBRARY)
++        add_library(PkgConfig::XKB_COMMON_X11 INTERFACE IMPORTED)
++        target_include_directories(PkgConfig::XKB_COMMON_X11 INTERFACE "${XKB_COMMON_X11_INCLUDE_DIR}")
++        target_link_libraries(PkgConfig::XKB_COMMON_X11 INTERFACE "${XKB_COMMON_X11_LIBRARY}")
++        set(XKB_COMMON_X11_FOUND 1)
++    else()
++        set(XKB_COMMON_X11_FOUND 0)
++    endif()
+ endif()
+diff --git qtbase6-clean/cmake/QtPlatformSupport.cmake qtbase6-workdir/cmake/QtPlatformSupport.cmake
+index 071711a5bd57..19492801c5f 100644
+--- qtbase6-clean/cmake/QtPlatformSupport.cmake
++++ qtbase6-workdir/cmake/QtPlatformSupport.cmake
+@@ -7,6 +7,12 @@ else()
+     set(LINUX 0)
+ endif()
+ 
++if(CMAKE_SYSTEM_NAME STREQUAL "Astral")
++    set(ASTRAL 1)
++else()
++    set(ASTRAL 0)
++endif()
++
+ if(CMAKE_SYSTEM_NAME STREQUAL "HPUX")
+     set(HPUX 1)
+ else()
+diff --git qtbase6-clean/mkspecs/common/astral.conf qtbase6-workdir/mkspecs/common/astral.conf
+new file mode 100644
+index 00000000000..c5c66a644fe
+--- /dev/null
++++ qtbase6-workdir/mkspecs/common/astral.conf
+@@ -0,0 +1,40 @@
++#
++# qmake configuration for common Astral targets
++#
++
++QMAKE_PLATFORM         += astral
++
++include(unix.conf)
++
++QMAKE_CFLAGS_THREAD    += -D_REENTRANT
++QMAKE_CXXFLAGS_THREAD  += $$QMAKE_CFLAGS_THREAD
++QMAKE_LFLAGS_GCSECTIONS = -Wl,--gc-sections
++
++QMAKE_LFLAGS_REL_RPATH  = -Wl,-z,origin
++QMAKE_REL_RPATH_BASE    = $ORIGIN
++
++QMAKE_INCDIR            =
++QMAKE_LIBDIR            =
++QMAKE_INCDIR_X11        =
++QMAKE_LIBDIR_X11        =
++QMAKE_INCDIR_OPENGL     =
++QMAKE_LIBDIR_OPENGL     =
++QMAKE_INCDIR_OPENGL_ES2 = $$QMAKE_INCDIR_OPENGL
++QMAKE_LIBDIR_OPENGL_ES2 = $$QMAKE_LIBDIR_OPENGL
++QMAKE_INCDIR_EGL        =
++QMAKE_LIBDIR_EGL        =
++
++QMAKE_LIBS              =
++QMAKE_LIBS_DYNLOAD      = -ldl
++QMAKE_LIBS_X11          = -lXext -lX11 -lm
++QMAKE_LIBS_EGL          = -lEGL
++QMAKE_LIBS_OPENGL       = -lGL
++QMAKE_LIBS_OPENGL_ES2   = -lGLESv2
++QMAKE_LIBS_THREAD       = -lpthread
++QMAKE_LIBS_VULKAN       =
++
++QMAKE_AR                = ar cqs
++QMAKE_OBJCOPY           = objcopy
++QMAKE_NM                = nm -P
++QMAKE_RANLIB            =
++
++QMAKE_STRIP             = strip
++QMAKE_STRIPFLAGS_LIB   += --strip-unneeded
+diff --git qtbase6-clean/mkspecs/common/posix/qplatformdefs.h qtbase6-workdir/mkspecs/common/posix/qplatformdefs.h
+index e7ce7a568db..6905c72ff2a 100644
+--- qtbase6-clean/mkspecs/common/posix/qplatformdefs.h
++++ qtbase6-workdir/mkspecs/common/posix/qplatformdefs.h
+@@ -12,7 +12,7 @@
+ #endif
+ #include <sys/stat.h>
+ 
+-#if defined(QT_USE_XOPEN_LFS_EXTENSIONS) && defined(QT_LARGEFILE_SUPPORT)
++#if defined(QT_USE_XOPEN_LFS_EXTENSIONS) && defined(QT_LARGEFILE_SUPPORT) && !defined(__astral__)
+ 
+ #define QT_STATBUF              struct stat64
+ #define QT_FPOS_T               fpos64_t
+@@ -105,7 +105,7 @@
+ 
+ #if defined(QT_LARGEFILE_SUPPORT) \
+         && defined(QT_USE_XOPEN_LFS_EXTENSIONS) \
+-        && !defined(QT_NO_READDIR64)
++        && !defined(QT_NO_READDIR64) && !defined(__astral__)
+ #define QT_DIRENT               struct dirent64
+ #define QT_READDIR              ::readdir64
+ #else
+diff --git qtbase6-clean/mkspecs/astral-g++/qmake.conf qtbase6-workdir/mkspecs/astral-g++/qmake.conf
+new file mode 100644
+index 00000000000..b795ca5e83e
+--- /dev/null
++++ qtbase6-workdir/mkspecs/astral-g++/qmake.conf
+@@ -0,0 +1,12 @@
++#
++# qmake configuration for astral-g++
++#
++
++MAKEFILE_GENERATOR      = UNIX
++CONFIG                 += incremental
++QMAKE_INCREMENTAL_STYLE = sublib
++
++include(../common/astral.conf)
++include(../common/gcc-base-unix.conf)
++include(../common/g++-unix.conf)
++load(qt_config)
+diff --git qtbase6-clean/mkspecs/astral-g++/qplatformdefs.h qtbase6-workdir/mkspecs/astral-g++/qplatformdefs.h
+new file mode 100644
+index 00000000000..dfe7b5517af
+--- /dev/null
++++ qtbase6-workdir/mkspecs/astral-g++/qplatformdefs.h
+@@ -0,0 +1,36 @@
++#ifndef QPLATFORMDEFS_H
++#define QPLATFORMDEFS_H
++
++#include "qglobal.h"
++
++#ifndef _GNU_SOURCE
++#  define _GNU_SOURCE
++#endif
++
++#include <unistd.h>
++#include <pthread.h>
++#include <dirent.h>
++#include <fcntl.h>
++#include <grp.h>
++#include <pwd.h>
++#include <signal.h>
++
++#include <sys/types.h>
++#include <sys/ioctl.h>
++#include <sys/ipc.h>
++#include <sys/time.h>
++#include <sys/shm.h>
++#include <sys/socket.h>
++#include <sys/stat.h>
++#include <sys/wait.h>
++#include <netinet/in.h>
++
++#define QT_USE_XOPEN_LFS_EXTENSIONS
++#include "../common/posix/qplatformdefs.h"
++
++#if defined(_XOPEN_SOURCE) && (_XOPEN_SOURCE >= 500)
++#define QT_SNPRINTF             ::snprintf
++#define QT_VSNPRINTF            ::vsnprintf
++#endif
++
++#endif
+diff --git qtbase6-clean/src/corelib/global/qsystemdetection.h qtbase6-workdir/src/corelib/global/qsystemdetection.h
+index bd1ef8dd747..c3e44603381 100644
+--- qtbase6-clean/src/corelib/global/qsystemdetection.h
++++ qtbase6-workdir/src/corelib/global/qsystemdetection.h
+@@ -129,6 +129,8 @@
+ #  define Q_OS_VXWORKS
+ #elif defined(__HAIKU__)
+ #  define Q_OS_HAIKU
++#elif defined(__astral__)
++#  define Q_OS_ASTRAL
+ #elif defined(__MAKEDEPEND__)
+ #else
+ #  error "Qt has not been ported to this OS - see http://www.qt-project.org/"
+diff --git qtbase6-clean/src/corelib/io/qfilesystemwatcher.cpp qtbase6-workdir/src/corelib/io/qfilesystemwatcher.cpp
+index cd72f21acdf..1750ab94584 100644
+--- qtbase6-clean/src/corelib/io/qfilesystemwatcher.cpp
++++ qtbase6-workdir/src/corelib/io/qfilesystemwatcher.cpp
+@@ -11,7 +11,7 @@
+ #include <qloggingcategory.h>
+ #include <qset.h>
+ 
+-#if (defined(Q_OS_LINUX) || defined(Q_OS_QNX)) && QT_CONFIG(inotify)
++#if (defined(Q_OS_LINUX) || defined(Q_OS_QNX) || defined(Q_OS_ASTRAL)) && QT_CONFIG(inotify)
+ #define USE_INOTIFY
+ #endif
+ 
+diff --git qtbase6-clean/src/corelib/io/qstorageinfo_unix.cpp qtbase6-workdir/src/corelib/io/qstorageinfo_unix.cpp
+index 34ba7b9682b..744bf1bf710 100644
+--- qtbase6-clean/src/corelib/io/qstorageinfo_unix.cpp
++++ qtbase6-workdir/src/corelib/io/qstorageinfo_unix.cpp
+@@ -54,6 +54,9 @@
+ #elif defined(Q_OS_HAIKU) || defined(Q_OS_CYGWIN)
+ #  define QT_STATFSBUF struct statvfs
+ #  define QT_STATFS    ::statvfs
++#elif defined(Q_OS_ASTRAL)
++#  define QT_STATFSBUF struct statvfs
++#  define QT_STATFS    ::statvfs
+ #else
+ #  if defined(QT_LARGEFILE_SUPPORT)
+ #    define QT_STATFSBUF struct statvfs64
+diff --git qtbase6-clean/src/corelib/thread/qthread_unix.cpp qtbase6-workdir/src/corelib/thread/qthread_unix.cpp
+index 00d2b87b7ea..b9f8145746b 100644
+--- qtbase6-clean/src/corelib/thread/qthread_unix.cpp
++++ qtbase6-workdir/src/corelib/thread/qthread_unix.cpp
+@@ -844,7 +844,7 @@ void QThread::start(Priority priority)
+ 
+ 
+     if (d->stackSize > 0) {
+-#if defined(_POSIX_THREAD_ATTR_STACKSIZE) && (_POSIX_THREAD_ATTR_STACKSIZE-0 > 0)
++#if (defined(_POSIX_THREAD_ATTR_STACKSIZE) && (_POSIX_THREAD_ATTR_STACKSIZE-0 > 0)) || defined(__astral__)
+         int code = pthread_attr_setstacksize(&attr, d->stackSize);
+ #else
+         int code = ENOSYS; // stack size not supported, automatically fail
+diff --git qtbase6-clean/src/gui/configure.cmake qtbase6-workdir/src/gui/configure.cmake
+index e34f4d8b30a..ab7d9cf0e78 100644
+--- qtbase6-clean/src/gui/configure.cmake
++++ qtbase6-workdir/src/gui/configure.cmake
+@@ -28,7 +28,7 @@ set_property(CACHE INPUT_libpng PROPERTY STRINGS undefined no qt system)
+ 
+ 
+ #### Libraries
+-if(LINUX OR HPUX OR FREEBSD OR NETBSD OR OPENBSD OR SOLARIS OR HURD)
++if(LINUX OR HPUX OR FREEBSD OR NETBSD OR OPENBSD OR SOLARIS OR HURD OR ASTRAL)
+     set(X11_SUPPORTED 1)
+ else()
+     set(X11_SUPPORTED 0)
+diff --git qtbase6-clean/src/network/kernel/qnetworkinterface_unix.cpp qtbase6-workdir/src/network/kernel/qnetworkinterface_unix.cpp
+index 5313e1707dc..47d7c320129 100644
+--- qtbase6-clean/src/network/kernel/qnetworkinterface_unix.cpp
++++ qtbase6-workdir/src/network/kernel/qnetworkinterface_unix.cpp
+@@ -20,6 +20,10 @@
+ #elif defined(Q_OS_FREEBSD) || defined(Q_OS_NETBSD) || defined(Q_OS_OPENBSD) || defined(Q_OS_DARWIN)
+ # include <ifaddrs.h>
+ #endif
++
++#ifdef Q_OS_ASTRAL
++# include <linux/sockios.h>
++#endif
+ 
+ #ifdef QT_LINUXBASE
+ #  include <arpa/inet.h>

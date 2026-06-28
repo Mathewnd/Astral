@@ -1,0 +1,33 @@
+name=host-qtbase6
+revision=1
+from_source=qtbase6
+imagedeps="build-essential"
+hostdeps="cmake pkgconfig"
+clean_workdirs=no
+
+configure() {
+	cmake \
+		-GNinja \
+		-DCMAKE_INSTALL_PREFIX=${prefix} \
+		-DCMAKE_BUILD_TYPE=Release \
+		-DBUILD_SHARED_LIBS=ON \
+		-DQT_BUILD_EXAMPLES=OFF \
+		-DQT_BUILD_TESTS=OFF \
+		-DFEATURE_dbus=OFF \
+		-DFEATURE_gui=OFF \
+		-DFEATURE_network=OFF \
+		-DFEATURE_printsupport=OFF \
+		-DFEATURE_sql=OFF \
+		-DFEATURE_testlib=OFF \
+		-DFEATURE_widgets=OFF \
+		-DFEATURE_xml=ON \
+		${source_dir}
+}
+
+build() {
+	ninja -j${parallelism}
+}
+
+package() {
+	DESTDIR=${dest_dir} ninja install
+}

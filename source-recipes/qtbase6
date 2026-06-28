@@ -1,0 +1,5 @@
+name=qtbase6
+version=6.11.0
+source_method=tarball
+tarball_url="https://download.qt.io/official_releases/qt/6.11/${version}/submodules/qtbase-everywhere-src-${version}.tar.xz"
+tarball_sha256=231ad85979864d914dc9568a1b71c91d6cf20d7b2021d059103bf0eb51cb755e

@@ -1,0 +1,79 @@
+name=qtbase6
+revision=1
+from_source=qtbase6
+imagedeps="build-essential ninja-build"
+hostdeps="xgcc xbinutils cmake pkgconfig libstdc++-v3 host-qtbase6"
+deps="base at-spi2-core double-conversion fontconfig freetype glib harfbuzz icu libdrm libevdev libice libjpeg-turbo libpng libsm libx11 libxcb libxcursor libxi libxinerama libxkbcommon libxrender mesa openssl pcre2 sqlite xcb-util xcb-util-cursor xcb-util-image xcb-util-keysyms xcb-util-renderutil xcb-util-wm zlib zstd"
+clean_workdirs=no
+
+configure() {
+	cmake \
+		-GNinja \
+		-DPKG_CONFIG_EXECUTABLE="/usr/local/bin/x86_64-astral-pkg-config" \
+		-DCMAKE_TOOLCHAIN_FILE=${base_dir}/util/cmake \
+		-DQT_HOST_PATH=${build_dir}/host-pkgs/host-qtbase6/usr/local \
+		-DQT_FORCE_BUILD_TOOLS=ON \
+		-DQT_NO_GENERATE_QMAKE_WRAPPER_FOR_TARGET=ON \
+		-DBUILD_WITH_PCH=OFF \
+		-DCMAKE_INSTALL_PREFIX=${prefix} \
+		-DCMAKE_BUILD_TYPE=Release \
+		-DCMAKE_INSTALL_LIBDIR=lib \
+		-DINSTALL_BINDIR=bin \
+		-DINSTALL_INCLUDEDIR=include/qt6 \
+		-DINSTALL_LIBDIR=lib \
+		-DINSTALL_ARCHDATADIR=lib/qt6 \
+		-DINSTALL_PLUGINSDIR=lib/qt6/plugins \
+		-DINSTALL_LIBEXECDIR=lib/qt6/libexec \
+		-DINSTALL_QMLDIR=lib/qt6/qml \
+		-DINSTALL_DATADIR=share/qt6 \
+		-DINSTALL_DOCDIR=share/qt6-doc \
+		-DINSTALL_TRANSLATIONSDIR=share/qt6/translations \
+		-DINSTALL_SYSCONFDIR=/etc/xdg \
+		-DINSTALL_MKSPECSDIR=lib/qt6/mkspecs \
+		-DINSTALL_EXAMPLESDIR=share/qt6/examples \
+		-DBUILD_SHARED_LIBS=ON \
+		-DQT_BUILD_EXAMPLES=OFF \
+		-DQT_BUILD_TESTS=OFF \
+		-DFEATURE_concurrent=ON \
+		-DFEATURE_dbus=OFF \
+		-DFEATURE_gui=ON \
+		-DFEATURE_network=ON \
+		-DFEATURE_printsupport=ON \
+		-DFEATURE_sql=ON \
+		-DFEATURE_testlib=ON \
+		-DFEATURE_widgets=ON \
+		-DFEATURE_icu=ON \
+		-DFEATURE_glib=ON \
+		-DFEATURE_pcre2=ON \
+		-DFEATURE_xml=ON \
+		-DFEATURE_harfbuzz=ON \
+		-DFEATURE_xkbcommon=ON \
+		-DFEATURE_xkbcommon_x11=ON \
+		-DFEATURE_libinput=OFF \
+		-DFEATURE_evdev=ON \
+		-DFEATURE_mtdev=OFF \
+		-DFEATURE_egl=ON \
+		-DFEATURE_opengl=ON \
+		-DFEATURE_accessibility=ON \
+		-DFEATURE_xlib=ON \
+		-DFEATURE_xcb=ON \
+		-DFEATURE_xcb_xlib=ON \
+		-DFEATURE_gtk3=OFF \
+		-DFEATURE_system_sqlite=ON \
+		-DFEATURE_cups=OFF \
+		-DFEATURE_wayland=OFF \
+		-DFEATURE_vulkan=OFF \
+		-DFEATURE_ssl=ON \
+		-DQT_FEATURE_jemalloc=OFF \
+		-DQT_FEATURE_androiddeployqt=OFF \
+		-DQT_UNITY_BUILD=ON \
+		${source_dir}
+}
+
+build() {
+	ninja -j${parallelism}
+}
+
+package() {
+	DESTDIR=${dest_dir} ninja install
+}
