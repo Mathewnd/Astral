@@ -6,7 +6,7 @@ hostdeps="xgcc xbinutils python"
 deps="base python"
 
 build() {
-	true
+	cp -rp "${source_dir}"/* .
 }
 
 package() {
