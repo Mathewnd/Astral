@@ -1,0 +1,11 @@
+name=pyqt-builder
+revision=1
+from_source=pyqt-builder
+hostdeps="python python-packaging sip"
+
+package() {
+	site_packages="${dest_dir}${prefix}/lib/python3.10/site-packages"
+	mkdir -p "${site_packages}"
+	cp -rp "${source_dir}"/pyqtbuild "${site_packages}"/
+	cp -rp "${source_dir}"/PyQt_builder.egg-info "${site_packages}"/
+}

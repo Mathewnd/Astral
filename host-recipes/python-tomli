@@ -1,0 +1,10 @@
+name=python-tomli
+revision=1
+from_source=python-tomli
+hostdeps="python"
+
+package() {
+	site_packages="${dest_dir}${prefix}/lib/python3.10/site-packages"
+	mkdir -p "${site_packages}"
+	cp -rp "${source_dir}"/src/tomli "${site_packages}"/
+}

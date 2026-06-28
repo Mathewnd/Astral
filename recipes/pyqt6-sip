@@ -1,0 +1,19 @@
+name=pyqt6-sip
+revision=1
+from_source=pyqt6-sip
+imagedeps="build-essential python3"
+hostdeps="xgcc xbinutils python"
+deps="base python"
+
+build() {
+	true
+}
+
+package() {
+	_PYTHON_SYSCONFIGDATA_NAME=_sysconfigdata__astral_ \
+		PYTHONPATH=${sysroot_dir}/${prefix}/lib/python3.10 \
+		CC=x86_64-astral-gcc \
+		CFLAGS="-I${sysroot_dir}/${prefix}/include/python3.10" \
+		LDSHARED="x86_64-astral-gcc -shared" \
+		/usr/bin/env python3 setup.py install --prefix=${prefix} --root=${dest_dir}
+}

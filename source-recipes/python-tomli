@@ -1,0 +1,5 @@
+name=python-tomli
+version=2.4.1
+source_method=tarball
+tarball_url="https://files.pythonhosted.org/packages/22/de/48c59722572767841493b26183a0d1cc411d54fd759c5607c4590b6563a6/tomli-${version}.tar.gz"
+tarball_sha256=7c7e1a961a0b2f2472c1ac5b69affa0ae1132c39adcb67aba98568702b9cc23f

@@ -1,0 +1,5 @@
+name=pyqt-builder
+version=1.19.1
+source_method=tarball
+tarball_url="https://files.pythonhosted.org/packages/61/f6/f3b504b4d55a7c4d3393cb90378501f1f5fc7f233bd85c0375674f84d2af/pyqt_builder-${version}.tar.gz"
+tarball_sha256=6af6646ba29668751b039bfdced51642cb510e300796b58a4d68b7f956a024d8

@@ -1,0 +1,5 @@
+name=python-sip
+version=6.15.3
+source_method=tarball
+tarball_url="https://files.pythonhosted.org/packages/02/b1/79bff1c49a9e19ffe0211cb8905cc514c3f6b8f3f7ae55a40403d346c076/sip-${version}.tar.gz"
+tarball_sha256=bb2516983f9f716d321e5157c00d0de0c12422eba73b8f43a44610a0f6622438

@@ -1,0 +1,20 @@
+name=sip
+revision=1
+from_source=python-sip
+hostdeps="python python-packaging python-tomli"
+
+package() {
+	site_packages="${dest_dir}${prefix}/lib/python3.10/site-packages"
+	mkdir -p "${site_packages}" "${dest_dir}${prefix}/bin"
+	cp -rp "${source_dir}"/sipbuild "${site_packages}"/
+	cp -rp "${source_dir}"/sip.egg-info "${site_packages}"/
+
+	for tool in build install module sdist wheel distinfo; do
+		cat > "${dest_dir}${prefix}/bin/sip-${tool}" << EOF
+#!/usr/bin/env python3
+from sipbuild.tools.${tool} import main
+main()
+EOF
+		chmod +x "${dest_dir}${prefix}/bin/sip-${tool}"
+	done
+}

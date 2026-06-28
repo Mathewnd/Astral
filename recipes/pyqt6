@@ -1,0 +1,81 @@
+name=pyqt6
+revision=1
+from_source=pyqt6
+imagedeps="build-essential python3"
+hostdeps="xgcc xbinutils python pkgconfig libstdc++-v3 host-qtbase6 sip pyqt-builder"
+deps="base python pyqt6-sip qtbase6"
+
+build() {
+	cp -rp "${source_dir}"/* .
+	cat > qt.conf << EOF
+[Paths]
+Prefix=${sysroot_dir}${prefix}
+ArchData=lib/qt6
+Data=share/qt6
+Headers=include/qt6
+Libraries=lib
+LibraryExecutables=lib/qt6/libexec
+Binaries=bin
+Plugins=lib/qt6/plugins
+Qml2Imports=lib/qt6/qml
+Translations=share/qt6/translations
+HostPrefix=/usr/local
+HostData=${sysroot_dir}${prefix}/lib/qt6
+HostBinaries=bin
+HostLibraryExecutables=/usr/local/libexec
+HostLibraries=lib
+EOF
+	cat > qmake6-astral << EOF
+#!/bin/sh
+exec /usr/local/bin/qmake6 -qtconf "$(pwd)/qt.conf" "\$@"
+EOF
+	chmod +x qmake6-astral
+
+}
+
+package() {
+	INSTALL_ROOT="${dest_dir}" \
+		MAKEFLAGS="${MAKEFLAGS} INSTALL_ROOT=${dest_dir}" \
+		_PYTHON_SYSCONFIGDATA_NAME=_sysconfigdata__astral_ \
+		PYTHONPATH=${sysroot_dir}${prefix}/lib/python3.10 \
+		PKG_CONFIG=/usr/local/bin/x86_64-astral-pkg-config \
+		CC=x86_64-astral-gcc \
+		CXX=x86_64-astral-g++ \
+		LINK=x86_64-astral-g++ \
+		DESTDIR=${dest_dir} \
+		/usr/bin/env python3 -m sipbuild.tools.install \
+			--confirm-license \
+			--build-dir build \
+			--qmake "$(pwd)/qmake6-astral" \
+			--spec astral-g++ \
+			--qmake-setting QMAKE_CC=x86_64-astral-gcc \
+			--qmake-setting QMAKE_CXX=x86_64-astral-g++ \
+			--qmake-setting QMAKE_LINK=x86_64-astral-g++ \
+			--qmake-setting QMAKE_LINK_SHLIB=x86_64-astral-g++ \
+			--qmake-setting QMAKE_AR="x86_64-astral-ar cqs" \
+			--qmake-setting QMAKE_NM="x86_64-astral-nm -P" \
+			--qmake-setting QMAKE_OBJCOPY=x86_64-astral-objcopy \
+			--qmake-setting QMAKE_RANLIB=x86_64-astral-ranlib \
+			--qmake-setting "INCLUDEPATH+=${sysroot_dir}${prefix}/include/python3.10" \
+			--qmake-setting "QMAKE_LIBDIR+=${sysroot_dir}${prefix}/lib" \
+			--target-dir ${prefix}/lib/python3.10/site-packages \
+			--scripts-dir ${prefix}/bin \
+			--qt-shared \
+			--enable QtCore \
+			--enable QtNetwork \
+			--enable QtGui \
+			--disabled-feature PyQt_Vulkan \
+			--disabled-feature PyQt_Wayland \
+			--enable QtWidgets \
+			--enable QtOpenGL \
+			--disabled-feature PyQt_OpenGL_ES2 \
+			--enable QtOpenGLWidgets \
+			--enable QtPrintSupport \
+			--enable QtSql \
+			--enable QtTest \
+			--enable QtXml \
+			--no-designer-plugin \
+			--no-qml-plugin \
+			--no-dbus-python \
+			--jobs ${parallelism}
+}

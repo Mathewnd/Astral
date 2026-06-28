@@ -1,0 +1,5 @@
+name=pyqt6-sip
+version=13.11.1
+source_method=tarball
+tarball_url="https://files.pythonhosted.org/packages/90/24/a753e1af94b9ae5b2da63d4598457308da3cdbf0838c959381db086ccc86/pyqt6_sip-${version}.tar.gz"
+tarball_sha256=869c5b48afe38e55b1ee0dd72182b0886e968cc509b98023ff50010b013ce1be
