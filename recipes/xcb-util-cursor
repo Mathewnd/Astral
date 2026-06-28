@@ -1,0 +1,18 @@
+name=xcb-util-cursor
+revision=1
+from_source=xcb-util-cursor
+imagedeps="gcc gperf"
+hostdeps="xgcc xbinutils pkgconfig util-macros autoconf automake libtool"
+deps="base libxcb xcb-util-image xcb-util-renderutil"
+
+configure() {
+	${source_dir}/configure --host=x86_64-astral --prefix=${prefix} --disable-static --with-sysroot=${sysroot_dir}
+}
+
+build() {
+	make -j ${parallelism}
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+}

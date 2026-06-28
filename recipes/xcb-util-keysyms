@@ -1,0 +1,18 @@
+name=xcb-util-keysyms
+revision=1
+from_source=xcb-util-keysyms
+imagedeps="gcc"
+hostdeps="xgcc xbinutils pkgconfig util-macros autoconf automake libtool"
+deps="base libxcb xorgproto"
+
+configure() {
+	${source_dir}/configure --host=x86_64-astral --prefix=${prefix} --disable-static --with-sysroot=${sysroot_dir}
+}
+
+build() {
+	make -j ${parallelism}
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+}
