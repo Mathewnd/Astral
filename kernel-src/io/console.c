@@ -53,6 +53,9 @@ size_t console_write(char *str, size_t count) {
 }
 
 void console_process_events(input_event_t *events, int count) {
+	if (__atomic_load_n(&locked, __ATOMIC_RELAXED))
+		return;
+
 	long ipl = spinlock_acquire_raise_ipl(&input_buffer_lock, IPL_INPUT);
 	for (int i = 0; i < count; ++i) {
 		if (events[i].type != INPUT_EV_KEY || events[i].code >= INPUT_KEY_BTN_LEFT)
