@@ -47,6 +47,7 @@ typedef struct proc_t {
 	struct fd_t *fd;
 	mode_t umask;
 	int flags;
+	bool console_locked;
 	vnode_t *cwd;
 	vnode_t *root;
 	spinlock_t nodeslock;

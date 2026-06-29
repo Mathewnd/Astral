@@ -9,6 +9,7 @@
 #include <kernel/elf.h>
 #include <kernel/devfs.h>
 #include <kernel/kernel_args.h>
+#include <kernel/console.h>
 
 static hashtable_t pid_table;
 static scache_t *processcache;
@@ -295,6 +296,10 @@ void proc_exit(void) {
 	itimer_pause(&proc->timer.realtime, NULL, NULL);
 	itimer_pause(&proc->timer.virtualtime, NULL, NULL);
 	itimer_pause(&proc->timer.profiling, NULL, NULL);
+
+	if (__atomic_load_n(&proc->console_locked, __ATOMIC_RELAXED)) {
+		__assert(console_set_lock(false) == 0);
+	}
 
 	// zombify the proc
 	MUTEX_ACQUIRE(&proc->mutex);
