@@ -393,7 +393,7 @@ index 2b5ab18..021c363 100644
      srcs_config += 'wscons.c'
  endif
 diff --git xorg-server-clean/configure.ac xorg-server-workdir/configure.ac
-index 7ef8581..4f97781 100644
+index 7ef8581..e674010 100644
 --- xorg-server-clean/configure.ac
 +++ xorg-server-workdir/configure.ac
 @@ -554,6 +554,7 @@ AC_ARG_ENABLE(xf86bigfont,    AS_HELP_STRING([--enable-xf86bigfont], [Build XF86
@@ -470,7 +470,17 @@ index 7ef8581..4f97781 100644
  AC_DEFINE_DIR(DRI_DRIVER_PATH, dridriverdir, [Default DRI driver path])
  AC_DEFINE_UNQUOTED(XVENDORNAME, ["$VENDOR_NAME"], [Vendor name])
  AC_DEFINE_UNQUOTED(XVENDORNAMESHORT, ["$VENDOR_NAME_SHORT"], [Short vendor name])
-@@ -2257,10 +2285,10 @@ AC_SUBST([prefix])
+@@ -1856,6 +1884,9 @@ if test "x$XORG" = xyes; then
+ 		dnl APM header
+ 		AC_CHECK_HEADERS([linux/apm_bios.h], [linux_apm=$enable_linux_apm])
+ 		;;
++	  astral*)
++		XORG_OS_SUBDIR="astral"
++		;;
+ 	  freebsd* | kfreebsd*-gnu | dragonfly*)
+ 		XORG_OS_SUBDIR="bsd"
+ 		;;
+@@ -2257,10 +2288,10 @@ AC_SUBST([prefix])
  
  AC_CONFIG_COMMANDS([sdksyms], [touch hw/xfree86/sdksyms.dep])
  
@@ -483,6 +493,14 @@ index 7ef8581..4f97781 100644
               Input device hotplugging will not be available!
               ***********************************************])
  fi
+@@ -2321,6 +2352,7 @@ hw/xfree86/loader/Makefile
+ hw/xfree86/man/Makefile
+ hw/xfree86/modes/Makefile
+ hw/xfree86/os-support/Makefile
++hw/xfree86/os-support/astral/Makefile
+ hw/xfree86/os-support/bsd/Makefile
+ hw/xfree86/os-support/bus/Makefile
+ hw/xfree86/os-support/hurd/Makefile
 diff --git xorg-server-clean/hw/xfree86/common/xf86Bus.c xorg-server-workdir/hw/xfree86/common/xf86Bus.c
 index fd144db..b232e27 100644
 --- xorg-server-clean/hw/xfree86/common/xf86Bus.c
@@ -712,6 +730,118 @@ index 4984ccf..bb3e2f8 100644
                                    char *device);
  
  extern _X_EXPORT char *fbdevHWGetName(ScrnInfoPtr pScrn);
+diff --git xorg-server-clean/hw/xfree86/os-support/Makefile.am xorg-server-workdir/hw/xfree86/os-support/Makefile.am
+index a0140a1..e5ac650 100644
+--- xorg-server-clean/hw/xfree86/os-support/Makefile.am
++++ xorg-server-workdir/hw/xfree86/os-support/Makefile.am
+@@ -1,5 +1,5 @@
+ SUBDIRS = bus @XORG_OS_SUBDIR@ misc $(DRI_SUBDIRS)
+-DIST_SUBDIRS = bsd bus misc linux solaris stub hurd
++DIST_SUBDIRS = astral bsd bus misc linux solaris stub hurd
+ 
+ sdk_HEADERS = xf86_OSproc.h xf86_OSlib.h
+ 
+@@ -15,4 +15,3 @@ libxorgos_la_LIBADD = @XORG_OS_SUBDIR@/lib@XORG_OS_SUBDIR@.la \
+                       misc/libmisc.la
+ 
+ AM_CFLAGS = $(DIX_CFLAGS) 
+-
+diff --git xorg-server-workdir/hw/xfree86/os-support/astral/Makefile.am xorg-server-workdir/hw/xfree86/os-support/astral/Makefile.am
+new file mode 100644
+index 0000000..247e849
+--- /dev/null
++++ xorg-server-workdir/hw/xfree86/os-support/astral/Makefile.am
+@@ -0,0 +1,18 @@
++noinst_LTLIBRARIES = libastral.la
++
++AM_CFLAGS = $(XORG_CFLAGS) $(DIX_CFLAGS)
++
++AM_CPPFLAGS = $(XORG_INCS)
++
++libastral_la_SOURCES = \
++	$(srcdir)/../shared/VTsw_noop.c \
++	$(srcdir)/../shared/agp_noop.c \
++	$(srcdir)/../shared/ioperm_noop.c \
++	$(srcdir)/../shared/kmod_noop.c \
++	$(srcdir)/../shared/pm_noop.c \
++	$(srcdir)/../shared/vidmem.c \
++	$(srcdir)/../shared/posix_tty.c \
++	$(srcdir)/../shared/sigio.c \
++	astral_bell.c \
++	astral_init.c \
++	astral_video.c
+diff --git xorg-server-workdir/hw/xfree86/os-support/astral/astral_bell.c xorg-server-workdir/hw/xfree86/os-support/astral/astral_bell.c
+new file mode 100644
+index 0000000..f4d19d9
+--- /dev/null
++++ xorg-server-workdir/hw/xfree86/os-support/astral/astral_bell.c
+@@ -0,0 +1,10 @@
++#ifdef HAVE_XORG_CONFIG_H
++#include <xorg-config.h>
++#endif
++
++#include "xf86_OSproc.h"
++
++void
++xf86OSRingBell(int loudness, int pitch, int duration)
++{
++}
+diff --git xorg-server-workdir/hw/xfree86/os-support/astral/astral_init.c xorg-server-workdir/hw/xfree86/os-support/astral/astral_init.c
+new file mode 100644
+index 0000000..f0d9039
+--- /dev/null
++++ xorg-server-workdir/hw/xfree86/os-support/astral/astral_init.c
+@@ -0,0 +1,32 @@
++#ifdef HAVE_XORG_CONFIG_H
++#include <xorg-config.h>
++#endif
++
++#include "xf86_OSlib.h"
++
++void
++xf86OpenConsole(void)
++{
++}
++
++void
++xf86CloseConsole(void)
++{
++}
++
++int
++xf86ProcessArgument(int argc, char *argv[], int i)
++{
++    return 0;
++}
++
++void
++xf86UseMsg(void)
++{
++}
++
++void
++xf86OSInputThreadInit(void)
++{
++    return;
++}
+diff --git xorg-server-workdir/hw/xfree86/os-support/astral/astral_video.c xorg-server-workdir/hw/xfree86/os-support/astral/astral_video.c
+new file mode 100644
+index 0000000..3c02f02
+--- /dev/null
++++ xorg-server-workdir/hw/xfree86/os-support/astral/astral_video.c
+@@ -0,0 +1,12 @@
++#ifdef HAVE_XORG_CONFIG_H
++#include <xorg-config.h>
++#endif
++
++#include "xf86_OSlib.h"
++#include "xf86OSpriv.h"
++
++void
++xf86OSInitVidMem(VidMemInfoPtr pVidMem)
++{
++    pVidMem->initialised = TRUE;
++}
 diff --git xorg-server-clean/hw/xfree86/os-support/bus/xf86Pci.h xorg-server-workdir/hw/xfree86/os-support/bus/xf86Pci.h
 index 4dbe08b..ff713aa 100644
 --- xorg-server-clean/hw/xfree86/os-support/bus/xf86Pci.h
@@ -727,6 +857,31 @@ index 4dbe08b..ff713aa 100644
  
  /*
   * PCI cfg space definitions (e.g. stuff right out of the PCI spec)
+diff --git xorg-server-clean/hw/xfree86/os-support/meson.build xorg-server-workdir/hw/xfree86/os-support/meson.build
+index b6069ee..26823cd 100644
+--- xorg-server-clean/hw/xfree86/os-support/meson.build
++++ xorg-server-workdir/hw/xfree86/os-support/meson.build
+@@ -31,7 +31,19 @@ else
+     build_agp = get_option('agp') == 'true'
+ endif
+ 
+-if host_machine.system() == 'linux'
++if host_machine.system() == 'astral'
++    srcs_xorg_os_support += [
++        'astral/astral_bell.c',
++        'astral/astral_init.c',
++        'astral/astral_video.c',
++        'shared/VTsw_noop.c',
++        'shared/agp_noop.c',
++        'shared/ioperm_noop.c',
++        'shared/kmod_noop.c',
++        'shared/pm_noop.c',
++    ]
++
++elif host_machine.system() == 'linux'
+     srcs_xorg_os_support += [
+         'linux/lnx_bell.c',
+         'linux/lnx_init.c',
 diff --git xorg-server-clean/hw/xfree86/os-support/shared/posix_tty.c xorg-server-workdir/hw/xfree86/os-support/shared/posix_tty.c
 index 0cb9788..d6df170 100644
 --- xorg-server-clean/hw/xfree86/os-support/shared/posix_tty.c
