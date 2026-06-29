@@ -228,10 +228,8 @@ static int write(int minor, iovec_iterator_t *iovec_iterator, size_t size, uintm
 	return 0;
 }
 
-static void inactive(int minor) {
-	pty_t *pty = ptyget(minor);
-	if (pty == NULL)
-		return;
+static void ttyinactive(void *_pty) {
+	pty_t *pty = _pty;
 
 	freeptyminor(pty->minor);
 	freepty(pty);
@@ -245,7 +243,6 @@ static devops_t devops = {
 	.poll = poll,
 	.read = read,
 	.ioctl = ioctl,
-	.inactive = inactive
 };
 
 static int open(int oldminor, vnode_t **vnode, int flags) {
@@ -284,9 +281,12 @@ static int open(int oldminor, vnode_t **vnode, int flags) {
 	// create a pairing slave device
 
 	snprintf(tmpname, 20, "pts/%d", newminor);
-	pty->tty = tty_create(tmpname, writetopty, NULL, NULL, hup_check, pty);
+	pty->tty = tty_create(tmpname, writetopty, ttyinactive, NULL, hup_check, pty);
 	if (pty->tty == NULL) {
-		VOP_RELEASE(pty->mastervnode);
+		vnode_t *mastervnode = pty->mastervnode;
+		freeptyminor(newminor);
+		freepty(pty);
+		VOP_RELEASE(mastervnode);
 		return ENOMEM;
 	}
 
