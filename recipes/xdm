@@ -1,0 +1,52 @@
+name=xdm
+revision=1
+from_source=xdm
+imagedeps="build-essential"
+hostdeps="xgcc xbinutils pkgconfig"
+deps="base xorg-server sessreg xrdb xterm libx11 libxt libxaw libxmu libxpm libxext libxft libxrender libxinerama libXau libXdmcp libxcrypt shadow"
+
+configure() {
+	${source_dir}/configure \
+		--prefix=${prefix} \
+		--host=x86_64-astral \
+		--with-pam=no \
+		--with-selinux=no \
+		--with-systemdsystemunitdir=no \
+		--with-systemd-daemon=no \
+		--disable-xdmshell \
+		--with-random-device=/dev/urandom \
+		--with-xrdb=${prefix}/bin/xrdb \
+		--with-utmp-file=/var/run/utmp \
+		--with-wtmp-file=/var/log/wtmp \
+		--with-xdmconfigdir=/etc/X11/xdm \
+		--with-xdmscriptdir=/etc/X11/xdm \
+		--with-xdmlibdir=${prefix}/lib/X11/xdm \
+		--with-appdefaultdir=/etc/X11/app-defaults \
+		--with-authdir=/var/lib/xdm
+}
+
+build() {
+	make -j${parallelism}
+}
+
+package() {
+	make DESTDIR=${dest_dir} install
+
+	install -d ${dest_dir}${prefix}/libexec/xdm
+	cat > ${dest_dir}${prefix}/libexec/xdm/session_picker << 'EOF'
+#!/bin/sh
+
+for session in /usr/bin/nscde /usr/bin/fvwm3 /usr/bin/twm /usr/bin/xterm; do
+	if [ -x "$session" ]; then
+		exec "$session"
+	fi
+done
+
+echo "xdm: no usable X session found" >&2
+exit 1
+EOF
+	chmod 755 ${dest_dir}${prefix}/libexec/xdm/session_picker
+	mkdir -p ${dest_dir}/etc/init.d
+	cp ${base_dir}/service-scripts/xdm ${dest_dir}/etc/init.d
+	copy_install_hook
+}

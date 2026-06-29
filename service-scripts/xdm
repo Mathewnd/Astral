@@ -1,0 +1,17 @@
+#!/sbin/openrc-run
+
+description="start the X display manager"
+supervisor=supervise-daemon
+respawn_period="${respawn_period:-60}"
+command=/usr/bin/xdm
+command_args_foreground="-nodaemon ${xdm_options}"
+retry="${retry:-TERM/5/KILL/5}"
+
+depend() {
+	need localmount
+	after bootmisc
+}
+
+start_pre() {
+	export EINFO_QUIET="${quiet:-yes}"
+}

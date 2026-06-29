@@ -1,0 +1,11 @@
+diff --git xdm-clean/config/Xsession.in xdm-workdir/config/Xsession.in
+index c8484a7..4abf1f2 100644
+--- xdm-clean/config/Xsession.in
++++ xdm-workdir/config/Xsession.in
+@@ -62,5 +62,5 @@ else
+ 	if [ -r "$resources" ]; then
+ 		BINDIR/xrdb -load "$resources"
+ 	fi
+-	exec BINDIR/xsm
++	exec /usr/libexec/xdm/session_picker
+ fi

@@ -1,0 +1,12 @@
+#!/usr/bin/bash
+
+case "$1" in
+	pre)
+		;;
+	post)
+		mkdir -p /var/lib/xdm /var/log /var/run
+		touch /var/log/lastlog /var/log/wtmp /var/run/utmp
+		;;
+esac
+
+exit 0
