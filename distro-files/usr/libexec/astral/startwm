@@ -16,6 +16,13 @@ do
 
   sleep 0.5
 done
+
+[ -f /etc/X11/Xresources ] && xrdb -merge /etc/X11/Xresources
+
+[ -f "$HOME/.Xresources" ] && xrdb -merge "$HOME/.Xresources"
+
+[ -f "$HOME/.Xdefaults" ] && xrdb -merge "$HOME/.Xdefaults"
+
 stty -echo -echoctl -isig -icanon min 0 time 0
 xterm -e "bash -l" & &> /tmp/.xtermstderr > /tmp/.xtermstdout
 fvwm3 &> /tmp/.fvwm3stderr > /tmp/.fvwm3stdout

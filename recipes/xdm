@@ -40,6 +40,12 @@ if [ -r /etc/profile ]; then
 	source /etc/profile
 fi
 
+[ -f /etc/X11/Xresources ] && xrdb -merge /etc/X11/Xresources
+
+[ -f "$HOME/.Xresources" ] && xrdb -merge "$HOME/.Xresources"
+
+[ -f "$HOME/.Xdefaults" ] && xrdb -merge "$HOME/.Xdefaults"
+
 for session in /usr/bin/nscde /usr/bin/fvwm3 /usr/bin/twm /usr/bin/xterm; do
 	if [ -x "$session" ]; then
 		exec "$session"
