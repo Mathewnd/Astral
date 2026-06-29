@@ -89,10 +89,10 @@ static bool userspacecheck(void *_args) {
 
 static void checktrampoline(context_t *context, void *_args) {
 	__assert(ARCH_CONTEXT_INTSTATUS(context) == false);
-	checkargs_t *args = _args;
-	userspacecheck(args);
-	current_cpu()->intstatus = ARCH_CONTEXT_INTSTATUS(args->context);
-	arch_context_switch(args->context);
+	checkargs_t args = *(checkargs_t *)_args;
+	userspacecheck(&args);
+	current_cpu()->intstatus = ARCH_CONTEXT_INTSTATUS(args.context);
+	arch_context_switch(args.context);
 }
 
 // called right before going back to userspace in the syscall handler, interrupt handler and arch_context_switch
