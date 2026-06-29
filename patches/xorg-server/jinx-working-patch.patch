@@ -788,35 +788,74 @@ index 0000000..f4d19d9
 +}
 diff --git xorg-server-workdir/hw/xfree86/os-support/astral/astral_init.c xorg-server-workdir/hw/xfree86/os-support/astral/astral_init.c
 new file mode 100644
-index 0000000..f0d9039
+index 0000000..ce5a72f
 --- /dev/null
 +++ xorg-server-workdir/hw/xfree86/os-support/astral/astral_init.c
-@@ -0,0 +1,32 @@
+@@ -0,0 +1,71 @@
 +#ifdef HAVE_XORG_CONFIG_H
 +#include <xorg-config.h>
 +#endif
 +
++#include <astral/sysctl.h>
++#include <errno.h>
++#include <string.h>
++
++#include "xf86.h"
 +#include "xf86_OSlib.h"
++#include "xf86Priv.h"
++
++static int NoConsoleLock;
++
++static int
++astralSetConsoleLock(int locked)
++{
++    int name[] = { SYS_CTL_KERN, SYS_CTL_KERN_CONSOLE_LOCK };
++
++    return sysctl(name, 2, NULL, NULL, &locked, sizeof(locked));
++}
 +
 +void
 +xf86OpenConsole(void)
 +{
++    if (serverGeneration != 1)
++        return;
++
++    if (NoConsoleLock)
++        return;
++
++    if (astralSetConsoleLock(1) < 0)
++        FatalError("xf86OpenConsole: console lock failed: %s\n",
++                   strerror(errno));
 +}
 +
 +void
 +xf86CloseConsole(void)
 +{
++    if (NoConsoleLock)
++        return;
++
++    if (astralSetConsoleLock(0) < 0) {
++        xf86Msg(X_WARNING, "xf86CloseConsole: console unlock failed: %s\n",
++                strerror(errno));
++        return;
++    }
 +}
 +
 +int
 +xf86ProcessArgument(int argc, char *argv[], int i)
 +{
++    if (!strcmp(argv[i], "-noconsolelock")) {
++        NoConsoleLock = 1;
++        return 1;
++    }
++
 +    return 0;
 +}
 +
 +void
 +xf86UseMsg(void)
 +{
++    ErrorF("-noconsolelock         don't lock the kernel console\n");
 +}
 +
 +void

@@ -1,5 +1,5 @@
 name=xorg-server
-revision=1
+revision=2
 from_source=xorg-server
 imagedeps="meson ninja-build build-essential"
 hostdeps="xgcc xbinutils pkgconfig autoconf automake libtool pkgconfig util-macros xtrans fontutil"
