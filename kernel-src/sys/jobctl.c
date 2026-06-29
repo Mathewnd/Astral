@@ -115,6 +115,19 @@ void *jobctl_getctty(proc_t *proc) {
 	return tty;
 }
 
+proc_t *jobctl_getsession(proc_t *proc) {
+	bool intstatus = interrupt_set(false);
+	spinlock_acquire(&proc->jobctllock);
+
+	proc_t *session = proc->session.leader ? proc->session.leader : proc;
+	PROC_HOLD(session);
+
+	spinlock_release(&proc->jobctllock);
+	interrupt_set(intstatus);
+
+	return session;
+}
+
 pid_t jobctl_getpgid(proc_t *proc) {
 	bool intstatus = interrupt_set(false);
 	spinlock_acquire(&proc->jobctllock);
