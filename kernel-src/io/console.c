@@ -17,9 +17,22 @@ static semaphore_t input_sem;
 static mutex_t writemutex;
 static thread_t *thread;
 static tty_t *tty;
+static bool locked;
 
 static size_t console_ttywrite(void *internal, char *str, size_t count) {
 	return console_write(str, count);
+}
+
+int console_set_lock(bool lock) {
+	bool expected = !lock;
+	if (!__atomic_compare_exchange_n(&locked, &expected, lock, false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST))
+		return EBUSY;
+
+	return 0;
+}
+
+bool console_is_tty(tty_t *p) {
+	return p == tty;
 }
 
 void console_putc(char c) {
