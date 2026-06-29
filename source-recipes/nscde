@@ -3,8 +3,21 @@ version=2.3
 source_method=tarball
 tarball_url="https://github.com/NsCDE/NsCDE/releases/download/${version}/NsCDE-${version}.tar.gz"
 tarball_sha512="e07bbdd8f3a9107d4f35e1e438ee4bbd7b60fea5b449511f6fdaf70440110be2e89b5e2ea3173d4ae7eefb7e4532116f70f923a6a4faf3c7a3bf3523d9567496"
+allow_network="yes"
+imagedeps="wget"
 hostdeps="autoconf automake util-macros pkgconfig libtool"
 
 prepare() {
+	cat > data/palettes/Astral.dp << EOF
+#35357373a0a0
+#1b1b5d5d6c6c
+#0c0c5a5a8787
+#000057577a7a
+#414152525c5c
+#4b4b7b7b8282
+#272770708b8b
+#3d3d40407c7c
+EOF
+	wget https://astral-os.org/mirror/background1.png -O data/photos/NightSky.png
         autoreconf -fvi
 }

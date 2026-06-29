@@ -1,5 +1,5 @@
 name=nscde
-revision=4
+revision=5
 from_source=nscde
 imagedeps="build-essential ksh93u+m"
 hostdeps="xgcc xbinutils pkgconfig libtool"
@@ -8,6 +8,7 @@ deps="base fvwm ksh93 imagemagick x11-utils x11-xserver-utils xterm python pytho
 configure() {
 	cp -rp ${source_dir}/* .
 	./configure --prefix=${prefix} --host=x86_64-astral
+	python3 ./nscde_tools/palette_colorgen -p data/palettes/Astral.dp -n 8 -f > data/fvwm/Colorset.fvwmconf
 }
 
 build() {
