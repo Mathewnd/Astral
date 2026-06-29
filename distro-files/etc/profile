@@ -1,12 +1,18 @@
-NORMAL="\[\e[0m\]"
-RED="\[\e[1;31m\]"
-GREEN="\[\e[1;32m\]"
-BLUE="\[\e[1;36m\]"
-WHITE="\[\e[1;37m\]"
-PS1="$GREEN\u$NORMAL@$BLUE\h$NORMAL:$WHITE\w$NORMAL>"
+if [ -n "$BASH_VERSION" ] && [ -r /etc/bashrc ]; then
+	. /etc/bashrc
+fi
 
 alias ls="ls --color=auto"
 alias grep="grep --color=auto"
+
+if [ "$(id -u)" = 0 ]; then
+        export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+else
+        export PATH="/usr/local/bin:/usr/bin:/bin"
+fi
+
+export XDG_DATA_DIRS="/usr/local/share:/usr/share"
+export XDG_CONFIG_DIRS="/etc/xdg"
 
 if [ $(tty) == "/dev/console" ]
 then
