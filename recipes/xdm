@@ -1,5 +1,5 @@
 name=xdm
-revision=1
+revision=2
 from_source=xdm
 imagedeps="build-essential"
 hostdeps="xgcc xbinutils pkgconfig"
@@ -35,6 +35,10 @@ package() {
 	install -d ${dest_dir}${prefix}/libexec/xdm
 	cat > ${dest_dir}${prefix}/libexec/xdm/session_picker << 'EOF'
 #!/bin/sh
+
+if [ -r /etc/profile ]; then
+	source /etc/profile
+fi
 
 for session in /usr/bin/nscde /usr/bin/fvwm3 /usr/bin/twm /usr/bin/xterm; do
 	if [ -x "$session" ]; then
