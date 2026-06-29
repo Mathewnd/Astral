@@ -7,7 +7,7 @@ syscallret_t syscall_flock(context_t *, int fd, int op_flag) {
 		.ret = -1
 	};
 
-	int op = op_flag &= ~ADVLOCK_NON_BLOCKING;
+	int op = op_flag & ~ADVLOCK_NON_BLOCKING;
 	switch (op) {
 		case ADVLOCK_UNLOCK:
 		case ADVLOCK_SHARED:

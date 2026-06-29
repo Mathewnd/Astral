@@ -80,7 +80,10 @@ advlock_t *advlock_allocate(void) {
 }
 
 void advlock_free(advlock_t *advlock) {
+	advlock->type = ADVLOCK_UNLOCK;
+	advlock->shared_count = 0;
 	advlock->refcount = 1;
+	EVENT_INITHEADER(&advlock->unlock_event);
 	slab_free(advlock_cache, advlock);
 }
 
@@ -270,8 +273,6 @@ static int adv_lock(vnode_t *vnode, int op, advlock_t *lock, bool non_blocking) 
 	}
 
 	// can take the lock!
-	lock->type = op;
-
 	if (vnode->advlock == NULL) {
 		// unlocked advlock
 		if (op == ADVLOCK_SHARED) {
@@ -281,6 +282,9 @@ static int adv_lock(vnode_t *vnode, int op, advlock_t *lock, bool non_blocking) 
 				error = ENOMEM;
 				goto leave;
 			}
+
+			vnode->advlock->type = ADVLOCK_SHARED;
+			vnode->advlock->shared_count = 1;
 		} else {
 			// exclusive lock
 			vnode->advlock = lock;
@@ -290,6 +294,8 @@ static int adv_lock(vnode_t *vnode, int op, advlock_t *lock, bool non_blocking) 
 		// shared lock on shared advlock
 		++vnode->advlock->shared_count;
 	}
+
+	lock->type = op;
 
 	leave:
 	MUTEX_RELEASE(&vnode->adv_mutex);
