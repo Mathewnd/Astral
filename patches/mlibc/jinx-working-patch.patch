@@ -888,10 +888,10 @@ index a6c4067..9040d45 100644
  
 diff --git mlibc-workdir/sysdeps/astral/include/astral/sysctl.h mlibc-workdir/sysdeps/astral/include/astral/sysctl.h
 new file mode 100644
-index 0000000..161f634
+index 0000000..3379839
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/include/astral/sysctl.h
-@@ -0,0 +1,56 @@
+@@ -0,0 +1,57 @@
 +#ifndef _ASTRAL_SYSCTL_H
 +#define _ASTRAL_SYSCTL_H
 +
@@ -906,6 +906,7 @@ index 0000000..161f634
 +#define SYS_CTL_KERN 1
 +#define SYS_CTL_KERN_PROC 1
 +#define SYS_CTL_KERN_PROC_ALL 1
++#define SYS_CTL_KERN_CONSOLE_LOCK 2
 +
 +#define SYS_CTL_KERN_PROC_INFO_NAME_SIZE 64
 +#define SYS_CTL_KERN_PROC_INFO_TTY_NAME_SIZE 64

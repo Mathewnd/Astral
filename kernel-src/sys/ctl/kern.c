@@ -1,15 +1,12 @@
 #include <kernel/sysctl.h>
 #include <kernel/proc.h>
+#include <kernel/console.h>
 #include <kernel/usercopy.h>
 #include <kernel/alloc.h>
 #include <kernel/jobctl.h>
 #include <kernel/tty.h>
-
-#define SYS_CTL_NAME_MAX 6
-
-#define SYS_CTL_KERN 1
-#define SYS_CTL_KERN_PROC 1
-#define SYS_CTL_KERN_PROC_ALL 1
+#include <arch/cpu.h>
+#include <logging.h>
 
 static void release_procs(proc_t **procs, size_t size) {
 	for (size_t i = 0; i < size; ++i) {
@@ -17,7 +14,6 @@ static void release_procs(proc_t **procs, size_t size) {
 	}
 }
 
-// TODO: fix size differences returning ENOMEM
 static int ctl_proc(const int *name, size_t name_len, void *oldp, size_t *old_lenp, void *newp, size_t) {
 	if (name_len != 4)
 		return EINVAL;
@@ -102,10 +98,70 @@ static int ctl_proc(const int *name, size_t name_len, void *oldp, size_t *old_le
 	return error;
 }
 
+static int check_console_lock_permission(proc_t *proc) {
+	if (CRED_IS_ESU(&proc->cred))
+		return 0;
+
+	tty_t *ctty = jobctl_getctty(proc);
+	if (!ctty)
+		return EPERM;
+
+	bool is_console = console_is_tty(ctty);
+	tty_release(ctty);
+	if (!is_console)
+		return EPERM;
+
+	proc_t *session = jobctl_getsession(proc);
+	bool allowed = session->cred.uid == proc->cred.euid;
+	PROC_RELEASE(session);
+
+	return allowed ? 0 : EPERM;
+}
+
+static int ctl_console_lock(const int *, size_t name_len, void *oldp, size_t *old_lenp, void *newp, size_t new_len) {
+	if (name_len != 0)
+		return EINVAL;
+
+	if (oldp || old_lenp)
+		return EINVAL;
+
+	if (!newp || new_len != sizeof(int))
+		return EINVAL;
+
+	int value;
+	int error = USERCOPY_POSSIBLY_FROM_USER(&value, newp, sizeof(value));
+	if (error)
+		return error;
+
+	proc_t *proc = current_thread()->proc;
+	bool lock = value != 0;
+	if (lock) {
+		error = check_console_lock_permission(proc);
+		if (error)
+			return error;
+
+		error = console_set_lock(true);
+		if (error)
+			return error;
+
+		__atomic_store_n(&proc->console_locked, true, __ATOMIC_SEQ_CST);
+	} else {
+		bool expected = true;
+		if (!__atomic_compare_exchange_n(&proc->console_locked, &expected, false, false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST))
+			return EPERM;
+
+		__assert(console_set_lock(false) == 0);
+	}
+
+	return 0;
+}
+
 int sysctl_kern(const int *name, size_t name_len, void *oldp, size_t *old_lenp, void *newp, size_t new_len) {
 	switch (*name) {
 		case SYS_CTL_KERN_PROC:
 			return ctl_proc(name + 1, name_len - 1, oldp, old_lenp, newp, new_len);
+		case SYS_CTL_KERN_CONSOLE_LOCK:
+			return ctl_console_lock(name + 1, name_len - 1, oldp, old_lenp, newp, new_len);
 	}
 
 	return EINVAL;
