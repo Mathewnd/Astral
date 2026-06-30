@@ -1,12 +1,12 @@
 name=astral
-revision=18
+revision=19
 from_source=astral
 imagedeps="build-essential nasm"
 hostdeps="xgcc xbinutils limine"
 
 build() {
 	cp -pr "${source_dir}"/* .
-	CC="x86_64-astral-gcc" LD="x86_64-astral-gcc" AS="nasm" TARGET=x86-64 JINX_ARCH=${JINX_ARCH} make -j${parallelism}
+	time CC="x86_64-astral-gcc" LD="x86_64-astral-gcc" AS="nasm" TARGET=x86-64 JINX_ARCH=${JINX_ARCH} make #-j${parallelism}
 }
 
 package() {

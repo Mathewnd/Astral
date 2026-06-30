@@ -196,8 +196,8 @@ void proc_stop_other_threads() {
 	}
 
 	eventlistener_t listener;
-	EVENT_INITLISTENER(&listener);
 	for (;;) {
+		EVENT_INITLISTENER(&listener);
 		EVENT_ATTACH(&listener, &proc->thread_exit_event);
 		if (__atomic_load_n(&proc->runningthreadcount, __ATOMIC_SEQ_CST) == 1)
 			break;
