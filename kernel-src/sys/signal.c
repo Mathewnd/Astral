@@ -594,13 +594,16 @@ bool signal_check(struct thread_t *thread, context_t *context, bool syscall, uin
 			SIGNAL_SETON(&thread->signals.mask, i);
 		}
 
-		// configure return context
-		memset(context, 0, sizeof(context_t));
-		CTX_INIT(context, true, true);
-		CTX_IP(context) = (uint64_t)action->address;
-		CTX_SP(context) = (uint64_t)stack;
-		CTX_ARG0(context) = signal;
-		set_siginfo_ucontext(context, stack);
+		// do not sync the context until after the usercopy.
+		// context may point at thread->context, which a page
+		// fault may overwrite for sleeping.
+		context_t handler_context;
+		memset(&handler_context, 0, sizeof(context_t));
+		CTX_INIT(&handler_context, true, true);
+		CTX_IP(&handler_context) = (uint64_t)action->address;
+		CTX_SP(&handler_context) = (uint64_t)stack;
+		CTX_ARG0(&handler_context) = signal;
+		set_siginfo_ucontext(&handler_context, stack);
 
 		// reset handler if asked for
 		if (action->flags & SA_RESETHAND)
@@ -619,6 +622,7 @@ bool signal_check(struct thread_t *thread, context_t *context, bool syscall, uin
 			proc_terminate(SIGSEGV);
 		}
 
+		*context = handler_context;
 		return retry;
 	}
 

@@ -112,6 +112,8 @@ int poll_dowait(polldesc_t *desc, size_t ustimeout) {
 	__assert(ret || spinlock_try(&desc->lock) == false);
 
 	if (ret == SCHED_WAKEUP_REASON_INTERRUPTED) {
+		// future note: if this deadlocks, check the caller to see if 
+		// desc is not being reset
 		spinlock_acquire(&desc->wakeuplock);
 		ret = EINTR;
 	}
