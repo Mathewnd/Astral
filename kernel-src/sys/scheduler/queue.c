@@ -9,13 +9,13 @@ bitmap_t sched_idle_cpu_bitmap;
 spinlock_t sched_idle_cpu_bitmap_lock;
 
 static cpu_t *pick_cpu(thread_t *thread) {
-	// if the system is still being bootstrapped or it is a single core machine, run it on the BSP
-	if (arch_smp_get_cpu_count() == 1 || unlikely(arch_smp_cpusawake != arch_smp_get_cpu_count()))
-		return get_bsp();
-
 	// if the thread targets a specific cpu, then go into that
 	if (thread->cputarget)
 		return thread->cputarget;
+
+	// if the system is still being bootstrapped or it is a single core machine, run it on the BSP
+	if (arch_smp_get_cpu_count() == 1 || unlikely(arch_smp_cpusawake != arch_smp_get_cpu_count()))
+		return get_bsp();
 
 	// find the closest cpu in the hierarchy that the thread can run immediatelly in
 	cpu_t *closest = NULL;
