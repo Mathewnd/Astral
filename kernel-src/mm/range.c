@@ -64,13 +64,13 @@ void *mm_get_free_range(vmmspace_t *space, void *addr, size_t size) {
 	while (next) {
 		vmmrange_t *next_range = container_of(next, vmmrange_t, rbtree_node);
 
-		void *rangetop = RANGE_TOP(range);
-		if (addr < rangetop)
-			addr = rangetop;
+		void *range_top = RANGE_TOP(range);
+		if (addr < range_top)
+			addr = range_top;
 
 		if (addr < next_range->start) {
-			size_t freesize = (uintptr_t)next_range->start - (uintptr_t)addr;
-			if (freesize >= size)
+			size_t free_size = (uintptr_t)next_range->start - (uintptr_t)addr;
+			if (free_size >= size)
 				return addr;
 		}
 
@@ -81,9 +81,9 @@ void *mm_get_free_range(vmmspace_t *space, void *addr, size_t size) {
 	}
 
 	// if theres free space after the last range
-	void *rangetop = RANGE_TOP(range);
-	if (addr < rangetop)
-		addr = rangetop;
+	void *range_top = RANGE_TOP(range);
+	if (addr < range_top)
+		addr = range_top;
 
 	if (addr != space->end && (uintptr_t)space->end - (uintptr_t)addr >= size)
 		return addr;
@@ -101,7 +101,7 @@ static int rbtree_compare(rbtree_t *a, rbtree_t *b) {
 	return range_a->start > range_b->start ? 1 : -1;
 }
 
-static bool compatible(vmmrange_t *prev, vmmrange_t *next) {
+static bool ranges_compatible(vmmrange_t *prev, vmmrange_t *next) {
 	void *prev_range_top = RANGE_TOP(prev);
 
 	return prev_range_top == next->start && prev->flags == next->flags && prev->mmuflags == next->mmuflags && // general compatibility
@@ -120,7 +120,7 @@ void mm_insert_range(vmmspace_t *space, vmmrange_t *new_range) {
 	// fragmentation checking
 
 	// check next range
-	if (next_range && compatible(new_range, next_range)) {
+	if (next_range && ranges_compatible(new_range, next_range)) {
 		new_range->size += next_range->size;
 
 		rbtree_remove(&space->ranges, &next_range->rbtree_node);
@@ -131,7 +131,7 @@ void mm_insert_range(vmmspace_t *space, vmmrange_t *new_range) {
 	}
 
 	// check prev range
-	if (prev_range && compatible(prev_range, new_range)) {
+	if (prev_range && ranges_compatible(prev_range, new_range)) {
 		prev_range->size += new_range->size;
 
 		rbtree_remove(&space->ranges, &new_range->rbtree_node);
@@ -191,23 +191,23 @@ void mm_destroy_range(vmmrange_t *range, uintmax_t _offset, size_t size, int fla
 	if (((n) & (f)) == 0 && ((c) & (f))) \
 			m |= f;
 
-static void change_mmu_range(vmmrange_t *range, void *base, size_t size, mmuflags_t newflags) {
+static void change_mmu_range(vmmrange_t *range, void *base, size_t size, mmuflags_t new_flags) {
 	for (uintmax_t offset = 0; offset < size; offset += PAGE_SIZE) {
 		void *address = (void *)((uintptr_t)base + offset);
 
-		mmuflags_t currentflags;
+		mmuflags_t current_flags;
 		// if page is not mapped, do nothing
-		if (arch_mmu_getflags(current_vmm_context()->pagetable, address, &currentflags) == false)
+		if (arch_mmu_getflags(current_vmm_context()->pagetable, address, &current_flags) == false)
 			continue;
 
 		void *physical = arch_mmu_getphysical(current_vmm_context()->pagetable, address);
 
 		uintmax_t mask = 0;
 		// check which flags are currently set and will be unset
-		CHANGE_MASK_CHECK(mask, ARCH_MMU_FLAGS_READ, currentflags, newflags);
-		CHANGE_MASK_CHECK(mask, ARCH_MMU_FLAGS_WRITE, currentflags, newflags);
-		CHANGE_MASK_CHECK(mask, ARCH_MMU_FLAGS_USER, currentflags, newflags);
-		CHANGE_MASK_CHECK(mask, ARCH_MMU_FLAGS_NOEXEC, currentflags, newflags);
+		CHANGE_MASK_CHECK(mask, ARCH_MMU_FLAGS_READ, current_flags, new_flags);
+		CHANGE_MASK_CHECK(mask, ARCH_MMU_FLAGS_WRITE, current_flags, new_flags);
+		CHANGE_MASK_CHECK(mask, ARCH_MMU_FLAGS_USER, current_flags, new_flags);
+		CHANGE_MASK_CHECK(mask, ARCH_MMU_FLAGS_NOEXEC, current_flags, new_flags);
 
 		if ((range->flags & VMM_FLAGS_FILE) && (range->flags & VMM_FLAGS_SHARED) && (mask & ARCH_MMU_FLAGS_WRITE) && vfs_iscacheable(range->vnode)) {
 			// removing write permissions from a writeable dirty shared mapped page, mark it as dirty, as
@@ -220,7 +220,7 @@ static void change_mmu_range(vmmrange_t *range, void *base, size_t size, mmuflag
 
 		// we will only change the mapping if the permissions decreased
 		if (mask) {
-			arch_mmu_remap(current_vmm_context()->pagetable, physical, address, currentflags & ~mask);
+			arch_mmu_remap(current_vmm_context()->pagetable, physical, address, current_flags & ~mask);
 		}
 	}
 }
@@ -279,13 +279,13 @@ int mm_change_range(vmmspace_t *space, void *address, size_t size, bool free, in
 			goto leave;
 		}
 
-		vmmrange_t *new = mm_alloc_range();
+		vmmrange_t *split_range = mm_alloc_range();
 		if (range == NULL) {
 			error = ENOMEM;
 			goto leave;
 		}
 
-		*new = *range; // copy most metadata
+		*split_range = *range; // copy most metadata
 
 		if (free) {
 			// release page data
@@ -293,16 +293,16 @@ int mm_change_range(vmmspace_t *space, void *address, size_t size, bool free, in
 		}
 
 		// set up ranges
-		new->start = top;
-		new->size = (uintptr_t)RANGE_TOP(range) - (uintptr_t)new->start;
+		split_range->start = top;
+		split_range->size = (uintptr_t)RANGE_TOP(range) - (uintptr_t)split_range->start;
 		range->size = (uintptr_t)address - (uintptr_t)range->start;
 
 		if (range->flags & VMM_FLAGS_FILE) {
 			VOP_HOLD(range->vnode);
-			new->offset += range->size + size;
+			split_range->offset += range->size + size;
 		}
 
-		mm_insert_range(space, new);
+		mm_insert_range(space, split_range);
 
 		// if we are not just freeing memory, insert a new range
 		if (free == false) {
