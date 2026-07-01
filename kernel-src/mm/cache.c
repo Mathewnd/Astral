@@ -12,10 +12,10 @@
 static mutex_t mutex;
 static page_t **table;
 
-static thread_t *writerthread;
+static thread_t *writer_thread;
 static semaphore_t sync;
-static eventheader_t syncevent;
-static eventheader_t pagereadyevent;
+static eventheader_t sync_event;
+static eventheader_t page_ready_event;
 size_t mm_cache_cached_pages;
 
 #define HOLD_LOCK() \
@@ -24,8 +24,20 @@ size_t mm_cache_cached_pages;
 #define RELEASE_LOCK() \
 	MUTEX_RELEASE(&mutex);
 
-static inline uint64_t fnv1ahash(void *buffer, size_t size);
-static uintmax_t getentry(vnode_t *vnode, uintmax_t offset) {
+static inline uint64_t fnv1a_hash(void *buffer, size_t size) {
+	uint8_t *ptr = buffer;
+	uint8_t *top = ptr + size;
+	uint64_t h = FNV1OFFSET;
+
+	while (ptr < top) {
+		h ^= *ptr++;
+		h *= FNV1PRIME;
+	}
+
+	return h;
+}
+
+static uintmax_t get_entry(vnode_t *vnode, uintmax_t offset) {
 	struct {
 		vnode_t *vnode;
 		uintmax_t offset;
@@ -34,12 +46,12 @@ static uintmax_t getentry(vnode_t *vnode, uintmax_t offset) {
 	tmp.vnode = vnode;
 	tmp.offset = offset;
 
-	return fnv1ahash(&tmp, sizeof(tmp)) % TABLE_SIZE;
+	return fnv1a_hash(&tmp, sizeof(tmp)) % TABLE_SIZE;
 }
 
 // assumes lock is held
-static page_t *findpage(vnode_t *vnode, uintmax_t offset) {
-	uintmax_t entry = getentry(vnode, offset);
+static page_t *find_page(vnode_t *vnode, uintmax_t offset) {
+	uintmax_t entry = get_entry(vnode, offset);
 
 	page_t *page = table[entry];
 	while (page) {
@@ -52,8 +64,8 @@ static page_t *findpage(vnode_t *vnode, uintmax_t offset) {
 }
 
 // assumes lock is held
-static void putpage(page_t *page) {
-	uintmax_t entry = getentry(page->backing, page->offset);
+static void put_page(page_t *page) {
+	uintmax_t entry = get_entry(page->backing, page->offset);
 	// add to table list
 	page->hash_prev = NULL;
 	page->hash_next = table[entry];
@@ -74,8 +86,8 @@ static void putpage(page_t *page) {
 }
 
 // assumes lock is held
-static void removepage(page_t *page) {
-	uintmax_t entry = getentry(page->backing, page->offset);
+static void remove_page(page_t *page) {
+	uintmax_t entry = get_entry(page->backing, page->offset);
 
 	// remove from table list
 	if (page->hash_next)
@@ -109,8 +121,8 @@ int mm_cache_get_page(vnode_t *vnode, uintmax_t offset, page_t **res) {
 	retry_err:
 	HOLD_LOCK();
 
-	page_t *newpage = NULL;
-	volatile page_t *page = findpage(vnode, offset);
+	page_t *new_page = NULL;
+	volatile page_t *page = find_page(vnode, offset);
 	retry:
 	if (page) {
 		// page is present in the page cache
@@ -118,12 +130,12 @@ int mm_cache_get_page(vnode_t *vnode, uintmax_t offset, page_t **res) {
 		RELEASE_LOCK();
 
 		// in the case of a retry, release the allocated page here
-		if (newpage)
-			mm_release_page(mm_get_page_address(newpage));
+		if (new_page)
+			mm_release_page(mm_get_page_address(new_page));
 
 		eventlistener_t listener;
 		EVENT_INITLISTENER(&listener);
-		EVENT_ATTACH(&listener, &pagereadyevent);
+		EVENT_ATTACH(&listener, &page_ready_event);
 
 		// wait for page to be ready
 		while ((page->flags & (PAGE_FLAGS_READY | PAGE_FLAGS_ERROR)) == 0)
@@ -146,26 +158,26 @@ int mm_cache_get_page(vnode_t *vnode, uintmax_t offset, page_t **res) {
 		if (address == NULL)
 			return ENOMEM;
 
-		newpage = mm_get_page(address);
-		
+		new_page = mm_get_page(address);
+
 		HOLD_LOCK();
 
 		// while the lock wasn't being held, the page could have potentially been added to the cache
 		// check for it again and return from the function as if it was always there in the first place
-		page = findpage(vnode, offset);
+		page = find_page(vnode, offset);
 		if (page)
 			goto retry;
 
-		newpage->backing = vnode;
-		newpage->offset = offset;
+		new_page->backing = vnode;
+		new_page->offset = offset;
 
 		// add it to the page cache
-		putpage(newpage);
+		put_page(new_page);
 
 		RELEASE_LOCK();
 
 		VOP_LOCK(vnode);
-		int error = VOP_GETPAGE(vnode, offset, newpage);
+		int error = VOP_GETPAGE(vnode, offset, new_page);
 		VOP_UNLOCK(vnode);
 
 		if (error) {
@@ -173,24 +185,24 @@ int mm_cache_get_page(vnode_t *vnode, uintmax_t offset, page_t **res) {
 			// tell the sleeping threads that something happened and free the page
 			// by setting backing to null so it gets treated as an anonymous page again
 			HOLD_LOCK();
-			removepage(newpage);
+			remove_page(new_page);
 
-			newpage->flags |= PAGE_FLAGS_ERROR;
-			newpage->backing = NULL;
-			newpage->offset = 0;
+			new_page->flags |= PAGE_FLAGS_ERROR;
+			new_page->backing = NULL;
+			new_page->offset = 0;
 
 			RELEASE_LOCK();
-			mm_release_page(mm_get_page_address(newpage));
-			EVENT_SIGNAL(&pagereadyevent);
+			mm_release_page(mm_get_page_address(new_page));
+			EVENT_SIGNAL(&page_ready_event);
 			return error;
 		}
 
 		HOLD_LOCK();
-		newpage->flags |= PAGE_FLAGS_READY;
+		new_page->flags |= PAGE_FLAGS_READY;
 		RELEASE_LOCK();
 
-		EVENT_SIGNAL(&pagereadyevent);
-		*res = newpage;
+		EVENT_SIGNAL(&page_ready_event);
+		*res = new_page;
 	}
 
 	return 0;
@@ -201,8 +213,8 @@ int mm_cache_push_page(vnode_t *vnode, uintmax_t offset, page_t *page) {
 	__assert((offset % PAGE_SIZE) == 0);
 	HOLD_LOCK();
 
-	page_t *pagetest = findpage(vnode, offset);
-	if (pagetest) {
+	page_t *page_test = find_page(vnode, offset);
+	if (page_test) {
 		RELEASE_LOCK();
 		return EAGAIN;
 	}
@@ -211,7 +223,7 @@ int mm_cache_push_page(vnode_t *vnode, uintmax_t offset, page_t *page) {
 	page->offset = offset;
 	page->flags |= PAGE_FLAGS_READY;
 
-	putpage(page);
+	put_page(page);
 
 	RELEASE_LOCK();
 	return 0;
@@ -229,7 +241,7 @@ int mm_cache_evict(page_t *page) {
 
 	if ((page->flags & PAGE_FLAGS_TRUNCATED) == 0) {
 		// the page needs to be removed from the cache to continue
-		removepage(page);
+		remove_page(page);
 	}
 
 	page->flags = 0;
@@ -256,7 +268,7 @@ int mm_cache_take_page(page_t *page) {
 	// XXX maybe just not allow truncated pages to take up space like this?
 	if ((page->flags & PAGE_FLAGS_TRUNCATED) == 0) {
 		// the page needs to be removed from the cache to continue
-		removepage(page);
+		remove_page(page);
 	}
 
 	RELEASE_LOCK();
@@ -265,29 +277,29 @@ int mm_cache_take_page(page_t *page) {
 
 int mm_cache_truncate(vnode_t *vnode, uintmax_t offset) {
 	HOLD_LOCK();
-	page_t *pagelist = NULL;
+	page_t *page_list = NULL;
 	page_t *page = vnode->pages;
 
 	while (page) {
-		page_t *oldpage = page;
+		page_t *old_page = page;
 		page = page->vnode_next;
 
 		// only truncate past a certain offset
-		if (oldpage->offset < offset)
+		if (old_page->offset < offset)
 			continue;
 
-		oldpage->flags |= PAGE_FLAGS_TRUNCATED;
-		removepage(oldpage);
-		oldpage->vnode_next = pagelist;
-		pagelist = oldpage;
+		old_page->flags |= PAGE_FLAGS_TRUNCATED;
+		remove_page(old_page);
+		old_page->vnode_next = page_list;
+		page_list = old_page;
 	}
 
 	RELEASE_LOCK();
 
 	// make sure to unref if they are pinned
-	while (pagelist) {
-		page_t *page = pagelist;
-		pagelist = pagelist->vnode_next;
+	while (page_list) {
+		page_t *page = page_list;
+		page_list = page_list->vnode_next;
 		if (page->flags & PAGE_FLAGS_PINNED)
 			mm_release_page(mm_get_page_address(page));
 	}
@@ -298,18 +310,18 @@ int mm_cache_truncate(vnode_t *vnode, uintmax_t offset) {
 // called with lock held
 // returns with lock released
 // expects backing lock to be held
-static int syncpage(page_t *page, bool backinglock) {
+static int sync_page(page_t *page, bool backing_lock) {
 	__assert(page->flags & PAGE_FLAGS_DIRTY);
 	page->flags &= ~PAGE_FLAGS_DIRTY;
 	RELEASE_LOCK();
 	int e = 0;
 	if ((page->flags & PAGE_FLAGS_TRUNCATED) == 0) {
-		if (backinglock)
+		if (backing_lock)
 			VOP_LOCK(page->backing);
 
 		e = VOP_PUTPAGE(page->backing, page->offset, (page_t *)page);
 
-		if (backinglock)
+		if (backing_lock)
 			VOP_UNLOCK(page->backing);
 		VOP_RELEASE(page->backing);
 	} else {
@@ -322,8 +334,8 @@ static int syncpage(page_t *page, bool backinglock) {
 	return e;
 }
 
-static page_t *dirtylist;
-static page_t *dirtylistend;
+static page_t *dirty_list;
+static page_t *dirty_list_end;
 
 // expects vnode to be held
 int mm_cache_sync_vnode(vnode_t *vnode, uintmax_t offset, size_t size) {
@@ -336,7 +348,7 @@ int mm_cache_sync_vnode(vnode_t *vnode, uintmax_t offset, size_t size) {
 	// loop through all vnode pages in memory and check which ones are in the range and are dirty
 	// TODO create a proper vnode dirty list as to not have to loop through the ENTIRE thing in memory
 	page_t *page = vnode->pages;
-	page_t *vnodedirtylist = NULL;
+	page_t *vnode_dirty_list = NULL;
 	for (; page; page = page->vnode_next) {
 		if (page->offset < offset || page->offset >= top || (page->flags & PAGE_FLAGS_DIRTY) == 0 || (page->flags & PAGE_FLAGS_VNODE_SYNCING))
 			continue;
@@ -346,85 +358,85 @@ int mm_cache_sync_vnode(vnode_t *vnode, uintmax_t offset, size_t size) {
 		if (page->write_next)
 			page->write_next->write_prev = page->write_prev;
 		else
-			dirtylistend = page->write_prev;
+			dirty_list_end = page->write_prev;
 
 		if (page->write_prev)
 			page->write_prev->write_next = page->write_next;
 		else
-			dirtylist = page->write_next;
+			dirty_list = page->write_next;
 
-		page->write_next = vnodedirtylist;
+		page->write_next = vnode_dirty_list;
 		page->write_prev = NULL;
 		page->flags |= PAGE_FLAGS_VNODE_SYNCING;
-		vnodedirtylist = page;
+		vnode_dirty_list = page;
 	}
 
 	RELEASE_LOCK();
 
 	int e = 0;
-	while (vnodedirtylist) {
+	while (vnode_dirty_list) {
 		// in the case of failure, only the first error to occur will be reported and we will not
 		// retry the write and keep on syncing the pages to disk
 		HOLD_LOCK();
-		page_t *page = vnodedirtylist;
-		vnodedirtylist = vnodedirtylist->write_next;
+		page_t *page = vnode_dirty_list;
+		vnode_dirty_list = vnode_dirty_list->write_next;
 		page->write_next = NULL;
 		page->flags &= ~PAGE_FLAGS_VNODE_SYNCING;
 
 		// another thread could already have synced this page, verify if it is still dirty
 		if (page->flags & PAGE_FLAGS_DIRTY) {
-			int error = syncpage(page, false);
+			int error = sync_page(page, false);
 
 			if (e == 0)
 				e = error;
 		} else {
 			RELEASE_LOCK();
 		}
-		// syncpage returns with lock released
+		// sync_page returns with lock released
 	}
 
 	return e;
 }
 
 int mm_cache_sync(void) {
-	eventlistener_t eventlistener;
-	EVENT_INITLISTENER(&eventlistener);
+	eventlistener_t event_listener;
+	EVENT_INITLISTENER(&event_listener);
 	HOLD_LOCK();
-	if (dirtylist == NULL) {
+	if (dirty_list == NULL) {
 		// no dirty pages
 		RELEASE_LOCK();
 		return 0;
 	}
 
-	EVENT_ATTACH(&eventlistener, &syncevent);
+	EVENT_ATTACH(&event_listener, &sync_event);
 	semaphore_signal(&sync);
 	RELEASE_LOCK();
 
-	EVENT_WAIT(&eventlistener, 0);
+	EVENT_WAIT(&event_listener, 0);
 
-	EVENT_DETACHALL(&eventlistener);
+	EVENT_DETACHALL(&event_listener);
 	return 0;
 }
 
 // backing expected locked
 int mm_cache_make_dirty(page_t *page) {
-	bool madedirty = false;
+	bool made_dirty = false;
 	HOLD_LOCK();
 
 	if ((page->flags & (PAGE_FLAGS_DIRTY | PAGE_FLAGS_TRUNCATED)) == 0) {
-		madedirty = true;
+		made_dirty = true;
 		// page is neither dirty nor truncated, add to dirty list and hold the page and vnode
 		page->flags |= PAGE_FLAGS_DIRTY;
 
 		if ((page->flags & PAGE_FLAGS_VNODE_SYNCING) == 0) {
 			page->write_prev = NULL;
-			page->write_next = dirtylist;
-			if (dirtylist)
-				dirtylist->write_prev = page;
+			page->write_next = dirty_list;
+			if (dirty_list)
+				dirty_list->write_prev = page;
 			else
-				dirtylistend = page;
+				dirty_list_end = page;
 
-			dirtylist = page;
+			dirty_list = page;
 		}
 
 		mm_hold_page(mm_get_page_address(page));
@@ -433,7 +445,7 @@ int mm_cache_make_dirty(page_t *page) {
 	}
 
 	RELEASE_LOCK();
-	if (madedirty) {
+	if (made_dirty) {
 		vattr_t attr;
 		attr.mtime = timekeeper_time();
 		VOP_SETATTR(page->backing, &attr, V_ATTR_MTIME, NULL);
@@ -446,30 +458,30 @@ static void tick(context_t *, dpcarg_t arg) {
 }
 
 static void writer() {
-	timerentry_t timerentry;
+	timerentry_t timer_entry;
 	// this will be inserted on some random cpu's timer, but it will always work after that
 	interrupt_set(false);
-	timer_insert(current_cpu()->timer, &timerentry, tick, NULL, (uintmax_t)WRITER_TICK_SECONDS * 1000000, true);
+	timer_insert(current_cpu()->timer, &timer_entry, tick, NULL, (uintmax_t)WRITER_TICK_SECONDS * 1000000, true);
 	interrupt_set(true);
 	for (;;) {
 		HOLD_LOCK();
-		volatile page_t *page = dirtylistend;
+		volatile page_t *page = dirty_list_end;
 		if (page == NULL) {
-			EVENT_SIGNAL(&syncevent);
+			EVENT_SIGNAL(&sync_event);
 			RELEASE_LOCK();
 			semaphore_wait(&sync, false);
 			continue;
 		}
 
-		dirtylistend = page->write_prev;
-		if (dirtylistend)
-			dirtylistend->write_next = NULL;
+		dirty_list_end = page->write_prev;
+		if (dirty_list_end)
+			dirty_list_end->write_next = NULL;
 		else
-			dirtylist = NULL;
+			dirty_list = NULL;
 
 		page->write_prev = NULL;
 		// TODO notify error on mm_cache_sync_vnode
-		syncpage((page_t *)page, true);
+		sync_page((page_t *)page, true);
 	}
 }
 
@@ -480,12 +492,12 @@ void mm_cache_init(void) {
 	memset(table, 0, TABLE_SIZE * sizeof(page_t *));
 
 	SEMAPHORE_INIT(&sync, 0);
-	writerthread = sched_newthread(writer, PAGE_SIZE * 16, 1, NULL, NULL);
-	__assert(writerthread);
-	sched_queue(writerthread);
+	writer_thread = sched_newthread(writer, PAGE_SIZE * 16, 1, NULL, NULL);
+	__assert(writer_thread);
+	sched_queue(writer_thread);
 	mm_cache_sync();
-	EVENT_INITHEADER(&syncevent);
-	EVENT_INITHEADER(&pagereadyevent);
+	EVENT_INITHEADER(&sync_event);
+	EVENT_INITHEADER(&page_ready_event);
 }
 
 INIT_ROUTINE_DEFINE(mm_cache, INIT_ROUTINE_FLAGS_NONE, mm_cache_init, scheduler);
