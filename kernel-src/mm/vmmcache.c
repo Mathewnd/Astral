@@ -45,7 +45,7 @@ static page_t *findpage(vnode_t *vnode, uintmax_t offset) {
 	while (page) {
 		if (page->backing == vnode && page->offset == offset)
 			break;
-		page = page->hashnext;
+		page = page->hash_next;
 	}
 
 	return page;
@@ -55,19 +55,19 @@ static page_t *findpage(vnode_t *vnode, uintmax_t offset) {
 static void putpage(page_t *page) {
 	uintmax_t entry = getentry(page->backing, page->offset);
 	// add to table list
-	page->hashprev = NULL;
-	page->hashnext = table[entry];
+	page->hash_prev = NULL;
+	page->hash_next = table[entry];
 	if (table[entry])
-		table[entry]->hashprev = page;
+		table[entry]->hash_prev = page;
 
 	table[entry] = page;
 
 	// add to vnode list
 	// XXX this could be a bit slow if a large portion of the file is in memory and it gets purged
-	page->vnodeprev = NULL;
-	page->vnodenext = page->backing->pages;
+	page->vnode_prev = NULL;
+	page->vnode_next = page->backing->pages;
 	if (page->backing->pages)
-		page->backing->pages->vnodeprev = page;
+		page->backing->pages->vnode_prev = page;
 
 	page->backing->pages = page;
 	++vmmcache_cachedpages;
@@ -78,28 +78,28 @@ static void removepage(page_t *page) {
 	uintmax_t entry = getentry(page->backing, page->offset);
 
 	// remove from table list
-	if (page->hashnext)
-		page->hashnext->hashprev = page->hashprev;
+	if (page->hash_next)
+		page->hash_next->hash_prev = page->hash_prev;
 
-	if (page->hashprev)
-		page->hashprev->hashnext = page->hashnext;
+	if (page->hash_prev)
+		page->hash_prev->hash_next = page->hash_next;
 	else
-		table[entry] = page->hashnext;
+		table[entry] = page->hash_next;
 
-	page->hashnext = NULL;
-	page->hashprev = NULL;
+	page->hash_next = NULL;
+	page->hash_prev = NULL;
 
 	// remove from vnode list
-	if (page->vnodenext)
-		page->vnodenext->vnodeprev = page->vnodeprev;
+	if (page->vnode_next)
+		page->vnode_next->vnode_prev = page->vnode_prev;
 
-	if (page->vnodeprev)
-		page->vnodeprev->vnodenext = page->vnodenext;
+	if (page->vnode_prev)
+		page->vnode_prev->vnode_next = page->vnode_next;
 	else
-		page->backing->pages = page->vnodenext;
+		page->backing->pages = page->vnode_next;
 
-	page->vnodenext = NULL;
-	page->vnodeprev = NULL;
+	page->vnode_next = NULL;
+	page->vnode_prev = NULL;
 	--vmmcache_cachedpages;
 }
 
@@ -270,7 +270,7 @@ int vmmcache_truncate(vnode_t *vnode, uintmax_t offset) {
 
 	while (page) {
 		page_t *oldpage = page;
-		page = page->vnodenext;
+		page = page->vnode_next;
 
 		// only truncate past a certain offset
 		if (oldpage->offset < offset)
@@ -278,7 +278,7 @@ int vmmcache_truncate(vnode_t *vnode, uintmax_t offset) {
 
 		oldpage->flags |= PAGE_FLAGS_TRUNCATED;
 		removepage(oldpage);
-		oldpage->vnodenext = pagelist;
+		oldpage->vnode_next = pagelist;
 		pagelist = oldpage;
 	}
 
@@ -287,7 +287,7 @@ int vmmcache_truncate(vnode_t *vnode, uintmax_t offset) {
 	// make sure to unref if they are pinned
 	while (pagelist) {
 		page_t *page = pagelist;
-		pagelist = pagelist->vnodenext;
+		pagelist = pagelist->vnode_next;
 		if (page->flags & PAGE_FLAGS_PINNED)
 			mm_release_page(mm_get_page_address(page));
 	}
@@ -337,24 +337,24 @@ int vmmcache_syncvnode(vnode_t *vnode, uintmax_t offset, size_t size) {
 	// TODO create a proper vnode dirty list as to not have to loop through the ENTIRE thing in memory
 	page_t *page = vnode->pages;
 	page_t *vnodedirtylist = NULL;
-	for (; page; page = page->vnodenext) {
+	for (; page; page = page->vnode_next) {
 		if (page->offset < offset || page->offset >= top || (page->flags & PAGE_FLAGS_DIRTY) == 0 || (page->flags & PAGE_FLAGS_VNODE_SYNCING))
 			continue;
 
 		// remove from write list and add to an internal list using the write pointers
 		// in a singly linked list way
-		if (page->writenext)
-			page->writenext->writeprev = page->writeprev;
+		if (page->write_next)
+			page->write_next->write_prev = page->write_prev;
 		else
-			dirtylistend = page->writeprev;
+			dirtylistend = page->write_prev;
 
-		if (page->writeprev)
-			page->writeprev->writenext = page->writenext;
+		if (page->write_prev)
+			page->write_prev->write_next = page->write_next;
 		else
-			dirtylist = page->writenext;
+			dirtylist = page->write_next;
 
-		page->writenext = vnodedirtylist;
-		page->writeprev = NULL;
+		page->write_next = vnodedirtylist;
+		page->write_prev = NULL;
 		page->flags |= PAGE_FLAGS_VNODE_SYNCING;
 		vnodedirtylist = page;
 	}
@@ -367,8 +367,8 @@ int vmmcache_syncvnode(vnode_t *vnode, uintmax_t offset, size_t size) {
 		// retry the write and keep on syncing the pages to disk
 		HOLD_LOCK();
 		page_t *page = vnodedirtylist;
-		vnodedirtylist = vnodedirtylist->writenext;
-		page->writenext = NULL;
+		vnodedirtylist = vnodedirtylist->write_next;
+		page->write_next = NULL;
 		page->flags &= ~PAGE_FLAGS_VNODE_SYNCING;
 
 		// another thread could already have synced this page, verify if it is still dirty
@@ -417,10 +417,10 @@ int vmmcache_makedirty(page_t *page) {
 		page->flags |= PAGE_FLAGS_DIRTY;
 
 		if ((page->flags & PAGE_FLAGS_VNODE_SYNCING) == 0) {
-			page->writeprev = NULL;
-			page->writenext = dirtylist;
+			page->write_prev = NULL;
+			page->write_next = dirtylist;
 			if (dirtylist)
-				dirtylist->writeprev = page;
+				dirtylist->write_prev = page;
 			else
 				dirtylistend = page;
 
@@ -461,13 +461,13 @@ static void writer() {
 			continue;
 		}
 
-		dirtylistend = page->writeprev;
+		dirtylistend = page->write_prev;
 		if (dirtylistend)
-			dirtylistend->writenext = NULL;
+			dirtylistend->write_next = NULL;
 		else
 			dirtylist = NULL;
 
-		page->writeprev = NULL;
+		page->write_prev = NULL;
 		// TODO notify error on vmmcache_syncvnode
 		syncpage((page_t *)page, true);
 	}

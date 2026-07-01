@@ -8,21 +8,21 @@
 #include <kernel/vmmcache.h>
 #include <kernel/init.h>
 
-uintptr_t hhdmbase;
-static size_t memorysize;
-static size_t pagecount;
-size_t freepagecount;
+uintptr_t hhdm_base;
+static size_t memory_size;
+static size_t page_count;
+size_t mm_free_page_count;
 
-static mutex_t freelistmutex;
-static page_t *freelists[MEMORY_SECTION_COUNT];
-static page_t *freetails[MEMORY_SECTION_COUNT];
-static page_t *standbylists[MEMORY_SECTION_COUNT];
-static page_t *standbytails[MEMORY_SECTION_COUNT];
+static mutex_t free_list_mutex;
+static page_t *free_lists[MEMORY_SECTION_COUNT];
+static page_t *free_tails[MEMORY_SECTION_COUNT];
+static page_t *standby_lists[MEMORY_SECTION_COUNT];
+static page_t *standby_tails[MEMORY_SECTION_COUNT];
 
 typedef struct {
-	uintmax_t baseid;
-	uintmax_t topid;
-	uintmax_t searchstart;
+	uintmax_t base_id;
+	uintmax_t top_id;
+	uintmax_t search_start;
 } section_t;
 
 #define TOP_1MB (0x100000 / PAGE_SIZE)
@@ -34,7 +34,7 @@ static section_t sections[MEMORY_SECTION_COUNT] = {
 	{TOP_4GB, 0xffffffffffffffffl, TOP_4GB}
 };
 
-static volatile struct limine_hhdm_request hhdmreq = {
+static volatile struct limine_hhdm_request hhdm_req = {
 	.id = LIMINE_HHDM_REQUEST_ID,
 	.revision = 0
 };
@@ -46,81 +46,81 @@ volatile struct limine_memmap_request mm_page_limine_map = {
 
 static page_t* pages;
 
-#define PAGE_GETID(page) (((uintptr_t)(page) - (uintptr_t)pages) / sizeof(page_t))
-#define PAGE_BOUNDARYCHECK(pageid) \
-	__assert((pageid) * PAGE_SIZE < (uintptr_t)pages || (pageid) * PAGE_SIZE >= (uintptr_t)&pages[pagecount])
+#define PAGE_GET_ID(page) (((uintptr_t)(page) - (uintptr_t)pages) / sizeof(page_t))
+#define PAGE_BOUNDARY_CHECK(page_id) \
+	__assert((page_id) * PAGE_SIZE < (uintptr_t)pages || (page_id) * PAGE_SIZE >= (uintptr_t)&pages[page_count])
 
-static void insertinfreelist(page_t *page) {
-	uintmax_t pageid = PAGE_GETID(page);
-	PAGE_BOUNDARYCHECK(pageid);
+static void insert_in_free_list(page_t *page) {
+	uintmax_t page_id = PAGE_GET_ID(page);
+	PAGE_BOUNDARY_CHECK(page_id);
 	struct page_t **list;
 	struct page_t **tail;
 
 	int section;
 
-	if (pageid < TOP_1MB)
+	if (page_id < TOP_1MB)
 		section = MEMORY_SECTION_1MB;
-	else if (pageid < TOP_4GB)
+	else if (page_id < TOP_4GB)
 		section = MEMORY_SECTION_4GB;
 	else
 		section = MEMORY_SECTION_DEFAULT;
 
-	list = page->backing ? &standbylists[section] : &freelists[section];
-	tail = page->backing ? &standbytails[section] : &freetails[section];
+	list = page->backing ? &standby_lists[section] : &free_lists[section];
+	tail = page->backing ? &standby_tails[section] : &free_tails[section];
 
-	if (sections[section].searchstart > pageid)
-		sections[section].searchstart = pageid;
+	if (sections[section].search_start > page_id)
+		sections[section].search_start = page_id;
 
-	page->freenext = *list;
-	page->freeprev = NULL;
+	page->free_next = *list;
+	page->free_prev = NULL;
 	*list = page;
-	if (page->freenext)
-		page->freenext->freeprev = page;
+	if (page->free_next)
+		page->free_next->free_prev = page;
 	else
 		*tail = page;
 
-	++freepagecount;
+	++mm_free_page_count;
 }
 
-static void removefromfreelist(page_t *page) {
-	uintmax_t pageid = PAGE_GETID(page);
-	PAGE_BOUNDARYCHECK(pageid);
+static void remove_from_free_list(page_t *page) {
+	uintmax_t page_id = PAGE_GET_ID(page);
+	PAGE_BOUNDARY_CHECK(page_id);
 	struct page_t **list;
 	struct page_t **tail;
 
 	int section;
 
-	if (pageid < TOP_1MB)
+	if (page_id < TOP_1MB)
 		section = MEMORY_SECTION_1MB;
-	else if (pageid < TOP_4GB)
+	else if (page_id < TOP_4GB)
 		section = MEMORY_SECTION_4GB;
 	else
 		section = MEMORY_SECTION_DEFAULT;
 
-	list = page->backing ? &standbylists[section] : &freelists[section];
-	tail = page->backing ? &standbytails[section] : &freetails[section];
+	list = page->backing ? &standby_lists[section] : &free_lists[section];
+	tail = page->backing ? &standby_tails[section] : &free_tails[section];
 
-	if (page->freeprev)
-		page->freeprev->freenext = page->freenext;
+	if (page->free_prev)
+		page->free_prev->free_next = page->free_next;
 	else
-		*list = page->freenext;
+		*list = page->free_next;
 
-	if (page->freenext)
-		page->freenext->freeprev = page->freeprev;
+	if (page->free_next)
+		page->free_next->free_prev = page->free_prev;
 	else
-		*tail = page->freeprev;
+		*tail = page->free_prev;
 
-	page->freenext = NULL;
-	page->freeprev = NULL;
+	page->free_next = NULL;
+	page->free_prev = NULL;
 
-	--freepagecount;
+	--mm_free_page_count;
 }
 
-static void internalhold(page_t *page) {
+static void internal_hold(page_t *page) {
 	if (++page->refcount == 1) {
 		// this is only valid on standby pages, in case of free pages its an use after free
 		__assert((page->flags & PAGE_FLAGS_FREE) == 0);
-		removefromfreelist(page);
+		remove_from_free_list(page);
 	}
 }
 
@@ -129,32 +129,32 @@ page_t *mm_get_page(void *address) {
 }
 
 void *mm_get_page_address(page_t *page) {
-	return (void *)(PAGE_GETID(page) * PAGE_SIZE);
+	return (void *)(PAGE_GET_ID(page) * PAGE_SIZE);
 }
 
 void mm_hold_page(void *addr) {
 	page_t *page = &pages[((uintptr_t)addr / PAGE_SIZE)];
 
-	MUTEX_ACQUIRE(&freelistmutex);
-	internalhold(page);
-	MUTEX_RELEASE(&freelistmutex);
+	MUTEX_ACQUIRE(&free_list_mutex);
+	internal_hold(page);
+	MUTEX_RELEASE(&free_list_mutex);
 }
 
 void mm_release_page(void *addr) {
 	page_t *page = &pages[(uintptr_t)addr / PAGE_SIZE];
 
-	MUTEX_ACQUIRE(&freelistmutex);
+	MUTEX_ACQUIRE(&free_list_mutex);
 	__assert(page->refcount != 0);
 	if (--page->refcount == 0) {
 		__assert((page->flags & PAGE_FLAGS_DIRTY) == 0);
-		insertinfreelist(page);
+		insert_in_free_list(page);
 		if (page->backing == NULL)
 			page->flags |= PAGE_FLAGS_FREE;
 	}
-	MUTEX_RELEASE(&freelistmutex);
+	MUTEX_RELEASE(&free_list_mutex);
 }
 
-static void doalloc(page_t *page) {
+static void do_alloc(page_t *page) {
 	__assert(page->refcount == 0);
 	memset(page, 0, sizeof(page_t));
 	page->refcount = 1;
@@ -162,74 +162,74 @@ static void doalloc(page_t *page) {
 
 void *mm_alloc_page(int section) {
 	retry:
-	MUTEX_ACQUIRE(&freelistmutex);
+	MUTEX_ACQUIRE(&free_list_mutex);
 	page_t *page = NULL;
 
 	// try to take a free anonymous page
 	for (int i = section; i >= 0; --i) {
-		page = freelists[i];
+		page = free_lists[i];
 		if (page) {
-			removefromfreelist(page);
+			remove_from_free_list(page);
 			__assert(page->refcount == 0);
 			break;
 		}
 	}
 
-	bool cachepage = false;
+	bool cache_page = false;
 
 	// if that wasn't possible, try to take from the cache standby list
 	if (page == NULL) {
 		for (int i = section; i >= 0; --i) {
-			page = standbytails[i];
+			page = standby_tails[i];
 			if (page) {
-				cachepage = true;
-				internalhold(page);
+				cache_page = true;
+				internal_hold(page);
 				break;
 			}
 		}
 	}
 
-	MUTEX_RELEASE(&freelistmutex);
+	MUTEX_RELEASE(&free_list_mutex);
 
-	if (cachepage && vmmcache_takepage(page) == EAGAIN) {
+	if (cache_page && vmmcache_takepage(page) == EAGAIN) {
 		// someone already got the page from the cache between us holding it and taking it
 		mm_release_page(mm_get_page_address(page));
 		page = NULL;
 		// retry it from the start, as an anonymous page could have been released while the lock was not held
 		goto retry;
-	} else if (cachepage) {
+	} else if (cache_page) {
 		// we got the page from the cache, all is good and we hold the only reference to it.
-		// set the refcount to 0, as expected by the doalloc call
+		// set the refcount to 0, as expected by the do_alloc call
 		page->refcount = 0;
 	}
 
 	void *address = NULL;
 	if (page) {
-		address = (void *)(PAGE_GETID(page) * PAGE_SIZE);
-		doalloc(page);
+		address = (void *)(PAGE_GET_ID(page) * PAGE_SIZE);
+		do_alloc(page);
 	}
 
 	return address;
 }
 
 void mm_force_free_page(void *address, size_t count) {
-	MUTEX_ACQUIRE(&freelistmutex);
-	memorysize += PAGE_SIZE * count;
+	MUTEX_ACQUIRE(&free_list_mutex);
+	memory_size += PAGE_SIZE * count;
 	__assert(((uintptr_t)address % PAGE_SIZE) == 0);
-	uintmax_t baseid = (uintptr_t)address / PAGE_SIZE;
+	uintmax_t base_id = (uintptr_t)address / PAGE_SIZE;
 	for (int i = 0; i < count; ++i) {
-		uintmax_t pageid = baseid + i;
-		PAGE_BOUNDARYCHECK(pageid);
-		page_t *page = &pages[pageid];
+		uintmax_t page_id = base_id + i;
+		PAGE_BOUNDARY_CHECK(page_id);
+		page_t *page = &pages[page_id];
 		page->flags |= PAGE_FLAGS_FREE;
-		insertinfreelist(page);
+		insert_in_free_list(page);
 	}
-	MUTEX_RELEASE(&freelistmutex);
+	MUTEX_RELEASE(&free_list_mutex);
 }
 
 void mm_page_init() {
-	__assert(hhdmreq.response);
-	hhdmbase = hhdmreq.response->offset;
+	__assert(hhdm_req.response);
+	hhdm_base = hhdm_req.response->offset;
 	__assert(mm_page_limine_map.response);
 
 	// get size of memory, top of usable memory, biggest section and print memory map
@@ -240,30 +240,30 @@ void mm_page_init() {
 		struct limine_memmap_entry *e = mm_page_limine_map.response->entries[i];
 		printf("mm: %016p -> %016p: %d\n", e->base, e->base + e->length, e->type);
 		if (e->type == LIMINE_MEMMAP_USABLE || e->type == LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE || e->type == LIMINE_MEMMAP_EXECUTABLE_AND_MODULES) {
-			size_t sectiontop = e->base + e->length;
-			if (sectiontop > top)
-				top = sectiontop;
+			size_t section_top = e->base + e->length;
+			if (section_top > top)
+				top = section_top;
 		}
 		if (e->type == LIMINE_MEMMAP_USABLE) {
 			if (biggest == NULL || e->length > biggest->length)
 				biggest = e;
-			memorysize += e->length;
+			memory_size += e->length;
 		}
 	}
 
 	pages = MAKE_HHDM((page_t *)biggest->base);
-	pagecount = ROUND_UP(top, PAGE_SIZE) / PAGE_SIZE;
-	memset(pages, 0, pagecount * sizeof(page_t));
-	printf("mm: %d pages used for page list\n", ROUND_UP(pagecount * sizeof(page_t), PAGE_SIZE) / PAGE_SIZE);
+	page_count = ROUND_UP(top, PAGE_SIZE) / PAGE_SIZE;
+	memset(pages, 0, page_count * sizeof(page_t));
+	printf("mm: %d pages used for page list\n", ROUND_UP(page_count * sizeof(page_t), PAGE_SIZE) / PAGE_SIZE);
 
 	// initialize usable memory
 	for (size_t i = 0; i < mm_page_limine_map.response->entry_count; ++i) {
 		struct limine_memmap_entry *e = mm_page_limine_map.response->entries[i];
 		if (e->type == LIMINE_MEMMAP_USABLE) {
-			int firstusablepage = e == biggest ? ROUND_UP(e->base + pagecount * sizeof(page_t), PAGE_SIZE) / PAGE_SIZE : e->base / PAGE_SIZE;
-			for (int i = firstusablepage; i < (e->base + e->length) / PAGE_SIZE; ++i) {
+			int first_usable_page = e == biggest ? ROUND_UP(e->base + page_count * sizeof(page_t), PAGE_SIZE) / PAGE_SIZE : e->base / PAGE_SIZE;
+			for (int i = first_usable_page; i < (e->base + e->length) / PAGE_SIZE; ++i) {
 				pages[i].flags |= PAGE_FLAGS_FREE;
-				insertinfreelist(&pages[i]);
+				insert_in_free_list(&pages[i]);
 			}
 		} else if (e->type == LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE) {
 			for (int i = 0; i < e->length / PAGE_SIZE; ++i) {
@@ -273,7 +273,7 @@ void mm_page_init() {
 		}
 	}
 
-	MUTEX_INIT(&freelistmutex);
+	MUTEX_INIT(&free_list_mutex);
 }
 
 INIT_ROUTINE_DEFINE(mm_page, INIT_ROUTINE_FLAGS_NONE, mm_page_init, arch_early);
@@ -286,14 +286,14 @@ void *mm_alloc_pages(size_t size, int section) {
 	if (size == 1)
 		return mm_alloc_page(section);
 
-	MUTEX_ACQUIRE(&freelistmutex);
+	MUTEX_ACQUIRE(&free_list_mutex);
 
 	uintmax_t page = 0;
 	size_t found = 0;
 
 	for (; section >= 0; --section) {
-		for (page = sections[section].searchstart; page < sections[section].topid; ++page) {
-			if (page >= pagecount)
+		for (page = sections[section].search_start; page < sections[section].top_id; ++page) {
+			if (page >= page_count)
 				break;
 
 			if (pages[page].flags & PAGE_FLAGS_FREE) {
@@ -313,12 +313,12 @@ void *mm_alloc_pages(size_t size, int section) {
 		page = page - (found - 1);
 		addr = (void *)(page * PAGE_SIZE);
 		for (int i = 0; i < size; ++i) {
-			removefromfreelist(&pages[page + i]);
-			doalloc(&pages[page + i]);
+			remove_from_free_list(&pages[page + i]);
+			do_alloc(&pages[page + i]);
 		}
 	}
 
-	MUTEX_RELEASE(&freelistmutex);
+	MUTEX_RELEASE(&free_list_mutex);
 	return addr;
 }
 
@@ -331,6 +331,6 @@ void mm_release_range(void *addr, size_t size) {
 }
 
 void mm_get_page_statistics(size_t *total_pages, size_t *free_pages) {
-	*total_pages = memorysize / PAGE_SIZE;
-	*free_pages = freepagecount;
+	*total_pages = memory_size / PAGE_SIZE;
+	*free_pages = mm_free_page_count;
 }

@@ -20,18 +20,18 @@
 typedef struct page_t {
 	struct vnode_t *backing;
 	uintmax_t offset;
-	struct page_t *hashnext;
-	struct page_t *hashprev;
-	struct page_t *vnodenext;
-	struct page_t *vnodeprev;
+	struct page_t *hash_next;
+	struct page_t *hash_prev;
+	struct page_t *vnode_next;
+	struct page_t *vnode_prev;
 	union {
 		struct {
-			struct page_t *freenext;
-			struct page_t *freeprev;
+			struct page_t *free_next;
+			struct page_t *free_prev;
 		};
 		struct {
-			struct page_t *writenext;
-			struct page_t *writeprev;
+			struct page_t *write_next;
+			struct page_t *write_prev;
 		};
 	};
 	uintmax_t refcount;
@@ -49,9 +49,9 @@ void mm_release_range(void *addr, size_t size);
 void mm_page_init();
 void mm_get_page_statistics(size_t *total_pages, size_t *free_pages);
 
-extern uintptr_t hhdmbase;
+extern uintptr_t hhdm_base;
 
-#define MAKE_HHDM(x) (void *)((uintptr_t)x + hhdmbase)
-#define FROM_HHDM(x) (void *)((uintptr_t)x - hhdmbase)
+#define MAKE_HHDM(x) (void *)((uintptr_t)x + hhdm_base)
+#define FROM_HHDM(x) (void *)((uintptr_t)x - hhdm_base)
 
 #endif
