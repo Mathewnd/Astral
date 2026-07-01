@@ -1,4 +1,4 @@
-#include <kernel/vmmcache.h>
+#include <kernel/mm.h>
 #include <kernel/vmm.h>
 #include <util.h>
 #include <logging.h>
@@ -16,7 +16,7 @@ static thread_t *writerthread;
 static semaphore_t sync;
 static eventheader_t syncevent;
 static eventheader_t pagereadyevent;
-size_t vmmcache_cachedpages;
+size_t mm_cache_cached_pages;
 
 #define HOLD_LOCK() \
 	MUTEX_ACQUIRE(&mutex);
@@ -70,7 +70,7 @@ static void putpage(page_t *page) {
 		page->backing->pages->vnode_prev = page;
 
 	page->backing->pages = page;
-	++vmmcache_cachedpages;
+	++mm_cache_cached_pages;
 }
 
 // assumes lock is held
@@ -100,10 +100,10 @@ static void removepage(page_t *page) {
 
 	page->vnode_next = NULL;
 	page->vnode_prev = NULL;
-	--vmmcache_cachedpages;
+	--mm_cache_cached_pages;
 }
 
-int vmmcache_getpage(vnode_t *vnode, uintmax_t offset, page_t **res) {
+int mm_cache_get_page(vnode_t *vnode, uintmax_t offset, page_t **res) {
 	__assert(vnode->type == V_TYPE_REGULAR || vnode->type == V_TYPE_BLKDEV);
 	__assert((offset % PAGE_SIZE) == 0);
 	retry_err:
@@ -197,7 +197,7 @@ int vmmcache_getpage(vnode_t *vnode, uintmax_t offset, page_t **res) {
 }
 
 // adds a page to the cache in a specific offset if its not already there
-int vmmcache_pushpage(vnode_t *vnode, uintmax_t offset, page_t *page) {
+int mm_cache_push_page(vnode_t *vnode, uintmax_t offset, page_t *page) {
 	__assert((offset % PAGE_SIZE) == 0);
 	HOLD_LOCK();
 
@@ -218,7 +218,7 @@ int vmmcache_pushpage(vnode_t *vnode, uintmax_t offset, page_t *page) {
 }
 
 // removes a page from the cache AND turns it into anonymous memory
-int vmmcache_evict(page_t *page) {
+int mm_cache_evict(page_t *page) {
 	HOLD_LOCK();
 	if (page->refcount > 1) {
 		RELEASE_LOCK();
@@ -241,9 +241,9 @@ int vmmcache_evict(page_t *page) {
 }
 
 // removes a page from the cache *but doesn't do anything to it*
-int vmmcache_takepage(page_t *page) {
+int mm_cache_take_page(page_t *page) {
 	HOLD_LOCK();
-	// someone called vmmcache_getpage() and got this page while the lock wasn't held
+	// someone called mm_cache_get_page() and got this page while the lock wasn't held
 	// return an error status to the caller
 	if (page->refcount > 1) {
 		RELEASE_LOCK();
@@ -263,7 +263,7 @@ int vmmcache_takepage(page_t *page) {
 	return 0;
 }
 
-int vmmcache_truncate(vnode_t *vnode, uintmax_t offset) {
+int mm_cache_truncate(vnode_t *vnode, uintmax_t offset) {
 	HOLD_LOCK();
 	page_t *pagelist = NULL;
 	page_t *page = vnode->pages;
@@ -326,7 +326,7 @@ static page_t *dirtylist;
 static page_t *dirtylistend;
 
 // expects vnode to be held
-int vmmcache_syncvnode(vnode_t *vnode, uintmax_t offset, size_t size) {
+int mm_cache_sync_vnode(vnode_t *vnode, uintmax_t offset, size_t size) {
 	offset = ROUND_DOWN(offset, PAGE_SIZE);
 	uintmax_t top = offset + size;
 	// overflow check
@@ -386,7 +386,7 @@ int vmmcache_syncvnode(vnode_t *vnode, uintmax_t offset, size_t size) {
 	return e;
 }
 
-int vmmcache_sync() {
+int mm_cache_sync(void) {
 	eventlistener_t eventlistener;
 	EVENT_INITLISTENER(&eventlistener);
 	HOLD_LOCK();
@@ -407,7 +407,7 @@ int vmmcache_sync() {
 }
 
 // backing expected locked
-int vmmcache_makedirty(page_t *page) {
+int mm_cache_make_dirty(page_t *page) {
 	bool madedirty = false;
 	HOLD_LOCK();
 
@@ -468,12 +468,12 @@ static void writer() {
 			dirtylist = NULL;
 
 		page->write_prev = NULL;
-		// TODO notify error on vmmcache_syncvnode
+		// TODO notify error on mm_cache_sync_vnode
 		syncpage((page_t *)page, true);
 	}
 }
 
-void vmmcache_init() {
+void mm_cache_init(void) {
 	MUTEX_INIT(&mutex);
 	table = vmm_map(NULL, TABLE_SIZE * sizeof(page_t *), VMM_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, NULL);
 	__assert(table);
@@ -483,9 +483,9 @@ void vmmcache_init() {
 	writerthread = sched_newthread(writer, PAGE_SIZE * 16, 1, NULL, NULL);
 	__assert(writerthread);
 	sched_queue(writerthread);
-	vmmcache_sync();
+	mm_cache_sync();
 	EVENT_INITHEADER(&syncevent);
 	EVENT_INITHEADER(&pagereadyevent);
 }
 
-INIT_ROUTINE_DEFINE(vmm_cache, INIT_ROUTINE_FLAGS_NONE, vmmcache_init, scheduler);
+INIT_ROUTINE_DEFINE(mm_cache, INIT_ROUTINE_FLAGS_NONE, mm_cache_init, scheduler);

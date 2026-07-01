@@ -26,7 +26,6 @@ typedef struct {
 	uintmax_t offset;
 } vmmfiledesc_t;
 
-struct vmmcache_t;
 typedef struct vmmrange_t{
 	rbtree_t rbtree_node;
 	void *start;

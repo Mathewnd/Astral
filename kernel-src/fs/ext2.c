@@ -9,7 +9,7 @@
 #include <mutex.h>
 #include <logging.h>
 #include <util.h>
-#include <kernel/vmmcache.h>
+#include <kernel/mm.h>
 #include <kernel/pipefs.h>
 #include <kernel/auth.h>
 #include <kernel/init.h>
@@ -1471,7 +1471,7 @@ int ext2_resize(vnode_t *vnode, size_t newsize, cred_t *cred) {
 	if (size != newsize) {
 		e = resizeinode(fs, node, newsize);
 		if (size > newsize)
-			vmmcache_truncate(vnode, newsize);
+			mm_cache_truncate(vnode, newsize);
 	}
 	return e;
 }
@@ -1918,11 +1918,11 @@ static int ext2_rename(vnode_t *sourcedir, vnode_t *source, char *oldname, vnode
 }
 
 static int ext2_sync(vnode_t *vnode) {
-	int e = vmmcache_syncvnode(vnode, 0, UINT64_MAX);
+	int e = mm_cache_sync_vnode(vnode, 0, UINT64_MAX);
 	ext2fs_t *fs = (ext2fs_t *)vnode->vfs;
 	// TODO don't sync the entire disk but rather only the inodes and blocks
 	VOP_LOCK(fs->backing);
-	int e2 = vmmcache_syncvnode(fs->backing, 0, UINT64_MAX);
+	int e2 = mm_cache_sync_vnode(fs->backing, 0, UINT64_MAX);
 	VOP_UNLOCK(fs->backing);
 	// only the first errors are reported
 	return e ? e : e2;
@@ -1960,7 +1960,7 @@ static int ext2_inactive(vnode_t *vnode) {
 		__assert(hashtable_remove(&fs->inodetable, &node->id, sizeof(node->id)) == 0);
 		MUTEX_RELEASE(&fs->inodetablelock);
 
-		vmmcache_truncate(vnode, 0);
+		mm_cache_truncate(vnode, 0);
 		freeinode(fs, &node->inode, node->id);
 
 		slab_free(nodecache, node);

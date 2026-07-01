@@ -12,7 +12,7 @@
 #include <kernel/vmm.h>
 #include <arch/cpu.h>
 #include <string.h>
-#include <kernel/vmmcache.h>
+#include <kernel/mm.h>
 #include <kernel/pipefs.h>
 #include <kernel/auth.h>
 #include <kernel/init.h>
@@ -499,7 +499,7 @@ static int tmpfs_inactive(vnode_t *node) {
 	tmpfsnode_t *tmp_node = (tmpfsnode_t *)node;
 	__assert(tmp_node->attr.nlinks == (node->type == V_TYPE_DIR ? 1 : 0));
 	if (node->type == V_TYPE_REGULAR) {
-		vmmcache_truncate(node, 0);
+		mm_cache_truncate(node, 0);
 	}
 	freenode(tmp_node);
 	return 0;
@@ -509,7 +509,7 @@ static int tmpfs_resize(vnode_t *node, size_t size, cred_t *) {
 	tmpfsnode_t *tmpfsnode = (tmpfsnode_t *)node;
 	if (size != tmpfsnode->attr.size && tmpfsnode->vnode.type == V_TYPE_REGULAR) {
 		if (tmpfsnode->attr.size > size)
-			vmmcache_truncate(node, size);
+			mm_cache_truncate(node, size);
 
 		tmpfsnode->attr.size = size;
 	}
@@ -526,7 +526,7 @@ static int tmpfs_getpage(vnode_t *node, uintmax_t offset, struct page_t *page) {
 	if (error)
 		return error;
 
-	// since tmpfs files now store their data on the vmmcache,
+	// since tmpfs files now store their data on the mm cache,
 	// all getpage will do will be set the page to 0 and pin it in memory
 	void *phy = mm_get_page_address(page);
 	void *phyhhdm = MAKE_HHDM(phy);

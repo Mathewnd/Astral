@@ -1,7 +1,7 @@
 #include <kernel/syscalls.h>
 #include <arch/cpu.h>
 #include <kernel/page.h>
-#include <kernel/vmmcache.h>
+#include <kernel/mm.h>
 #include <kernel/proc.h>
 
 typedef struct {
@@ -33,7 +33,7 @@ syscallret_t syscall_sysinfo(context_t *, sysinfo_t *usysinfo) {
 		.totalram = total_pages,
 		.freeram = free_pages,
 		.sharedram = 0,
-		.bufferram = vmmcache_cachedpages,
+		.bufferram = mm_cache_cached_pages,
 		.totalswap = 0,
 		.freeswap = 0,
 		.procs = proc_get_count(),

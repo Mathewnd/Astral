@@ -5,7 +5,7 @@
 #include <arch/mmu.h>
 #include <mutex.h>
 #include <util.h>
-#include <kernel/vmmcache.h>
+#include <kernel/mm.h>
 #include <kernel/init.h>
 
 uintptr_t hhdm_base;
@@ -191,7 +191,7 @@ void *mm_alloc_page(int section) {
 
 	MUTEX_RELEASE(&free_list_mutex);
 
-	if (cache_page && vmmcache_takepage(page) == EAGAIN) {
+	if (cache_page && mm_cache_take_page(page) == EAGAIN) {
 		// someone already got the page from the cache between us holding it and taking it
 		mm_release_page(mm_get_page_address(page));
 		page = NULL;

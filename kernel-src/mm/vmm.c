@@ -6,7 +6,7 @@
 #include <limine.h>
 #include <string.h>
 #include <kernel/slab.h>
-#include <kernel/vmmcache.h>
+#include <kernel/mm.h>
 #include <kernel/init.h>
 
 #define RANGE_TOP(x) (void *)((uintptr_t)x->start + x->size)
@@ -175,7 +175,7 @@ static void destroyrange(vmmrange_t *range, uintmax_t _offset, size_t size, int 
 				// dirty page cache mapping
 				arch_mmu_unmap(current_vmm_context()->pagetable, vaddr);
 				VOP_LOCK(range->vnode);
-				vmmcache_makedirty(mm_get_page(physical));
+				mm_cache_make_dirty(mm_get_page(physical));
 				VOP_UNLOCK(range->vnode);
 				mm_release_page(physical);
 			} else {
@@ -222,7 +222,7 @@ static void changemmurange(vmmrange_t *range, void *base, size_t size, mmuflags_
 			// it won't be marked dirty upon a vmm_unmap after this
 			page_t *page = mm_get_page(physical);
 			VOP_LOCK(range->vnode);
-			vmmcache_makedirty(page);
+			mm_cache_make_dirty(page);
 			VOP_UNLOCK(range->vnode);
 		}
 
@@ -554,7 +554,7 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 			} else {
 				// cacheable vnode
 				page_t *res = NULL;
-				int error = vmmcache_getpage(range->vnode, range->offset + mapoffset, &res);
+				int error = mm_cache_get_page(range->vnode, range->offset + mapoffset, &res);
 
 				if (error == ENXIO || error == ENOMEM)  {
 					if (error == ENOMEM)
@@ -563,7 +563,7 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 					signal_signalthread(current_thread(), SIGBUS, true);
 					status = true;
 				} else if (error) {
-					printf("vmm: error on vmmcache_getpage(): %d\n", error);
+					printf("vmm: error on mm_cache_get_page(): %d\n", error);
 					status = false;
 				} else {
 					status = arch_mmu_map(current_vmm_context()->pagetable, mm_get_page_address(res), addr, range->mmuflags & ~ARCH_MMU_FLAGS_WRITE);
@@ -617,7 +617,7 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 			if ((range->flags & VMM_FLAGS_FILE) && vfs_iscacheable(range->vnode)) {
 				// and if its a cache page, mark it as dirty
 				VOP_LOCK(range->vnode);
-				vmmcache_makedirty(mm_get_page(oldphys));
+				mm_cache_make_dirty(mm_get_page(oldphys));
 				VOP_UNLOCK(range->vnode);
 			}
 

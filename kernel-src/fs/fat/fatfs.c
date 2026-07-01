@@ -7,7 +7,7 @@
 #include <kernel/slab.h>
 #include <kernel/auth.h>
 #include <kernel/page.h>
-#include <kernel/vmmcache.h>
+#include <kernel/mm.h>
 
 typedef struct {
 	uint8_t drive_num;
@@ -192,7 +192,7 @@ static int fatfs_unmount(vfs_t *vfs) {
 static int fatfs_sync(vfs_t *vfs) {
 	fatfs_t *fatfs = (fatfs_t *)vfs;
 	VOP_LOCK(fatfs->backing);
-	int error = vmmcache_syncvnode(fatfs->backing, 0, UINT64_MAX);
+	int error = mm_cache_sync_vnode(fatfs->backing, 0, UINT64_MAX);
 	VOP_UNLOCK(fatfs->backing);
 	return error;
 }
@@ -255,16 +255,16 @@ static int fatfs_syncvnode(vnode_t *vnode) {
 	fatnode_t *fatnode = (fatnode_t *)vnode;
 
 	// sync file data
-	int e = vmmcache_syncvnode(vnode, 0, UINT64_MAX);
+	int e = mm_cache_sync_vnode(vnode, 0, UINT64_MAX);
 
 	VOP_LOCK(fs->backing);
 	// sync the dent
 	int e2 = 0;
 	if (fatnode->dent_disk_offset)
-		e2 = vmmcache_syncvnode(fs->backing, fatnode->dent_disk_offset, sizeof(fatfs_dent_t));
+		e2 = mm_cache_sync_vnode(fs->backing, fatnode->dent_disk_offset, sizeof(fatfs_dent_t));
 
 	// and sync the fats
-	int e3 = vmmcache_syncvnode(fs->backing, fs->fat_offset, fs->fat_size * fs->fat_count);
+	int e3 = mm_cache_sync_vnode(fs->backing, fs->fat_offset, fs->fat_size * fs->fat_count);
 
 	VOP_UNLOCK(fs->backing);
 
@@ -938,7 +938,7 @@ static int fatfs_resize(vnode_t *vnode, size_t new_size, cred_t *cred) {
 	if (node->size != new_size) {
 		error = fatfs_resize_file(fs, node, new_size);
 		if (node->size > new_size)
-			vmmcache_truncate(vnode, new_size);
+			mm_cache_truncate(vnode, new_size);
 	}
 
 	return error;
@@ -957,7 +957,7 @@ static int fatfs_inactive(vnode_t *vnode) {
 		__assert(!"fatfs VOP_INACTIVE() with hardlink count >0 is currently unimplemented");
 	} else {
 		// unlinked file having resources released when kernel refcount hits zero
-		vmmcache_truncate(vnode, 0);
+		mm_cache_truncate(vnode, 0);
 		fatfs_resize_file(fatfs, fatnode, 0);
 	}
 

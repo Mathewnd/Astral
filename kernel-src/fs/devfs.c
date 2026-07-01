@@ -7,7 +7,7 @@
 #include <kernel/alloc.h>
 #include <kernel/timekeeper.h>
 #include <kernel/page.h>
-#include <kernel/vmmcache.h>
+#include <kernel/mm.h>
 #include <kernel/auth.h>
 #include <kernel/init.h>
 
@@ -424,8 +424,8 @@ static int devfs_putpage(vnode_t *node, uintmax_t offset, struct page_t *page) {
 	return error;
 }
 
-static int devfs_sync(vnode_t *vnode) {
-	return vmmcache_sync(vnode);
+static int devfs_sync(vnode_t *) {
+	return mm_cache_sync();
 }
 
 // most locking is handled by the devices.

@@ -7,7 +7,7 @@
 #include <arch/cpu.h>
 #include <kernel/poll.h>
 #include <kernel/sock.h>
-#include <kernel/vmmcache.h>
+#include <kernel/mm.h>
 #include <kernel/block.h>
 #include <kernel/pipefs.h>
 #include <kernel/auth.h>
@@ -387,11 +387,11 @@ static int writenocache(vnode_t *node, page_t *page, uintmax_t pageoffset) {
 	if (node->type == V_TYPE_REGULAR)
 		e = VOP_SYNC(node);
 	else
-		e = vmmcache_syncvnode(node, pageoffset, PAGE_SIZE);
+		e = mm_cache_sync_vnode(node, pageoffset, PAGE_SIZE);
 	VOP_UNLOCK(node);
 
 	// try to turn it into anonymous memory
-	vmmcache_evict(page);
+	mm_cache_evict(page);
 
 	return e;
 }
@@ -449,7 +449,7 @@ int vfs_write_iovec(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size
 
 		if (startoffset) {
 			// unaligned first page
-			err = vmmcache_getpage(node, pageoffset * PAGE_SIZE, &page);
+			err = mm_cache_get_page(node, pageoffset * PAGE_SIZE, &page);
 			if (err)
 				goto leave;
 
@@ -462,7 +462,7 @@ int vfs_write_iovec(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size
 				goto leave;
 			}
 
-			vmmcache_makedirty(page);
+			mm_cache_make_dirty(page);
 			*written += writesize;
 
 			if (flags & V_FFLAGS_NOCACHE)
@@ -478,7 +478,7 @@ int vfs_write_iovec(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size
 
 		for (uintmax_t offset = 0; offset < pagecount * PAGE_SIZE; offset += PAGE_SIZE) {
 			// the other pages
-			err = vmmcache_getpage(node, pageoffset * PAGE_SIZE + offset, &page);
+			err = mm_cache_get_page(node, pageoffset * PAGE_SIZE + offset, &page);
 			if (err)
 				goto leave;
 
@@ -491,7 +491,7 @@ int vfs_write_iovec(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size
 				goto leave;
 			}
 
-			vmmcache_makedirty(page);
+			mm_cache_make_dirty(page);
 			*written += writesize;
 
 			if (flags & V_FFLAGS_NOCACHE)
@@ -562,7 +562,7 @@ int vfs_read_iovec(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size,
 
 		if (startoffset) {
 			// unaligned first page
-			err = vmmcache_getpage(node, pageoffset * PAGE_SIZE, &page);
+			err = mm_cache_get_page(node, pageoffset * PAGE_SIZE, &page);
 			if (err)
 				goto leave;
 
@@ -579,7 +579,7 @@ int vfs_read_iovec(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size,
 
 			if (flags & V_FFLAGS_NOCACHE) {
 				// try to turn it into anonymous memory
-				vmmcache_evict(page);
+				mm_cache_evict(page);
 			}
 
 			pageoffset += 1;
@@ -590,7 +590,7 @@ int vfs_read_iovec(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size,
 
 		for (uintmax_t offset = 0; offset < pagecount * PAGE_SIZE; offset += PAGE_SIZE) {
 			// the other pages
-			err = vmmcache_getpage(node, pageoffset * PAGE_SIZE + offset, &page);
+			err = mm_cache_get_page(node, pageoffset * PAGE_SIZE + offset, &page);
 			if (err)
 				goto leave;
 
@@ -606,7 +606,7 @@ int vfs_read_iovec(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size,
 			*bytesread += readsize;
 			if (flags & V_FFLAGS_NOCACHE) {
 				// try to turn it into anonymous memory
-				vmmcache_evict(page);
+				mm_cache_evict(page);
 			}
 			mm_release_page(FROM_HHDM(address));
 		}
