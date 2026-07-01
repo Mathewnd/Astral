@@ -10,17 +10,17 @@
 
 // ranges are separated into kernel and user. the kernel has a temporary user context
 mm_context_t mm_kernel_ctx;
-static mm_space_t kernelspace = {
+static mm_space_t kernel_space = {
 	.start = KERNELSPACE_START,
 	.end = KERNELSPACE_END
 };
 
 // returns a pointer to the space of vaddr
-static mm_space_t *getspace(void *vaddr) {
+static mm_space_t *get_space(void *vaddr) {
 	if (USERSPACE_START <= vaddr && vaddr < USERSPACE_END)
 		return &current_mm_context()->space;
 	else if (KERNELSPACE_START <= vaddr && vaddr < KERNELSPACE_END)
-		return &kernelspace;
+		return &kernel_space;
 	else
 		return NULL;
 }
@@ -46,11 +46,11 @@ int mm_change_mmu_flags(void *base, size_t size, mmuflags_t mmuflags, int flags)
 	if (size == 0)
 		return 0;
 
-	mm_space_t *space = getspace(base);
+	mm_space_t *space = get_space(base);
 	if (space == NULL)
 		return ENOMEM;
 
-	if (space == &kernelspace)
+	if (space == &kernel_space)
 		mmuflags |= ARCH_MMU_FLAGS_GLOBAL;
 
 	MUTEX_ACQUIRE(&space->lock);
@@ -62,7 +62,7 @@ int mm_change_mmu_flags(void *base, size_t size, mmuflags_t mmuflags, int flags)
 	return error;
 }
 
-static void printspace(mm_space_t *space) {
+static void print_space(mm_space_t *space) {
 	printf("mm: ranges:\n");
 	rbtree_t *rbtree = rbtree_first(space->ranges);
 	while (rbtree) {
@@ -72,7 +72,7 @@ static void printspace(mm_space_t *space) {
 	}
 }
 
-static void *zeropage;
+static void *zero_page;
 
 bool mm_handle_page_fault(void *addr, bool user, int actions) {
 	if (user == false && addr > USERSPACE_END) {
@@ -82,9 +82,9 @@ bool mm_handle_page_fault(void *addr, bool user, int actions) {
 
 	addr = (void *)ROUND_DOWN((uintptr_t)addr, PAGE_SIZE);
 
-	mm_space_t *space = getspace(addr);
+	mm_space_t *space = get_space(addr);
 
-	if (space == NULL || (space == &kernelspace && user)) {
+	if (space == NULL || (space == &kernel_space && user)) {
 		printf("mm: no such space or space accessed is kernel\n");
 		return false;
 	}
@@ -101,18 +101,18 @@ bool mm_handle_page_fault(void *addr, bool user, int actions) {
 
 	// check if valid
 
-	int invalidactions = 0;
+	int invalid_actions = 0;
 
 	if ((range->mmuflags & ARCH_MMU_FLAGS_READ) == 0)
-		invalidactions |= MM_FAULT_ACTION_READ;
+		invalid_actions |= MM_FAULT_ACTION_READ;
 
 	if ((range->mmuflags & ARCH_MMU_FLAGS_WRITE) == 0)
-		invalidactions |= MM_FAULT_ACTION_WRITE;
+		invalid_actions |= MM_FAULT_ACTION_WRITE;
 
 	if ((range->mmuflags & ARCH_MMU_FLAGS_NOEXEC))
-		invalidactions |= MM_FAULT_ACTION_EXEC;
+		invalid_actions |= MM_FAULT_ACTION_EXEC;
 
-	if (invalidactions & actions) {
+	if (invalid_actions & actions) {
 		printf("mm: bad action\n");
 		goto cleanup;
 	}
@@ -124,17 +124,17 @@ bool mm_handle_page_fault(void *addr, bool user, int actions) {
 	if (arch_mmu_ispresent(current_mm_context()->pagetable, addr) == false) {
 		// page not present in the page tables
 		if (range->flags & MM_RANGE_FLAGS_FILE) {
-			uintmax_t mapoffset = (uintptr_t)addr - (uintptr_t)range->start;
+			uintmax_t map_offset = (uintptr_t)addr - (uintptr_t)range->start;
 			if (vfs_iscacheable(range->vnode) == false) {
 				// map non cacheable vnodes
 				VOP_LOCK(range->vnode);
-				__assert(VOP_MMAP(range->vnode, addr, range->offset + mapoffset, mm_mmu_flags_to_vnode_flags(range->mmuflags) | (range->flags & MM_RANGE_FLAGS_SHARED ? V_FFLAGS_SHARED : 0), cred) == 0);
+				__assert(VOP_MMAP(range->vnode, addr, range->offset + map_offset, mm_mmu_flags_to_vnode_flags(range->mmuflags) | (range->flags & MM_RANGE_FLAGS_SHARED ? V_FFLAGS_SHARED : 0), cred) == 0);
 				VOP_UNLOCK(range->vnode);
 				status = true;
 			} else {
 				// cacheable vnode
 				page_t *res = NULL;
-				int error = mm_cache_get_page(range->vnode, range->offset + mapoffset, &res);
+				int error = mm_cache_get_page(range->vnode, range->offset + map_offset, &res);
 
 				if (error == ENXIO || error == ENOMEM)  {
 					if (error == ENOMEM)
@@ -176,45 +176,45 @@ bool mm_handle_page_fault(void *addr, bool user, int actions) {
 				}
 			} else {
 				// read-only range: map a shared zero page
-				if (!arch_mmu_map(current_mm_context()->pagetable, zeropage, addr, range->mmuflags)) {
+				if (!arch_mmu_map(current_mm_context()->pagetable, zero_page, addr, range->mmuflags)) {
 					printf("mm: out of memory to map zero page into address space (sending SIGBUS)\n");
 					signal_signalthread(current_thread(), SIGBUS, true);
 				} else {
-					mm_hold_page(zeropage);
+					mm_hold_page(zero_page);
 				}
 			}
 		}
 	} else if (arch_mmu_iswritable(current_mm_context()->pagetable, addr) == false) {
 		// page present but not writeable in the page tables
-		void *oldphys = arch_mmu_getphysical(current_mm_context()->pagetable, addr);
-		page_t *oldpage = mm_get_page(oldphys);
+		void *old_phys = arch_mmu_getphysical(current_mm_context()->pagetable, addr);
+		page_t *old_page = mm_get_page(old_phys);
 
 		if (    ((range->flags & MM_RANGE_FLAGS_FILE) && (range->flags & MM_RANGE_FLAGS_SHARED)) ||
-			((range->flags & MM_RANGE_FLAGS_FILE) == 0 && oldpage->refcount == 1)) {
+			((range->flags & MM_RANGE_FLAGS_FILE) == 0 && old_page->refcount == 1)) {
 			// shared file or anon with refcount == 1, remap it as writable
 
-			arch_mmu_remap(current_mm_context()->pagetable, oldphys, addr, range->mmuflags);
+			arch_mmu_remap(current_mm_context()->pagetable, old_phys, addr, range->mmuflags);
 			if ((range->flags & MM_RANGE_FLAGS_FILE) && vfs_iscacheable(range->vnode)) {
 				// and if its a cache page, mark it as dirty
 				VOP_LOCK(range->vnode);
-				mm_cache_make_dirty(mm_get_page(oldphys));
+				mm_cache_make_dirty(mm_get_page(old_phys));
 				VOP_UNLOCK(range->vnode);
 			}
 
 			status = true;
 		} else {
 			// do copy on write
-			void *newphys = mm_alloc_page(MEMORY_SECTION_DEFAULT);
-			if (newphys == NULL) {
+			void *new_phys = mm_alloc_page(MEMORY_SECTION_DEFAULT);
+			if (new_phys == NULL) {
 				printf("mm: out of memory to do copy on write on address space (sending SIGBUS)\n");
 				signal_signalthread(current_thread(), SIGBUS, true);
 				status = true;
 			} else {
-				memcpy(MAKE_HHDM(newphys), MAKE_HHDM(oldphys), PAGE_SIZE);
-				arch_mmu_remap(current_mm_context()->pagetable, newphys, addr, range->mmuflags);
+				memcpy(MAKE_HHDM(new_phys), MAKE_HHDM(old_phys), PAGE_SIZE);
+				arch_mmu_remap(current_mm_context()->pagetable, new_phys, addr, range->mmuflags);
 				arch_mmu_invalidate_range(addr, PAGE_SIZE);
 				if ((range->flags & MM_RANGE_FLAGS_FILE) == 0 || vfs_iscacheable(range->vnode))
-					mm_release_page(oldphys);
+					mm_release_page(old_phys);
 
 				status = true;
 			}
@@ -268,7 +268,7 @@ static int lock_page(mm_space_t *space, void *vaddr) {
 void *mm_get_physical_address(void *addr, int flags) {
 	void *aligned_addr = (void *)ROUND_DOWN((uintptr_t)addr, PAGE_SIZE);
 
-	mm_space_t *space = getspace(aligned_addr);
+	mm_space_t *space = get_space(aligned_addr);
 	if (space == NULL)
 		return NULL;
 
@@ -305,18 +305,18 @@ void *mm_map(void *addr, volatile size_t size, int flags, mmuflags_t mmuflags, v
 	if (size == 0)
 		return NULL;
 
-	mm_space_t *space = getspace(addr);
+	mm_space_t *space = get_space(addr);
 	if (space == NULL)
 		return NULL;
 
-	if (space == &kernelspace)
+	if (space == &kernel_space)
 		mmuflags |= ARCH_MMU_FLAGS_GLOBAL;
 
 	MUTEX_ACQUIRE(&space->lock);
 	mm_range_t *range = NULL;
 
 	void *start = mm_get_free_range(space, addr, size);
-	void *retaddr = NULL;
+	void *ret_addr = NULL;
 	if (((flags & MM_RANGE_FLAGS_EXACT) && start != addr) || start == NULL)
 		goto cleanup;
 
@@ -326,7 +326,7 @@ void *mm_map(void *addr, volatile size_t size, int flags, mmuflags_t mmuflags, v
 
 	if (flags & MM_RANGE_FLAGS_REPLACE) {
 		__assert(addr);
-		retaddr = addr;
+		ret_addr = addr;
 		range->start = addr;
 		range->size = size;
 		range->flags = MM_PERMANENT_RANGE_FLAGS_MASK & flags;
@@ -338,7 +338,7 @@ void *mm_map(void *addr, volatile size_t size, int flags, mmuflags_t mmuflags, v
 		// and then free it
 		mm_change_range(space, addr, size, true, flags, 0);
 	} else {
-		retaddr = start;
+		ret_addr = start;
 		range->start = start;
 		range->size = size;
 		range->flags = MM_PERMANENT_RANGE_FLAGS_MASK & flags;
@@ -363,7 +363,7 @@ void *mm_map(void *addr, volatile size_t size, int flags, mmuflags_t mmuflags, v
 
 				// invalidate here just to be sure
 				arch_mmu_invalidate_range(start, size);
-				retaddr = NULL;
+				ret_addr = NULL;
 				goto cleanup;
 			}
 		}
@@ -372,7 +372,7 @@ void *mm_map(void *addr, volatile size_t size, int flags, mmuflags_t mmuflags, v
 		for (uintmax_t i = 0; i < size; i += PAGE_SIZE) {
 			void *allocated = mm_alloc_page(MEMORY_SECTION_DEFAULT);
 			if (allocated == NULL) {
-				retaddr = NULL;
+				ret_addr = NULL;
 				goto cleanup;
 			}
 
@@ -389,7 +389,7 @@ void *mm_map(void *addr, volatile size_t size, int flags, mmuflags_t mmuflags, v
 
 				// invalidate here just to be sure
 				arch_mmu_invalidate_range(start, size);
-				retaddr = NULL;
+				ret_addr = NULL;
 				goto cleanup;
 			}
 			memset(MAKE_HHDM(allocated), 0, PAGE_SIZE);
@@ -398,11 +398,11 @@ void *mm_map(void *addr, volatile size_t size, int flags, mmuflags_t mmuflags, v
 
 	mm_insert_range(space, range);
 	cleanup:
-	if (retaddr == NULL && range)
+	if (ret_addr == NULL && range)
 		mm_free_range(range);
 
 	MUTEX_RELEASE(&space->lock);
-	return retaddr;
+	return ret_addr;
 }
 
 void mm_unmap(void *addr, size_t size, int flags) {
@@ -416,7 +416,7 @@ void mm_unmap(void *addr, size_t size, int flags) {
 	if (size == 0)
 		return;
 
-	mm_space_t *space = getspace(addr);
+	mm_space_t *space = get_space(addr);
 	if (space == NULL)
 		return;
 
@@ -432,9 +432,9 @@ void mm_unmap(void *addr, size_t size, int flags) {
 	MUTEX_RELEASE(&space->lock);
 }
 
-static scache_t *ctxcache;
+static scache_t *ctx_cache;
 
-static bool ctxctor(scache_t *cache, void *obj) {
+static bool ctx_ctor(scache_t *cache, void *obj) {
 	mm_context_t *ctx = obj;
 	ctx->space.start = USERSPACE_START;
 	ctx->space.end = USERSPACE_END;
@@ -444,18 +444,18 @@ static bool ctxctor(scache_t *cache, void *obj) {
 }
 
 mm_context_t *mm_create_context() {
-	if (ctxcache == NULL) {
-		ctxcache = slab_newcache(sizeof(mm_context_t), 0, ctxctor, NULL);
-		__assert(ctxcache);
+	if (ctx_cache == NULL) {
+		ctx_cache = slab_newcache(sizeof(mm_context_t), 0, ctx_ctor, NULL);
+		__assert(ctx_cache);
 	}
 
-	mm_context_t *ctx = slab_allocate(ctxcache);
+	mm_context_t *ctx = slab_allocate(ctx_cache);
 	if (ctx == NULL)
 		return NULL;
 
 	ctx->pagetable = arch_mmu_newtable();
 	if (ctx->pagetable == NULL) {
-		slab_free(ctxcache, ctx);
+		slab_free(ctx_cache, ctx);
 		return NULL;
 	}
 
@@ -463,51 +463,51 @@ mm_context_t *mm_create_context() {
 }
 
 void mm_destroy_context(mm_context_t *context) {
-	mm_context_t *oldctx = current_thread()->mmctx;
+	mm_context_t *old_ctx = current_thread()->mmctx;
 	mm_switch_context(context);
 	mm_unmap(context->space.start, context->space.end - context->space.start, 0);
-	mm_switch_context(oldctx);
+	mm_switch_context(old_ctx);
 	arch_mmu_destroytable(context->pagetable);
 
 	context->space.ranges = NULL;
-	slab_free(ctxcache, context);
+	slab_free(ctx_cache, context);
 }
 
-mm_context_t *mm_fork_context(mm_context_t *oldcontext) {
-	mm_context_t *newcontext = mm_create_context();
-	if (newcontext == NULL)
+mm_context_t *mm_fork_context(mm_context_t *old_context) {
+	mm_context_t *new_context = mm_create_context();
+	if (new_context == NULL)
 		return NULL;
 
-	MUTEX_ACQUIRE(&oldcontext->space.lock);
+	MUTEX_ACQUIRE(&old_context->space.lock);
 
-	rbtree_t *rbtree = oldcontext->space.ranges ? rbtree_first(oldcontext->space.ranges) : NULL;
+	rbtree_t *rbtree = old_context->space.ranges ? rbtree_first(old_context->space.ranges) : NULL;
 	while (rbtree) {
 		mm_range_t *range = container_of(rbtree, mm_range_t, rbtree_node);
-		mm_range_t *newrange = mm_alloc_range();
-		if (newrange == NULL)
+		mm_range_t *new_range = mm_alloc_range();
+		if (new_range == NULL)
 			goto error;
 
-		memcpy(newrange, range, sizeof(mm_range_t));
+		memcpy(new_range, range, sizeof(mm_range_t));
 
-		rbtree_insert(&newcontext->space.ranges, &newrange->rbtree_node, mm_range_compare);
+		rbtree_insert(&new_context->space.ranges, &new_range->rbtree_node, mm_range_compare);
 		if (range->flags & MM_RANGE_FLAGS_FILE)
 			VOP_HOLD(range->vnode);
 
 		// copy any pages that are mapped
 
-		for (uintptr_t offset = 0; offset < newrange->size; offset += PAGE_SIZE) {
+		for (uintptr_t offset = 0; offset < new_range->size; offset += PAGE_SIZE) {
 			// XXX some types of mappings, like framebuffer shared mappings, will break if done this way
-			void *vaddr = (void *)((uintptr_t)newrange->start + offset);
-			void *phys = arch_mmu_getphysical(oldcontext->pagetable, vaddr);
+			void *vaddr = (void *)((uintptr_t)new_range->start + offset);
+			void *phys = arch_mmu_getphysical(old_context->pagetable, vaddr);
 			if (phys == NULL)
 				continue;
 
-			if (arch_mmu_map(newcontext->pagetable, phys, vaddr, newrange->mmuflags & ~ARCH_MMU_FLAGS_WRITE) == false)
+			if (arch_mmu_map(new_context->pagetable, phys, vaddr, new_range->mmuflags & ~ARCH_MMU_FLAGS_WRITE) == false)
 				goto error;
 
 			mm_hold_page(phys);
 
-			arch_mmu_remap(oldcontext->pagetable, phys, vaddr, newrange->mmuflags & ~ARCH_MMU_FLAGS_WRITE);
+			arch_mmu_remap(old_context->pagetable, phys, vaddr, new_range->mmuflags & ~ARCH_MMU_FLAGS_WRITE);
 		}
 
 		rbtree = rbtree_successor(rbtree);
@@ -516,11 +516,11 @@ mm_context_t *mm_fork_context(mm_context_t *oldcontext) {
 	// TODO do only userspace invalidation as to not send ipi to all cores
 	arch_mmu_invalidate_range(NULL, 0);
 
-	MUTEX_RELEASE(&oldcontext->space.lock);
-	return newcontext;
+	MUTEX_RELEASE(&old_context->space.lock);
+	return new_context;
 	error:
-	MUTEX_RELEASE(&oldcontext->space.lock);
-	mm_destroy_context(newcontext);
+	MUTEX_RELEASE(&old_context->space.lock);
+	mm_destroy_context(new_context);
 	return NULL;
 }
 
@@ -543,7 +543,7 @@ extern volatile struct limine_memmap_request mm_page_limine_map;
 void mm_init() {
 	// set up initial state
 	mm_range_init();
-	MUTEX_INIT(&kernelspace.lock);
+	MUTEX_INIT(&kernel_space.lock);
 
 	mm_kernel_ctx.pagetable = arch_mmu_newtable();
 	__assert(mm_kernel_ctx.pagetable);
@@ -576,10 +576,10 @@ void mm_init() {
 	mm_map(MAKE_HHDM(NULL), PAGE_SIZE, MM_RANGE_FLAGS_EXACT, ARCH_MMU_FLAGS_NOEXEC, NULL);
 
 	// zero page
-	zeropage = mm_alloc_page(MEMORY_SECTION_DEFAULT);
-	memset(MAKE_HHDM(zeropage), 0, PAGE_SIZE);
+	zero_page = mm_alloc_page(MEMORY_SECTION_DEFAULT);
+	memset(MAKE_HHDM(zero_page), 0, PAGE_SIZE);
 
-	printspace(&kernelspace);
+	print_space(&kernel_space);
 }
 
 INIT_ROUTINE_DEFINE(mm, INIT_ROUTINE_FLAGS_NONE, mm_init, mmu, slab_early);

@@ -81,7 +81,7 @@ static inline int mm_mmu_flags_to_vnode_flags(mmuflags_t mmuflags) {
 
 int mm_change_mmu_flags(void *base, size_t size, mmuflags_t mmuflags, int flags);
 void mm_destroy_context(mm_context_t *context);
-mm_context_t *mm_fork_context(mm_context_t *oldcontext);
+mm_context_t *mm_fork_context(mm_context_t *old_context);
 void *mm_map(void *addr, size_t size, int flags, mmuflags_t mmuflags, void *private);
 void mm_unmap(void *addr, size_t size, int flags);
 bool mm_handle_page_fault(void *addr, bool user, int actions);
