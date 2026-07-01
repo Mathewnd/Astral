@@ -4,7 +4,7 @@
 #include <kernel/init.h>
 #include <kernel/interrupt.h>
 #include <kernel/pci.h>
-#include <kernel/pmm.h>
+#include <kernel/page.h>
 #include <kernel/usb.h>
 #include <kernel/vmm.h>
 #include <list.h>
@@ -28,7 +28,7 @@ static void xhci_release_submission_page(xhci_submission_t *submission) {
 	uint32_t cmd_type = xhci_trb_type(&submission->cmd_trb);
 
 	if ((cmd_type == TRB_NORMAL || cmd_type == TRB_DATA_STAGE) && submission->cmd_trb.parameters != 0)
-		pmm_release((void *)(submission->cmd_trb.parameters & ~(PAGE_SIZE - 1)));
+		mm_release_page((void *)(submission->cmd_trb.parameters & ~(PAGE_SIZE - 1)));
 }
 
 static bool xhci_reclaim_submission_slot(xhci_submission_t *slot, xhci_submission_t *submission) {
@@ -614,7 +614,7 @@ static int xhci_ctrl_start(usb_ctrl_t *ctrl) {
 	xhci->opregs->config = max_slots;
 
 	// Set up the Device Context Base Address Array.
-	void *dcbaa_phys = pmm_allocpage(PMM_SECTION_DEFAULT);
+	void *dcbaa_phys = mm_alloc_page(MEMORY_SECTION_DEFAULT);
 	__assert(dcbaa_phys);
 
 	uint64_t *dcbaa_virt = MAKE_HHDM(dcbaa_phys);
@@ -629,12 +629,12 @@ static int xhci_ctrl_start(usb_ctrl_t *ctrl) {
 		printf("xhci: setting up %u scratchpad buffers\n", max_scratchpads);
 		__assert(max_scratchpads < PAGE_SIZE / sizeof(uint64_t));
 
-		void *scratchpad_array_phys = pmm_allocpage(PMM_SECTION_DEFAULT);
+		void *scratchpad_array_phys = mm_alloc_page(MEMORY_SECTION_DEFAULT);
 		__assert(scratchpad_array_phys);
 		uint64_t *scratchpad_array_virt = MAKE_HHDM(scratchpad_array_phys);
 
 		for (uint32_t i = 0; i < max_scratchpads; i++) {
-			void *scratchpad_phys = pmm_allocpage(PMM_SECTION_DEFAULT);
+			void *scratchpad_phys = mm_alloc_page(MEMORY_SECTION_DEFAULT);
 			__assert(scratchpad_phys);
 			memset(MAKE_HHDM(scratchpad_phys), 0, PAGE_SIZE);
 			scratchpad_array_virt[i] = (uint64_t)scratchpad_phys;
@@ -650,7 +650,7 @@ static int xhci_ctrl_start(usb_ctrl_t *ctrl) {
 	xhci->opregs->crcr = (uint64_t)xhci->command_ring.ring_phys | XHCI_CRCR_RCS;
 
 	// Set up Event Ring Segment Table.
-	void *erst_phys = pmm_allocpage(PMM_SECTION_DEFAULT);
+	void *erst_phys = mm_alloc_page(MEMORY_SECTION_DEFAULT);
 	__assert(erst_phys);
 
 	xhci_erst_entry_t *erst_virt = MAKE_HHDM(erst_phys);

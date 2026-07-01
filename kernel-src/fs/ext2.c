@@ -4,7 +4,7 @@
 #include <kernel/slab.h>
 #include <kernel/vmm.h>
 #include <arch/cpu.h>
-#include <kernel/pmm.h>
+#include <kernel/page.h>
 #include <hashtable.h>
 #include <mutex.h>
 #include <logging.h>
@@ -1761,7 +1761,7 @@ static int ext2_getpage(vnode_t *node, uintmax_t offset, struct page_t *page) {
 	// only regular files get cached
 	__assert(node->type == V_TYPE_REGULAR);
 	size_t readc = PAGE_SIZE;
-	void *addr = MAKE_HHDM(pmm_getpageaddress(page));
+	void *addr = MAKE_HHDM(mm_get_page_address(page));
 
 	iovec_t iovec = {
 		.addr = addr,
@@ -1784,7 +1784,7 @@ static int ext2_putpage(vnode_t *node, uintmax_t offset, struct page_t *page) {
 	__assert(node->type == V_TYPE_REGULAR);
 	size_t writec;
 	iovec_t iovec = {
-		.addr = MAKE_HHDM(pmm_getpageaddress(page)),
+		.addr = MAKE_HHDM(mm_get_page_address(page)),
 		.len = PAGE_SIZE
 	};
 

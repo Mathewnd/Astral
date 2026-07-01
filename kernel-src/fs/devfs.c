@@ -6,7 +6,7 @@
 #include <errno.h>
 #include <kernel/alloc.h>
 #include <kernel/timekeeper.h>
-#include <kernel/pmm.h>
+#include <kernel/page.h>
 #include <kernel/vmmcache.h>
 #include <kernel/auth.h>
 #include <kernel/init.h>
@@ -391,7 +391,7 @@ static int devfs_getpage(vnode_t *node, uintmax_t offset, struct page_t *page) {
 	// only block devices will have this called
 	__assert(node->type == V_TYPE_BLKDEV);
 	iovec_t iovec = {
-		.addr = MAKE_HHDM(pmm_getpageaddress(page)),
+		.addr = MAKE_HHDM(mm_get_page_address(page)),
 		.len = PAGE_SIZE
 	};
 
@@ -410,7 +410,7 @@ static int devfs_putpage(vnode_t *node, uintmax_t offset, struct page_t *page) {
 	// only block devices will have this called
 	__assert(node->type == V_TYPE_BLKDEV);
 	iovec_t iovec = {
-		.addr = MAKE_HHDM(pmm_getpageaddress(page)),
+		.addr = MAKE_HHDM(mm_get_page_address(page)),
 		.len = PAGE_SIZE
 	};
 

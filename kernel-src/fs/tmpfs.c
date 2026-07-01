@@ -8,7 +8,7 @@
 #include <util.h>
 #include <kernel/abi.h>
 #include <kernel/devfs.h>
-#include <kernel/pmm.h>
+#include <kernel/page.h>
 #include <kernel/vmm.h>
 #include <arch/cpu.h>
 #include <string.h>
@@ -528,10 +528,10 @@ static int tmpfs_getpage(vnode_t *node, uintmax_t offset, struct page_t *page) {
 
 	// since tmpfs files now store their data on the vmmcache,
 	// all getpage will do will be set the page to 0 and pin it in memory
-	void *phy = pmm_getpageaddress(page);
+	void *phy = mm_get_page_address(page);
 	void *phyhhdm = MAKE_HHDM(phy);
 
-	pmm_hold(phy);
+	mm_hold_page(phy);
 	page->flags |= PAGE_FLAGS_PINNED;
 	memset(phyhhdm, 0, PAGE_SIZE);
 	return 0;
@@ -565,7 +565,7 @@ static int tmpfs_statfs(vfs_t *vfs, fsattr_t *fsattr) {
 	tmpfs_t *tmpfs = (tmpfs_t *)vfs;
 
 	size_t total_pages, free_pages;
-	pmm_getinfo(&total_pages, &free_pages);
+	mm_get_page_statistics(&total_pages, &free_pages);
 
 	fsattr->io_size = PAGE_SIZE;
 	fsattr->block_size = PAGE_SIZE;

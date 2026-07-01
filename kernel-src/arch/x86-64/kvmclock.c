@@ -4,7 +4,7 @@
 #include <cpuid.h>
 #include <logging.h>
 #include <arch/cpuid.h>
-#include <kernel/pmm.h>
+#include <kernel/page.h>
 #include <arch/tsc.h>
 #include <kernel/kernel_args.h>
 

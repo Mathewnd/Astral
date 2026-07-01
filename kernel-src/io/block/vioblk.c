@@ -5,7 +5,7 @@
 #include <kernel/slab.h>
 #include <semaphore.h>
 #include <kernel/block.h>
-#include <kernel/pmm.h>
+#include <kernel/page.h>
 #include <string.h>
 
 #define QUEUE_MAX_SIZE 144
@@ -100,7 +100,7 @@ static void vioblk_enqueue(vioblkdev_t *blkdev, requestheader_t *headerphys, voi
 }
 
 static int vioblk_rw(vioblkdev_t *blkdev, iovec_iterator_t *iovec_iterator, uintmax_t lba, size_t count, bool write) {
-	void *physpage = pmm_allocpage(PMM_SECTION_DEFAULT);
+	void *physpage = mm_alloc_page(MEMORY_SECTION_DEFAULT);
 	if (physpage == NULL)
 		return ENOMEM;
 
@@ -133,7 +133,7 @@ static int vioblk_rw(vioblkdev_t *blkdev, iovec_iterator_t *iovec_iterator, uint
 
 		vioblk_enqueue(blkdev, header, (void *)((uintptr_t)page + page_offset), PAGE_SIZE, status, write);
 
-		pmm_release(page);
+		mm_release_page(page);
 
 		// if we didnt use the whole space in the page, set the iterator back a bit
 		size_t diff_between_available_and_used = page_remaining - docount * 512;
@@ -150,7 +150,7 @@ static int vioblk_rw(vioblkdev_t *blkdev, iovec_iterator_t *iovec_iterator, uint
 		done += docount;
 	}
 
-	pmm_release(physpage);
+	mm_release_page(physpage);
 	return err;
 }
 

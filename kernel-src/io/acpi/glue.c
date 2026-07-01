@@ -4,7 +4,7 @@
 #include <kernel/interrupt.h>
 #include <kernel/scheduler.h>
 #include <kernel/alloc.h>
-#include <kernel/pmm.h>
+#include <kernel/page.h>
 #include <kernel/pci.h>
 #include <kernel/timekeeper.h>
 #include <arch/cpu.h>

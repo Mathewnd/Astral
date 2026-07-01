@@ -2,7 +2,7 @@
 #include <logging.h>
 #include <kernel/vmm.h>
 #include <util.h>
-#include <kernel/pmm.h>
+#include <kernel/page.h>
 #include <kernel/alloc.h>
 #include <kernel/interrupt.h>
 #include <kernel/dpc.h>
@@ -342,7 +342,7 @@ static int identify(nvmecontroller_t *controller, void *buffer, int what, int na
 	entrypair_t pair = {0};
 	PAIR_INIT(&pair, SUB_DW0_OPCODE_IDENTIFY, SUB_DW0_UNFUSED, SUB_DW0_PRP, namespace);
 
-	pair.sub.datapointer[0] = (uint64_t)pmm_allocpage(PMM_SECTION_DEFAULT);
+	pair.sub.datapointer[0] = (uint64_t)mm_alloc_page(MEMORY_SECTION_DEFAULT);
 	if (pair.sub.datapointer[0] == 0)
 		return ENOMEM;
 
@@ -351,7 +351,7 @@ static int identify(nvmecontroller_t *controller, void *buffer, int what, int na
 	enqueueandwait(&controller->adminqueue, &pair);
 
 	memcpy(buffer, MAKE_HHDM(pair.sub.datapointer[0]), IDENTIFY_SIZE);
-	pmm_release((void *)pair.sub.datapointer[0]);
+	mm_release_page((void *)pair.sub.datapointer[0]);
 	return COMP_CMDINFO_STATUS(pair.comp.cmdinfo) ? EIO : 0;
 }
 
@@ -401,7 +401,7 @@ static int createiocompqueue(nvmecontroller_t *controller, queuedesc_t *desc, si
 	size_t size = entrycount * sizeof(compentry_t);
 	size_t pagesize = ROUND_UP(size, PAGE_SIZE) / PAGE_SIZE;
 
-	void *queuepages = pmm_alloc(pagesize, PMM_SECTION_DEFAULT);
+	void *queuepages = mm_alloc_pages(pagesize, MEMORY_SECTION_DEFAULT);
 	if (queuepages == NULL)
 		return ENOMEM;
 
@@ -415,7 +415,7 @@ static int createiocompqueue(nvmecontroller_t *controller, queuedesc_t *desc, si
 	enqueueandwait(&controller->adminqueue, &pair);
 
 	if (COMP_CMDINFO_STATUS(pair.comp.cmdinfo)) {
-		pmm_free(queuepages, pagesize);
+		mm_release_range(queuepages, pagesize);
 		return EIO;
 	}
 
@@ -433,7 +433,7 @@ static int createiosubqueue(nvmecontroller_t *controller, queuedesc_t *desc, siz
 	size_t size = entrycount * sizeof(subentry_t);
 	size_t pagesize = ROUND_UP(size, PAGE_SIZE) / PAGE_SIZE;
 
-	void *queuepages = pmm_alloc(pagesize, PMM_SECTION_DEFAULT);
+	void *queuepages = mm_alloc_pages(pagesize, MEMORY_SECTION_DEFAULT);
 	if (queuepages == NULL)
 		return ENOMEM;
 
@@ -447,7 +447,7 @@ static int createiosubqueue(nvmecontroller_t *controller, queuedesc_t *desc, siz
 	enqueueandwait(&controller->adminqueue, &pair);
 
 	if (COMP_CMDINFO_STATUS(pair.comp.cmdinfo)) {
-		pmm_free(queuepages, pagesize);
+		mm_release_range(queuepages, pagesize);
 		return EIO;
 	}
 
@@ -510,15 +510,15 @@ static int iowrite(nvmenamespace_t *namespace, uint64_t prp[2], uint64_t lba, ui
 #define PAGES_IN_PRP_PAGE (PAGE_SIZE / sizeof(uint64_t))
 
 static void free_prps(uint64_t prp[2], bool has_list) {
-	pmm_release((void *)ROUND_DOWN(prp[0], PAGE_SIZE));
+	mm_release_page((void *)ROUND_DOWN(prp[0], PAGE_SIZE));
 	if (has_list) {
 		uint64_t *prp_list = MAKE_HHDM((uint64_t *)prp[1]);
 		for (int i = 0; prp_list[i] && i < PAGES_IN_PRP_PAGE; ++i)
-			pmm_release((void *)prp_list[i]);
+			mm_release_page((void *)prp_list[i]);
 	}
 
 	if (prp[1])
-		pmm_release((void *)prp[1]);
+		mm_release_page((void *)prp[1]);
 }
 
 // sets up prps based on an iovec iterator.
@@ -576,7 +576,7 @@ static int setup_prps(nvmenamespace_t *namespace, iovec_iterator_t *iovec_iterat
 	}
 
 	// we have to allocate a proper prp list now
-	uint64_t *prp_list_phys = pmm_allocpage(PMM_SECTION_DEFAULT);
+	uint64_t *prp_list_phys = mm_alloc_page(MEMORY_SECTION_DEFAULT);
 	if (prp_list_phys == NULL) {
 		// out of memory, we'll have to make do with 2 pages
 		*has_list = false;
@@ -603,7 +603,7 @@ static int setup_prps(nvmenamespace_t *namespace, iovec_iterator_t *iovec_iterat
 		if (page_offset || page_remaining % namespace->blocksize) {
 			prp_list[i] = 0;
 			free_prps(prp, true);
-			pmm_release(page);
+			mm_release_page(page);
 			return EINVAL;
 		}
 
@@ -777,7 +777,7 @@ static void initcontroller(pcienum_t *e) {
 
 	bar0->aqattr = aqattr;
 
-	void *acq = pmm_alloc(2, PMM_SECTION_DEFAULT);
+	void *acq = mm_alloc_pages(2, MEMORY_SECTION_DEFAULT);
 	__assert(acq);
 	memset(MAKE_HHDM(acq), 0, PAGE_SIZE * 2);
 	void *asq = (void *)((uintptr_t)acq + PAGE_SIZE);
@@ -793,7 +793,7 @@ static void initcontroller(pcienum_t *e) {
 
 	if (STATUS_FATAL(bar0->status)) {
 		printf("nvme: controller returned fatal while initializing\n");
-		pmm_free(acq, 2);
+		mm_release_range(acq, 2);
 		return;
 	}
 
@@ -835,7 +835,7 @@ static void initcontroller(pcienum_t *e) {
 	if (controllerid->type != 0 && controllerid->type != CONTROLLER_TYPE_IO) {
 		printf("nvme: controller type not supported\n");
 		// FIXME free ISRs
-		pmm_free(acq, 2);
+		mm_release_range(acq, 2);
 		free(controllerid);
 		free(controller);
 		return;

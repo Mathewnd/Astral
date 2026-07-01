@@ -2,7 +2,7 @@
 #include <logging.h>
 #include <kernel/hda.h>
 #include <kernel/init.h>
-#include <kernel/pmm.h>
+#include <kernel/page.h>
 #include <list.h>
 #include <semaphore.h>
 #include <kernel/alloc.h>
@@ -376,12 +376,12 @@ static hda_stream_t *hda_allocate_output_stream(hda_t *hda) {
 	hda->streams[stream_n] = stream;
 	hda->regs->intctl |= (1 << stream_n);
 
-	stream->bdl_phys = pmm_allocpage(PMM_SECTION_DEFAULT);
+	stream->bdl_phys = mm_alloc_page(MEMORY_SECTION_DEFAULT);
 	__assert(stream->bdl_phys);
 	hda_bdl_entry_t *bdl = MAKE_HHDM(stream->bdl_phys);
 
 	for (int i = 0; i < HDA_BUFFER_PAGE_COUNT; ++i) {
-		void *phys_page = pmm_allocpage(PMM_SECTION_DEFAULT);
+		void *phys_page = mm_alloc_page(MEMORY_SECTION_DEFAULT);
 		__assert(phys_page);
 		memset(MAKE_HHDM(phys_page), 0, PAGE_SIZE);
 
@@ -907,7 +907,7 @@ static void initcontroller(pcienum_t *e) {
 	sched_sleep_us(1000);
 
 	// we can fit all of corb/rirb in a single page
-	void *corb_phys = pmm_allocpage(PMM_SECTION_DEFAULT);
+	void *corb_phys = mm_alloc_page(MEMORY_SECTION_DEFAULT);
 	__assert(corb_phys);
 	void *corb = MAKE_HHDM(corb_phys);
 	memset(corb, 0, PAGE_SIZE);

@@ -1,7 +1,7 @@
 #include <kernel/init.h>
 #include <kernel/pci.h>
 #include <kernel/alloc.h>
-#include <kernel/pmm.h>
+#include <kernel/page.h>
 #include <kernel/block.h>
 #include <logging.h>
 
@@ -282,7 +282,7 @@ static int cmd_identify(ahci_t *ahci, int port, identify_t *results_phys) {
 		.prdtl = 1,
 	};
 
-	command_table_t *command_table_phys = pmm_allocpage(PMM_SECTION_DEFAULT);
+	command_table_t *command_table_phys = mm_alloc_page(MEMORY_SECTION_DEFAULT);
 	if (command_table_phys == NULL)
 		return ENOMEM;
 
@@ -300,7 +300,7 @@ static int cmd_identify(ahci_t *ahci, int port, identify_t *results_phys) {
 
 	int error = dispatch_command_and_wait(ahci, port, &command_header);
 
-	pmm_release(command_table_phys);
+	mm_release_page(command_table_phys);
 
 	return error;
 }
@@ -308,7 +308,7 @@ static int cmd_identify(ahci_t *ahci, int port, identify_t *results_phys) {
 static void release_prdt(command_table_t *command_table, uint16_t prdtl) {
 	for (int i = 0; i < prdtl; ++i) {
 		void *address = (void *)((uint64_t)command_table->prdt[i].base_low | ((uint64_t)command_table->prdt[i].base_high << 32));
-		pmm_release(address);
+		mm_release_page(address);
 	}
 }
 
@@ -328,7 +328,7 @@ static int setup_prdt(iovec_iterator_t *iterator, command_table_t *command_table
 		__assert(page);
 		// not block aligned
 		if (page_remaining % 512) {
-			pmm_release(page);
+			mm_release_page(page);
 			err = EINVAL;
 			goto cleanup;
 		}
@@ -367,7 +367,7 @@ static int rw(port_data_t *port_data, iovec_iterator_t *iterator, uintmax_t lba,
 		.flags = (sizeof(fis_h2d_t) / 4) | (write ? CMDHDR_WRITE : 0),
 	};
 
-	command_table_t *command_table_phys = pmm_allocpage(PMM_SECTION_DEFAULT);
+	command_table_t *command_table_phys = mm_alloc_page(MEMORY_SECTION_DEFAULT);
 	if (command_table_phys == NULL)
 		return ENOMEM;
 
@@ -412,7 +412,7 @@ static int rw(port_data_t *port_data, iovec_iterator_t *iterator, uintmax_t lba,
 		done += do_count;
 	}
 
-	pmm_release(command_table_phys);
+	mm_release_page(command_table_phys);
 
 	return error;
 }
@@ -427,13 +427,13 @@ static int read(void *private, iovec_iterator_t *buffer, uintmax_t lba, size_t c
 
 static void init_port(ahci_t *ahci, int port) {
 	// send identify command
-	identify_t *identify_phys = pmm_allocpage(PMM_SECTION_DEFAULT);
+	identify_t *identify_phys = mm_alloc_page(MEMORY_SECTION_DEFAULT);
 	__assert(identify_phys);
 	identify_t *identify = MAKE_HHDM(identify_phys);
 	memset(identify, 0, 512);
 
 	if (cmd_identify(ahci, port, identify_phys)) {
-		pmm_release(identify_phys);
+		mm_release_page(identify_phys);
 		return;
 	}
 
@@ -446,13 +446,13 @@ static void init_port(ahci_t *ahci, int port) {
 
 	if (logical_sector_size != 512) {
 		printf("ahci%dp%d: unsupported logical sector size %lu\n", ahci->id, port, logical_sector_size);
-		pmm_release(identify_phys);
+		mm_release_page(identify_phys);
 		return;
 	}
 
 	ahci->port_data[port]->sector_count = (uint64_t)identify->lba48_size[0] | ((uint64_t)identify->lba48_size[1] << 16) |
 				((uint64_t)identify->lba48_size[2] << 32) | ((uint64_t)identify->lba48_size[3] << 48);
-	pmm_release(identify_phys);
+	mm_release_page(identify_phys);
 
 	printf("ahci%dp%d: ATA drive with %lu sectors\n", ahci->id, port, ahci->port_data[port]->sector_count);
 
@@ -553,11 +553,11 @@ static void init_controller(pcienum_t *pci_enum) {
 	ahci->ghc->ghc &= ~GHC_IE;
 
 	// initialize ports
-	void *command_slot_mem = pmm_allocpage(PMM_SECTION_DEFAULT);
+	void *command_slot_mem = mm_alloc_page(MEMORY_SECTION_DEFAULT);
 	__assert(command_slot_mem);
 	size_t command_slot_offset = 0;
 
-	void *fis_base_mem = pmm_allocpage(PMM_SECTION_DEFAULT);
+	void *fis_base_mem = mm_alloc_page(MEMORY_SECTION_DEFAULT);
 	__assert(fis_base_mem);
 	size_t fis_base_offset = 0;
 	FOR_EACH_PORT(ahci) {
@@ -597,7 +597,7 @@ static void init_controller(pcienum_t *pci_enum) {
 		command_slot_offset += 1024;
 		if (command_slot_offset >= PAGE_SIZE) {
 			// used up the page, allocate another
-			command_slot_mem = pmm_allocpage(PMM_SECTION_DEFAULT);
+			command_slot_mem = mm_alloc_page(MEMORY_SECTION_DEFAULT);
 			__assert(command_slot_mem);
 			command_slot_offset = 0;
 		}
@@ -612,7 +612,7 @@ static void init_controller(pcienum_t *pci_enum) {
 		fis_base_offset += 256;
 		if (fis_base_offset >= PAGE_SIZE) {
 			// used up the page, allocate another
-			fis_base_mem = pmm_allocpage(PMM_SECTION_DEFAULT);
+			fis_base_mem = mm_alloc_page(MEMORY_SECTION_DEFAULT);
 			__assert(fis_base_mem);
 			fis_base_offset = 0;
 		}
@@ -653,9 +653,9 @@ static void init_controller(pcienum_t *pci_enum) {
 	}
 
 	if (command_slot_offset == 0)
-		pmm_release(command_slot_mem);
+		mm_release_page(command_slot_mem);
 	if (fis_base_offset == 0)
-		pmm_release(fis_base_mem);
+		mm_release_page(fis_base_mem);
 
 	// clear global interrupt status
 	ahci->ghc->is = 0xffffffff;

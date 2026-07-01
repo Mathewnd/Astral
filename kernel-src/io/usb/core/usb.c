@@ -1,5 +1,5 @@
 #include <kernel/alloc.h>
-#include <kernel/pmm.h>
+#include <kernel/page.h>
 #include <kernel/usb.h>
 #include <logging.h>
 

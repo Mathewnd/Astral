@@ -114,12 +114,12 @@ int vmmcache_getpage(vnode_t *vnode, uintmax_t offset, page_t **res) {
 	retry:
 	if (page) {
 		// page is present in the page cache
-		pmm_hold(pmm_getpageaddress((page_t *)page));
+		mm_hold_page(mm_get_page_address((page_t *)page));
 		RELEASE_LOCK();
 
 		// in the case of a retry, release the allocated page here
 		if (newpage)
-			pmm_release(pmm_getpageaddress(newpage));
+			mm_release_page(mm_get_page_address(newpage));
 
 		eventlistener_t listener;
 		EVENT_INITLISTENER(&listener);
@@ -133,7 +133,7 @@ int vmmcache_getpage(vnode_t *vnode, uintmax_t offset, page_t **res) {
 
 		if (page->flags & PAGE_FLAGS_ERROR) {
 			// the thread handling the page in failed to read it, we should retry it and see whats up
-			pmm_release(pmm_getpageaddress((page_t *)page));
+			mm_release_page(mm_get_page_address((page_t *)page));
 			goto retry_err;
 		}
 
@@ -142,11 +142,11 @@ int vmmcache_getpage(vnode_t *vnode, uintmax_t offset, page_t **res) {
 		// page is not present in the cache, we will have to load it in
 		RELEASE_LOCK();
 
-		void *address = pmm_allocpage(PMM_SECTION_DEFAULT);
+		void *address = mm_alloc_page(MEMORY_SECTION_DEFAULT);
 		if (address == NULL)
 			return ENOMEM;
 
-		newpage = pmm_getpage(address);
+		newpage = mm_get_page(address);
 		
 		HOLD_LOCK();
 
@@ -180,7 +180,7 @@ int vmmcache_getpage(vnode_t *vnode, uintmax_t offset, page_t **res) {
 			newpage->offset = 0;
 
 			RELEASE_LOCK();
-			pmm_release(pmm_getpageaddress(newpage));
+			mm_release_page(mm_get_page_address(newpage));
 			EVENT_SIGNAL(&pagereadyevent);
 			return error;
 		}
@@ -289,7 +289,7 @@ int vmmcache_truncate(vnode_t *vnode, uintmax_t offset) {
 		page_t *page = pagelist;
 		pagelist = pagelist->vnodenext;
 		if (page->flags & PAGE_FLAGS_PINNED)
-			pmm_release(pmm_getpageaddress(page));
+			mm_release_page(mm_get_page_address(page));
 	}
 
 	return 0;
@@ -318,7 +318,7 @@ static int syncpage(page_t *page, bool backinglock) {
 		VOP_RELEASE(page->backing);
 	}
 
-	pmm_release(pmm_getpageaddress((page_t *)page));
+	mm_release_page(mm_get_page_address((page_t *)page));
 	return e;
 }
 
@@ -427,7 +427,7 @@ int vmmcache_makedirty(page_t *page) {
 			dirtylist = page;
 		}
 
-		pmm_hold(pmm_getpageaddress(page));
+		mm_hold_page(mm_get_page_address(page));
 		__assert(page->backing);
 		VOP_HOLD(page->backing);
 	}

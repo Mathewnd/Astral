@@ -1,6 +1,6 @@
 #include <limine.h>
 #include <logging.h>
-#include <kernel/pmm.h>
+#include <kernel/page.h>
 #include <arch/cpu.h>
 #include <arch/gdt.h>
 #include <arch/idt.h>
@@ -96,7 +96,7 @@ void arch_smp_wakeup(void) {
 
 	// use physical pages so the other cpus have it on the hhdm
 	size_t cpu_size = ROUND_UP(sizeof(cpu_t) * response->cpu_count, PAGE_SIZE);
-	cpu_t *cpus = pmm_alloc(cpu_size / PAGE_SIZE, PMM_SECTION_DEFAULT);
+	cpu_t *cpus = mm_alloc_pages(cpu_size / PAGE_SIZE, MEMORY_SECTION_DEFAULT);
 	__assert(cpus);
 	cpus = MAKE_HHDM(cpus);
 	memset(cpus, 0, cpu_size);

@@ -1,6 +1,6 @@
 #include <kernel/virtio.h>
 #include <logging.h>
-#include <kernel/pmm.h>
+#include <kernel/page.h>
 #include <kernel/eth.h>
 #include <kernel/net.h>
 #include <hashtable.h>
@@ -84,7 +84,7 @@ static void tx_irq(isr_t *isr, context_t *context) {
 static int vionet_allocdesc(netdev_t *netdev, size_t requestedsize, netdesc_t *desc) {
 	__assert(requestedsize <= netdev->mtu);
 	size_t truesize = PREFIX_SIZE + requestedsize;
-	void *phys = pmm_allocpage(PMM_SECTION_DEFAULT);
+	void *phys = mm_alloc_page(MEMORY_SECTION_DEFAULT);
 	if (phys == NULL)
 		return ENOMEM;
 
@@ -95,7 +95,7 @@ static int vionet_allocdesc(netdev_t *netdev, size_t requestedsize, netdesc_t *d
 }
 
 static int vionet_freedesc(netdev_t *netdev, netdesc_t *desc) {
-	pmm_release(FROM_HHDM(desc->address));
+	mm_release_page(FROM_HHDM(desc->address));
 	return 0;
 }
 
@@ -210,7 +210,7 @@ int vionet_newdevice(viodevice_t *viodevice) {
 	// XXX is the memory saving of allocating hundreds of KiBs of contiguous physical memory really worth it?
 	// the system literally might not have enough (contiguous) physical memory for this, especially considering
 	// this device is initialised deeper into the boot process.
-	void *receivebuffer = pmm_alloc(ROUND_UP((rxsize * BUFFER_SIZE), PAGE_SIZE) / PAGE_SIZE, PMM_SECTION_DEFAULT);
+	void *receivebuffer = mm_alloc_pages(ROUND_UP((rxsize * BUFFER_SIZE), PAGE_SIZE) / PAGE_SIZE, MEMORY_SECTION_DEFAULT);
 	__assert(receivebuffer);
 
 	for (int i = 0; i < rxsize; ++i) {

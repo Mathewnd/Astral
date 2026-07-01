@@ -454,11 +454,11 @@ int vfs_write_iovec(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size
 				goto leave;
 
 			size_t writesize = min(PAGE_SIZE - startoffset, size);
-			void *address = MAKE_HHDM(pmm_getpageaddress(page));
+			void *address = MAKE_HHDM(mm_get_page_address(page));
 
 			err = iovec_iterator_copy_to_buffer(iovec_iterator, (void *)((uintptr_t)address + startoffset), writesize);
 			if (err) {
-				pmm_release(FROM_HHDM(address));
+				mm_release_page(FROM_HHDM(address));
 				goto leave;
 			}
 
@@ -471,7 +471,7 @@ int vfs_write_iovec(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size
 			pageoffset += 1;
 			pagecount -= 1;
 
-			pmm_release(FROM_HHDM(address));
+			mm_release_page(FROM_HHDM(address));
 			if (err)
 				goto leave;
 		}
@@ -483,11 +483,11 @@ int vfs_write_iovec(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size
 				goto leave;
 
 			size_t writesize = min(PAGE_SIZE, size - *written);
-			void *address = MAKE_HHDM(pmm_getpageaddress(page));
+			void *address = MAKE_HHDM(mm_get_page_address(page));
 
 			err = iovec_iterator_copy_to_buffer(iovec_iterator, address, writesize);
 			if (err) {
-				pmm_release(FROM_HHDM(address));
+				mm_release_page(FROM_HHDM(address));
 				goto leave;
 			}
 
@@ -497,7 +497,7 @@ int vfs_write_iovec(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size
 			if (flags & V_FFLAGS_NOCACHE)
 				err = writenocache(node, page, pageoffset * PAGE_SIZE + offset);
 
-			pmm_release(FROM_HHDM(address));
+			mm_release_page(FROM_HHDM(address));
 
 			if (err)
 				goto leave;
@@ -567,11 +567,11 @@ int vfs_read_iovec(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size,
 				goto leave;
 
 			size_t readsize = min(PAGE_SIZE - startoffset, size);
-			void *address = MAKE_HHDM(pmm_getpageaddress(page));
+			void *address = MAKE_HHDM(mm_get_page_address(page));
 
 			err = iovec_iterator_copy_from_buffer(iovec_iterator, (void *)((uintptr_t)address + startoffset), readsize);
 			if (err) {
-				pmm_release(FROM_HHDM(address));
+				mm_release_page(FROM_HHDM(address));
 				goto leave;
 			}
 
@@ -585,7 +585,7 @@ int vfs_read_iovec(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size,
 			pageoffset += 1;
 			pagecount -= 1;
 
-			pmm_release(FROM_HHDM(address));
+			mm_release_page(FROM_HHDM(address));
 		}
 
 		for (uintmax_t offset = 0; offset < pagecount * PAGE_SIZE; offset += PAGE_SIZE) {
@@ -595,11 +595,11 @@ int vfs_read_iovec(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size,
 				goto leave;
 
 			size_t readsize = min(PAGE_SIZE, size - *bytesread);
-			void *address = MAKE_HHDM(pmm_getpageaddress(page));
+			void *address = MAKE_HHDM(mm_get_page_address(page));
 
 			err = iovec_iterator_copy_from_buffer(iovec_iterator, address, readsize);
 			if (err) {
-				pmm_release(FROM_HHDM(address));
+				mm_release_page(FROM_HHDM(address));
 				goto leave;
 			}
 
@@ -608,7 +608,7 @@ int vfs_read_iovec(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size,
 				// try to turn it into anonymous memory
 				vmmcache_evict(page);
 			}
-			pmm_release(FROM_HHDM(address));
+			mm_release_page(FROM_HHDM(address));
 		}
 		leave:
 		MUTEX_RELEASE(&node->size_lock);

@@ -285,7 +285,7 @@ static int udp_recv(socket_t *socket, sockdesc_t *sockdesc) {
 
 	__assert(sockdesc->donecount == copycount);
 
-	// remove the message if not asked to peek
+	// remove the message if not asked to peek TODO: if sonecount != header.length, add truncate flag. also do the same to localsocket
 	if ((flags & SOCKET_RECV_FLAGS_PEEK) == 0)
 		ringbuffer_truncate(&udpsocket->ringbuffer, sizeof(header) + header.length);
 

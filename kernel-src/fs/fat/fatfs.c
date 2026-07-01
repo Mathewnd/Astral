@@ -6,7 +6,7 @@
 #include <kernel/init.h>
 #include <kernel/slab.h>
 #include <kernel/auth.h>
-#include <kernel/pmm.h>
+#include <kernel/page.h>
 #include <kernel/vmmcache.h>
 
 typedef struct {
@@ -383,7 +383,7 @@ static int fatfs_putpage(vnode_t *node, uintmax_t offset, struct page_t *page) {
 	__assert(node->type == V_TYPE_REGULAR);
 	size_t write_count;
 	iovec_t iovec = {
-		.addr = MAKE_HHDM(pmm_getpageaddress(page)),
+		.addr = MAKE_HHDM(mm_get_page_address(page)),
 		.len = PAGE_SIZE
 	};
 
@@ -410,7 +410,7 @@ static int fatfs_getpage(vnode_t *node, uintmax_t offset, struct page_t *page) {
 	// only regular files get cached
 	__assert(node->type == V_TYPE_REGULAR);
 	size_t read_count = PAGE_SIZE;
-	void *addr = MAKE_HHDM(pmm_getpageaddress(page));
+	void *addr = MAKE_HHDM(mm_get_page_address(page));
 
 	iovec_t iovec = {
 		.addr = addr,

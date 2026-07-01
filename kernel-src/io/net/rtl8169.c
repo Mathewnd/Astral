@@ -4,7 +4,7 @@
 #include <arch/io.h>
 #include <kernel/net.h>
 #include <kernel/scheduler.h>
-#include <kernel/pmm.h>
+#include <kernel/page.h>
 #include <kernel/eth.h>
 #include <kernel/interrupt.h>
 
@@ -198,7 +198,7 @@ static int rtl8169_sendpacket(netdev_t *internal, netdesc_t desc, mac_t target, 
 static int rtl8169_allocdesc(netdev_t *netdev, size_t requested_size, netdesc_t *desc) {
 	__assert(requested_size <= netdev->mtu);
 	size_t true_size = sizeof(ethframe_t) + requested_size;
-	void *physical = pmm_allocpage(PMM_SECTION_DEFAULT);
+	void *physical = mm_alloc_page(MEMORY_SECTION_DEFAULT);
 	if (physical == NULL)
 		return ENOMEM;
 
@@ -209,7 +209,7 @@ static int rtl8169_allocdesc(netdev_t *netdev, size_t requested_size, netdesc_t 
 }
 
 static int rtl8169_freedesc(netdev_t *netdev, netdesc_t *desc) {
-	pmm_release(FROM_HHDM(desc->address));
+	mm_release_page(FROM_HHDM(desc->address));
 	return 0;
 }
 
@@ -275,9 +275,9 @@ static void init_controller(pcienum_t *pci_enum) {
 	printf("rtl8169.%d: %x:%x:%x:%x:%x:%x\n", id, mac.address[0], mac.address[1], mac.address[2], mac.address[3], mac.address[4], mac.address[5]);
 
 	// set up descriptor rings
-	descriptor_t *tx_ring_phys = pmm_alloc(ROUND_UP(sizeof(descriptor_t) * TX_DESCRIPTOR_COUNT, PAGE_SIZE) / PAGE_SIZE, PMM_SECTION_DEFAULT);
+	descriptor_t *tx_ring_phys = mm_alloc_pages(ROUND_UP(sizeof(descriptor_t) * TX_DESCRIPTOR_COUNT, PAGE_SIZE) / PAGE_SIZE, MEMORY_SECTION_DEFAULT);
 	__assert(tx_ring_phys);
-	descriptor_t *rx_ring_phys = pmm_alloc(ROUND_UP(sizeof(descriptor_t) * RX_DESCRIPTOR_COUNT, PAGE_SIZE) / PAGE_SIZE, PMM_SECTION_DEFAULT);
+	descriptor_t *rx_ring_phys = mm_alloc_pages(ROUND_UP(sizeof(descriptor_t) * RX_DESCRIPTOR_COUNT, PAGE_SIZE) / PAGE_SIZE, MEMORY_SECTION_DEFAULT);
 	__assert(rx_ring_phys);
 
 	descriptor_t *tx_ring = MAKE_HHDM(tx_ring_phys);
@@ -288,7 +288,7 @@ static void init_controller(pcienum_t *pci_enum) {
 
 	// fill rx descriptors
 	// XXX figure out a better way of doing this
-	void *rx_buffer = pmm_alloc(ROUND_UP((RX_DESCRIPTOR_COUNT * RX_BUFFER_SIZE), PAGE_SIZE) / PAGE_SIZE, PMM_SECTION_DEFAULT);
+	void *rx_buffer = mm_alloc_pages(ROUND_UP((RX_DESCRIPTOR_COUNT * RX_BUFFER_SIZE), PAGE_SIZE) / PAGE_SIZE, MEMORY_SECTION_DEFAULT);
 	__assert(rx_buffer);
 
 	for (int i = 0; i < RX_DESCRIPTOR_COUNT; ++i) {

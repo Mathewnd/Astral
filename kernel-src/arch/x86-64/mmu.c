@@ -1,6 +1,6 @@
 #include <arch/mmu.h>
 #include <limine.h>
-#include <kernel/pmm.h>
+#include <kernel/page.h>
 #include <string.h>
 #include <logging.h>
 #include <kernel/interrupt.h>
@@ -71,7 +71,7 @@ static bool add_page(pagetableptr_t top, void *vaddr, uint64_t entry, int depth)
 
 	uint64_t *pdpt = next(pml4[pml4offset]);
 	if (pdpt == NULL) {
-		pdpt = pmm_allocpage(PMM_SECTION_DEFAULT);
+		pdpt = mm_alloc_page(MEMORY_SECTION_DEFAULT);
 		if (pdpt == NULL)
 			return false;
 		pml4[pml4offset] = (uint64_t)pdpt | INTERMEDIATE_FLAGS;
@@ -86,7 +86,7 @@ static bool add_page(pagetableptr_t top, void *vaddr, uint64_t entry, int depth)
 	
 	uint64_t *pd = next(pdpt[pdptoffset]);
 	if (pd == NULL) {
-		pd = pmm_allocpage(PMM_SECTION_DEFAULT);
+		pd = mm_alloc_page(MEMORY_SECTION_DEFAULT);
 		if (pd == NULL)
 			return false;
 		pdpt[pdptoffset] = (uint64_t)pd | INTERMEDIATE_FLAGS;
@@ -101,7 +101,7 @@ static bool add_page(pagetableptr_t top, void *vaddr, uint64_t entry, int depth)
 	
 	uint64_t *pt = next(pd[pdoffset]);
 	if (pt == NULL) {
-		pt = pmm_allocpage(PMM_SECTION_DEFAULT);
+		pt = mm_alloc_page(MEMORY_SECTION_DEFAULT);
 		if (pt == NULL)
 			return false;
 		pd[pdoffset] = (uint64_t)pt | INTERMEDIATE_FLAGS;
@@ -123,13 +123,13 @@ static void destroy(uint64_t *table, int depth) {
 		if (depth > 0)
 			destroy(MAKE_HHDM(addr), depth - 1);
 
-		pmm_release(addr);
+		mm_release_page(addr);
 	}
 }
 
 void arch_mmu_destroytable(pagetableptr_t table) {
 	destroy(MAKE_HHDM(table), 3);
-	pmm_release(table);
+	mm_release_page(table);
 }
 
 bool arch_mmu_map(pagetableptr_t table, void *paddr, void *vaddr, mmuflags_t flags) {
@@ -212,7 +212,7 @@ void x86_64_mmu_disable_global_pages(void) {
 static pagetableptr_t template;
 
 pagetableptr_t arch_mmu_newtable() {
-	pagetableptr_t table = pmm_allocpage(PMM_SECTION_DEFAULT);
+	pagetableptr_t table = mm_alloc_page(MEMORY_SECTION_DEFAULT);
 	if (table == NULL)
 		return NULL;
 	memcpy(MAKE_HHDM(table), template, PAGE_SIZE);
@@ -312,7 +312,7 @@ static mmuflags_t kernelflags[3] = {
 	ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_NOEXEC | ARCH_MMU_FLAGS_GLOBAL
 };
 
-extern volatile struct limine_memmap_request pmm_liminemap;
+extern volatile struct limine_memmap_request mm_page_limine_map;
 
 static volatile struct limine_executable_address_request kaddrreq = {
 	.id = LIMINE_EXECUTABLE_ADDRESS_REQUEST_ID,
@@ -388,13 +388,13 @@ static void gpfisr(isr_t *self, context_t *ctx) {
 }
 
 void arch_mmu_init() {
-	template = pmm_allocpage(PMM_SECTION_DEFAULT);
+	template = mm_alloc_page(MEMORY_SECTION_DEFAULT);
 	__assert(template);
 	template = MAKE_HHDM(template);
 	memset(template, 0, PAGE_SIZE);
 
 	for (int i = 256; i < 512; ++i) {
-		uint64_t *entry = pmm_allocpage(PMM_SECTION_DEFAULT);
+		uint64_t *entry = mm_alloc_page(MEMORY_SECTION_DEFAULT);
 		__assert(entry);
 		memset(MAKE_HHDM(entry), 0, PAGE_SIZE);
 		template[i] = (uint64_t)entry | INTERMEDIATE_FLAGS;
@@ -403,8 +403,8 @@ void arch_mmu_init() {
 	// TODO use 2mb pages
 	// populate hhdm
 
-	for (size_t i = 0; i < pmm_liminemap.response->entry_count; ++i) {
-		struct limine_memmap_entry *e = pmm_liminemap.response->entries[i];
+	for (size_t i = 0; i < mm_page_limine_map.response->entry_count; ++i) {
+		struct limine_memmap_entry *e = mm_page_limine_map.response->entries[i];
 		if (e->type != LIMINE_MEMMAP_USABLE && e->type != LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE && e->type != LIMINE_MEMMAP_EXECUTABLE_AND_MODULES && e->type != LIMINE_MEMMAP_FRAMEBUFFER)
 			continue;
 
@@ -434,7 +434,7 @@ void arch_mmu_init() {
 	arch_mmu_apswitch();
 }
 
-INIT_ROUTINE_DEFINE(mmu, INIT_ROUTINE_FLAGS_NONE, arch_mmu_init, pmm);
+INIT_ROUTINE_DEFINE(mmu, INIT_ROUTINE_FLAGS_NONE, arch_mmu_init, mm_page);
 
 void arch_mmu_apswitch() {
 	arch_mmu_switch(FROM_HHDM(template));

@@ -1,6 +1,6 @@
 #include <kernel/virtio.h>
 #include <logging.h>
-#include <kernel/pmm.h>
+#include <kernel/page.h>
 #include <kernel/eth.h>
 #include <kernel/net.h>
 #include <hashtable.h>

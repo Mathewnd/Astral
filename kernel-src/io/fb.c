@@ -5,7 +5,7 @@
 #include <kernel/alloc.h>
 #include <kernel/devfs.h>
 #include <arch/cpu.h>
-#include <kernel/pmm.h>
+#include <kernel/page.h>
 #include <kernel/usercopy.h>
 #include <kernel/term.h>
 #include <kernel/init.h>
@@ -147,14 +147,14 @@ static int mmap(int minor, void *addr, uintmax_t offset, int flags) {
 		return arch_mmu_map(current_vmm_context()->pagetable, FROM_HHDM((void *)((uintptr_t)fbs[minor]->address + offset)), addr, vnodeflagstommuflags(flags)) ? 0 : ENOMEM;
 	} else {
 		size_t size = offset + PAGE_SIZE < end ? PAGE_SIZE : end - offset;
-		paddr = pmm_allocpage(PMM_SECTION_DEFAULT);
+		paddr = mm_alloc_page(MEMORY_SECTION_DEFAULT);
 		if (paddr == NULL)
 			return ENOMEM;
 
 		memcpy(MAKE_HHDM(paddr), (void *)((uintptr_t)fbs[minor]->address + offset), size);
 
 		if (arch_mmu_map(current_vmm_context()->pagetable, paddr, addr, vnodeflagstommuflags(flags) | ARCH_MMU_FLAGS_WC) == false) {
-			pmm_release(paddr);
+			mm_release_page(paddr);
 			return ENOMEM;
 		}
 
@@ -168,7 +168,7 @@ static int munmap(int minor, void *addr, uintmax_t offset, int flags) {
 	arch_mmu_unmap(current_vmm_context()->pagetable, addr);
 	arch_mmu_invalidate_range(addr, PAGE_SIZE);
 	if (release)
-		pmm_release(phys);
+		mm_release_page(phys);
 
 	return 0;
 }

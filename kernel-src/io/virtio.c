@@ -2,7 +2,7 @@
 #include <kernel/pci.h>
 #include <logging.h>
 #include <kernel/alloc.h>
-#include <kernel/pmm.h>
+#include <kernel/page.h>
 #include <kernel/init.h>
 
 #define VIRTIO_VENDOR 0x1af4
@@ -63,7 +63,7 @@ void *virtio_createqueue(viodevice_t *viodevice, vioqueue_t *vioqueue, int queue
 	size_t bytesize = VIO_QUEUE_BYTESIZE(size);
 	size_t pagesize = ROUND_UP(bytesize, PAGE_SIZE) / PAGE_SIZE;
 
-	void *queuephys = pmm_alloc(pagesize, PMM_SECTION_DEFAULT);
+	void *queuephys = mm_alloc_pages(pagesize, MEMORY_SECTION_DEFAULT);
 	__assert(queuephys);
 	memset(MAKE_HHDM(queuephys), 0, bytesize);
 

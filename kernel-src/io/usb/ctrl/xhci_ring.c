@@ -1,11 +1,11 @@
 #include <kernel/xhci.h>
 #include <kernel/alloc.h>
-#include <kernel/pmm.h>
+#include <kernel/page.h>
 #include <errno.h>
 #include <logging.h>
 
 int xhci_alloc_ring(xhci_ctrl_t *ctrl, xhci_ring_t *r, bool event_ring) {
-	void *ring_phys = pmm_allocpage(PMM_SECTION_DEFAULT);
+	void *ring_phys = mm_alloc_page(MEMORY_SECTION_DEFAULT);
 	if (ring_phys == NULL)
 		return ENOMEM;
 
@@ -24,7 +24,7 @@ int xhci_alloc_ring(xhci_ctrl_t *ctrl, xhci_ring_t *r, bool event_ring) {
 	} else {
 		r->submissions = alloc(sizeof(xhci_submission_t) * r->size);
 		if (r->submissions == NULL) {
-			pmm_release(ring_phys);
+			mm_release_page(ring_phys);
 			return ENOMEM;
 		}
 
@@ -37,7 +37,7 @@ int xhci_alloc_ring(xhci_ctrl_t *ctrl, xhci_ring_t *r, bool event_ring) {
 }
 
 void xhci_free_ring(xhci_ring_t *ring) {
-	pmm_release(ring->ring_phys);
+	mm_release_page(ring->ring_phys);
 	free(ring->submissions);
 }
 

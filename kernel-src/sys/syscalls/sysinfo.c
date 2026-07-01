@@ -1,6 +1,6 @@
 #include <kernel/syscalls.h>
 #include <arch/cpu.h>
-#include <kernel/pmm.h>
+#include <kernel/page.h>
 #include <kernel/vmmcache.h>
 #include <kernel/proc.h>
 
@@ -26,7 +26,7 @@ syscallret_t syscall_sysinfo(context_t *, sysinfo_t *usysinfo) {
 	};
 
 	size_t total_pages, free_pages;
-	pmm_getinfo(&total_pages, &free_pages);
+	mm_get_page_statistics(&total_pages, &free_pages);
 
 	sysinfo_t sysinfo = {
 		.uptime = timekeeper_timefromboot().s,

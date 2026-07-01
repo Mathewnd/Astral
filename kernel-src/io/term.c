@@ -6,7 +6,7 @@
 #include <printf.h>
 #include <logging.h>
 #include <string.h>
-#include <kernel/pmm.h>
+#include <kernel/page.h>
 #include <arch/mmu.h>
 #include <kernel/init.h>
 #include <logging.h>
@@ -31,7 +31,7 @@ static void *internalalloc(size_t n) {
 #else
 // TODO make more efficient. works for now
 static void *internalalloc(size_t n) {
-	void *addr = pmm_alloc(n / PAGE_SIZE + 1, PMM_SECTION_DEFAULT);
+	void *addr = mm_alloc_pages(n / PAGE_SIZE + 1, MEMORY_SECTION_DEFAULT);
 	__assert(addr);
 	return MAKE_HHDM(addr);
 }

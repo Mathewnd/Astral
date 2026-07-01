@@ -1,4 +1,4 @@
-#include <kernel/pmm.h>
+#include <kernel/page.h>
 #include <limine.h>
 #include <logging.h>
 #include <string.h>
@@ -14,10 +14,10 @@ static size_t pagecount;
 size_t freepagecount;
 
 static mutex_t freelistmutex;
-static page_t *freelists[PMM_SECTION_COUNT];
-static page_t *freetails[PMM_SECTION_COUNT];
-static page_t *standbylists[PMM_SECTION_COUNT];
-static page_t *standbytails[PMM_SECTION_COUNT];
+static page_t *freelists[MEMORY_SECTION_COUNT];
+static page_t *freetails[MEMORY_SECTION_COUNT];
+static page_t *standbylists[MEMORY_SECTION_COUNT];
+static page_t *standbytails[MEMORY_SECTION_COUNT];
 
 typedef struct {
 	uintmax_t baseid;
@@ -28,7 +28,7 @@ typedef struct {
 #define TOP_1MB (0x100000 / PAGE_SIZE)
 #define TOP_4GB ((uint64_t)0x100000000 / PAGE_SIZE)
 
-static section_t sections[PMM_SECTION_COUNT] = {
+static section_t sections[MEMORY_SECTION_COUNT] = {
 	{0, TOP_1MB, 0},
 	{TOP_1MB, TOP_4GB, TOP_1MB},
 	{TOP_4GB, 0xffffffffffffffffl, TOP_4GB}
@@ -39,7 +39,7 @@ static volatile struct limine_hhdm_request hhdmreq = {
 	.revision = 0
 };
 
-volatile struct limine_memmap_request pmm_liminemap = {
+volatile struct limine_memmap_request mm_page_limine_map = {
 	.id = LIMINE_MEMMAP_REQUEST_ID,
 	.revision = 0
 };
@@ -59,11 +59,11 @@ static void insertinfreelist(page_t *page) {
 	int section;
 
 	if (pageid < TOP_1MB)
-		section = PMM_SECTION_1MB;
+		section = MEMORY_SECTION_1MB;
 	else if (pageid < TOP_4GB)
-		section = PMM_SECTION_4GB;
+		section = MEMORY_SECTION_4GB;
 	else
-		section = PMM_SECTION_DEFAULT;
+		section = MEMORY_SECTION_DEFAULT;
 
 	list = page->backing ? &standbylists[section] : &freelists[section];
 	tail = page->backing ? &standbytails[section] : &freetails[section];
@@ -91,11 +91,11 @@ static void removefromfreelist(page_t *page) {
 	int section;
 
 	if (pageid < TOP_1MB)
-		section = PMM_SECTION_1MB;
+		section = MEMORY_SECTION_1MB;
 	else if (pageid < TOP_4GB)
-		section = PMM_SECTION_4GB;
+		section = MEMORY_SECTION_4GB;
 	else
-		section = PMM_SECTION_DEFAULT;
+		section = MEMORY_SECTION_DEFAULT;
 
 	list = page->backing ? &standbylists[section] : &freelists[section];
 	tail = page->backing ? &standbytails[section] : &freetails[section];
@@ -124,15 +124,15 @@ static void internalhold(page_t *page) {
 	}
 }
 
-page_t *pmm_getpage(void *address) {
+page_t *mm_get_page(void *address) {
 	return &pages[((uintptr_t)address / PAGE_SIZE)];
 }
 
-void *pmm_getpageaddress(page_t *page) {
+void *mm_get_page_address(page_t *page) {
 	return (void *)(PAGE_GETID(page) * PAGE_SIZE);
 }
 
-void pmm_hold(void *addr) {
+void mm_hold_page(void *addr) {
 	page_t *page = &pages[((uintptr_t)addr / PAGE_SIZE)];
 
 	MUTEX_ACQUIRE(&freelistmutex);
@@ -140,7 +140,7 @@ void pmm_hold(void *addr) {
 	MUTEX_RELEASE(&freelistmutex);
 }
 
-void pmm_release(void *addr) {
+void mm_release_page(void *addr) {
 	page_t *page = &pages[(uintptr_t)addr / PAGE_SIZE];
 
 	MUTEX_ACQUIRE(&freelistmutex);
@@ -160,7 +160,7 @@ static void doalloc(page_t *page) {
 	page->refcount = 1;
 }
 
-void *pmm_allocpage(int section) {
+void *mm_alloc_page(int section) {
 	retry:
 	MUTEX_ACQUIRE(&freelistmutex);
 	page_t *page = NULL;
@@ -193,7 +193,7 @@ void *pmm_allocpage(int section) {
 
 	if (cachepage && vmmcache_takepage(page) == EAGAIN) {
 		// someone already got the page from the cache between us holding it and taking it
-		pmm_release(pmm_getpageaddress(page));
+		mm_release_page(mm_get_page_address(page));
 		page = NULL;
 		// retry it from the start, as an anonymous page could have been released while the lock was not held
 		goto retry;
@@ -212,7 +212,7 @@ void *pmm_allocpage(int section) {
 	return address;
 }
 
-void pmm_makefree(void *address, size_t count) {
+void mm_force_free_page(void *address, size_t count) {
 	MUTEX_ACQUIRE(&freelistmutex);
 	memorysize += PAGE_SIZE * count;
 	__assert(((uintptr_t)address % PAGE_SIZE) == 0);
@@ -227,18 +227,18 @@ void pmm_makefree(void *address, size_t count) {
 	MUTEX_RELEASE(&freelistmutex);
 }
 
-void pmm_init() {
+void mm_page_init() {
 	__assert(hhdmreq.response);
 	hhdmbase = hhdmreq.response->offset;
-	__assert(pmm_liminemap.response);
+	__assert(mm_page_limine_map.response);
 
 	// get size of memory, top of usable memory, biggest section and print memory map
 	size_t top = 0;
 	struct limine_memmap_entry *biggest = NULL;
-	printf("pmm: ranges:\n");
-	for (size_t i = 0; i < pmm_liminemap.response->entry_count; ++i) {
-		struct limine_memmap_entry *e = pmm_liminemap.response->entries[i];
-		printf("pmm: %016p -> %016p: %d\n", e->base, e->base + e->length, e->type);
+	printf("mm: ranges:\n");
+	for (size_t i = 0; i < mm_page_limine_map.response->entry_count; ++i) {
+		struct limine_memmap_entry *e = mm_page_limine_map.response->entries[i];
+		printf("mm: %016p -> %016p: %d\n", e->base, e->base + e->length, e->type);
 		if (e->type == LIMINE_MEMMAP_USABLE || e->type == LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE || e->type == LIMINE_MEMMAP_EXECUTABLE_AND_MODULES) {
 			size_t sectiontop = e->base + e->length;
 			if (sectiontop > top)
@@ -254,11 +254,11 @@ void pmm_init() {
 	pages = MAKE_HHDM((page_t *)biggest->base);
 	pagecount = ROUND_UP(top, PAGE_SIZE) / PAGE_SIZE;
 	memset(pages, 0, pagecount * sizeof(page_t));
-	printf("pmm: %d pages used for page list\n", ROUND_UP(pagecount * sizeof(page_t), PAGE_SIZE) / PAGE_SIZE);
+	printf("mm: %d pages used for page list\n", ROUND_UP(pagecount * sizeof(page_t), PAGE_SIZE) / PAGE_SIZE);
 
 	// initialize usable memory
-	for (size_t i = 0; i < pmm_liminemap.response->entry_count; ++i) {
-		struct limine_memmap_entry *e = pmm_liminemap.response->entries[i];
+	for (size_t i = 0; i < mm_page_limine_map.response->entry_count; ++i) {
+		struct limine_memmap_entry *e = mm_page_limine_map.response->entries[i];
 		if (e->type == LIMINE_MEMMAP_USABLE) {
 			int firstusablepage = e == biggest ? ROUND_UP(e->base + pagecount * sizeof(page_t), PAGE_SIZE) / PAGE_SIZE : e->base / PAGE_SIZE;
 			for (int i = firstusablepage; i < (e->base + e->length) / PAGE_SIZE; ++i) {
@@ -276,15 +276,15 @@ void pmm_init() {
 	MUTEX_INIT(&freelistmutex);
 }
 
-INIT_ROUTINE_DEFINE(pmm, INIT_ROUTINE_FLAGS_NONE, pmm_init, arch_early);
+INIT_ROUTINE_DEFINE(mm_page, INIT_ROUTINE_FLAGS_NONE, mm_page_init, arch_early);
 
-// XXX pmm_alloc won't be able to take pages from the page cache when the allocation size is over 1 page
+// XXX mm_alloc_pages won't be able to take pages from the page cache when the allocation size is over 1 page
 
-void *pmm_alloc(size_t size, int section) {
+void *mm_alloc_pages(size_t size, int section) {
 	__assert(size);
-	// pmm_allocpage is more suited for single page allocations, so use that instead
+	// mm_alloc_page is more suited for single page allocations, so use that instead
 	if (size == 1)
-		return pmm_allocpage(section);
+		return mm_alloc_page(section);
 
 	MUTEX_ACQUIRE(&freelistmutex);
 
@@ -322,15 +322,15 @@ void *pmm_alloc(size_t size, int section) {
 	return addr;
 }
 
-void pmm_free(void *addr, size_t size) {
+void mm_release_range(void *addr, size_t size) {
 	__assert(size);
 	// release multiple pages at once
 	__assert(((uintptr_t)addr % PAGE_SIZE) == 0);
 	for (int i = 0; i < size; ++i)
-		pmm_release((void *)((uintptr_t)addr + PAGE_SIZE * i));
+		mm_release_page((void *)((uintptr_t)addr + PAGE_SIZE * i));
 }
 
-void pmm_getinfo(size_t *total_pages, size_t *free_pages) {
+void mm_get_page_statistics(size_t *total_pages, size_t *free_pages) {
 	*total_pages = memorysize / PAGE_SIZE;
 	*free_pages = freepagecount;
 }

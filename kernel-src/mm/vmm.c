@@ -1,6 +1,6 @@
 #include <kernel/vmm.h>
 #include <logging.h>
-#include <kernel/pmm.h>
+#include <kernel/page.h>
 #include <util.h>
 #include <arch/cpu.h>
 #include <limine.h>
@@ -175,19 +175,19 @@ static void destroyrange(vmmrange_t *range, uintmax_t _offset, size_t size, int 
 				// dirty page cache mapping
 				arch_mmu_unmap(current_vmm_context()->pagetable, vaddr);
 				VOP_LOCK(range->vnode);
-				vmmcache_makedirty(pmm_getpage(physical));
+				vmmcache_makedirty(mm_get_page(physical));
 				VOP_UNLOCK(range->vnode);
-				pmm_release(physical);
+				mm_release_page(physical);
 			} else {
 				// non dirty page mapping
 				arch_mmu_unmap(current_vmm_context()->pagetable, vaddr);
-				pmm_release(physical);
+				mm_release_page(physical);
 			}
 		} else {
 			// anonymous, physical or private non character device mapping
 			arch_mmu_unmap(current_vmm_context()->pagetable, vaddr);
 			if ((range->flags & VMM_FLAGS_PHYSICAL) == 0)
-				pmm_release(physical);
+				mm_release_page(physical);
 		}
 	}
 
@@ -220,7 +220,7 @@ static void changemmurange(vmmrange_t *range, void *base, size_t size, mmuflags_
 		if ((range->flags & VMM_FLAGS_FILE) && (range->flags & VMM_FLAGS_SHARED) && (mask & ARCH_MMU_FLAGS_WRITE) && vfs_iscacheable(range->vnode)) {
 			// removing write permissions from a writeable dirty shared mapped page, mark it as dirty, as
 			// it won't be marked dirty upon a vmm_unmap after this
-			page_t *page = pmm_getpage(physical);
+			page_t *page = mm_get_page(physical);
 			VOP_LOCK(range->vnode);
 			vmmcache_makedirty(page);
 			VOP_UNLOCK(range->vnode);
@@ -566,10 +566,10 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 					printf("vmm: error on vmmcache_getpage(): %d\n", error);
 					status = false;
 				} else {
-					status = arch_mmu_map(current_vmm_context()->pagetable, pmm_getpageaddress(res), addr, range->mmuflags & ~ARCH_MMU_FLAGS_WRITE);
+					status = arch_mmu_map(current_vmm_context()->pagetable, mm_get_page_address(res), addr, range->mmuflags & ~ARCH_MMU_FLAGS_WRITE);
 					if (!status) {
 						printf("vmm: out of memory to map file into address space (sending SIGBUS)\n");
-						pmm_release(pmm_getpageaddress(res));
+						mm_release_page(mm_get_page_address(res));
 						signal_signalthread(current_thread(), SIGBUS, true);
 						status = true;
 					}
@@ -580,7 +580,7 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 			// anonymous memory.
 			if (range->mmuflags & ARCH_MMU_FLAGS_WRITE) {
 				// writeable range: allocate a new page, zero it and map it
-				void *new_page = pmm_allocpage(PMM_SECTION_DEFAULT);
+				void *new_page = mm_alloc_page(MEMORY_SECTION_DEFAULT);
 				if (new_page == NULL) {
 					printf("vmm: out of memory to allocate page to satisfy anonymous page-in (sending SIGBUS)\n");
 					signal_signalthread(current_thread(), SIGBUS, true);
@@ -592,7 +592,7 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 				if (!arch_mmu_map(current_vmm_context()->pagetable, new_page, addr, range->mmuflags)) {
 					printf("vmm: out of memory to map page (sending SIGBUS)\n");
 					signal_signalthread(current_thread(), SIGBUS, true);
-					pmm_release(new_page);
+					mm_release_page(new_page);
 				}
 			} else {
 				// read-only range: map a shared zero page
@@ -600,14 +600,14 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 					printf("vmm: out of memory to map zero page into address space (sending SIGBUS)\n");
 					signal_signalthread(current_thread(), SIGBUS, true);
 				} else {
-					pmm_hold(zeropage);
+					mm_hold_page(zeropage);
 				}
 			}
 		}
 	} else if (arch_mmu_iswritable(current_vmm_context()->pagetable, addr) == false) {
 		// page present but not writeable in the page tables
 		void *oldphys = arch_mmu_getphysical(current_vmm_context()->pagetable, addr);
-		page_t *oldpage = pmm_getpage(oldphys);
+		page_t *oldpage = mm_get_page(oldphys);
 
 		if (    ((range->flags & VMM_FLAGS_FILE) && (range->flags & VMM_FLAGS_SHARED)) ||
 			((range->flags & VMM_FLAGS_FILE) == 0 && oldpage->refcount == 1)) {
@@ -617,14 +617,14 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 			if ((range->flags & VMM_FLAGS_FILE) && vfs_iscacheable(range->vnode)) {
 				// and if its a cache page, mark it as dirty
 				VOP_LOCK(range->vnode);
-				vmmcache_makedirty(pmm_getpage(oldphys));
+				vmmcache_makedirty(mm_get_page(oldphys));
 				VOP_UNLOCK(range->vnode);
 			}
 
 			status = true;
 		} else {
 			// do copy on write
-			void *newphys = pmm_allocpage(PMM_SECTION_DEFAULT);
+			void *newphys = mm_alloc_page(MEMORY_SECTION_DEFAULT);
 			if (newphys == NULL) {
 				printf("vmm: out of memory to do copy on write on address space (sending SIGBUS)\n");
 				signal_signalthread(current_thread(), SIGBUS, true);
@@ -634,7 +634,7 @@ bool vmm_pagefault(void *addr, bool user, int actions) {
 				arch_mmu_remap(current_vmm_context()->pagetable, newphys, addr, range->mmuflags);
 				arch_mmu_invalidate_range(addr, PAGE_SIZE);
 				if ((range->flags & VMM_FLAGS_FILE) == 0 || vfs_iscacheable(range->vnode))
-					pmm_release(oldphys);
+					mm_release_page(oldphys);
 
 				status = true;
 			}
@@ -667,7 +667,7 @@ static int lock_page(vmmspace_t *space, void *vaddr) {
 	// TODO shared anonymous mappings are not handled properly by the kernel
 	if (present && writable == false && private)) {
 		// CoW cases (private mapping)
-		real_phys = pmm_allocpage(PMM_SECTION_DEFAULT);
+		real_phys = mm_alloc_page(MEMORY_SECTION_DEFAULT);
 		if (real_phys == NULL)
 			return ENOMEM;
 
@@ -676,10 +676,10 @@ static int lock_page(vmmspace_t *space, void *vaddr) {
 		arch_mmu_remap(current_vmm_context()->pagetable, real_phys, vaddr, range->mmuflags);
 		arch_mmu_invalidate_range(vaddr, PAGE_SIZE);
 		if (file_mapping == false || vfs_iscacheable(range->vnode))
-			pmm_release(mapped_address);
+			mm_release_page(mapped_address);
 	} else if (present == false && private) {
 		// not present private mapping case
-		real_phys = pmm_allocpage(PMM_SECTION_DEFAULT);
+		real_phys = mm_alloc_page(MEMORY_SECTION_DEFAULT);
 		if (real_phys == NULL)
 	}
 }
@@ -704,7 +704,7 @@ void *vmm_getphysical(void *addr, int flags) {
 	physical = arch_mmu_getphysical(current_vmm_context()->pagetable, aligned_addr);
 
 	if (flags & VMM_GET_PHYSICAL_FLAGS_HOLD)
-		pmm_hold(physical);
+		mm_hold_page(physical);
 
 	leave:
 	MUTEX_RELEASE(&space->lock);
@@ -791,7 +791,7 @@ void *vmm_map(void *addr, volatile size_t size, int flags, mmuflags_t mmuflags, 
 	} else if (flags & VMM_FLAGS_ALLOCATE) {
 		// allocate to virtual memory
 		for (uintmax_t i = 0; i < size; i += PAGE_SIZE) {
-			void *allocated = pmm_allocpage(PMM_SECTION_DEFAULT);
+			void *allocated = mm_alloc_page(MEMORY_SECTION_DEFAULT);
 			if (allocated == NULL) {
 				retaddr = NULL;
 				goto cleanup;
@@ -803,7 +803,7 @@ void *vmm_map(void *addr, volatile size_t size, int flags, mmuflags_t mmuflags, 
 						void *physical = arch_mmu_getphysical(current_vmm_context()->pagetable, virt);
 
 						if (physical) {
-							pmm_release(physical);
+							mm_release_page(physical);
 							arch_mmu_unmap(current_vmm_context()->pagetable, virt);
 						}
 				}
@@ -926,7 +926,7 @@ vmmcontext_t *vmm_fork(vmmcontext_t *oldcontext) {
 			if (arch_mmu_map(newcontext->pagetable, phys, vaddr, newrange->mmuflags & ~ARCH_MMU_FLAGS_WRITE) == false)
 				goto error;
 
-			pmm_hold(phys);
+			mm_hold_page(phys);
 
 			arch_mmu_remap(oldcontext->pagetable, phys, vaddr, newrange->mmuflags & ~ARCH_MMU_FLAGS_WRITE);
 		}
@@ -959,7 +959,7 @@ extern void *_text_end;
 extern void *_data_end;
 extern void *_rodata_end;
 
-extern volatile struct limine_memmap_request pmm_liminemap;
+extern volatile struct limine_memmap_request mm_page_limine_map;
 
 void vmm_init() {
 	// set up initial state
@@ -976,8 +976,8 @@ void vmm_init() {
 	vmm_switchcontext(&vmm_kernelctx);
 
 	// map HHDM
-	for (uint64_t i = 0; i < pmm_liminemap.response->entry_count; ++i) {
-		struct limine_memmap_entry *e = pmm_liminemap.response->entries[i];
+	for (uint64_t i = 0; i < mm_page_limine_map.response->entry_count; ++i) {
+		struct limine_memmap_entry *e = mm_page_limine_map.response->entries[i];
 
 		if (e->type != LIMINE_MEMMAP_USABLE && e->type != LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE && e->type != LIMINE_MEMMAP_EXECUTABLE_AND_MODULES && e->type != LIMINE_MEMMAP_FRAMEBUFFER)
 			continue;
@@ -998,7 +998,7 @@ void vmm_init() {
 	vmm_map(MAKE_HHDM(NULL), PAGE_SIZE, VMM_FLAGS_EXACT, ARCH_MMU_FLAGS_NOEXEC, NULL);
 
 	// zero page
-	zeropage = pmm_allocpage(PMM_SECTION_DEFAULT);
+	zeropage = mm_alloc_page(MEMORY_SECTION_DEFAULT);
 	memset(MAKE_HHDM(zeropage), 0, PAGE_SIZE);
 
 	printspace(&kernelspace);

@@ -1,7 +1,7 @@
 #ifndef _VMMCACHE_H
 #define _VMMCACHE_H
 
-#include <kernel/pmm.h>
+#include <kernel/page.h>
 #include <kernel/vfs.h>
 
 extern size_t vmmcache_cachedpages;

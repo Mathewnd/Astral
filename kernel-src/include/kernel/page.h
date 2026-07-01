@@ -1,13 +1,13 @@
-#ifndef _PMM_H
-#define _PMM_H
+#ifndef _PAGE_H
+#define _PAGE_H
 
 #include <stddef.h>
 #include <stdint.h>
 
-#define PMM_SECTION_COUNT 3
-#define PMM_SECTION_1MB 0
-#define PMM_SECTION_4GB 1
-#define PMM_SECTION_DEFAULT 2
+#define MEMORY_SECTION_COUNT 3
+#define MEMORY_SECTION_1MB 0
+#define MEMORY_SECTION_4GB 1
+#define MEMORY_SECTION_DEFAULT 2
 
 #define PAGE_FLAGS_FREE 1
 #define PAGE_FLAGS_TRUNCATED 2
@@ -38,16 +38,16 @@ typedef struct page_t {
 	int flags;
 } page_t;
 
-void *pmm_allocpage(int section);
-page_t *pmm_getpage(void *addr);
-void *pmm_getpageaddress(page_t *);
-void pmm_hold(void *addr);
-void pmm_release(void *addr);
-void pmm_makefree(void *address, size_t count);
-void *pmm_alloc(size_t size, int section);
-void pmm_free(void *addr, size_t size);
-void pmm_init();
-void pmm_getinfo(size_t *total_pages, size_t *free_pages);
+void *mm_alloc_page(int section);
+page_t *mm_get_page(void *addr);
+void *mm_get_page_address(page_t *);
+void mm_hold_page(void *addr);
+void mm_release_page(void *addr);
+void mm_force_free_page(void *address, size_t count);
+void *mm_alloc_pages(size_t size, int section);
+void mm_release_range(void *addr, size_t size);
+void mm_page_init();
+void mm_get_page_statistics(size_t *total_pages, size_t *free_pages);
 
 extern uintptr_t hhdmbase;
 

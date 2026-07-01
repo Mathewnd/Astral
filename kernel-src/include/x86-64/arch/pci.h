@@ -6,7 +6,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <arch/io.h>
-#include <kernel/pmm.h>
+#include <kernel/page.h>
 #include <kernel/alloc.h>
 #include <arch/cpu.h>
 

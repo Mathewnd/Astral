@@ -1,5 +1,5 @@
 #include <limine.h>
-#include <kernel/pmm.h>
+#include <kernel/page.h>
 #include <stdint.h>
 
 #include <uacpi/kernel_api.h>

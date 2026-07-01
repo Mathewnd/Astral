@@ -2,7 +2,7 @@
 #include <errno.h>
 #include <kernel/alloc.h>
 #include <kernel/vmm.h>
-#include <kernel/pmm.h>
+#include <kernel/page.h>
 #include <logging.h>
 
 typedef struct {
@@ -27,7 +27,7 @@ static int xhci_count_sg_trbs(iovec_iterator_t *iov, size_t total_size, size_t *
 		if (page == NULL)
 			return EFAULT;
 
-		pmm_release(page);
+		mm_release_page(page);
 
 		done += min(page_remaining, total_size - done);
 		count++;
@@ -64,7 +64,7 @@ int xhci_data_xfer(xhci_ctrl_t *xhci, xhci_device_t *dev, usb_xfer_t *xfer, xhci
 
 		xhci_trb_t trb = {0};
 		if (xfer->flags & USB_XFER_FLAG_BUFFER_PHYSICAL) {
-			pmm_hold(xfer->data - page_offset);
+			mm_hold_page(xfer->data - page_offset);
 			trb.parameters = (uint64_t)xfer->data;
 		} else {
 			// This should never be called with user pages. Doing so is a bug. For user-fronting code, use
@@ -187,7 +187,7 @@ int xhci_sg_data_xfer(xhci_ctrl_t *xhci, xhci_ring_t *ring, xhci_device_t *dev, 
 
 	fail:
 	for (size_t i = 0; i < prepared_count; ++i)
-		pmm_release(prepared[i].page);
+		mm_release_page(prepared[i].page);
 	free(prepared);
 	xhci_ring_unreserve(ring, trb_count);
 	return err;
@@ -239,7 +239,7 @@ int xhci_control_xfer(xhci_ctrl_t *xhci, xhci_device_t *dev, usb_xfer_t *xfer, x
 
 		if (xfer->data_length) {
 			if (xfer->flags & USB_XFER_FLAG_BUFFER_PHYSICAL) {
-				pmm_hold(xfer->data - page_offset);
+				mm_hold_page(xfer->data - page_offset);
 				data_trb.parameters = (uint64_t)xfer->data;
 			} else {
 				void *page = vmm_getphysical(xfer->data - page_offset, VMM_GET_PHYSICAL_FLAGS_HOLD);

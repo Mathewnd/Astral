@@ -1,7 +1,7 @@
 #include <kernel/xhci.h>
 #include <kernel/alloc.h>
 #include <errno.h>
-#include <kernel/pmm.h>
+#include <kernel/page.h>
 #include <logging.h>
 #include <util.h>
 
@@ -132,9 +132,9 @@ static void xhci_release_device_resources(xhci_ctrl_t *xhci, xhci_device_t *dev)
 	}
 
 	if (dev->input_ctx_phys)
-		pmm_release(dev->input_ctx_phys);
+		mm_release_page(dev->input_ctx_phys);
 	if (dev->device_ctx_phys)
-		pmm_release(dev->device_ctx_phys);
+		mm_release_page(dev->device_ctx_phys);
 
 	free(dev);
 }
@@ -394,22 +394,22 @@ static int xhci_ctrl_address_device(usb_ctrl_t *ctrl, usb_hub_t *hub, uint8_t po
 	if (xhci_dev == NULL)
 		return ENOMEM;
 
-	void *device_ctx_phys = pmm_allocpage(PMM_SECTION_DEFAULT);
+	void *device_ctx_phys = mm_alloc_page(MEMORY_SECTION_DEFAULT);
 	if (device_ctx_phys == NULL) {
 		free(xhci_dev);
 		return ENOMEM;
 	}
 
-	void *input_ctx_phys = pmm_allocpage(PMM_SECTION_DEFAULT);
+	void *input_ctx_phys = mm_alloc_page(MEMORY_SECTION_DEFAULT);
 	if (input_ctx_phys == NULL) {
-		pmm_release(device_ctx_phys);
+		mm_release_page(device_ctx_phys);
 		free(xhci_dev);
 		return ENOMEM;
 	}
 
 	if (xhci_alloc_ring(xhci, &xhci_dev->ep_rings[0], false)) {
-		pmm_release(input_ctx_phys);
-		pmm_release(device_ctx_phys);
+		mm_release_page(input_ctx_phys);
+		mm_release_page(device_ctx_phys);
 		free(xhci_dev);
 		return ENOMEM;
 	}

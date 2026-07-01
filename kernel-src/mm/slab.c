@@ -1,6 +1,6 @@
 #include <kernel/slab.h>
 #include <kernel/vmm.h>
-#include <kernel/pmm.h>
+#include <kernel/page.h>
 #include <logging.h>
 #include <util.h>
 #include <arch/smp.h>
@@ -28,7 +28,7 @@ static inline bool grow_cache(scache_t *cache) {
 	slab_t *slab;
 
 	if (cache->size < SLAB_INDIRECT_CUTOFF) {
-		void *slab_hhdm = pmm_allocpage(PMM_SECTION_DEFAULT);
+		void *slab_hhdm = mm_alloc_page(MEMORY_SECTION_DEFAULT);
 		if (unlikely(slab_hhdm == NULL))
 			return false;
 
@@ -465,7 +465,7 @@ static scache_t *create_new_from_vmm(size_t size, size_t alignment, bool (*ctor)
 scache_t *slab_create_new_cache_from_pmm(size_t size, size_t alignment, bool (*ctor)(scache_t *, void *), void (*dtor)(scache_t *, void *)) {
 	__assert(size < SLAB_INDIRECT_CUTOFF);
 	size_t cache_size = sizeof(scache_t) + sizeof(cache_per_cpu_t) * arch_smp_get_cpu_count();
-	scache_t *cache = pmm_alloc(ROUND_UP(cache_size, PAGE_SIZE) / PAGE_SIZE, PMM_SECTION_DEFAULT);
+	scache_t *cache = mm_alloc_pages(ROUND_UP(cache_size, PAGE_SIZE) / PAGE_SIZE, MEMORY_SECTION_DEFAULT);
 	__assert(cache);
 	cache = MAKE_HHDM(cache);
 	__assert(slab_initialize(cache, size, alignment, ctor, dtor));
@@ -490,4 +490,4 @@ void slab_init(void) {
 }
 
 INIT_ROUTINE_DEFINE(slab, INIT_ROUTINE_FLAGS_NONE, slab_init, vmm);
-INIT_ROUTINE_DEFINE(slab_early, INIT_ROUTINE_FLAGS_NONE, slab_early_init, pmm);
+INIT_ROUTINE_DEFINE(slab_early, INIT_ROUTINE_FLAGS_NONE, slab_early_init, mm_page);
