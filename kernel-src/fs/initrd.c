@@ -3,7 +3,7 @@
 #include <string.h>
 #include <logging.h>
 #include <util.h>
-#include <kernel/vmm.h>
+#include <kernel/mm.h>
 #include <kernel/page.h>
 #include <kernel/abi.h>
 #include <time.h>

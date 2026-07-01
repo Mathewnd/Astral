@@ -2,7 +2,7 @@
 #include <kernel/slab.h>
 #include <kernel/alloc.h>
 #include <kernel/timekeeper.h>
-#include <kernel/vmm.h>
+#include <kernel/mm.h>
 #include <logging.h>
 #include <errno.h>
 #include <kernel/abi.h>

@@ -2,7 +2,7 @@
 #include <kernel/alloc.h>
 #include <kernel/timekeeper.h>
 #include <kernel/slab.h>
-#include <kernel/vmm.h>
+#include <kernel/mm.h>
 #include <arch/cpu.h>
 #include <kernel/page.h>
 #include <hashtable.h>

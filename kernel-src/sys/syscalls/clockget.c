@@ -2,7 +2,7 @@
 #include <kernel/abi.h>
 #include <time.h>
 #include <kernel/timekeeper.h>
-#include <kernel/vmm.h>
+#include <kernel/mm.h>
 
 syscallret_t syscall_clockget(context_t *, int clockid, timespec_t *tp) {
 	syscallret_t ret = {

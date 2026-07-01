@@ -2,7 +2,7 @@
 #define _THREAD_H
 
 #include <arch/context.h>
-#include <kernel/vmm.h>
+#include <kernel/mm.h>
 #include <kernel/abi.h>
 #include <kernel/signal.h>
 #include <kernel/event.h>
@@ -35,7 +35,7 @@ typedef struct thread_t {
 	extracontext_t extracontext;
 	void *kernelstack;
 	size_t kernelstacksize;
-	vmmcontext_t *vmmctx;
+	mm_context_t *mmctx;
 	tid_t tid;
 	int flags;
 	bool sleepintstatus;

@@ -2,7 +2,7 @@
 #include <arch/pci.h>
 #include <kernel/pci.h>
 #include <kernel/alloc.h>
-#include <kernel/vmm.h>
+#include <kernel/mm.h>
 #include <kernel/init.h>
 
 uint8_t pci_read8(int bus, int device, int function, uint32_t offset) {
@@ -185,7 +185,7 @@ void pci_msisetmask(pcienum_t *e, int vector, int value) {
 
 void *pci_mapbar(pcibar_t bar) {
 	__assert(bar.mmio);
-	return vmm_map(NULL, bar.length, VMM_FLAGS_PHYSICAL, BAR_MAP_FLAGS | (bar.prefetchable ? ARCH_MMU_FLAGS_WT : ARCH_MMU_FLAGS_UC), (void *)bar.address);
+	return mm_map(NULL, bar.length, MM_RANGE_FLAGS_PHYSICAL, BAR_MAP_FLAGS | (bar.prefetchable ? ARCH_MMU_FLAGS_WT : ARCH_MMU_FLAGS_UC), (void *)bar.address);
 }
 
 #define BAR_IO 1

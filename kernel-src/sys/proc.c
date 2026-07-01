@@ -367,11 +367,11 @@ void proc_run_init() {
 
 	printf("proc: loading %s\n", init_path);
 
-	vmmcontext_t *vmmctx = vmm_newcontext();
-	__assert(vmmctx);
+	mm_context_t *mmctx = mm_create_context();
+	__assert(mmctx);
 
 	// leave kernel context to load elf
-	vmm_switchcontext(vmmctx);
+	mm_switch_context(mmctx);
 
 	proc_t *proc = proc_create();
 	__assert(proc);
@@ -440,7 +440,7 @@ void proc_run_init() {
 	__assert(stack);
 
 	// reenter kernel context
-	vmm_switchcontext(&vmm_kernelctx);
+	mm_switch_context(&mm_kernel_ctx);
 
 	thread_t *uthread = sched_newthread(entry, PAGE_SIZE * 16, 1, proc, stack);
 	__assert(uthread);
@@ -448,7 +448,7 @@ void proc_run_init() {
 	proc->threadlist = uthread;
 	uthread->procnext = NULL;
 
-	uthread->vmmctx = vmmctx;
+	uthread->mmctx = mmctx;
 	sched_queue(uthread);
 
 	VOP_RELEASE(initnode);

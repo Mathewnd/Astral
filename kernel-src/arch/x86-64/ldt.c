@@ -75,10 +75,10 @@ int arch_ldt_set_entry(unsigned int which, ldt_entry_t entry) {
 			done = 0;
 
 			for (int i = 0; i < arch_smp_cpusawake; ++i) {
-				// reading the vmm context like this is racey but there are no ill side effects other than spurious shootdowns
-				// if a cpu changes to this vmmctx, they will already have done a ldt invalidation.
+				// reading the mm context like this is racey but there are no ill side effects other than spurious shootdowns
+				// if a cpu changes to this mmctx, they will already have done a ldt invalidation.
 				// if it changes out of it, same thing
-				if (smp_cpus[i] == current_cpu() || (smp_cpus[i]->vmmctx != current_thread()->vmmctx))
+				if (smp_cpus[i] == current_cpu() || (smp_cpus[i]->mmctx != current_thread()->mmctx))
 					continue;
 
 				++shootdown_total;

@@ -1,5 +1,5 @@
 #include <kernel/syscalls.h>
-#include <kernel/vmm.h>
+#include <kernel/mm.h>
 #include <errno.h>
 
 syscallret_t syscall_munmap(context_t *ctx, void *addr, size_t length) {
@@ -18,7 +18,7 @@ syscallret_t syscall_munmap(context_t *ctx, void *addr, size_t length) {
 		return ret;
 	}
 
-	vmm_unmap(addr, length, 0);
+	mm_unmap(addr, length, 0);
 
 	ret.ret = 0;
 	ret.errno = 0;

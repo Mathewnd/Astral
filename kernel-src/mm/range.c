@@ -1,30 +1,29 @@
-#include <kernel/vmm.h>
+#include <kernel/mm.h>
 #include <logging.h>
 #include <kernel/page.h>
 #include <util.h>
 #include <arch/cpu.h>
 #include <kernel/slab.h>
-#include <kernel/mm.h>
 
 #define RANGE_TOP(x) (void *)((uintptr_t)x->start + x->size)
 
 static scache_t *range_cache;
 
 void mm_range_init(void) {
-	range_cache = slab_create_new_cache_from_pmm(sizeof(vmmrange_t), 0, NULL, NULL);
+	range_cache = slab_create_new_cache_from_pmm(sizeof(mm_range_t), 0, NULL, NULL);
 	__assert(range_cache);
 }
 
-vmmrange_t *mm_alloc_range(void) {
+mm_range_t *mm_alloc_range(void) {
 	return slab_allocate(range_cache);
 }
 
-void mm_free_range(vmmrange_t *range) {
+void mm_free_range(mm_range_t *range) {
 	slab_free(range_cache, range);
 }
 
 static int rbtree_value_compare(void *addr, rbtree_t *node) {
-	vmmrange_t *range = container_of(node, vmmrange_t, rbtree_node);
+	mm_range_t *range = container_of(node, mm_range_t, rbtree_node);
 	void *range_top = RANGE_TOP(range);
 
 	if (addr >= range_top)
@@ -37,13 +36,13 @@ static int rbtree_value_compare(void *addr, rbtree_t *node) {
 }
 
 // get a range from an address
-vmmrange_t *mm_get_range(vmmspace_t *space, void *addr) {
+mm_range_t *mm_get_range(mm_space_t *space, void *addr) {
 	rbtree_t *rbtree = rbtree_lookup(space->ranges, addr, rbtree_value_compare);
-	return container_of(rbtree, vmmrange_t, rbtree_node);
+	return container_of(rbtree, mm_range_t, rbtree_node);
 }
 
 // get start of range that fits specific size from specific offset
-void *mm_get_free_range(vmmspace_t *space, void *addr, size_t size) {
+void *mm_get_free_range(mm_space_t *space, void *addr, size_t size) {
 	rbtree_t *rbtree = space->ranges;
 	if (addr == NULL)
 		addr = space->start;
@@ -53,7 +52,7 @@ void *mm_get_free_range(vmmspace_t *space, void *addr, size_t size) {
 		return addr;
 
 	rbtree = rbtree_first(rbtree);
-	vmmrange_t *range = container_of(rbtree, vmmrange_t, rbtree_node);
+	mm_range_t *range = container_of(rbtree, mm_range_t, rbtree_node);
 
 	// if theres free space before the first range
 	if (range->start != space->start && addr < range->start && (uintptr_t)range->start - (uintptr_t)addr >= size)
@@ -62,7 +61,7 @@ void *mm_get_free_range(vmmspace_t *space, void *addr, size_t size) {
 	// check for space between two ranges
 	rbtree_t *next = rbtree_successor(rbtree);
 	while (next) {
-		vmmrange_t *next_range = container_of(next, vmmrange_t, rbtree_node);
+		mm_range_t *next_range = container_of(next, mm_range_t, rbtree_node);
 
 		void *range_top = RANGE_TOP(range);
 		if (addr < range_top)
@@ -75,7 +74,7 @@ void *mm_get_free_range(vmmspace_t *space, void *addr, size_t size) {
 		}
 
 		rbtree = next;
-		range = container_of(rbtree, vmmrange_t, rbtree_node);
+		range = container_of(rbtree, mm_range_t, rbtree_node);
 
 		next = rbtree_successor(next);
 	}
@@ -92,8 +91,8 @@ void *mm_get_free_range(vmmspace_t *space, void *addr, size_t size) {
 }
 
 static int rbtree_compare(rbtree_t *a, rbtree_t *b) {
-	vmmrange_t *range_a = container_of(a, vmmrange_t, rbtree_node);
-	vmmrange_t *range_b = container_of(b, vmmrange_t, rbtree_node);
+	mm_range_t *range_a = container_of(a, mm_range_t, rbtree_node);
+	mm_range_t *range_b = container_of(b, mm_range_t, rbtree_node);
 
 	if (range_a->start == range_b->start)
 		return 0;
@@ -101,21 +100,21 @@ static int rbtree_compare(rbtree_t *a, rbtree_t *b) {
 	return range_a->start > range_b->start ? 1 : -1;
 }
 
-static bool ranges_compatible(vmmrange_t *prev, vmmrange_t *next) {
+static bool ranges_compatible(mm_range_t *prev, mm_range_t *next) {
 	void *prev_range_top = RANGE_TOP(prev);
 
 	return prev_range_top == next->start && prev->flags == next->flags && prev->mmuflags == next->mmuflags && // general compatibility
-		((prev->flags & VMM_FLAGS_FILE) == 0 || (prev->vnode == next->vnode && prev->offset + prev->size == next->offset)); // same file mapping, if any
+		((prev->flags & MM_RANGE_FLAGS_FILE) == 0 || (prev->vnode == next->vnode && prev->offset + prev->size == next->offset)); // same file mapping, if any
 }
 
-void mm_insert_range(vmmspace_t *space, vmmrange_t *new_range) {
+void mm_insert_range(mm_space_t *space, mm_range_t *new_range) {
 	rbtree_insert(&space->ranges, &new_range->rbtree_node, rbtree_compare);
 
 	rbtree_t *successor = rbtree_successor(&new_range->rbtree_node);
 	rbtree_t *predecessor = rbtree_predecessor(&new_range->rbtree_node);
 
-	vmmrange_t *next_range = successor ? container_of(successor, vmmrange_t, rbtree_node) : NULL;
-	vmmrange_t *prev_range = predecessor ? container_of(predecessor, vmmrange_t, rbtree_node) : NULL;
+	mm_range_t *next_range = successor ? container_of(successor, mm_range_t, rbtree_node) : NULL;
+	mm_range_t *prev_range = predecessor ? container_of(predecessor, mm_range_t, rbtree_node) : NULL;
 
 	// fragmentation checking
 
@@ -125,7 +124,7 @@ void mm_insert_range(vmmspace_t *space, vmmrange_t *new_range) {
 
 		rbtree_remove(&space->ranges, &next_range->rbtree_node);
 		mm_free_range(next_range);
-		if (new_range->flags & VMM_FLAGS_FILE) {
+		if (new_range->flags & MM_RANGE_FLAGS_FILE) {
 			VOP_RELEASE(new_range->vnode);
 		}
 	}
@@ -136,19 +135,19 @@ void mm_insert_range(vmmspace_t *space, vmmrange_t *new_range) {
 
 		rbtree_remove(&space->ranges, &new_range->rbtree_node);
 		mm_free_range(new_range);
-		if (prev_range->flags & VMM_FLAGS_FILE) {
+		if (prev_range->flags & MM_RANGE_FLAGS_FILE) {
 			VOP_RELEASE(prev_range->vnode);
 		}
 	}
 }
 
-void mm_destroy_range(vmmrange_t *range, uintmax_t _offset, size_t size, int flags) {
+void mm_destroy_range(mm_range_t *range, uintmax_t _offset, size_t size, int flags) {
 	// TODO find first
 	uintmax_t top = _offset + size;
 
 	for (uintmax_t offset = _offset; offset < top; offset += PAGE_SIZE) {
 		void *vaddr = (void *)((uintptr_t)range->start + offset);
-		void *physical = arch_mmu_getphysical(current_vmm_context()->pagetable, vaddr);
+		void *physical = arch_mmu_getphysical(current_mm_context()->pagetable, vaddr);
 		if (physical == NULL)
 			continue;
 
@@ -156,34 +155,34 @@ void mm_destroy_range(vmmrange_t *range, uintmax_t _offset, size_t size, int fla
 		proc_t *proc = thread ? thread->proc : NULL;
 		cred_t *cred = proc ? &proc->cred : NULL;
 
-		if ((range->flags & VMM_FLAGS_FILE) && ((range->flags & VMM_FLAGS_SHARED) || vfs_iscacheable(range->vnode) == false)) {
+		if ((range->flags & MM_RANGE_FLAGS_FILE) && ((range->flags & MM_RANGE_FLAGS_SHARED) || vfs_iscacheable(range->vnode) == false)) {
 			// shared file mapping or non cacheable mapping
 			if (vfs_iscacheable(range->vnode) == false) {
 				// non cacheable mapping
 				VOP_LOCK(range->vnode);
-				__assert(VOP_MUNMAP(range->vnode, vaddr, range->offset + offset, mmuflagstovnodeflags(range->mmuflags) | (range->flags & VMM_FLAGS_SHARED ? V_FFLAGS_SHARED : 0), cred) == 0);
+				__assert(VOP_MUNMAP(range->vnode, vaddr, range->offset + offset, mm_mmu_flags_to_vnode_flags(range->mmuflags) | (range->flags & MM_RANGE_FLAGS_SHARED ? V_FFLAGS_SHARED : 0), cred) == 0);
 				VOP_UNLOCK(range->vnode);
-			} else if (arch_mmu_iswritable(current_vmm_context()->pagetable, vaddr)) {
+			} else if (arch_mmu_iswritable(current_mm_context()->pagetable, vaddr)) {
 				// dirty page cache mapping
-				arch_mmu_unmap(current_vmm_context()->pagetable, vaddr);
+				arch_mmu_unmap(current_mm_context()->pagetable, vaddr);
 				VOP_LOCK(range->vnode);
 				mm_cache_make_dirty(mm_get_page(physical));
 				VOP_UNLOCK(range->vnode);
 				mm_release_page(physical);
 			} else {
 				// non dirty page mapping
-				arch_mmu_unmap(current_vmm_context()->pagetable, vaddr);
+				arch_mmu_unmap(current_mm_context()->pagetable, vaddr);
 				mm_release_page(physical);
 			}
 		} else {
 			// anonymous, physical or private non character device mapping
-			arch_mmu_unmap(current_vmm_context()->pagetable, vaddr);
-			if ((range->flags & VMM_FLAGS_PHYSICAL) == 0)
+			arch_mmu_unmap(current_mm_context()->pagetable, vaddr);
+			if ((range->flags & MM_RANGE_FLAGS_PHYSICAL) == 0)
 				mm_release_page(physical);
 		}
 	}
 
-	if ((range->flags & VMM_FLAGS_FILE) && range->size == size)
+	if ((range->flags & MM_RANGE_FLAGS_FILE) && range->size == size)
 		VOP_RELEASE(range->vnode);
 }
 
@@ -191,16 +190,16 @@ void mm_destroy_range(vmmrange_t *range, uintmax_t _offset, size_t size, int fla
 	if (((n) & (f)) == 0 && ((c) & (f))) \
 			m |= f;
 
-static void change_mmu_range(vmmrange_t *range, void *base, size_t size, mmuflags_t new_flags) {
+static void change_mmu_range(mm_range_t *range, void *base, size_t size, mmuflags_t new_flags) {
 	for (uintmax_t offset = 0; offset < size; offset += PAGE_SIZE) {
 		void *address = (void *)((uintptr_t)base + offset);
 
 		mmuflags_t current_flags;
 		// if page is not mapped, do nothing
-		if (arch_mmu_getflags(current_vmm_context()->pagetable, address, &current_flags) == false)
+		if (arch_mmu_getflags(current_mm_context()->pagetable, address, &current_flags) == false)
 			continue;
 
-		void *physical = arch_mmu_getphysical(current_vmm_context()->pagetable, address);
+		void *physical = arch_mmu_getphysical(current_mm_context()->pagetable, address);
 
 		uintmax_t mask = 0;
 		// check which flags are currently set and will be unset
@@ -209,9 +208,9 @@ static void change_mmu_range(vmmrange_t *range, void *base, size_t size, mmuflag
 		CHANGE_MASK_CHECK(mask, ARCH_MMU_FLAGS_USER, current_flags, new_flags);
 		CHANGE_MASK_CHECK(mask, ARCH_MMU_FLAGS_NOEXEC, current_flags, new_flags);
 
-		if ((range->flags & VMM_FLAGS_FILE) && (range->flags & VMM_FLAGS_SHARED) && (mask & ARCH_MMU_FLAGS_WRITE) && vfs_iscacheable(range->vnode)) {
+		if ((range->flags & MM_RANGE_FLAGS_FILE) && (range->flags & MM_RANGE_FLAGS_SHARED) && (mask & ARCH_MMU_FLAGS_WRITE) && vfs_iscacheable(range->vnode)) {
 			// removing write permissions from a writeable dirty shared mapped page, mark it as dirty, as
-			// it won't be marked dirty upon a vmm_unmap after this
+			// it won't be marked dirty upon a mm_unmap after this
 			page_t *page = mm_get_page(physical);
 			VOP_LOCK(range->vnode);
 			mm_cache_make_dirty(page);
@@ -220,21 +219,21 @@ static void change_mmu_range(vmmrange_t *range, void *base, size_t size, mmuflag
 
 		// we will only change the mapping if the permissions decreased
 		if (mask) {
-			arch_mmu_remap(current_vmm_context()->pagetable, physical, address, current_flags & ~mask);
+			arch_mmu_remap(current_mm_context()->pagetable, physical, address, current_flags & ~mask);
 		}
 	}
 }
 
-static inline bool can_write_vnode(vmmrange_t *range) {
+static inline bool can_write_vnode(mm_range_t *range) {
 	VOP_LOCK(range->vnode);
 	int error = VOP_ACCESS(range->vnode, V_ACCESS_WRITE, &current_thread()->proc->cred);
 	VOP_UNLOCK(range->vnode);
 	return error == 0;
 }
 
-int mm_change_range(vmmspace_t *space, void *address, size_t size, bool free, int flags, mmuflags_t new_mmuflags) {
+int mm_change_range(mm_space_t *space, void *address, size_t size, bool free, int flags, mmuflags_t new_mmuflags) {
 	void *top = (void *)((uintptr_t)address + size);
-	vmmrange_t *new_range = NULL;
+	mm_range_t *new_range = NULL;
 
 	if (space->ranges == NULL)
 		return 0;
@@ -251,7 +250,7 @@ int mm_change_range(vmmspace_t *space, void *address, size_t size, bool free, in
 
 	// get first range after address
 	rbtree_t *rbtree = rbtree_find_first_larger_equal(space->ranges, address, rbtree_value_compare);
-	vmmrange_t *range = container_of(rbtree, vmmrange_t, rbtree_node);
+	mm_range_t *range = container_of(rbtree, mm_range_t, rbtree_node);
 
 	if (rbtree == NULL)
 		goto leave;
@@ -259,27 +258,27 @@ int mm_change_range(vmmspace_t *space, void *address, size_t size, bool free, in
 	// check if we actually start at the predecessor
 	rbtree_t *predecessor = rbtree_predecessor(rbtree);
 	if (predecessor) {
-		vmmrange_t *predecessor_range = container_of(predecessor, vmmrange_t, rbtree_node);
+		mm_range_t *predecessor_range = container_of(predecessor, mm_range_t, rbtree_node);
 		if (RANGE_TOP(predecessor_range) > address) {
 			rbtree = predecessor;
 			range = predecessor_range;
 		}
 	}
 
-	// rbtree now has the first vmm range to be unmapped/remapped
+	// rbtree now has the first mm range to be unmapped/remapped
 
 	// is the range we want to change in the middle of a mapping?
 	if (address > range->start && top < RANGE_TOP(range)) {
 		// split the mapping
 
 		// check for write permission if changing a shared file mapping
-		if (free == false && (flags & VMM_FLAGS_CREDCHECK) && (range->flags & VMM_FLAGS_SHARED) &&
-			(range->flags & VMM_FLAGS_FILE) && can_write_vnode(range) == false) {
+		if (free == false && (flags & MM_RANGE_FLAGS_CREDCHECK) && (range->flags & MM_RANGE_FLAGS_SHARED) &&
+			(range->flags & MM_RANGE_FLAGS_FILE) && can_write_vnode(range) == false) {
 			error = EACCES;
 			goto leave;
 		}
 
-		vmmrange_t *split_range = mm_alloc_range();
+		mm_range_t *split_range = mm_alloc_range();
 		if (range == NULL) {
 			error = ENOMEM;
 			goto leave;
@@ -297,7 +296,7 @@ int mm_change_range(vmmspace_t *space, void *address, size_t size, bool free, in
 		split_range->size = (uintptr_t)RANGE_TOP(range) - (uintptr_t)split_range->start;
 		range->size = (uintptr_t)address - (uintptr_t)range->start;
 
-		if (range->flags & VMM_FLAGS_FILE) {
+		if (range->flags & MM_RANGE_FLAGS_FILE) {
 			VOP_HOLD(range->vnode);
 			split_range->offset += range->size + size;
 		}
@@ -313,7 +312,7 @@ int mm_change_range(vmmspace_t *space, void *address, size_t size, bool free, in
 
 			change_mmu_range(range, new_range->start, new_range->size, new_range->mmuflags);
 
-			if (range->flags & VMM_FLAGS_FILE) {
+			if (range->flags & MM_RANGE_FLAGS_FILE) {
 				new_range->vnode = range->vnode;
 				new_range->offset = range->offset + range->size;
 				VOP_HOLD(range->vnode);
@@ -331,8 +330,8 @@ int mm_change_range(vmmspace_t *space, void *address, size_t size, bool free, in
 		// shrink the mapping
 
 		// permission checking
-		if (free == false && (flags & VMM_FLAGS_CREDCHECK) && (range->flags & VMM_FLAGS_SHARED) &&
-			(range->flags & VMM_FLAGS_FILE) && can_write_vnode(range) == false) {
+		if (free == false && (flags & MM_RANGE_FLAGS_CREDCHECK) && (range->flags & MM_RANGE_FLAGS_SHARED) &&
+			(range->flags & MM_RANGE_FLAGS_FILE) && can_write_vnode(range) == false) {
 			error = EACCES;
 			goto leave;
 		}
@@ -352,7 +351,7 @@ int mm_change_range(vmmspace_t *space, void *address, size_t size, bool free, in
 
 			change_mmu_range(range, new_range->start, new_range->size, new_range->mmuflags);
 
-			if (range->flags & VMM_FLAGS_FILE) {
+			if (range->flags & MM_RANGE_FLAGS_FILE) {
 				new_range->vnode = range->vnode;
 				new_range->offset = range->offset + range->size;
 				VOP_HOLD(range->vnode);
@@ -375,7 +374,7 @@ int mm_change_range(vmmspace_t *space, void *address, size_t size, bool free, in
 		if (rbtree == NULL)
 			goto leave;
 
-		range = container_of(rbtree, vmmrange_t, rbtree_node);
+		range = container_of(rbtree, mm_range_t, rbtree_node);
 		if (RANGE_TOP(range) > top)
 			break;
 
@@ -388,8 +387,8 @@ int mm_change_range(vmmspace_t *space, void *address, size_t size, bool free, in
 			mm_free_range(range);
 		} else {
 			// permission check
-			if ((flags & VMM_FLAGS_CREDCHECK) && (range->flags & VMM_FLAGS_SHARED) &&
-				(range->flags & VMM_FLAGS_FILE) && can_write_vnode(range) == false) {
+			if ((flags & MM_RANGE_FLAGS_CREDCHECK) && (range->flags & MM_RANGE_FLAGS_SHARED) &&
+				(range->flags & MM_RANGE_FLAGS_FILE) && can_write_vnode(range) == false) {
 				error = EACCES;
 				goto leave;
 			}
@@ -404,8 +403,8 @@ int mm_change_range(vmmspace_t *space, void *address, size_t size, bool free, in
 		// move the start of the range
 
 		// permission check
-		if (free == false && (flags & VMM_FLAGS_CREDCHECK) && (range->flags & VMM_FLAGS_SHARED) &&
-			(range->flags & VMM_FLAGS_FILE) && can_write_vnode(range) == false) {
+		if (free == false && (flags & MM_RANGE_FLAGS_CREDCHECK) && (range->flags & MM_RANGE_FLAGS_SHARED) &&
+			(range->flags & MM_RANGE_FLAGS_FILE) && can_write_vnode(range) == false) {
 			error = EACCES;
 			goto leave;
 		}
@@ -417,7 +416,7 @@ int mm_change_range(vmmspace_t *space, void *address, size_t size, bool free, in
 		range->start = (void *)((uintptr_t)range->start + difference);
 		range->size -= difference;
 
-		if (range->flags & VMM_FLAGS_FILE)
+		if (range->flags & MM_RANGE_FLAGS_FILE)
 			range->offset += difference;
 
 		if (free == false) {
@@ -429,7 +428,7 @@ int mm_change_range(vmmspace_t *space, void *address, size_t size, bool free, in
 
 			change_mmu_range(range, new_range->start, new_range->size, new_range->mmuflags);
 
-			if (range->flags & VMM_FLAGS_FILE) {
+			if (range->flags & MM_RANGE_FLAGS_FILE) {
 				new_range->vnode = range->vnode;
 				new_range->offset = range->offset - difference;
 				VOP_HOLD(range->vnode);

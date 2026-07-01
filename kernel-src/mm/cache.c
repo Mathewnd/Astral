@@ -1,5 +1,4 @@
 #include <kernel/mm.h>
-#include <kernel/vmm.h>
 #include <util.h>
 #include <logging.h>
 #include <kernel/timekeeper.h>
@@ -487,7 +486,7 @@ static void writer() {
 
 void mm_cache_init(void) {
 	MUTEX_INIT(&mutex);
-	table = vmm_map(NULL, TABLE_SIZE * sizeof(page_t *), VMM_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, NULL);
+	table = mm_map(NULL, TABLE_SIZE * sizeof(page_t *), MM_RANGE_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, NULL);
 	__assert(table);
 	memset(table, 0, TABLE_SIZE * sizeof(page_t *));
 

@@ -2,7 +2,7 @@
 #define _PROC_H
 
 #include <arch/context.h>
-#include <kernel/vmm.h>
+#include <kernel/mm.h>
 #include <kernel/abi.h>
 #include <kernel/vfs.h>
 #include <semaphore.h>

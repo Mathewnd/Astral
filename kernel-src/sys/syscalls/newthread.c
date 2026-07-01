@@ -26,7 +26,7 @@ syscallret_t syscall_newthread(context_t *, void *entry, void *stack) {
 		return ret;
 	}
 
-	thread->vmmctx = current_thread()->vmmctx;
+	thread->mmctx = current_thread()->mmctx;
 
 	bool intstatus = interrupt_set(false);
 	spinlock_acquire(&proc->threadlistlock);

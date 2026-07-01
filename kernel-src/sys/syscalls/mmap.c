@@ -1,7 +1,7 @@
 #include <kernel/syscalls.h>
 #include <kernel/abi.h>
 #include <errno.h>
-#include <kernel/vmm.h>
+#include <kernel/mm.h>
 #include <logging.h>
 
 #define PROT_READ  0x01
@@ -59,21 +59,21 @@ syscallret_t syscall_mmap(context_t *context, void *hint, size_t len, int prot, 
 		mmuflags |= ARCH_MMU_FLAGS_NOEXEC;
 
 	bool isfile = (flags & MAP_ANONYMOUS) == 0;
-	int vmmflags = 0;
+	int mm_flags = 0;
 
 	if (flags & MAP_FIXED)
-		vmmflags |= VMM_FLAGS_REPLACE;
+		mm_flags |= MM_RANGE_FLAGS_REPLACE;
 
 	if (flags & MAP_FIXED_NOREPLACE)
-		vmmflags |= VMM_FLAGS_EXACT;
+		mm_flags |= MM_RANGE_FLAGS_EXACT;
 
 	if ((flags & MAP_ANONYMOUS) == 0)
-		vmmflags |= VMM_FLAGS_FILE;
+		mm_flags |= MM_RANGE_FLAGS_FILE;
 
 	if (flags & MAP_SHARED)
-		vmmflags |= VMM_FLAGS_SHARED;
+		mm_flags |= MM_RANGE_FLAGS_SHARED;
 
-	vmmfiledesc_t vfd;
+	mm_map_file_desc_t vfd;
 	file_t *file = NULL;
 	if (isfile) {
 		// make sure offset is page aligned
@@ -99,7 +99,7 @@ syscallret_t syscall_mmap(context_t *context, void *hint, size_t len, int prot, 
 		}
 
 		// if the vnode is not cacheable, we need to make sure we can map it
-		// TODO move this check to vmm_map once the return value of mmap is fixed to return an errno
+		// TODO move this check to mm_map once the return value of mmap is fixed to return an errno
 		if (vfs_iscacheable(file->vnode) == false) {
 			ret.errno = VOP_MMAP(file->vnode, VOP_MMAP_ADDRESS_MMAP_SUPPORTED, 0, 0, NULL);
 			if (ret.errno)
@@ -113,7 +113,7 @@ syscallret_t syscall_mmap(context_t *context, void *hint, size_t len, int prot, 
 	if (hint < USERSPACE_START)
 		hint = USERSPACE_MMAP_START;
 
-	ret.ret = (uint64_t)vmm_map(hint, len, vmmflags, mmuflags, &vfd);
+	ret.ret = (uint64_t)mm_map(hint, len, mm_flags, mmuflags, &vfd);
 	if (ret.ret == 0)
 		ret.errno = ENOMEM;
 

@@ -1,5 +1,5 @@
 #include <logging.h>
-#include <kernel/vmm.h>
+#include <kernel/mm.h>
 #include <arch/mmu.h>
 #include <kernel/alloc.h>
 #include <kernel/interrupt.h>
@@ -274,7 +274,7 @@ void arch_apic_init() {
 
 	void *paddr = (void *) rdmsr(MSR_IA32APICBASE);
 
-	lapic_address = vmm_map(NULL, PAGE_SIZE, VMM_FLAGS_PHYSICAL, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, paddr);
+	lapic_address = mm_map(NULL, PAGE_SIZE, MM_RANGE_FLAGS_PHYSICAL, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, paddr);
 	__assert(lapic_address);
 
 	// map I/O apics to memory
@@ -286,7 +286,7 @@ void arch_apic_init() {
 		struct acpi_madt_ioapic *entry = getentry(ACPI_MADT_ENTRY_TYPE_IOAPIC, i);
 
 		__assert((entry->address % PAGE_SIZE) == 0);
-		ioapics[i].addr = vmm_map(NULL, PAGE_SIZE, VMM_FLAGS_PHYSICAL, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, (void *)(uint64_t)entry->address);
+		ioapics[i].addr = mm_map(NULL, PAGE_SIZE, MM_RANGE_FLAGS_PHYSICAL, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, (void *)(uint64_t)entry->address);
 		__assert(ioapics[i].addr);
 		ioapics[i].base = entry->gsi_base;
 		ioapics[i].top = ioapics[i].base + ((readioapic(ioapics[i].addr, IOAPIC_REG_ENTRY_COUNT) >> 16) & 0xff) + 1;

@@ -7,7 +7,7 @@
 #include <arch/msr.h>
 #include <arch/ist.h>
 #include <kernel/interrupt.h>
-#include <kernel/vmm.h>
+#include <kernel/mm.h>
 #include <kernel/timer.h>
 #include <kernel/scheduler.h>
 #include <kernel/dpc.h>
@@ -23,7 +23,7 @@ typedef struct cpu_t {
 
 	struct cpu_t *self; // expected to be here by other code
 
-	vmmcontext_t *vmmctx; // expected to be here by other code
+	mm_context_t *mmctx; // expected to be here by other code
 
 	long hardware_id; // expected to be here by other code
 	long internal_id; // expected to be here by other code
@@ -131,13 +131,13 @@ static inline cpu_t *current_cpu(void) {
 	return cpu;
 }
 
-static inline vmmcontext_t *current_vmm_context(void) {
-	vmmcontext_t *context;
+static inline mm_context_t *current_mm_context(void) {
+	mm_context_t *context;
 	asm volatile ("mov %%gs:16, %%rax" : "=a"(context) : : "memory");
 	return context;
 }
 
-static inline void set_current_vmm_context(vmmcontext_t *context) {
+static inline void set_current_mm_context(mm_context_t *context) {
 	asm volatile ("mov %%rax, %%gs:16" : : "a"(context) : "memory");
 }
 

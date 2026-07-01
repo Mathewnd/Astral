@@ -3,7 +3,7 @@
 #include <errno.h>
 #include <kernel/alloc.h>
 #include <util.h>
-#include <kernel/vmm.h>
+#include <kernel/mm.h>
 #include <kernel/usercopy.h>
 #include <arch/cpu.h>
 
@@ -67,7 +67,7 @@ static int load(vnode_t *vnode, elfph64_t *ph) {
 		size_t firstpagecount = PAGE_SIZE - firstpageoffset;
 		firstpagecount = fsize > firstpagecount ? firstpagecount : fsize;
 		void *page = (void *)ROUND_DOWN(mempos, PAGE_SIZE);
-		if (vmm_map(page, PAGE_SIZE, VMM_FLAGS_EXACT | VMM_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_USER | ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE, NULL) == NULL)
+		if (mm_map(page, PAGE_SIZE, MM_RANGE_FLAGS_EXACT | MM_RANGE_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_USER | ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE, NULL) == NULL)
 			return ENOMEM;
 
 		error = readexact(vnode, (void *)mempos, firstpagecount, foffset);
@@ -98,7 +98,7 @@ static int load(vnode_t *vnode, elfph64_t *ph) {
 			mempos += remainingmsize;
 		}
 
-		error = vmm_changemmuflags(page, PAGE_SIZE, mmuflags, 0);
+		error = mm_change_mmu_flags(page, PAGE_SIZE, mmuflags, 0);
 		if (error)
 			return error;
 	}
@@ -106,11 +106,11 @@ static int load(vnode_t *vnode, elfph64_t *ph) {
 	// map middle of file
 	size_t filepagecount = fsize / PAGE_SIZE;
 	if (filepagecount) {
-		vmmfiledesc_t vfd = {
+		mm_map_file_desc_t vfd = {
 			.node = vnode,
 			.offset = foffset
 		};
-		if (vmm_map((void *)mempos, filepagecount, VMM_FLAGS_EXACT | VMM_FLAGS_PAGESIZE | VMM_FLAGS_FILE, mmuflags, &vfd) == NULL)
+		if (mm_map((void *)mempos, filepagecount, MM_RANGE_FLAGS_EXACT | MM_RANGE_FLAGS_PAGESIZE | MM_RANGE_FLAGS_FILE, mmuflags, &vfd) == NULL)
 			return ENOMEM;
 		size_t bytesize = filepagecount * PAGE_SIZE;
 		mempos += bytesize;
@@ -122,7 +122,7 @@ static int load(vnode_t *vnode, elfph64_t *ph) {
 	// map end of file
 	size_t lastpagecount = fsize % PAGE_SIZE;
 	if (lastpagecount) {
-		if (vmm_map((void *)mempos, PAGE_SIZE, VMM_FLAGS_EXACT | VMM_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_USER | ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE, NULL) == NULL)
+		if (mm_map((void *)mempos, PAGE_SIZE, MM_RANGE_FLAGS_EXACT | MM_RANGE_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_USER | ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE, NULL) == NULL)
 			return ENOMEM;
 
 		error = readexact(vnode, (void *)mempos, lastpagecount, foffset);
@@ -135,7 +135,7 @@ static int load(vnode_t *vnode, elfph64_t *ph) {
 
 		msize -= msize > PAGE_SIZE ? PAGE_SIZE : msize;
 
-		error = vmm_changemmuflags((void *)mempos, PAGE_SIZE, mmuflags, 0);
+		error = mm_change_mmu_flags((void *)mempos, PAGE_SIZE, mmuflags, 0);
 		if (error)
 			return error;
 
@@ -144,7 +144,7 @@ static int load(vnode_t *vnode, elfph64_t *ph) {
 
 	// zero some parts if needed
 	if (msize) {
-		if (vmm_map((void *)mempos, msize, VMM_FLAGS_EXACT, mmuflags, NULL) == NULL)
+		if (mm_map((void *)mempos, msize, MM_RANGE_FLAGS_EXACT, mmuflags, NULL) == NULL)
 			return ENOMEM;
 	}
 
@@ -255,12 +255,12 @@ void *elf_preparestack(void *top, auxv64list_t *auxv64, char **argv, char **envp
 
 	size_t initialsizeround = ROUND_UP(initialsize, PAGE_SIZE);
 	void *initialpagebase = (void *)((uintptr_t)top - initialsizeround);
-	if (vmm_map(initialpagebase, initialsizeround, VMM_FLAGS_ALLOCATE | VMM_FLAGS_EXACT, STACK_MMUFLAGS, NULL) == NULL)
+	if (mm_map(initialpagebase, initialsizeround, MM_RANGE_FLAGS_ALLOCATE | MM_RANGE_FLAGS_EXACT, STACK_MMUFLAGS, NULL) == NULL)
 		return NULL;
 
 	void *stackbase = (void *)((uintptr_t)top - STACK_SIZE);
 	size_t unallocatedsize = STACK_SIZE - initialsizeround;
-	if (vmm_map(stackbase, unallocatedsize, VMM_FLAGS_EXACT, STACK_MMUFLAGS, NULL) == NULL)
+	if (mm_map(stackbase, unallocatedsize, MM_RANGE_FLAGS_EXACT, STACK_MMUFLAGS, NULL) == NULL)
 		return NULL;
 
 	top = (void *)((uintptr_t)top - STACK_TOP_BUFFER);

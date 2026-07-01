@@ -5,7 +5,7 @@
 #include <kernel/alloc.h>
 #include <kernel/devfs.h>
 #include <string.h>
-#include <kernel/vmm.h>
+#include <kernel/mm.h>
 #include <kernel/usercopy.h>
 
 #define DISK_READ(desc, it, lba, size) (desc)->read(desc->private, it, lba, size)
@@ -200,7 +200,7 @@ static int registerdesc(blockdesc_t *desc, char *name) {
 
 static int detectpart(blockdesc_t *desc) {
 	// read first two sectors
-	void *sects = vmm_map(NULL, desc->blocksize * 2, VMM_FLAGS_ALLOCATE, MAP_FLAGS, NULL);
+	void *sects = mm_map(NULL, desc->blocksize * 2, MM_RANGE_FLAGS_ALLOCATE, MAP_FLAGS, NULL);
 	__assert(sects);
 	__assert(disk_read_direct(desc, sects, 0, 2) == 0);
 
@@ -216,7 +216,7 @@ static int detectpart(blockdesc_t *desc) {
 	else if (bootmagic == MBR_BOOT_MAGIC)
 		ret = PART_MBR;
 
-	vmm_unmap(sects, desc->blocksize * 2, 0);
+	mm_unmap(sects, desc->blocksize * 2, 0);
 	return ret;
 }
 
@@ -241,7 +241,7 @@ static bool gptentryvalid(blockdesc_t *desc, gptheader_t *header, gptentry_t *en
 
 static void dogpt(blockdesc_t *desc, char *name) {
 	// get header
-	void *lba1 = vmm_map(NULL, desc->blocksize, VMM_FLAGS_ALLOCATE, MAP_FLAGS, NULL);
+	void *lba1 = mm_map(NULL, desc->blocksize, MM_RANGE_FLAGS_ALLOCATE, MAP_FLAGS, NULL);
 	__assert(lba1);
 	__assert(disk_read_direct(desc, lba1, 1, 1) == 0);
 	gptheader_t *header = lba1;
@@ -249,7 +249,7 @@ static void dogpt(blockdesc_t *desc, char *name) {
 	// get partition table
 	size_t tablebytesize = header->entrybytesize * header->entrycount;
 	size_t tablelbasize = ROUND_UP(tablebytesize, desc->blocksize) / desc->blocksize;
-	void *tablebuffer = vmm_map(NULL, tablelbasize * desc->blocksize, VMM_FLAGS_ALLOCATE, MAP_FLAGS, NULL);
+	void *tablebuffer = mm_map(NULL, tablelbasize * desc->blocksize, MM_RANGE_FLAGS_ALLOCATE, MAP_FLAGS, NULL);
 	__assert(tablebuffer);
 	__assert(disk_read_direct(desc, tablebuffer, header->entryarraylbastart, tablelbasize) == 0);
 
@@ -277,13 +277,13 @@ static void dogpt(blockdesc_t *desc, char *name) {
 		__assert(registerdesc(partdesc, partname) == 0);
 	}
 
-	vmm_unmap(tablebuffer, tablelbasize * desc->blocksize, 0);
-	vmm_unmap(lba1, desc->blocksize, 0);
+	mm_unmap(tablebuffer, tablelbasize * desc->blocksize, 0);
+	mm_unmap(lba1, desc->blocksize, 0);
 }
 
 static void dombr(blockdesc_t *desc, char *name) {
 	// get entries
-	void *lba0 = vmm_map(NULL, desc->blocksize, VMM_FLAGS_ALLOCATE, MAP_FLAGS, NULL);
+	void *lba0 = mm_map(NULL, desc->blocksize, MM_RANGE_FLAGS_ALLOCATE, MAP_FLAGS, NULL);
 	__assert(lba0);
 	__assert(disk_read_direct(desc, lba0, 0, 1) == 0);
 	mbrentry_t *mbrents = (mbrentry_t *)((uintptr_t)lba0 + MBR_ENTRIES_OFFSET);
@@ -310,7 +310,7 @@ static void dombr(blockdesc_t *desc, char *name) {
 		__assert(registerdesc(partdesc, partname) == 0);
 	}
 
-	vmm_unmap(lba0, desc->blocksize, 0);
+	mm_unmap(lba0, desc->blocksize, 0);
 }
 
 void block_register(blockdesc_t *desc, char *name) {

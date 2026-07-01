@@ -39,7 +39,7 @@ static void cpuwakeup(struct limine_mp_info *info) {
 	dpc_init();
 	arch_extracontext_detect();
 	arch_mmu_apswitch();
-	vmm_apinit();
+	mm_apinit();
 
 	arch_apic_initap();
 

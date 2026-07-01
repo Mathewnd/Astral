@@ -1,5 +1,5 @@
 #include <kernel/syscalls.h>
-#include <kernel/vmm.h>
+#include <kernel/mm.h>
 #include <kernel/alloc.h>
 #include <kernel/vfs.h>
 #include <logging.h>

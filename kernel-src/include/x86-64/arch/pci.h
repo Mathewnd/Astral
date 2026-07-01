@@ -96,7 +96,7 @@ static void pci_archinit() {
 			void *phys = (void *)mcfgentries[i].address;
 			uintmax_t pageoffset = (uintptr_t)phys % PAGE_SIZE;
 			size_t mappingsize = pageoffset + MCFG_MAPPING_SIZE(mcfgentries[i].end_bus - mcfgentries[i].start_bus + 1);
-			void *virt = vmm_map(NULL, mappingsize, VMM_FLAGS_PHYSICAL,
+			void *virt = mm_map(NULL, mappingsize, MM_RANGE_FLAGS_PHYSICAL,
 				ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC | ARCH_MMU_FLAGS_UC, phys);
 			__assert(virt);
 			mcfgentries[i].address = (uintptr_t)virt + pageoffset;

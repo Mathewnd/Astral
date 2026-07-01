@@ -2,7 +2,7 @@
 #include <kernel/alloc.h>
 #include <string.h>
 #include <errno.h>
-#include <kernel/vmm.h>
+#include <kernel/mm.h>
 #include <arch/cpu.h>
 #include <kernel/elf.h>
 #include <kernel/scheduler.h>
@@ -67,8 +67,8 @@ static syscallret_t execve(context_t *context, char *upath, char *uargv[], char 
 	size_t envsize = 0;
 	char **argv = NULL;
 	char **envp = NULL;
-	vmmcontext_t *vmmctx = NULL;
-	vmmcontext_t *oldctx = current_vmm_context();
+	mm_context_t *mmctx = NULL;
+	mm_context_t *oldctx = current_mm_context();
 	vnode_t *node = NULL;
 	vnode_t *refnode = NULL;
 	char *interp = NULL;
@@ -237,13 +237,13 @@ static syscallret_t execve(context_t *context, char *upath, char *uargv[], char 
 		}
 	}
 
-	vmmctx = vmm_newcontext();
-	if (vmmctx == NULL) {
+	mmctx = mm_create_context();
+	if (mmctx == NULL) {
 		ret.errno = ENOMEM;
 		goto error;
 	}
 
-	vmm_switchcontext(vmmctx);
+	mm_switch_context(mmctx);
 
 	auxv64list_t auxv64;
 	void *entry;
@@ -321,7 +321,7 @@ static syscallret_t execve(context_t *context, char *upath, char *uargv[], char 
 			proc->signals.actions[i].address = SIG_IGN;
 	}
 
-	vmm_destroycontext(oldctx);
+	mm_destroy_context(oldctx);
 	CTX_SP(context) = (uint64_t)stack;
 	CTX_IP(context) = (uint64_t)entry;
 
@@ -339,9 +339,9 @@ static syscallret_t execve(context_t *context, char *upath, char *uargv[], char 
 	if (envp)
 		freevec(envp);
 
-	if (vmmctx && ret.errno) {
-		vmm_switchcontext(oldctx);
-		vmm_destroycontext(vmmctx);
+	if (mmctx && ret.errno) {
+		mm_switch_context(oldctx);
+		mm_destroy_context(mmctx);
 	}
 
 	if (refnode)

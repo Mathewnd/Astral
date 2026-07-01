@@ -1,7 +1,7 @@
 #include <kernel/xhci.h>
 #include <errno.h>
 #include <kernel/alloc.h>
-#include <kernel/vmm.h>
+#include <kernel/mm.h>
 #include <kernel/page.h>
 #include <logging.h>
 
@@ -70,7 +70,7 @@ int xhci_data_xfer(xhci_ctrl_t *xhci, xhci_device_t *dev, usb_xfer_t *xfer, xhci
 			// This should never be called with user pages. Doing so is a bug. For user-fronting code, use
 			// the scatter-gather variant
 			__assert(!IS_USER_ADDRESS(xfer->data));
-			void *page = vmm_getphysical(xfer->data - page_offset, VMM_GET_PHYSICAL_FLAGS_HOLD);
+			void *page = mm_get_physical_address(xfer->data - page_offset, MM_GET_PHYSICAL_ADDRESS_FLAGS_HOLD);
 			__assert(page != NULL);
 			trb.parameters = (uint64_t)page + page_offset;
 		}
@@ -242,7 +242,7 @@ int xhci_control_xfer(xhci_ctrl_t *xhci, xhci_device_t *dev, usb_xfer_t *xfer, x
 				mm_hold_page(xfer->data - page_offset);
 				data_trb.parameters = (uint64_t)xfer->data;
 			} else {
-				void *page = vmm_getphysical(xfer->data - page_offset, VMM_GET_PHYSICAL_FLAGS_HOLD);
+				void *page = mm_get_physical_address(xfer->data - page_offset, MM_GET_PHYSICAL_ADDRESS_FLAGS_HOLD);
 				if (page == NULL) {
 					xhci_ring_unreserve(ring, trb_count);
 					return EFAULT;

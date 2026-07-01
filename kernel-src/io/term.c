@@ -102,4 +102,4 @@ void term_init() {
 	logging_sethook(term_putchar);
 }
 
-INIT_ROUTINE_DEFINE(term, INIT_ROUTINE_FLAGS_NONE, term_init, vmm);
+INIT_ROUTINE_DEFINE(term, INIT_ROUTINE_FLAGS_NONE, term_init, mm);

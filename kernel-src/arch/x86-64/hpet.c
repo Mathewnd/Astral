@@ -1,7 +1,7 @@
 #include <time.h>
 #include <logging.h>
 #include <arch/hpet.h>
-#include <kernel/vmm.h>
+#include <kernel/mm.h>
 #include <kernel/interrupt.h>
 #include <arch/tsc.h>
 #include <kernel/kernel_args.h>
@@ -103,7 +103,7 @@ static timekeeper_source_info_t *hpet_init(void) {
 	__assert(table->address.address_space_id == ACPI_AS_ID_SYS_MEM);
 
 	uint64_t page_offset = table->address.address % PAGE_SIZE;
-	hpet_private.hpet = vmm_map(NULL, (PAGE_SIZE + page_offset), VMM_FLAGS_PHYSICAL, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, (void *)(table->address.address - page_offset));
+	hpet_private.hpet = mm_map(NULL, (PAGE_SIZE + page_offset), MM_RANGE_FLAGS_PHYSICAL, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, (void *)(table->address.address - page_offset));
 	__assert(hpet_private.hpet);
 	hpet_private.hpet = (void *)((uintptr_t)hpet_private.hpet + page_offset);
 

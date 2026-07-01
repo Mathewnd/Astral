@@ -2,7 +2,7 @@
 #include <logging.h>
 #include <arch/cpu.h>
 #include <spinlock.h>
-#include <kernel/vmm.h>
+#include <kernel/mm.h>
 #include <kernel/alloc.h>
 #include <errno.h>
 #include <kernel/elf.h>
@@ -25,8 +25,8 @@ static __attribute__((noreturn)) void switch_thread(thread_t *thread) {
 
 	current_cpu()->thread = thread;
 
-	if(current == NULL || thread->vmmctx != current->vmmctx)
-		vmm_switchcontext(thread->vmmctx);
+	if(current == NULL || thread->mmctx != current->mmctx)
+		mm_switch_context(thread->mmctx);
 
 	current_cpu()->intstatus = ARCH_CONTEXT_INTSTATUS(&thread->context);
 	thread->cpu = current_cpu();
@@ -350,7 +350,7 @@ void sched_ap_entry() {
 	dpc_prepare(&current_cpu()->reschedule_dpc, sched_reschedule_dpc);
 	set_up_bitmaps();
 
-	current_cpu()->schedulerstack = vmm_map(NULL, SCHEDULER_STACK_SIZE, VMM_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, NULL);
+	current_cpu()->schedulerstack = mm_map(NULL, SCHEDULER_STACK_SIZE, MM_RANGE_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, NULL);
 	__assert(current_cpu()->schedulerstack);
 	current_cpu()->schedulerstack = (void *)((uintptr_t)current_cpu()->schedulerstack + SCHEDULER_STACK_SIZE);
 
@@ -381,7 +381,7 @@ void sched_init() {
 
 	__assert(bitmap_init(&sched_idle_cpu_bitmap, arch_smp_get_cpu_count()) == 0);
 
-	current_cpu()->schedulerstack = vmm_map(NULL, SCHEDULER_STACK_SIZE, VMM_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, NULL);
+	current_cpu()->schedulerstack = mm_map(NULL, SCHEDULER_STACK_SIZE, MM_RANGE_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, NULL);
 	__assert(current_cpu()->schedulerstack);
 	current_cpu()->schedulerstack = (void *)((uintptr_t)current_cpu()->schedulerstack + SCHEDULER_STACK_SIZE);
 

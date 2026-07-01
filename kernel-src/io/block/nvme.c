@@ -1,6 +1,6 @@
 #include <kernel/pci.h>
 #include <logging.h>
-#include <kernel/vmm.h>
+#include <kernel/mm.h>
 #include <util.h>
 #include <kernel/page.h>
 #include <kernel/alloc.h>

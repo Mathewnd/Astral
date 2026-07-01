@@ -1,5 +1,5 @@
 #include <kernel/iovec.h>
-#include <kernel/vmm.h>
+#include <kernel/mm.h>
 #include <kernel/usercopy.h>
 
 static inline bool iovec_iterator_finished(iovec_iterator_t *iovec_iterator) {
@@ -246,7 +246,7 @@ int iovec_iterator_next_page(iovec_iterator_t *iovec_iterator, size_t *page_offs
 		return 0;
 	}
 
-	void *phys = vmm_getphysical((void *)((uintptr_t)addr - offset_in_page), VMM_GET_PHYSICAL_FLAGS_HOLD | VMM_GET_PHYSICAL_FLAGS_LOCK);
+	void *phys = mm_get_physical_address((void *)((uintptr_t)addr - offset_in_page), MM_GET_PHYSICAL_ADDRESS_FLAGS_HOLD | MM_GET_PHYSICAL_ADDRESS_FLAGS_LOCK);
 	if (phys == NULL)
 		return EFAULT;
 

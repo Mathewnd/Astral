@@ -27,9 +27,9 @@ syscallret_t syscall_fork(context_t *ctx) {
 		goto cleanup;
 	}
 
-	nthread->vmmctx = vmm_fork(current_thread()->vmmctx);
+	nthread->mmctx = mm_fork_context(current_thread()->mmctx);
 
-	if (nthread->vmmctx == NULL) {
+	if (nthread->mmctx == NULL) {
 		ret.errno = ENOMEM;
 		goto cleanup;
 	}

@@ -23,7 +23,7 @@ thread_t *sched_newthread(void *ip, size_t kstacksize, int nice, proc_t *proc, v
 		return NULL;
 	}
 
-	thread->kernelstack = vmm_map(NULL, kstacksize, VMM_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_NOEXEC, NULL);
+	thread->kernelstack = mm_map(NULL, kstacksize, MM_RANGE_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_NOEXEC, NULL);
 	if (thread->kernelstack == NULL) {
 		arch_extracontext_free(&thread->extracontext);
 		slab_free(thread_cache, thread);
@@ -32,8 +32,8 @@ thread_t *sched_newthread(void *ip, size_t kstacksize, int nice, proc_t *proc, v
 
 	thread->kernelstacktop = (void *)((uintptr_t)thread->kernelstack + kstacksize);
 
-	// non kernel thread vmm contexts are handled by the caller
-	thread->vmmctx = proc ? NULL : &vmm_kernelctx;
+	// non kernel thread mm contexts are handled by the caller
+	thread->mmctx = proc ? NULL : &mm_kernel_ctx;
 	thread->proc = proc;
 	thread->kernelstacksize = kstacksize;
 	thread->nice = nice;
@@ -57,7 +57,7 @@ thread_t *sched_newthread(void *ip, size_t kstacksize, int nice, proc_t *proc, v
 }
 
 void sched_destroythread(thread_t *thread) {
-	vmm_unmap(thread->kernelstack, thread->kernelstacksize, 0);
+	mm_unmap(thread->kernelstack, thread->kernelstacksize, 0);
 	arch_extracontext_free(&thread->extracontext);
 	slab_free(thread_cache, thread);
 }
@@ -84,18 +84,18 @@ __attribute__((noreturn)) void sched_threadexit() {
 	thread_t *thread = current_thread();
 	proc_t *proc = thread->proc;
 
-	vmmcontext_t *oldctx = thread->vmmctx;
-	vmm_switchcontext(&vmm_kernelctx);
+	mm_context_t *oldctx = thread->mmctx;
+	mm_switch_context(&mm_kernel_ctx);
 
 	if (proc) {
 		__atomic_fetch_sub(&proc->runningthreadcount, 1, __ATOMIC_SEQ_CST);
-		__assert(oldctx != &vmm_kernelctx);
+		__assert(oldctx != &mm_kernel_ctx);
 		if (proc->runningthreadcount == 0) {
 			if (thread->shouldexit)
 				proc->status = -1;
 
 			proc_exit();
-			vmm_destroycontext(oldctx);
+			mm_destroy_context(oldctx);
 			PROC_RELEASE(proc);
 		}
 	}

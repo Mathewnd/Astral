@@ -4,12 +4,12 @@
 #include <errno.h>
 #include <kernel/alloc.h>
 #include <kernel/timekeeper.h>
-#include <kernel/vmm.h>
+#include <kernel/mm.h>
 #include <util.h>
 #include <kernel/abi.h>
 #include <kernel/devfs.h>
 #include <kernel/page.h>
-#include <kernel/vmm.h>
+#include <kernel/mm.h>
 #include <arch/cpu.h>
 #include <string.h>
 #include <kernel/mm.h>

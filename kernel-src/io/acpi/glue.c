@@ -62,7 +62,7 @@ void uacpi_kernel_free(void *ptr) {
 
 void *uacpi_kernel_map(uacpi_phys_addr physical, uacpi_size length) {
 	uintmax_t pageoffset = (uintptr_t)physical % PAGE_SIZE;
-	void *virt = vmm_map(NULL, ROUND_UP(length + pageoffset, PAGE_SIZE), VMM_FLAGS_PHYSICAL,
+	void *virt = mm_map(NULL, ROUND_UP(length + pageoffset, PAGE_SIZE), MM_RANGE_FLAGS_PHYSICAL,
 		ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC,
 		(void*)ROUND_DOWN(physical, PAGE_SIZE));
 
@@ -74,7 +74,7 @@ void uacpi_kernel_unmap(void *ptr, uacpi_size length) {
 	uintmax_t pageoffset = (uintptr_t)ptr % PAGE_SIZE;
 
 	uintptr_t addr = (uintptr_t)ptr;
-	vmm_unmap((void*)ROUND_DOWN(addr, PAGE_SIZE), ROUND_UP(length + pageoffset, PAGE_SIZE), 0);
+	mm_unmap((void*)ROUND_DOWN(addr, PAGE_SIZE), ROUND_UP(length + pageoffset, PAGE_SIZE), 0);
 }
 
 uacpi_status uacpi_kernel_raw_memory_read(uacpi_phys_addr address, uacpi_u8 width, uacpi_u64 *out) {

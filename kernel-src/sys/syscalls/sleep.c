@@ -1,6 +1,6 @@
 #include <kernel/syscalls.h>
 #include <time.h>
-#include <kernel/vmm.h>
+#include <kernel/mm.h>
 #include <kernel/timer.h>
 #include <arch/cpu.h>
 

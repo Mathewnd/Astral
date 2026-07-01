@@ -4,7 +4,7 @@
 #include <string.h>
 #include <logging.h>
 #include <kernel/interrupt.h>
-#include <kernel/vmm.h>
+#include <kernel/mm.h>
 #include <arch/cpu.h>
 #include <arch/smp.h>
 #include <kernel/init.h>
@@ -264,10 +264,10 @@ void arch_mmu_invalidate_range(void *page, size_t size) {
 		old_ipl = interrupt_raiseipl(IPL_DPC);
 
 		for (int i = 0; i < arch_smp_cpusawake; ++i) {
-			// reading the vmm context like this is racey but there are no ill side effects other than spurious shootdowns
-			// if a cpu changes to this vmmctx, they will already have done a tlb invalidation.
+			// reading the mm context like this is racey but there are no ill side effects other than spurious shootdowns
+			// if a cpu changes to this mmctx, they will already have done a tlb invalidation.
 			// if it changes out of it, same thing
-			if (smp_cpus[i] == current_cpu() || (user_shootdown && smp_cpus[i]->vmmctx != current_thread()->vmmctx))
+			if (smp_cpus[i] == current_cpu() || (user_shootdown && smp_cpus[i]->mmctx != current_thread()->mmctx))
 				continue;
 
 			spinlock_acquire(&smp_cpus[i]->shootdown_lock);
@@ -339,16 +339,16 @@ static void pfisr(isr_t *self, context_t *ctx) {
 		arch_cpu_user_access_end();
 
 	interrupt_set(true);
-	int vmmerror = 0;
+	int mm_error = 0;
 
-	vmmerror |= VMM_ACTION_READ; // valid x86 PTEs will always have read permission (present) and actions will always have a read because of that.
+	mm_error |= MM_FAULT_ACTION_READ; // valid x86 PTEs will always have read permission (present) and actions will always have a read because of that.
 	if (ctx->error & ERROR_WRITE)
-		vmmerror |= VMM_ACTION_WRITE;
+		mm_error |= MM_FAULT_ACTION_WRITE;
 	
 	if (ctx->error & ERROR_FETCH)
-		vmmerror |= VMM_ACTION_EXEC;
+		mm_error |= MM_FAULT_ACTION_EXEC;
 
-	if (vmm_pagefault((void *)ctx->cr2, ctx->cs != 8, vmmerror) == false) {
+	if (mm_handle_page_fault((void *)ctx->cr2, ctx->cs != 8, mm_error) == false) {
 		if (thread && thread->usercopyctx) {
 			memcpy(ctx, thread->usercopyctx, sizeof(context_t));
 			ctx->rflags &= ~ARCH_CONTEXT_RFLAGS_AC;

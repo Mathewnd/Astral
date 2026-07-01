@@ -6,7 +6,7 @@
 #include <kernel/pci.h>
 #include <kernel/page.h>
 #include <kernel/usb.h>
-#include <kernel/vmm.h>
+#include <kernel/mm.h>
 #include <list.h>
 #include <logging.h>
 #include <util.h>

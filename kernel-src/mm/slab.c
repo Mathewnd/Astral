@@ -1,5 +1,5 @@
 #include <kernel/slab.h>
-#include <kernel/vmm.h>
+#include <kernel/mm.h>
 #include <kernel/page.h>
 #include <logging.h>
 #include <util.h>
@@ -47,7 +47,7 @@ static inline bool grow_cache(scache_t *cache) {
 			return false;
 
 		size_t byte_size = cache->slab_object_count * cache->true_size;
-		slab->base = vmm_map(NULL, byte_size, VMM_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, NULL);
+		slab->base = mm_map(NULL, byte_size, MM_RANGE_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, NULL);
 		if (unlikely(slab->base == NULL)) {
 			slab_free(slab_cache, slab);
 			return false;
@@ -68,7 +68,7 @@ static inline bool grow_cache(scache_t *cache) {
 			for (int j = 0; j < i; ++j)
 				slab_free(indirect_cache, indirect[j]);
 			
-			vmm_unmap(slab->base, byte_size, 0);
+			mm_unmap(slab->base, byte_size, 0);
 
 			slab_free(slab_cache, slab);
 			return false;
@@ -454,9 +454,9 @@ static bool magazine_ctor(scache_t *, void *obj) {
 	return true;
 }
 
-static scache_t *create_new_from_vmm(size_t size, size_t alignment, bool (*ctor)(scache_t *, void *), void (*dtor)(scache_t *, void *)) {
+static scache_t *create_new_from_mm(size_t size, size_t alignment, bool (*ctor)(scache_t *, void *), void (*dtor)(scache_t *, void *)) {
 	size_t cache_size = sizeof(scache_t) + sizeof(cache_per_cpu_t) * arch_smp_get_cpu_count();
-	scache_t *cache = vmm_map(NULL, cache_size, VMM_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, NULL);
+	scache_t *cache = mm_map(NULL, cache_size, MM_RANGE_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, NULL);
 	__assert(cache);
 	__assert(slab_initialize(cache, size, alignment, ctor, dtor));
 	return cache;
@@ -472,7 +472,7 @@ scache_t *slab_create_new_cache_from_pmm(size_t size, size_t alignment, bool (*c
 	return cache;
 }
 
-// initializes enough to allow for the vmm to bootstrap
+// initializes enough to allow for the mm to bootstrap
 void slab_early_init(void) {
 	size_t magazine_object_size = sizeof(magazine_t) + sizeof(void *) * MAGAZINE_SIZE;
 	__assert(magazine_object_size < SLAB_INDIRECT_CUTOFF);
@@ -483,11 +483,11 @@ void slab_early_init(void) {
 void slab_init(void) {
 	size_t cache_size = sizeof(scache_t) + sizeof(cache_per_cpu_t) * arch_smp_get_cpu_count();
 	// the cache of caches needs for the slab and indirect caches to be up
-	slab_cache = create_new_from_vmm(sizeof(slab_t), 0, NULL, NULL);
-	indirect_cache = create_new_from_vmm(sizeof(slab_indirect_t), 0, NULL, NULL);
-	indirect_table_cache = create_new_from_vmm(sizeof(slab_indirect_t *) * 32, 0, NULL, NULL);
-	self_cache = create_new_from_vmm(cache_size, 0, NULL, NULL);
+	slab_cache = create_new_from_mm(sizeof(slab_t), 0, NULL, NULL);
+	indirect_cache = create_new_from_mm(sizeof(slab_indirect_t), 0, NULL, NULL);
+	indirect_table_cache = create_new_from_mm(sizeof(slab_indirect_t *) * 32, 0, NULL, NULL);
+	self_cache = create_new_from_mm(cache_size, 0, NULL, NULL);
 }
 
-INIT_ROUTINE_DEFINE(slab, INIT_ROUTINE_FLAGS_NONE, slab_init, vmm);
+INIT_ROUTINE_DEFINE(slab, INIT_ROUTINE_FLAGS_NONE, slab_init, mm);
 INIT_ROUTINE_DEFINE(slab_early, INIT_ROUTINE_FLAGS_NONE, slab_early_init, mm_page);

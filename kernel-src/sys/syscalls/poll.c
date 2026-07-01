@@ -1,7 +1,7 @@
 #include <kernel/syscalls.h>
 #include <kernel/file.h>
 #include <kernel/poll.h>
-#include <kernel/vmm.h>
+#include <kernel/mm.h>
 #include <logging.h>
 #include <kernel/alloc.h>
 

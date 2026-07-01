@@ -349,7 +349,7 @@ void arch_cpu_init() {
 	current_cpu()->topology_node = topology_nodes[topology_depth - 1];
 
 	// allocate ists
-	uint64_t *ist1 = vmm_map(NULL, PAGE_SIZE * 4, VMM_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, NULL);
+	uint64_t *ist1 = mm_map(NULL, PAGE_SIZE * 4, MM_RANGE_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, NULL);
 	__assert(ist1);
 
 	// the cpu automatically aligns to 16 bytes when pushing the interrupt frame, so save ourselves the trouble:

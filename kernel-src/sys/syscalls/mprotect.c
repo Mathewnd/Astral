@@ -1,7 +1,7 @@
 #include <kernel/syscalls.h>
 #include <kernel/abi.h>
 #include <errno.h>
-#include <kernel/vmm.h>
+#include <kernel/mm.h>
 #include <logging.h>
 
 #define PROT_READ  0x01
@@ -37,7 +37,7 @@ syscallret_t syscall_mprotect(context_t *context, void *address, size_t len, int
 	if ((prot & PROT_EXEC) == 0)
 		mmuflags |= ARCH_MMU_FLAGS_NOEXEC;
 
-	ret.errno = vmm_changemmuflags(address, len, mmuflags, VMM_FLAGS_CREDCHECK);
+	ret.errno = mm_change_mmu_flags(address, len, mmuflags, MM_RANGE_FLAGS_CREDCHECK);
 	ret.ret = ret.errno ? -1 : 0;
 
 	return ret;
