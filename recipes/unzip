@@ -1,0 +1,24 @@
+name=unzip
+revision=1
+from_source=unzip
+imagedeps="build-essential"
+hostdeps="xgcc xbinutils"
+deps="base"
+
+build() {
+	cp -rp ${source_dir}/* .
+	make -f unix/Makefile generic1 \
+		CC=x86_64-astral-gcc \
+		LD=x86_64-astral-gcc \
+		AS=x86_64-astral-as \
+		STRIP=x86_64-astral-strip \
+		CF="-O2 -I. -include utime.h -DUNIX -DSYSV -DMODERN -DGOT_UTIMBUF -DNO_LCHMOD" \
+		LF2=""
+}
+
+package() {
+	make -f unix/Makefile install \
+		prefix=${prefix} \
+		BINDIR=${dest_dir}${prefix}/bin \
+		MANDIR=${dest_dir}${prefix}/share/man/man1
+}
