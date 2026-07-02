@@ -1,12 +1,12 @@
 name=xorg-server
-revision=2
+revision=3
 from_source=xorg-server
 imagedeps="meson ninja-build build-essential"
 hostdeps="xgcc xbinutils pkgconfig autoconf automake libtool pkgconfig util-macros xtrans fontutil"
 deps="base libxcvt pixman xorgproto xtrans xkbfile libxfont2 fontutil libgcrypt freetype xkeyboardconfig xkbcomp libxi libxrender libxcb libxext pixman libxdamage libdrm mesa"
 
 configure() {
-	 CFLAGS="$CFLAGS -I${sysroot_dir}${prefix}/include/libdrm" LDFLAGS="-ldrm" dridriverdir=/usr/lib/dri ${source_dir}/configure --prefix=/usr --localstatedir=/var --host=x86_64-astral --disable-pciaccess --disable-int10-module --disable-glamor --disable-vgahw --disable-xephyr --disable-xnest --with-fontrootdir=${prefix}/share/fonts/X11 --enable-mitshm
+	 CFLAGS="$CFLAGS -I${sysroot_dir}${prefix}/include/libdrm" LDFLAGS="-ldrm" dridriverdir=/usr/lib/dri ${source_dir}/configure --prefix=/usr --localstatedir=/var --host=x86_64-astral --disable-pciaccess --disable-int10-module --disable-glamor --disable-vgahw --disable-xephyr --disable-xnest --with-fontrootdir=${prefix}/share/fonts/X11 --enable-mitshm --with-xkb-output=/var/lib/xkb
 }
 
 build() {
@@ -15,4 +15,5 @@ build() {
 
 package() {
 	make DESTDIR=${dest_dir} install
+	copy_install_hook
 }

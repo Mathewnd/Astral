@@ -1,0 +1,14 @@
+#!/usr/bin/bash
+
+set -e
+
+case "$1" in
+	pre)
+		;;
+	post)
+		mkdir -p /var/lib/xkb
+		chmod 1777 /var/lib/xkb
+		;;
+esac
+
+exit 0
