@@ -74,6 +74,122 @@ static void print_space(mm_space_t *space) {
 
 static void *zero_page;
 
+// space range is in expected locked
+int mm_full_page_in(mm_range_t *range, void *vaddr, page_t **resulting_page) {
+	void *mapped_address = arch_mmu_getphysical(current_mm_context()->pagetable, vaddr);
+	bool present = arch_mmu_ispresent(current_mm_context()->pagetable, vaddr);
+	bool writable = arch_mmu_iswritable(current_mm_context()->pagetable, vaddr);
+	bool file_mapping = range->flags & MM_RANGE_FLAGS_FILE;
+	bool cacheable = file_mapping && vfs_iscacheable(range->vnode);
+	bool private = (range->flags & MM_RANGE_FLAGS_SHARED) == 0 || file_mapping == false;
+
+	if (present && (!(range->mmuflags & ARCH_MMU_FLAGS_WRITE) || writable)) {
+		// already fully paged in
+		*resulting_page = mm_get_page(mapped_address);
+		return 0;
+	}
+
+	if (present) {
+		// partially paged in
+		page_t *current_page = mm_get_page(mapped_address);
+
+		if ((!private || (!file_mapping && current_page->refcount == 1)) && mapped_address != zero_page) {
+			arch_mmu_remap(current_mm_context()->pagetable, mapped_address, vaddr, range->mmuflags);
+
+			if (file_mapping && cacheable) {
+				VOP_LOCK(range->vnode);
+				mm_cache_make_dirty(current_page);
+				VOP_UNLOCK(range->vnode);
+			}
+
+			*resulting_page = current_page;
+			return 0;
+		} else {
+			void *new_phys = mm_alloc_page(MEMORY_SECTION_DEFAULT);
+			if (new_phys == NULL)
+				return ENOMEM;
+
+			memcpy(MAKE_HHDM(new_phys), MAKE_HHDM(mapped_address), PAGE_SIZE);
+			arch_mmu_remap(current_mm_context()->pagetable, new_phys, vaddr, range->mmuflags);
+			arch_mmu_invalidate_range(vaddr, PAGE_SIZE);
+			if ((range->flags & MM_RANGE_FLAGS_FILE) == 0 || cacheable)
+				mm_release_page(mapped_address);
+
+			*resulting_page = mm_get_page(new_phys);
+			return 0;
+		}
+	}
+
+	// completely empty PTE
+	if (!file_mapping) {
+		void *new_phys = mm_alloc_page(MEMORY_SECTION_DEFAULT);
+		if (new_phys == NULL)
+			return ENOMEM;
+
+		memset(MAKE_HHDM(new_phys), 0, PAGE_SIZE);
+		if (!arch_mmu_map(current_mm_context()->pagetable, new_phys, vaddr, range->mmuflags)) {
+			mm_release_page(new_phys);
+			return ENOMEM;
+		}
+
+		*resulting_page = mm_get_page(new_phys);
+		return 0;
+	}
+
+	size_t map_offset = (uintptr_t)vaddr - (uintptr_t)range->start;
+
+	if (!cacheable) {
+		cred_t *cred = current_thread()->proc ? &current_thread()->proc->cred : NULL;
+		VOP_LOCK(range->vnode);
+		int error = VOP_MMAP(range->vnode, vaddr, range->offset + map_offset, mm_mmu_flags_to_vnode_flags(range->mmuflags) | (range->flags & MM_RANGE_FLAGS_SHARED ? V_FFLAGS_SHARED : 0), cred);
+		VOP_UNLOCK(range->vnode);
+
+		*resulting_page = NULL; // we cannot guarantee that device mappings have a valid backing
+		return error;
+	}
+
+	page_t *vn_page;
+	int error = mm_cache_get_page(range->vnode, range->offset + map_offset, &vn_page);
+	if (error)
+		return error;
+
+	void *vn_phys = mm_get_page_address(vn_page);
+
+	if (!private) {
+		if (!arch_mmu_map(current_mm_context()->pagetable, vn_phys, vaddr, range->mmuflags)) {
+			mm_release_page(vn_phys);
+			return ENOMEM;
+		}
+
+		if (cacheable) {
+			VOP_LOCK(range->vnode);
+			mm_cache_make_dirty(vn_page);
+			VOP_UNLOCK(range->vnode);
+		}
+
+		*resulting_page = vn_page;
+		return 0;
+	}
+
+	void *new_phys = mm_alloc_page(MEMORY_SECTION_DEFAULT);
+	if (new_phys == NULL) {
+		mm_release_page(vn_phys);
+		return ENOMEM;
+	}
+
+	memcpy(MAKE_HHDM(new_phys), MAKE_HHDM(vn_phys), PAGE_SIZE);
+	mm_release_page(vn_phys);
+
+	if (!arch_mmu_map(current_mm_context()->pagetable, new_phys, vaddr, range->mmuflags)) {
+		mm_release_page(new_phys);
+		return ENOMEM;
+	}
+
+	*resulting_page = mm_get_page(new_phys);
+
+	return 0;
+}
+
 bool mm_handle_page_fault(void *addr, bool user, int actions) {
 	if (user == false && addr > USERSPACE_END) {
 		printf("mm: kernel access\n");
@@ -185,40 +301,13 @@ bool mm_handle_page_fault(void *addr, bool user, int actions) {
 			}
 		}
 	} else if (arch_mmu_iswritable(current_mm_context()->pagetable, addr) == false) {
-		// page present but not writeable in the page tables
-		void *old_phys = arch_mmu_getphysical(current_mm_context()->pagetable, addr);
-		page_t *old_page = mm_get_page(old_phys);
-
-		if (    ((range->flags & MM_RANGE_FLAGS_FILE) && (range->flags & MM_RANGE_FLAGS_SHARED)) ||
-			((range->flags & MM_RANGE_FLAGS_FILE) == 0 && old_page->refcount == 1)) {
-			// shared file or anon with refcount == 1, remap it as writable
-
-			arch_mmu_remap(current_mm_context()->pagetable, old_phys, addr, range->mmuflags);
-			if ((range->flags & MM_RANGE_FLAGS_FILE) && vfs_iscacheable(range->vnode)) {
-				// and if its a cache page, mark it as dirty
-				VOP_LOCK(range->vnode);
-				mm_cache_make_dirty(mm_get_page(old_phys));
-				VOP_UNLOCK(range->vnode);
-			}
-
-			status = true;
-		} else {
-			// do copy on write
-			void *new_phys = mm_alloc_page(MEMORY_SECTION_DEFAULT);
-			if (new_phys == NULL) {
-				printf("mm: out of memory to do copy on write on address space (sending SIGBUS)\n");
-				signal_signalthread(current_thread(), SIGBUS, true);
-				status = true;
-			} else {
-				memcpy(MAKE_HHDM(new_phys), MAKE_HHDM(old_phys), PAGE_SIZE);
-				arch_mmu_remap(current_mm_context()->pagetable, new_phys, addr, range->mmuflags);
-				arch_mmu_invalidate_range(addr, PAGE_SIZE);
-				if ((range->flags & MM_RANGE_FLAGS_FILE) == 0 || vfs_iscacheable(range->vnode))
-					mm_release_page(old_phys);
-
-				status = true;
-			}
+		page_t *p;
+		int error = mm_full_page_in(range, addr, &p);
+		if (error) {
+			printf("mm: failed to page in: %s (sending SIGBUS)\n", strerror(error));
+			signal_signalthread(current_thread(), SIGBUS, true);
 		}
+		status = true;
 	} else {
 		// another thread already did the work, so just return success
 		status = true;
@@ -229,41 +318,27 @@ bool mm_handle_page_fault(void *addr, bool user, int actions) {
 	return status;
 }
 
-/*
+// TODO read-only permission checking for DMA
+// space is expected to be locked on call.
 static int lock_page(mm_space_t *space, void *vaddr) {
 	mm_range_t *range = mm_get_range(space, vaddr);
 	if (!range)
-		return ENOENT;
+		return EFAULT;
 
-	void *mapped_address = arch_mmu_getphysical(current_mm_context()->pagetable, vaddr);
-	bool present = arch_mmu_ispresent(current_mm_context()->pagetable, vaddr);
-	bool writable = arch_mmu_iswritable(current_mm_context()->pagetable, vaddr);
-	bool file_mapping = range->flags & MM_RANGE_FLAGS_FILE;
-	bool private = (range->flags & MM_RANGE_FLAGS_SHARED) == 0 || file_mapping == false;
-	void *real_phys;
+	// we need to make sure the address is fully paged in before locking, as it needs
+	// to affect the final state of the page
+	page_t *page;
+	int error = mm_full_page_in(range, vaddr, &page);
+	if (error)
+		return error;
 
-	// TODO anon with refcount == 1 can go into another cas
-	// TODO read-only permission checking for DMA
-	// TODO shared anonymous mappings are not handled properly by the kernel
-	if (present && writable == false && private)) {
-		// CoW cases (private mapping)
-		real_phys = mm_alloc_page(MEMORY_SECTION_DEFAULT);
-		if (real_phys == NULL)
-			return ENOMEM;
+	if (page == NULL)
+		return EINVAL;
 
-		memcpy(MAKE_HHDM(real_phys), MAKE_HHDM(mapped_address), PAGE_SIZE);
+	__atomic_add_fetch(&page->lock_count, 1, __ATOMIC_SEQ_CST);
 
-		arch_mmu_remap(current_mm_context()->pagetable, real_phys, vaddr, range->mmuflags);
-		arch_mmu_invalidate_range(vaddr, PAGE_SIZE);
-		if (file_mapping == false || vfs_iscacheable(range->vnode))
-			mm_release_page(mapped_address);
-	} else if (present == false && private) {
-		// not present private mapping case
-		real_phys = mm_alloc_page(MEMORY_SECTION_DEFAULT);
-		if (real_phys == NULL)
-	}
+	return 0;
 }
-*/
 
 void *mm_get_physical_address(void *addr, int flags) {
 	void *aligned_addr = (void *)ROUND_DOWN((uintptr_t)addr, PAGE_SIZE);
@@ -275,21 +350,20 @@ void *mm_get_physical_address(void *addr, int flags) {
 	MUTEX_ACQUIRE(&space->lock);
 
 	void *physical;
-/*
-	if ((flags & MM_GET_PHYSICAL_ADDRESS_FLAGS_LOCK) && lock_page(space, aligned_addrr)) {
+	if ((flags & MM_GET_PHYSICAL_ADDRESS_FLAGS_LOCK) && lock_page(space, aligned_addr)) {
 		physical = NULL;
 		goto leave;
-	}*/
+	}
 
 	physical = arch_mmu_getphysical(current_mm_context()->pagetable, aligned_addr);
 
 	if (flags & MM_GET_PHYSICAL_ADDRESS_FLAGS_HOLD)
 		mm_hold_page(physical);
 
+	leave:
 	MUTEX_RELEASE(&space->lock);
-	return physical + ((uintptr_t)addr - (uintptr_t)aligned_addr);
+	return physical ? physical + ((uintptr_t)addr - (uintptr_t)aligned_addr) : NULL;
 }
-
 
 void *mm_map(void *addr, volatile size_t size, int flags, mmuflags_t mmuflags, void *private) {
 	if (addr == NULL)

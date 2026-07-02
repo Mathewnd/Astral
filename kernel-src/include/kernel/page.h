@@ -35,6 +35,7 @@ typedef struct page_t {
 		};
 	};
 	uintmax_t refcount;
+	uintmax_t lock_count;
 	int flags;
 } page_t;
 
