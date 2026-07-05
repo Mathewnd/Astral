@@ -214,6 +214,11 @@ static const int vfstoext2typetable[] = {
 static vops_t vnops;
 static scache_t *nodecache;
 
+static int writesuperblock(ext2fs_t *fs) {
+	size_t tmp;
+	return vfs_write(fs->backing, &fs->superblock, sizeof(ext2superblock_t), SUPERBLOCK_OFFSET, &tmp, 0);
+}
+
 static int syncsuperblock(ext2fs_t *fs) {
 	size_t tmp;
 	return vfs_write(fs->backing, &fs->superblock, sizeof(ext2superblock_t), SUPERBLOCK_OFFSET, &tmp, V_FFLAGS_NOCACHE);
@@ -339,7 +344,7 @@ static int allocatestructure(ext2fs_t *fs, uintmax_t *retid, bool inode) {
 		fs->superblock.unallocatedinodes -= 1;
 	else
 		fs->superblock.unallocatedblocks -= 1;
-	e = syncsuperblock(fs);
+	e = writesuperblock(fs);
 	MUTEX_RELEASE(&fs->superblocklock);
 	ASSERT_UNCLEAN(fs, e == 0);
 
@@ -415,7 +420,7 @@ static int freestructure(ext2fs_t *fs, uintmax_t id, bool inode) {
 		fs->superblock.unallocatedinodes += 1;
 	else
 		fs->superblock.unallocatedblocks += 1;
-	e = syncsuperblock(fs);
+	e = writesuperblock(fs);
 	MUTEX_RELEASE(&fs->superblocklock);
 
 	cleanup:
