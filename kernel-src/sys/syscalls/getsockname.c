@@ -11,8 +11,6 @@ syscallret_t syscall_getsockname(context_t *, int fd, void *uaddr, int *uaddrlen
 	if (ret.errno)
 		return ret;
 
-	addrlen = min(addrlen, sizeof(abisockaddr_t));
-
 	file_t *file = fd_get(fd);
 	if (file == NULL) {
 		ret.errno = EBADF;
@@ -31,16 +29,14 @@ syscallret_t syscall_getsockname(context_t *, int fd, void *uaddr, int *uaddrlen
 	if (ret.errno)
 		goto cleanup;
 
-	abisockaddr_t abisockaddr;
+	printf("namelen: %lu\n", strlen(sockaddr.path));
 
-	ret.errno = sock_addrtoabiaddr(socket->type, &sockaddr, &abisockaddr);
-	if (ret.errno)
-		goto cleanup;
-	
-	ret.errno = usercopy_touser(uaddr, &abisockaddr, addrlen);
+	socklen_t actual_len;
+	ret.errno = sock_copy_addr_to_user(socket->type, &sockaddr, uaddr, addrlen, &actual_len);
 	if (ret.errno)
 		goto cleanup;
 
+	addrlen = actual_len;
 	ret.errno = usercopy_touser(uaddrlen, &addrlen, sizeof(addrlen));
 	if (ret.errno)
 		goto cleanup;

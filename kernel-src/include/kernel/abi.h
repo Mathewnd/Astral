@@ -144,12 +144,12 @@ typedef struct {
 	uint16_t sin_family;
 	uint16_t sin_port;
 	uint32_t sin_addr;
-} __attribute__((packed)) inaddr_t;
+} inaddr_t;
 
 typedef struct {
 	uint16_t sun_family;
 	char sun_path[ABISOCKADDR_UN_MAX];
-} __attribute__((packed)) unaddr_t;
+} unaddr_t;
 
 typedef struct {
 	void *addr;

@@ -82,17 +82,17 @@ syscallret_t syscall_recvmsg(context_t *, int fd, msghdr_t *umsghdr, int flags) 
 		goto cleanup;
 
 	if (msghdr.addr) {
-		abisockaddr_t abisockaddr;
-		ret.errno = sock_addrtoabiaddr(socket->type, &sockaddr, &abisockaddr);
-		if (ret.errno)
-			goto cleanup;
-
 		void *ptr;
 		ret.errno = usercopy_fromuser(&ptr, &umsghdr->addr, sizeof(void *));
 		if (ret.errno)
 			goto cleanup;
 
-		ret.errno = usercopy_touser(ptr, &abisockaddr, min(sizeof(abisockaddr), msghdr.addrlen));
+		socklen_t actual_len;
+		ret.errno = sock_copy_addr_to_user(socket->type, &sockaddr, ptr, msghdr.addrlen, &actual_len);
+		if (ret.errno)
+			goto cleanup;
+
+		ret.errno = usercopy_touser(&umsghdr->addrlen, &actual_len, sizeof(actual_len));
 		if (ret.errno)
 			goto cleanup;
 	}

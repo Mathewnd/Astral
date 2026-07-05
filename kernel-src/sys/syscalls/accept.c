@@ -69,14 +69,20 @@ syscallret_t syscall_accept(context_t *, int oldfd, abisockaddr_t *abisockaddr, 
 	newfile->offset = 0;
 	newfile->mode = 0777;
 
-	abisockaddr_t tmpabiaddr;
-	__assert(sock_addrtoabiaddr(client->type, &addr, &tmpabiaddr) == 0);
-	addrlen = min(addrlen, sizeof(abisockaddr_t));
+	if (abisockaddr != NULL) {
+		socklen_t actual_len;
+		ret.errno = sock_copy_addr_to_user(client->type, &addr, abisockaddr, addrlen, &actual_len);
+		if (ret.errno) {
+			fd_close(newfd);
+			goto cleanup;
+		}
 
-	if (abisockaddr != NULL && (usercopy_touser(abisockaddr, &tmpabiaddr, addrlen) || usercopy_touser(uaddrlen, &addrlen, sizeof(addrlen)))) {
-		ret.errno = EFAULT;
-		fd_close(newfd);
-		goto cleanup;
+		addrlen = actual_len;
+		ret.errno = usercopy_touser(uaddrlen, &addrlen, sizeof(addrlen));
+		if (ret.errno) {
+			fd_close(newfd);
+			goto cleanup;
+		}
 	}
 
 	ret.ret = newfd;

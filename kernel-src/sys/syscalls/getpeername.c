@@ -29,19 +29,12 @@ syscallret_t syscall_getpeername(context_t *, int fd, void *uaddr, int *uaddrlen
 	if (ret.errno)
 		goto cleanup;
 
-	abisockaddr_t abisockaddr;
-
-	ret.errno = sock_addrtoabiaddr(socket->type, &sockaddr, &abisockaddr);
-
+	socklen_t actual_len;
+	ret.errno = sock_copy_addr_to_user(socket->type, &sockaddr, uaddr, addrlen, &actual_len);
 	if (ret.errno)
 		goto cleanup;
 
-	ret.errno = usercopy_touser(uaddr, &abisockaddr, min(addrlen, sizeof(abisockaddr_t)));
-	if (ret.errno)
-		goto cleanup;
-
-	addrlen = sizeof(abisockaddr_t);
-
+	addrlen = actual_len;
 	ret.errno = usercopy_touser(uaddrlen, &addrlen, sizeof(addrlen));
 	ret.ret = ret.errno ? -1 : 0;
 

@@ -193,6 +193,45 @@ static inline int sock_addrtoabiaddr(int socktype, sockaddr_t *sockaddr, abisock
 	return 0;
 }
 
+static inline int sock_copy_addr_to_user(int socktype, sockaddr_t *sockaddr, void *uaddr, socklen_t uaddrlen, socklen_t *actual_len) {
+	switch (socktype) {
+		case SOCKET_TYPE_UDP:
+		case SOCKET_TYPE_TCP: {
+			abisockaddr_t abisockaddr = {0};
+			abisockaddr.type = AF_INET;
+			inaddr_t *inaddr = (inaddr_t *)&abisockaddr;
+			inaddr->sin_addr = cpu_to_be_d(sockaddr->ipv4addr.addr);
+			inaddr->sin_port = cpu_to_be_w(sockaddr->ipv4addr.port);
+
+			*actual_len = sizeof(abisockaddr);
+
+			return usercopy_touser(uaddr, &abisockaddr, min(uaddrlen, sizeof(abisockaddr)));
+		}
+		case SOCKET_TYPE_LOCAL:
+		case SOCKET_TYPE_LOCAL_SEQPACKET: {
+			size_t path_len = strnlen(sockaddr->path, ABISOCKADDR_UN_MAX - 1) + 1;
+			if (path_len == ABISOCKADDR_UN_MAX)
+				return EINVAL;
+
+			*actual_len = offsetof(unaddr_t, sun_path) + (path_len != 1 ? path_len : 0);
+
+			uint16_t family = AF_LOCAL;
+			if (usercopy_touser(uaddr, &family, min(uaddrlen, sizeof(family))))
+				return EFAULT;
+
+			if (uaddrlen > offsetof(unaddr_t, sun_path) && path_len) {
+				size_t size = min(uaddrlen - offsetof(unaddr_t, sun_path), path_len);
+				if (usercopy_touser((void *)((uintptr_t)uaddr + offsetof(unaddr_t, sun_path)), sockaddr->path, size))
+					return EFAULT;
+			}
+
+			return 0;
+		}
+		default:
+			return EINVAL;
+	}
+}
+
 static inline int sock_copymsghdr(msghdr_t *khdr, msghdr_t *uhdr) {
 	if (usercopy_fromuser(khdr, uhdr, sizeof(msghdr_t)))
 		return EFAULT;
