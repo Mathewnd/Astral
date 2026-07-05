@@ -1183,8 +1183,35 @@ static int localsock_getname(socket_t *socket, sockaddr_t *addr) {
 }
 
 static int localsock_getpeername(socket_t *socket, sockaddr_t *addr) {
-	addr->path[0] = '\0';
-	return 0;
+	localsocket_t *localsocket = (localsocket_t *)socket;
+	MUTEX_ACQUIRE(&socket->mutex);
+	int error = 0;
+
+	localpair_t *pair = localsocket->pair;
+	if (pair == NULL) {
+		error = ENOTCONN;
+		goto leave;
+	}
+
+	MUTEX_ACQUIRE(&pair->mutex);
+
+	localsocket_t *peer = pair->client == localsocket ? pair->server : pair->client;
+	if (peer == NULL) {
+		error = ENOTCONN;
+		goto leave_pair;
+	}
+
+	if (peer->bindpath)
+		strcpy(addr->path, peer->bindpath);
+	else
+		addr->path[0] = '\0';
+
+	leave_pair:
+	MUTEX_RELEASE(&pair->mutex);
+
+	leave:
+	MUTEX_RELEASE(&socket->mutex);
+	return error;
 }
 
 static int localsock_shutdown(socket_t *socket, int how) {
