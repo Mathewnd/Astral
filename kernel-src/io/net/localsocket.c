@@ -690,6 +690,15 @@ static int localsock_accept(socket_t *_server, socket_t *_clientconnection, sock
 		MUTEX_ACQUIRE(&binding->mutex);
 	}
 
+	if (server->bindpath) {
+		size_t length = strlen(server->bindpath) + 1;
+		clientconnection->bindpath = alloc(length);
+		if (clientconnection->bindpath == NULL)
+			goto leave;
+
+		memcpy(clientconnection->bindpath, server->bindpath, length);
+	}
+
 	// we have a valid pair and we have acquired the mutex already
 	// configure the client connection. we don't lock it because it should only be
 	// curretly accessible here anyways
