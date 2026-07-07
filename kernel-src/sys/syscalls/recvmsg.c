@@ -21,7 +21,6 @@ syscallret_t syscall_recvmsg(context_t *, int fd, msghdr_t *umsghdr, int flags) 
 	if (ret.errno)
 		return ret;
 
-	file_t *file = NULL;
 	size_t buffersize = iovec_size(msghdr.iov, msghdr.iovcount);
 	if (buffersize == 0) {
 		sock_freemsghdr(&msghdr);
@@ -36,19 +35,14 @@ syscallret_t syscall_recvmsg(context_t *, int fd, msghdr_t *umsghdr, int flags) 
 		return ret;
 	}
 
-	file = fd_get(fd);
-	if (file == NULL) {
-		ret.errno = EBADF;
+	vnode_t *vnode = NULL;
+	int fileflags;
+	ret.errno = sockfd_get(fd, &vnode, &fileflags);
+	if (ret.errno)
 		goto cleanup;
-	}
-
-	if (file->vnode->type != V_TYPE_SOCKET) {
-		ret.errno = ENOTSOCK;
-		goto cleanup;
-	}
 
 	sockaddr_t sockaddr;
-	socket_t *socket = SOCKFS_SOCKET_FROM_NODE(file->vnode);
+	socket_t *socket = SOCKFS_SOCKET_FROM_NODE(vnode);
 
 	uintmax_t recvflags = 0;
 	if (flags & MSG_PEEK)
@@ -68,7 +62,7 @@ syscallret_t syscall_recvmsg(context_t *, int fd, msghdr_t *umsghdr, int flags) 
 		.addr = &sockaddr,
 		.iovec_iterator = &iovec_iterator,
 		.count = buffersize,
-		.flags = fileflagstovnodeflags(file->flags) | recvflags,
+		.flags = fileflagstovnodeflags(fileflags) | recvflags,
 		.donecount = 0,
 		.ctrl = msghdr.msgctrl,
 		.ctrllen = msghdr.ctrllen,
@@ -120,9 +114,8 @@ syscallret_t syscall_recvmsg(context_t *, int fd, msghdr_t *umsghdr, int flags) 
 	ret.ret = ret.errno ? -1 : desc.donecount;
 
 	cleanup:
-	if (file)
-		fd_release(file);
-
+	if (vnode)
+		VOP_RELEASE(vnode);
 	sock_freemsghdr(&msghdr);
 	return ret;
 }

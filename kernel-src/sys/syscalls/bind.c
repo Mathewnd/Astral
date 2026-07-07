@@ -24,16 +24,10 @@ syscallret_t syscall_bind(context_t *, int fd, void *uaddr, size_t addrlen) {
 		return ret;
 	}
 
-	file_t *file = fd_get(fd);
-	if (file == NULL) {
-		ret.errno = EBADF;
+	vnode_t *vnode = NULL;
+	ret.errno = sockfd_get(fd, &vnode, NULL);
+	if (ret.errno)
 		goto cleanup;
-	}
-
-	if (file->vnode->type != V_TYPE_SOCKET) {
-		ret.errno = ENOTSOCK;
-		goto cleanup;
-	}
 
 	ret.errno = usercopy_fromuser(addr, uaddr, addrlen);
 	if (ret.errno)
@@ -44,15 +38,14 @@ syscallret_t syscall_bind(context_t *, int fd, void *uaddr, size_t addrlen) {
 	if (ret.errno)
 		goto cleanup;
 
-	socket_t *socket = SOCKFS_SOCKET_FROM_NODE(file->vnode);
+	socket_t *socket = SOCKFS_SOCKET_FROM_NODE(vnode);
 
 	ret.errno = socket->ops->bind(socket, &sockaddr, &current_thread()->proc->cred);
 	ret.ret = ret.errno ? -1 : 0;
 
 	cleanup:
-	if (file)
-		fd_release(file);
-
+	if (vnode)
+		VOP_RELEASE(vnode);
 	free(addr);
 	return ret;
 }

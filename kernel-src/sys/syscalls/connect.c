@@ -25,16 +25,11 @@ syscallret_t syscall_connect(context_t *, int fd, abisockaddr_t *uaddr, size_t a
 		return ret;
 	}
 
-	file_t *file = fd_get(fd);
-	if (file == NULL) {
-		ret.errno = EBADF;
+	vnode_t *vnode = NULL;
+	int fileflags;
+	ret.errno = sockfd_get(fd, &vnode, &fileflags);
+	if (ret.errno)
 		goto cleanup;
-	}
-
-	if (file->vnode->type != V_TYPE_SOCKET) {
-		ret.errno = ENOTSOCK;
-		goto cleanup;
-	}
 
 	ret.errno = usercopy_fromuser(addr, uaddr, addrlen);
 	if (ret.errno)
@@ -45,15 +40,14 @@ syscallret_t syscall_connect(context_t *, int fd, abisockaddr_t *uaddr, size_t a
 	if (ret.errno)
 		goto cleanup;
 
-	socket_t *socket = SOCKFS_SOCKET_FROM_NODE(file->vnode);
+	socket_t *socket = SOCKFS_SOCKET_FROM_NODE(vnode);
 
-	ret.errno = socket->ops->connect ? socket->ops->connect(socket, &sockaddr, fileflagstovnodeflags(file->flags), &current_thread()->proc->cred) : EOPNOTSUPP;
+	ret.errno = socket->ops->connect ? socket->ops->connect(socket, &sockaddr, fileflagstovnodeflags(fileflags), &current_thread()->proc->cred) : EOPNOTSUPP;
 	ret.ret = ret.errno ? -1 : 0;
 
 	cleanup:
-	if (file)
-		fd_release(file);
-
+	if (vnode)
+		VOP_RELEASE(vnode);
 	free(addr);
 	return ret;
 }

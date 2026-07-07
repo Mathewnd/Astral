@@ -15,18 +15,13 @@ syscallret_t syscall_accept(context_t *, int oldfd, abisockaddr_t *abisockaddr, 
 			return ret;
 	}
 
-	file_t *oldfile = fd_get(oldfd);
-	if (oldfile == NULL) {
-		ret.errno = EBADF;
+	vnode_t *servernode;
+	int fileflags;
+	ret.errno = sockfd_get(oldfd, &servernode, &fileflags);
+	if (ret.errno)
 		return ret;
-	}
 
-	if (oldfile->vnode->type != V_TYPE_SOCKET) {
-		ret.errno = ENOTSOCK;
-		goto cleanup;
-	}
-
-	socket_t *server = SOCKFS_SOCKET_FROM_NODE(oldfile->vnode);
+	socket_t *server = SOCKFS_SOCKET_FROM_NODE(servernode);
 
 	if (server->ops->accept == NULL) {
 		ret.errno = ENOTSUP;
@@ -39,18 +34,18 @@ syscallret_t syscall_accept(context_t *, int oldfd, abisockaddr_t *abisockaddr, 
 		goto cleanup;
 	}
 
-	vnode_t *vnode;
-	ret.errno = sockfs_newsocket(&vnode, client);
+	vnode_t *clientnode;
+	ret.errno = sockfs_newsocket(&clientnode, client);
 	if (ret.errno) {
 		client->ops->destroy(client);
 		goto cleanup;
 	}
 
 	sockaddr_t addr = {0};
-	ret.errno = server->ops->accept(server, client, &addr, fileflagstovnodeflags(oldfile->flags));
+	ret.errno = server->ops->accept(server, client, &addr, fileflagstovnodeflags(fileflags));
 	if (ret.errno) {
 		// socket gets deleted by node cleanup
-		VOP_RELEASE(vnode);
+		VOP_RELEASE(clientnode);
 		goto cleanup;
 	}
 
@@ -60,11 +55,11 @@ syscallret_t syscall_accept(context_t *, int oldfd, abisockaddr_t *abisockaddr, 
 	ret.errno = fd_new(acceptflags & O_CLOEXEC, &newfile, &newfd);
 	if (ret.errno) {
 		// socket gets deleted by node cleanup
-		VOP_RELEASE(vnode);
+		VOP_RELEASE(clientnode);
 		goto cleanup;
 	}
 
-	newfile->vnode = vnode;
+	newfile->vnode = clientnode;
 	newfile->flags = FILE_READ | FILE_WRITE | (acceptflags & (O_NONBLOCK));
 	newfile->offset = 0;
 	newfile->mode = 0777;
@@ -88,7 +83,7 @@ syscallret_t syscall_accept(context_t *, int oldfd, abisockaddr_t *abisockaddr, 
 	ret.ret = newfd;
 
 	cleanup:
-	fd_release(oldfile);
+	VOP_RELEASE(servernode);
 
 	return ret;
 }

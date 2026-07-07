@@ -11,19 +11,13 @@ syscallret_t syscall_getsockname(context_t *, int fd, void *uaddr, int *uaddrlen
 	if (ret.errno)
 		return ret;
 
-	file_t *file = fd_get(fd);
-	if (file == NULL) {
-		ret.errno = EBADF;
-		goto cleanup;
-	}
-
-	if (file->vnode->type != V_TYPE_SOCKET) {
-		ret.errno = ENOTSOCK;
-		goto cleanup;
-	}
+	vnode_t *vnode;
+	ret.errno = sockfd_get(fd, &vnode, NULL);
+	if (ret.errno)
+		return ret;
 
 	sockaddr_t sockaddr;
-	socket_t *socket = SOCKFS_SOCKET_FROM_NODE(file->vnode);
+	socket_t *socket = SOCKFS_SOCKET_FROM_NODE(vnode);
 
 	ret.errno = socket->ops->getname(socket, &sockaddr);
 	if (ret.errno)
@@ -42,8 +36,7 @@ syscallret_t syscall_getsockname(context_t *, int fd, void *uaddr, int *uaddrlen
 	ret.ret = 0;
 
 	cleanup:
-	if (file)
-		fd_release(file);
+	VOP_RELEASE(vnode);
 
 	return ret;
 }

@@ -20,24 +20,16 @@ syscallret_t syscall_shutdown(context_t *, int fd, int how) {
 
 	++how; // convert to internal meaning
 
-	file_t *file = fd_get(fd);
-	if (file == NULL) {
-		ret.errno = EBADF;
+	vnode_t *vnode;
+	ret.errno = sockfd_get(fd, &vnode, NULL);
+	if (ret.errno)
 		return ret;
-	}
 
-	if (file->vnode->type != V_TYPE_SOCKET) {
-		ret.errno = ENOTSOCK;
-		goto cleanup;
-	}
-
-	socket_t *socket = SOCKFS_SOCKET_FROM_NODE(file->vnode);
+	socket_t *socket = SOCKFS_SOCKET_FROM_NODE(vnode);
 
 	ret.errno = socket->ops->shutdown(socket, how);
 	ret.ret = ret.errno ? -1 : 0;
 
-	cleanup:
-
-	fd_release(file);
+	VOP_RELEASE(vnode);
 	return ret;
 }

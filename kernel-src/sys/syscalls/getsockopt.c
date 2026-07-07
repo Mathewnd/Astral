@@ -14,18 +14,12 @@ syscallret_t syscall_getsockopt(context_t *, int fd, int level, int optname, voi
 		return ret;
 	}
 
-	file_t *file = fd_get(fd);
-	if (file == NULL) {
-		ret.errno = EBADF;
+	vnode_t *vnode;
+	ret.errno = sockfd_get(fd, &vnode, NULL);
+	if (ret.errno)
 		return ret;
-	}
 
-	if (file->vnode->type != V_TYPE_SOCKET) {
-		ret.errno = ENOTSOCK;
-		goto cleanup;
-	}
-
-	socket_t *socket = SOCKFS_SOCKET_FROM_NODE(file->vnode); 
+	socket_t *socket = SOCKFS_SOCKET_FROM_NODE(vnode);
 
 	MUTEX_ACQUIRE(&socket->mutex);
 	if (level == SOL_SOCKET) {
@@ -59,9 +53,8 @@ syscallret_t syscall_getsockopt(context_t *, int fd, int level, int optname, voi
 
 	MUTEX_RELEASE(&socket->mutex);
 
-	cleanup:
 	ret.ret = ret.errno ? -1 : 0;
 
-	fd_release(file);
+	VOP_RELEASE(vnode);
 	return ret;
 }

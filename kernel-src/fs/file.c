@@ -4,7 +4,6 @@
 #include <logging.h>
 #include <errno.h>
 #include <kernel/alloc.h>
-#include <kernel/sock.h>
 
 static scache_t *filecache;
 #define FILE_HOLD(f) __atomic_add_fetch(&(f)->refcount, 1, __ATOMIC_SEQ_CST)
@@ -180,11 +179,6 @@ int fd_close(int fd) {
 	MUTEX_RELEASE(&proc->fdmutex);
 
 	if (file) {
-		if (file->vnode && file->vnode->type == V_TYPE_SOCKET) {
-			socket_t *socket = SOCKFS_SOCKET_FROM_NODE(file->vnode);
-			socket->ops->shutdown(socket, SOCKET_SHUTDOWN_RW);
-		}
-
 		FILE_RELEASE(file);
 	}
 	else {

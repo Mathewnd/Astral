@@ -3,11 +3,13 @@
 
 #include <kernel/net.h>
 #include <kernel/vfs.h>
+#include <kernel/file.h>
 #include <mutex.h>
 #include <kernel/poll.h>
 #include <kernel/usercopy.h>
 #include <kernel/iovec.h>
 #include <stdbool.h>
+#include <errno.h>
 
 #define SOCKET_STATE_UNBOUND 0
 #define SOCKET_STATE_BOUND 1
@@ -91,6 +93,26 @@ typedef struct {
 #define SOCKET_TYPE_TCP 2
 #define SOCKET_TYPE_LOCAL_SEQPACKET 3
 #define SOCKFS_SOCKET_FROM_NODE(nodep) (((socketnode_t *)(nodep))->socket)
+
+static inline int sockfd_get(int fd, vnode_t **vnodep, int *fileflags) {
+	file_t *file = fd_get(fd);
+	if (file == NULL)
+		return EBADF;
+
+	if (file->vnode->type != V_TYPE_SOCKET) {
+		fd_release(file);
+		return ENOTSOCK;
+	}
+
+	vnode_t *vnode = file->vnode;
+	VOP_HOLD(vnode);
+	if (fileflags)
+		*fileflags = file->flags;
+	fd_release(file);
+
+	*vnodep = vnode;
+	return 0;
+}
 
 static inline bool socket_nonblocking(socket_t *socket, uintmax_t flags) {
 	return socket->nonblocking || (flags & V_FFLAGS_NONBLOCKING);

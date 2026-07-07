@@ -22,7 +22,9 @@ int sockfs_open(vnode_t **node, int flags, cred_t *cred) {
 }
 
 int sockfs_close(vnode_t *node, int flags, cred_t *cred) {
-	return ENOSYS; // not needed
+	socket_t *socket = SOCKFS_SOCKET_FROM_NODE(node);
+
+	return socket->ops->shutdown ? socket->ops->shutdown(socket, SOCKET_SHUTDOWN_RW) : 0;
 }
 
 int sockfs_read(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size, uintmax_t offset, int flags, size_t *bytes_read, cred_t *cred) {
