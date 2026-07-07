@@ -151,11 +151,11 @@ static int datapoll(localsocket_t *local, localsocket_t *peer, int events) {
 	int revents = 0;
 
 	// data to read?
-	if ((events & POLLIN) && (RINGBUFFER_DATACOUNT(&local->ringbuffer) || (peer->socket.shutdown & SOCKET_SHUTDOWN_WRITE)))
+	if ((events & POLLIN) && (RINGBUFFER_DATACOUNT(&local->ringbuffer) || (local->socket.shutdown & SOCKET_SHUTDOWN_READ) || (peer->socket.shutdown & SOCKET_SHUTDOWN_WRITE)))
 		revents |= POLLIN;
 
 	// XXX is this the correct behaviour?
-	if ((events & POLLOUT) && (peer->socket.shutdown & SOCKET_SHUTDOWN_READ))
+	if ((events & POLLOUT) && ((local->socket.shutdown & SOCKET_SHUTDOWN_WRITE) || (peer->socket.shutdown & SOCKET_SHUTDOWN_READ)))
 		revents |= POLLHUP;
 
 	// space to write?
@@ -167,6 +167,10 @@ static int datapoll(localsocket_t *local, localsocket_t *peer, int events) {
 
 static int listeningpoll(localsocket_t *localsocket, int events) {
 	int revents = 0;
+
+	if (localsocket->socket.shutdown & SOCKET_SHUTDOWN_READ)
+		return POLLHUP | (events & POLLIN);
+
 	// can insert into backlog?
 	if (backlog_has_space(localsocket))
 		revents |= (events & POLLOUT) ? POLLOUT : 0;
@@ -675,6 +679,11 @@ static int localsock_accept(socket_t *_server, socket_t *_clientconnection, sock
 			poll_leave(&desc);
 			poll_destroydesc(&desc);
 
+			if (!backlog_has_data(server)) {
+				error = EINVAL;
+				goto leave;
+			}
+
 			pair = popbacklog(server);
 			MUTEX_ACQUIRE(&pair->mutex);
 			if (pair->client == NULL) {
@@ -798,7 +807,7 @@ static int localsock_connect(socket_t *socket, sockaddr_t *addr, uintmax_t flags
 	// and if the server has not closed the socket and is listening
 	MUTEX_ACQUIRE(&binding->mutex);
 	localsocket_t *server = binding->server;
-	if (server == NULL || server->listening == false) {
+	if (server == NULL || server->listening == false || (server->socket.shutdown & SOCKET_SHUTDOWN_READ)) {
 		error = ECONNREFUSED;
 		goto leave;
 	}
@@ -822,6 +831,10 @@ static int localsock_connect(socket_t *socket, sockaddr_t *addr, uintmax_t flags
 		if (revents) {
 			poll_leave(&desc);
 			poll_destroydesc(&desc);
+			if (revents & POLLHUP) {
+				error = ECONNREFUSED;
+				goto leave;
+			}
 			break;
 		}
 
@@ -852,7 +865,7 @@ static int localsock_connect(socket_t *socket, sockaddr_t *addr, uintmax_t flags
 
 		MUTEX_ACQUIRE(&binding->mutex);
 		server = binding->server;
-		if (server == NULL || server->listening == false) {
+		if (server == NULL || server->listening == false || (server->socket.shutdown & SOCKET_SHUTDOWN_READ)) {
 			// server closed while we waited!
 			// release the vnode so it can get deleted and set the binding to NULL as we can't be sure on its state anymore.
 			MUTEX_RELEASE(&binding->mutex);
@@ -1217,8 +1230,17 @@ static int localsock_shutdown(socket_t *socket, int how) {
 	localsocket_t *localsocket = (localsocket_t *)socket;
 	MUTEX_ACQUIRE(&socket->mutex);
 	int error;
-
 	localpair_t *pair = localsocket->pair;
+
+	if (localsocket->listening) {
+		socket->shutdown |= how;
+		if (how & SOCKET_SHUTDOWN_READ)
+			poll_event(&socket->pollheader, POLLHUP | POLLIN);
+
+		error = 0;
+		goto leave;
+	}
+
 	// socket not connected
 	if (pair == NULL) {
 		error = ENOTCONN;
@@ -1232,16 +1254,26 @@ static int localsock_shutdown(socket_t *socket, int how) {
 	socket->shutdown |= how;
 
 	int poll_events = 0;
+	int this_events = 0;
 
 	// XXX is this the correct behaviour?
-	if (how & SOCKET_SHUTDOWN_READ)
+	if (how & SOCKET_SHUTDOWN_READ) {
 		poll_events |= POLLHUP;
+		this_events |= POLLIN;
+	}
 
-	if (how & SOCKET_SHUTDOWN_WRITE)
+	if (how & SOCKET_SHUTDOWN_WRITE) {
 		poll_events |= POLLIN;
+		this_events |= POLLOUT;
+	}
+
+	if (how == SOCKET_SHUTDOWN_RW)
+		this_events |= POLLHUP;
 
 	if (peer)
 		poll_event(&peer->socket.pollheader, poll_events);
+
+	poll_event(&socket->pollheader, this_events);
 
 	error = 0;
 
