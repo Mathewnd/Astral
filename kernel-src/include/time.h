@@ -3,6 +3,7 @@
 
 #include <util.h>
 #include <stdbool.h>
+#include <errno.h>
 
 typedef long time_t;
 typedef long suseconds_t;
@@ -63,6 +64,21 @@ static inline timeval_t timespec_to_timeval(timespec_t ts) {
 		ts.ns / 1000
 	};
 	return tv;
+}
+
+static inline int timeval_to_us(timeval_t *tv, time_t *timeout_us) {
+	if (tv->s < 0 || tv->us < 0 || tv->us >= 1000000)
+		return EINVAL;
+
+	*timeout_us = tv->s * 1000000 + tv->us;
+	return 0;
+}
+
+static inline timeval_t timeval_from_us(time_t timeout_us) {
+	return (timeval_t) {
+		.s = timeout_us / 1000000,
+		.us = timeout_us % 1000000
+	};
 }
 
 #endif

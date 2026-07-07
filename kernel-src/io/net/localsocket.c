@@ -5,6 +5,7 @@
 #include <ringbuffer.h>
 #include <kernel/vfs.h>
 #include <kernel/file.h>
+#include <time.h>
 
 #define SOCKET_BUFFER (256 * 1024)
 #define FILE_COUNT 256
@@ -35,6 +36,8 @@ typedef struct {
 	uintmax_t barrierwrite; // shared with pair
 	int filesremaining[BARRIER_SIZE]; // shared with pair
 	int bytesremaining[BARRIER_SIZE]; // shared with pair
+	time_t rcv_timeout_us;
+	time_t snd_timeout_us;
 	bool seqpacket;
 	localsock_cred_t cred;
 } localsocket_t;
@@ -464,7 +467,9 @@ static int localsock_send(socket_t *socket, sockdesc_t *sockdesc) {
 		MUTEX_RELEASE(&pair->mutex);
 		MUTEX_RELEASE(&socket->mutex);
 
-		error = poll_dowait(&desc, 0);
+		error = poll_dowait(&desc, localsocket->snd_timeout_us);
+		if (error == ETIMEDOUT)
+			error = EAGAIN;
 
 		poll_leave(&desc);
 		poll_destroydesc(&desc);
@@ -562,7 +567,9 @@ static int localsock_recv(socket_t *socket, sockdesc_t *sockdesc) {
 		MUTEX_RELEASE(&pair->mutex);
 		MUTEX_RELEASE(&socket->mutex);
 
-		error = poll_dowait(&desc, 0);
+		error = poll_dowait(&desc, localsocket->rcv_timeout_us);
+		if (error == ETIMEDOUT)
+			error = EAGAIN;
 
 		poll_leave(&desc);
 		poll_destroydesc(&desc);
@@ -687,7 +694,9 @@ static int localsock_accept(socket_t *_server, socket_t *_clientconnection, sock
 		MUTEX_RELEASE(&binding->mutex);
 		MUTEX_RELEASE(&server->socket.mutex);
 
-		error = poll_dowait(&desc, 0);
+		error = poll_dowait(&desc, server->rcv_timeout_us);
+		if (error == ETIMEDOUT)
+			error = EAGAIN;
 
 		poll_leave(&desc);
 		poll_destroydesc(&desc);
@@ -827,7 +836,9 @@ static int localsock_connect(socket_t *socket, sockaddr_t *addr, uintmax_t flags
 		VOP_HOLD(vn);
 		MUTEX_RELEASE(&binding->mutex);
 
-		error = poll_dowait(&desc, 0);
+		error = poll_dowait(&desc, localsocket->snd_timeout_us);
+		if (error == ETIMEDOUT)
+			error = EAGAIN;
 
 		poll_leave(&desc);
 		poll_destroydesc(&desc);
@@ -905,7 +916,9 @@ static int localsock_connect(socket_t *socket, sockaddr_t *addr, uintmax_t flags
 	// release and wait. once we return, we will be connected.
 	MUTEX_RELEASE(&pair->mutex);
 
-	error = poll_dowait(&desc, 0);
+	error = poll_dowait(&desc, localsocket->snd_timeout_us);
+	if (error == ETIMEDOUT)
+		error = EAGAIN;
 
 	poll_leave(&desc);
 	poll_destroydesc(&desc);
@@ -1264,10 +1277,32 @@ static int localsock_shutdown(socket_t *socket, int how) {
 
 // called with socket locked
 static int localsock_setopt(socket_t *socket, int layer, int optname, void *buffer, socklen_t len, cred_t *cred) {
+	localsocket_t *localsocket = (localsocket_t *)socket;
 	int error = 0;
 
 	if (layer == SOL_SOCKET) {
 		switch (optname) {
+			case SO_RCVTIMEO:
+			case SO_SNDTIMEO: {
+				if (len != sizeof(timeval_t))
+					return EINVAL;
+
+				timeval_t tv;
+				error = USERCOPY_POSSIBLY_FROM_USER(&tv, buffer, sizeof(tv));
+				if (error)
+					return error;
+
+				time_t timeout_us;
+				error = timeval_to_us(&tv, &timeout_us);
+				if (error)
+					return error;
+
+				if (optname == SO_RCVTIMEO)
+					localsocket->rcv_timeout_us = timeout_us;
+				else
+					localsocket->snd_timeout_us = timeout_us;
+				break;
+			}
 			case SO_SNDLOWAT:
 			case SO_OOBINLINE:
 			case SO_KEEPALIVE:
@@ -1343,6 +1378,14 @@ static int localsock_getopt(socket_t *socket, int layer, int optname, void *unsa
 
 				int value = SOCKET_BUFFER;
 				return USERCOPY_POSSIBLY_TO_USER(unsafe_buffer, &value, 4);
+			}
+			case SO_RCVTIMEO:
+			case SO_SNDTIMEO: {
+				if (len != sizeof(timeval_t))
+					return EINVAL;
+
+				timeval_t tv = timeval_from_us(optname == SO_RCVTIMEO ? localsocket->rcv_timeout_us : localsocket->snd_timeout_us);
+				return USERCOPY_POSSIBLY_TO_USER(unsafe_buffer, &tv, sizeof(tv));
 			}
 		}
 	}

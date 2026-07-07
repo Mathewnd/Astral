@@ -120,6 +120,8 @@ typedef struct {
 #define SO_PEERCRED	17
 #define SO_RCVLOWAT     18
 #define SO_SNDLOWAT     19
+#define SO_RCVTIMEO     20
+#define SO_SNDTIMEO     21
 #define SO_BINDTODEVICE 25
 #define SO_ACCEPTCONN   30
 #define SO_PROTOCOL     38
