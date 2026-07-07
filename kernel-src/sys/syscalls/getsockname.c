@@ -29,8 +29,6 @@ syscallret_t syscall_getsockname(context_t *, int fd, void *uaddr, int *uaddrlen
 	if (ret.errno)
 		goto cleanup;
 
-	printf("namelen: %lu\n", strlen(sockaddr.path));
-
 	socklen_t actual_len;
 	ret.errno = sock_copy_addr_to_user(socket->type, &sockaddr, uaddr, addrlen, &actual_len);
 	if (ret.errno)
