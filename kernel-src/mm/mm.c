@@ -391,7 +391,7 @@ void *mm_map(void *addr, volatile size_t size, int flags, mmuflags_t mmuflags, v
 
 	void *start = mm_get_free_range(space, addr, size);
 	void *ret_addr = NULL;
-	if (((flags & MM_RANGE_FLAGS_EXACT) && start != addr) || start == NULL)
+	if (((flags & MM_RANGE_FLAGS_EXACT) && start != addr) || (start == NULL && !(flags & MM_RANGE_FLAGS_REPLACE)))
 		goto cleanup;
 
 	range = mm_alloc_range();
