@@ -29,7 +29,9 @@ build() {
 }
 
 package() {
-	make install DESTDIR=${dest_dir}
+	# vim strips the installed binary with a bare `$(STRIP)`; use the cross strip
+	# so it works when building for x86_64 on a non-x86_64 host.
+	make install DESTDIR=${dest_dir} STRIP=x86_64-astral-strip
 	
 	mkdir -p ${dest_dir}/bin
 	pushd ${dest_dir}/bin
