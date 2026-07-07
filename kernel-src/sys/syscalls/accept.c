@@ -46,7 +46,7 @@ syscallret_t syscall_accept(context_t *, int oldfd, abisockaddr_t *abisockaddr, 
 		goto cleanup;
 	}
 
-	sockaddr_t addr;
+	sockaddr_t addr = {0};
 	ret.errno = server->ops->accept(server, client, &addr, fileflagstovnodeflags(oldfile->flags));
 	if (ret.errno) {
 		// socket gets deleted by node cleanup

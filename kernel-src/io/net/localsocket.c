@@ -640,6 +640,7 @@ static int localsock_recv(socket_t *socket, sockdesc_t *sockdesc) {
 static int localsock_accept(socket_t *_server, socket_t *_clientconnection, sockaddr_t *addr, uintmax_t flags) {
 	localsocket_t *server = (localsocket_t *)_server;
 	localsocket_t *clientconnection = (localsocket_t *)_clientconnection;
+	addr->path[0] = '\0';
 
 	MUTEX_ACQUIRE(&server->socket.mutex);
 	binding_t *binding = server->binding;
