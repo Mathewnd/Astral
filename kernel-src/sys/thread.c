@@ -96,8 +96,9 @@ __attribute__((noreturn)) void sched_threadexit() {
 
 			proc_exit();
 			mm_destroy_context(oldctx);
-			PROC_RELEASE(proc);
 		}
+
+		PROC_RELEASE(proc);
 	}
 
 	interrupt_set(false);
