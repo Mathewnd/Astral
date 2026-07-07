@@ -476,7 +476,7 @@ static int localsock_send(socket_t *socket, sockdesc_t *sockdesc) {
 			goto leave;
 	}
 
-	if (peer == NULL) {
+	if (peer == NULL || (peer->socket.shutdown & SOCKET_SHUTDOWN_READ)) {
 		if (current_thread()->proc && (sockdesc->flags & SOCKET_SEND_FLAGS_NOSIGNAL) == 0)
 			signal_signalproc(current_thread()->proc, SIGPIPE);
 
