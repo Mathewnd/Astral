@@ -14,7 +14,10 @@ build() {
 }
 
 package() {
-	make install DESTDIR="${dest_dir}"
+	# ncurses hardcodes a bare `install -s` (INSTALL_OPT_S), which would strip the
+	# x86_64 target binaries with the host's native strip and fail on non-x86_64
+	# hosts. Point install at the cross strip so the binaries are still stripped.
+	make install DESTDIR="${dest_dir}" INSTALL_PROG='$(INSTALL) -s --strip-program=x86_64-astral-strip'
 
 	echo "INPUT(-lncursesw)" > ${dest_dir}${prefix}/lib/libncurses.so
 	echo "INPUT(-ltinfow)" > ${dest_dir}${prefix}/lib/libtinfo.so
