@@ -428,12 +428,12 @@ static int localsock_send(socket_t *socket, sockdesc_t *sockdesc) {
 		goto leave;
 	}
 
-	localsocket_t *peer = pair->client == localsocket ? pair->server : pair->client;
-
 	MUTEX_ACQUIRE(&pair->mutex);
+	localsocket_t *peer;
 
 	// check/wait for space
 	for (;;) {
+		peer = pair->client == localsocket ? pair->server : pair->client;
 		polldesc_t desc = {0};
 		error = poll_initdesc(&desc, 1);
 		if (error)
@@ -460,14 +460,18 @@ static int localsock_send(socket_t *socket, sockdesc_t *sockdesc) {
 			poll_destroydesc(&desc);
 			goto leave;
 		}
+
 		MUTEX_RELEASE(&pair->mutex);
+		MUTEX_RELEASE(&socket->mutex);
 
 		error = poll_dowait(&desc, 0);
 
 		poll_leave(&desc);
 		poll_destroydesc(&desc);
 
+		MUTEX_ACQUIRE(&socket->mutex);
 		MUTEX_ACQUIRE(&pair->mutex);
+
 		if (error)
 			goto leave;
 	}
@@ -554,13 +558,16 @@ static int localsock_recv(socket_t *socket, sockdesc_t *sockdesc) {
 			poll_destroydesc(&desc);
 			goto leave;
 		}
+
 		MUTEX_RELEASE(&pair->mutex);
+		MUTEX_RELEASE(&socket->mutex);
 
 		error = poll_dowait(&desc, 0);
 
 		poll_leave(&desc);
 		poll_destroydesc(&desc);
 
+		MUTEX_ACQUIRE(&socket->mutex);
 		MUTEX_ACQUIRE(&pair->mutex);
 		if (error)
 			goto leave;
@@ -636,7 +643,7 @@ static int localsock_accept(socket_t *_server, socket_t *_clientconnection, sock
 		return EINVAL;
 	}
 
-	MUTEX_ACQUIRE(&server->binding->mutex);
+	MUTEX_ACQUIRE(&binding->mutex);
 
 	if (server->listening == false) {
 		error = EINVAL;
@@ -678,6 +685,7 @@ static int localsock_accept(socket_t *_server, socket_t *_clientconnection, sock
 		}
 
 		MUTEX_RELEASE(&binding->mutex);
+		MUTEX_RELEASE(&server->socket.mutex);
 
 		error = poll_dowait(&desc, 0);
 
@@ -685,8 +693,9 @@ static int localsock_accept(socket_t *_server, socket_t *_clientconnection, sock
 		poll_destroydesc(&desc);
 
 		if (error)
-			goto leave_nobinding;
+			return error;
 
+		MUTEX_ACQUIRE(&server->socket.mutex);
 		MUTEX_ACQUIRE(&binding->mutex);
 	}
 
@@ -715,7 +724,6 @@ static int localsock_accept(socket_t *_server, socket_t *_clientconnection, sock
 
 	leave:
 	MUTEX_RELEASE(&binding->mutex);
-	leave_nobinding:
 	MUTEX_RELEASE(&server->socket.mutex);
 	return error;
 }
