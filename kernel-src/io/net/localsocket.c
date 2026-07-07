@@ -896,32 +896,9 @@ static int localsock_connect(socket_t *socket, sockaddr_t *addr, uintmax_t flags
 	binding = NULL;
 
 	localsocket->pair = pair;
-
-	// if nonblocking, return success. the userspace/whatever will
-	// poll() the client to know when they can send data or if the server gave up and closed
-	if (socket_nonblocking(socket, flags)) {
-		error = 0;
-		goto leave;
-	}
-
-	// otherwise, we will just do the same thing as userspace (but here)
-	polldesc_t desc = {0};
-	error = poll_initdesc(&desc, 1);
-	if (error)
-		goto leave;
-
-	int revents = internalpoll(socket, &desc.data[0], POLLOUT);
-	__assert(revents == 0);
-
-	// release and wait. once we return, we will be connected.
 	MUTEX_RELEASE(&pair->mutex);
 
-	error = poll_dowait(&desc, localsocket->snd_timeout_us);
-	if (error == ETIMEDOUT)
-		error = EAGAIN;
-
-	poll_leave(&desc);
-	poll_destroydesc(&desc);
+	error = 0;
 
 	leave:
 	if (binding)
