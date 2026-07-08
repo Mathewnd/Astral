@@ -273,7 +273,13 @@ bool mm_handle_page_fault(void *addr, bool user, int actions) {
 	}
 
 	MUTEX_ACQUIRE(&space->lock);
-	mm_range_t *range = mm_get_range(space, addr);
+
+	// we look at the last page fault range and check if the address is in this range
+	// this avoids more expensive tree lookup
+	mm_range_t* range = space->last_pagefault;
+	if(range == NULL || range->start > addr || addr >= range->start + range->size) {
+		range = mm_get_range(space, addr);
+	}
 
 	bool status = false;
 
@@ -281,6 +287,8 @@ bool mm_handle_page_fault(void *addr, bool user, int actions) {
 		printf("mm: no range\n");
 		goto cleanup;
 	}
+
+	space->last_pagefault = range;
 
 	// check if valid
 

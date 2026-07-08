@@ -46,6 +46,8 @@ typedef struct {
 	rbtree_t *ranges;
 	void *start;
 	void *end;
+
+	mm_range_t *last_pagefault;
 } mm_space_t;
 
 typedef struct {
