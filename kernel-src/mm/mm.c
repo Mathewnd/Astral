@@ -74,14 +74,81 @@ static void print_space(mm_space_t *space) {
 
 static void *zero_page;
 
-// space range is in expected locked
+// the range's space is expected to be locked
+int mm_partial_page_in(mm_range_t *range, void *vaddr, page_t **resulting_page) {
+	bool present = arch_mmu_ispresent(current_mm_context()->pagetable, vaddr);
+	bool file_mapping = range->flags & MM_RANGE_FLAGS_FILE;
+	bool cacheable = file_mapping && vfs_iscacheable(range->vnode);
+	bool private = (range->flags & MM_RANGE_FLAGS_SHARED) == 0 || file_mapping == false; // TODO
+
+	if (present) {
+		void *mapped_address = arch_mmu_getphysical(current_mm_context()->pagetable, vaddr);
+		*resulting_page = mm_get_page(mapped_address);
+		return 0;
+	}
+
+	if (file_mapping) {
+		size_t map_offset = (uintptr_t)vaddr - (uintptr_t)range->start;
+		int error;
+
+		if (cacheable) {
+			page_t *res;
+			error = mm_cache_get_page(range->vnode, range->offset + map_offset, &res);
+			if (error)
+				return error;
+
+			void *new_phys = mm_get_page_address(res);
+			if (!arch_mmu_map(current_mm_context()->pagetable, new_phys, vaddr, range->mmuflags & ~ARCH_MMU_FLAGS_WRITE)) {
+				mm_release_page(new_phys);
+				error = ENOMEM;
+			}
+
+			*resulting_page = res;
+		} else {
+			cred_t *cred = current_thread()->proc ? &current_thread()->proc->cred : NULL;
+			VOP_LOCK(range->vnode);
+			error = VOP_MMAP(range->vnode, vaddr, range->offset + map_offset, mm_mmu_flags_to_vnode_flags(range->mmuflags) | (private ? 0 : V_FFLAGS_SHARED), cred);
+			VOP_UNLOCK(range->vnode);
+			*resulting_page = NULL; // we cannot guarantee that device mappings have a valid backing
+		}
+
+		return error;
+	}
+
+	// anonymous memory
+	if (range->mmuflags & ARCH_MMU_FLAGS_WRITE) {
+		void *new_page = mm_alloc_page(MEMORY_SECTION_DEFAULT);
+		if (new_page == NULL)
+			return ENOMEM;
+
+		memset(MAKE_HHDM(new_page), 0, PAGE_SIZE);
+		if (!arch_mmu_map(current_mm_context()->pagetable, new_page, vaddr, range->mmuflags)) {
+			mm_release_page(new_page);
+			return ENOMEM;
+		}
+
+		*resulting_page = mm_get_page(new_page);
+		return 0;
+	}
+
+	int error = ENOMEM;
+	if (arch_mmu_map(current_mm_context()->pagetable, zero_page, vaddr, range->mmuflags)) {
+		mm_hold_page(zero_page);
+		*resulting_page = mm_get_page(zero_page);
+		error = 0;
+	}
+
+	return error;
+}
+
+// the range's space is expected to be locked
 int mm_full_page_in(mm_range_t *range, void *vaddr, page_t **resulting_page) {
 	void *mapped_address = arch_mmu_getphysical(current_mm_context()->pagetable, vaddr);
 	bool present = arch_mmu_ispresent(current_mm_context()->pagetable, vaddr);
 	bool writable = arch_mmu_iswritable(current_mm_context()->pagetable, vaddr);
 	bool file_mapping = range->flags & MM_RANGE_FLAGS_FILE;
 	bool cacheable = file_mapping && vfs_iscacheable(range->vnode);
-	bool private = (range->flags & MM_RANGE_FLAGS_SHARED) == 0 || file_mapping == false;
+	bool private = (range->flags & MM_RANGE_FLAGS_SHARED) == 0 || file_mapping == false; // TODO
 
 	if (present && (!(range->mmuflags & ARCH_MMU_FLAGS_WRITE) || writable)) {
 		// already fully paged in
@@ -233,85 +300,18 @@ bool mm_handle_page_fault(void *addr, bool user, int actions) {
 		goto cleanup;
 	}
 
-	thread_t *thread = current_thread();
-	proc_t *proc = thread ? thread->proc : NULL;
-	cred_t *cred = proc ? &proc->cred : NULL;
+	page_t *p;
+	int error;
+	if (!arch_mmu_ispresent(current_mm_context()->pagetable, addr))
+		error = mm_partial_page_in(range, addr, &p);
+	else
+		error = mm_full_page_in(range, addr, &p);
 
-	if (arch_mmu_ispresent(current_mm_context()->pagetable, addr) == false) {
-		// page not present in the page tables
-		if (range->flags & MM_RANGE_FLAGS_FILE) {
-			uintmax_t map_offset = (uintptr_t)addr - (uintptr_t)range->start;
-			if (vfs_iscacheable(range->vnode) == false) {
-				// map non cacheable vnodes
-				VOP_LOCK(range->vnode);
-				__assert(VOP_MMAP(range->vnode, addr, range->offset + map_offset, mm_mmu_flags_to_vnode_flags(range->mmuflags) | (range->flags & MM_RANGE_FLAGS_SHARED ? V_FFLAGS_SHARED : 0), cred) == 0);
-				VOP_UNLOCK(range->vnode);
-				status = true;
-			} else {
-				// cacheable vnode
-				page_t *res = NULL;
-				int error = mm_cache_get_page(range->vnode, range->offset + map_offset, &res);
-
-				if (error == ENXIO || error == ENOMEM)  {
-					if (error == ENOMEM)
-						printf("mm: out of memory to handle getpage (sending SIGBUS)\n");
-					// address is past the last page of the file
-					signal_signalthread(current_thread(), SIGBUS, true);
-					status = true;
-				} else if (error) {
-					printf("mm: error on mm_cache_get_page(): %d\n", error);
-					status = false;
-				} else {
-					status = arch_mmu_map(current_mm_context()->pagetable, mm_get_page_address(res), addr, range->mmuflags & ~ARCH_MMU_FLAGS_WRITE);
-					if (!status) {
-						printf("mm: out of memory to map file into address space (sending SIGBUS)\n");
-						mm_release_page(mm_get_page_address(res));
-						signal_signalthread(current_thread(), SIGBUS, true);
-						status = true;
-					}
-				}
-			}
-		} else {
-			status = true;
-			// anonymous memory.
-			if (range->mmuflags & ARCH_MMU_FLAGS_WRITE) {
-				// writeable range: allocate a new page, zero it and map it
-				void *new_page = mm_alloc_page(MEMORY_SECTION_DEFAULT);
-				if (new_page == NULL) {
-					printf("mm: out of memory to allocate page to satisfy anonymous page-in (sending SIGBUS)\n");
-					signal_signalthread(current_thread(), SIGBUS, true);
-					goto cleanup;
-				}
-
-				memset(MAKE_HHDM(new_page), 0, PAGE_SIZE);
-
-				if (!arch_mmu_map(current_mm_context()->pagetable, new_page, addr, range->mmuflags)) {
-					printf("mm: out of memory to map page (sending SIGBUS)\n");
-					signal_signalthread(current_thread(), SIGBUS, true);
-					mm_release_page(new_page);
-				}
-			} else {
-				// read-only range: map a shared zero page
-				if (!arch_mmu_map(current_mm_context()->pagetable, zero_page, addr, range->mmuflags)) {
-					printf("mm: out of memory to map zero page into address space (sending SIGBUS)\n");
-					signal_signalthread(current_thread(), SIGBUS, true);
-				} else {
-					mm_hold_page(zero_page);
-				}
-			}
-		}
-	} else if (arch_mmu_iswritable(current_mm_context()->pagetable, addr) == false) {
-		page_t *p;
-		int error = mm_full_page_in(range, addr, &p);
-		if (error) {
-			printf("mm: failed to page in: %s (sending SIGBUS)\n", strerror(error));
-			signal_signalthread(current_thread(), SIGBUS, true);
-		}
-		status = true;
-	} else {
-		// another thread already did the work, so just return success
-		status = true;
+	if (error) {
+		printf("mm: failed to do page-in: %s (sending SIGBUS)\n", strerror(error));
+		signal_signalthread(current_thread(), SIGBUS, true);
 	}
+	status = true;
 
 	cleanup:
 	MUTEX_RELEASE(&space->lock);
@@ -320,11 +320,10 @@ bool mm_handle_page_fault(void *addr, bool user, int actions) {
 
 // space is expected to be locked on call.
 static int lock_page(mm_space_t *space, void *vaddr, int hint) {
-	// TODO: with a read hint, we could theoretically only partially page in.
 	mm_range_t *range = mm_get_range(space, vaddr);
-	if (!range || 
-	((hint & MM_GET_PHYSICAL_ADDRESS_FLAGS_LOCK_HINT_WRITE) && !(range->mmuflags & ARCH_MMU_FLAGS_WRITE)) ||
-	((hint & MM_GET_PHYSICAL_ADDRESS_FLAGS_LOCK_HINT_READ) && !(range->mmuflags & ARCH_MMU_FLAGS_READ)))
+	bool read_hint = hint & MM_GET_PHYSICAL_ADDRESS_FLAGS_LOCK_HINT_READ;
+	bool write_hint = hint & MM_GET_PHYSICAL_ADDRESS_FLAGS_LOCK_HINT_WRITE;
+	if (!range || (write_hint && !(range->mmuflags & ARCH_MMU_FLAGS_WRITE)) || (read_hint && !(range->mmuflags & ARCH_MMU_FLAGS_READ)))
 		return EFAULT;
 
 	// since we cannot guarantee the mapping of a character device actually points to physical memory,
@@ -336,8 +335,14 @@ static int lock_page(mm_space_t *space, void *vaddr, int hint) {
 
 	// we need to make sure the address is fully paged in before locking, as it needs
 	// to affect the final state of the page
+	// the only exception to this is if we know this operation will be read-only, which can safely operate on a partial page.
 	page_t *page;
-	int error = mm_full_page_in(range, vaddr, &page);
+	int error;
+	if (read_hint && !write_hint)
+		error = mm_partial_page_in(range, vaddr, &page);
+	else
+		error = mm_full_page_in(range, vaddr, &page);
+
 	if (error)
 		return error;
 
