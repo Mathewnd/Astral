@@ -94,7 +94,7 @@ rbtree_t *rbtree_find_first_larger_equal(rbtree_t *rbtree, void *key, rbtree_val
 		if (comparison == 0)
 			return rbtree;
 
-		if (comparison == 1 && (found == NULL || compare_fn(found, rbtree) > 0))
+		if (comparison == -1)
 			found = rbtree;
 
 		rbtree = comparison == 1 ? rbtree->right : rbtree->left;
