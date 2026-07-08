@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 #define MEMORY_SECTION_COUNT 3
 #define MEMORY_SECTION_1MB 0
@@ -44,11 +45,14 @@ page_t *mm_get_page(void *addr);
 void *mm_get_page_address(page_t *);
 void mm_hold_page(void *addr);
 void mm_release_page(void *addr);
+void mm_unlock_and_release_page(void *addr);
 void mm_force_free_page(void *address, size_t count);
 void *mm_alloc_pages(size_t size, int section);
 void mm_release_range(void *addr, size_t size);
 void mm_page_init();
 void mm_get_page_statistics(size_t *total_pages, size_t *free_pages);
+void mm_unlock_page(page_t *page);
+bool mm_is_page_locked(page_t *page);
 
 extern uintptr_t hhdm_base;
 

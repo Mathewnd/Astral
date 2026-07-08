@@ -510,26 +510,29 @@ static int iowrite(nvmenamespace_t *namespace, uint64_t prp[2], uint64_t lba, ui
 #define PAGES_IN_PRP_PAGE (PAGE_SIZE / sizeof(uint64_t))
 
 static void free_prps(uint64_t prp[2], bool has_list) {
-	mm_release_page((void *)ROUND_DOWN(prp[0], PAGE_SIZE));
-	if (has_list) {
-		uint64_t *prp_list = MAKE_HHDM((uint64_t *)prp[1]);
-		for (int i = 0; prp_list[i] && i < PAGES_IN_PRP_PAGE; ++i)
-			mm_release_page((void *)prp_list[i]);
-	}
+	void *prp1 = (void *)prp[1];
 
-	if (prp[1])
-		mm_release_page((void *)prp[1]);
+	mm_unlock_and_release_page((void *)ROUND_DOWN(prp[0], PAGE_SIZE));
+	if (has_list) {
+		uint64_t *prp_list = MAKE_HHDM(prp1);
+		for (int i = 0; i < PAGES_IN_PRP_PAGE && prp_list[i]; ++i)
+			mm_unlock_and_release_page((void *)prp_list[i]);
+
+		mm_release_page(prp1);
+	} else if (prp1) {
+		mm_unlock_and_release_page(prp1);
+	}
 }
 
 // sets up prps based on an iovec iterator.
 // takes in the wanted block count and outputs an io_count for the i/o operation (for example, if it did not fit entirely on the prp)
-static int setup_prps(nvmenamespace_t *namespace, iovec_iterator_t *iovec_iterator, uint64_t prp[2], size_t count, size_t *io_count, bool *has_list) {
+static int setup_prps(nvmenamespace_t *namespace, iovec_iterator_t *iovec_iterator, uint64_t prp[2], size_t count, size_t *io_count, bool *has_list, bool write) {
 	count = min(count, namespace->max_transfer_size_blocks);
 
 	// first page
 	void *page;
 	size_t page_offset, page_remaining;
-	int error = iovec_iterator_next_page(iovec_iterator, &page_offset, &page_remaining, &page);
+	int error = iovec_iterator_next_page(iovec_iterator, &page_offset, &page_remaining, &page, !write);
 	if (error)
 		return error;
 	__assert(page);
@@ -553,7 +556,7 @@ static int setup_prps(nvmenamespace_t *namespace, iovec_iterator_t *iovec_iterat
 	}
 
 	// second page
-	error = iovec_iterator_next_page(iovec_iterator, &page_offset, &page_remaining, &page);
+	error = iovec_iterator_next_page(iovec_iterator, &page_offset, &page_remaining, &page, !write);
 	if (error) {
 		free_prps(prp, false);
 		return error;
@@ -591,7 +594,7 @@ static int setup_prps(nvmenamespace_t *namespace, iovec_iterator_t *iovec_iterat
 
 	// loop over the pages
 	for (int i = 1; i < PAGES_IN_PRP_PAGE; ++i) {
-		error = iovec_iterator_next_page(iovec_iterator, &page_offset, &page_remaining, &page);
+		error = iovec_iterator_next_page(iovec_iterator, &page_offset, &page_remaining, &page, !write);
 		if (error) {
 			prp_list[i] = 0;
 			free_prps(prp, true);
@@ -603,7 +606,7 @@ static int setup_prps(nvmenamespace_t *namespace, iovec_iterator_t *iovec_iterat
 		if (page_offset || page_remaining % namespace->blocksize) {
 			prp_list[i] = 0;
 			free_prps(prp, true);
-			mm_release_page(page);
+			mm_unlock_and_release_page(page);
 			return EINVAL;
 		}
 
@@ -641,7 +644,7 @@ static int rwblocks(nvmenamespace_t *namespace, iovec_iterator_t *iovec_iterator
 	for (;;) {
 		size_t io_count;
 		bool has_list;
-		error = setup_prps(namespace, iovec_iterator, prp, count, &io_count, &has_list);
+		error = setup_prps(namespace, iovec_iterator, prp, count, &io_count, &has_list, write);
 		if (error)
 			return error;
 

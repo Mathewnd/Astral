@@ -322,6 +322,7 @@ struct xhci_submission {
 	list_node_t list_node;
 	// Set whenever a submission is queued
 	bool valid;
+	bool unlock_pages;
 	struct xhci_ring *ring;
 
 	// The data associated with this submission

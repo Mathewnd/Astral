@@ -62,11 +62,17 @@ syscallret_t syscall_futex(context_t *, uint32_t *futexp, int op, uint32_t value
 
 	bool doleave = true;
 	uint32_t word;
+	uint32_t *physical = NULL;
 	ret.errno = usercopy_fromuseratomic32(futexp, &word);
 	if (unlikely(ret.errno))
 		goto cleanup;
 
-	uint32_t *physical = mm_get_physical_address(futexp, 0);
+	physical = mm_get_physical_address(futexp, MM_GET_PHYSICAL_ADDRESS_FLAGS_HOLD | MM_GET_PHYSICAL_ADDRESS_FLAGS_LOCK);
+	if (unlikely(physical == NULL)) {
+		ret.errno = EFAULT;
+		goto cleanup;
+	}
+
 	futex_t *futex = getfutex(physical);
 
 	switch (op) {
@@ -161,6 +167,9 @@ syscallret_t syscall_futex(context_t *, uint32_t *futexp, int op, uint32_t value
 		poll_leave(&desc);
 
 	poll_destroydesc(&desc);
+
+	if (physical)
+		mm_unlock_and_release_page(physical);
 
 	MUTEX_RELEASE(&futexmutex);
 	return ret;

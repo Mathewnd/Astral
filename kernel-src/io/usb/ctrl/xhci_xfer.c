@@ -12,7 +12,7 @@ typedef struct {
 	size_t data_offset;
 } sg_trb_t;
 
-static int xhci_count_sg_trbs(iovec_iterator_t *iov, size_t total_size, size_t *trb_count) {
+static int xhci_count_sg_trbs(iovec_iterator_t *iov, size_t total_size, size_t *trb_count, bool write) {
 	iovec_iterator_t iter = *iov;
 	size_t done = 0;
 	size_t count = 0;
@@ -21,13 +21,13 @@ static int xhci_count_sg_trbs(iovec_iterator_t *iov, size_t total_size, size_t *
 		size_t page_offset, page_remaining;
 		void *page;
 
-		int err = iovec_iterator_next_page(&iter, &page_offset, &page_remaining, &page);
+		int err = iovec_iterator_next_page(&iter, &page_offset, &page_remaining, &page, write);
 		if (err)
 			return err;
 		if (page == NULL)
 			return EFAULT;
 
-		mm_release_page(page);
+		mm_unlock_and_release_page(page);
 
 		done += min(page_remaining, total_size - done);
 		count++;
@@ -40,6 +40,8 @@ static int xhci_count_sg_trbs(iovec_iterator_t *iov, size_t total_size, size_t *
 int xhci_data_xfer(xhci_ctrl_t *xhci, xhci_device_t *dev, usb_xfer_t *xfer, xhci_submission_t *sub) {
 	__assert(xfer->ep != NULL);
 	__assert(xfer->setup == NULL);
+
+	sub->unlock_pages = false;
 
 	uint32_t ep_num = xfer->ep->desc->bEndpointAddress & USB_ENDPOINT_ADDRESS_NUM_MASK;
 	uint32_t ep_index = (ep_num << 1) | (xfer->ep->desc->bEndpointAddress & USB_ENDPOINT_ADDRESS_DIR_IN ? 1 : 0);
@@ -99,6 +101,7 @@ int xhci_sg_data_xfer(xhci_ctrl_t *xhci, xhci_ring_t *ring, xhci_device_t *dev, 
 	uint16_t max_packet_size = usb_endpoint_max_packet_size(xfer->ep->desc);
 	uint32_t td_count = ROUND_UP(xfer->iov->total_size, max_packet_size) / max_packet_size;
 	uint32_t done = 0;
+	sub->unlock_pages = true;
 
 	if (xfer->iov->total_size == 0) {
 		if (sub->callback)
@@ -107,7 +110,7 @@ int xhci_sg_data_xfer(xhci_ctrl_t *xhci, xhci_ring_t *ring, xhci_device_t *dev, 
 	}
 
 	size_t trb_count;
-	int err = xhci_count_sg_trbs(xfer->iov, xfer->iov->total_size, &trb_count);
+	int err = xhci_count_sg_trbs(xfer->iov, xfer->iov->total_size, &trb_count, xfer->flags & USB_XFER_FLAG_TO_HOST);
 	if (err)
 		return err;
 
@@ -127,9 +130,10 @@ int xhci_sg_data_xfer(xhci_ctrl_t *xhci, xhci_ring_t *ring, xhci_device_t *dev, 
 		size_t page_offset, page_remaining;
 		void *page;
 
-		err = iovec_iterator_next_page(&iter, &page_offset, &page_remaining, &page);
+		err = iovec_iterator_next_page(&iter, &page_offset, &page_remaining, &page, xfer->flags & USB_XFER_FLAG_TO_HOST);
 		if (err)
 			goto fail;
+
 		if (page == NULL) {
 			err = EFAULT;
 			goto fail;
@@ -187,7 +191,7 @@ int xhci_sg_data_xfer(xhci_ctrl_t *xhci, xhci_ring_t *ring, xhci_device_t *dev, 
 
 	fail:
 	for (size_t i = 0; i < prepared_count; ++i)
-		mm_release_page(prepared[i].page);
+		mm_unlock_and_release_page(prepared[i].page);
 	free(prepared);
 	xhci_ring_unreserve(ring, trb_count);
 	return err;
@@ -196,6 +200,8 @@ int xhci_sg_data_xfer(xhci_ctrl_t *xhci, xhci_ring_t *ring, xhci_device_t *dev, 
 int xhci_control_xfer(xhci_ctrl_t *xhci, xhci_device_t *dev, usb_xfer_t *xfer, xhci_submission_t *sub) {
 	__assert(xfer->ep == NULL);
 	__assert(xfer->setup != NULL);
+
+	sub->unlock_pages = false;
 
 	// Why would anyone want to do scatter-gather control transfers???
 	__assert(!(xfer->flags & USB_XFER_FLAG_IOVEC));

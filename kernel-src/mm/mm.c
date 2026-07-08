@@ -161,7 +161,7 @@ int mm_full_page_in(mm_range_t *range, void *vaddr, page_t **resulting_page) {
 			return ENOMEM;
 		}
 
-		if (cacheable) {
+		if (cacheable && (range->mmuflags & ARCH_MMU_FLAGS_WRITE)) {
 			VOP_LOCK(range->vnode);
 			mm_cache_make_dirty(vn_page);
 			VOP_UNLOCK(range->vnode);
@@ -318,11 +318,20 @@ bool mm_handle_page_fault(void *addr, bool user, int actions) {
 	return status;
 }
 
-// TODO read-only permission checking for DMA
 // space is expected to be locked on call.
-static int lock_page(mm_space_t *space, void *vaddr) {
+static int lock_page(mm_space_t *space, void *vaddr, int hint) {
+	// TODO: with a read hint, we could theoretically only partially page in.
 	mm_range_t *range = mm_get_range(space, vaddr);
-	if (!range)
+	if (!range || 
+	((hint & MM_GET_PHYSICAL_ADDRESS_FLAGS_LOCK_HINT_WRITE) && !(range->mmuflags & ARCH_MMU_FLAGS_WRITE)) ||
+	((hint & MM_GET_PHYSICAL_ADDRESS_FLAGS_LOCK_HINT_READ) && !(range->mmuflags & ARCH_MMU_FLAGS_READ)))
+		return EFAULT;
+
+	// since we cannot guarantee the mapping of a character device actually points to physical memory,
+	// we cannot reliably lock it. returning an error here also protects from trying to DMA into non-physical memory
+	// like the framebuffer.
+	// same thing applies to an abstract physical memory mapping.
+	if (((range->flags & MM_RANGE_FLAGS_FILE) && (range->vnode->type == V_TYPE_CHDEV)) || (range->flags & MM_RANGE_FLAGS_PHYSICAL))
 		return EFAULT;
 
 	// we need to make sure the address is fully paged in before locking, as it needs
@@ -350,7 +359,7 @@ void *mm_get_physical_address(void *addr, int flags) {
 	MUTEX_ACQUIRE(&space->lock);
 
 	void *physical;
-	if ((flags & MM_GET_PHYSICAL_ADDRESS_FLAGS_LOCK) && lock_page(space, aligned_addr)) {
+	if ((flags & MM_GET_PHYSICAL_ADDRESS_FLAGS_LOCK) && lock_page(space, aligned_addr, flags)) {
 		physical = NULL;
 		goto leave;
 	}
@@ -567,8 +576,6 @@ mm_context_t *mm_fork_context(mm_context_t *old_context) {
 		if (range->flags & MM_RANGE_FLAGS_FILE)
 			VOP_HOLD(range->vnode);
 
-		// copy any pages that are mapped
-
 		for (uintptr_t offset = 0; offset < new_range->size; offset += PAGE_SIZE) {
 			// XXX some types of mappings, like framebuffer shared mappings, will break if done this way
 			void *vaddr = (void *)((uintptr_t)new_range->start + offset);
@@ -576,12 +583,30 @@ mm_context_t *mm_fork_context(mm_context_t *old_context) {
 			if (phys == NULL)
 				continue;
 
-			if (arch_mmu_map(new_context->pagetable, phys, vaddr, new_range->mmuflags & ~ARCH_MMU_FLAGS_WRITE) == false)
-				goto error;
+			bool writeable = arch_mmu_iswritable(old_context->pagetable, vaddr);
+			bool private = !(range->flags & MM_RANGE_FLAGS_SHARED);
+			page_t *page = mm_get_page(phys);
+			if (mm_is_page_locked(page) && writeable && private) {
+				// the page is a private locked page, eagerly copy it to ensure fork/futex correctness
+				void *new_phys = mm_alloc_page(MEMORY_SECTION_DEFAULT);
+				if (new_phys == NULL)
+					goto error;
 
-			mm_hold_page(phys);
+				if (arch_mmu_map(new_context->pagetable, new_phys, vaddr, new_range->mmuflags) == false) {
+					mm_release_page(new_phys);
+					goto error;
+				}
 
-			arch_mmu_remap(old_context->pagetable, phys, vaddr, new_range->mmuflags & ~ARCH_MMU_FLAGS_WRITE);
+				memcpy(MAKE_HHDM(new_phys), MAKE_HHDM(phys), PAGE_SIZE);
+			} else {
+				// go through the normal CoW path
+				if (arch_mmu_map(new_context->pagetable, phys, vaddr, new_range->mmuflags & ~ARCH_MMU_FLAGS_WRITE) == false)
+					goto error;
+
+				mm_hold_page(phys);
+
+				arch_mmu_remap(old_context->pagetable, phys, vaddr, new_range->mmuflags & ~ARCH_MMU_FLAGS_WRITE);
+			}
 		}
 
 		rbtree = rbtree_successor(rbtree);

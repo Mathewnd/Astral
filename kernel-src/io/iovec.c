@@ -235,7 +235,7 @@ size_t iovec_iterator_read_from_ringbuffer(iovec_iterator_t *iovec_iterator, rin
 	return done;
 }
 
-int iovec_iterator_next_page(iovec_iterator_t *iovec_iterator, size_t *page_offset, size_t *page_remaining, void **page) {
+int iovec_iterator_next_page(iovec_iterator_t *iovec_iterator, size_t *page_offset, size_t *page_remaining, void **page, bool write) {
 	iovec_iterator_skip(iovec_iterator, 0); // this will skip any zero length entries
 	void *addr = (void *)((uintptr_t)iovec_iterator->current->addr + iovec_iterator->current_offset);
 	size_t offset_in_page = ((uintptr_t)addr % PAGE_SIZE);
@@ -246,7 +246,11 @@ int iovec_iterator_next_page(iovec_iterator_t *iovec_iterator, size_t *page_offs
 		return 0;
 	}
 
-	void *phys = mm_get_physical_address((void *)((uintptr_t)addr - offset_in_page), MM_GET_PHYSICAL_ADDRESS_FLAGS_HOLD | MM_GET_PHYSICAL_ADDRESS_FLAGS_LOCK);
+	void *phys = mm_get_physical_address((void *)((uintptr_t)addr - offset_in_page),
+			MM_GET_PHYSICAL_ADDRESS_FLAGS_HOLD |
+			MM_GET_PHYSICAL_ADDRESS_FLAGS_LOCK |
+			(write ? MM_GET_PHYSICAL_ADDRESS_FLAGS_LOCK_HINT_WRITE :
+				 MM_GET_PHYSICAL_ADDRESS_FLAGS_LOCK_HINT_READ));
 	if (phys == NULL)
 		return EFAULT;
 

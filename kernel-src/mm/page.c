@@ -146,12 +146,27 @@ void mm_release_page(void *addr) {
 	MUTEX_ACQUIRE(&free_list_mutex);
 	__assert(page->refcount != 0);
 	if (--page->refcount == 0) {
+		__assert(!mm_is_page_locked(page));
 		__assert((page->flags & PAGE_FLAGS_DIRTY) == 0);
 		insert_in_free_list(page);
 		if (page->backing == NULL)
 			page->flags |= PAGE_FLAGS_FREE;
 	}
 	MUTEX_RELEASE(&free_list_mutex);
+}
+
+void mm_unlock_and_release_page(void *addr) {
+	page_t *page = &pages[(uintptr_t)addr / PAGE_SIZE];
+	mm_unlock_page(page);
+	mm_release_page(addr);
+}
+
+bool mm_is_page_locked(page_t *page) {
+	return __atomic_load_n(&page->lock_count, __ATOMIC_SEQ_CST) > 0;
+}
+
+void mm_unlock_page(page_t *page) {
+	__assert(__atomic_fetch_sub(&page->lock_count, 1, __ATOMIC_SEQ_CST) > 0);
 }
 
 static void do_alloc(page_t *page) {

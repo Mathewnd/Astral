@@ -83,6 +83,8 @@ xhci_submission_t *xhci_ring_submit_locked(xhci_ring_t *r, xhci_trb_t *trb, xhci
 		bool old_valid = __atomic_exchange_n(&r_sub->valid, true, __ATOMIC_SEQ_CST);
 		__assert(!old_valid);
 
+		r_sub->unlock_pages = sub->unlock_pages;
+
 		r_sub->ring = r;
 		r_sub->device = sub->device;
 		r_sub->callback = sub->callback;

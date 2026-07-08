@@ -116,7 +116,7 @@ static int vioblk_rw(vioblkdev_t *blkdev, iovec_iterator_t *iovec_iterator, uint
 	while (done < count) {
 		void *page;
 		size_t page_offset, page_remaining;
-		err = iovec_iterator_next_page(iovec_iterator, &page_offset, &page_remaining, &page);
+		err = iovec_iterator_next_page(iovec_iterator, &page_offset, &page_remaining, &page, !write);
 		if (err)
 			break;
 
@@ -133,7 +133,7 @@ static int vioblk_rw(vioblkdev_t *blkdev, iovec_iterator_t *iovec_iterator, uint
 
 		vioblk_enqueue(blkdev, header, (void *)((uintptr_t)page + page_offset), PAGE_SIZE, status, write);
 
-		mm_release_page(page);
+		mm_unlock_and_release_page(page);
 
 		// if we didnt use the whole space in the page, set the iterator back a bit
 		size_t diff_between_available_and_used = page_remaining - docount * 512;

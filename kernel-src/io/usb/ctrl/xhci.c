@@ -27,8 +27,13 @@ static void xhci_signal_callback_thread(xhci_ctrl_t *xhci) {
 static void xhci_release_submission_page(xhci_submission_t *submission) {
 	uint32_t cmd_type = xhci_trb_type(&submission->cmd_trb);
 
-	if ((cmd_type == TRB_NORMAL || cmd_type == TRB_DATA_STAGE) && submission->cmd_trb.parameters != 0)
-		mm_release_page((void *)(submission->cmd_trb.parameters & ~(PAGE_SIZE - 1)));
+	if ((cmd_type == TRB_NORMAL || cmd_type == TRB_DATA_STAGE) && submission->cmd_trb.parameters != 0) {
+		void *page = (void *)(submission->cmd_trb.parameters & ~(PAGE_SIZE - 1));
+		if (submission->unlock_pages)
+			mm_unlock_and_release_page(page);
+		else
+			mm_release_page(page);
+	}
 }
 
 static bool xhci_reclaim_submission_slot(xhci_submission_t *slot, xhci_submission_t *submission) {

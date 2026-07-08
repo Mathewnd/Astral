@@ -308,12 +308,12 @@ static int cmd_identify(ahci_t *ahci, int port, identify_t *results_phys) {
 static void release_prdt(command_table_t *command_table, uint16_t prdtl) {
 	for (int i = 0; i < prdtl; ++i) {
 		void *address = (void *)((uint64_t)command_table->prdt[i].base_low | ((uint64_t)command_table->prdt[i].base_high << 32));
-		mm_release_page(address);
+		mm_unlock_and_release_page(address);
 	}
 }
 
 #define PRDTL_LIMIT ((PAGE_SIZE - sizeof(command_table_t)) / sizeof(prdt_t))
-static int setup_prdt(iovec_iterator_t *iterator, command_table_t *command_table, uint16_t *prdtl, size_t *requested_size) {
+static int setup_prdt(iovec_iterator_t *iterator, command_table_t *command_table, uint16_t *prdtl, size_t *requested_size, bool write) {
 	int err;
 	size_t block_done = 0;
 	size_t prdt_done = 0;
@@ -321,14 +321,14 @@ static int setup_prdt(iovec_iterator_t *iterator, command_table_t *command_table
 	while (block_done < *requested_size && prdt_done < PRDTL_LIMIT) {
 		void *page;
 		size_t page_offset, page_remaining;
-		err = iovec_iterator_next_page(iterator, &page_offset, &page_remaining, &page);
+		err = iovec_iterator_next_page(iterator, &page_offset, &page_remaining, &page, !write);
 		if (err)
 			goto cleanup;
 
 		__assert(page);
 		// not block aligned
 		if (page_remaining % 512) {
-			mm_release_page(page);
+			mm_unlock_and_release_page(page);
 			err = EINVAL;
 			goto cleanup;
 		}
@@ -386,7 +386,7 @@ static int rw(port_data_t *port_data, iovec_iterator_t *iterator, uintmax_t lba,
 	while (done != count) {
 		size_t do_count = count - done;
 		uint16_t prdtl_tmp;
-		error = setup_prdt(iterator, command_table, &prdtl_tmp, &do_count);
+		error = setup_prdt(iterator, command_table, &prdtl_tmp, &do_count, write);
 		if (error)
 			break;
 
