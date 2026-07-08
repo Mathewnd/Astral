@@ -582,7 +582,6 @@ mm_context_t *mm_fork_context(mm_context_t *old_context) {
 			VOP_HOLD(range->vnode);
 
 		for (uintptr_t offset = 0; offset < new_range->size; offset += PAGE_SIZE) {
-			// XXX some types of mappings, like framebuffer shared mappings, will break if done this way
 			void *vaddr = (void *)((uintptr_t)new_range->start + offset);
 			void *phys = arch_mmu_getphysical(old_context->pagetable, vaddr);
 			if (phys == NULL)
@@ -590,6 +589,13 @@ mm_context_t *mm_fork_context(mm_context_t *old_context) {
 
 			bool writeable = arch_mmu_iswritable(old_context->pagetable, vaddr);
 			bool private = !(range->flags & MM_RANGE_FLAGS_SHARED);
+			if ((range->flags & MM_RANGE_FLAGS_FILE) && range->vnode->type == V_TYPE_CHDEV && !private) {
+				// TODO: implement fork semantics for device mappings properly.
+				if (arch_mmu_map(new_context->pagetable, phys, vaddr, new_range->mmuflags) == false)
+					goto error;
+				continue;
+			}
+
 			page_t *page = mm_get_page(phys);
 			if (mm_is_page_locked(page) && writeable && private) {
 				// the page is a private locked page, eagerly copy it to ensure fork/futex correctness
