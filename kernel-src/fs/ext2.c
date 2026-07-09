@@ -797,6 +797,7 @@ static int resizeinode(ext2fs_t *fs, ext2node_t *node, size_t newsize) {
 	return 0;
 }
 
+// TODO: when allocating a block, try to first allocate it next to the previous block, then from the same block group as the inode, then from all block groups
 static int rwblocks_iovec(ext2fs_t *fs, ext2node_t *node, iovec_iterator_t *iovec_iterator, size_t count, uintmax_t index, bool write, bool cache) {
 	for (uintmax_t i = 0; i < count; ++i) {
 		size_t inodesize = INODE_SIZE(&node->inode);
@@ -822,19 +823,49 @@ static int rwblocks_iovec(ext2fs_t *fs, ext2node_t *node, iovec_iterator_t *iove
 
 			block = newblock;
 		} else if (block == 0 && write == false) {
-			iovec_iterator_memset(iovec_iterator, 0, fs->blocksize);
+			e = iovec_iterator_memset(iovec_iterator, 0, fs->blocksize);
+			if (e)
+				return e;
 			continue;
 		}
 
+		size_t blockcount;
+		for (blockcount = 1; i + blockcount < count; ++blockcount) {
+			blockptr_t nextblock;
+			e = getinodeblock(fs, node, index + i + blockcount, &nextblock);
+			if (e)
+				return e;
+
+			if (nextblock == 0 && write) {
+				uintmax_t newblock;
+				e = allocatestructure(fs, &newblock, false);
+				if (e)
+					return e;
+
+				e = setinodeblock(fs, node, index + i + blockcount, newblock);
+				if (e) {
+					freestructure(fs, newblock, false);
+					return e;
+				}
+
+				nextblock = newblock;
+			}
+
+			if (nextblock != block + blockcount)
+				break;
+		}
+
+		size_t bytecount = blockcount * fs->blocksize;
 		size_t donecount;
 		e = write ?
-			vfs_write_iovec(fs->backing, iovec_iterator, fs->blocksize, BLOCK_GETDISKOFFSET(fs, block), &donecount, cache ? 0 : V_FFLAGS_NOCACHE) :
-			vfs_read_iovec(fs->backing, iovec_iterator, fs->blocksize, BLOCK_GETDISKOFFSET(fs, block), &donecount, cache ? 0 : V_FFLAGS_NOCACHE);
+			vfs_write_iovec(fs->backing, iovec_iterator, bytecount, BLOCK_GETDISKOFFSET(fs, block), &donecount, cache ? 0 : V_FFLAGS_NOCACHE) :
+			vfs_read_iovec(fs->backing, iovec_iterator, bytecount, BLOCK_GETDISKOFFSET(fs, block), &donecount, cache ? 0 : V_FFLAGS_NOCACHE);
 
 		if (e)
 			return e;
 
-		__assert(donecount == fs->blocksize);
+		__assert(donecount == bytecount);
+		i += blockcount - 1;
 	}
 	return 0;
 }
