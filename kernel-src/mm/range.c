@@ -288,6 +288,9 @@ int mm_change_range(mm_space_t *space, void *address, size_t size, bool free, in
 
 		if (free) {
 			// release page data
+			if (space->last_pagefault == range)
+				space->last_pagefault = NULL;
+
 			mm_destroy_range(range, (uintptr_t)address - (uintptr_t)range->start, size, 0);
 		}
 
@@ -340,6 +343,9 @@ int mm_change_range(mm_space_t *space, void *address, size_t size, bool free, in
 		range->size -= difference;
 
 		if (free) {
+			if (space->last_pagefault == range)
+				space->last_pagefault = NULL;
+
 			mm_destroy_range(range, range->size, difference, 0);
 			rbtree = rbtree_successor(rbtree);
 		} else {
@@ -382,6 +388,9 @@ int mm_change_range(mm_space_t *space, void *address, size_t size, bool free, in
 
 		// remove or change the flags of the range
 		if (free) {
+			if (space->last_pagefault == range)
+				space->last_pagefault = NULL;
+
 			rbtree_remove(&space->ranges, &range->rbtree_node);
 			mm_destroy_range(range, 0, range->size, 0);
 			mm_free_range(range);
@@ -410,8 +419,12 @@ int mm_change_range(mm_space_t *space, void *address, size_t size, bool free, in
 		}
 
 		size_t difference = (uintptr_t)top - (uintptr_t)range->start;
-		if (free)
+		if (free) {
+			if (space->last_pagefault == range)
+				space->last_pagefault = NULL;
+
 			mm_destroy_range(range, 0, difference, 0);
+		}
 
 		range->start = (void *)((uintptr_t)range->start + difference);
 		range->size -= difference;
