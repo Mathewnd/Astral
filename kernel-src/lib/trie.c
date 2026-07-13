@@ -3,6 +3,7 @@
 #include <stddef.h>
 #include <stdbool.h>
 #include <string.h>
+#include <kernel/alloc.h>
 #include <kernel/init.h>
 #include <kernel/slab.h>
 #include <logging.h>
@@ -32,6 +33,55 @@ static inline uint8_t get_offset(uint64_t key, uint8_t height) {
 	return (key >> (height * TRIE_BITS)) & (TRIE_NODE_COUNT - 1);
 }
 
+static trie_node_t *trie_allocate_node(trie_preallocation_t *preallocation) {
+	if (preallocation == NULL)
+		return slab_allocate(trie_node_cache);
+
+	if (preallocation->allocation_count == 0)
+		return NULL;
+
+	--preallocation->allocation_count;
+	trie_node_t *node = preallocation->allocations[preallocation->allocation_count];
+	preallocation->allocations[preallocation->allocation_count] = NULL;
+	return node;
+}
+
+static void trie_release_node(trie_preallocation_t *preallocation, trie_node_t *node) {
+	if (preallocation == NULL) {
+		slab_free(trie_node_cache, node);
+		return;
+	}
+
+	__assert(preallocation->allocation_count < TRIE_MAX_DEPTH);
+	preallocation->allocations[preallocation->allocation_count] = node;
+	++preallocation->allocation_count;
+}
+
+trie_preallocation_t *trie_preallocate(void) {
+	trie_preallocation_t *preallocation = alloc(sizeof(trie_preallocation_t));
+	if (preallocation == NULL)
+		return NULL;
+
+	while (preallocation->allocation_count < TRIE_MAX_DEPTH) {
+		preallocation->allocations[preallocation->allocation_count] = slab_allocate(trie_node_cache);
+		if (preallocation->allocations[preallocation->allocation_count] == NULL) {
+			trie_free_preallocation(preallocation);
+			return NULL;
+		}
+
+		++preallocation->allocation_count;
+	}
+
+	return preallocation;
+}
+
+void trie_free_preallocation(trie_preallocation_t *preallocation) {
+	for (size_t i = 0; i < preallocation->allocation_count; ++i)
+		slab_free(trie_node_cache, preallocation->allocations[i]);
+
+	free(preallocation);
+}
+
 static void trie_trim(trie_t *trie) {
 	if (trie->root->count == 0) {
 		slab_free(trie_node_cache, trie->root);
@@ -45,7 +95,7 @@ static void trie_trim(trie_t *trie) {
 	}
 }
 
-static int trie_insert_internal(trie_node_t *trie_node, uint64_t key, void *value, uint8_t height) {
+static int trie_insert_internal(trie_node_t *trie_node, uint64_t key, void *value, uint8_t height, trie_preallocation_t *preallocation) {
 	uint8_t offset = get_offset(key, height);
 	if (height == 0) {
 		if (trie_node->items[offset])
@@ -57,7 +107,7 @@ static int trie_insert_internal(trie_node_t *trie_node, uint64_t key, void *valu
 	}
 
 	if (trie_node->nodes[offset] == NULL) {
-		trie_node->nodes[offset] = slab_allocate(trie_node_cache);
+		trie_node->nodes[offset] = trie_allocate_node(preallocation);
 		if (trie_node->nodes[offset] == NULL)
 			return ENOMEM;
 
@@ -67,9 +117,9 @@ static int trie_insert_internal(trie_node_t *trie_node, uint64_t key, void *valu
 		++trie_node->count;
 	}
 
-	int error = trie_insert_internal(trie_node->nodes[offset], key, value, height - 1);
+	int error = trie_insert_internal(trie_node->nodes[offset], key, value, height - 1, preallocation);
 	if (error && trie_node->nodes[offset]->count == 0) {
-		slab_free(trie_node_cache, trie_node->nodes[offset]);
+		trie_release_node(preallocation, trie_node->nodes[offset]);
 		trie_node->nodes[offset] = NULL;
 		--trie_node->count;
 	}
@@ -77,11 +127,11 @@ static int trie_insert_internal(trie_node_t *trie_node, uint64_t key, void *valu
 	return error;
 }
 
-static bool expand_trie(trie_t *trie, uint8_t difference) {
+static bool expand_trie(trie_t *trie, uint8_t difference, trie_preallocation_t *preallocation) {
 	if (difference == 0)
 		return true;
 
-	trie_node_t *new = slab_allocate(trie_node_cache);
+	trie_node_t *new = trie_allocate_node(preallocation);
 	if (new == NULL)
 		return false;
 
@@ -94,29 +144,29 @@ static bool expand_trie(trie_t *trie, uint8_t difference) {
 	trie->root = new;
 	++trie->height;
 
-	if (!expand_trie(trie, difference - 1)) {
+	if (!expand_trie(trie, difference - 1, preallocation)) {
 		trie->root = new->nodes[0];
 		--trie->height;
-		slab_free(trie_node_cache, new);
+		trie_release_node(preallocation, new);
 		return false;
 	}
 
 	return true;
 }
 
-static void undo_expand(trie_t *trie, uint8_t difference) {
+static void undo_expand(trie_t *trie, uint8_t difference, trie_preallocation_t *preallocation) {
 	if (difference == 0)
 		return;
 
 	trie_node_t *trie_node = trie->root;
 	trie->root = trie_node->nodes[0];
-	slab_free(trie_node_cache, trie_node);
+	trie_release_node(preallocation, trie_node);
 	--trie->height;
 
-	undo_expand(trie, difference - 1);
+	undo_expand(trie, difference - 1, preallocation);
 }
 
-int trie_insert(trie_t *trie, uint64_t key, void *value) {
+static int trie_insert_with_preallocation(trie_t *trie, uint64_t key, void *value, trie_preallocation_t *preallocation) {
 	__assert(value);
 
 	uint8_t height = key_height(key);
@@ -130,14 +180,23 @@ int trie_insert(trie_t *trie, uint64_t key, void *value) {
 	}
 
 	uint8_t difference = height > trie->height ? height - trie->height : 0;
-	if (!expand_trie(trie, difference))
+	if (!expand_trie(trie, difference, preallocation))
 		return ENOMEM;
 
-	int error = trie_insert_internal(trie->root, key, value, trie->height - 1);
+	int error = trie_insert_internal(trie->root, key, value, trie->height - 1, preallocation);
 	if (error)
-		undo_expand(trie, difference);
+		undo_expand(trie, difference, preallocation);
 
 	return error;
+}
+
+int trie_insert(trie_t *trie, uint64_t key, void *value) {
+	return trie_insert_with_preallocation(trie, key, value, NULL);
+}
+
+int trie_insert_preallocated(trie_t *trie, uint64_t key, void *value, trie_preallocation_t *preallocation) {
+	__assert(preallocation);
+	return trie_insert_with_preallocation(trie, key, value, preallocation);
 }
 
 static int trie_lookup_internal(trie_node_t *trie_node, uint64_t key, uint8_t height, void **ret) {
