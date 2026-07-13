@@ -73,7 +73,7 @@ void vfs_init() {
 	__assert(advlock_cache);
 }
 
-INIT_ROUTINE_DEFINE(vfs, INIT_ROUTINE_FLAGS_NONE, vfs_init, bsp_early);
+INIT_ROUTINE_DEFINE(vfs, INIT_ROUTINE_FLAGS_NONE, vfs_init, abc);
 
 advlock_t *advlock_allocate(void) {
 	return slab_allocate(advlock_cache);
