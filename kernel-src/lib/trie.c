@@ -3,8 +3,18 @@
 #include <stddef.h>
 #include <stdbool.h>
 #include <string.h>
-#include <kernel/alloc.h>
+#include <kernel/init.h>
+#include <kernel/slab.h>
 #include <logging.h>
+
+static scache_t *trie_node_cache;
+
+static void trie_cache_init(void) {
+	trie_node_cache = slab_newcache(sizeof(trie_node_t), 0, NULL, NULL);
+	__assert(trie_node_cache);
+}
+
+INIT_ROUTINE_DEFINE(trie, INIT_ROUTINE_FLAGS_NONE, trie_cache_init, slab);
 
 void trie_init(trie_t *trie) {
 	trie->height = 0;
@@ -24,14 +34,14 @@ static inline uint8_t get_offset(uint64_t key, uint8_t height) {
 
 static void trie_trim(trie_t *trie) {
 	if (trie->root->count == 0) {
-		free(trie->root);
+		slab_free(trie_node_cache, trie->root);
 		trie->root = NULL;
 		trie->height = 0;
 	} else while (trie->height && trie->root->count == 1 && trie->root->nodes[0]) {
 		--trie->height;
 		void *old_root = trie->root;
 		trie->root = trie->root->nodes[0];
-		free(old_root);
+		slab_free(trie_node_cache, old_root);
 	}
 }
 
@@ -47,7 +57,7 @@ static int trie_insert_internal(trie_node_t *trie_node, uint64_t key, void *valu
 	}
 
 	if (trie_node->nodes[offset] == NULL) {
-		trie_node->nodes[offset] = alloc(sizeof(trie_node_t));
+		trie_node->nodes[offset] = slab_allocate(trie_node_cache);
 		if (trie_node->nodes[offset] == NULL)
 			return ENOMEM;
 
@@ -59,7 +69,7 @@ static int trie_insert_internal(trie_node_t *trie_node, uint64_t key, void *valu
 
 	int error = trie_insert_internal(trie_node->nodes[offset], key, value, height - 1);
 	if (error && trie_node->nodes[offset]->count == 0) {
-		free(trie_node->nodes[offset]);
+		slab_free(trie_node_cache, trie_node->nodes[offset]);
 		trie_node->nodes[offset] = NULL;
 		--trie_node->count;
 	}
@@ -71,7 +81,7 @@ static bool expand_trie(trie_t *trie, uint8_t difference) {
 	if (difference == 0)
 		return true;
 
-	trie_node_t *new = alloc(sizeof(trie_node_t));
+	trie_node_t *new = slab_allocate(trie_node_cache);
 	if (new == NULL)
 		return false;
 
@@ -87,7 +97,7 @@ static bool expand_trie(trie_t *trie, uint8_t difference) {
 	if (!expand_trie(trie, difference - 1)) {
 		trie->root = new->nodes[0];
 		--trie->height;
-		free(new);
+		slab_free(trie_node_cache, new);
 		return false;
 	}
 
@@ -100,7 +110,7 @@ static void undo_expand(trie_t *trie, uint8_t difference) {
 
 	trie_node_t *trie_node = trie->root;
 	trie->root = trie_node->nodes[0];
-	free(trie_node);
+	slab_free(trie_node_cache, trie_node);
 	--trie->height;
 
 	undo_expand(trie, difference - 1);
@@ -174,7 +184,7 @@ static int trie_remove_internal(trie_node_t *trie_node, uint64_t key, uint8_t he
 		return error;
 
 	if (trie_node->nodes[get_offset(key, height)]->count == 0) {
-		free(trie_node->nodes[get_offset(key, height)]);
+		slab_free(trie_node_cache, trie_node->nodes[get_offset(key, height)]);
 		trie_node->nodes[get_offset(key, height)] = NULL;
 		--trie_node->count;
 	}
@@ -213,7 +223,7 @@ static void trie_recursively_free(trie_node_t *trie_node, uint8_t height) {
 			trie_recursively_free(trie_node->nodes[i], height - 1);
 	}
 
-	free(trie_node);
+	slab_free(trie_node_cache, trie_node);
 }
 
 static void trie_truncate_internal(trie_node_t *trie_node, uint64_t max_key, uint8_t height) {
@@ -225,7 +235,7 @@ static void trie_truncate_internal(trie_node_t *trie_node, uint64_t max_key, uin
 			trie_truncate_internal(child_node, max_key, height - 1);
 
 			if (child_node->count == 0) {
-				free(child_node);
+				slab_free(trie_node_cache, child_node);
 				trie_node->nodes[offset] = NULL;
 				--trie_node->count;
 			}
