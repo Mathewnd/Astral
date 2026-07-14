@@ -35,30 +35,22 @@ static bool fatfs_is_cluster_in_range(fatfs_t *fs, fatfs_cluster_t cluster) {
 int fatfs_next_cluster(fatfs_t *fatfs, fatfs_cluster_t cluster, fatfs_cluster_t *ret) {
 	uint16_t cluster16;
 	int error = 0;
-	size_t bytes_read = 0;
-
 	switch (fatfs->type) {
 		case FATFS_FAT32:
-			error = vfs_read(fatfs->backing, ret, 4, fatfs->fat_offset + 4 * cluster, &bytes_read, 0);
+			error = fatfs_disk_rw(fatfs, ret, 4, fatfs->fat_offset + 4 * cluster, false, true);
 			if (error)
 				return error;
-
-			__assert(bytes_read == 4);
 			break;
 		case FATFS_FAT16:
-			error = vfs_read(fatfs->backing, &cluster16, 2, fatfs->fat_offset + 2 * cluster, &bytes_read, 0);
+			error = fatfs_disk_rw(fatfs, &cluster16, 2, fatfs->fat_offset + 2 * cluster, false, true);
 			if (error)
 				return error;
-
-			__assert(bytes_read == 2);
 			*ret = cluster16;
 			break;
 		case FATFS_FAT12:
-			error = vfs_read(fatfs->backing, &cluster16, 2, fatfs->fat_offset + cluster + cluster / 2, &bytes_read, 0);
+			error = fatfs_disk_rw(fatfs, &cluster16, 2, fatfs->fat_offset + cluster + cluster / 2, false, true);
 			if (error)
 				return error;
-
-			__assert(bytes_read == 2);
 			*ret = ((cluster % 2) ? (cluster16 >> 4) : cluster16) & 0xfff;
 			break;
 		default:
@@ -71,40 +63,31 @@ int fatfs_next_cluster(fatfs_t *fatfs, fatfs_cluster_t cluster, fatfs_cluster_t 
 static int set_next_cluster(fatfs_t *fatfs, int fat, fatfs_cluster_t cluster, fatfs_cluster_t next) {
 	uint16_t cluster16;
 	int error = 0;
-	size_t byte_count;
-
 	size_t fat_offset = fatfs->fat_offset + fat * fatfs->fat_size;
 
 	switch (fatfs->type) {
 		case FATFS_FAT32:
-			error = vfs_write(fatfs->backing, &next, 4, fat_offset + 4 * cluster, &byte_count, 0);
+			error = fatfs_disk_rw(fatfs, &next, 4, fat_offset + 4 * cluster, true, true);
 			if (error)
 				goto leave;
-
-			__assert(byte_count == 4);
 			break;
 		case FATFS_FAT16:
 			cluster16 = (uint16_t)next;
-			error = vfs_write(fatfs->backing, &cluster16, 2, fat_offset + 2 * cluster, &byte_count, 0);
+			error = fatfs_disk_rw(fatfs, &cluster16, 2, fat_offset + 2 * cluster, true, true);
 			if (error)
 				goto leave;
-
-			__assert(byte_count == 2);
 			break;
 		case FATFS_FAT12:
 			next &= 0xfff;
-			error = vfs_read(fatfs->backing, &cluster16, 2, fat_offset + cluster + cluster / 2, &byte_count, 0);
+			error = fatfs_disk_rw(fatfs, &cluster16, 2, fat_offset + cluster + cluster / 2, false, true);
 			if (error)
 				goto leave;
-
-			__assert(byte_count == 2);
 			if (cluster % 2)
 				cluster16 = (cluster16 & 0x000f) | (next << 4);
 			else
 				cluster16 = (cluster16 & 0xf000) | (next & 0xfff);
 
-			error = vfs_write(fatfs->backing, &cluster16, 2, fat_offset + cluster + cluster / 2, &byte_count, 0);
-			__assert(byte_count == 2);
+			error = fatfs_disk_rw(fatfs, &cluster16, 2, fat_offset + cluster + cluster / 2, true, true);
 
 			break;
 		default:

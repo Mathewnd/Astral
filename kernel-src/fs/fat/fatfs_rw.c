@@ -72,6 +72,61 @@ int fatfs_get_file_disk_offset(fatfs_t *fs, fatnode_t *node, size_t byte_offset,
 	return 0;
 }
 
+static int fatfs_abc_rw_iovec(fatfs_t *fs, iovec_iterator_t *iovec_iterator, size_t count, uintmax_t offset, bool write) {
+	while (count) {
+		size_t block_offset = offset % fs->abc.block_size;
+		size_t do_count = min(count, fs->abc.block_size - block_offset);
+
+		abc_block_t *block;
+		int error = abc_get_block(&fs->abc, offset / fs->abc.block_size, &block);
+		if (error)
+			return error;
+
+		void *buffer = (void *)((uintptr_t)block->data + block_offset);
+		error = write ?
+			iovec_iterator_copy_to_buffer(iovec_iterator, buffer, do_count) :
+			iovec_iterator_copy_from_buffer(iovec_iterator, buffer, do_count);
+		if (error == 0 && write)
+			abc_make_dirty(&fs->abc, block);
+
+		abc_release_block(&fs->abc, block);
+		if (error)
+			return error;
+
+		offset += do_count;
+		count -= do_count;
+	}
+
+	return 0;
+}
+
+int fatfs_disk_rw_iovec(fatfs_t *fs, iovec_iterator_t *iovec_iterator, size_t count, uintmax_t offset, bool write, bool cache) {
+	if (cache)
+		return fatfs_abc_rw_iovec(fs, iovec_iterator, count, offset, write);
+
+	size_t done_count;
+	int error = write ?
+		vfs_write_iovec(fs->backing, iovec_iterator, count, offset, &done_count, V_FFLAGS_NOCACHE) :
+		vfs_read_iovec(fs->backing, iovec_iterator, count, offset, &done_count, V_FFLAGS_NOCACHE);
+	if (error)
+		return error;
+
+	__assert(done_count == count);
+	return 0;
+}
+
+int fatfs_disk_rw(fatfs_t *fs, void *buffer, size_t count, uintmax_t offset, bool write, bool cache) {
+	iovec_t iovec = {
+		.addr = buffer,
+		.len = count
+	};
+
+	iovec_iterator_t iovec_iterator;
+	iovec_iterator_init(&iovec_iterator, &iovec, 1);
+
+	return fatfs_disk_rw_iovec(fs, &iovec_iterator, count, offset, write, cache);
+}
+
 int fatfs_rw_clusters_iovec(fatfs_t *fs, fatnode_t *node, iovec_iterator_t *iovec_iterator, size_t count, uintmax_t index, bool write, bool cache) {
 	fatfs_cluster_t cluster;
 	int error = fatfs_get_cluster_from_index(fs, node, index, &cluster);
@@ -107,15 +162,10 @@ int fatfs_rw_clusters_iovec(fatfs_t *fs, fatnode_t *node, iovec_iterator_t *iove
 
 		uintmax_t disk_offset = cluster_disk_offset(fs, cluster);
 		size_t byte_count = cluster_count * fs->cluster_size;
-		size_t done_count;
-		error = write ?
-			vfs_write_iovec(fs->backing, iovec_iterator, byte_count, disk_offset, &done_count, cache ? 0 : V_FFLAGS_NOCACHE) :
-			vfs_read_iovec(fs->backing, iovec_iterator, byte_count, disk_offset, &done_count, cache ? 0 : V_FFLAGS_NOCACHE);
-
+		error = fatfs_disk_rw_iovec(fs, iovec_iterator, byte_count, disk_offset, write, cache);
 		if (error)
 			return error;
 
-		__assert(done_count == byte_count);
 		i += cluster_count;
 
 		cluster = next_loop_cluster;
@@ -136,16 +186,7 @@ int fatfs_rw_cluster_iovec(fatfs_t *fs, fatnode_t *node, iovec_iterator_t *iovec
 	__assert(cluster && fatfs_is_cluster_eof(fs, cluster) == false);
 
 	uintmax_t disk_offset = cluster_disk_offset(fs, cluster) + offset;
-	size_t done_count;
-	error = write ?
-		vfs_write_iovec(fs->backing, iovec_iterator, count, disk_offset, &done_count, cache ? 0 : V_FFLAGS_NOCACHE) :
-		vfs_read_iovec(fs->backing, iovec_iterator, count, disk_offset, &done_count, cache ? 0 : V_FFLAGS_NOCACHE);
-
-	if (error)
-		return error;
-
-	__assert(done_count == count);
-	return error;
+	return fatfs_disk_rw_iovec(fs, iovec_iterator, count, disk_offset, write, cache);
 }
 
 int fatfs_rw_bytes_iovec(fatfs_t *fs, fatnode_t *node, iovec_iterator_t *iovec_iterator, size_t count, uintmax_t offset, bool write, bool cache) {

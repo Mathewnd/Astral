@@ -82,7 +82,7 @@ static int fatfs_mount(vfs_t **vfs, vnode_t *mp, vnode_t *backing, void *data) {
 	bpb_t bpb;
 
 	size_t read_count;
-	int error = vfs_read(backing, &bpb, sizeof(bpb), 0, &read_count, 0);
+	int error = vfs_read(backing, &bpb, sizeof(bpb), 0, &read_count, V_FFLAGS_NOCACHE);
 	if (error)
 		return error;
 
@@ -182,6 +182,14 @@ static int fatfs_mount(vfs_t **vfs, vnode_t *mp, vnode_t *backing, void *data) {
 	fatfs->fat_count = bpb.fat_count;
 	fatfs->cluster_size = bpb.bytes_per_sector * bpb.sectors_per_cluster;
 
+	error = abc_init(&fatfs->abc, backing, bpb.bytes_per_sector);
+	if (error) {
+		VOP_RELEASE(backing);
+		hashtable_destroy(&fatfs->vnode_map);
+		free(fatfs);
+		return error;
+	}
+
 	return error;
 }
 
@@ -191,6 +199,7 @@ static int fatfs_unmount(vfs_t *vfs) {
 
 static int fatfs_sync(vfs_t *vfs) {
 	fatfs_t *fatfs = (fatfs_t *)vfs;
+	abc_sync(&fatfs->abc);
 	VOP_LOCK(fatfs->backing);
 	int error = mm_cache_sync_vnode(fatfs->backing, 0, UINT64_MAX);
 	VOP_UNLOCK(fatfs->backing);
@@ -256,6 +265,7 @@ static int fatfs_syncvnode(vnode_t *vnode) {
 
 	// sync file data
 	int e = mm_cache_sync_vnode(vnode, 0, UINT64_MAX);
+	abc_sync(&fs->abc);
 
 	VOP_LOCK(fs->backing);
 	// sync the dent
@@ -784,15 +794,12 @@ static int fatfs_rename(vnode_t *vsource_dir, vnode_t *vsource, char *old_name, 
 		memcpy(new_dent.short_name, target_dent.short_name, 11);
 
 		// already exists, switch it up
-		size_t written;
-		error = vfs_write(fatfs->backing, &new_dent, sizeof(new_dent), dent_disk_offset, &written, 0);
+		error = fatfs_disk_rw(fatfs, &new_dent, sizeof(new_dent), dent_disk_offset, true, true);
 		if (error) {
 			VOP_UNLOCK(vtarget);
 			VOP_RELEASE(vtarget);
 			return error;
 		}
-
-		__assert(written == sizeof(new_dent));
 
 		MUTEX_ACQUIRE(&fatfs->vnode_map_mutex);
 		// remove from the vnode map

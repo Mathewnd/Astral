@@ -45,12 +45,9 @@ static int directory_read_dent(fatfs_t *fatfs, fatnode_t *fatnode, fatfs_dent_t 
 			return error;
 
 		*entries_read = 1;
-		size_t bytes_read;
-		error = vfs_read(fatfs->backing, buffer, sizeof(fatfs_dent_t), *disk_offset, &bytes_read, 0);
+		error = fatfs_disk_rw(fatfs, buffer, sizeof(fatfs_dent_t), *disk_offset, false, true);
 		if (error)
 			return error;
-
-		__assert(bytes_read == sizeof(fatfs_dent_t));
 	} else {
 		if (entry_offset >= fatfs->root_entry_count) {
 			*entries_read = 0;
@@ -58,13 +55,9 @@ static int directory_read_dent(fatfs_t *fatfs, fatnode_t *fatnode, fatfs_dent_t 
 		}
 
 		*entries_read = 1;
-		size_t bytes_read;
-
-		int error = vfs_read(fatfs->backing, buffer, sizeof(fatfs_dent_t), fatfs->root_offset + entry_offset * sizeof(fatfs_dent_t), &bytes_read, 0);
+		int error = fatfs_disk_rw(fatfs, buffer, sizeof(fatfs_dent_t), fatfs->root_offset + entry_offset * sizeof(fatfs_dent_t), false, true);
 		if (error)
 			return error;
-
-		__assert(bytes_read == sizeof(fatfs_dent_t));
 
 		*disk_offset = fatfs->root_offset + entry_offset * sizeof(fatfs_dent_t);
 	}
@@ -84,16 +77,14 @@ static int directory_write_dents(fatfs_t *fatfs, fatnode_t *fatnode, fatfs_dent_
 
 		return error;
 	} else {
-		size_t bytes_written;
 		size_t write_offset = fatfs->root_offset + entry_offset * sizeof(fatfs_dent_t);
-		int error = vfs_write(fatfs->backing, buffer, entry_count * sizeof(fatfs_dent_t), write_offset, &bytes_written, 0);
+		int error = fatfs_disk_rw(fatfs, buffer, entry_count * sizeof(fatfs_dent_t), write_offset, true, true);
 		if (error)
 			return error;
 
 		if (disk_offset)
 			*disk_offset = write_offset;
 
-		__assert(bytes_written == entry_count * sizeof(fatfs_dent_t));
 		return 0;
 	}
 }
@@ -440,15 +431,11 @@ int fatfs_directory_get_dent(fatfs_t *fatfs, fatnode_t *fatnode, size_t dent_off
 
 int fatfs_update_dent(fatfs_t *fatfs, fatnode_t *fatnode) {
 	fatfs_dent_t dent;
-	size_t bytes_done;
-
 	if (fatfs->type == FATFS_FAT32 && fatnode == fatfs->root) {
 		// fat32 root dir, update the start cluster
-		int error = vfs_write(fatfs->backing, &fatnode->cluster, sizeof(fatnode->cluster), 44, &bytes_done, 0);
+		int error = fatfs_disk_rw(fatfs, &fatnode->cluster, sizeof(fatnode->cluster), 44, true, true);
 		if (error)
 			return error;
-
-		__assert(bytes_done == 4);
 		return 0;
 	}
 
@@ -456,22 +443,18 @@ int fatfs_update_dent(fatfs_t *fatfs, fatnode_t *fatnode) {
 	if (fatnode->dent_disk_offset == 0)
 		return 0;
 
-	int error = vfs_read(fatfs->backing, &dent, sizeof(fatfs_dent_t), fatnode->dent_disk_offset, &bytes_done, 0);
+	int error = fatfs_disk_rw(fatfs, &dent, sizeof(fatfs_dent_t), fatnode->dent_disk_offset, false, true);
 	if (error)
 		return error;
-
-	__assert(bytes_done == sizeof(fatfs_dent_t));
 
 	// directories have zero size
 	dent.file_size_bytes = fatnode->vnode.type == V_TYPE_DIR ? 0 : fatnode->size;
 	dent.cluster_low = fatnode->cluster & 0xffff;
 	dent.cluster_high = (fatnode->cluster >> 16) & 0xffff;
 
-	error = vfs_write(fatfs->backing, &dent, sizeof(fatfs_dent_t), fatnode->dent_disk_offset, &bytes_done, 0);
+	error = fatfs_disk_rw(fatfs, &dent, sizeof(fatfs_dent_t), fatnode->dent_disk_offset, true, true);
 	if (error)
 		return error;
-
-	__assert(bytes_done == sizeof(fatfs_dent_t));
 
 	return 0;
 }

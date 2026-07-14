@@ -2,6 +2,7 @@
 #define _FATFS_H
 
 #include <kernel/vfs.h>
+#include <kernel/abc.h>
 #include <hashtable.h>
 
 #define FATFS_FAT12 1
@@ -69,6 +70,7 @@ typedef struct fatnode_t {
 typedef struct {
 	vfs_t vfs;
 	vnode_t *backing;
+	abc_t abc;
 	int type;
 
 	union {
@@ -108,6 +110,8 @@ void fatfs_free_node(fatnode_t *node);
 int fatfs_get_cluster_from_index(fatfs_t *fs, fatnode_t *node, uintmax_t index, fatfs_cluster_t *cluster);
 int fatfs_resize_file(fatfs_t *fatfs, fatnode_t *fatnode, size_t new_size);
 int fatfs_update_dent(fatfs_t *fatfs, fatnode_t *fatnode);
+int fatfs_disk_rw_iovec(fatfs_t *fs, iovec_iterator_t *iovec_iterator, size_t count, uintmax_t offset, bool write, bool cache);
+int fatfs_disk_rw(fatfs_t *fs, void *buffer, size_t count, uintmax_t offset, bool write, bool cache);
 int fatfs_rw_clusters_iovec(fatfs_t *fs, fatnode_t *node, iovec_iterator_t *iovec_iterator, size_t count, uintmax_t index, bool write, bool cache);
 int fatfs_rw_cluster_iovec(fatfs_t *fs, fatnode_t *node, iovec_iterator_t *iovec_iterator, size_t count, uintmax_t offset, uintmax_t index, bool write, bool cache);
 int fatfs_rw_bytes_iovec(fatfs_t *fs, fatnode_t *node, iovec_iterator_t *iovec_iterator, size_t count, uintmax_t offset, bool write, bool cache);
