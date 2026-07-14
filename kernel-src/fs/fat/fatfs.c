@@ -738,6 +738,12 @@ static int fatfs_rename(vnode_t *vsource_dir, vnode_t *vsource, char *old_name, 
 	target = (fatnode_t *)vtarget;
 
 	if (target) {
+		if (flags & RENAME_NOREPLACE) {
+			VOP_UNLOCK(vtarget);
+			VOP_RELEASE(vtarget);
+			return EEXIST;
+		}
+
 		// we are replacing an existing link
 		// do some checks expected by posix
 		if (vsource->type != V_TYPE_DIR && vtarget->type == V_TYPE_DIR) {

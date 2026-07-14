@@ -286,6 +286,23 @@ index 8592ea5..94ceba1 100644
 +	}
 +	return 0;
  }
+diff --git mlibc-clean/options/posix/include/bits/posix/posix_stdio.h mlibc-workdir/options/posix/include/bits/posix/posix_stdio.h
+index f0d6edd..ab57b6b 100644
+--- mlibc-clean/options/posix/include/bits/posix/posix_stdio.h
++++ mlibc-workdir/options/posix/include/bits/posix/posix_stdio.h
+@@ -63,6 +63,7 @@ char *fgetln(FILE *__stream, size_t *__size);
+ #endif /* !__MLIBC_ABI_ONLY */
+ 
+ #if defined(_GNU_SOURCE)
++#define RENAME_NOREPLACE (1 << 0)
+ #define RENAME_EXCHANGE (1 << 1)
+ 
+ /* GNU extensions */
+@@ -97,4 +98,3 @@ FILE *fopencookie(void *__restrict __cookie, const char *__restrict __mode, cook
+ 
+ #endif /* _MLIBC_POSIX_STDIO_H */
+ 
+-
 diff --git mlibc-clean/options/rtld/x86_64/runtime.S mlibc-workdir/options/rtld/x86_64/runtime.S
 index ba9a520..b958ef3 100644
 --- mlibc-clean/options/rtld/x86_64/runtime.S

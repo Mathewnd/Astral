@@ -1871,6 +1871,12 @@ static int ext2_rename(vnode_t *sourcedir, vnode_t *source, char *oldname, vnode
 	ext2node_t *ext2_replaced_node = (ext2node_t *)replaced_vnode;
 
 	if (replaced_vnode) {
+		if (flags & RENAME_NOREPLACE) {
+			VOP_UNLOCK(replaced_vnode);
+			VOP_RELEASE(replaced_vnode);
+			return EEXIST;
+		}
+
 		// we are replacing an existing link
 		// do some checks expected by posix
 		if (source->type != V_TYPE_DIR && replaced_vnode->type == V_TYPE_DIR) {

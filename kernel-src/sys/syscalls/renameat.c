@@ -3,13 +3,15 @@
 #include <string.h>
 #include <logging.h>
 
+#define RENAMEAT_KNOWN_FLAGS RENAME_NOREPLACE
+
 syscallret_t syscall_renameat(context_t *context, int olddirfd, char *uoldpath, int newdirfd, char *unewpath, unsigned int flags) {
 	syscallret_t ret = {
 		.ret = -1
 	};
 
-	if (flags)
-		printf("renameat: unknown %x\n", flags);
+	if (flags & ~RENAMEAT_KNOWN_FLAGS)
+		printf("renameat: unknown %x\n", flags & ~RENAMEAT_KNOWN_FLAGS);
 
 	size_t oldpathlen;
 	size_t newpathlen;

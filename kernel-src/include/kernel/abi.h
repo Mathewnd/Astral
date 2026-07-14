@@ -84,6 +84,8 @@ typedef struct {
 #define AT_SYMLINK_NOFOLLOW 0x100
 #define AT_EMPTY_PATH 0x1000
 
+#define RENAME_NOREPLACE 0x1
+
 #define AF_LOCAL 1
 #define AF_INET 2
 

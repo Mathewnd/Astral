@@ -352,6 +352,9 @@ static int tmpfs_rename(vnode_t *source, vnode_t *sourcefile, char *oldname, vno
 		oldnode = v;
 
 	if (oldnode) {
+		if (flags & RENAME_NOREPLACE)
+			return EEXIST;
+
 		// we are replacing an existing link
 		// do some checks expected by posix
 		if (sourcefile->type != V_TYPE_DIR && oldnode->type == V_TYPE_DIR)
