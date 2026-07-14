@@ -13,6 +13,7 @@
 #include <kernel/pipefs.h>
 #include <kernel/auth.h>
 #include <kernel/init.h>
+#include <kernel/abc.h>
 
 #define INODE_ROOT 2
 
@@ -145,6 +146,7 @@ typedef struct {
 	vfs_t vfs;
 	ext2superblock_t superblock;
 	vnode_t *backing;
+	abc_t abc;
 	int backingmajor;
 	int backingminor;
 	size_t blocksize;
@@ -214,27 +216,79 @@ static const int vfstoext2typetable[] = {
 static vops_t vnops;
 static scache_t *nodecache;
 
+static int ext2_abc_rw_iovec(ext2fs_t *fs, iovec_iterator_t *iovec_iterator, size_t count, uintmax_t offset, bool write) {
+	while (count) {
+		size_t block_offset = offset % fs->abc.block_size;
+		size_t do_count = min(count, fs->abc.block_size - block_offset);
+
+		abc_block_t *block;
+		int error = abc_get_block(&fs->abc, offset / fs->abc.block_size, &block);
+		if (error)
+			return error;
+
+		void *buffer = (void *)((uintptr_t)block->data + block_offset);
+		error = write ?
+			iovec_iterator_copy_to_buffer(iovec_iterator, buffer, do_count) :
+			iovec_iterator_copy_from_buffer(iovec_iterator, buffer, do_count);
+		if (error == 0 && write)
+			abc_make_dirty(&fs->abc, block);
+
+		abc_release_block(&fs->abc, block);
+		if (error)
+			return error;
+
+		offset += do_count;
+		count -= do_count;
+	}
+
+	return 0;
+}
+
+static int ext2_disk_rw_iovec(ext2fs_t *fs, iovec_iterator_t *iovec_iterator, size_t count, uintmax_t offset, bool write, bool cache) {
+	if (cache)
+		return ext2_abc_rw_iovec(fs, iovec_iterator, count, offset, write);
+
+	size_t done_count;
+	int error = write ?
+		vfs_write_iovec(fs->backing, iovec_iterator, count, offset, &done_count, V_FFLAGS_NOCACHE) :
+		vfs_read_iovec(fs->backing, iovec_iterator, count, offset, &done_count, V_FFLAGS_NOCACHE);
+	if (error)
+		return error;
+
+	return done_count == count ? 0 : EIO;
+}
+
+static int ext2_disk_rw(ext2fs_t *fs, void *buffer, size_t count, uintmax_t offset, bool write, bool cache) {
+	iovec_t iovec = {
+		.addr = buffer,
+		.len = count
+	};
+
+	iovec_iterator_t iovec_iterator;
+	iovec_iterator_init(&iovec_iterator, &iovec, 1);
+
+	return ext2_disk_rw_iovec(fs, &iovec_iterator, count, offset, write, cache);
+}
+
 static int writesuperblock(ext2fs_t *fs) {
-	size_t tmp;
-	return vfs_write(fs->backing, &fs->superblock, sizeof(ext2superblock_t), SUPERBLOCK_OFFSET, &tmp, 0);
+	return ext2_disk_rw(fs, &fs->superblock, sizeof(ext2superblock_t), SUPERBLOCK_OFFSET, true, true);
 }
 
 static int syncsuperblock(ext2fs_t *fs) {
-	size_t tmp;
-	return vfs_write(fs->backing, &fs->superblock, sizeof(ext2superblock_t), SUPERBLOCK_OFFSET, &tmp, V_FFLAGS_NOCACHE);
+	abc_sync(&fs->abc);
+	return ext2_disk_rw(fs, &fs->superblock, sizeof(ext2superblock_t), SUPERBLOCK_OFFSET, true, false);
 }
 
 static int changedircount(ext2fs_t *fs, int bg, int change) {
 	MUTEX_ACQUIRE(&fs->descriptorlock);
 	blockgroupdesc_t desc;
-	size_t count;
-	int e = vfs_read(fs->backing, &desc, sizeof(blockgroupdesc_t), DESC_GETDISKOFFSET(fs, bg), &count, 0);
+	int e = ext2_disk_rw(fs, &desc, sizeof(blockgroupdesc_t), DESC_GETDISKOFFSET(fs, bg), false, true);
 	if (e)
 		goto cleanup;
 
 	desc.dircount += change;
 
-	e = vfs_write(fs->backing, &desc, sizeof(blockgroupdesc_t), DESC_GETDISKOFFSET(fs, bg), &count, 0);
+	e = ext2_disk_rw(fs, &desc, sizeof(blockgroupdesc_t), DESC_GETDISKOFFSET(fs, bg), true, true);
 
 	cleanup:
 	MUTEX_RELEASE(&fs->descriptorlock);
@@ -259,8 +313,7 @@ static int allocatestructure(ext2fs_t *fs, uintmax_t *retid, bool inode) {
 
 	// iterate through block groups to find one with free structures
 	for (; bg < fs->bgcount; ++bg) {
-		size_t readc;
-		e = vfs_read(fs->backing, &desc, sizeof(blockgroupdesc_t), DESC_GETDISKOFFSET(fs, bg), &readc, 0);
+		e = ext2_disk_rw(fs, &desc, sizeof(blockgroupdesc_t), DESC_GETDISKOFFSET(fs, bg), false, true);
 		if (e)
 			goto cleanup;
 
@@ -286,8 +339,7 @@ static int allocatestructure(ext2fs_t *fs, uintmax_t *retid, bool inode) {
 	}
 
 	// read bitmap into buffer
-	size_t readc;
-	e = vfs_read(fs->backing, bm, bmsize, BLOCK_GETDISKOFFSET(fs, inode ? desc.inodebitmap : desc.blockbitmap), &readc, 0);
+	e = ext2_disk_rw(fs, bm, bmsize, BLOCK_GETDISKOFFSET(fs, inode ? desc.inodebitmap : desc.blockbitmap), false, true);
 	if (e)
 		goto cleanup;
 
@@ -310,12 +362,9 @@ static int allocatestructure(ext2fs_t *fs, uintmax_t *retid, bool inode) {
 	__assert(structurefound);
 
 	// sync bitmap back into disk
-	size_t writec;
-	e = vfs_write(fs->backing, bm, bmsize, BLOCK_GETDISKOFFSET(fs, inode ? desc.inodebitmap : desc.blockbitmap), &writec, 0);
+	e = ext2_disk_rw(fs, bm, bmsize, BLOCK_GETDISKOFFSET(fs, inode ? desc.inodebitmap : desc.blockbitmap), true, true);
 	if (e)
 		goto cleanup;
-
-	__assert(writec == bmsize);
 
 	// update block group desc free structure count
 	if (inode)
@@ -323,7 +372,7 @@ static int allocatestructure(ext2fs_t *fs, uintmax_t *retid, bool inode) {
 	else
 		desc.freeblocks -= 1;
 
-	e = vfs_write(fs->backing, &desc, sizeof(blockgroupdesc_t), DESC_GETDISKOFFSET(fs, bg), &writec, 0);
+	e = ext2_disk_rw(fs, &desc, sizeof(blockgroupdesc_t), DESC_GETDISKOFFSET(fs, bg), true, true);
 	ASSERT_UNCLEAN(fs, e == 0);
 	if (e)
 		goto cleanup;
@@ -364,8 +413,7 @@ static int freestructure(ext2fs_t *fs, uintmax_t id, bool inode) {
 	MUTEX_ACQUIRE(&fs->descriptorlock);
 
 	blockgroupdesc_t desc;
-	size_t readc;
-	e = vfs_read(fs->backing, &desc, sizeof(blockgroupdesc_t), DESC_GETDISKOFFSET(fs, bg), &readc, 0);
+	e = ext2_disk_rw(fs, &desc, sizeof(blockgroupdesc_t), DESC_GETDISKOFFSET(fs, bg), false, true);
 	if (e)
 		goto cleanup;
 
@@ -377,7 +425,7 @@ static int freestructure(ext2fs_t *fs, uintmax_t id, bool inode) {
 	}
 
 	// read bitmap into buffer
-	e = vfs_read(fs->backing, bm, bmsize, BLOCK_GETDISKOFFSET(fs, inode ? desc.inodebitmap : desc.blockbitmap), &readc, 0);
+	e = ext2_disk_rw(fs, bm, bmsize, BLOCK_GETDISKOFFSET(fs, inode ? desc.inodebitmap : desc.blockbitmap), false, true);
 	if (e)
 		goto cleanup;
 
@@ -390,8 +438,7 @@ static int freestructure(ext2fs_t *fs, uintmax_t id, bool inode) {
 	bm[bmoffset] &= ~(1 << bmindex);
 
 	// sync bitmap back into disk
-	size_t writec;
-	e = vfs_write(fs->backing, bm, bmsize, BLOCK_GETDISKOFFSET(fs, inode ? desc.inodebitmap : desc.blockbitmap), &writec, 0);
+	e = ext2_disk_rw(fs, bm, bmsize, BLOCK_GETDISKOFFSET(fs, inode ? desc.inodebitmap : desc.blockbitmap), true, true);
 	if (e)
 		goto cleanup;
 
@@ -402,7 +449,7 @@ static int freestructure(ext2fs_t *fs, uintmax_t id, bool inode) {
 	else
 		desc.freeblocks += 1;
 
-	e = vfs_write(fs->backing, &desc, sizeof(blockgroupdesc_t), DESC_GETDISKOFFSET(fs, bg), &writec, 0);
+	e = ext2_disk_rw(fs, &desc, sizeof(blockgroupdesc_t), DESC_GETDISKOFFSET(fs, bg), true, true);
 	if (e)
 		goto cleanup;
 
@@ -433,46 +480,25 @@ static int freestructure(ext2fs_t *fs, uintmax_t id, bool inode) {
 static int readinode(ext2fs_t *fs, inode_t *buffer, int inode) {
 	// get inode table offset. descriptor lock not held because the position of the table is fixed
 	blockgroupdesc_t desc;
-	size_t readc;
-	int e = vfs_read(fs->backing, &desc, sizeof(blockgroupdesc_t), DESC_GETDISKOFFSET(fs, INODE_GETGROUP(fs, inode)), &readc, 0);
+	int e = ext2_disk_rw(fs, &desc, sizeof(blockgroupdesc_t), DESC_GETDISKOFFSET(fs, INODE_GETGROUP(fs, inode)), false, true);
 	if (e)
 		return e;
-
-	if (readc != sizeof(blockgroupdesc_t))
-		return EIO;
 
 	// read inode into buffer. inode table lock not held because not a writing operation and the inode lock is already held
-	e = vfs_read(fs->backing, buffer, sizeof(inode_t), INODE_GETDISKOFFSET(fs, BLOCK_GETDISKOFFSET(fs, desc.inodetable), inode), &readc, 0);
-	if (e)
-		return e;
-
-	if (readc != sizeof(inode_t))
-		return EIO;
-
-	return e;
+	return ext2_disk_rw(fs, buffer, sizeof(inode_t), INODE_GETDISKOFFSET(fs, BLOCK_GETDISKOFFSET(fs, desc.inodetable), inode), false, true);
 }
 
 static int writeinode(ext2fs_t *fs, inode_t *buffer, int inode) {
 	// get inode table offset. descriptor lock not held because the position of the table is fixed
 	blockgroupdesc_t desc;
-	size_t count;
-	int e = vfs_read(fs->backing, &desc, sizeof(blockgroupdesc_t), DESC_GETDISKOFFSET(fs, INODE_GETGROUP(fs, inode)), &count, 0);
+	int e = ext2_disk_rw(fs, &desc, sizeof(blockgroupdesc_t), DESC_GETDISKOFFSET(fs, INODE_GETGROUP(fs, inode)), false, true);
 	if (e)
 		return e;
-
-	if (count != sizeof(blockgroupdesc_t))
-		return EIO;
 
 	MUTEX_ACQUIRE(&fs->inodewritelock);
 	// write inode from buffer
-	e = vfs_write(fs->backing, buffer, sizeof(inode_t), INODE_GETDISKOFFSET(fs, BLOCK_GETDISKOFFSET(fs, desc.inodetable), inode), &count, 0);
+	e = ext2_disk_rw(fs, buffer, sizeof(inode_t), INODE_GETDISKOFFSET(fs, BLOCK_GETDISKOFFSET(fs, desc.inodetable), inode), true, true);
 	MUTEX_RELEASE(&fs->inodewritelock);
-	if (e)
-		return e;
-
-	if (count != sizeof(inode_t))
-		return EIO;
-
 	return e;
 }
 
@@ -496,8 +522,7 @@ static int getinodeblock(ext2fs_t *fs, ext2node_t *node, uintmax_t index, blockp
 			*block = 0;
 			return 0;
 		}
-		size_t readc;
-		return vfs_read(fs->backing, block, sizeof(blockptr_t), BLOCK_GETDISKOFFSET(fs, node->inode.singlypointer) + singlyoffset, &readc, 0);
+		return ext2_disk_rw(fs, block, sizeof(blockptr_t), BLOCK_GETDISKOFFSET(fs, node->inode.singlypointer) + singlyoffset, false, true);
 	}
 
 	singly -= 1;
@@ -511,9 +536,8 @@ static int getinodeblock(ext2fs_t *fs, ext2node_t *node, uintmax_t index, blockp
 			*block = 0;
 			return 0;
 		}
-		size_t readc;
 		blockptr_t singlyptr;
-		int e = vfs_read(fs->backing, &singlyptr, sizeof(blockptr_t), BLOCK_GETDISKOFFSET(fs, node->inode.doublypointer) + doublyoffset, &readc, 0);
+		int e = ext2_disk_rw(fs, &singlyptr, sizeof(blockptr_t), BLOCK_GETDISKOFFSET(fs, node->inode.doublypointer) + doublyoffset, false, true);
 		if (e)
 			return e;
 
@@ -521,7 +545,7 @@ static int getinodeblock(ext2fs_t *fs, ext2node_t *node, uintmax_t index, blockp
 			*block = 0;
 			return 0;
 		}
-		return vfs_read(fs->backing, block, sizeof(blockptr_t), BLOCK_GETDISKOFFSET(fs, singlyptr) + singlyoffset, &readc, 0);
+		return ext2_disk_rw(fs, block, sizeof(blockptr_t), BLOCK_GETDISKOFFSET(fs, singlyptr) + singlyoffset, false, true);
 	}
 
 	doubly -= 1;
@@ -529,7 +553,6 @@ static int getinodeblock(ext2fs_t *fs, ext2node_t *node, uintmax_t index, blockp
 	uintmax_t triplyoffset = triplyidx * sizeof(blockptr_t);
 
 	// triply indirect block
-	size_t readc;
 	blockptr_t doublyptr;
 	blockptr_t singlyptr;
 
@@ -538,7 +561,7 @@ static int getinodeblock(ext2fs_t *fs, ext2node_t *node, uintmax_t index, blockp
 		return 0;
 	}
 
-	int e = vfs_read(fs->backing, &doublyptr, sizeof(blockptr_t), BLOCK_GETDISKOFFSET(fs, node->inode.triplypointer) + triplyoffset, &readc, 0);
+	int e = ext2_disk_rw(fs, &doublyptr, sizeof(blockptr_t), BLOCK_GETDISKOFFSET(fs, node->inode.triplypointer) + triplyoffset, false, true);
 	if (e)
 		return e;
 
@@ -547,7 +570,7 @@ static int getinodeblock(ext2fs_t *fs, ext2node_t *node, uintmax_t index, blockp
 		return 0;
 	}
 
-	e = vfs_read(fs->backing, &singlyptr, sizeof(blockptr_t), BLOCK_GETDISKOFFSET(fs, doublyptr) + doublyoffset, &readc, 0);
+	e = ext2_disk_rw(fs, &singlyptr, sizeof(blockptr_t), BLOCK_GETDISKOFFSET(fs, doublyptr) + doublyoffset, false, true);
 	if (e)
 		return e;
 
@@ -556,7 +579,7 @@ static int getinodeblock(ext2fs_t *fs, ext2node_t *node, uintmax_t index, blockp
 		return 0;
 	}
 
-	return vfs_read(fs->backing, block, sizeof(blockptr_t), BLOCK_GETDISKOFFSET(fs, singlyptr) + singlyoffset, &readc, 0);
+	return ext2_disk_rw(fs, block, sizeof(blockptr_t), BLOCK_GETDISKOFFSET(fs, singlyptr) + singlyoffset, false, true);
 }
 
 static int allocandset(ext2fs_t *fs, ext2node_t *node, uintmax_t setoffset, blockptr_t *newvalue) {
@@ -565,8 +588,7 @@ static int allocandset(ext2fs_t *fs, ext2node_t *node, uintmax_t setoffset, bloc
 	if (e)
 		return e;
 	blockptr_t blockptr = block;
-	size_t writec;
-	e = vfs_write(fs->backing, &blockptr, sizeof(blockptr_t), setoffset, &writec, 0);
+	e = ext2_disk_rw(fs, &blockptr, sizeof(blockptr_t), setoffset, true, true);
 	if (e) {
 		ASSERT_UNCLEAN(fs, freestructure(fs, block, false) == 0);
 		return e;
@@ -585,8 +607,7 @@ static int inodeallocateindirect(ext2fs_t *fs, ext2node_t *node, int indirect) {
 		return e;
 
 	__assert(fs->blocksize <= UTIL_ZEROBUFFERSIZE);
-	size_t writec;
-	e = vfs_write(fs->backing, util_zerobuffer, fs->blocksize, BLOCK_GETDISKOFFSET(fs, v), &writec, 0);
+	e = ext2_disk_rw(fs, util_zerobuffer, fs->blocksize, BLOCK_GETDISKOFFSET(fs, v), true, true);
 	if (e) {
 		ASSERT_UNCLEAN(fs, freestructure(fs, v, false) == 0);
 		return e;
@@ -655,10 +676,8 @@ static int setinodeblock(ext2fs_t *fs, ext2node_t *node, uintmax_t index, blockp
 		oldblock = node->inode.directpointer[directindex];
 		node->inode.directpointer[directindex] = block;
 	} else {
-		size_t count;
 		blockptr_t doublyptr = 0;
 		blockptr_t singlyptr = 0;
-		size_t writec;
 
 		int e = 0;
 
@@ -673,13 +692,13 @@ static int setinodeblock(ext2fs_t *fs, ext2node_t *node, uintmax_t index, blockp
 			if (e)
 				return e;
 
-			e = vfs_write(fs->backing, util_zerobuffer, fs->blocksize, BLOCK_GETDISKOFFSET(fs, doublyptr), &writec, 0);
+			e = ext2_disk_rw(fs, util_zerobuffer, fs->blocksize, BLOCK_GETDISKOFFSET(fs, doublyptr), true, true);
 			if (e)
 				return e;
 		} else if (usetriply) {
 			// use already allocated triply
 			uintmax_t offset = BLOCK_GETDISKOFFSET(fs, node->inode.triplypointer) + triplyoffset;
-			e = vfs_read(fs->backing, &doublyptr, sizeof(blockptr_t), offset, &count, 0);
+			e = ext2_disk_rw(fs, &doublyptr, sizeof(blockptr_t), offset, false, true);
 			if (e)
 				return e;
 
@@ -689,7 +708,7 @@ static int setinodeblock(ext2fs_t *fs, ext2node_t *node, uintmax_t index, blockp
 				if (e)
 					return e;
 
-				e = vfs_write(fs->backing, util_zerobuffer, fs->blocksize, BLOCK_GETDISKOFFSET(fs, doublyptr), &writec, 0);
+				e = ext2_disk_rw(fs, util_zerobuffer, fs->blocksize, BLOCK_GETDISKOFFSET(fs, doublyptr), true, true);
 				if (e)
 					return e;
 			}
@@ -707,7 +726,7 @@ static int setinodeblock(ext2fs_t *fs, ext2node_t *node, uintmax_t index, blockp
 		// get singlyptr
 		if (usedoubly) {
 			uintmax_t offset = BLOCK_GETDISKOFFSET(fs, doublyptr) + doublyoffset;
-			e = vfs_read(fs->backing, &singlyptr, sizeof(blockptr_t), offset, &count, 0);
+			e = ext2_disk_rw(fs, &singlyptr, sizeof(blockptr_t), offset, false, true);
 			if (e)
 				return e;
 
@@ -717,7 +736,7 @@ static int setinodeblock(ext2fs_t *fs, ext2node_t *node, uintmax_t index, blockp
 				if (e)
 					return e;
 
-				e = vfs_write(fs->backing, util_zerobuffer, fs->blocksize, BLOCK_GETDISKOFFSET(fs, singlyptr), &writec, 0);
+				e = ext2_disk_rw(fs, util_zerobuffer, fs->blocksize, BLOCK_GETDISKOFFSET(fs, singlyptr), true, true);
 				if (e)
 					return e;
 			}
@@ -734,10 +753,10 @@ static int setinodeblock(ext2fs_t *fs, ext2node_t *node, uintmax_t index, blockp
 		// singly guaranteed to be allocated past this point
 		// read old block and set new block
 		uintmax_t offset = BLOCK_GETDISKOFFSET(fs, singlyptr) + singlyoffset;
-		e = vfs_read(fs->backing, &oldblock, sizeof(blockptr_t), offset, &count, 0);
+		e = ext2_disk_rw(fs, &oldblock, sizeof(blockptr_t), offset, false, true);
 		if (e)
 			return e;
-		e = vfs_write(fs->backing, &block, sizeof(blockptr_t), offset, &count, 0);
+		e = ext2_disk_rw(fs, &block, sizeof(blockptr_t), offset, true, true);
 		if (e)
 			return e;
 	}
@@ -856,15 +875,10 @@ static int rwblocks_iovec(ext2fs_t *fs, ext2node_t *node, iovec_iterator_t *iove
 		}
 
 		size_t bytecount = blockcount * fs->blocksize;
-		size_t donecount;
-		e = write ?
-			vfs_write_iovec(fs->backing, iovec_iterator, bytecount, BLOCK_GETDISKOFFSET(fs, block), &donecount, cache ? 0 : V_FFLAGS_NOCACHE) :
-			vfs_read_iovec(fs->backing, iovec_iterator, bytecount, BLOCK_GETDISKOFFSET(fs, block), &donecount, cache ? 0 : V_FFLAGS_NOCACHE);
-
+		e = ext2_disk_rw_iovec(fs, iovec_iterator, bytecount, BLOCK_GETDISKOFFSET(fs, block), write, cache);
 		if (e)
 			return e;
 
-		__assert(donecount == bytecount);
 		i += blockcount - 1;
 	}
 	return 0;
@@ -900,16 +914,7 @@ static int rwblock_iovec(ext2fs_t *fs, ext2node_t *node, iovec_iterator_t *iovec
 		return 0;
 	}
 
-	size_t donecount;
-	e = write ?
-		vfs_write_iovec(fs->backing, iovec_iterator, count, BLOCK_GETDISKOFFSET(fs, block) + offset, &donecount, cache ? 0 : V_FFLAGS_NOCACHE) :
-		vfs_read_iovec(fs->backing, iovec_iterator, count, BLOCK_GETDISKOFFSET(fs, block) + offset, &donecount, cache ? 0 : V_FFLAGS_NOCACHE);
-
-	if (e)
-		return e;
-
-	__assert(donecount == count);
-	return e;
+	return ext2_disk_rw_iovec(fs, iovec_iterator, count, BLOCK_GETDISKOFFSET(fs, block) + offset, write, cache);
 }
 
 static int rwbytes_iovec(ext2fs_t *fs, ext2node_t *node, iovec_iterator_t *iovec_iterator, size_t count, uintmax_t offset, bool write, bool cache) {
@@ -1131,8 +1136,7 @@ static int freeindirect(ext2fs_t *fs, uintmax_t block, int depth) {
 	if (buffer == NULL)
 		return ENOMEM;
 
-	size_t readc;
-	int err = vfs_read(fs->backing, buffer, fs->blocksize, BLOCK_GETDISKOFFSET(fs, block), &readc, 0);
+	int err = ext2_disk_rw(fs, buffer, fs->blocksize, BLOCK_GETDISKOFFSET(fs, block), false, true);
 	if (err)
 		goto cleanup;
 
@@ -1956,6 +1960,7 @@ static int ext2_rename(vnode_t *sourcedir, vnode_t *source, char *oldname, vnode
 static int ext2_sync(vnode_t *vnode) {
 	int e = mm_cache_sync_vnode(vnode, 0, UINT64_MAX);
 	ext2fs_t *fs = (ext2fs_t *)vnode->vfs;
+	abc_sync(&fs->abc);
 	// TODO don't sync the entire disk but rather only the inodes and blocks
 	VOP_LOCK(fs->backing);
 	int e2 = mm_cache_sync_vnode(fs->backing, 0, UINT64_MAX);
@@ -2096,7 +2101,7 @@ static int ext2_mount(vfs_t **vfs, vnode_t *mountpoint, vnode_t *backing, void *
 	// read superblock
 
 	size_t readcount;
-	err = vfs_read(backing, &fs->superblock, sizeof(ext2superblock_t), SUPERBLOCK_OFFSET, &readcount, 0);
+	err = vfs_read(backing, &fs->superblock, sizeof(ext2superblock_t), SUPERBLOCK_OFFSET, &readcount, V_FFLAGS_NOCACHE);
 	if (err)
 		goto cleanup;
 
@@ -2141,15 +2146,22 @@ static int ext2_mount(vfs_t **vfs, vnode_t *mountpoint, vnode_t *backing, void *
 		goto cleanup;
 
 	VFS_INIT(&fs->vfs, &vfsops, 0);
-	fs->superblock.mountsaftercheck += 1;
-	fs->superblock.timeoflastmount = timekeeper_time().s;
 	fs->backing = backing;
-	err = syncsuperblock(fs);
-
-	VOP_HOLD(backing);
-
 	fs->bgcount = inobgcount;
 	fs->blocksize = 1024 << fs->superblock.blocksize;
+
+	VOP_HOLD(backing);
+	err = abc_init(&fs->abc, backing, min(fs->blocksize, PAGE_SIZE));
+	if (err) {
+		VOP_RELEASE(backing);
+		hashtable_destroy(&fs->inodetable);
+		goto cleanup;
+	}
+
+	fs->superblock.mountsaftercheck += 1;
+	fs->superblock.timeoflastmount = timekeeper_time().s;
+	syncsuperblock(fs);
+
 	*vfs = &fs->vfs;
 	err = 0;
 
