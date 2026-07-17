@@ -1,165 +1,218 @@
 #include <pushlock.h>
+#include <semaphore.h>
 #include <logging.h>
-#define DO_CAS(ptr, saved, new) \
-	__atomic_compare_exchange_n(ptr, &saved, new, false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)
+
+#define CAS_ACQUIRE__RELAXED(ptr, saved, new) \
+	__atomic_compare_exchange_n(ptr, &saved, new, false, __ATOMIC_ACQUIRE, __ATOMIC_RELAXED)
+
+#define CAS_RELEASE__RELAXED(ptr, saved, new) \
+	__atomic_compare_exchange_n(ptr, &saved, new, false, __ATOMIC_RELEASE, __ATOMIC_RELAXED)
+
+typedef struct pushlock_wait_block_t {
+	struct pushlock_wait_block_t *next;
+	size_t shared_count;
+	semaphore_t semaphore;
+} __attribute__((aligned(8))) pushlock_wait_block_t;
+
+#define PUSHLOCK_FLAGS_ACQUIRED 1
+#define PUSHLOCK_FLAGS_EXCLUSIVE 2
+#define PUSHLOCK_FLAGS_CONTENDED 4
+#define PUSHLOCK_MASK_FLAGS 0x7
+#define PUSHLOCK_MASK_POINTER_SHARED_COUNT (0xfffffffffffffff8lu)
+
+#define PUSHLOCK_GET_POINTER(x) ((pushlock_wait_block_t *)((x) & PUSHLOCK_MASK_POINTER_SHARED_COUNT))
+#define PUSHLOCK_GET_SHARED_COUNT(x) ((uintptr_t)PUSHLOCK_GET_POINTER(x) >> 3)
+#define PUSHLOCK_INCREMENT_SHARED_COUNT(x) ((x) + 0x8)
+#define PUSHLOCK_DECREMENT_SHARED_COUNT(x) ((x) - 0x8)
 
 bool pushlock_try_acquire_exclusive(pushlock_t *pushlock) {
-	for (;;) {
-		pushlock_t saved_value = *pushlock;
-		if ((PUSHLOCK_FLAGS_ACQUIRED & saved_value) == 0) {
-			if (DO_CAS(pushlock, saved_value, saved_value | PUSHLOCK_FLAGS_ACQUIRED | PUSHLOCK_FLAGS_EXCLUSIVE))
-				return true;
+retry_lock:
+	pushlock_t saved_value = 0;
+	if (CAS_ACQUIRE__RELAXED(pushlock, saved_value, PUSHLOCK_FLAGS_ACQUIRED | PUSHLOCK_FLAGS_EXCLUSIVE))
+		return true;
 
-			continue;
-		}
-
+	if (saved_value & PUSHLOCK_FLAGS_ACQUIRED)
 		return false;
-	}
+
+	if (!CAS_ACQUIRE__RELAXED(pushlock, saved_value, saved_value | PUSHLOCK_FLAGS_ACQUIRED | PUSHLOCK_FLAGS_EXCLUSIVE))
+		goto retry_lock;
+
+	return true;
 }
 
 void pushlock_acquire_exclusive(pushlock_t *pushlock) {
-	for (;;) {
-		pushlock_t saved_value = *pushlock;
-		if ((PUSHLOCK_FLAGS_ACQUIRED & saved_value) == 0) {
-			if (DO_CAS(pushlock, saved_value, saved_value | PUSHLOCK_FLAGS_ACQUIRED | PUSHLOCK_FLAGS_EXCLUSIVE))
-				return;
+retry_lock:
+	pushlock_t saved_value = 0;
+	if (CAS_ACQUIRE__RELAXED(pushlock, saved_value, PUSHLOCK_FLAGS_ACQUIRED | PUSHLOCK_FLAGS_EXCLUSIVE))
+		return;
 
-			continue;
-		}
+	if ((saved_value & PUSHLOCK_FLAGS_ACQUIRED) == 0 && CAS_ACQUIRE__RELAXED(pushlock, saved_value, saved_value | PUSHLOCK_FLAGS_ACQUIRED | PUSHLOCK_FLAGS_EXCLUSIVE))
+		return;
 
-		pushlock_wait_block_t wait_block;
-		SEMAPHORE_INIT(&wait_block.semaphore, 0);
+	pushlock_wait_block_t wait_block;
+	SEMAPHORE_INIT(&wait_block.semaphore, 0);
 
-		if (saved_value & PUSHLOCK_FLAGS_CONTENDED) {
-			wait_block.next = PUSHLOCK_GET_POINTER(saved_value);
-			wait_block.shared_count = 0;
-		} else {
-			wait_block.next = NULL;
-			wait_block.shared_count = PUSHLOCK_GET_SHARED_COUNT(saved_value);
-		}
-
-		if (DO_CAS(pushlock, saved_value, (uintptr_t)&wait_block | (saved_value & PUSHLOCK_MASK_FLAGS) | PUSHLOCK_FLAGS_CONTENDED))
-			semaphore_wait(&wait_block.semaphore, false);
+	if (saved_value & PUSHLOCK_FLAGS_CONTENDED) {
+		wait_block.next = PUSHLOCK_GET_POINTER(saved_value);
+		__atomic_store_n(&wait_block.shared_count, 0, __ATOMIC_RELAXED);
+	} else {
+		wait_block.next = NULL;
+		__atomic_store_n(&wait_block.shared_count, PUSHLOCK_GET_SHARED_COUNT(saved_value), __ATOMIC_RELAXED);
 	}
+
+	if (CAS_RELEASE__RELAXED(pushlock, saved_value, (uintptr_t)&wait_block | (saved_value & PUSHLOCK_MASK_FLAGS) | PUSHLOCK_FLAGS_CONTENDED))
+		semaphore_wait(&wait_block.semaphore, false);
+
+	goto retry_lock;
 }
 
 bool pushlock_try_acquire_shared(pushlock_t *pushlock) {
-	for (;;) {
-		pushlock_t saved_value = *pushlock;
-		if ((saved_value & PUSHLOCK_FLAGS_ACQUIRED) == 0 || (saved_value & PUSHLOCK_FLAGS_EXCLUSIVE) == 0) {
-			if (saved_value & PUSHLOCK_FLAGS_CONTENDED) {
-				// if its contended, we will try to acquire it as an exclusive lock
-				// (as we have no space for putting the shared count in the pointer)
-				if (DO_CAS(pushlock, saved_value, saved_value | PUSHLOCK_FLAGS_ACQUIRED | PUSHLOCK_FLAGS_EXCLUSIVE))
-					return true;
-			} else {
-				// its not contended and either unlocked or locked shared
-				// set the appropriate flag and increment the shared count
-				if (DO_CAS(pushlock, saved_value, PUSHLOCK_INCREMENT_SHARED_COUNT(saved_value) | PUSHLOCK_FLAGS_ACQUIRED))
-					return true;
-			}
+retry_lock:
+	pushlock_t saved_value = 0;
+	if (CAS_ACQUIRE__RELAXED(pushlock, saved_value, PUSHLOCK_INCREMENT_SHARED_COUNT(PUSHLOCK_FLAGS_ACQUIRED)))
+		return true;
 
-			continue;
-		}
-
+	if (saved_value & PUSHLOCK_FLAGS_EXCLUSIVE)
 		return false;
+
+	if ((saved_value & PUSHLOCK_FLAGS_CONTENDED) == 0) {
+		if (!CAS_ACQUIRE__RELAXED(pushlock, saved_value, PUSHLOCK_INCREMENT_SHARED_COUNT(saved_value)))
+			goto retry_lock;
+
+		return true;
 	}
+
+	if (saved_value & PUSHLOCK_FLAGS_ACQUIRED)
+		return false;
+
+	// try to acquire as exclusive
+	if (!CAS_ACQUIRE__RELAXED(pushlock, saved_value, saved_value | PUSHLOCK_FLAGS_ACQUIRED | PUSHLOCK_FLAGS_EXCLUSIVE))
+		goto retry_lock;
+
+	return true;
 }
 
 void pushlock_acquire_shared(pushlock_t *pushlock) {
-	for (;;) {
-		pushlock_t saved_value = *pushlock;
-		if ((saved_value & PUSHLOCK_FLAGS_ACQUIRED) == 0 || (saved_value & PUSHLOCK_FLAGS_EXCLUSIVE) == 0) {
-			if (saved_value & PUSHLOCK_FLAGS_CONTENDED) {
-				// if its contended, we will try to acquire it as an exclusive lock
-				// (as we have no space for putting the shared count in the pointer)
-				if (DO_CAS(pushlock, saved_value, saved_value | PUSHLOCK_FLAGS_ACQUIRED | PUSHLOCK_FLAGS_EXCLUSIVE))
-					return;
-			} else {
-				// its not contended and either unlocked or locked shared
-				// set the appropriate flag and increment the shared count
-				if (DO_CAS(pushlock, saved_value, PUSHLOCK_INCREMENT_SHARED_COUNT(saved_value) | PUSHLOCK_FLAGS_ACQUIRED))
-					return;
-			}
+retry_lock:
+	pushlock_t saved_value = 0;
+	if (CAS_ACQUIRE__RELAXED(pushlock, saved_value, PUSHLOCK_INCREMENT_SHARED_COUNT(PUSHLOCK_FLAGS_ACQUIRED)))
+		return;
 
-			continue;
-		}
-
+	if ((saved_value & PUSHLOCK_FLAGS_EXCLUSIVE) || ((saved_value & PUSHLOCK_FLAGS_ACQUIRED) && (saved_value & PUSHLOCK_FLAGS_CONTENDED))) {
 		pushlock_wait_block_t wait_block;
 		SEMAPHORE_INIT(&wait_block.semaphore, 0);
 
-		// lock is being exclusively held, which means the bits for shared_count
-		// is the pointer to the first wait block, so we can directly get it here
 		wait_block.next = PUSHLOCK_GET_POINTER(saved_value);
-		wait_block.shared_count = 0;
+		__atomic_store_n(&wait_block.shared_count, 0, __ATOMIC_RELAXED);
 
-		if (DO_CAS(pushlock, saved_value, (uintptr_t)&wait_block | (saved_value & PUSHLOCK_MASK_FLAGS) | PUSHLOCK_FLAGS_CONTENDED))
+		if (CAS_RELEASE__RELAXED(pushlock, saved_value, (uintptr_t)&wait_block | (saved_value & PUSHLOCK_MASK_FLAGS) | PUSHLOCK_FLAGS_CONTENDED))
 			semaphore_wait(&wait_block.semaphore, false);
-	}
-}
 
-void pushlock_release(pushlock_t *pushlock) {
-	pushlock_t saved_value;
-	for (;;) {
-		saved_value = *pushlock;
-#ifdef DEBUG_LOCKS
-		__assert(saved_value & PUSHLOCK_FLAGS_ACQUIRED);
-#endif
-		if ((saved_value & PUSHLOCK_FLAGS_CONTENDED) == 0) {
-			if ((saved_value & PUSHLOCK_FLAGS_EXCLUSIVE) == 0 && PUSHLOCK_GET_SHARED_COUNT(saved_value) > 1) {
-				// shared lock with 2 or more holders, decrement shared count
-				if (DO_CAS(pushlock, saved_value, PUSHLOCK_DECREMENT_SHARED_COUNT(saved_value)))
-					return;
-			} else {
-				// shared lock with 1 holder or exclusive lock, can just set it to 0
-				if (DO_CAS(pushlock, saved_value, 0))
-					return;
-			}
-
-			continue;
-		}
-
-		break;
+		goto retry_lock;
 	}
 
-	// lock is contended, we will have to go through the wait blocks and get the
-	// last and penultimate ones
-	bool skip_check = false;
-	for (;;) {
-		saved_value = *pushlock;
-		pushlock_wait_block_t *prev = NULL, *last = PUSHLOCK_GET_POINTER(saved_value);
-#ifdef DEBUG_LOCKS
-		__assert(last);
-#endif
-		while (last->next != NULL) {
-			prev = last;
-			last = last->next;
-		}
+	if (saved_value & PUSHLOCK_FLAGS_ACQUIRED) {
+		if (!CAS_ACQUIRE__RELAXED(pushlock, saved_value, PUSHLOCK_INCREMENT_SHARED_COUNT(saved_value)))
+			goto retry_lock;
 
-		// return if its shared and we arent the only holder
-		if (skip_check == false && (saved_value & PUSHLOCK_FLAGS_EXCLUSIVE) == 0 && __atomic_sub_fetch(&last->shared_count, 1, __ATOMIC_SEQ_CST) > 0)
-			return;
-
-		skip_check = true;
-
-		// here we can be assured we are the only holder
-		if (prev == NULL) {
-			// last is being pointed to as the front, we just have to unset it
-			if (DO_CAS(pushlock, saved_value, 0) == false)
-				continue;
-		} else {
-			// we need to remove it from prev
-			prev->next = NULL;
-			// and unlock it properly, keeping in mind it still contended
-			for (;;) {
-				if (DO_CAS(pushlock, saved_value, (uintptr_t)PUSHLOCK_GET_POINTER(saved_value) | PUSHLOCK_FLAGS_CONTENDED))
-					break;
-				saved_value = *pushlock;
-			}
-		}
-
-		// wake the waiting thread
-		semaphore_signal(&last->semaphore);
 		return;
 	}
+
+	if (!CAS_ACQUIRE__RELAXED(pushlock, saved_value, saved_value | PUSHLOCK_FLAGS_ACQUIRED | PUSHLOCK_FLAGS_EXCLUSIVE))
+		goto retry_lock;
+}
+
+// TODO: if we are releasing to a shared waiter, we should wake up every shared waiter
+void pushlock_release_exclusive(pushlock_t *pushlock) {
+	pushlock_t saved_value = PUSHLOCK_FLAGS_ACQUIRED | PUSHLOCK_FLAGS_EXCLUSIVE;
+	if (CAS_RELEASE__RELAXED(pushlock, saved_value, 0))
+		return;
+
+#ifdef DEBUG_LOCKS
+	__assert(saved_value & PUSHLOCK_FLAGS_ACQUIRED);
+	__assert(saved_value & PUSHLOCK_FLAGS_EXCLUSIVE);
+#endif
+
+	__atomic_thread_fence(__ATOMIC_ACQUIRE);
+	pushlock_wait_block_t *wait_block = PUSHLOCK_GET_POINTER(saved_value);
+	if (wait_block->next == NULL) {
+		if (CAS_RELEASE__RELAXED(pushlock, saved_value, 0)) {
+			semaphore_signal(&wait_block->semaphore);
+			return;
+		}
+
+		// there are multiple waiters now, so we have to iterate through the list
+		__atomic_thread_fence(__ATOMIC_ACQUIRE);
+		wait_block = PUSHLOCK_GET_POINTER(saved_value);
+	}
+
+	while (wait_block->next->next)
+		wait_block = wait_block->next;
+
+	pushlock_wait_block_t *to_wake = wait_block->next;
+	wait_block->next = NULL;
+
+	while (!CAS_RELEASE__RELAXED(pushlock, saved_value, (saved_value & PUSHLOCK_MASK_POINTER_SHARED_COUNT) | PUSHLOCK_FLAGS_CONTENDED));
+
+	semaphore_signal(&to_wake->semaphore);
+}
+
+static void pushlock_release_shared_contended(pushlock_t *pushlock, pushlock_t saved_value) {
+	pushlock_wait_block_t *last_wait_block = PUSHLOCK_GET_POINTER(saved_value);
+	pushlock_wait_block_t *penultimate_wait_block = NULL;
+	if (last_wait_block->next) {
+		penultimate_wait_block = last_wait_block;
+		while (penultimate_wait_block->next->next)
+			penultimate_wait_block = penultimate_wait_block->next;
+
+		last_wait_block = penultimate_wait_block->next;
+	}
+
+	if (__atomic_sub_fetch(&last_wait_block->shared_count, 1, __ATOMIC_RELEASE))
+		return;
+	__atomic_thread_fence(__ATOMIC_ACQUIRE);
+
+	if (penultimate_wait_block == NULL) {
+		if (CAS_RELEASE__RELAXED(pushlock, saved_value, 0)) {
+			semaphore_signal(&last_wait_block->semaphore);
+			return;
+		}
+
+		__atomic_thread_fence(__ATOMIC_ACQUIRE);
+		penultimate_wait_block = PUSHLOCK_GET_POINTER(saved_value);
+		while (penultimate_wait_block->next->next)
+			penultimate_wait_block = penultimate_wait_block->next;
+		last_wait_block = penultimate_wait_block->next;
+	}
+
+	penultimate_wait_block->next = NULL;
+
+	while (!CAS_RELEASE__RELAXED(pushlock, saved_value, (saved_value & PUSHLOCK_MASK_POINTER_SHARED_COUNT) | PUSHLOCK_FLAGS_CONTENDED));
+
+	semaphore_signal(&last_wait_block->semaphore);
+}
+
+void pushlock_release_shared(pushlock_t *pushlock) {
+retry_fast_path:
+	pushlock_t saved_value = PUSHLOCK_INCREMENT_SHARED_COUNT(PUSHLOCK_FLAGS_ACQUIRED);
+	if (CAS_RELEASE__RELAXED(pushlock, saved_value, 0))
+		return;
+
+#ifdef DEBUG_LOCKS
+	__assert(saved_value & PUSHLOCK_FLAGS_ACQUIRED);
+#endif
+
+	if (saved_value & PUSHLOCK_FLAGS_EXCLUSIVE) {
+		pushlock_release_exclusive(pushlock);
+		return;
+	}
+
+	if ((saved_value & PUSHLOCK_FLAGS_CONTENDED)) {
+		__atomic_thread_fence(__ATOMIC_ACQUIRE);
+		pushlock_release_shared_contended(pushlock, saved_value);
+		return;
+	}
+
+	if (!CAS_RELEASE__RELAXED(pushlock, saved_value, PUSHLOCK_DECREMENT_SHARED_COUNT(saved_value)))
+		goto retry_fast_path;
 }

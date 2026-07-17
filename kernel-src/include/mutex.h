@@ -12,7 +12,7 @@ typedef pushlock_t mutex_t;
 	pushlock_acquire_exclusive(m)
 
 #define MUTEX_RELEASE(m) \
-	pushlock_release(m)
+	pushlock_release_exclusive(m)
 
 #define MUTEX_TRY(m) \
 	pushlock_try_acquire_exclusive(m)
