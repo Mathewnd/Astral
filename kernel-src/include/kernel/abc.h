@@ -4,7 +4,7 @@
 #include <list.h>
 #include <stdbool.h>
 #include <trie.h>
-#include <mutex.h>
+#include <pushlock.h>
 #include <kernel/vfs.h>
 #include <kernel/thread.h>
 #include <kernel/event.h>
@@ -20,11 +20,11 @@ typedef struct {
 } abc_block_t;
 
 typedef struct {
-	mutex_t mutex; // TODO: use pushlock properly here once pushlock rewrite is known good
+	pushlock_t lock;
 	trie_t blocks;
 	size_t block_size;
 
-	mutex_t dirty_list_mutex;
+	pushlock_t dirty_list_lock;
 	list_t dirty_list;
 	bool syncing;
 	eventheader_t dirty_list_sync_event;

@@ -11,7 +11,7 @@
 static scache_t *abc_block_cache;
 
 void abc_release_block(abc_t *abc, abc_block_t *abc_block) {
-	MUTEX_ACQUIRE(&abc->mutex); // TODO exclusive lock
+	pushlock_acquire_exclusive(&abc->lock);
 	if (__atomic_sub_fetch(&abc_block->refcount, 1, __ATOMIC_RELEASE) == 0) {
 		__atomic_thread_fence(__ATOMIC_ACQUIRE);
 
@@ -27,7 +27,7 @@ void abc_release_block(abc_t *abc, abc_block_t *abc_block) {
 		slab_free(abc_block_cache, abc_block);
 	}
 leave:
-	MUTEX_RELEASE(&abc->mutex);
+	pushlock_release_exclusive(&abc->lock);
 }
 
 static list_node_t *try_stealing_from_dirty(abc_t *abc, uint64_t block) {
@@ -49,15 +49,15 @@ void abc_sync(abc_t *abc) {
 	EVENT_INITLISTENER(&listener);
 	EVENT_ATTACH(&listener, &abc->dirty_list_empty_event);
 
-	MUTEX_ACQUIRE(&abc->dirty_list_mutex);
+	pushlock_acquire_exclusive(&abc->dirty_list_lock);
 	if (abc->dirty_list.head == NULL && !abc->syncing) {
-		MUTEX_RELEASE(&abc->dirty_list_mutex);
+		pushlock_release_exclusive(&abc->dirty_list_lock);
 		EVENT_DETACHALL(&listener);
 		return;
 	}
 
 	EVENT_SIGNAL(&abc->dirty_list_sync_event);
-	MUTEX_RELEASE(&abc->dirty_list_mutex);
+	pushlock_release_exclusive(&abc->dirty_list_lock);
 
 	EVENT_WAIT(&listener, 0);
 	EVENT_DETACHALL(&listener);
@@ -84,12 +84,12 @@ static void writer_thread(void) {
 		EVENT_INITLISTENER(&listener);
 		EVENT_ATTACH(&listener, &abc->dirty_list_sync_event);
 
-		MUTEX_ACQUIRE(&abc->dirty_list_mutex);
+		pushlock_acquire_exclusive(&abc->dirty_list_lock);
 		abc_block_t *abc_block = (abc_block_t *)list_pop_front(&abc->dirty_list);
 		if (abc_block == NULL) {
 			abc->syncing = false;
 			EVENT_SIGNAL(&abc->dirty_list_empty_event);
-			MUTEX_RELEASE(&abc->dirty_list_mutex);
+			pushlock_release_exclusive(&abc->dirty_list_lock);
 			EVENT_WAIT(&listener, 0);
 			EVENT_DETACHALL(&listener);
 			continue;
@@ -101,7 +101,7 @@ static void writer_thread(void) {
 		list_push_front(&internal_list, &abc_block->dirty_list_node);
 		__atomic_exchange_n(&abc_block->flags, ABC_BLOCK_FLAGS_BUSY, __ATOMIC_ACQUIRE);
 
-		MUTEX_ACQUIRE(&abc->mutex); // TODO shared lock
+		pushlock_acquire_shared(&abc->lock);
 		size_t block_count = 1;
 		if (abc_block->block) {
 			uint64_t iterator = abc_block->block - 1;
@@ -130,8 +130,8 @@ static void writer_thread(void) {
 			++iterator;
 		}
 
-		MUTEX_RELEASE(&abc->mutex);
-		MUTEX_RELEASE(&abc->dirty_list_mutex);
+		pushlock_release_shared(&abc->lock);
+		pushlock_release_exclusive(&abc->dirty_list_lock);
 
 		abc_block_t *front_block = (abc_block_t *)internal_list.head;
 		size_t blocks_per_page = PAGE_SIZE / abc->block_size;
@@ -167,9 +167,9 @@ static void writer_thread(void) {
 		list_for_each_safe(&internal_list, list_node) {
 			abc_block_t *blk = (abc_block_t *)list_node;
 			if (__atomic_and_fetch(&blk->flags, ~ABC_BLOCK_FLAGS_BUSY, __ATOMIC_ACQUIRE) & ABC_BLOCK_FLAGS_DIRTY) {
-				MUTEX_ACQUIRE(&abc->dirty_list_mutex);
+				pushlock_acquire_exclusive(&abc->dirty_list_lock);
 				list_push_back(&abc->dirty_list, &blk->dirty_list_node);
-				MUTEX_RELEASE(&abc->dirty_list_mutex);
+				pushlock_release_exclusive(&abc->dirty_list_lock);
 			} else {
 				abc_release_block(abc, blk);
 			}
@@ -185,17 +185,17 @@ static bool try_to_set_dirty_flag(abc_block_t *abc_block) {
 
 void abc_make_dirty(abc_t *abc, abc_block_t *abc_block) {
 	// TODO: fix this race
-	MUTEX_ACQUIRE(&abc->dirty_list_mutex);
+	pushlock_acquire_exclusive(&abc->dirty_list_lock);
 
 	if (!try_to_set_dirty_flag(abc_block)) {
-		MUTEX_RELEASE(&abc->dirty_list_mutex);
+		pushlock_release_exclusive(&abc->dirty_list_lock);
 		return;
 	}
 
 	__atomic_fetch_add(&abc_block->refcount, 1, __ATOMIC_RELAXED);
 
 	list_push_back(&abc->dirty_list, &abc_block->dirty_list_node);
-	MUTEX_RELEASE(&abc->dirty_list_mutex);
+	pushlock_release_exclusive(&abc->dirty_list_lock);
 }
 
 static abc_block_t *get_block(abc_t *abc, uint64_t block) {
@@ -211,9 +211,9 @@ static abc_block_t *get_block(abc_t *abc, uint64_t block) {
 }
 
 int abc_get_block(abc_t *abc, uint64_t block, abc_block_t **ret) {
-	MUTEX_ACQUIRE(&abc->mutex); // TODO: shared lock
+	pushlock_acquire_shared(&abc->lock);
 	abc_block_t *abc_block = get_block(abc, block);
-	MUTEX_RELEASE(&abc->mutex);
+	pushlock_release_shared(&abc->lock);
 
 	if (abc_block) {
 		*ret = abc_block;
@@ -239,11 +239,11 @@ int abc_get_block(abc_t *abc, uint64_t block, abc_block_t **ret) {
 	}
 	size_t page_offset = block * abc->block_size - ROUND_DOWN(block * abc->block_size, PAGE_SIZE);
 
-	MUTEX_ACQUIRE(&abc->mutex); // TODO: exclusive lock
+	pushlock_acquire_exclusive(&abc->lock);
 
 	abc_block_t *abc_block_check = get_block(abc, block);
 	if (abc_block_check) {
-		MUTEX_RELEASE(&abc->mutex);
+		pushlock_release_exclusive(&abc->lock);
 		mm_release_page(mm_get_page_address(page));
 		slab_free(abc_block_cache, abc_block);
 		trie_free_preallocation(trie_preallocation);
@@ -255,7 +255,7 @@ int abc_get_block(abc_t *abc, uint64_t block, abc_block_t **ret) {
 	abc_block->data = MAKE_HHDM((void *)((uintptr_t)mm_get_page_address(page) + page_offset));
 	__assert(trie_insert_preallocated(&abc->blocks, block, abc_block, trie_preallocation) == 0);
 
-	MUTEX_RELEASE(&abc->mutex);
+	pushlock_release_exclusive(&abc->lock);
 
 	trie_free_preallocation(trie_preallocation);
 
@@ -270,11 +270,11 @@ int abc_init(abc_t *abc, vnode_t *vnode, size_t block_size) {
 	if (abc->writer == NULL)
 		return ENOMEM;
 
-	MUTEX_INIT(&abc->mutex);
+	abc->lock = 0;
 	trie_init(&abc->blocks);
 	abc->block_size = block_size;
 
-	MUTEX_INIT(&abc->dirty_list_mutex);
+	abc->dirty_list_lock = 0;
 	list_init(&abc->dirty_list);
 	abc->syncing = false;
 	EVENT_INITHEADER(&abc->dirty_list_sync_event);
