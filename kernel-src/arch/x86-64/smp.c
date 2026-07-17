@@ -95,7 +95,8 @@ void arch_smp_wakeup(void) {
 	printf("smp: %d processor%s\n", response->cpu_count, response->cpu_count > 1 ? "s" : "");
 
 	// use physical pages so the other cpus have it on the hhdm
-	size_t cpu_size = ROUND_UP(sizeof(cpu_t) * response->cpu_count, PAGE_SIZE);
+	size_t cpu_stride = ROUND_UP(sizeof(cpu_t), cpu_cache_line_size());
+	size_t cpu_size = ROUND_UP(cpu_stride * response->cpu_count, PAGE_SIZE);
 	cpu_t *cpus = mm_alloc_pages(cpu_size / PAGE_SIZE, MEMORY_SECTION_DEFAULT);
 	__assert(cpus);
 	cpus = MAKE_HHDM(cpus);
@@ -114,8 +115,9 @@ void arch_smp_wakeup(void) {
 			continue;
 		}
 
-		smp_cpus[i] = &cpus[i];
-		response->cpus[i]->extra_argument = (uint64_t)&cpus[i];
+		cpu_t *cpu = (cpu_t *)((uintptr_t)cpus + cpu_stride * i);
+		smp_cpus[i] = cpu;
+		response->cpus[i]->extra_argument = (uint64_t)cpu;
 
 		__atomic_store_n(&response->cpus[i]->goto_address, wakeupfn, __ATOMIC_SEQ_CST);
 	}
