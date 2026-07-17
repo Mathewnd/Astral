@@ -53,7 +53,8 @@ typedef struct scache_t {
 	magazine_t *empty_depot;
 	magazine_t *full_depot;
 
-	cache_per_cpu_t per_cpu[];
+	size_t per_cpu_stride;
+	cache_per_cpu_t *per_cpu;
 } scache_t;
 
 void *slab_allocate(scache_t *cache);

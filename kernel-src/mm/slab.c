@@ -24,6 +24,22 @@ static scache_t *slab_cache;
 static scache_t *indirect_cache;
 static scache_t *indirect_table_cache;
 
+static size_t cache_per_cpu_stride(void) {
+	return ROUND_UP(sizeof(cache_per_cpu_t), cpu_cache_line_size());
+}
+
+static size_t cache_per_cpu_offset(void) {
+	return ROUND_UP(sizeof(scache_t), cpu_cache_line_size());
+}
+
+static size_t cache_size(void) {
+	return cache_per_cpu_offset() + cache_per_cpu_stride() * arch_smp_get_cpu_count();
+}
+
+static cache_per_cpu_t *get_cache_per_cpu(scache_t *cache, long id) {
+	return (cache_per_cpu_t *)((uintptr_t)cache->per_cpu + cache->per_cpu_stride * id);
+}
+
 static inline bool grow_cache(scache_t *cache) {
 	slab_t *slab;
 
@@ -262,7 +278,7 @@ static inline void acquire_depot_mutex(scache_t *cache) {
 }
 
 void *slab_allocate(scache_t *cache) {
-	cache_per_cpu_t *cpu_cache = &cache->per_cpu[current_cpu_internal_id()];
+	cache_per_cpu_t *cpu_cache = get_cache_per_cpu(cache, current_cpu_internal_id());
 
 	MUTEX_ACQUIRE(&cpu_cache->mutex);
 	// are there any rounds in the loaded magazine?
@@ -317,7 +333,7 @@ static magazine_t *allocate_magazine_for_cache(scache_t *cache) {
 }
 
 void slab_free(scache_t *cache, void *addr) {
-	cache_per_cpu_t *cpu_cache = &cache->per_cpu[current_cpu_internal_id()];
+	cache_per_cpu_t *cpu_cache = get_cache_per_cpu(cache, current_cpu_internal_id());
 
 	MUTEX_ACQUIRE(&cpu_cache->mutex);
 	// can insert into the loaded magazine?
@@ -412,12 +428,14 @@ static bool slab_initialize(scache_t *cache, size_t size, size_t alignment, bool
 	cache->contention_count = 0;
 	cache->empty_depot = NULL;
 	cache->full_depot = NULL;
+	cache->per_cpu_stride = cache_per_cpu_stride();
+	cache->per_cpu = (cache_per_cpu_t *)((uintptr_t)cache + cache_per_cpu_offset());
 
 	MUTEX_INIT(&cache->mutex);
 	MUTEX_INIT(&cache->depot_mutex);
 
 	for (int i = 0; i < arch_smp_get_cpu_count(); ++i) {
-		cache_per_cpu_t *cpu_cache = &cache->per_cpu[i];
+		cache_per_cpu_t *cpu_cache = get_cache_per_cpu(cache, i);
 		cpu_cache->loaded_magazine = NULL;
 		cpu_cache->previous_magazine = NULL;
 		MUTEX_INIT(&cpu_cache->mutex);
@@ -455,8 +473,8 @@ static bool magazine_ctor(scache_t *, void *obj) {
 }
 
 static scache_t *create_new_from_mm(size_t size, size_t alignment, bool (*ctor)(scache_t *, void *), void (*dtor)(scache_t *, void *)) {
-	size_t cache_size = sizeof(scache_t) + sizeof(cache_per_cpu_t) * arch_smp_get_cpu_count();
-	scache_t *cache = mm_map(NULL, cache_size, MM_RANGE_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, NULL);
+	size_t metadata_size = cache_size();
+	scache_t *cache = mm_map(NULL, metadata_size, MM_RANGE_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, NULL);
 	__assert(cache);
 	__assert(slab_initialize(cache, size, alignment, ctor, dtor));
 	return cache;
@@ -464,8 +482,8 @@ static scache_t *create_new_from_mm(size_t size, size_t alignment, bool (*ctor)(
 
 scache_t *slab_create_new_cache_from_pmm(size_t size, size_t alignment, bool (*ctor)(scache_t *, void *), void (*dtor)(scache_t *, void *)) {
 	__assert(size < SLAB_INDIRECT_CUTOFF);
-	size_t cache_size = sizeof(scache_t) + sizeof(cache_per_cpu_t) * arch_smp_get_cpu_count();
-	scache_t *cache = mm_alloc_pages(ROUND_UP(cache_size, PAGE_SIZE) / PAGE_SIZE, MEMORY_SECTION_DEFAULT);
+	size_t metadata_size = cache_size();
+	scache_t *cache = mm_alloc_pages(ROUND_UP(metadata_size, PAGE_SIZE) / PAGE_SIZE, MEMORY_SECTION_DEFAULT);
 	__assert(cache);
 	cache = MAKE_HHDM(cache);
 	__assert(slab_initialize(cache, size, alignment, ctor, dtor));
@@ -481,12 +499,12 @@ void slab_early_init(void) {
 
 // TODO dynamically change the size of magazines
 void slab_init(void) {
-	size_t cache_size = sizeof(scache_t) + sizeof(cache_per_cpu_t) * arch_smp_get_cpu_count();
+	size_t metadata_size = cache_size();
 	// the cache of caches needs for the slab and indirect caches to be up
 	slab_cache = create_new_from_mm(sizeof(slab_t), 0, NULL, NULL);
 	indirect_cache = create_new_from_mm(sizeof(slab_indirect_t), 0, NULL, NULL);
 	indirect_table_cache = create_new_from_mm(sizeof(slab_indirect_t *) * 32, 0, NULL, NULL);
-	self_cache = create_new_from_mm(cache_size, 0, NULL, NULL);
+	self_cache = create_new_from_mm(metadata_size, cpu_cache_line_size(), NULL, NULL);
 }
 
 INIT_ROUTINE_DEFINE(slab, INIT_ROUTINE_FLAGS_NONE, slab_init, mm);
