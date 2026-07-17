@@ -114,6 +114,7 @@ static inline uint16_t be_to_cpu_w(uint16_t w) {
 }
 
 cpu_t *get_bsp(void);
+size_t cpu_cache_line_size(void);
 void arch_cpu_user_access_begin(void);
 void arch_cpu_user_access_end(void);
 bool arch_cpu_smep_enabled(void);

@@ -18,6 +18,21 @@
 static bool has_smap;
 static bool has_smap_detected;
 static bool has_smep;
+static size_t cache_line_size;
+
+size_t cpu_cache_line_size(void) {
+	size_t size = cache_line_size;
+	if (size)
+		return size;
+
+	uint32_t eax, ebx, ecx, edx;
+	__assert(__get_cpuid(1, &eax, &ebx, &ecx, &edx));
+	size = ((ebx >> 8) & 0xff) * 8;
+	__assert(size);
+
+	cache_line_size = size;
+	return size;
+}
 
 void arch_syscall_entry();
 static void illisr(isr_t *self, context_t *ctx) {
