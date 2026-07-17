@@ -144,7 +144,7 @@ static int mmap(int minor, void *addr, uintmax_t offset, int flags) {
 	if (flags & V_FFLAGS_SHARED) {
 		// make sure offset is ALWAYS page aligned when doing a shared mapping
 		__assert((offset % PAGE_SIZE) == 0);
-		return arch_mmu_map(current_mm_context()->pagetable, FROM_HHDM((void *)((uintptr_t)fbs[minor]->address + offset)), addr, mm_vnode_flags_to_mmu_flags(flags)) ? 0 : ENOMEM;
+		return arch_mmu_map(current_mm_context()->pagetable, FROM_HHDM((void *)((uintptr_t)fbs[minor]->address + offset)), addr, mm_vnode_flags_to_mmu_flags(flags) | ARCH_MMU_FLAGS_WC) ? 0 : ENOMEM;
 	} else {
 		size_t size = offset + PAGE_SIZE < end ? PAGE_SIZE : end - offset;
 		paddr = mm_alloc_page(MEMORY_SECTION_DEFAULT);
@@ -153,7 +153,7 @@ static int mmap(int minor, void *addr, uintmax_t offset, int flags) {
 
 		memcpy(MAKE_HHDM(paddr), (void *)((uintptr_t)fbs[minor]->address + offset), size);
 
-		if (arch_mmu_map(current_mm_context()->pagetable, paddr, addr, mm_vnode_flags_to_mmu_flags(flags) | ARCH_MMU_FLAGS_WC) == false) {
+		if (arch_mmu_map(current_mm_context()->pagetable, paddr, addr, mm_vnode_flags_to_mmu_flags(flags)) == false) {
 			mm_release_page(paddr);
 			return ENOMEM;
 		}
