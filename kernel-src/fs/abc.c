@@ -231,7 +231,7 @@ int abc_get_block(abc_t *abc, uint64_t block, abc_block_t **ret) {
 	}
 
 	page_t *page;
-	int error = mm_cache_get_page(abc->backing, ROUND_DOWN(block * abc->block_size, PAGE_SIZE), &page);
+	int error = mm_cache_get_page(abc->backing, ROUND_DOWN(block * abc->block_size, PAGE_SIZE), 0, &page);
 	if (error) {
 		slab_free(abc_block_cache, abc_block);
 		trie_free_preallocation(trie_preallocation);

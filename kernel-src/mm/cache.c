@@ -114,7 +114,8 @@ static void remove_page(page_t *page) {
 	--mm_cache_cached_pages;
 }
 
-int mm_cache_get_page(vnode_t *vnode, uintmax_t offset, page_t **res) {
+int mm_cache_get_page(vnode_t *vnode, uintmax_t offset, int flags, page_t **res) {
+	(void) flags;
 	__assert(vnode->type == V_TYPE_REGULAR || vnode->type == V_TYPE_BLKDEV);
 	__assert((offset % PAGE_SIZE) == 0);
 	retry_err:

@@ -93,7 +93,7 @@ int mm_partial_page_in(mm_range_t *range, void *vaddr, page_t **resulting_page) 
 
 		if (cacheable) {
 			page_t *res;
-			error = mm_cache_get_page(range->vnode, range->offset + map_offset, &res);
+			error = mm_cache_get_page(range->vnode, range->offset + map_offset, 0, &res);
 			if (error)
 				return error;
 
@@ -216,7 +216,7 @@ int mm_full_page_in(mm_range_t *range, void *vaddr, page_t **resulting_page) {
 	}
 
 	page_t *vn_page;
-	int error = mm_cache_get_page(range->vnode, range->offset + map_offset, &vn_page);
+	int error = mm_cache_get_page(range->vnode, range->offset + map_offset, 0, &vn_page);
 	if (error)
 		return error;
 

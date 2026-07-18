@@ -449,7 +449,7 @@ int vfs_write_iovec(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size
 
 		if (startoffset) {
 			// unaligned first page
-			err = mm_cache_get_page(node, pageoffset * PAGE_SIZE, &page);
+			err = mm_cache_get_page(node, pageoffset * PAGE_SIZE, 0, &page);
 			if (err)
 				goto leave;
 
@@ -478,7 +478,7 @@ int vfs_write_iovec(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size
 
 		for (uintmax_t offset = 0; offset < pagecount * PAGE_SIZE; offset += PAGE_SIZE) {
 			// the other pages
-			err = mm_cache_get_page(node, pageoffset * PAGE_SIZE + offset, &page);
+			err = mm_cache_get_page(node, pageoffset * PAGE_SIZE + offset, 0, &page);
 			if (err)
 				goto leave;
 
@@ -562,7 +562,7 @@ int vfs_read_iovec(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size,
 
 		if (startoffset) {
 			// unaligned first page
-			err = mm_cache_get_page(node, pageoffset * PAGE_SIZE, &page);
+			err = mm_cache_get_page(node, pageoffset * PAGE_SIZE, 0, &page);
 			if (err)
 				goto leave;
 
@@ -590,7 +590,7 @@ int vfs_read_iovec(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size,
 
 		for (uintmax_t offset = 0; offset < pagecount * PAGE_SIZE; offset += PAGE_SIZE) {
 			// the other pages
-			err = mm_cache_get_page(node, pageoffset * PAGE_SIZE + offset, &page);
+			err = mm_cache_get_page(node, pageoffset * PAGE_SIZE + offset, 0, &page);
 			if (err)
 				goto leave;
 
