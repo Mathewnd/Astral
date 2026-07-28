@@ -39,7 +39,7 @@ int trie_insert_preallocated(trie_t *trie, uint64_t key, void *value, trie_preal
 void trie_free_preallocation(trie_preallocation_t *preallocation);
 int trie_lookup(trie_t *trie, uint64_t key, void **ret);
 int trie_remove(trie_t *trie, uint64_t key);
-void trie_truncate(trie_t *trie, uint64_t max_key);
+void trie_truncate(trie_t *trie, uint64_t min_key);
 void trie_iterate(trie_t *trie, uint64_t min_key, uint64_t max_key, trie_iterate_fn_t);
 
 #endif

@@ -163,11 +163,8 @@ int mm_full_page_in(mm_range_t *range, void *vaddr, page_t **resulting_page) {
 		if ((!private || (!file_mapping && current_page->refcount == 1)) && mapped_address != zero_page) {
 			arch_mmu_remap(current_mm_context()->pagetable, mapped_address, vaddr, range->mmuflags);
 
-			if (file_mapping && cacheable) {
-				VOP_LOCK(range->vnode);
+			if (file_mapping && cacheable)
 				mm_cache_make_dirty(current_page);
-				VOP_UNLOCK(range->vnode);
-			}
 
 			*resulting_page = current_page;
 			return 0;
@@ -228,11 +225,8 @@ int mm_full_page_in(mm_range_t *range, void *vaddr, page_t **resulting_page) {
 			return ENOMEM;
 		}
 
-		if (cacheable && (range->mmuflags & ARCH_MMU_FLAGS_WRITE)) {
-			VOP_LOCK(range->vnode);
+		if (cacheable && (range->mmuflags & ARCH_MMU_FLAGS_WRITE))
 			mm_cache_make_dirty(vn_page);
-			VOP_UNLOCK(range->vnode);
-		}
 
 		*resulting_page = vn_page;
 		return 0;

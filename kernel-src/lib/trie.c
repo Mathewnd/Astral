@@ -285,13 +285,13 @@ static void trie_recursively_free(trie_node_t *trie_node, uint8_t height) {
 	slab_free(trie_node_cache, trie_node);
 }
 
-static void trie_truncate_internal(trie_node_t *trie_node, uint64_t max_key, uint8_t height) {
-	uint8_t offset = get_offset(max_key, height);
+static void trie_truncate_internal(trie_node_t *trie_node, uint64_t min_key, uint8_t height) {
+	uint8_t offset = get_offset(min_key, height);
 
 	if (height) {
 		trie_node_t *child_node = trie_node->nodes[offset];
 		if (child_node) {
-			trie_truncate_internal(child_node, max_key, height - 1);
+			trie_truncate_internal(child_node, min_key, height - 1);
 
 			if (child_node->count == 0) {
 				slab_free(trie_node_cache, child_node);
@@ -313,11 +313,8 @@ static void trie_truncate_internal(trie_node_t *trie_node, uint64_t max_key, uin
 	}
 }
 
-void trie_truncate(trie_t *trie, uint64_t max_key) {
-	if (key_height(max_key) > trie->height)
-		return;
-
-	if (max_key == 0) {
+void trie_truncate(trie_t *trie, uint64_t min_key) {
+	if (min_key == 0) {
 		if (trie->height)
 			trie_recursively_free(trie->root, trie->height - 1);
 
@@ -326,20 +323,10 @@ void trie_truncate(trie_t *trie, uint64_t max_key) {
 		return;
 	}
 
-	if (max_key == 1) {
-		void *item;
-		if (trie_lookup(trie, 0, &item))
-			item = NULL;
-
-		if (trie->height)
-			trie_recursively_free(trie->root, trie->height - 1);
-
-		trie->root_item = item;
-		trie->height = 0;
+	if (trie->height == 0 || key_height(min_key) > trie->height)
 		return;
-	}
 
-	trie_truncate_internal(trie->root, max_key, trie->height - 1);
+	trie_truncate_internal(trie->root, min_key, trie->height - 1);
 
 	trie_trim(trie);
 }
