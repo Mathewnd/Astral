@@ -10,7 +10,10 @@
 #include <errno.h>
 #include <kernel/cred.h>
 #include <kernel/event.h>
+#include <trie.h>
 #include <errno.h>
+#include <kernel/page.h>
+#include <list.h>
 
 #define V_ATTR_MODE	1
 #define V_ATTR_UID	2
@@ -120,6 +123,7 @@ typedef struct advlock_t {
 #define V_FFLAGS_NOCTTY 32
 #define V_FFLAGS_NOCACHE 64
 #define V_FFLAGS_CLOSE_URGENT 128
+#define V_FFLAG_MUST_SYNC 256
 
 typedef struct vnode_t {
 	struct vops_t *ops;
@@ -135,7 +139,14 @@ typedef struct vnode_t {
 		void *fifobinding;
 	};
 
-	struct page_t *pages;
+	bool dirty;
+	mutex_t writeback_mutex;
+	mutex_t dirty_list_mutex;
+	list_node_t vnode_dirty_list_node;
+	list_t dirty_pages;
+
+	pushlock_t pages_lock;
+	trie_t pages;
 
 	mutex_t adv_mutex;
 	advlock_t *advlock;
@@ -177,6 +188,7 @@ typedef struct vops_t {
 	int (*rename)(vnode_t *sourcedir, vnode_t *source, char *oldname, vnode_t *targetdir, char *newname, int flags);
 	int (*getpage)(vnode_t *node, uintmax_t offset, struct page_t *page);
 	int (*putpage)(vnode_t *node, uintmax_t offset, struct page_t *page);
+	// node must be unlocked on entry.
 	int (*sync)(vnode_t *node);
 	int (*advlock)(vnode_t *node, int op, advlock_t *advlock);
 	int (*lock)(vnode_t *node);
@@ -208,7 +220,12 @@ typedef struct vops_t {
 	(vn)->type = t; \
 	(vn)->vfs = v; \
 	(vn)->vfsmounted = NULL; \
-        (vn)->pages = NULL;
+	trie_init(&(vn)->pages); \
+	(vn)->pages_lock = 0; \
+	MUTEX_INIT(&(vn)->writeback_mutex); \
+	MUTEX_INIT(&(vn)->dirty_list_mutex); \
+	(vn)->dirty = false; \
+	list_init(&(vn)->dirty_pages);
 
 #define VOP_LOCK(v) (v)->ops->lock(v)
 #define VOP_UNLOCK(v) (v)->ops->unlock(v)

@@ -165,9 +165,7 @@ void mm_destroy_range(mm_range_t *range, uintmax_t _offset, size_t size, int fla
 			} else if (arch_mmu_iswritable(current_mm_context()->pagetable, vaddr)) {
 				// dirty page cache mapping
 				arch_mmu_unmap(current_mm_context()->pagetable, vaddr);
-				VOP_LOCK(range->vnode);
 				mm_cache_make_dirty(mm_get_page(physical));
-				VOP_UNLOCK(range->vnode);
 				mm_release_page(physical);
 			} else {
 				// non dirty page mapping
@@ -212,9 +210,7 @@ static void change_mmu_range(mm_range_t *range, void *base, size_t size, mmuflag
 			// removing write permissions from a writeable dirty shared mapped page, mark it as dirty, as
 			// it won't be marked dirty upon a mm_unmap after this
 			page_t *page = mm_get_page(physical);
-			VOP_LOCK(range->vnode);
 			mm_cache_make_dirty(page);
-			VOP_UNLOCK(range->vnode);
 		}
 
 		// we will only change the mapping if the permissions decreased

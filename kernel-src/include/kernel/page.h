@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <list.h>
 
 #define MEMORY_SECTION_COUNT 3
 #define MEMORY_SECTION_1MB 0
@@ -16,24 +17,17 @@
 #define PAGE_FLAGS_DIRTY 8
 #define PAGE_FLAGS_READY 16
 #define PAGE_FLAGS_ERROR 32
-#define PAGE_FLAGS_VNODE_SYNCING 64
+#define PAGE_FLAGS_SYNCING 64
 
 typedef struct page_t {
 	struct vnode_t *backing;
 	uintmax_t offset;
-	struct page_t *hash_next;
-	struct page_t *hash_prev;
-	struct page_t *vnode_next;
-	struct page_t *vnode_prev;
 	union {
 		struct {
 			struct page_t *free_next;
 			struct page_t *free_prev;
 		};
-		struct {
-			struct page_t *write_next;
-			struct page_t *write_prev;
-		};
+		list_node_t dirty_list_node;
 	};
 	uintmax_t refcount;
 	uintmax_t lock_count;

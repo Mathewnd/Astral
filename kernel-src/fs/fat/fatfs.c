@@ -200,9 +200,7 @@ static int fatfs_unmount(vfs_t *vfs) {
 static int fatfs_sync(vfs_t *vfs) {
 	fatfs_t *fatfs = (fatfs_t *)vfs;
 	abc_sync(&fatfs->abc);
-	VOP_LOCK(fatfs->backing);
-	int error = mm_cache_sync_vnode(fatfs->backing, 0, UINT64_MAX);
-	VOP_UNLOCK(fatfs->backing);
+	int error = mm_cache_sync_vnode(fatfs->backing);
 	return error;
 }
 
@@ -264,19 +262,16 @@ static int fatfs_syncvnode(vnode_t *vnode) {
 	fatnode_t *fatnode = (fatnode_t *)vnode;
 
 	// sync file data
-	int e = mm_cache_sync_vnode(vnode, 0, UINT64_MAX);
+	int e = mm_cache_sync_vnode(vnode);
 	abc_sync(&fs->abc);
 
-	VOP_LOCK(fs->backing);
 	// sync the dent
 	int e2 = 0;
 	if (fatnode->dent_disk_offset)
-		e2 = mm_cache_sync_vnode(fs->backing, fatnode->dent_disk_offset, sizeof(fatfs_dent_t));
+		e2 = mm_cache_sync_vnode(fs->backing);
 
 	// and sync the fats
-	int e3 = mm_cache_sync_vnode(fs->backing, fs->fat_offset, fs->fat_size * fs->fat_count);
-
-	VOP_UNLOCK(fs->backing);
+	int e3 = mm_cache_sync_vnode(fs->backing);
 
 	// only the first errors are reported
 	if (e)
@@ -391,7 +386,6 @@ static int fatfs_read(vnode_t *vnode, iovec_iterator_t *iovec_iterator, size_t s
 static int fatfs_putpage(vnode_t *node, uintmax_t offset, struct page_t *page) {
 	// only regular files get cached
 	__assert(node->type == V_TYPE_REGULAR);
-	size_t write_count;
 	iovec_t iovec = {
 		.addr = MAKE_HHDM(mm_get_page_address(page)),
 		.len = PAGE_SIZE
@@ -399,22 +393,10 @@ static int fatfs_putpage(vnode_t *node, uintmax_t offset, struct page_t *page) {
 
 	iovec_iterator_t iovec_iterator;
 	iovec_iterator_init(&iovec_iterator, &iovec, 1);
-	int error = VOP_WRITE(node, &iovec_iterator, PAGE_SIZE, offset, 0, &write_count, NULL);
-
-	// its possible that write_count is zero here. the condition where this is possible is when
-	// the file is truncated after the check in the page sync function but before it actually is
-	// written back to disk. therefore, we check that the page IS infact truncated if this happens.
-	// if it isn't, something else happened and its not safe to continue.
-	//
-	// TODO: since this check will likely be copied between different filesystem drivers, it could be interesting to have
-	// fatfs_putpage take in a (size_t *) pointer and have this check be in whatever function calls VOP_PUTPAGE.
-
-	if (write_count == 0) {
-		__assert(page->flags & PAGE_FLAGS_TRUNCATED);
-	}
-
-	return error;
+	size_t write_count;
+	return VOP_WRITE(node, &iovec_iterator, PAGE_SIZE, offset, 0, &write_count, NULL);
 }
+
 
 static int fatfs_getpage(vnode_t *node, uintmax_t offset, struct page_t *page) {
 	// only regular files get cached
@@ -970,7 +952,6 @@ static int fatfs_inactive(vnode_t *vnode) {
 		__assert(!"fatfs VOP_INACTIVE() with hardlink count >0 is currently unimplemented");
 	} else {
 		// unlinked file having resources released when kernel refcount hits zero
-		mm_cache_truncate(vnode, 0);
 		fatfs_resize_file(fatfs, fatnode, 0);
 	}
 

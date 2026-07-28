@@ -92,6 +92,9 @@ int vfs_register(vfsops_t *ops, char *name) {
 }
 
 void vfs_inactive(vnode_t *vnode) {
+	if (vfs_iscacheable(vnode))
+		mm_cache_truncate(vnode, 0);
+
 	if (vnode->type == V_TYPE_SOCKET && vnode->socketbinding) {
 		localsock_leavebinding(vnode);
 	} else if (vnode->type == V_TYPE_FIFO && vnode->fifobinding) {
@@ -378,33 +381,14 @@ static void bytestopages(uintmax_t offset, size_t size, uintmax_t *pageoffset, s
 	*pagecount = toppage - *pageoffset;
 }
 
-static int writenocache(vnode_t *node, page_t *page, uintmax_t pageoffset) {
-	// don't keep the pages in the cache!
-	// if its a file, do the proper filesystem sync.
-	// if its a block device, sync only the page we just dirtied
-	VOP_LOCK(node);
-	int e;
-	if (node->type == V_TYPE_REGULAR)
-		e = VOP_SYNC(node);
-	else
-		e = mm_cache_sync_vnode(node, pageoffset, PAGE_SIZE);
-	VOP_UNLOCK(node);
-
-	// try to turn it into anonymous memory
-	mm_cache_evict(page);
-
-	return e;
-}
-
 int vfs_write_iovec(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size, uintmax_t offset, size_t *written, int flags) {
 	int err = 0;
-	if (vfs_iscacheable(node)) {
+	bool cacheable = vfs_iscacheable(node);
+	if (cacheable) {
 		*written = 0;
-		// can't write a size 0 buffer
 		if (size == 0)
 			return 0;
 
-		// overflow
 		if (size + offset < offset)
 			return EINVAL;
 
@@ -442,7 +426,9 @@ int vfs_write_iovec(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size
 
 			size = min(size + offset, bytesize) - offset;
 		}
+	}
 
+	if (cacheable && (flags & V_FFLAGS_NOCACHE) == 0) {
 		uintmax_t pageoffset, pagecount, startoffset;
 		bytestopages(offset, size, &pageoffset, &pagecount, &startoffset);
 		page_t *page = NULL;
@@ -465,15 +451,10 @@ int vfs_write_iovec(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size
 			mm_cache_make_dirty(page);
 			*written += writesize;
 
-			if (flags & V_FFLAGS_NOCACHE)
-				err = writenocache(node, page, pageoffset * PAGE_SIZE);
-
 			pageoffset += 1;
 			pagecount -= 1;
 
 			mm_release_page(FROM_HHDM(address));
-			if (err)
-				goto leave;
 		}
 
 		for (uintmax_t offset = 0; offset < pagecount * PAGE_SIZE; offset += PAGE_SIZE) {
@@ -494,30 +475,30 @@ int vfs_write_iovec(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size
 			mm_cache_make_dirty(page);
 			*written += writesize;
 
-			if (flags & V_FFLAGS_NOCACHE)
-				err = writenocache(node, page, pageoffset * PAGE_SIZE + offset);
-
 			mm_release_page(FROM_HHDM(address));
-
-			if (err)
-				goto leave;
 		}
 
-		leave:
-		MUTEX_RELEASE(&node->size_lock);
+		if (flags & V_FFLAG_MUST_SYNC)
+			err = mm_cache_sync_vnode(node);
+
 	} else {
-		// special file, just write as its not being cached
+		// Non-cacheable objects and direct I/O bypass the page cache.
 		VOP_LOCK(node);
 		err = VOP_WRITE(node, iovec_iterator, size, offset, flags, written, getcred());
 		VOP_UNLOCK(node);
 	}
+
+	leave:
+	if (cacheable)
+		MUTEX_RELEASE(&node->size_lock);
 
 	return err;
 }
 
 int vfs_read_iovec(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size, uintmax_t offset, size_t *bytesread, int flags) {
 	int err = 0;
-	if (vfs_iscacheable(node)) {
+	bool cacheable = vfs_iscacheable(node);
+	if (cacheable) {
 		*bytesread = 0;
 		// can't read 0 bytes from the cache
 		if (size == 0)
@@ -555,7 +536,9 @@ int vfs_read_iovec(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size,
 			goto leave;
 
 		size = min(size + offset, nodesize) - offset;
+	}
 
+	if (cacheable && (flags & V_FFLAGS_NOCACHE) == 0) {
 		uintmax_t pageoffset, pagecount, startoffset;
 		bytestopages(offset, size, &pageoffset, &pagecount, &startoffset);
 		page_t *page = NULL;
@@ -576,11 +559,6 @@ int vfs_read_iovec(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size,
 			}
 
 			*bytesread += readsize;
-
-			if (flags & V_FFLAGS_NOCACHE) {
-				// try to turn it into anonymous memory
-				mm_cache_evict(page);
-			}
 
 			pageoffset += 1;
 			pagecount -= 1;
@@ -604,20 +582,18 @@ int vfs_read_iovec(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size,
 			}
 
 			*bytesread += readsize;
-			if (flags & V_FFLAGS_NOCACHE) {
-				// try to turn it into anonymous memory
-				mm_cache_evict(page);
-			}
 			mm_release_page(FROM_HHDM(address));
 		}
-		leave:
-		MUTEX_RELEASE(&node->size_lock);
 	} else {
-		// special file, just read as size doesn't matter
+		// Non-cacheable objects and direct I/O bypass the page cache.
 		VOP_LOCK(node);
 		err = VOP_READ(node, iovec_iterator, size, offset, flags, bytesread, getcred());
 		VOP_UNLOCK(node);
 	}
+
+	leave:
+	if (cacheable)
+		MUTEX_RELEASE(&node->size_lock);
 	return err;
 }
 

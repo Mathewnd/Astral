@@ -98,15 +98,14 @@ void mm_init();
 
 extern size_t mm_cache_cached_pages;
 
-void mm_cache_init(void);
+#define MM_CACHE_GET_PAGE_FLAGS_NO_POPULATE 1
 int mm_cache_get_page(vnode_t *vnode, uintmax_t offset, int flags, page_t **res);
 int mm_cache_take_page(page_t *page);
-int mm_cache_make_dirty(page_t *page);
+void mm_cache_make_dirty(page_t *page);
 int mm_cache_truncate(vnode_t *vnode, uintmax_t offset);
-int mm_cache_sync_vnode(vnode_t *vnode, uintmax_t startoffset, size_t size);
-int mm_cache_push_page(vnode_t *vnode, uintmax_t offset, page_t *page);
+int mm_cache_sync_vnode(vnode_t *vnode);
 int mm_cache_sync(void);
-int mm_cache_evict(page_t *page);
+void mm_cache_init_writer(void);
 
 void mm_range_init(void);
 mm_range_t *mm_alloc_range(void);
