@@ -301,4 +301,4 @@ static void abc_init_routine(void) {
 	__assert(abc_block_cache);
 }
 
-INIT_ROUTINE_DEFINE(abc, INIT_ROUTINE_FLAGS_NONE, abc_init_routine, scheduler, trie);
+INIT_ROUTINE_DEFINE(abc, INIT_ROUTINE_FLAGS_NONE, abc_init_routine, mm_cache, scheduler, trie);

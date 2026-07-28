@@ -119,7 +119,7 @@ static void remove_from_free_list(page_t *page) {
 static void internal_hold(page_t *page) {
 	if (++page->refcount == 1) {
 		// this is only valid on standby pages, in case of free pages its an use after free
-		__assert((page->flags & PAGE_FLAGS_FREE) == 0);
+		__assert((__atomic_load_n(&page->flags, __ATOMIC_RELAXED) & PAGE_FLAGS_FREE) == 0);
 		remove_from_free_list(page);
 	}
 }
@@ -147,10 +147,10 @@ void mm_release_page(void *addr) {
 	__assert(page->refcount != 0);
 	if (--page->refcount == 0) {
 		__assert(!mm_is_page_locked(page));
-		__assert((page->flags & PAGE_FLAGS_DIRTY) == 0);
+		__assert((__atomic_load_n(&page->flags, __ATOMIC_RELAXED) & PAGE_FLAGS_DIRTY) == 0);
 		insert_in_free_list(page);
 		if (page->backing == NULL)
-			page->flags |= PAGE_FLAGS_FREE;
+			__atomic_or_fetch(&page->flags, PAGE_FLAGS_FREE, __ATOMIC_RELAXED);
 	}
 	MUTEX_RELEASE(&free_list_mutex);
 }
@@ -236,7 +236,7 @@ void mm_force_free_page(void *address, size_t count) {
 		uintmax_t page_id = base_id + i;
 		PAGE_BOUNDARY_CHECK(page_id);
 		page_t *page = &pages[page_id];
-		page->flags |= PAGE_FLAGS_FREE;
+		__atomic_or_fetch(&page->flags, PAGE_FLAGS_FREE, __ATOMIC_RELAXED);
 		insert_in_free_list(page);
 	}
 	MUTEX_RELEASE(&free_list_mutex);
@@ -277,7 +277,7 @@ void mm_page_init() {
 		if (e->type == LIMINE_MEMMAP_USABLE) {
 			int first_usable_page = e == biggest ? ROUND_UP(e->base + page_count * sizeof(page_t), PAGE_SIZE) / PAGE_SIZE : e->base / PAGE_SIZE;
 			for (int i = first_usable_page; i < (e->base + e->length) / PAGE_SIZE; ++i) {
-				pages[i].flags |= PAGE_FLAGS_FREE;
+				__atomic_or_fetch(&pages[i].flags, PAGE_FLAGS_FREE, __ATOMIC_RELAXED);
 				insert_in_free_list(&pages[i]);
 			}
 		} else if (e->type == LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE) {
@@ -311,7 +311,7 @@ void *mm_alloc_pages(size_t size, int section) {
 			if (page >= page_count)
 				break;
 
-			if (pages[page].flags & PAGE_FLAGS_FREE) {
+			if (__atomic_load_n(&pages[page].flags, __ATOMIC_RELAXED) & PAGE_FLAGS_FREE) {
 				++found;
 			} else
 				found = 0;

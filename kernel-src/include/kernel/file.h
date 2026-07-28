@@ -73,8 +73,10 @@ static inline int fileflagstovnodeflags(int flags) {
 		vnflags |= V_FFLAGS_NONBLOCKING;
 	if (flags & O_NOCTTY)
 		vnflags |= V_FFLAGS_NOCTTY;
-	if (flags & (O_DIRECT | O_SYNC | O_DSYNC))
+	if (flags & O_DIRECT)
 		vnflags |= V_FFLAGS_NOCACHE;
+	if (flags & (O_SYNC | O_DSYNC))
+		vnflags |= V_FFLAG_MUST_SYNC;
 
 	return vnflags;
 }

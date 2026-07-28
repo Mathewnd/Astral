@@ -224,6 +224,36 @@ static int tmpfs_root(vfs_t *vfs, vnode_t **vnode) {
 	return 0;
 }
 
+static int tmpfs_rw(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size, uintmax_t offset, size_t *done, bool write) {
+	*done = 0;
+	while (*done < size) {
+		uintmax_t current_offset = offset + *done;
+		uintmax_t page_offset = current_offset / PAGE_SIZE * PAGE_SIZE;
+		size_t page_start = current_offset % PAGE_SIZE;
+		size_t copy_size = min(PAGE_SIZE - page_start, size - *done);
+
+		page_t *page;
+		int error = mm_cache_get_page(node, page_offset, 0, &page);
+		if (error)
+			return error;
+
+		void *address = MAKE_HHDM(mm_get_page_address(page));
+		if (write)
+			error = iovec_iterator_copy_to_buffer(iovec_iterator, (void *)((uintptr_t)address + page_start), copy_size);
+		else
+			error = iovec_iterator_copy_from_buffer(iovec_iterator, (void *)((uintptr_t)address + page_start), copy_size);
+		mm_release_page(FROM_HHDM(address));
+		if (error)
+			return error;
+
+		*done += copy_size;
+	}
+
+	if (write && *done)
+		((tmpfsnode_t *)node)->attr.mtime = timekeeper_time();
+	return 0;
+}
+
 static int tmpfs_read(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size, uintmax_t offset, int flags, size_t *readc, cred_t *cred) {
 	if (node->type == V_TYPE_DIR)
 		return EISDIR;
@@ -231,7 +261,13 @@ static int tmpfs_read(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t si
 	if (node->type != V_TYPE_REGULAR)
 		return EINVAL;
 
-	__assert(!"tmpfs_read is handled by the page cache");
+	tmpfsnode_t *tmpfsnode = (tmpfsnode_t *)node;
+	if (offset >= tmpfsnode->attr.size) {
+		*readc = 0;
+		return 0;
+	}
+	size = min(size, tmpfsnode->attr.size - offset);
+	return tmpfs_rw(node, iovec_iterator, size, offset, readc, false);
 }
 
 static int tmpfs_write(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size, uintmax_t offset, int flags, size_t *writec, cred_t *cred) {
@@ -241,7 +277,10 @@ static int tmpfs_write(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t s
 	if (node->type != V_TYPE_REGULAR)
 		return EINVAL;
 
-	__assert(!"tmpfs_read is handled by the page cache");
+	if (size + offset < offset)
+		return EOVERFLOW;
+	__assert(size + offset <= ((tmpfsnode_t *)node)->attr.size);
+	return tmpfs_rw(node, iovec_iterator, size, offset, writec, true);
 }
 
 static int tmpfs_access(vnode_t *vnode, mode_t mode, cred_t *cred) {
@@ -501,9 +540,6 @@ static int tmpfs_inactive(vnode_t *node) {
 	arch_e9_puts("tmpfs_inactive\n");
 	tmpfsnode_t *tmp_node = (tmpfsnode_t *)node;
 	__assert(tmp_node->attr.nlinks == (node->type == V_TYPE_DIR ? 1 : 0));
-	if (node->type == V_TYPE_REGULAR) {
-		mm_cache_truncate(node, 0);
-	}
 	freenode(tmp_node);
 	return 0;
 }
@@ -535,7 +571,7 @@ static int tmpfs_getpage(vnode_t *node, uintmax_t offset, struct page_t *page) {
 	void *phyhhdm = MAKE_HHDM(phy);
 
 	mm_hold_page(phy);
-	page->flags |= PAGE_FLAGS_PINNED;
+	__atomic_fetch_or(&page->flags, PAGE_FLAGS_PINNED, __ATOMIC_RELAXED);
 	memset(phyhhdm, 0, PAGE_SIZE);
 	return 0;
 }

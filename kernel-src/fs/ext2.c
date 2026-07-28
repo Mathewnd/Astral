@@ -1822,7 +1822,6 @@ static int ext2_getpage(vnode_t *node, uintmax_t offset, struct page_t *page) {
 static int ext2_putpage(vnode_t *node, uintmax_t offset, struct page_t *page) {
 	// only regular files get cached
 	__assert(node->type == V_TYPE_REGULAR);
-	size_t writec;
 	iovec_t iovec = {
 		.addr = MAKE_HHDM(mm_get_page_address(page)),
 		.len = PAGE_SIZE
@@ -1830,21 +1829,8 @@ static int ext2_putpage(vnode_t *node, uintmax_t offset, struct page_t *page) {
 
 	iovec_iterator_t iovec_iterator;
 	iovec_iterator_init(&iovec_iterator, &iovec, 1);
-	int error = VOP_WRITE(node, &iovec_iterator, PAGE_SIZE, offset, 0, &writec, NULL);
-
-	// its possible that writec is zero here. the condition where this is possible is when
-	// the file is truncated after the check in the page sync function but before it actually is
-	// written back to disk. therefore, we check that the page IS infact truncated if this happens.
-	// if it isn't, something else happened and its not safe to continue.
-	//
-	// TODO: since this check will likely be copied between different filesystem drivers, it could be interesting to have
-	// ext2_putpage take in a (size_t *) pointer and have this check be in whatever function calls VOP_PUTPAGE.
-
-	if (writec == 0) {
-		__assert(page->flags & PAGE_FLAGS_TRUNCATED);
-	}
-
-	return error;
+	size_t writec;
+	return VOP_WRITE(node, &iovec_iterator, PAGE_SIZE, offset, 0, &writec, NULL);
 }
 
 static int ext2_rename(vnode_t *sourcedir, vnode_t *source, char *oldname, vnode_t *targetdir, char *newname, int flags) {
@@ -1964,13 +1950,11 @@ static int ext2_rename(vnode_t *sourcedir, vnode_t *source, char *oldname, vnode
 }
 
 static int ext2_sync(vnode_t *vnode) {
-	int e = mm_cache_sync_vnode(vnode, 0, UINT64_MAX);
+	int e = mm_cache_sync_vnode(vnode);
 	ext2fs_t *fs = (ext2fs_t *)vnode->vfs;
 	abc_sync(&fs->abc);
 	// TODO don't sync the entire disk but rather only the inodes and blocks
-	VOP_LOCK(fs->backing);
-	int e2 = mm_cache_sync_vnode(fs->backing, 0, UINT64_MAX);
-	VOP_UNLOCK(fs->backing);
+	int e2 = mm_cache_sync_vnode(fs->backing);
 	// only the first errors are reported
 	return e ? e : e2;
 }
@@ -2007,7 +1991,6 @@ static int ext2_inactive(vnode_t *vnode) {
 		__assert(hashtable_remove(&fs->inodetable, &node->id, sizeof(node->id)) == 0);
 		MUTEX_RELEASE(&fs->inodetablelock);
 
-		mm_cache_truncate(vnode, 0);
 		freeinode(fs, &node->inode, node->id);
 
 		slab_free(nodecache, node);
