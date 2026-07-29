@@ -16,6 +16,10 @@
 
 #define HDA_BDL_FLAGS_IOC 1
 
+#define INTEL_HDA_TCSEL 0x44
+#define INTEL_HDA_DEVC 0x78
+#define INTEL_HDA_DEVC_NOSNOOP (1 << 11)
+
 typedef struct {
 	uint64_t address;
 	uint32_t length;
@@ -58,6 +62,9 @@ typedef struct {
 #define SIZE_256 2
 #define SIZE_16 1
 #define SIZE_2 0
+
+#define CORBRP_RST (1 << 15)
+#define CORBCTL_DMA_ENABLE (1 << 1)
 
 typedef struct {
 	uint16_t gcap;
@@ -197,6 +204,11 @@ typedef struct {
 	size_t current_stream_tag;
 	hda_stream_t **streams;
 } hda_t;
+
+static uint32_t hda_stream_mask(hda_t *hda) {
+	size_t count = hda->input_stream_count + hda->output_stream_count + hda->bi_stream_count;
+	return count >= 30 ? 0x3fffffff : ((1u << count) - 1);
+}
 
 static bool hda_sd_set_reset(volatile hda_sd_t *sd, bool set) {
 	if (set)
@@ -500,7 +512,7 @@ static void hda_stream_fill_data(hda_stream_t *stream) {
 }
 
 static void stream_irq(hda_t *hda) {
-	uint32_t status = hda->regs->intsts & 0x3f;
+	uint32_t status = hda->regs->intsts & hda_stream_mask(hda);
 
 	for (int i = 0; i < 30; ++i) {
 		if ((status & (1 << i)) == 0)
@@ -548,7 +560,7 @@ static void hda_isr(isr_t *isr, context_t *) {
 	if (hda->regs->rirbsts)
 		rirb_irq(hda);
 
-	if (hda->regs->intsts & 0x3f)
+	if (hda->regs->intsts & hda_stream_mask(hda))
 		stream_irq(hda);
 }
 
@@ -776,6 +788,27 @@ static void get_sizes(uint8_t reg, uint8_t *size_reg, size_t *size_count) {
 	}
 }
 
+static bool corb_reset_read_pointer(volatile hda_regs_t *regs, size_t timeoutms) {
+	regs->corbrp = CORBRP_RST;
+
+	int loops = 0;
+	while ((regs->corbrp & CORBRP_RST) == 0) {
+		if (loops++ >= timeoutms * 10)
+			return false;
+		sched_sleep_us(100);
+	}
+
+	regs->corbrp = 0;
+	loops = 0;
+	while (regs->corbrp & CORBRP_RST) {
+		if (loops++ >= timeoutms * 10)
+			return false;
+		sched_sleep_us(100);
+	}
+
+	return true;
+}
+
 static void init_function_group(hda_t *hda, int codec, hda_fg_t *function_group) {
 	function_group->type = hda_get_parameter(hda, codec, function_group->nid, HDA_PARAM_FUNCTION_GROUP_TYPE) & 0xff;
 	if (function_group->type != HDA_FUNCTION_GROUP_TYPE_AFG)
@@ -875,6 +908,9 @@ static void initcontroller(pcienum_t *e) {
 	pci_setcommand(e, PCI_COMMAND_IRQDISABLE, 1);
 	pci_setcommand(e, PCI_COMMAND_BUSMASTER, 1);
 
+	PCI_WRITE8(e, INTEL_HDA_TCSEL, PCI_READ8(e, INTEL_HDA_TCSEL) & ~0x7);
+	PCI_WRITE16(e, INTEL_HDA_DEVC, PCI_READ16(e, INTEL_HDA_DEVC) & ~INTEL_HDA_DEVC_NOSNOOP);
+
 	// enable interrupts
 	if (e->msix.exists) {
 		pci_initmsix(e);
@@ -923,9 +959,12 @@ static void initcontroller(pcienum_t *e) {
 	regs->corblbase = (uint64_t)corb_phys & 0xffffffff;
 	regs->corbhbase = ((uint64_t)corb_phys >> 32) & 0xffffffff;
 	regs->corbsize = (regs->corbsize & 0xfc) | corbsize;
-	regs->corbrp = 0x8000 | (regs->corbrp & 0x7fff);
-	regs->corbwp = regs->corbwp & 0xff00;
-	regs->corbctl = (regs->corbctl & 0xfc) | 2;
+	if (!corb_reset_read_pointer(regs, 1)) {
+		printf("hda: resetting CORB read pointer timed out\n");
+		return;
+	}
+	regs->corbwp = 0;
+	regs->corbctl = (regs->corbctl & ~CORBCTL_DMA_ENABLE) | CORBCTL_DMA_ENABLE;
 
 	uint8_t rirbsize;
 	size_t rirb_entries;
@@ -990,12 +1029,16 @@ static void initcontroller(pcienum_t *e) {
 }
 
 void hda_init() {
-	int i = 0;
-	for (;;) {
-		pcienum_t *e = pci_getenum(-1, -1, -1, 0x8086, 0x2668, -1, i++);
-		if (e == NULL)
-			break;
-		initcontroller(e);
+	static const int device_ids[] = {0x2668, 0x8c20};
+
+	for (size_t device = 0; device < sizeof(device_ids) / sizeof(device_ids[0]); ++device) {
+		int i = 0;
+		for (;;) {
+			pcienum_t *e = pci_getenum(-1, -1, -1, 0x8086, device_ids[device], -1, i++);
+			if (e == NULL)
+				break;
+			initcontroller(e);
+		}
 	}
 }
 
