@@ -9,8 +9,7 @@
 #define USB_HUB_REQUEST_CLEAR_FEATURE 1
 #define USB_HUB_REQUEST_SET_FEATURE 3
 
-#define USB_HUB_POWER_SWITCHING_MODE_MASK 0x0003
-#define USB_HUB_POWER_SWITCHING_MODE_NONE (1 << 1)
+#define USB_HUB_MIN_POWER_GOOD_US 100000
 
 typedef struct {
 	uint64_t in_buffer;
@@ -281,8 +280,10 @@ static void power_on_callback(usb_device_t *dev, void *ctx, usb_status_t status,
 	if (++data->ports_powered == data->usb_hub->port_count) {
 		usb_hub_desc_t *desc = (usb_hub_desc_t *)dev->hub_desc;
 		size_t power_good_us = (size_t)desc->bPwrOn2PwrGood * 2000;
-		if (power_good_us)
-			sched_sleep_us(power_good_us);
+		// External hubs need at least 100 ms for port power to stabilize.
+		if (power_good_us < USB_HUB_MIN_POWER_GOOD_US)
+			power_good_us = USB_HUB_MIN_POWER_GOOD_US;
+		sched_sleep_us(power_good_us);
 		initial_status_scan(dev, data);
 	} else if (power_port(dev, data->ports_powered, data)) {
 		printf("hub: power_port() failed\n");
@@ -291,13 +292,6 @@ static void power_on_callback(usb_device_t *dev, void *ctx, usb_status_t status,
 
 static int power_port(usb_device_t *dev, int port, hub_driver_data_t *data) {
 	return hub_port_control_xfer(data->usb_hub->device, USB_HUB_REQUEST_SET_FEATURE, USB_HUB_FEATURE_PORT_POWER, port, NULL, 0, power_on_callback, data);
-}
-
-static bool hub_advertises_port_power_switching(usb_device_t *dev) {
-	usb_hub_desc_t *desc = (usb_hub_desc_t *)dev->hub_desc;
-	uint16_t power_mode = desc->wHubCharacteristics & USB_HUB_POWER_SWITCHING_MODE_MASK;
-
-	return (power_mode & USB_HUB_POWER_SWITCHING_MODE_NONE) == 0;
 }
 
 static void get_hub_name(usb_device_t *dev, char *buffer, size_t buffer_size) {
@@ -386,12 +380,9 @@ static int hub_attach(usb_device_t *dev, usb_interface_t *interface) {
 		return error;
 	}
 
-	if (hub_advertises_port_power_switching(dev)) {
-		if (power_port(dev, 0, hub_driver_data))
-			printf("hub: failed to power first port\n");
-	} else {
-		initial_status_scan(dev, hub_driver_data);
-	}
+	// Some hubs emulate power switching but still require PORT_POWER requests.
+	if (power_port(dev, 0, hub_driver_data))
+		printf("hub: failed to power first port\n");
 
 	return 0;
 }
