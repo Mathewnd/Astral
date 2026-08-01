@@ -763,6 +763,19 @@ index d4aad49..ff25987 100644
  /***********************************************************************
   *              NtTraceControl  (NTDLL.@)
   */
+diff --git wine-clean/dlls/ntdll/unix/server.c wine-workdir/dlls/ntdll/unix/server.c
+index c04328c..46a43f1 100644
+--- wine-clean/dlls/ntdll/unix/server.c
++++ wine-workdir/dlls/ntdll/unix/server.c
+@@ -1530,6 +1530,8 @@ static int get_unix_tid(void)
+     ret = pthread_getthreadid_np();
+ #elif defined(linux)
+     ret = syscall( __NR_gettid );
++#elif defined(__astral__)
++    ret = gettid();
+ #elif defined(__sun)
+     ret = pthread_self();
+ #elif defined(__APPLE__)
 diff --git wine-clean/dlls/ntdll/unix/signal_x86_64.c wine-workdir/dlls/ntdll/unix/signal_x86_64.c
 index 740df80..3d08bb2 100644
 --- wine-clean/dlls/ntdll/unix/signal_x86_64.c
@@ -1008,6 +1021,41 @@ index 781598f..025dfe1 100644
          flags |= MAP_PRIVATE;
  #else
          flags |= MAP_SHARED;
+diff --git wine-clean/server/ptrace.c wine-workdir/server/ptrace.c
+index bfebeca..2158633 100644
+--- wine-clean/server/ptrace.c
++++ wine-workdir/server/ptrace.c
+@@ -226,6 +226,8 @@ static inline int tkill( int tgid, int pid, int sig )
+     return ret;
+ #elif (defined(__FreeBSD__) || defined (__FreeBSD_kernel__)) && defined(HAVE_THR_KILL2)
+     return thr_kill2( tgid, pid, sig );
++#elif defined(__astral__)
++    return tgkill( tgid, pid, sig );
+ #else
+     errno = ENOSYS;
+     return -1;
+diff --git wine-clean/server/thread.c wine-workdir/server/thread.c
+index 7207f91..2e78251 100644
+--- wine-clean/server/thread.c
++++ wine-workdir/server/thread.c
+@@ -789,7 +789,7 @@
+ int set_thread_affinity( struct thread *thread, affinity_t affinity )
+ {
+     int ret = 0;
+-#ifdef HAVE_SCHED_SETAFFINITY
++#if defined(HAVE_SCHED_SETAFFINITY) && !defined(__astral__)
+     if (thread->unix_tid != -1)
+     {
+         cpu_set_t set;
+@@ -810,7 +810,7 @@
+ affinity_t get_thread_affinity( struct thread *thread )
+ {
+     affinity_t mask = 0;
+-#ifdef HAVE_SCHED_SETAFFINITY
++#if defined(HAVE_SCHED_SETAFFINITY) && !defined(__astral__)
+     if (thread->unix_tid != -1)
+     {
+         cpu_set_t set;
 diff --git wine-clean/server/sock.c wine-workdir/server/sock.c
 index fdc26bc..235406b 100644
 --- wine-clean/server/sock.c
