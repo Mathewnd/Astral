@@ -33,6 +33,9 @@ typedef struct {
 #define HDA_SD_CTL_BYTE0_DEIE 16
 #define HDA_SD_CTL_BYTE2_BI_OUTPUT (1 << 3)
 
+#define HDA_STREAM_STOP_TIMEOUT_US 10000
+#define HDA_STREAM_STOP_POLL_US 100
+
 #define HDA_SD_STS_BCIS (1 << 2)
 #define HDA_SD_STS_FIFOE (1 << 3)
 #define HDA_SD_STS_DESE (1 << 4)
@@ -231,16 +234,31 @@ static bool hda_sd_set_reset(volatile hda_sd_t *sd, bool set) {
 	return done;
 }
 
-static void hda_stream_stop(hda_stream_t *stream) {
-	stream->sd->ctl[0] &= ~HDA_SD_CTL_BYTE0_RUN;
+static bool hda_stream_stop(hda_stream_t *stream) {
+	stream->sd->ctl[0] &= ~(HDA_SD_CTL_BYTE0_RUN | HDA_SD_CTL_BYTE0_IOCE | HDA_SD_CTL_BYTE0_FEIE | HDA_SD_CTL_BYTE0_DEIE);
+
+	size_t waited = 0;
+	while (stream->sd->ctl[0] & HDA_SD_CTL_BYTE0_RUN) {
+		if (waited >= HDA_STREAM_STOP_TIMEOUT_US) {
+			printf("hda: stopping stream timed out\n");
+			return false;
+		}
+
+		sched_sleep_us(HDA_STREAM_STOP_POLL_US);
+		waited += HDA_STREAM_STOP_POLL_US;
+	}
+
+	stream->sd->sts = HDA_SD_STS_BCIS | HDA_SD_STS_FIFOE | HDA_SD_STS_DESE;
+	return true;
 }
 
 static void hda_stream_start(hda_stream_t *stream) {
-	stream->sd->ctl[0] |= HDA_SD_CTL_BYTE0_RUN;
+	stream->sd->ctl[0] |= HDA_SD_CTL_BYTE0_RUN | HDA_SD_CTL_BYTE0_IOCE;
 }
 
 static bool hda_reset_stream(hda_stream_t *stream) {
-	hda_stream_stop(stream);
+	if (!hda_stream_stop(stream))
+		return false;
 
 	if (!hda_sd_set_reset(stream->sd, true)) {
 		printf("hda: setting stream reset bit timed out\n");
@@ -264,7 +282,7 @@ static bool hda_reset_stream(hda_stream_t *stream) {
 	stream->bytes_played = 0;
 	stream->fill_ptr = 0;
 
-	return 0;
+	return true;
 }
 
 static void hda_update_playback_position(hda_stream_t *stream) {
