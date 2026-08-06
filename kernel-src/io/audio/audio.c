@@ -18,33 +18,60 @@ static size_t bytes_to_frames(int fmt, int channels, size_t bytes) {
 #define MAX_STREAM 64
 #define AUDIO_RINGBUFFER_SIZE (8 * 1024)
 
+typedef struct {
+	mutex_t mutex;
+	audio_stream_t *stream;
+	audio_device_ops_t *ops;
+	void *private;
+} audio_device_t;
+
 static int current_minor = 0;
-static audio_stream_t *streams[MAX_STREAM];
+static audio_device_t devices[MAX_STREAM];
+
+static audio_device_t *get_device(int minor) {
+	if (minor < 0 || minor >= MAX_STREAM || devices[minor].ops == NULL)
+		return NULL;
+
+	return &devices[minor];
+}
 
 static int audio_open(int minor, vnode_t **vnode, int flags) {
-	audio_stream_t *stream = streams[minor];
-	if (stream == NULL)
+	audio_device_t *device = get_device(minor);
+	if (device == NULL)
 		return ENODEV;
 
 	int error = 0;
-	MUTEX_ACQUIRE(&stream->mutex);
+	MUTEX_ACQUIRE(&device->mutex);
 
-	if (stream->opened) {
+	if (device->stream) {
 		error = EBUSY;
 		goto leave;
 	}
 
-	stream->opened = true;
+	audio_stream_t *stream;
+	error = device->ops->acquire_stream(device->private, flags & V_FFLAGS_NONBLOCKING, &stream);
+	if (error)
+		goto leave;
+
+	__assert(stream);
+	device->stream = stream;
 
 	leave:
-	MUTEX_RELEASE(&stream->mutex);
+	MUTEX_RELEASE(&device->mutex);
 	return error;
 }
 
 static int audio_close(int minor, int flags) {
-	audio_stream_t *stream = streams[minor];
-	if (stream == NULL)
+	audio_device_t *device = get_device(minor);
+	if (device == NULL)
 		return ENODEV;
+
+	MUTEX_ACQUIRE(&device->mutex);
+	audio_stream_t *stream = device->stream;
+	if (stream == NULL) {
+		MUTEX_RELEASE(&device->mutex);
+		return ENODEV;
+	}
 
 	MUTEX_ACQUIRE(&stream->mutex);
 
@@ -55,14 +82,17 @@ static int audio_close(int minor, int flags) {
 	stream->ops->reset(stream);
 	ringbuffer_truncate(&stream->ringbuffer, 0xffffffff);
 	stream->playing = false;
-	stream->opened = false;
 	stream->underruns = 0;
 	stream->trigger = AUDIO_TRIGGER_OUTPUT | AUDIO_TRIGGER_INPUT;
 	stream->bytes_submitted = 0;
 	stream->bytes_written = 0;
 	stream->bytes_played = 0;
 
+	device->ops->release_stream(device->private, stream);
+	device->stream = NULL;
+
 	MUTEX_RELEASE(&stream->mutex);
+	MUTEX_RELEASE(&device->mutex);
 	return 0;
 }
 
@@ -79,7 +109,8 @@ static int internal_poll(audio_stream_t *stream, polldata_t *data, int events) {
 }
 
 static int audio_write(int minor, iovec_iterator_t *iovec_iterator, size_t size, uintmax_t offset, int flags, size_t *writec) {
-	audio_stream_t *stream = streams[minor];
+	audio_device_t *device = get_device(minor);
+	audio_stream_t *stream = device ? device->stream : NULL;
 	if (stream == NULL)
 		return ENODEV;
 
@@ -133,7 +164,8 @@ static int audio_write(int minor, iovec_iterator_t *iovec_iterator, size_t size,
 }
 
 static int audio_poll(int minor, polldata_t *data, int events) {
-	audio_stream_t *stream = streams[minor];
+	audio_device_t *device = get_device(minor);
+	audio_stream_t *stream = device ? device->stream : NULL;
 	if (stream == NULL)
 		return POLLERR;
 
@@ -181,7 +213,8 @@ typedef struct {
 #define SNDCTL_DSP_CURRENT_OPTR 0x80905024
 
 static int audio_ioctl(int minor, unsigned long request, void *arg, int *result, cred_t *cred) {
-	audio_stream_t *stream = streams[minor];
+	audio_device_t *device = get_device(minor);
+	audio_stream_t *stream = device ? device->stream : NULL;
 	if (stream == NULL)
 		return ENODEV;
 
@@ -307,12 +340,16 @@ static devops_t devops = {
 	.ioctl = audio_ioctl
 };
 
-int audio_register_stream(audio_stream_t *stream) {
+int audio_register_device(audio_device_ops_t *device_ops, void *private) {
 	int minor = __atomic_fetch_add(&current_minor, 1, __ATOMIC_RELAXED);
 	if (minor >= MAX_STREAM)
 		return ENXIO;
 
-	streams[minor] = stream;
+	audio_device_t *device = &devices[minor];
+	MUTEX_INIT(&device->mutex);
+	device->stream = NULL;
+	device->ops = device_ops;
+	device->private = private;
 
 	char name[10];
 	snprintf(name, 10, "dsp%d", minor);
@@ -337,7 +374,6 @@ int audio_initialize_stream(audio_stream_t *stream, audio_stream_ops_t *ops) {
 
 	MUTEX_INIT(&stream->mutex);
 	POLL_INITHEADER(&stream->pollheader);
-	stream->opened = false;
 	stream->playing = false;
 	stream->ops = ops;
 	stream->trigger = AUDIO_TRIGGER_INPUT | AUDIO_TRIGGER_OUTPUT;

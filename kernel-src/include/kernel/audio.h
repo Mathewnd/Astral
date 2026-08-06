@@ -8,6 +8,11 @@
 
 typedef struct audio_stream audio_stream_t;
 
+typedef struct {
+	int (*acquire_stream)(void *private, bool nonblocking, audio_stream_t **stream);
+	void (*release_stream)(void *private, audio_stream_t *stream);
+} audio_device_ops_t;
+
 #define AUDIO_STREAM_INFO_FRAGMENT_SIZE 1
 #define AUDIO_STREAM_INFO_SPEED 2
 #define AUDIO_STREAM_INFO_CHANNELS 3
@@ -33,7 +38,6 @@ typedef struct audio_stream {
 	ringbuffer_t ringbuffer;
 	pollheader_t pollheader;
 	audio_stream_ops_t *ops;
-	bool opened;
 	bool playing;
 	int trigger;
 	size_t underruns;
@@ -44,6 +48,6 @@ typedef struct audio_stream {
 
 bool audio_take_stream_data(audio_stream_t *stream, void *buffer, size_t size);
 int audio_initialize_stream(audio_stream_t *stream, audio_stream_ops_t *stream_ops);
-int audio_register_stream(audio_stream_t *stream);
+int audio_register_device(audio_device_ops_t *device_ops, void *private);
 
 #endif

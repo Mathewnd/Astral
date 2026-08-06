@@ -7,6 +7,7 @@
 #include <semaphore.h>
 #include <kernel/alloc.h>
 #include <kernel/audio.h>
+#include <errno.h>
 
 // TODO: support mono format as well
 #define HDA_FORMAT_48KHZ_16BIT_STEREO 0x11
@@ -160,6 +161,9 @@ typedef struct {
 	size_t size;
 } hda_path_t;
 
+typedef struct hda hda_t;
+typedef struct hda_output_path hda_output_path_t;
+
 typedef struct {
 	list_t waiter_list;
 	spinlock_t waiter_list_lock;
@@ -172,11 +176,15 @@ typedef struct {
 
 typedef struct {
 	audio_stream_t generic;
+	hda_t *hda;
 	volatile hda_sd_t *sd;
 	void *bdl_phys;
 	size_t tag;
+	size_t descriptor_index;
 	bool bi;
-	hda_path_t path;
+	bool allocated;
+	bool active;
+	hda_output_path_t *owner;
 	size_t last;
 	size_t fill_ptr;
 	uint32_t last_lpib;
@@ -184,7 +192,7 @@ typedef struct {
 	eventheader_t underrun_event;
 } hda_stream_t;
 
-typedef struct {
+struct hda {
 	volatile hda_regs_t *regs;
 	volatile uint32_t *corb;
 	size_t corb_entries;
@@ -205,8 +213,17 @@ typedef struct {
 	size_t allocated_input_stream_count;
 	size_t allocated_bi_stream_count;
 	size_t current_stream_tag;
+	spinlock_t stream_lock;
+	semaphore_t output_stream_semaphore;
+	size_t usable_output_stream_count;
 	hda_stream_t **streams;
-} hda_t;
+};
+
+struct hda_output_path {
+	hda_t *hda;
+	int codec;
+	hda_path_t path;
+};
 
 static uint32_t hda_stream_mask(hda_t *hda) {
 	size_t count = hda->input_stream_count + hda->output_stream_count + hda->bi_stream_count;
@@ -259,6 +276,9 @@ static void hda_stream_start(hda_stream_t *stream) {
 static bool hda_reset_stream(hda_stream_t *stream) {
 	if (!hda_stream_stop(stream))
 		return false;
+
+	long ipl = spinlock_acquire_raise_ipl(&stream->hda->stream_lock, IPL_AUDIO);
+	spinlock_release_lower_ipl(&stream->hda->stream_lock, ipl);
 
 	if (!hda_sd_set_reset(stream->sd, true)) {
 		printf("hda: setting stream reset bit timed out\n");
@@ -376,35 +396,16 @@ static audio_stream_ops_t hda_stream_ops = {
 	.get_info = stream_get_info
 };
 
-// TODO: fix memory leak
-static hda_stream_t *hda_allocate_output_stream(hda_t *hda) {
-	if (hda->current_stream_tag > 15) {
-		printf("hda: out of stream tags\n");
-		return NULL;
-	}
-
+static hda_stream_t *hda_initialize_output_stream(hda_t *hda, size_t stream_n, size_t tag, bool bi) {
 	hda_stream_t *stream = alloc(sizeof(hda_stream_t));
 	__assert(stream);
 	__assert(audio_initialize_stream(&stream->generic, &hda_stream_ops) == 0);
 	EVENT_INITHEADER(&stream->underrun_event);
-
-	size_t stream_n;
-	if (hda->allocated_output_stream_count < hda->output_stream_count) {
-		stream->sd = &hda->output_sd[hda->allocated_output_stream_count];
-		stream_n = hda->input_stream_count + hda->allocated_output_stream_count;
-		++hda->allocated_output_stream_count;
-	} else if (hda->allocated_bi_stream_count < hda->bi_stream_count) {
-		stream->sd = &hda->bi_sd[hda->allocated_bi_stream_count];
-		stream_n = hda->input_stream_count + hda->output_stream_count + hda->allocated_bi_stream_count;
-		++hda->allocated_bi_stream_count;
-		stream->bi = true;
-	} else {
-		printf("hda: no more free streams\n");
-		return NULL;
-	}
-
-	hda->streams[stream_n] = stream;
-	hda->regs->intctl |= (1 << stream_n);
+	stream->hda = hda;
+	stream->sd = &hda->regs->sds[stream_n];
+	stream->descriptor_index = stream_n;
+	stream->tag = tag;
+	stream->bi = bi;
 
 	stream->bdl_phys = mm_alloc_page(MEMORY_SECTION_DEFAULT);
 	__assert(stream->bdl_phys);
@@ -420,10 +421,31 @@ static hda_stream_t *hda_allocate_output_stream(hda_t *hda) {
 		bdl[i].flags = HDA_BDL_FLAGS_IOC;
 	}
 
-	stream->tag = hda->current_stream_tag++;
-	hda_reset_stream(stream);
+	__assert(hda_reset_stream(stream));
+	hda->streams[stream_n] = stream;
 
 	return stream;
+}
+
+static void hda_initialize_output_stream_pool(hda_t *hda) {
+	while (hda->allocated_output_stream_count < hda->output_stream_count && hda->current_stream_tag <= 15) {
+		size_t i = hda->allocated_output_stream_count++;
+		size_t stream_n = hda->input_stream_count + i;
+		hda_initialize_output_stream(hda, stream_n, hda->current_stream_tag++, false);
+		++hda->usable_output_stream_count;
+	}
+
+	while (hda->allocated_bi_stream_count < hda->bi_stream_count && hda->current_stream_tag <= 15) {
+		size_t i = hda->allocated_bi_stream_count++;
+		size_t stream_n = hda->input_stream_count + hda->output_stream_count + i;
+		hda_initialize_output_stream(hda, stream_n, hda->current_stream_tag++, true);
+		++hda->usable_output_stream_count;
+	}
+
+	if (hda->output_stream_count + hda->bi_stream_count > hda->usable_output_stream_count)
+		printf("hda: only %lu output streams are usable because stream tags are exhausted\n", hda->usable_output_stream_count);
+
+	SEMAPHORE_INIT(&hda->output_stream_semaphore, hda->usable_output_stream_count);
 }
 
 static hda_path_t hda_find_path(hda_fg_t *fg, hda_widget_t *pin, int goal_type) {
@@ -531,6 +553,7 @@ static void hda_stream_fill_data(hda_stream_t *stream) {
 
 static void stream_irq(hda_t *hda) {
 	uint32_t status = hda->regs->intsts & hda_stream_mask(hda);
+	spinlock_acquire(&hda->stream_lock);
 
 	for (int i = 0; i < 30; ++i) {
 		if ((status & (1 << i)) == 0)
@@ -542,9 +565,11 @@ static void stream_irq(hda_t *hda) {
 
 		uint8_t strsts = stream->sd->sts;
 		stream->sd->sts = strsts & (HDA_SD_STS_BCIS | HDA_SD_STS_DESE | HDA_SD_STS_FIFOE);
-		if (strsts & HDA_SD_STS_BCIS)
+		if (stream->active && (strsts & HDA_SD_STS_BCIS))
 			hda_stream_fill_data(stream);
 	}
+
+	spinlock_release(&hda->stream_lock);
 }
 
 static void rirb_irq(hda_t *hda) {
@@ -663,6 +688,87 @@ static uint32_t hda_set_converter_format(hda_t *hda, uint32_t codec, uint32_t ni
 static uint32_t hda_set_converter_stream_channel(hda_t *hda, uint32_t codec, uint32_t nid, uint8_t stream, uint8_t base_channel) {
 	return hda_submit_verb_and_wait(hda, codec, nid, 0x70600 | (stream << 4) | base_channel);
 }
+
+static int hda_acquire_output_stream(void *private, bool nonblocking, audio_stream_t **generic) {
+	hda_output_path_t *output_path = private;
+	hda_t *hda = output_path->hda;
+
+	if (nonblocking) {
+		if (!semaphore_test(&hda->output_stream_semaphore))
+			return EBUSY;
+	} else {
+		int error = semaphore_wait(&hda->output_stream_semaphore, true);
+		if (error)
+			return error;
+	}
+
+	hda_stream_t *stream = NULL;
+	long ipl = spinlock_acquire_raise_ipl(&hda->stream_lock, IPL_AUDIO);
+	for (size_t i = hda->input_stream_count; i < hda->input_stream_count + hda->output_stream_count + hda->bi_stream_count; ++i) {
+		hda_stream_t *candidate = hda->streams[i];
+		if (candidate && !candidate->allocated) {
+			candidate->allocated = true;
+			candidate->owner = output_path;
+			stream = candidate;
+			break;
+		}
+	}
+	spinlock_release_lower_ipl(&hda->stream_lock, ipl);
+	__assert(stream);
+
+	if (!hda_reset_stream(stream)) {
+		printf("hda: failed to reset allocated stream %lu\n", stream->descriptor_index);
+		ipl = spinlock_acquire_raise_ipl(&hda->stream_lock, IPL_AUDIO);
+		stream->owner = NULL;
+		spinlock_release_lower_ipl(&hda->stream_lock, ipl);
+		return EIO;
+	}
+
+	hda_widget_t *converter = output_path->path.widgets[output_path->path.size - 1];
+	hda_set_converter_stream_channel(hda, output_path->codec, converter->nid, stream->tag, 0);
+
+	ipl = spinlock_acquire_raise_ipl(&hda->stream_lock, IPL_AUDIO);
+	stream->active = true;
+	hda->regs->intctl |= 1u << stream->descriptor_index;
+	spinlock_release_lower_ipl(&hda->stream_lock, ipl);
+
+	*generic = &stream->generic;
+	return 0;
+}
+
+static void hda_release_output_stream(void *private, audio_stream_t *generic) {
+	hda_output_path_t *output_path = private;
+	hda_stream_t *stream = (hda_stream_t *)generic;
+	hda_t *hda = output_path->hda;
+	__assert(stream->owner == output_path);
+
+	long ipl = spinlock_acquire_raise_ipl(&hda->stream_lock, IPL_AUDIO);
+	hda->regs->intctl &= ~(1u << stream->descriptor_index);
+	stream->active = false;
+	spinlock_release_lower_ipl(&hda->stream_lock, ipl);
+
+	hda_widget_t *converter = output_path->path.widgets[output_path->path.size - 1];
+	hda_set_converter_stream_channel(hda, output_path->codec, converter->nid, 0, 0);
+
+	if (!hda_reset_stream(stream)) {
+		printf("hda: failed to reset released stream %lu; keeping it unavailable\n", stream->descriptor_index);
+		ipl = spinlock_acquire_raise_ipl(&hda->stream_lock, IPL_AUDIO);
+		stream->owner = NULL;
+		spinlock_release_lower_ipl(&hda->stream_lock, ipl);
+		return;
+	}
+
+	ipl = spinlock_acquire_raise_ipl(&hda->stream_lock, IPL_AUDIO);
+	stream->owner = NULL;
+	stream->allocated = false;
+	spinlock_release_lower_ipl(&hda->stream_lock, ipl);
+	semaphore_signal(&hda->output_stream_semaphore);
+}
+
+static audio_device_ops_t hda_audio_device_ops = {
+	.acquire_stream = hda_acquire_output_stream,
+	.release_stream = hda_release_output_stream
+};
 
 // TODO: we should really be careful to not choose paths that go through the same selector/dac
 static void hda_initialize_path(hda_t *hda, int codec, hda_fg_t *fg, hda_path_t path, bool output) {
@@ -879,18 +985,15 @@ static void init_function_group(hda_t *hda, int codec, hda_fg_t *function_group)
 
 		hda_initialize_path(hda, codec, function_group, path, true);
 
-		hda_stream_t *stream = hda_allocate_output_stream(hda);
-		if (stream == NULL) {
-			printf("hda: failed to allocate stream\n");
-			continue;
-		}
-
-		stream->path = path;
-
 		hda_widget_t *converter = path.widgets[path.size - 1];
 		hda_set_converter_format(hda, codec, converter->nid, HDA_FORMAT_48KHZ_16BIT_STEREO);
-		hda_set_converter_stream_channel(hda, codec, converter->nid, stream->tag, 0);
-		__assert(audio_register_stream(&stream->generic) == 0);
+
+		hda_output_path_t *output_path = alloc(sizeof(hda_output_path_t));
+		__assert(output_path);
+		output_path->hda = hda;
+		output_path->codec = codec;
+		output_path->path = path;
+		__assert(audio_register_device(&hda_audio_device_ops, output_path) == 0);
 	}
 }
 
@@ -1003,7 +1106,6 @@ static void initcontroller(pcienum_t *e) {
 	SPINLOCK_INIT(hda->corb_lock);
 	hda->rirb = rirb;
 	hda->rirb_entries = rirb_entries;
-
 	hda->current_stream_tag = 1;
 
 	hda->bi_stream_count = (regs->gcap >> 3) & 0x1f;
@@ -1021,6 +1123,8 @@ static void initcontroller(pcienum_t *e) {
 
 	hda->streams = alloc(sizeof(hda_stream_t *) * (hda->input_stream_count + hda->output_stream_count + hda->bi_stream_count));
 	__assert(hda->streams);
+	SPINLOCK_INIT(hda->stream_lock);
+	hda_initialize_output_stream_pool(hda);
 
 	isr_t *isr = interrupt_allocate(hda_isr, ARCH_EOI, IPL_AUDIO);
 	__assert(isr);
