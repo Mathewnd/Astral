@@ -9,8 +9,35 @@
 #include <kernel/audio.h>
 #include <errno.h>
 
-// TODO: support mono format as well
-#define HDA_FORMAT_48KHZ_16BIT_STEREO 0x11
+#define HDA_FORMAT_CHANNELS_2 1
+#define HDA_FORMAT_BASE_44100 (1 << 14)
+#define HDA_FORMAT_MULT_2 (1 << 11)
+#define HDA_FORMAT_MULT_4 (3 << 11)
+#define HDA_FORMAT_DIV_2 (1 << 8)
+#define HDA_FORMAT_DIV_3 (2 << 8)
+#define HDA_FORMAT_DIV_4 (3 << 8)
+#define HDA_FORMAT_DIV_6 (5 << 8)
+#define HDA_FORMAT_BITS_32 4
+
+#define HDA_WIDGET_CAPS_STEREO (1 << 0)
+#define HDA_WIDGET_CAPS_FORMAT_OVERRIDE (1 << 4)
+#define HDA_WIDGET_CAPS_DIGITAL (1 << 8)
+
+#define HDA_PCM_CAPS_B8 (1 << 16)
+#define HDA_PCM_CAPS_B16 (1 << 17)
+#define HDA_PCM_CAPS_B32 (1 << 20)
+#define HDA_PCM_CAPS_RATE_8KHZ (1 << 0)
+#define HDA_PCM_CAPS_RATE_11KHZ (1 << 1)
+#define HDA_PCM_CAPS_RATE_16KHZ (1 << 2)
+#define HDA_PCM_CAPS_RATE_22KHZ (1 << 3)
+#define HDA_PCM_CAPS_RATE_32KHZ (1 << 4)
+#define HDA_PCM_CAPS_RATE_44KHZ (1 << 5)
+#define HDA_PCM_CAPS_RATE_48KHZ (1 << 6)
+#define HDA_PCM_CAPS_RATE_88KHZ (1 << 7)
+#define HDA_PCM_CAPS_RATE_96KHZ (1 << 8)
+#define HDA_PCM_CAPS_RATE_176KHZ (1 << 9)
+#define HDA_PCM_CAPS_RATE_192KHZ (1 << 10)
+#define HDA_STREAM_FORMAT_PCM (1 << 0)
 
 #define HDA_BUFFER_PAGE_COUNT 2
 #define HDA_BUFFER_TOTAL_SIZE (HDA_BUFFER_PAGE_COUNT * PAGE_SIZE)
@@ -136,6 +163,9 @@ typedef struct hda_widget {
 	size_t connection_count;
 	hda_widget_t **connections;
 	uint32_t pin_caps;
+	uint32_t widget_caps;
+	uint32_t pcm_caps;
+	uint32_t stream_formats;
 	uint32_t input_amp_caps;
 	uint32_t output_amp_caps;
 	uint32_t volume_knob_caps;
@@ -147,6 +177,8 @@ typedef struct {
 	int nid;
 	size_t widget_count;
 	size_t starting_node;
+	uint32_t pcm_caps;
+	uint32_t stream_formats;
 	hda_widget_t *widgets;
 } hda_fg_t;
 
@@ -176,6 +208,10 @@ typedef struct {
 
 typedef struct {
 	audio_stream_t generic;
+	uint16_t hda_format;
+	int format;
+	int speed;
+	int channels;
 	hda_t *hda;
 	volatile hda_sd_t *sd;
 	void *bdl_phys;
@@ -223,7 +259,38 @@ struct hda_output_path {
 	hda_t *hda;
 	int codec;
 	hda_path_t path;
+	hda_widget_t *converter;
+	uint32_t supported_formats;
+	int default_format;
+	int default_speed;
+	int default_channels;
+	uint16_t hda_format;
+	bool digital;
 };
+
+typedef struct {
+	int speed;
+	uint32_t pcm_cap;
+	uint16_t format;
+} hda_rate_t;
+
+static const hda_rate_t hda_rates[] = {
+	{ 48000, HDA_PCM_CAPS_RATE_48KHZ, 0 },
+	{ 44100, HDA_PCM_CAPS_RATE_44KHZ, HDA_FORMAT_BASE_44100 },
+	{ 96000, HDA_PCM_CAPS_RATE_96KHZ, HDA_FORMAT_MULT_2 },
+	{ 88200, HDA_PCM_CAPS_RATE_88KHZ, HDA_FORMAT_BASE_44100 | HDA_FORMAT_MULT_2 },
+	{ 192000, HDA_PCM_CAPS_RATE_192KHZ, HDA_FORMAT_MULT_4 },
+	{ 176400, HDA_PCM_CAPS_RATE_176KHZ, HDA_FORMAT_BASE_44100 | HDA_FORMAT_MULT_4 },
+	{ 32000, HDA_PCM_CAPS_RATE_32KHZ, HDA_FORMAT_MULT_2 | HDA_FORMAT_DIV_3 },
+	{ 22050, HDA_PCM_CAPS_RATE_22KHZ, HDA_FORMAT_BASE_44100 | HDA_FORMAT_DIV_2 },
+	{ 16000, HDA_PCM_CAPS_RATE_16KHZ, HDA_FORMAT_DIV_3 },
+	{ 11025, HDA_PCM_CAPS_RATE_11KHZ, HDA_FORMAT_BASE_44100 | HDA_FORMAT_DIV_4 },
+	{ 8000, HDA_PCM_CAPS_RATE_8KHZ, HDA_FORMAT_DIV_6 }
+};
+
+static uint32_t hda_set_converter_format(hda_t *hda, uint32_t codec, uint32_t nid, uint16_t format);
+static bool hda_format_to_stream_format(hda_widget_t *converter, int format, int speed, int channels, uint16_t *hda_format);
+static int hda_default_output_speed(hda_widget_t *converter);
 
 static uint32_t hda_stream_mask(hda_t *hda) {
 	size_t count = hda->input_stream_count + hda->output_stream_count + hda->bi_stream_count;
@@ -293,7 +360,7 @@ static bool hda_reset_stream(hda_stream_t *stream) {
 	stream->sd->sts = HDA_SD_STS_BCIS | HDA_SD_STS_FIFOE | HDA_SD_STS_DESE;
 	stream->sd->cbl = HDA_BUFFER_TOTAL_SIZE;
 	stream->sd->lvi = HDA_BUFFER_PAGE_COUNT - 1;
-	stream->sd->fmt = HDA_FORMAT_48KHZ_16BIT_STEREO;
+	stream->sd->fmt = stream->hda_format;
 	stream->sd->bdpl = (uint64_t)stream->bdl_phys & 0xffffffff;
 	stream->sd->bdph = ((uint64_t)stream->bdl_phys >> 32) & 0xffffffff;
 	stream->sd->ctl[0] = HDA_SD_CTL_BYTE0_IOCE;
@@ -364,28 +431,131 @@ static void stream_get_info(audio_stream_t *p, int what, void *buf) {
 			*(size_t *)buf = PAGE_SIZE;
 			break;
 		case AUDIO_STREAM_INFO_SPEED:
-			*(int *)buf = 48000;
+			*(int *)buf = stream->speed;
 			break;
 		case AUDIO_STREAM_INFO_CHANNELS:
-			*(int *)buf = 2;
+			*(int *)buf = stream->channels;
 			break;
 		case AUDIO_STREAM_INFO_FORMAT:
-			*(int *)buf = AUDIO_FORMAT_S16_LE;
+			*(int *)buf = stream->format;
+			break;
+		case AUDIO_STREAM_INFO_SUPPORTED_FORMATS:
+			*(int *)buf = stream->owner ? stream->owner->supported_formats : 0;
 			break;
 		case AUDIO_STREAM_INFO_FIFO_FRAMES: {
+			size_t sample_size = 0;
+			switch (stream->format) {
+				case AUDIO_FORMAT_U8:
+					sample_size = 1;
+					break;
+				case AUDIO_FORMAT_S16_LE:
+					sample_size = 2;
+					break;
+				case AUDIO_FORMAT_S32_LE:
+					sample_size = 4;
+					break;
+			}
+
 			hda_update_playback_position(stream);
 			uint64_t dma_bytes = stream->generic.bytes_submitted - stream->bytes_played;
 			if (dma_bytes > HDA_BUFFER_TOTAL_SIZE)
 				dma_bytes = HDA_BUFFER_TOTAL_SIZE;
-			*(int *)buf = dma_bytes / 4; // TODO: handle other channel counts and formats here
+			*(int *)buf = dma_bytes / (sample_size * stream->channels);
 			break;
 		}
 		case AUDIO_STREAM_INFO_PLAYED_FRAMES: {
+			size_t sample_size = 0;
+			switch (stream->format) {
+				case AUDIO_FORMAT_U8:
+					sample_size = 1;
+					break;
+				case AUDIO_FORMAT_S16_LE:
+					sample_size = 2;
+					break;
+				case AUDIO_FORMAT_S32_LE:
+					sample_size = 4;
+					break;
+			}
+			if (sample_size == 0 || stream->channels <= 0) {
+				*(uint64_t *)buf = 0;
+				break;
+			}
+
 			hda_update_playback_position(stream);
-			*(uint64_t *)buf = stream->bytes_played / 4; // TODO: handle other channel counts and formats here
+			*(uint64_t *)buf = stream->bytes_played / (sample_size * stream->channels);
 			break;
 		}
 	}
+}
+
+static int hda_set_stream_configuration(hda_stream_t *stream, int format, int speed, int channels) {
+	hda_output_path_t *output_path = stream->owner;
+	if (output_path == NULL)
+		return ENODEV;
+
+	uint16_t hda_format;
+	if ((output_path->supported_formats & format) == 0 ||
+			!hda_format_to_stream_format(output_path->converter, format, speed, channels, &hda_format)) {
+		return EINVAL;
+	}
+
+	if (stream->generic.playing || RINGBUFFER_DATACOUNT(&stream->generic.ringbuffer)) {
+		return EBUSY;
+	}
+
+	if (!hda_reset_stream(stream))
+		return EIO;
+
+	stream->sd->fmt = hda_format;
+	hda_set_converter_format(stream->hda, output_path->codec, output_path->converter->nid, hda_format);
+	stream->hda_format = hda_format;
+	stream->format = format;
+	stream->speed = speed;
+	stream->channels = channels;
+	stream->generic.bytes_submitted = 0;
+	stream->generic.bytes_written = 0;
+	stream->generic.bytes_played = 0;
+	return 0;
+}
+
+static int stream_set_format(audio_stream_t *p, int format, int *selected) {
+	hda_stream_t *stream = (hda_stream_t *)p;
+	*selected = stream->format;
+	if (format == AUDIO_FORMAT_QUERY) {
+		return 0;
+	}
+
+	int error = hda_set_stream_configuration(stream, format, stream->speed, stream->channels);
+	if (error == EINVAL)
+		return 0;
+	if (error == 0)
+		*selected = format;
+
+	return error;
+}
+
+static int stream_set_speed(audio_stream_t *p, int speed, int *selected) {
+	hda_stream_t *stream = (hda_stream_t *)p;
+	*selected = stream->speed;
+	int error = hda_set_stream_configuration(stream, stream->format, speed, stream->channels);
+	if (error == EINVAL)
+		return 0;
+	if (error == 0)
+		*selected = speed;
+
+	return error;
+}
+
+static int stream_set_channels(audio_stream_t *p, int channels, int *selected) {
+	hda_stream_t *stream = (hda_stream_t *)p;
+	*selected = stream->channels;
+	int error = hda_set_stream_configuration(stream, stream->format, stream->speed, channels);
+	if (error == EINVAL)
+		return 0;
+	if (error == 0)
+		*selected = channels;
+
+	return error;
 }
 
 static audio_stream_ops_t hda_stream_ops = {
@@ -393,7 +563,10 @@ static audio_stream_ops_t hda_stream_ops = {
 	.stop = stream_stop,
 	.wait_for_playback = stream_wait_for_playback,
 	.reset = stream_reset,
-	.get_info = stream_get_info
+	.get_info = stream_get_info,
+	.set_format = stream_set_format,
+	.set_speed = stream_set_speed,
+	.set_channels = stream_set_channels
 };
 
 static hda_stream_t *hda_initialize_output_stream(hda_t *hda, size_t stream_n, size_t tag, bool bi) {
@@ -406,6 +579,10 @@ static hda_stream_t *hda_initialize_output_stream(hda_t *hda, size_t stream_n, s
 	stream->descriptor_index = stream_n;
 	stream->tag = tag;
 	stream->bi = bi;
+	stream->hda_format = 0;
+	stream->format = AUDIO_FORMAT_QUERY;
+	stream->speed = 0;
+	stream->channels = 0;
 
 	stream->bdl_phys = mm_alloc_page(MEMORY_SECTION_DEFAULT);
 	__assert(stream->bdl_phys);
@@ -421,7 +598,6 @@ static hda_stream_t *hda_initialize_output_stream(hda_t *hda, size_t stream_n, s
 		bdl[i].flags = HDA_BDL_FLAGS_IOC;
 	}
 
-	__assert(hda_reset_stream(stream));
 	hda->streams[stream_n] = stream;
 
 	return stream;
@@ -682,7 +858,7 @@ static uint32_t hda_set_eapd_btl(hda_t *hda, uint32_t codec, uint32_t nid, bool 
 }
 
 static uint32_t hda_set_converter_format(hda_t *hda, uint32_t codec, uint32_t nid, uint16_t format) {
-	return hda_submit_verb_and_wait(hda, codec, nid, 0x2000 | format);
+	return hda_submit_verb_and_wait(hda, codec, nid, 0x20000 | format);
 }
 
 static uint32_t hda_set_converter_stream_channel(hda_t *hda, uint32_t codec, uint32_t nid, uint8_t stream, uint8_t base_channel) {
@@ -716,6 +892,10 @@ static int hda_acquire_output_stream(void *private, bool nonblocking, audio_stre
 	spinlock_release_lower_ipl(&hda->stream_lock, ipl);
 	__assert(stream);
 
+	stream->hda_format = output_path->hda_format;
+	stream->format = output_path->default_format;
+	stream->speed = output_path->default_speed;
+	stream->channels = output_path->default_channels;
 	if (!hda_reset_stream(stream)) {
 		printf("hda: failed to reset allocated stream %lu\n", stream->descriptor_index);
 		ipl = spinlock_acquire_raise_ipl(&hda->stream_lock, IPL_AUDIO);
@@ -724,8 +904,8 @@ static int hda_acquire_output_stream(void *private, bool nonblocking, audio_stre
 		return EIO;
 	}
 
-	hda_widget_t *converter = output_path->path.widgets[output_path->path.size - 1];
-	hda_set_converter_stream_channel(hda, output_path->codec, converter->nid, stream->tag, 0);
+	hda_set_converter_format(hda, output_path->codec, output_path->converter->nid, output_path->hda_format);
+	hda_set_converter_stream_channel(hda, output_path->codec, output_path->converter->nid, stream->tag, 0);
 
 	ipl = spinlock_acquire_raise_ipl(&hda->stream_lock, IPL_AUDIO);
 	stream->active = true;
@@ -747,8 +927,7 @@ static void hda_release_output_stream(void *private, audio_stream_t *generic) {
 	stream->active = false;
 	spinlock_release_lower_ipl(&hda->stream_lock, ipl);
 
-	hda_widget_t *converter = output_path->path.widgets[output_path->path.size - 1];
-	hda_set_converter_stream_channel(hda, output_path->codec, converter->nid, 0, 0);
+	hda_set_converter_stream_channel(hda, output_path->codec, output_path->converter->nid, 0, 0);
 
 	if (!hda_reset_stream(stream)) {
 		printf("hda: failed to reset released stream %lu; keeping it unavailable\n", stream->descriptor_index);
@@ -933,6 +1112,106 @@ static bool corb_reset_read_pointer(volatile hda_regs_t *regs, size_t timeoutms)
 	return true;
 }
 
+static bool hda_rate_to_stream_format(hda_widget_t *converter, int speed, uint16_t *rate_format) {
+	for (size_t i = 0; i < sizeof(hda_rates) / sizeof(hda_rates[0]); ++i) {
+		if (hda_rates[i].speed != speed)
+			continue;
+		if ((converter->pcm_caps & hda_rates[i].pcm_cap) == 0)
+			return false;
+
+		*rate_format = hda_rates[i].format;
+		return true;
+	}
+
+	return false;
+}
+
+static int hda_default_output_speed(hda_widget_t *converter) {
+	if ((converter->stream_formats & HDA_STREAM_FORMAT_PCM) == 0)
+		return 0;
+
+	for (size_t i = 0; i < sizeof(hda_rates) / sizeof(hda_rates[0]); ++i) {
+		if (converter->pcm_caps & hda_rates[i].pcm_cap)
+			return hda_rates[i].speed;
+	}
+
+	return 0;
+}
+
+static bool hda_converter_supports_format(hda_widget_t *converter, int format) {
+	uint32_t pcm_cap;
+
+	switch (format) {
+		case AUDIO_FORMAT_U8:
+			pcm_cap = HDA_PCM_CAPS_B8;
+			break;
+		case AUDIO_FORMAT_S16_LE:
+			pcm_cap = HDA_PCM_CAPS_B16;
+			break;
+		case AUDIO_FORMAT_S32_LE:
+			pcm_cap = HDA_PCM_CAPS_B32;
+			break;
+		default:
+			return false;
+	}
+
+	return (converter->stream_formats & HDA_STREAM_FORMAT_PCM) != 0 &&
+			(converter->pcm_caps & pcm_cap) != 0;
+}
+
+static bool hda_format_to_stream_format(hda_widget_t *converter, int format, int speed, int channels, uint16_t *hda_format) {
+	uint16_t bits;
+	uint16_t rate_format;
+
+	switch (format) {
+		case AUDIO_FORMAT_U8:
+			bits = 0;
+			break;
+		case AUDIO_FORMAT_S16_LE:
+			bits = 1;
+			break;
+		case AUDIO_FORMAT_S32_LE:
+			bits = HDA_FORMAT_BITS_32;
+			break;
+		default:
+			return false;
+	}
+
+	if (!hda_converter_supports_format(converter, format) ||
+			!hda_rate_to_stream_format(converter, speed, &rate_format) ||
+			channels < 1 || channels > 2 ||
+			(channels == 2 && (converter->widget_caps & HDA_WIDGET_CAPS_STEREO) == 0))
+		return false;
+
+	*hda_format = rate_format | (bits << 4);
+	if (channels == 2)
+		*hda_format |= HDA_FORMAT_CHANNELS_2;
+	return true;
+}
+
+static uint32_t hda_supported_output_formats(hda_widget_t *converter) {
+	uint32_t supported_formats = 0;
+
+	if (hda_converter_supports_format(converter, AUDIO_FORMAT_U8))
+		supported_formats |= AUDIO_FORMAT_U8;
+	if (hda_converter_supports_format(converter, AUDIO_FORMAT_S16_LE))
+		supported_formats |= AUDIO_FORMAT_S16_LE;
+	if (hda_converter_supports_format(converter, AUDIO_FORMAT_S32_LE))
+		supported_formats |= AUDIO_FORMAT_S32_LE;
+
+	return supported_formats;
+}
+
+static int hda_default_output_format(uint32_t supported_formats) {
+	if (supported_formats & AUDIO_FORMAT_S16_LE)
+		return AUDIO_FORMAT_S16_LE;
+	if (supported_formats & AUDIO_FORMAT_S32_LE)
+		return AUDIO_FORMAT_S32_LE;
+	if (supported_formats & AUDIO_FORMAT_U8)
+		return AUDIO_FORMAT_U8;
+	return AUDIO_FORMAT_QUERY;
+}
+
 static void init_function_group(hda_t *hda, int codec, hda_fg_t *function_group) {
 	function_group->type = hda_get_parameter(hda, codec, function_group->nid, HDA_PARAM_FUNCTION_GROUP_TYPE) & 0xff;
 	if (function_group->type != HDA_FUNCTION_GROUP_TYPE_AFG)
@@ -941,6 +1220,8 @@ static void init_function_group(hda_t *hda, int codec, hda_fg_t *function_group)
 	uint32_t res = hda_get_parameter(hda, codec, function_group->nid, HDA_PARAM_SUB_NODE_COUNT);
 	function_group->widget_count = res & 0xff;
 	function_group->starting_node = (res >> 16) & 0xff;
+	function_group->pcm_caps = hda_get_parameter(hda, codec, function_group->nid, HDA_PARAM_PCM);
+	function_group->stream_formats = hda_get_parameter(hda, codec, function_group->nid, HDA_PARAM_STREAM_FORMATS);
 
 	printf("hda: codec %d audio function group %lu has %lu widgets starting at %lu\n", codec, function_group->nid, function_group->widget_count, function_group->starting_node);
 
@@ -952,7 +1233,15 @@ static void init_function_group(hda_t *hda, int codec, hda_fg_t *function_group)
 		widget->nid = function_group->starting_node + i;
 
 		res = hda_get_parameter(hda, codec, widget->nid, HDA_PARAM_AUDIO_WIDGET_CAPS);
+		widget->widget_caps = res;
 		widget->type = (res >> 20) & 0xf;
+		if (res & HDA_WIDGET_CAPS_FORMAT_OVERRIDE) {
+			widget->pcm_caps = hda_get_parameter(hda, codec, widget->nid, HDA_PARAM_PCM);
+			widget->stream_formats = hda_get_parameter(hda, codec, widget->nid, HDA_PARAM_STREAM_FORMATS);
+		} else {
+			widget->pcm_caps = function_group->pcm_caps;
+			widget->stream_formats = function_group->stream_formats;
+		}
 		widget->pin_caps = hda_get_parameter(hda, codec, widget->nid, HDA_PARAM_PIN_CAPS);
 		widget->input_amp_caps = hda_get_parameter(hda, codec, widget->nid, HDA_PARAM_INPUT_AMP_CAPS);
 		widget->output_amp_caps = hda_get_parameter(hda, codec, widget->nid, HDA_PARAM_OUTPUT_AMP_CAPS);
@@ -983,16 +1272,37 @@ static void init_function_group(hda_t *hda, int codec, hda_fg_t *function_group)
 		}
 		printf("\n");
 
-		hda_initialize_path(hda, codec, function_group, path, true);
-
 		hda_widget_t *converter = path.widgets[path.size - 1];
-		hda_set_converter_format(hda, codec, converter->nid, HDA_FORMAT_48KHZ_16BIT_STEREO);
+		uint32_t supported_formats = hda_supported_output_formats(converter);
+		int default_speed = hda_default_output_speed(converter);
+		int default_channels = (converter->widget_caps & HDA_WIDGET_CAPS_STEREO) ? 2 : 1;
+		int default_format = hda_default_output_format(supported_formats);
+		if (default_format == AUDIO_FORMAT_QUERY || default_speed == 0) {
+			printf("hda: output converter %d has no supported native PCM rate/format.\n", converter->nid);
+			continue;
+		}
+
+		uint16_t hda_format;
+		__assert(hda_format_to_stream_format(converter, default_format, default_speed, default_channels, &hda_format));
+
+		bool digital = (converter->widget_caps & HDA_WIDGET_CAPS_DIGITAL) != 0;
+		printf("hda: output converter %d is %s\n", converter->nid, digital ? "digital" : "analog");
+
+		hda_initialize_path(hda, codec, function_group, path, true);
+		hda_set_converter_format(hda, codec, converter->nid, hda_format);
 
 		hda_output_path_t *output_path = alloc(sizeof(hda_output_path_t));
 		__assert(output_path);
 		output_path->hda = hda;
 		output_path->codec = codec;
 		output_path->path = path;
+		output_path->converter = converter;
+		output_path->supported_formats = supported_formats;
+		output_path->default_format = default_format;
+		output_path->default_speed = default_speed;
+		output_path->default_channels = default_channels;
+		output_path->hda_format = hda_format;
+		output_path->digital = digital;
 		__assert(audio_register_device(&hda_audio_device_ops, output_path) == 0);
 	}
 }

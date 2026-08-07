@@ -7,8 +7,25 @@
 static size_t bytes_to_frames(int fmt, int channels, size_t bytes) {
 	size_t sample_size = 0;
 	switch (fmt) {
+		case AUDIO_FORMAT_S8:
+		case AUDIO_FORMAT_U8:
+			sample_size = 1;
+			break;
+		case AUDIO_FORMAT_S16_BE:
 		case AUDIO_FORMAT_S16_LE:
+		case AUDIO_FORMAT_U16_BE:
+		case AUDIO_FORMAT_U16_LE:
 			sample_size = 2;
+			break;
+		case AUDIO_FORMAT_S24_PACKED:
+		case AUDIO_FORMAT_S24_BE:
+		case AUDIO_FORMAT_S24_LE:
+			sample_size = 3;
+			break;
+		case AUDIO_FORMAT_S32_BE:
+		case AUDIO_FORMAT_S32_LE:
+		case AUDIO_FORMAT_FLOAT:
+			sample_size = 4;
 			break;
 	}
 
@@ -238,24 +255,51 @@ static int audio_ioctl(int minor, unsigned long request, void *arg, int *result,
 		}
 		case SNDCTL_DSP_SPEED: {
 			int speed;
-			stream->ops->get_info(stream, AUDIO_STREAM_INFO_SPEED, &speed);
+			error = USERCOPY_POSSIBLY_FROM_USER(&speed, arg, sizeof(speed));
+			if (error)
+				break;
 
-			error = USERCOPY_POSSIBLY_TO_USER(arg, &speed, sizeof(speed));
+			int selected;
+			error = stream->ops->set_speed(stream, speed, &selected);
+			if (error)
+				break;
+
+			error = USERCOPY_POSSIBLY_TO_USER(arg, &selected, sizeof(selected));
 			break;
 		}
 		case SNDCTL_DSP_CHANNELS: {
 			int channels;
-			stream->ops->get_info(stream, AUDIO_STREAM_INFO_CHANNELS, &channels);
+			error = USERCOPY_POSSIBLY_FROM_USER(&channels, arg, sizeof(channels));
+			if (error)
+				break;
 
-			error = USERCOPY_POSSIBLY_TO_USER(arg, &channels, sizeof(channels));
+			int selected;
+			error = stream->ops->set_channels(stream, channels, &selected);
+			if (error)
+				break;
+
+			error = USERCOPY_POSSIBLY_TO_USER(arg, &selected, sizeof(selected));
 			break;
 		}
-		case SNDCTL_DSP_GETFMTS:
-		case SNDCTL_DSP_SETFMT: {
+		case SNDCTL_DSP_GETFMTS: {
 			int fmt;
-			stream->ops->get_info(stream, AUDIO_STREAM_INFO_FORMAT, &fmt);
+			stream->ops->get_info(stream, AUDIO_STREAM_INFO_SUPPORTED_FORMATS, &fmt);
 
 			error = USERCOPY_POSSIBLY_TO_USER(arg, &fmt, sizeof(fmt));
+			break;
+		}
+		case SNDCTL_DSP_SETFMT: {
+			int fmt;
+			error = USERCOPY_POSSIBLY_FROM_USER(&fmt, arg, sizeof(fmt));
+			if (error)
+				break;
+
+			int selected;
+			error = stream->ops->set_format(stream, fmt, &selected);
+			if (error)
+				break;
+
+			error = USERCOPY_POSSIBLY_TO_USER(arg, &selected, sizeof(selected));
 			break;
 		}
 		case SNDCTL_DSP_SETFRAGMENT: {
