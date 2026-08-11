@@ -1,0 +1,17 @@
+name=libgomp
+revision=1
+from_source=gcc
+imagedeps="build-essential"
+hostdeps="automake autoconf xbinutils xgcc"
+clean_workdirs=no
+deps="mlibc"
+
+build() {
+	cd ${build_dir}/host-builds/xgcc
+	make all-target-libgomp -j${parallelism}
+}
+
+package(){
+	cd ${build_dir}/host-builds/xgcc
+	make DESTDIR="${dest_dir}" install-target-libgomp
+}
