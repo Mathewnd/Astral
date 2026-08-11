@@ -231,6 +231,28 @@ index 17cf422..01941c1 100644
  // int sys_ptsname(int fd, char *buffer, size_t length);
  struct Ptsname {};
  // int sys_unlockpt(int fd);
+diff --git mlibc-clean/options/linux/generic/malloc.cpp mlibc-workdir/options/linux/generic/malloc.cpp
+index 065de6c..10c7395 100644
+--- mlibc-clean/options/linux/generic/malloc.cpp
++++ mlibc-workdir/options/linux/generic/malloc.cpp
+@@ -1,7 +1,13 @@
+-#include <bits/ensure.h>
++#include <errno.h>
+ #include <malloc.h>
++#include <stdlib.h>
+ 
+-void *memalign(size_t, size_t) {
+-	__ensure(!"Not implemented");
+-	__builtin_unreachable();
++void *memalign(size_t alignment, size_t size) {
++	void *ptr;
++	int ret = posix_memalign(&ptr, alignment, size);
++	if(ret) {
++		errno = ret;
++		return nullptr;
++	}
++	return ptr;
+ }
 diff --git mlibc-clean/options/posix/generic/net-if.cpp mlibc-workdir/options/posix/generic/net-if.cpp
 index ed0c463..8df2580 100644
 --- mlibc-clean/options/posix/generic/net-if.cpp
@@ -269,7 +291,7 @@ index ed0c463..8df2580 100644
  
  unsigned int if_nametoindex(const char *name) {
 diff --git mlibc-clean/options/posix/generic/posix_stdio.cpp mlibc-workdir/options/posix/generic/posix_stdio.cpp
-index 8592ea5..94ceba1 100644
+index ab4f784..ba663bb 100644
 --- mlibc-clean/options/posix/generic/posix_stdio.cpp
 +++ mlibc-workdir/options/posix/generic/posix_stdio.cpp
 @@ -233,7 +233,10 @@ int renameat(int olddirfd, const char *old_path, int newdirfd, const char *new_p
@@ -1051,3 +1073,43 @@ index 43dd6b0..3e01e87 100644
                  subdir: 'astral',
                  follow_symlinks: true,
          )
+diff --git mlibc-workdir/tests/glibc/memalign.c mlibc-workdir/tests/glibc/memalign.c
+new file mode 100644
+index 0000000..0b3a158
+--- /dev/null
++++ mlibc-workdir/tests/glibc/memalign.c
+@@ -0,0 +1,22 @@
++#include <assert.h>
++#include <errno.h>
++#include <malloc.h>
++#include <stdint.h>
++#include <stdlib.h>
++
++int main(void) {
++	void *p;
++
++	errno = 0;
++	p = memalign(256, 1);
++	assert(p != NULL);
++	assert((uintptr_t)p % 256 == 0);
++	free(p);
++
++	errno = 0;
++	p = memalign(3, 1);
++	assert(p == NULL);
++	assert(errno == EINVAL);
++
++	return 0;
++}
+diff --git mlibc-clean/tests/meson.build mlibc-workdir/tests/meson.build
+index 9c5bcd7..8b2b95e 100644
+--- mlibc-clean/tests/meson.build
++++ mlibc-workdir/tests/meson.build
+@@ -170,6 +170,7 @@ all_test_cases = [
+ 	'glibc/rpmatch',
+ 	'glibc/strverscmp',
+ 	'glibc/memmem',
++	'glibc/memalign',
+ 	'glibc/stdio_ext',
+ 	'glibc/_dl_find_object',
+ 	'glibc/shadow',
