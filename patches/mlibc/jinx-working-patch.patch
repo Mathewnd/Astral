@@ -366,10 +366,10 @@ index a86353f..3e1a18c 100644
  	return error ? -1 : ret;
  }
 diff --git mlibc-clean/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
-index 3b04372..5324a35 100644
+index 3b04372..ec94347 100644
 --- mlibc-clean/sysdeps/astral/generic/generic.cpp
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
-@@ -1,7 +1,9 @@
+@@ -1,9 +1,12 @@
  #include <bits/ensure.h>
 +#include <net/if.h>
  #include <mlibc/debug.hpp>
@@ -378,8 +378,11 @@ index 3b04372..5324a35 100644
 +#include <ifaddrs.h>
  #include <astral/syscall.h>
  #include <astral/archctl.h>
++#include <astral/sysctl.h>
  #include <string.h>
-@@ -11,8 +13,31 @@
+ #include <stdlib.h>
+ #include <asm/ioctls.h>
+@@ -11,10 +14,50 @@
  #include <sys/select.h>
  #include <stdio.h>
  #include <sys/stat.h>
@@ -410,8 +413,27 @@ index 3b04372..5324a35 100644
 +} astral_ifaddrs_t;
  
  namespace mlibc {
++	int Sysdeps<Sysconf>::operator()(int number, long *result) {
++		if (number != _SC_NPROCESSORS_CONF && number != _SC_NPROCESSORS_ONLN)
++			return EINVAL;
++
++		int name[] = {SYS_CTL_HW, SYS_CTL_HW_CPUS_ONLINE};
++		size_t cpus_online;
++		size_t size = sizeof(cpus_online);
++		long ret;
++		int error = syscall(SYSCALL_SYSCTL, &ret, (uint64_t)name, 2,
++				(uint64_t)&cpus_online, (uint64_t)&size, 0, 0);
++		if (error)
++			return error;
++
++		*result = cpus_online;
++		return 0;
++	}
++
  	int Sysdeps<SetGroups>::operator()(size_t size, const gid_t *list) {
-@@ -31,15 +56,324 @@ namespace mlibc {
+ 		(void)size;
+ 		(void)list;
+@@ -31,15 +74,324 @@ namespace mlibc {
  		return 0;
  	}
  
@@ -741,7 +763,7 @@ index 3b04372..5324a35 100644
  	int Sysdeps<InetConfigured>::operator()(bool *ipv4, bool *ipv6) {
  		// there is no ipv6 support in the kernel currently and no way of checking for configured interfaces
  		*ipv4 = true;
-@@ -47,6 +381,71 @@ namespace mlibc {
+@@ -47,6 +399,71 @@ namespace mlibc {
  		return 0;
  	}
  
@@ -813,7 +835,7 @@ index 3b04372..5324a35 100644
  	int Sysdeps<Readv>::operator()(int fd, const struct iovec *iovs, int iovc, ssize_t *bytes_read) {
  		long r;
  		int error = syscall(SYSCALL_READV, &r, fd, (uint64_t)iovs, iovc);
-@@ -86,6 +485,11 @@ namespace mlibc {
+@@ -86,6 +503,11 @@ namespace mlibc {
  		return e;
  	}
  
@@ -825,7 +847,7 @@ index 3b04372..5324a35 100644
  	int Sysdeps<Shutdown>::operator()(int sockfd, int how) {
  		long ret;
  		return syscall(SYSCALL_SHUTDOWN, &ret, sockfd, how);
-@@ -487,8 +891,15 @@ namespace mlibc {
+@@ -487,8 +909,15 @@ namespace mlibc {
  		return err;
  	}
  
@@ -841,7 +863,7 @@ index 3b04372..5324a35 100644
  		return syscall(SYSCALL_SETSOCKOPT, &ret, fd, layer, number, (uint64_t)buffer, size);
  	}
  
-@@ -511,6 +922,11 @@ namespace mlibc {
+@@ -511,6 +940,11 @@ namespace mlibc {
  		return err;
  	}
  
@@ -853,7 +875,7 @@ index 3b04372..5324a35 100644
  	int Sysdeps<Renameat>::operator()(int olddirfd, const char *old_path, int newdirfd, const char *new_path) {
  		long ret;
  		return syscall(SYSCALL_RENAMEAT, &ret, olddirfd, (uint64_t)old_path, newdirfd, (uint64_t)new_path);
-@@ -562,6 +978,16 @@ namespace mlibc {
+@@ -562,6 +996,16 @@ namespace mlibc {
  		return sysdep<Ioctl>(fd, TCSETS, (void *)attr, &res);
  	}
  
@@ -870,7 +892,7 @@ index 3b04372..5324a35 100644
  	int Sysdeps<Poll>::operator()(struct pollfd *fds, nfds_t count, int timeout, int *num_events) {
  		long ret;
  		long error = syscall(SYSCALL_POLL, &ret, (uint64_t)fds, count, timeout);
-@@ -932,4 +1358,13 @@ namespace mlibc {
+@@ -932,4 +1376,13 @@ namespace mlibc {
  		*nanos = ts.tv_nsec;
  		return err;
  	}
@@ -927,10 +949,10 @@ index a6c4067..9040d45 100644
  
 diff --git mlibc-workdir/sysdeps/astral/include/astral/sysctl.h mlibc-workdir/sysdeps/astral/include/astral/sysctl.h
 new file mode 100644
-index 0000000..3379839
+index 0000000..0c70df3
 --- /dev/null
 +++ mlibc-workdir/sysdeps/astral/include/astral/sysctl.h
-@@ -0,0 +1,57 @@
+@@ -0,0 +1,59 @@
 +#ifndef _ASTRAL_SYSCTL_H
 +#define _ASTRAL_SYSCTL_H
 +
@@ -943,9 +965,11 @@ index 0000000..3379839
 +#define SYS_CTL_NAME_MAX 6
 +
 +#define SYS_CTL_KERN 1
++#define SYS_CTL_HW 2
 +#define SYS_CTL_KERN_PROC 1
 +#define SYS_CTL_KERN_PROC_ALL 1
 +#define SYS_CTL_KERN_CONSOLE_LOCK 2
++#define SYS_CTL_HW_CPUS_ONLINE 1
 +
 +#define SYS_CTL_KERN_PROC_INFO_NAME_SIZE 64
 +#define SYS_CTL_KERN_PROC_INFO_TTY_NAME_SIZE 64
@@ -989,11 +1013,14 @@ index 0000000..3379839
 +
 +#endif /* _ASTRAL_SYSCTL_H */
 diff --git mlibc-clean/sysdeps/astral/include/mlibc/sysdeps.hpp mlibc-workdir/sysdeps/astral/include/mlibc/sysdeps.hpp
-index ce91084..503110a 100644
+index ce91084..3e78eee 100644
 --- mlibc-clean/sysdeps/astral/include/mlibc/sysdeps.hpp
 +++ mlibc-workdir/sysdeps/astral/include/mlibc/sysdeps.hpp
-@@ -7,8 +7,30 @@ namespace mlibc {
+@@ -5,10 +5,33 @@
+ namespace mlibc {
+ 
  struct AstralSysdepTags :
++	Sysconf,
  	SetGroups,
  	GetGroups,
 +	GetLoadavg,
@@ -1023,7 +1050,7 @@ index ce91084..503110a 100644
  	Readv,
  	Writev,
  	Sysinfo,
-@@ -66,6 +88,7 @@ struct AstralSysdepTags :
+@@ -66,6 +89,7 @@ struct AstralSysdepTags :
  	SetSid,
  	FutexTid,
  	GetTid,
@@ -1031,7 +1058,7 @@ index ce91084..503110a 100644
  	ThreadExit,
  	Clone,
  	Listen,
-@@ -77,6 +100,7 @@ struct AstralSysdepTags :
+@@ -77,6 +101,7 @@ struct AstralSysdepTags :
  	Bind,
  	Socket,
  	Renameat,
@@ -1039,7 +1066,7 @@ index ce91084..503110a 100644
  	Rename,
  	Utimensat,
  	Fchownat,
-@@ -85,6 +109,8 @@ struct AstralSysdepTags :
+@@ -85,6 +110,8 @@ struct AstralSysdepTags :
  	Sleep,
  	Tcgetattr,
  	Tcsetattr,
@@ -1048,7 +1075,7 @@ index ce91084..503110a 100644
  	Poll,
  	Ppoll,
  	Pselect,
-@@ -135,7 +161,11 @@ struct AstralSysdepTags :
+@@ -135,7 +162,11 @@ struct AstralSysdepTags :
  	VmUnmap,
  	Isatty,
  	ClockGet,
