@@ -7,9 +7,11 @@
 #define SYS_CTL_NAME_MAX 6
 
 #define SYS_CTL_KERN 1
+#define SYS_CTL_HW 2
 #define SYS_CTL_KERN_PROC 1
 #define SYS_CTL_KERN_PROC_ALL 1
 #define SYS_CTL_KERN_CONSOLE_LOCK 2
+#define SYS_CTL_HW_CPUS_ONLINE 1
 
 #define SYS_CTL_KERN_PROC_INFO_NAME_SIZE 64
 #define SYS_CTL_KERN_PROC_INFO_TTY_NAME_SIZE 64
@@ -39,5 +41,6 @@ typedef struct {
 
 int sysctl(const int *name, size_t name_len, void *oldp, size_t *old_lenp, void *newp, size_t new_len);
 int sysctl_kern(const int *name, size_t name_len, void *oldp, size_t *old_lenp, void *newp, size_t new_len);
+int sysctl_hw(const int *name, size_t name_len, void *oldp, size_t *old_lenp, void *newp, size_t new_len);
 
 #endif

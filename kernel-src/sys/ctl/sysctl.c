@@ -9,6 +9,8 @@ int sysctl(const int *name, size_t name_len, void *oldp, size_t *old_lenp, void 
 	switch (*name) {
 		case SYS_CTL_KERN:
 			return sysctl_kern(name + 1, name_len - 1, oldp, old_lenp, newp, new_len);
+		case SYS_CTL_HW:
+			return sysctl_hw(name + 1, name_len - 1, oldp, old_lenp, newp, new_len);
 		default:
 			return EINVAL;
 	}
