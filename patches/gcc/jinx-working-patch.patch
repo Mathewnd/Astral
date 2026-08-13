@@ -123,6 +123,213 @@ index 9d83a27..5315570 100644
  /* work around the poisoned malloc/calloc in system.h.  */
  #ifndef xmalloc
  #define xmalloc malloc
+diff --git gcc-workdir/libgomp/config/astral/affinity.c gcc-workdir/libgomp/config/astral/affinity.c
+new file mode 100644
+index 0000000..8a321ec
+--- /dev/null
++++ gcc-workdir/libgomp/config/astral/affinity.c
+@@ -0,0 +1,2 @@
++/* Astral does not currently expose thread affinity controls.  */
++#include "../../affinity.c"
+diff --git gcc-workdir/libgomp/config/astral/allocator.c gcc-workdir/libgomp/config/astral/allocator.c
+new file mode 100644
+index 0000000..b9bbf8a
+--- /dev/null
++++ gcc-workdir/libgomp/config/astral/allocator.c
+@@ -0,0 +1,2 @@
++/* Astral does not currently support pinned OpenMP allocations.  */
++#include "../../allocator.c"
+diff --git gcc-workdir/libgomp/config/astral/futex.h gcc-workdir/libgomp/config/astral/futex.h
+new file mode 100644
+index 0000000..6ccd55e
+--- /dev/null
++++ gcc-workdir/libgomp/config/astral/futex.h
+@@ -0,0 +1,43 @@
++/* Provide target-specific access to the Astral futex system call.  */
++
++#ifndef __MLIBC_ABI_ONLY
++# define __MLIBC_ABI_ONLY 1
++# define GOMP_UNDEF_MLIBC_ABI_ONLY 1
++#endif
++#include <astral/syscall.h>
++#ifdef GOMP_UNDEF_MLIBC_ABI_ONLY
++# undef GOMP_UNDEF_MLIBC_ABI_ONLY
++# undef __MLIBC_ABI_ONLY
++#endif
++
++static inline void
++astral_futex (int *addr, int op, int val)
++{
++  long ret __attribute__((unused));
++  register long error __asm ("rdx") = val;
++  register void *timeout __asm ("r10") = NULL;
++
++  __asm volatile ("syscall"
++		  : "=a" (ret), "+d" (error)
++		  : "0" ((long) SYSCALL_FUTEX), "D" (addr),
++		    "S" ((long) (op & ~FUTEX_PRIVATE_FLAG)), "r" (timeout)
++		  : "r11", "rcx", "memory");
++}
++
++static inline void
++futex_wait (int *addr, int val)
++{
++  astral_futex (addr, gomp_futex_wait, val);
++}
++
++static inline void
++futex_wake (int *addr, int count)
++{
++  astral_futex (addr, gomp_futex_wake, count);
++}
++
++static inline void
++cpu_relax (void)
++{
++  __builtin_ia32_pause ();
++}
+diff --git gcc-workdir/libgomp/config/astral/lock.c gcc-workdir/libgomp/config/astral/lock.c
+new file mode 100644
+index 0000000..e97a658
+--- /dev/null
++++ gcc-workdir/libgomp/config/astral/lock.c
+@@ -0,0 +1,113 @@
++/* Astral implementation of the public OpenMP locking primitives.  */
++
++#include <string.h>
++#include <unistd.h>
++#include "wait.h"
++
++/* Reuse the generic implementation in terms of gomp_mutex_t.  */
++#include "../../lock.c"
++
++#ifdef LIBGOMP_GNU_SYMBOL_VERSIONING
++strong_alias (gomp_init_lock_30, gomp_init_lock_25)
++strong_alias (gomp_destroy_lock_30, gomp_destroy_lock_25)
++strong_alias (gomp_set_lock_30, gomp_set_lock_25)
++strong_alias (gomp_unset_lock_30, gomp_unset_lock_25)
++strong_alias (gomp_test_lock_30, gomp_test_lock_25)
++
++static __thread int tid_cache;
++
++static inline int
++gomp_tid (void)
++{
++  int tid = tid_cache;
++  if (__builtin_expect (tid == 0, 0))
++    tid_cache = tid = gettid ();
++  return tid;
++}
++
++void
++gomp_init_nest_lock_25 (omp_nest_lock_25_t *lock)
++{
++  memset (lock, 0, sizeof (*lock));
++}
++
++void
++gomp_destroy_nest_lock_25 (omp_nest_lock_25_t *lock)
++{
++}
++
++void
++gomp_set_nest_lock_25 (omp_nest_lock_25_t *lock)
++{
++  int otid, tid = gomp_tid ();
++
++  while (1)
++    {
++      otid = 0;
++      if (__atomic_compare_exchange_n (&lock->owner, &otid, tid, false,
++				       MEMMODEL_ACQUIRE, MEMMODEL_RELAXED))
++	{
++	  lock->count = 1;
++	  return;
++	}
++      if (otid == tid)
++	{
++	  lock->count++;
++	  return;
++	}
++      do_wait (&lock->owner, otid);
++    }
++}
++
++void
++gomp_unset_nest_lock_25 (omp_nest_lock_25_t *lock)
++{
++  if (--lock->count == 0)
++    {
++      __atomic_store_n (&lock->owner, 0, MEMMODEL_RELEASE);
++      futex_wake (&lock->owner, 1);
++    }
++}
++
++int
++gomp_test_nest_lock_25 (omp_nest_lock_25_t *lock)
++{
++  int otid, tid = gomp_tid ();
++
++  otid = 0;
++  if (__atomic_compare_exchange_n (&lock->owner, &otid, tid, false,
++				   MEMMODEL_ACQUIRE, MEMMODEL_RELAXED))
++    {
++      lock->count = 1;
++      return 1;
++    }
++  if (otid == tid)
++    return ++lock->count;
++  return 0;
++}
++
++omp_lock_symver (omp_init_lock)
++omp_lock_symver (omp_destroy_lock)
++omp_lock_symver (omp_set_lock)
++omp_lock_symver (omp_unset_lock)
++omp_lock_symver (omp_test_lock)
++omp_lock_symver (omp_init_nest_lock)
++omp_lock_symver (omp_destroy_nest_lock)
++omp_lock_symver (omp_set_nest_lock)
++omp_lock_symver (omp_unset_nest_lock)
++omp_lock_symver (omp_test_nest_lock)
++
++#else
++
++ialias (omp_init_lock)
++ialias (omp_init_nest_lock)
++ialias (omp_destroy_lock)
++ialias (omp_destroy_nest_lock)
++ialias (omp_set_lock)
++ialias (omp_set_nest_lock)
++ialias (omp_unset_lock)
++ialias (omp_unset_nest_lock)
++ialias (omp_test_lock)
++ialias (omp_test_nest_lock)
++
++#endif
+diff --git gcc-workdir/libgomp/config/astral/proc.c gcc-workdir/libgomp/config/astral/proc.c
+new file mode 100644
+index 0000000..a98e4f9
+--- /dev/null
++++ gcc-workdir/libgomp/config/astral/proc.c
+@@ -0,0 +1,2 @@
++/* Use the generic processor-count implementation with Astral sysconf.  */
++#include "../posix/proc.c"
+diff --git gcc-clean/libgomp/configure.tgt gcc-workdir/libgomp/configure.tgt
+index 46af75f..112fe67 100644
+--- gcc-clean/libgomp/configure.tgt
++++ gcc-workdir/libgomp/configure.tgt
+@@ -129,6 +129,10 @@ fi
+ # Other system configury
+ case "${target}" in
+ 
++  x86_64-*-astral*)
++	config_path="astral linux/x86 linux posix"
++	;;
++
+   *-*-hpux*)
+ 	config_path="hpux posix"
+ 	case "${target}" in
 diff --git gcc-clean/libstdc++-v3/configure.ac gcc-workdir/libstdc++-v3/configure.ac
 index a6525a9..6c8c322 100644
 --- gcc-clean/libstdc++-v3/configure.ac
