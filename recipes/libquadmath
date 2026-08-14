@@ -1,0 +1,17 @@
+name=libquadmath
+revision=1
+from_source=gcc
+imagedeps="build-essential"
+hostrundeps="xgcc xbinutils libstdc++-v3"
+clean_workdirs=no
+deps="gcc"
+
+build() {
+	cd ${build_dir}/builds/gcc
+	make all-target-libquadmath -j${parallelism}
+}
+
+package() {
+	cd ${build_dir}/builds/gcc
+	make DESTDIR="${dest_dir}" install-target-libquadmath
+}

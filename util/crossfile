@@ -6,6 +6,7 @@ endian = 'little'
 [binaries]
 c = 'x86_64-astral-gcc'
 cpp = 'x86_64-astral-g++'
+fortran = 'x86_64-astral-gfortran'
 ar = 'x86_64-astral-ar'
 strip = 'x86_64-astral-strip'
 ld = 'x86_64-astral-ld'

@@ -5,6 +5,7 @@ set(CMAKE_FIND_ROOT_PATH /sysroot)
 
 set(CMAKE_C_COMPILER x86_64-astral-gcc)
 set(CMAKE_CXX_COMPILER x86_64-astral-g++)
+set(CMAKE_Fortran_COMPILER x86_64-astral-gfortran)
 
 # search for programs in the build host directories
 SET(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)

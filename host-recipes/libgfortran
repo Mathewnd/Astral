@@ -1,0 +1,17 @@
+name=libgfortran
+revision=1
+from_source=gcc
+imagedeps="build-essential"
+hostdeps="automake autoconf xbinutils xgcc libquadmath"
+clean_workdirs=no
+deps="mlibc"
+
+build() {
+	cd ${build_dir}/host-builds/xgcc
+	make all-target-libgfortran -j${parallelism}
+}
+
+package(){
+	cd ${build_dir}/host-builds/xgcc/x86_64-astral/libgfortran
+	make DESTDIR="${dest_dir}" install
+}

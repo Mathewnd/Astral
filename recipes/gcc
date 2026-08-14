@@ -1,5 +1,5 @@
 name=gcc
-revision=2
+revision=4
 from_source=gcc
 imagedeps="build-essential"
 hostrundeps="automake autoconf xgcc xbinutils libstdc++-v3"
@@ -7,7 +7,7 @@ deps="base gmp mpfr mpc binutils"
 clean_workdirs=no
 
 configure() {
-	${source_dir}/configure --host=x86_64-astral --target=x86_64-astral --prefix=${prefix} --enable-languages=c,c++ --enable-threads=posix --enable-libgomp --with-sysroot=/ --with-build-sysroot=${sysroot_dir}
+	${source_dir}/configure --host=x86_64-astral --target=x86_64-astral --prefix=${prefix} --enable-languages=c,c++,fortran --enable-threads=posix --enable-libgomp --with-pic --with-sysroot=/ --with-build-sysroot=${sysroot_dir}
 }
 
 build() {
