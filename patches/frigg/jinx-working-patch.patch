@@ -1,0 +1,123 @@
+diff --git frigg-clean/include/frg/formatting.hpp frigg-workdir/include/frg/formatting.hpp
+index a5de22c6..04c44d9c 100644
+--- frigg-clean/include/frg/formatting.hpp
++++ frigg-workdir/include/frg/formatting.hpp
+@@ -341,7 +341,9 @@ namespace _fmt_basics {
+ 	void print_float(S &sink, T number, int width = 0, optional<int> precision = 6,
+ 			Char padding = ' ', bool left_justify = false, bool alt_conversion = false,
+ 			bool use_capitals = false, bool group_thousands = false, bool use_compact = false,
+-			bool exponential_form = false, bool print_hexfloat = false, locale_options<Char> locale_opts = {}) {
++			bool exponential_form = false, bool print_hexfloat = false,
++			bool always_sign = false, bool plus_becomes_space = false,
++			locale_options<Char> locale_opts = {}) {
+ 		using P = frg::FormatterPolicy<Char>;
+ 
+ 		auto textLength = [](int i, unsigned base = 10, bool ignoreSign = false) {
+@@ -353,14 +355,20 @@ namespace _fmt_basics {
+ 			return length;
+ 		};
+ 
+-		bool has_sign = false;
+-		if (__builtin_signbit(number)) {
+-			has_sign = true;
+-		}
++		bool has_sign = __builtin_signbit(number);
++		bool show_sign = has_sign || always_sign || plus_becomes_space;
++		auto emit_sign = [&] {
++			if (has_sign)
++				sink.append('-');
++			else if (always_sign)
++				sink.append('+');
++			else if (plus_becomes_space)
++				sink.append(' ');
++		};
+ 
+ 		bool inf = __builtin_isinf(number), nan = __builtin_isnan(number);
+ 		if (inf || nan) {
+-			auto total_length = 3 + has_sign;
++			auto total_length = 3 + show_sign;
+ 			auto pad_length = width > total_length ? width - total_length : 0;
+ 			if (!left_justify) {
+ 				while (pad_length > 0) {
+@@ -369,8 +377,7 @@ namespace _fmt_basics {
+ 				}
+ 			}
+ 
+-			if (has_sign)
+-				sink.append('-');
++			emit_sign();
+ 
+ 			if (inf)
+ 				sink.append(use_capitals ? P::infUpper : P::inf);
+@@ -427,7 +434,7 @@ namespace _fmt_basics {
+ 				}
+ 			}
+ 
+-			auto int_length = has_sign + 3;
++			auto int_length = show_sign + 3;
+ 			int frac_length = (shift_by >> 2) - trailingZeroes;
+ 			auto exp_length = 2 + textLength(exp, 10, true);
+ 
+@@ -454,8 +461,7 @@ namespace _fmt_basics {
+ 				}
+ 			}
+ 
+-			if (has_sign)
+-				sink.append('-');
++			emit_sign();
+ 
+ 			if (use_capitals)
+ 				sink.append(number == 0.0 ? (P::hexPrefixUpperZero) : (P::hexPrefixUpperOne));
+@@ -580,7 +586,7 @@ namespace _fmt_basics {
+ 		auto decimal_point_length = print_decimal_point ? generic_strlen(locale_opts.decimal_point) : 0;
+ 
+ 		// Plus one for the decimal point
+-		int total_length = has_sign + int_length + group_sep_length + decimal_point_length + *precision;
++		int total_length = show_sign + int_length + group_sep_length + decimal_point_length + *precision;
+ 
+ 		// Handle the exponent in the style of `e+09`
+ 		if (exponential_form)
+@@ -595,8 +601,7 @@ namespace _fmt_basics {
+ 			}
+ 		}
+ 
+-		if (has_sign)
+-			sink.append('-');
++		emit_sign();
+ 
+ 		print_int<S, decltype(integralDigits), Char>(sink, integralDigits, 10, 0, 1, {}, false, group_thousands, false, false, false, locale_opts);
+ 
+@@ -624,7 +629,8 @@ namespace _fmt_basics {
+ 		int precision_or_default = fo.precision.has_value() ? *fo.precision : 6;
+ 		print_float(sink, object, fo.minimum_width, precision_or_default,
+ 				fo.fill_zeros ? '0' : ' ', fo.left_justify, fo.alt_conversion,
+-				fo.use_capitals, fo.group_thousands, fo.use_compact, fo.use_exponential);
++				fo.use_capitals, fo.group_thousands, fo.use_compact, fo.use_exponential,
++				false, fo.always_sign, fo.plus_becomes_space);
+ 	}
+ #endif /* __STDC_HOSTED__ */
+ };
+diff --git frigg-clean/include/frg/printf.hpp frigg-workdir/include/frg/printf.hpp
+index 259c3b61..f0263130 100644
+--- frigg-clean/include/frg/printf.hpp
++++ frigg-workdir/include/frg/printf.hpp
+@@ -983,7 +983,8 @@ void do_printf_floats(S &sink, Char t, format_options opts,
+ 					sink, pop_arg<long double>(vsp, &opts),
+ 					opts.minimum_width, opts.precision,
+ 					Char(opts.fill_zeros ? '0' : ' '), opts.left_justify, opts.alt_conversion,
+-					use_capitals, opts.group_thousands, use_compact, exponent_form, print_hexfloat, locale_opts);
++					use_capitals, opts.group_thousands, use_compact, exponent_form, print_hexfloat,
++					opts.always_sign, opts.plus_becomes_space, locale_opts);
+ 			break;
+ 		}
+ #endif
+@@ -992,7 +993,8 @@ void do_printf_floats(S &sink, Char t, format_options opts,
+ 				sink, pop_arg<double>(vsp, &opts),
+ 				opts.minimum_width, opts.precision,
+ 				Char(opts.fill_zeros ? '0' : ' '), opts.left_justify, opts.alt_conversion, use_capitals,
+-				opts.group_thousands, use_compact, exponent_form, print_hexfloat, locale_opts);
++				opts.group_thousands, use_compact, exponent_form, print_hexfloat,
++				opts.always_sign, opts.plus_becomes_space, locale_opts);
+ 		break;
+ 	default:
+ 		FRG_ASSERT(!"Unexpected printf terminal");
