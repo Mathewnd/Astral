@@ -1461,7 +1461,7 @@ static void initcontroller(pcienum_t *e) {
 }
 
 void hda_init() {
-	static const int device_ids[] = {0x2668, 0x8c20};
+	static const int device_ids[] = {0x2668, 0x8c20, 0xa2f0};
 
 	for (size_t device = 0; device < sizeof(device_ids) / sizeof(device_ids[0]); ++device) {
 		int i = 0;
