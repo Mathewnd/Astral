@@ -1,7 +1,7 @@
 name=gcc
 version=14.3.0
 source_method=tarball
-tarball_url="https://ftpmirror.gnu.org/gnu/gcc/gcc-${version}/gcc-${version}.tar.xz"
+tarball_url="https://ftp.funet.fi/pub/mirrors/sourceware.org/pub/gcc/releases/gcc-${version}/gcc-${version}.tar.xz"
 tarball_sha512="cb4e3259640721bbd275c723fe4df53d12f9b1673afb3db274c22c6aa457865dccf2d6ea20b4fd4c591f6152e6d4b87516c402015900f06ce9d43af66d3b7a93"
 hostdeps="automake autoconf"
 
