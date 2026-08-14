@@ -73,6 +73,7 @@ int jobctl_setctty(proc_t *proc, void *_ctty, bool steal) {
 		} else if (steal) {
 			// vnode reference gets transferred over to the new proc
 			tty->session->session.controllingtty = NULL;
+			proc->session.controllingtty = tty;
 			tty->session = proc;
 		} else {
 			error = EPERM;
