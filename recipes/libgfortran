@@ -1,14 +1,15 @@
 name=libgfortran
-revision=1
+revision=2
 from_source=gcc
-imagedeps="build-essential"
+imagedeps="build-essential libgmp-dev libmpfr-dev libmpc-dev"
 hostrundeps="xgcc xbinutils libstdc++-v3"
 clean_workdirs=no
 deps="gcc libquadmath"
 
 build() {
 	cd ${build_dir}/builds/gcc
-	make all-target-libgfortran -j${parallelism}
+	GFORTRAN_FOR_TARGET="${build_dir}/builds/gcc/gcc/gfortran -B${build_dir}/builds/gcc/gcc/" \
+		make all-target-libgfortran -j${parallelism}
 }
 
 package() {
