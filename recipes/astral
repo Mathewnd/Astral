@@ -1,5 +1,5 @@
 name=astral
-revision=24
+revision=25
 from_source=astral
 imagedeps="build-essential nasm"
 hostdeps="xgcc xbinutils limine"
