@@ -1,0 +1,5 @@
+name=lapack
+version=3.12.1
+source_method=tarball
+tarball_url="https://github.com/Reference-LAPACK/lapack/archive/refs/tags/v${version}.tar.gz"
+tarball_sha256="2ca6407a001a474d4d4d35f3a61550156050c48016d949f0da0529c0aa052422"

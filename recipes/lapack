@@ -1,0 +1,30 @@
+name=lapack
+revision=1
+from_source=lapack
+imagedeps="build-essential cmake"
+hostdeps="xgcc xbinutils pkgconfig cmake"
+deps="base gcc libgfortran libquadmath"
+
+configure() {
+	cmake \
+		-DCMAKE_TOOLCHAIN_FILE=${base_dir}/util/cmake \
+		-DCMAKE_INSTALL_PREFIX=${prefix} \
+		-DCMAKE_BUILD_TYPE=Release \
+		-DBUILD_SHARED_LIBS=ON \
+		-DBUILD_TESTING=OFF \
+		-DBUILD_DEPRECATED=ON \
+		-DBUILD_INDEX64_EXT_API=OFF \
+		-DCBLAS=ON \
+		-DLAPACKE=ON \
+		-DCMAKE_INSTALL_LIBDIR=lib \
+		${source_dir}
+}
+
+build() {
+	make -j${parallelism}
+}
+
+package() {
+	DESTDIR=${dest_dir} make install
+	find ${dest_dir} -type f -name '*.a' -delete
+}
