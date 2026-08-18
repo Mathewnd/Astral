@@ -303,34 +303,37 @@ void sched_load_balancer(context_t *, dpcarg_t) {
 	interrupt_set(false);
 	cpu_t *most_loaded = NULL;
 	cpu_t *least_loaded = NULL;
+	size_t most_loaded_count = 0;
+	size_t least_loaded_count = 0;
 
 	// find the least loaded and most loaded cpus
-	for (int i = 0; i < arch_smp_cpusawake; ++i) {
-		cpu_t *old_most_loaded = NULL;
-		cpu_t *old_least_loaded = NULL;
-
+	for (size_t i = 0; i < arch_smp_cpusawake; ++i) {
 		spinlock_acquire(&smp_cpus[i]->sched_lock);
-		if ((most_loaded == NULL || most_loaded->thread_count < smp_cpus[i]->thread_count) && smp_cpus[i]->stealable_thread_count) {
-			old_most_loaded = most_loaded;
+		size_t thread_count = smp_cpus[i]->thread_count;
+		size_t stealable_thread_count = smp_cpus[i]->stealable_thread_count;
+		spinlock_release(&smp_cpus[i]->sched_lock);
+
+		if ((most_loaded == NULL || most_loaded_count < thread_count) && stealable_thread_count) {
 			most_loaded = smp_cpus[i];
+			most_loaded_count = thread_count;
 		}
 
-		if (least_loaded == NULL || least_loaded->thread_count > smp_cpus[i]->thread_count) {
-			old_least_loaded = least_loaded;
+		if (least_loaded == NULL || least_loaded_count > thread_count) {
 			least_loaded = smp_cpus[i];
+			least_loaded_count = thread_count;
 		}
-
-		if (old_most_loaded)
-			spinlock_release(&old_most_loaded->sched_lock);
-
-		if (old_least_loaded && old_least_loaded != most_loaded && old_least_loaded != old_most_loaded)
-			spinlock_release(&old_least_loaded->sched_lock);
-
-		if (least_loaded != smp_cpus[i] && most_loaded != smp_cpus[i])
-			spinlock_release(&smp_cpus[i]->sched_lock);
 	}
 
-	if (most_loaded == NULL || most_loaded->thread_count <= 1 || most_loaded->thread_count == least_loaded->thread_count)
+	if (most_loaded == NULL || most_loaded == least_loaded)
+		return;
+
+	cpu_t *first = most_loaded->internal_id < least_loaded->internal_id ? most_loaded : least_loaded;
+	cpu_t *second = first == most_loaded ? least_loaded : most_loaded;
+	spinlock_acquire(&first->sched_lock);
+	spinlock_acquire(&second->sched_lock);
+
+	// the queues may have changed since the scan, so only move work if it still reduces the imbalance
+	if (most_loaded->stealable_thread_count == 0 || most_loaded->thread_count <= 1 || most_loaded->thread_count <= least_loaded->thread_count)
 		goto leave;
 
 	thread_t *thread = sched_steal_work_from_cpu(most_loaded);
@@ -342,8 +345,6 @@ void sched_load_balancer(context_t *, dpcarg_t) {
 		sched_preempt_cpu(least_loaded);
 
 	leave:
-	if (most_loaded)
-		spinlock_release(&most_loaded->sched_lock);
-	if (most_loaded != least_loaded)
-		spinlock_release(&least_loaded->sched_lock);
+	spinlock_release(&second->sched_lock);
+	spinlock_release(&first->sched_lock);
 }
