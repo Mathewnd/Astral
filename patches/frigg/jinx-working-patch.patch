@@ -1,5 +1,5 @@
 diff --git frigg-clean/include/frg/formatting.hpp frigg-workdir/include/frg/formatting.hpp
-index a5de22c6..04c44d9c 100644
+index a6c89d39..f066c03c 100644
 --- frigg-clean/include/frg/formatting.hpp
 +++ frigg-workdir/include/frg/formatting.hpp
 @@ -341,7 +341,9 @@ namespace _fmt_basics {
@@ -12,7 +12,7 @@ index a5de22c6..04c44d9c 100644
 +			locale_options<Char> locale_opts = {}) {
  		using P = frg::FormatterPolicy<Char>;
  
- 		auto textLength = [](int i, unsigned base = 10, bool ignoreSign = false) {
+ 		auto textLength = [](int i, int base = 10, bool ignoreSign = false) {
 @@ -353,14 +355,20 @@ namespace _fmt_basics {
  			return length;
  		};
@@ -98,10 +98,10 @@ index a5de22c6..04c44d9c 100644
  #endif /* __STDC_HOSTED__ */
  };
 diff --git frigg-clean/include/frg/printf.hpp frigg-workdir/include/frg/printf.hpp
-index 259c3b61..f0263130 100644
+index bce5e241..c4558f85 100644
 --- frigg-clean/include/frg/printf.hpp
 +++ frigg-workdir/include/frg/printf.hpp
-@@ -983,7 +983,8 @@ void do_printf_floats(S &sink, Char t, format_options opts,
+@@ -991,7 +991,8 @@ void do_printf_floats(S &sink, Char t, format_options opts,
  					sink, pop_arg<long double>(vsp, &opts),
  					opts.minimum_width, opts.precision,
  					Char(opts.fill_zeros ? '0' : ' '), opts.left_justify, opts.alt_conversion,
@@ -111,7 +111,7 @@ index 259c3b61..f0263130 100644
  			break;
  		}
  #endif
-@@ -992,7 +993,8 @@ void do_printf_floats(S &sink, Char t, format_options opts,
+@@ -1000,7 +1001,8 @@ void do_printf_floats(S &sink, Char t, format_options opts,
  				sink, pop_arg<double>(vsp, &opts),
  				opts.minimum_width, opts.precision,
  				Char(opts.fill_zeros ? '0' : ' '), opts.left_justify, opts.alt_conversion, use_capitals,

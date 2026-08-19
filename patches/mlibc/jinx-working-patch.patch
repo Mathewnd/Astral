@@ -52,185 +52,19 @@ index ccb37257..3dfa27af 100644
  	file->__status_bits |= __MLIBC_ERROR_BIT;
  }
 -
-diff --git mlibc-clean/options/internal/generic/global-config.cpp mlibc-workdir/options/internal/generic/global-config.cpp
-index 3b7b8627..3d86e7a4 100644
---- mlibc-clean/options/internal/generic/global-config.cpp
-+++ mlibc-workdir/options/internal/generic/global-config.cpp
-@@ -1,9 +1,15 @@
- #include <stdlib.h>
--#include <string.h>
-+#include <mlibc/allocator.hpp>
- #include <mlibc/global-config.hpp>
- 
- namespace mlibc {
- 
-+namespace {
-+
-+constinit mlibc::lazy_eternal<GlobalConfig> globalConfigInstance;
-+
-+} // namespace
-+
- struct GlobalConfigGuard {
- 	GlobalConfigGuard();
- };
-@@ -12,7 +18,7 @@ GlobalConfigGuard guard;
- 
- GlobalConfigGuard::GlobalConfigGuard() {
- 	// Force the config to be created during initialization of libc.so.
--	mlibc::globalConfig();
-+	globalConfigInstance.get();
- }
- 
- static bool envEnabled(const char *env) {
-@@ -29,4 +35,8 @@ GlobalConfig::GlobalConfig() {
- 	debugMonetaryLengths = envEnabled("MLIBC_DEBUG_MONETARY_LENGTHS");
- }
- 
-+const GlobalConfig &globalConfig() {
-+	return globalConfigInstance.get();
-+}
-+
- } // namespace mlibc
 diff --git mlibc-clean/options/internal/include/mlibc/allocator.hpp mlibc-workdir/options/internal/include/mlibc/allocator.hpp
-index 852620a5..7f1aa89f 100644
+index a8890506..e8c74a66 100644
 --- mlibc-clean/options/internal/include/mlibc/allocator.hpp
 +++ mlibc-workdir/options/internal/include/mlibc/allocator.hpp
-@@ -3,6 +3,7 @@
+@@ -11,6 +11,8 @@
  
- #include <mlibc/lock.hpp>
- #include <bits/ensure.h>
-+#include <frg/manual_box.hpp>
- #include <frg/slab.hpp>
- #include <internal-config.h>
- 
-@@ -13,6 +14,8 @@ public:
+ struct VirtualAllocator {
+ public:
++	static constexpr size_t num_buckets = 14;
++
  	uintptr_t map(size_t length);
  
  	void unmap(uintptr_t address, size_t length);
-+
-+	static constexpr size_t num_buckets = 14;
- };
- 
- typedef frg::slab_pool<VirtualAllocator, FutexLock> MemoryPool;
-@@ -35,4 +38,34 @@ MemoryAllocator &getAllocator();
- 
- #endif // !MLIBC_DEBUG_ALLOCATOR
- 
-+namespace mlibc {
-+
-+template <typename T>
-+struct lazy_eternal {
-+	constexpr lazy_eternal() = default;
-+
-+	template <typename Self>
-+	auto &get(this Self &&self) {
-+		if (__atomic_load_n(&self.initialized_, __ATOMIC_ACQUIRE))
-+			return *self.box_.get();
-+
-+		{
-+			frg::unique_lock lock{self.lock_};
-+			if (!__atomic_load_n(&self.initialized_, __ATOMIC_RELAXED)) {
-+				self.box_.initialize();
-+				__atomic_store_n(&self.initialized_, 1, __ATOMIC_RELEASE);
-+			}
-+		}
-+
-+		return *self.box_.get();
-+	}
-+
-+private:
-+	mutable uint32_t initialized_ = 0;
-+	mutable FutexLock lock_;
-+	mutable frg::manual_box<T> box_;
-+};
-+
-+} // namespace mlibc
-+
- #endif // MLIBC_FRIGG_ALLOC
-diff --git mlibc-clean/options/internal/include/mlibc/global-config.hpp mlibc-workdir/options/internal/include/mlibc/global-config.hpp
-index 0235c541..3fad411a 100644
---- mlibc-clean/options/internal/include/mlibc/global-config.hpp
-+++ mlibc-workdir/options/internal/include/mlibc/global-config.hpp
-@@ -14,11 +14,8 @@ struct GlobalConfig {
- 	bool debugMonetaryLengths;
- };
- 
--inline const GlobalConfig &globalConfig() {
--	static GlobalConfig cached;
--	return cached;
--}
-+const GlobalConfig &globalConfig();
- 
--}
-+} // namespace mlibc
- 
- #endif // MLIBC_GLOBAL_CONFIG
-diff --git mlibc-clean/options/internal/include/mlibc/lock.hpp mlibc-workdir/options/internal/include/mlibc/lock.hpp
-index f4477411..ab446678 100644
---- mlibc-clean/options/internal/include/mlibc/lock.hpp
-+++ mlibc-workdir/options/internal/include/mlibc/lock.hpp
-@@ -14,7 +14,7 @@
- 
- template<bool Recursive>
- struct alignas(4) FutexLockImpl {
--	FutexLockImpl() : _state{0}, _recursion{0} { }
-+	constexpr FutexLockImpl() : _state{0}, _recursion{0} { }
- 
- 	FutexLockImpl(const FutexLockImpl &) = delete;
- 
-diff --git mlibc-clean/options/internal/include/mlibc/sysdep-signatures.hpp mlibc-workdir/options/internal/include/mlibc/sysdep-signatures.hpp
-index d639e43c..694021ac 100644
---- mlibc-clean/options/internal/include/mlibc/sysdep-signatures.hpp
-+++ mlibc-workdir/options/internal/include/mlibc/sysdep-signatures.hpp
-@@ -23,6 +23,10 @@
- 
- #include <mlibc/sysdep-tags.hpp>
- 
-+#if __MLIBC_POSIX_OPTION
-+#include <net/if.h>
-+#endif
-+
- namespace mlibc {
- 
- template<typename Tag>
-@@ -156,6 +160,7 @@ SYSDEP_FUNC(Linkat, int olddirfd, const char *old_path, int newdirfd, const char
- SYSDEP_FUNC(Symlink, const char *target_path, const char *link_path);
- SYSDEP_FUNC(Symlinkat, const char *target_path, int dirfd, const char *link_path);
- SYSDEP_FUNC(Renameat, int olddirfd, const char *old_path, int newdirfd, const char *new_path);
-+SYSDEP_FUNC(Renameat2, int olddirfd, const char *old_path, int newdirfd, const char *new_path, unsigned int flags);
- SYSDEP_FUNC(Fcntl, int fd, int request, va_list args, int *result);
- SYSDEP_FUNC(Ttyname, int fd, char *buf, size_t size);
- SYSDEP_FUNC(Fadvise, int fd, off_t offset, off_t length, int advice);
-@@ -235,6 +240,7 @@ SYSDEP_FUNC(SetRegid, gid_t rgid, gid_t egid);
- SYSDEP_FUNC(GetLoginR, char *name, size_t name_len);
- SYSDEP_FUNC(IfIndextoname, unsigned int index, char *name);
- SYSDEP_FUNC(IfNametoindex, const char *name, unsigned int *ret);
-+SYSDEP_FUNC(IfNameindex, struct if_nameindex **ret);
- SYSDEP_FUNC(Ptsname, int fd, char *buffer, size_t length);
- SYSDEP_FUNC(Unlockpt, int fd);
- SYSDEP_FUNC(ThreadSetname, void *tcb, const char *name);
-diff --git mlibc-clean/options/internal/include/mlibc/sysdep-tags.hpp mlibc-workdir/options/internal/include/mlibc/sysdep-tags.hpp
-index 17cf4222..01941c14 100644
---- mlibc-clean/options/internal/include/mlibc/sysdep-tags.hpp
-+++ mlibc-workdir/options/internal/include/mlibc/sysdep-tags.hpp
-@@ -316,6 +316,8 @@ struct Symlink {};
- struct Symlinkat {};
- // int sys_renameat(int olddirfd, const char *old_path, int newdirfd, const char *new_path);
- struct Renameat {};
-+// int sys_renameat2(int olddirfd, const char *old_path, int newdirfd, const char *new_path, unsigned int flags);
-+struct Renameat2 {};
- // int sys_fcntl(int fd, int request, va_list args, int *result);
- struct Fcntl {};
- // int sys_ttyname(int fd, char *buf, size_t size);
-@@ -476,6 +478,8 @@ struct GetLoginR {};
- struct IfIndextoname {};
- // int sys_if_nametoindex(const char *name, unsigned int *ret);
- struct IfNametoindex {};
-+// int sys_if_nameindex(struct if_nameindex **ret);
-+struct IfNameindex {};
- // int sys_ptsname(int fd, char *buffer, size_t length);
- struct Ptsname {};
- // int sys_unlockpt(int fd);
 diff --git mlibc-clean/options/linux/generic/malloc.cpp mlibc-workdir/options/linux/generic/malloc.cpp
 index 065de6c1..10c73955 100644
 --- mlibc-clean/options/linux/generic/malloc.cpp
@@ -266,61 +100,6 @@ index 55a567aa..d1d77873 100644
  			opts
  		);
  
-diff --git mlibc-clean/options/posix/generic/net-if.cpp mlibc-workdir/options/posix/generic/net-if.cpp
-index ed0c463c..8df25802 100644
---- mlibc-clean/options/posix/generic/net-if.cpp
-+++ mlibc-workdir/options/posix/generic/net-if.cpp
-@@ -6,8 +6,13 @@
- #include <mlibc/all-sysdeps.hpp>
- #include <mlibc/debug.hpp>
- 
--void if_freenameindex(struct if_nameindex *) {
--	mlibc::infoLogger() << "mlibc: if_freenameindex is a no-op" << frg::endlog;
-+void if_freenameindex(struct if_nameindex *index) {
-+	if(!index)
-+		return;
-+
-+	for(struct if_nameindex *it = index; it->if_index || it->if_name; ++it)
-+		free(it->if_name);
-+	free(index);
- }
- 
- char *if_indextoname(unsigned int index, char *name) {
-@@ -20,9 +25,13 @@ char *if_indextoname(unsigned int index, char *name) {
- }
- 
- struct if_nameindex *if_nameindex(void) {
--	mlibc::infoLogger() << "mlibc: if_nameindex() is a no-op" << frg::endlog;
--	errno = ENOSYS;
--	return nullptr;
-+	struct if_nameindex *ret = nullptr;
-+	if(int e = mlibc::sysdep_or_enosys<IfNameindex>(&ret); e) {
-+		errno = e;
-+		return nullptr;
-+	}
-+
-+	return ret;
- }
- 
- unsigned int if_nametoindex(const char *name) {
-diff --git mlibc-clean/options/posix/generic/posix_stdio.cpp mlibc-workdir/options/posix/generic/posix_stdio.cpp
-index ab4f784e..ba663bb2 100644
---- mlibc-clean/options/posix/generic/posix_stdio.cpp
-+++ mlibc-workdir/options/posix/generic/posix_stdio.cpp
-@@ -233,7 +233,10 @@ int renameat(int olddirfd, const char *old_path, int newdirfd, const char *new_p
- 	return 0;
- }
- 
--int renameat2(int, const char *, int, const char *, unsigned int) {
--	__ensure(!"Not implemented");
--	__builtin_unreachable();
-+int renameat2(int olddirfd, const char *old_path, int newdirfd, const char *new_path, unsigned int flags) {
-+	if(int e = mlibc::sysdep_or_enosys<Renameat2>(olddirfd, old_path, newdirfd, new_path, flags); e) {
-+		errno = e;
-+		return -1;
-+	}
-+	return 0;
- }
 diff --git mlibc-clean/options/posix/include/bits/posix/posix_stdio.h mlibc-workdir/options/posix/include/bits/posix/posix_stdio.h
 index f0d6edd1..ab57b6b1 100644
 --- mlibc-clean/options/posix/include/bits/posix/posix_stdio.h
@@ -337,15 +116,6 @@ index f0d6edd1..ab57b6b1 100644
  
  #endif /* _MLIBC_POSIX_STDIO_H */
  
--
-diff --git mlibc-clean/options/rtld/x86_64/runtime.S mlibc-workdir/options/rtld/x86_64/runtime.S
-index ba9a5208..b958ef33 100644
---- mlibc-clean/options/rtld/x86_64/runtime.S
-+++ mlibc-workdir/options/rtld/x86_64/runtime.S
-@@ -60,4 +60,3 @@ pltRelocateStub:
- 	jmp *%r11
- 
- .section .note.GNU-stack,"",%progbits
 -
 diff --git mlibc-clean/sysdeps/astral/generic/astral.cpp mlibc-workdir/sysdeps/astral/generic/astral.cpp
 index a86353f3..3e1a18c2 100644
@@ -379,7 +149,7 @@ index a86353f3..3e1a18c2 100644
  	return error ? -1 : ret;
  }
 diff --git mlibc-clean/sysdeps/astral/generic/generic.cpp mlibc-workdir/sysdeps/astral/generic/generic.cpp
-index 3b043726..ec94347e 100644
+index 3b043726..84bec4d3 100644
 --- mlibc-clean/sysdeps/astral/generic/generic.cpp
 +++ mlibc-workdir/sysdeps/astral/generic/generic.cpp
 @@ -1,9 +1,12 @@
@@ -446,7 +216,7 @@ index 3b043726..ec94347e 100644
  	int Sysdeps<SetGroups>::operator()(size_t size, const gid_t *list) {
  		(void)size;
  		(void)list;
-@@ -31,15 +74,324 @@ namespace mlibc {
+@@ -31,15 +74,333 @@ namespace mlibc {
  		return 0;
  	}
  
@@ -576,9 +346,9 @@ index 3b043726..ec94347e 100644
 +	int Sysdeps<GetCurrentStackInfo>::operator()(void **stack_base, size_t *stack_size) {
 +		*stack_size = 1024 * 1024 * 4;
 +		*stack_base = (void *)(0x0000800000000000 - *stack_size);
- 		return 0;
- 	}
- 
++		return 0;
++	}
++
 +#ifndef MLIBC_BUILDING_RTLD
 +	int Sysdeps<Getifaddrs>::operator()(struct ifaddrs **out) {
 +		struct ifaddrs *list = nullptr;
@@ -755,6 +525,15 @@ index 3b043726..ec94347e 100644
 +
 +		return 0;
 +	}
++
++	void Sysdeps<IfFreeNameindex>::operator()(struct if_nameindex *ifn) {
++		if(!ifn)
++			return;
++
++		for(auto it = ifn; it->if_index || it->if_name; ++it)
++			free(it->if_name);
++		free(ifn);
++	}
 +#endif
 +
 +	int Sysdeps<EventfdCreate>::operator()(unsigned int initval, int flags, int *fd) {
@@ -764,9 +543,9 @@ index 3b043726..ec94347e 100644
 +			return error;
 +
 +		*fd = ret;
-+		return 0;
-+	}
-+
+ 		return 0;
+ 	}
+ 
 +	int Sysdeps<GetSockopt>::operator()(int fd, int layer, int number,
 +		void *__restrict buffer, socklen_t *__restrict size) {
 +		long ret;
@@ -776,7 +555,7 @@ index 3b043726..ec94347e 100644
  	int Sysdeps<InetConfigured>::operator()(bool *ipv4, bool *ipv6) {
  		// there is no ipv6 support in the kernel currently and no way of checking for configured interfaces
  		*ipv4 = true;
-@@ -47,6 +399,71 @@ namespace mlibc {
+@@ -47,6 +408,71 @@ namespace mlibc {
  		return 0;
  	}
  
@@ -848,7 +627,7 @@ index 3b043726..ec94347e 100644
  	int Sysdeps<Readv>::operator()(int fd, const struct iovec *iovs, int iovc, ssize_t *bytes_read) {
  		long r;
  		int error = syscall(SYSCALL_READV, &r, fd, (uint64_t)iovs, iovc);
-@@ -86,6 +503,11 @@ namespace mlibc {
+@@ -86,6 +512,11 @@ namespace mlibc {
  		return e;
  	}
  
@@ -860,7 +639,7 @@ index 3b043726..ec94347e 100644
  	int Sysdeps<Shutdown>::operator()(int sockfd, int how) {
  		long ret;
  		return syscall(SYSCALL_SHUTDOWN, &ret, sockfd, how);
-@@ -487,8 +909,15 @@ namespace mlibc {
+@@ -487,8 +918,15 @@ namespace mlibc {
  		return err;
  	}
  
@@ -876,7 +655,7 @@ index 3b043726..ec94347e 100644
  		return syscall(SYSCALL_SETSOCKOPT, &ret, fd, layer, number, (uint64_t)buffer, size);
  	}
  
-@@ -511,6 +940,11 @@ namespace mlibc {
+@@ -511,6 +949,11 @@ namespace mlibc {
  		return err;
  	}
  
@@ -888,7 +667,7 @@ index 3b043726..ec94347e 100644
  	int Sysdeps<Renameat>::operator()(int olddirfd, const char *old_path, int newdirfd, const char *new_path) {
  		long ret;
  		return syscall(SYSCALL_RENAMEAT, &ret, olddirfd, (uint64_t)old_path, newdirfd, (uint64_t)new_path);
-@@ -562,6 +996,16 @@ namespace mlibc {
+@@ -562,6 +1005,16 @@ namespace mlibc {
  		return sysdep<Ioctl>(fd, TCSETS, (void *)attr, &res);
  	}
  
@@ -905,7 +684,7 @@ index 3b043726..ec94347e 100644
  	int Sysdeps<Poll>::operator()(struct pollfd *fds, nfds_t count, int timeout, int *num_events) {
  		long ret;
  		long error = syscall(SYSCALL_POLL, &ret, (uint64_t)fds, count, timeout);
-@@ -932,4 +1376,13 @@ namespace mlibc {
+@@ -932,4 +1385,13 @@ namespace mlibc {
  		*nanos = ts.tv_nsec;
  		return err;
  	}
@@ -1026,10 +805,10 @@ index 00000000..0c70df32
 +
 +#endif /* _ASTRAL_SYSCTL_H */
 diff --git mlibc-clean/sysdeps/astral/include/mlibc/sysdeps.hpp mlibc-workdir/sysdeps/astral/include/mlibc/sysdeps.hpp
-index ce910847..3e78eee2 100644
+index 17f52e51..3527edbe 100644
 --- mlibc-clean/sysdeps/astral/include/mlibc/sysdeps.hpp
 +++ mlibc-workdir/sysdeps/astral/include/mlibc/sysdeps.hpp
-@@ -5,10 +5,33 @@
+@@ -5,10 +5,34 @@
  namespace mlibc {
  
  struct AstralSysdepTags :
@@ -1052,6 +831,7 @@ index ce910847..3e78eee2 100644
 +	IfIndextoname,
 +	IfNametoindex,
 +	IfNameindex,
++	IfFreeNameindex,
  	GetSockopt,
  	InetConfigured,
 +	Unlockpt,
@@ -1063,7 +843,7 @@ index ce910847..3e78eee2 100644
  	Readv,
  	Writev,
  	Sysinfo,
-@@ -66,6 +89,7 @@ struct AstralSysdepTags :
+@@ -66,6 +90,7 @@ struct AstralSysdepTags :
  	SetSid,
  	FutexTid,
  	GetTid,
@@ -1071,7 +851,7 @@ index ce910847..3e78eee2 100644
  	ThreadExit,
  	Clone,
  	Listen,
-@@ -77,6 +101,7 @@ struct AstralSysdepTags :
+@@ -77,6 +102,7 @@ struct AstralSysdepTags :
  	Bind,
  	Socket,
  	Renameat,
@@ -1079,7 +859,7 @@ index ce910847..3e78eee2 100644
  	Rename,
  	Utimensat,
  	Fchownat,
-@@ -85,6 +110,8 @@ struct AstralSysdepTags :
+@@ -85,6 +111,8 @@ struct AstralSysdepTags :
  	Sleep,
  	Tcgetattr,
  	Tcsetattr,
@@ -1088,7 +868,7 @@ index ce910847..3e78eee2 100644
  	Poll,
  	Ppoll,
  	Pselect,
-@@ -135,7 +162,11 @@ struct AstralSysdepTags :
+@@ -135,7 +163,11 @@ struct AstralSysdepTags :
  	VmUnmap,
  	Isatty,
  	ClockGet,
@@ -1102,10 +882,10 @@ index ce910847..3e78eee2 100644
  
  template<typename Tag>
 diff --git mlibc-clean/sysdeps/astral/meson.build mlibc-workdir/sysdeps/astral/meson.build
-index 43dd6b0d..3e01e87d 100644
+index a8b162e1..0c066104 100644
 --- mlibc-clean/sysdeps/astral/meson.build
 +++ mlibc-workdir/sysdeps/astral/meson.build
-@@ -86,6 +86,7 @@ if not no_headers
+@@ -89,6 +89,7 @@ if not no_headers
          install_headers(
                  'include/astral/syscall.h',
                  'include/astral/archctl.h',
@@ -1142,10 +922,10 @@ index 00000000..0b3a1581
 +	return 0;
 +}
 diff --git mlibc-clean/tests/meson.build mlibc-workdir/tests/meson.build
-index 9c5bcd72..8b2b95e1 100644
+index b2785998..16c5159b 100644
 --- mlibc-clean/tests/meson.build
 +++ mlibc-workdir/tests/meson.build
-@@ -170,6 +170,7 @@ all_test_cases = [
+@@ -186,6 +186,7 @@ all_test_cases = [
  	'glibc/rpmatch',
  	'glibc/strverscmp',
  	'glibc/memmem',

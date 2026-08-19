@@ -1,6 +1,6 @@
 name=frigg
 from_source=frigg
-revision=3
+revision=4
 hostdeps="xgcc xbinutils pkgconfig"
 imagedeps="meson ninja-build build-essential"
 
@@ -15,4 +15,3 @@ build() {
 package() {
         DESTDIR=${dest_dir} ninja install
 }
-

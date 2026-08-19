@@ -34,7 +34,7 @@ typedef struct {
 
 typedef struct {
 	void *address;
-	unsigned long flags;
+	int flags;
 	void (*restorer)(void);
 	sigset_t mask;
 } sigaction_t;
