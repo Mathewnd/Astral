@@ -1,5 +1,5 @@
 name=xtrans
-revision=1
+revision=2
 from_source=xtrans
 imagedeps="meson ninja-build gcc"
 hostdeps="xgcc xbinutils pkgconfig util-macros"

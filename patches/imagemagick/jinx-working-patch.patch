@@ -1,14 +1,13 @@
 diff --git imagemagick-clean/MagickCore/fx.c imagemagick-workdir/MagickCore/fx.c
-index dc96e9b..63aeda3 100644
+index dc96e9bd..3b4cda5e 100644
 --- imagemagick-clean/MagickCore/fx.c
 +++ imagemagick-workdir/MagickCore/fx.c
-@@ -38,6 +38,9 @@
+@@ -38,6 +38,8 @@
  %
  */
  
 +double j0(double x);
 +double j1(double x);
-+double jn(double x);
  /*
    Include declarations.
  */

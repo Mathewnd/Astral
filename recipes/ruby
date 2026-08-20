@@ -1,5 +1,5 @@
 name=ruby
-revision=1
+revision=2
 from_source=ruby
 imagedeps="build-essential ruby"
 hostdeps="xgcc xbinutils pkgconfig libtool"

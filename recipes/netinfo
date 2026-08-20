@@ -1,5 +1,5 @@
 name=netinfo
-revision=1
+revision=2
 from_source=netinfo
 imagedeps="build-essential"
 hostdeps="xbinutils xgcc"

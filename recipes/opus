@@ -1,5 +1,5 @@
 name=opus
-revision=1
+revision=2
 from_source=opus
 imagedeps="gcc meson ninja-build"
 hostdeps="xgcc xbinutils pkgconfig"

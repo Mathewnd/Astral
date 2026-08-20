@@ -1,5 +1,5 @@
 name=gdk-pixbuf
-revision=2
+revision=3
 from_source=gdk-pixbuf
 imagedeps="gcc meson ninja-build libglib2.0-dev"
 hostdeps="xgcc xbinutils pkgconfig"

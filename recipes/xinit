@@ -1,5 +1,5 @@
 name=xinit
-revision=1
+revision=2
 from_source=xinit
 imagedeps="gcc"
 hostdeps="xgcc xbinutils pkgconfig"

@@ -1,5 +1,5 @@
 name=xcb-util-keysyms
-revision=1
+revision=2
 from_source=xcb-util-keysyms
 imagedeps="gcc"
 hostdeps="xgcc xbinutils pkgconfig util-macros autoconf automake libtool"

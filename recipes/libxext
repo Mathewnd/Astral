@@ -1,5 +1,5 @@
 name=libxext
-revision=1
+revision=2
 from_source=libxext
 imagedeps="meson build-essential"
 hostdeps="xgcc xbinutils pkgconfig"

@@ -1,5 +1,5 @@
 name=xsetmode
-revision=1
+revision=2
 from_source=xsetmode
 imagedeps="gcc"
 hostdeps="xgcc xbinutils pkgconfig"

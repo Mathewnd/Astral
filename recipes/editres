@@ -1,5 +1,5 @@
 name=editres
-revision=1
+revision=2
 from_source=editres
 imagedeps="gcc"
 hostdeps="xgcc xbinutils pkgconfig"

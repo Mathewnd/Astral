@@ -1,5 +1,5 @@
 name=xcb-proto
-revision=1
+revision=2
 from_source=xcb-proto
 imagedeps="build-essential python3"
 hostdeps="xgcc xbinutils"

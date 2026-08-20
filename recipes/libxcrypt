@@ -1,5 +1,5 @@
 name=libxcrypt
-revision=1
+revision=2
 from_source=libxcrypt
 imagedeps="python3-passlib gcc"
 hostdeps="xgcc xbinutils pkgconfig libtool"

@@ -1,5 +1,5 @@
 name=double-conversion
-revision=1
+revision=2
 from_source=double-conversion
 imagedeps="build-essential cmake"
 hostdeps="xgcc xbinutils pkgconfig libtool libstdc++-v3"

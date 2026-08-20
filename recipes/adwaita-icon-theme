@@ -1,5 +1,5 @@
 name=adwaita-icon-theme
-revision=1
+revision=2
 from_source=adwaita-icon-theme
 imagedeps="meson ninja-build gtk-update-icon-cache"
 hostdeps="pkgconfig"

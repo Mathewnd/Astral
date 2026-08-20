@@ -1,6 +1,6 @@
 name=fonts-dejavu
 from_source=fonts-dejavu
-revision=1
+revision=2
 
 build() {
 	true

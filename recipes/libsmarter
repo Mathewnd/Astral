@@ -1,6 +1,6 @@
 name=libsmarter
 from_source=libsmarter
-revision=1
+revision=2
 hostdeps="xgcc xbinutils pkgconfig"
 imagedeps="meson ninja-build build-essential"
 

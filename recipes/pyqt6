@@ -1,5 +1,5 @@
 name=pyqt6
-revision=1
+revision=2
 from_source=pyqt6
 imagedeps="build-essential python3"
 hostdeps="xgcc xbinutils python pkgconfig libstdc++-v3 host-qtbase6 sip pyqt-builder"

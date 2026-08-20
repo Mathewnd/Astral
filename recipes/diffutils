@@ -1,5 +1,5 @@
 name=diffutils
-revision=1
+revision=2
 from_source=diffutils
 imagedeps="build-essential"
 hostdeps="xgcc xbinutils"

@@ -1,5 +1,5 @@
 name=xsetroot
-revision=1
+revision=2
 from_source=xsetroot
 imagedeps="meson build-essential"
 hostdeps="xgcc xbinutils pkgconfig"

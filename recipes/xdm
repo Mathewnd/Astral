@@ -1,5 +1,5 @@
 name=xdm
-revision=3
+revision=4
 from_source=xdm
 imagedeps="build-essential"
 hostdeps="xgcc xbinutils pkgconfig"

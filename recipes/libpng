@@ -1,5 +1,5 @@
 name=libpng
-revision=1
+revision=2
 from_source=libpng
 imagedeps="build-essential"
 hostdeps="xgcc xbinutils"

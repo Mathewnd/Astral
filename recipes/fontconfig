@@ -1,5 +1,5 @@
 name=fontconfig
-revision=2
+revision=3
 from_source=fontconfig
 imagedeps="build-essential python3 gperf"
 hostdeps="xgcc xbinutils pkgconfig"

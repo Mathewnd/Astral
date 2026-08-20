@@ -1,5 +1,5 @@
 name=hicolor-icon-theme
-revision=1
+revision=2
 from_source=hicolor-icon-theme
 imagedeps="gcc meson ninja-build"
 hostdeps="xgcc xbinutils pkgconfig"

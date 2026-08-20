@@ -1,5 +1,5 @@
 name=bash
-revision=1
+revision=2
 from_source=bash
 imagedeps="build-essential"
 hostdeps="xgcc xbinutils"

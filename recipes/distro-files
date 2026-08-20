@@ -1,5 +1,5 @@
 name=distro-files
-revision=7
+revision=8
 from_source=distro-files
 
 package() {

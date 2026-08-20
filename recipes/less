@@ -1,5 +1,5 @@
 name=less
-revision=1
+revision=2
 from_source=less
 imagedeps="build-essential"
 hostdeps="xgcc xbinutils"

@@ -1,5 +1,5 @@
 name=xdg-utils
-revision=1
+revision=2
 from_source=xdg-utils
 imagedeps="meson build-essential xmlto"
 hostdeps="xgcc xbinutils pkgconfig"

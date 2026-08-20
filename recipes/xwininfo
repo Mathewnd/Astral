@@ -1,5 +1,5 @@
 name=xwininfo
-revision=1
+revision=2
 from_source=xwininfo
 imagedeps="gcc"
 hostdeps="xgcc xbinutils pkgconfig"

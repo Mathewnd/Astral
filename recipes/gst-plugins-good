@@ -1,5 +1,5 @@
 name=gst-plugins-good
-revision=1
+revision=2
 from_source=gst-plugins-good
 imagedeps="gcc meson ninja-build libglib2.0-dev-bin nasm"
 hostdeps="xgcc xbinutils pkgconfig libstdc++-v3"

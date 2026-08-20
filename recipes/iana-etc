@@ -1,5 +1,5 @@
 name=iana-etc
-revision=1
+revision=2
 from_source=iana-etc
 
 package() {

@@ -1,5 +1,5 @@
 name=mount
-revision=2
+revision=3
 from_source=mount
 imagedeps="build-essential"
 hostdeps="xbinutils xgcc"

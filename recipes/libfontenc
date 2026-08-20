@@ -1,5 +1,5 @@
 name=libfontenc
-revision=1
+revision=2
 from_source=libfontenc
 imagedeps="gcc"
 hostdeps="xgcc xbinutils pkgconfig util-macros"

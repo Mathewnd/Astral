@@ -1,6 +1,6 @@
 name=ninja
 from_source=ninja
-revision=1
+revision=2
 hostdeps="xgcc xbinutils pkgconfig libstdc++-v3"
 imagedeps="build-essential python3"
 deps="base"

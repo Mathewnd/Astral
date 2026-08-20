@@ -1,6 +1,6 @@
 name=linux-headers
 from_source=linux
-revision=1
+revision=2
 imagedeps="build-essential rsync"
 clean_workdirs=no
 

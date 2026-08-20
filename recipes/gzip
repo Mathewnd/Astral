@@ -1,5 +1,5 @@
 name=gzip
-revision=1
+revision=2
 from_source=gzip
 imagedeps="build-essential"
 hostdeps="xgcc xbinutils automake autoconf"

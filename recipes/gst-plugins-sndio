@@ -1,5 +1,5 @@
 name=gst-plugins-sndio
-revision=1
+revision=2
 from_source=gst-plugins-sndio
 imagedeps="gcc meson ninja-build"
 hostdeps="xgcc xbinutils pkgconfig"

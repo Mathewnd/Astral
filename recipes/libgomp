@@ -1,5 +1,5 @@
 name=libgomp
-revision=2
+revision=3
 from_source=gcc
 imagedeps="build-essential"
 hostrundeps="xgcc xbinutils libstdc++-v3"

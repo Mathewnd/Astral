@@ -1,5 +1,5 @@
 name=xfile
-revision=2
+revision=3
 from_source=xfile
 imagedeps="build-essential"
 hostdeps="xgcc xbinutils pkgconfig"

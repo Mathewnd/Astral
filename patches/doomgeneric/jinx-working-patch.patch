@@ -1,5 +1,5 @@
 diff --git doomgeneric-clean/doomgeneric/Makefile doomgeneric-workdir/doomgeneric/Makefile
-index ceecc57..4bb288c 100644
+index ceecc573..4bb288c7 100644
 --- doomgeneric-clean/doomgeneric/Makefile
 +++ doomgeneric-workdir/doomgeneric/Makefile
 @@ -12,17 +12,17 @@ else
@@ -25,7 +25,7 @@ index ceecc57..4bb288c 100644
  all:	 $(OUTPUT)
 diff --git doomgeneric-workdir/doomgeneric/Makefile.x11 doomgeneric-workdir/doomgeneric/Makefile.x11
 new file mode 100644
-index 0000000..5f5c23a
+index 00000000..5f5c23a1
 --- /dev/null
 +++ doomgeneric-workdir/doomgeneric/Makefile.x11
 @@ -0,0 +1,54 @@
@@ -84,7 +84,7 @@ index 0000000..5f5c23a
 +	@echo OBJS: $(OBJS)
 +
 diff --git doomgeneric-clean/doomgeneric/doomgeneric.h doomgeneric-workdir/doomgeneric/doomgeneric.h
-index c2dc4b5..9c1849f 100644
+index c2dc4b57..9c1849fd 100644
 --- doomgeneric-clean/doomgeneric/doomgeneric.h
 +++ doomgeneric-workdir/doomgeneric/doomgeneric.h
 @@ -16,6 +16,7 @@ void DG_DrawFrame();
@@ -97,7 +97,7 @@ index c2dc4b5..9c1849f 100644
  #endif //DOOM_GENERIC
 diff --git doomgeneric-workdir/doomgeneric/doomgeneric_astral.c doomgeneric-workdir/doomgeneric/doomgeneric_astral.c
 new file mode 100644
-index 0000000..8d1914d
+index 00000000..8d1914d2
 --- /dev/null
 +++ doomgeneric-workdir/doomgeneric/doomgeneric_astral.c
 @@ -0,0 +1,480 @@
@@ -581,8 +581,27 @@ index 0000000..8d1914d
 +}
 +
 +void DG_SetWindowTitle(const char* title){}
+diff --git doomgeneric-clean/doomgeneric/doomgeneric_xlib.c doomgeneric-workdir/doomgeneric/doomgeneric_xlib.c
+index d7e3e250..d1b39db6 100644
+--- doomgeneric-clean/doomgeneric/doomgeneric_xlib.c
++++ doomgeneric-workdir/doomgeneric/doomgeneric_xlib.c
+@@ -191,6 +191,14 @@ int DG_GetKey(int* pressed, unsigned char* doomKey)
+ 	}
+ }
+ 
++int DG_GetJoystickState(int *buttons, int *x, int *y)
++{
++    (void) buttons;
++    (void) x;
++    (void) y;
++    return 0;
++}
++
+ void DG_SetWindowTitle(const char * title)
+ {
+     if (s_Window)
 diff --git doomgeneric-clean/doomgeneric/i_joystick.c doomgeneric-workdir/doomgeneric/i_joystick.c
-index 755aec3..f7ed1c7 100644
+index 755aec3d..f7ed1c7a 100644
 --- doomgeneric-clean/doomgeneric/i_joystick.c
 +++ doomgeneric-workdir/doomgeneric/i_joystick.c
 @@ -28,6 +28,7 @@
@@ -734,7 +753,7 @@ index 755aec3..f7ed1c7 100644
  }
 -
 diff --git doomgeneric-clean/doomgeneric/i_video.c doomgeneric-workdir/doomgeneric/i_video.c
-index bf63035..2c84bcc 100644
+index bf630356..2c84bccf 100644
 --- doomgeneric-clean/doomgeneric/i_video.c
 +++ doomgeneric-workdir/doomgeneric/i_video.c
 @@ -1,4 +1,4 @@
@@ -796,7 +815,7 @@ index bf63035..2c84bcc 100644
      /* performance boost:
       * map to the right pixel format over here! */
 diff --git doomgeneric-clean/doomgeneric/m_controls.c doomgeneric-workdir/doomgeneric/m_controls.c
-index f0ffa01..813b630 100644
+index f0ffa015..813b630c 100644
 --- doomgeneric-clean/doomgeneric/m_controls.c
 +++ doomgeneric-workdir/doomgeneric/m_controls.c
 @@ -190,7 +190,7 @@ int joybjump = -1;

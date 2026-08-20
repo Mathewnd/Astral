@@ -1,5 +1,5 @@
 name=rsync
-revision=1
+revision=2
 from_source=rsync
 imagedeps="build-essential"
 hostdeps="xgcc xbinutils"

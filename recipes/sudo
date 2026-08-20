@@ -1,5 +1,5 @@
 name=sudo
-revision=1
+revision=2
 from_source=sudo
 imagedeps="build-essential"
 hostdeps="xgcc xbinutils"

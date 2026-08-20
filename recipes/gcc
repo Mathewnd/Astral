@@ -1,5 +1,5 @@
 name=gcc
-revision=4
+revision=5
 from_source=gcc
 imagedeps="build-essential"
 hostrundeps="automake autoconf xgcc xbinutils libstdc++-v3"

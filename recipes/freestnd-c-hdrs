@@ -1,6 +1,6 @@
 name=freestnd-c-hdrs
 from_source=freestnd-c-hdrs
-revision=1
+revision=2
 
 build() {
 	cp -rp "${source_dir}"/. ./

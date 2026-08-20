@@ -1,5 +1,5 @@
 name=nscde
-revision=5
+revision=6
 from_source=nscde
 imagedeps="build-essential ksh93u+m"
 hostdeps="xgcc xbinutils pkgconfig libtool"

@@ -1,5 +1,5 @@
 name=lame
-revision=1
+revision=2
 from_source=lame
 imagedeps="build-essential nasm"
 hostdeps="xgcc xbinutils pkgconfig libtool"

@@ -1,5 +1,5 @@
 name=xrefresh
-revision=1
+revision=2
 from_source=xrefresh
 imagedeps="gcc"
 hostdeps="xgcc xbinutils pkgconfig"

@@ -1,5 +1,5 @@
 name=xscreensaver
-revision=1
+revision=2
 from_source=xscreensaver
 imagedeps="meson ninja-build build-essential intltool libglib2.0-dev-bin"
 hostdeps="xgcc xbinutils pkgconfig"

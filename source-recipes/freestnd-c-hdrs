@@ -2,7 +2,7 @@ name=freestnd-c-hdrs
 version=2a75fc37ab374e52bd5862adb785169cc26cdb50
 source_method=tarball
 tarball_url="https://github.com/osdev0/freestnd-c-hdrs/archive/${version}.tar.gz"
-tarball_sha512=87f5e1d98539142da216766a269792ae4ee0a02abd02e8af45c33514866a408e01eca03bd6122574b3000b2234ab40f31c846a99d882162c6ecd89d0b08779e8
+tarball_sha512=ac6f7b838a99336235e3b7a7d1da2ce81cdf21255d4ce035e7a85734ecb0207af1ec30d7133d3fb62ac734e1f83cf5717d00602ad00b9febf8f6caa493476ecc
 
 prepare() {
 	true

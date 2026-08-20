@@ -1,5 +1,5 @@
 name=openjpeg
-revision=1
+revision=2
 from_source=openjpeg
 imagedeps="build-essential cmake"
 hostdeps="xgcc xbinutils pkgconfig libtool"

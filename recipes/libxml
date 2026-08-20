@@ -1,5 +1,5 @@
 name=libxml
-revision=1
+revision=2
 from_source=libxml
 imagedeps="build-essential"
 hostdeps="xgcc xbinutils pkgconfig libtool"

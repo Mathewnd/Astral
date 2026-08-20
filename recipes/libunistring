@@ -1,5 +1,5 @@
 name=libunistring
-revision=1
+revision=2
 from_source=libunistring
 imagedeps="build-essential"
 hostdeps="xgcc xbinutils libtool pkgconfig"

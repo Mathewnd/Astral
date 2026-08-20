@@ -1,5 +1,5 @@
 name=fvwm
-revision=2
+revision=3
 from_source=fvwm
 imagedeps="build-essential"
 hostdeps="xgcc xbinutils pkgconfig libtool"

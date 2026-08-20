@@ -1,5 +1,5 @@
 name=binutils
-revision=1
+revision=2
 from_source=binutils
 imagedeps="build-essential"
 hostdeps="xgcc xbinutils automake autoconf"

@@ -1,5 +1,5 @@
 name=python3-xdg
-revision=1
+revision=2
 from_source=python3-xdg
 hostdeps="python"
 deps="base python"

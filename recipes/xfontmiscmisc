@@ -1,5 +1,5 @@
 name=xfontmiscmisc
-revision=1
+revision=2
 from_source=xfontmiscmisc
 imagedeps="gcc xfonts-base xfonts-base"
 hostdeps="xgcc xbinutils pkgconfig fontutil"

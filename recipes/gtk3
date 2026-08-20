@@ -1,5 +1,5 @@
 name=gtk3
-revision=2
+revision=3
 from_source=gtk3
 imagedeps="gcc meson ninja-build libglib2.0-dev"
 hostdeps="xgcc xbinutils pkgconfig"

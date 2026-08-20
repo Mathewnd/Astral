@@ -1,5 +1,5 @@
 name=cups
-revision=1
+revision=2
 from_source=cups
 imagedeps="build-essential xdg-utils"
 hostdeps="xgcc xbinutils pkgconfig"

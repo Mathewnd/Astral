@@ -1,5 +1,5 @@
 name=agetty
-revision=1
+revision=2
 from_source=util-linux
 imagedeps="build-essential python3 python3-dev"
 hostrundeps="automake autoconf xgcc xbinutils libstdc++-v3 pkgconfig libtool"

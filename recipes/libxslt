@@ -1,5 +1,5 @@
 name=libxslt
-revision=2
+revision=3
 from_source=libxslt
 imagedeps="build-essential libxml2"
 hostdeps="xgcc xbinutils pkgconfig libtool"

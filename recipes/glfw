@@ -1,5 +1,5 @@
 name=glfw
-revision=1
+revision=2
 from_source=glfw
 imagedeps="build-essential"
 hostdeps="xgcc xbinutils cmake pkgconfig"

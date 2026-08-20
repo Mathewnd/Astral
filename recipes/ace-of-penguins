@@ -1,5 +1,5 @@
 name=ace-of-penguins
-revision=1
+revision=2
 from_source=ace-of-penguins
 imagedeps="meson build-essential libpng-dev"
 hostdeps="xgcc xbinutils pkgconfig"

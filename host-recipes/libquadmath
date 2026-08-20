@@ -1,5 +1,5 @@
 name=libquadmath
-revision=1
+revision=2
 from_source=gcc
 imagedeps="build-essential"
 hostdeps="automake autoconf xbinutils xgcc"

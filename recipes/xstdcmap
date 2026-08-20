@@ -1,5 +1,5 @@
 name=xstdcmap
-revision=1
+revision=2
 from_source=xstdcmap
 imagedeps="gcc"
 hostdeps="xgcc xbinutils pkgconfig"

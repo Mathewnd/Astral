@@ -1,5 +1,5 @@
 name=gstreamer
-revision=1
+revision=2
 from_source=gstreamer
 imagedeps="gcc meson ninja-build libglib2.0-dev-bin"
 hostdeps="xgcc xbinutils pkgconfig libstdc++-v3"

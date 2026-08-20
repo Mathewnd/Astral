@@ -1,5 +1,5 @@
 name=qemu
-revision=1
+revision=2
 from_source=qemu
 imagedeps="build-essential python3-pip python3-venv python3-distlib python3-sphinx ninja-build meson git"
 hostdeps="xgcc xbinutils pkgconfig libtool"

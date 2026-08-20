@@ -1,5 +1,5 @@
 name=at-spi2-core
-revision=1
+revision=2
 from_source=at-spi2-core
 imagedeps="gcc meson ninja-build libglib2.0-dev"
 hostdeps="xgcc xbinutils pkgconfig"

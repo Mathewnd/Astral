@@ -1,5 +1,5 @@
 name=patch
-revision=1
+revision=2
 from_source=patch
 imagedeps="build-essential"
 hostdeps="xgcc xbinutils"

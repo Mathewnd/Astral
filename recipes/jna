@@ -1,5 +1,5 @@
 name=jna
-revision=1
+revision=2
 from_source=jna
 imagedeps="build-essential zip unzip file ant openjdk-8-jdk"
 hostdeps="xgcc xbinutils"

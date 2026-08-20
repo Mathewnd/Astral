@@ -1,5 +1,5 @@
 name=mednafen
-revision=1
+revision=2
 from_source=mednafen
 imagedeps="build-essential"
 hostdeps="xgcc xbinutils autoconf automake libtool pkgconfig libstdc++-v3"

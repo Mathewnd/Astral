@@ -1,5 +1,5 @@
 name=iso-codes
-revision=1
+revision=2
 from_source=iso-codes
 imagedeps="build-essential python3"
 hostdeps="xgcc xbinutils pkgconfig"

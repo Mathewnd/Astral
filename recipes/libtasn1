@@ -1,5 +1,5 @@
 name=libtasn1
-revision=1
+revision=2
 from_source=libtasn1
 imagedeps="build-essential"
 hostdeps="xgcc xbinutils libtool pkgconfig"

@@ -1,5 +1,5 @@
 name=libisoburn
-revision=1
+revision=2
 from_source=libisoburn
 imagedeps="build-essential"
 hostdeps="xgcc xbinutils pkgconfig libtool"

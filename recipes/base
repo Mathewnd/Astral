@@ -1,4 +1,4 @@
 name=base
 version=1
-revision=1
+revision=2
 deps="mlibc libintl libiconv libxcrypt"

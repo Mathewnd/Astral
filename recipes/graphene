@@ -1,5 +1,5 @@
 name=graphene
-revision=1
+revision=2
 from_source=graphene
 imagedeps="gcc meson ninja-build libglib2.0-dev"
 hostdeps="xgcc xbinutils pkgconfig"

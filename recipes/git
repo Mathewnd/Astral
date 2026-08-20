@@ -1,5 +1,5 @@
 name=git
-revision=1
+revision=2
 from_source=git
 imagedeps="build-essential curl libcurl4-openssl-dev"
 hostdeps="xgcc xbinutils"

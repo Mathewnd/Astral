@@ -1,5 +1,5 @@
 name=nettle
-revision=1
+revision=2
 from_source=nettle
 imagedeps="build-essential"
 hostdeps="xgcc xbinutils libstdc++-v3 libtool pkgconfig"

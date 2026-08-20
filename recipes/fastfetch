@@ -1,6 +1,6 @@
 name=fastfetch
 version=1.0
-revision=2
+revision=3
 from_source=fastfetch
 imagedeps="build-essential cmake"
 hostdeps="xgcc xbinutils pkgconfig libstdc++-v3"

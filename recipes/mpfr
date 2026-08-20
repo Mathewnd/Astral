@@ -1,5 +1,5 @@
 name=mpfr
-revision=1
+revision=2
 from_source=mpfr
 imagedeps="build-essential"
 hostdeps="xgcc xbinutils"

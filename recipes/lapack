@@ -1,5 +1,5 @@
 name=lapack
-revision=1
+revision=2
 from_source=lapack
 imagedeps="build-essential cmake"
 hostdeps="xgcc xbinutils pkgconfig cmake"

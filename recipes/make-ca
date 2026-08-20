@@ -1,5 +1,5 @@
 name=make-ca
-revision=1
+revision=2
 from_source=make-ca
 imagedeps="openssl p11-kit"
 rundeps="bash"

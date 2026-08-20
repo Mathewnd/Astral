@@ -1,5 +1,5 @@
 name=libavif
-revision=2
+revision=3
 from_source=libavif
 imagedeps="build-essential cmake"
 hostdeps="xgcc xbinutils pkgconfig libtool"

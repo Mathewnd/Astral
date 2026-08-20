@@ -1,5 +1,5 @@
 name=openjdk17
-revision=1
+revision=2
 from_source=openjdk17
 imagedeps="build-essential zip unzip file"
 hostdeps="xgcc xbinutils libstdc++-v3 pkgconfig autoconf host-openjdk-bin"

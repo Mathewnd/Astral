@@ -1,5 +1,5 @@
 name=xkeyboardconfig
-revision=1
+revision=2
 from_source=xkeyboardconfig
 imagedeps="gcc meson ninja-build"
 hostdeps="xgcc xbinutils pkgconfig automake autoconf util-macros libtool"

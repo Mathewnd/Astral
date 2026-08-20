@@ -1,5 +1,5 @@
 name=xcb-util-cursor
-revision=1
+revision=2
 from_source=xcb-util-cursor
 imagedeps="gcc gperf"
 hostdeps="xgcc xbinutils pkgconfig util-macros autoconf automake libtool"

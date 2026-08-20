@@ -1,6 +1,6 @@
 name=meson
 from_source=meson
-revision=1
+revision=2
 hostdeps="python"
 deps="base"
 

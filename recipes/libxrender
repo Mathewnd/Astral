@@ -1,5 +1,5 @@
 name=libxrender
-revision=1
+revision=2
 from_source=libxrender
 imagedeps="meson ninja-build build-essential"
 hostdeps="xgcc xbinutils pkgconfig"

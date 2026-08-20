@@ -1,5 +1,5 @@
 name=xrandr
-revision=1
+revision=2
 from_source=xrandr
 imagedeps="gcc"
 hostdeps="xgcc xbinutils pkgconfig"

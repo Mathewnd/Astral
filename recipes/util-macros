@@ -1,5 +1,5 @@
 name=util-macros
-revision=1
+revision=2
 from_source=util-macros
 imagedeps="build-essential"
 hostdeps="xgcc xbinutils pkgconfig"

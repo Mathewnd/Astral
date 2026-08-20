@@ -1,5 +1,5 @@
 name=listres
-revision=1
+revision=2
 from_source=listres
 imagedeps="gcc"
 hostdeps="xgcc xbinutils pkgconfig"

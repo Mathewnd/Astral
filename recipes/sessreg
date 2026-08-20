@@ -1,5 +1,5 @@
 name=sessreg
-revision=1
+revision=2
 from_source=sessreg
 imagedeps="gcc"
 hostdeps="xgcc xbinutils pkgconfig"

@@ -1,5 +1,5 @@
 name=p11-kit
-revision=2
+revision=3
 from_source=p11-kit
 imagedeps="build-essential libtasn1-bin"
 hostdeps="xgcc xbinutils libtool pkgconfig"

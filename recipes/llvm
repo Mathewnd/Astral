@@ -1,5 +1,5 @@
 name=llvm
-revision=1
+revision=2
 from_source=llvm
 imagedeps="meson ninja-build build-essential"
 hostdeps="xgcc xbinutils pkgconfig cmake libstdc++-v3"

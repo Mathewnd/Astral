@@ -1,5 +1,5 @@
 name=xev
-revision=1
+revision=2
 from_source=xev
 imagedeps="gcc"
 hostdeps="xgcc xbinutils pkgconfig"

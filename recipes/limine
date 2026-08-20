@@ -1,6 +1,6 @@
 name=limine
 from_source=limine
-revision=1
+revision=2
 imagedeps="build-essential mtools nasm"
 hostdeps="xgcc xbinutils"
 deps="base"

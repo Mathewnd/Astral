@@ -1,5 +1,5 @@
 name=shared-mime-info
-revision=2
+revision=3
 from_source=shared-mime-info
 imagedeps="gcc meson ninja-build gettext"
 hostdeps="xgcc xbinutils pkgconfig libstdc++-v3"

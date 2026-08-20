@@ -1,4 +1,4 @@
 name=x11-utils
 version=1
-revision=1
+revision=2
 deps="appres editres listres viewres xdpyinfo xdriinfo xev xfd xfontsel xkill xlsatoms xlsclients xlsfonts xmessage xprop xvinfo xwininfo"

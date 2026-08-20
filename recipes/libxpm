@@ -1,5 +1,5 @@
 name=libxpm
-revision=1
+revision=2
 from_source=libxpm
 imagedeps="meson ninja-build build-essential"
 hostdeps="xgcc xbinutils pkgconfig"

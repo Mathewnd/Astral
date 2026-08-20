@@ -1,5 +1,5 @@
 name=os-test
-revision=1
+revision=2
 from_source=os-test
 imagedeps="build-essential"
 hostdeps="xgcc xbinutils"

@@ -1,5 +1,5 @@
 name=autoconf
-revision=1
+revision=2
 from_source=autoconf
 imagedeps="gcc"
 deps="perl"

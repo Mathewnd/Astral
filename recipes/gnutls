@@ -1,5 +1,5 @@
 name=gnutls
-revision=1
+revision=2
 from_source=gnutls
 imagedeps="build-essential automake autoconf"
 hostdeps="xgcc xbinutils libtool pkgconfig libstdc++-v3"

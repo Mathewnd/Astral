@@ -1,5 +1,5 @@
 name=libxv
-revision=1
+revision=2
 from_source=libxv
 imagedeps="gcc"
 hostdeps="xgcc xbinutils pkgconfig util-macros"

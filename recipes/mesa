@@ -1,5 +1,5 @@
 name=mesa
-revision=1
+revision=2
 from_source=mesa
 imagedeps="gcc meson ninja-build python3-mako python3-setuptools python3-yaml"
 hostdeps="xgcc xbinutils pkgconfig automake autoconf util-macros libtool libstdc++-v3"
