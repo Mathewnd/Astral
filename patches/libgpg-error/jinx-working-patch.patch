@@ -1,31 +1,13 @@
-diff --git libgpg-error-workdir/src/syscfg/lock-obj-pub.astral.h libgpg-error-workdir/src/syscfg/lock-obj-pub.astral.h
-new file mode 100644
-index 0000000..0dd6431
---- /dev/null
-+++ libgpg-error-workdir/src/syscfg/lock-obj-pub.astral.h
-@@ -0,0 +1,25 @@
-+## lock-obj-pub.x86_64-pc-linux-gnu.h
-+## File created by gen-posix-lock-obj - DO NOT EDIT
-+## To be included by mkheader into gpg-error.h
-+
-+typedef struct
-+{
-+  long _vers;
-+  union {
-+    volatile char _priv[40];
-+    long _x_align;
-+    long *_xp_align;
-+  } u;
-+} gpgrt_lock_t;
-+
-+#define GPGRT_LOCK_INITIALIZER {1,{{0,0,0,0,0,0,0,0, \
-+                                    0,0,0,0,0,0,0,0, \
-+                                    0,0,0,0,0,0,0,0, \
-+                                    0,0,0,0,0,0,0,0, \
-+                                    0,0,0,0,0,0,0,0}}}
-+##
-+## Local Variables:
-+## mode: c
-+## buffer-read-only: t
-+## End:
-+##
+diff --git libgpg-error-clean/configure.ac libgpg-error-workdir/configure.ac
+index e8a8b6d8..263b75d9 100644
+--- libgpg-error-clean/configure.ac
++++ libgpg-error-workdir/configure.ac
+@@ -604,7 +604,7 @@ if test x"$gl_use_threads" = xno; then
+   AC_MSG_NOTICE([generated src/lock-obj-pub.native.h for $host])
+ elif test x$cross_compiling = xyes; then
+   case $host in
+-    *-*-linux-gnu* | *-*-linux-musl*)
++    *-*-linux-gnu* | *-*-linux-musl* | *-*-astral*)
+     AC_CHECK_TOOL(OBJDUMP, [objdump])
+     if test -n "$OBJDUMP"; then
+       lock_obj_h_generated=yes
