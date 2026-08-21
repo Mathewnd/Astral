@@ -1510,7 +1510,7 @@ int ext2_resize(vnode_t *vnode, size_t newsize, cred_t *cred) {
 	int e = 0;
 	if (size != newsize) {
 		e = resizeinode(fs, node, newsize);
-		if (size > newsize)
+		if (e == 0 && size > newsize)
 			mm_cache_truncate(vnode, newsize);
 	}
 	return e;
