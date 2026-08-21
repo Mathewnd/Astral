@@ -164,7 +164,7 @@ int mm_full_page_in(mm_range_t *range, void *vaddr, page_t **resulting_page) {
 			arch_mmu_remap(current_mm_context()->pagetable, mapped_address, vaddr, range->mmuflags);
 
 			if (file_mapping && cacheable)
-				mm_cache_make_dirty(current_page);
+				mm_cache_make_dirty(range->vnode, current_page);
 
 			*resulting_page = current_page;
 			return 0;
@@ -226,7 +226,7 @@ int mm_full_page_in(mm_range_t *range, void *vaddr, page_t **resulting_page) {
 		}
 
 		if (cacheable && (range->mmuflags & ARCH_MMU_FLAGS_WRITE))
-			mm_cache_make_dirty(vn_page);
+			mm_cache_make_dirty(range->vnode, vn_page);
 
 		*resulting_page = vn_page;
 		return 0;

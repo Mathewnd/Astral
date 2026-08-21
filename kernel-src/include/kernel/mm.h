@@ -98,10 +98,11 @@ void mm_init();
 
 extern size_t mm_cache_cached_pages;
 
+// the mm_cache_* functions that take a vnode NEED it to be taken from a source which is not from the page_t itself
 #define MM_CACHE_GET_PAGE_FLAGS_NO_POPULATE 1
 int mm_cache_get_page(vnode_t *vnode, uintmax_t offset, int flags, page_t **res);
-int mm_cache_take_page(page_t *page);
-void mm_cache_make_dirty(page_t *page);
+void mm_cache_take_page(page_t *page);
+void mm_cache_make_dirty(vnode_t *vnode, page_t *page);
 int mm_cache_truncate(vnode_t *vnode, uintmax_t offset);
 int mm_cache_sync_vnode(vnode_t *vnode);
 int mm_cache_sync(void);

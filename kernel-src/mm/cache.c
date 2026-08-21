@@ -19,6 +19,8 @@ typedef struct {
 static page_wait_block_header_t wait_blocks[WAIT_BLOCK_COUNT];
 size_t mm_cache_cached_pages;
 
+static page_t *lookup_page(vnode_t *vnode, uintmax_t offset);
+
 static page_wait_block_header_t *page_wait_pick_header(page_t *page) {
 	return &wait_blocks[(uintptr_t)mm_get_page_address(page) / PAGE_SIZE % WAIT_BLOCK_COUNT]; // TODO: maybe use a hash
 }
@@ -59,6 +61,34 @@ static void page_notify_waiters(page_t *page) {
 	}
 
 	MUTEX_RELEASE(&header->mutex);
+}
+
+static page_t *lookup_and_hold_page(vnode_t *vnode, uintmax_t offset) {
+	for (;;) {
+		pushlock_acquire_shared(&vnode->pages_lock);
+
+		page_t *page = lookup_page(vnode, offset);
+		if (page == NULL) {
+			pushlock_release_shared(&vnode->pages_lock);
+			return NULL;
+		}
+
+		mm_hold_page(mm_get_page_address(page));
+		if ((__atomic_load_n(&page->flags, __ATOMIC_ACQUIRE) & PAGE_FLAGS_RECLAIMING) == 0) {
+			pushlock_release_shared(&vnode->pages_lock);
+			return page;
+		}
+
+		page_wait_block_t page_wait_block;
+		page_wait_attach(page, &page_wait_block);
+		mm_release_page(mm_get_page_address(page));
+		pushlock_release_shared(&vnode->pages_lock);
+
+		if (__atomic_load_n(&page->flags, __ATOMIC_ACQUIRE) & PAGE_FLAGS_RECLAIMING)
+			page_wait(&page_wait_block);
+
+		page_wait_detach(&page_wait_block);
+	}
 }
 
 // expects vnode pushlock with shared+ acquire
@@ -106,20 +136,14 @@ static int wait_for_ready(page_t *page) {
 
 // TODO: clustered page in
 int mm_cache_get_page(vnode_t *vnode, uintmax_t offset, int flags, page_t **res) {
-	pushlock_acquire_shared(&vnode->pages_lock);
-
-	page_t *page = lookup_page(vnode, offset);
-	if (page)
-		mm_hold_page(mm_get_page_address(page));
-
-	pushlock_release_shared(&vnode->pages_lock);
-
-retry_page:
+	retry_lookup:
+	page_t *page = lookup_and_hold_page(vnode, offset);
 	if (page) {
 		*res = page;
 		return wait_for_ready(page);
-	} else if (flags & MM_CACHE_GET_PAGE_FLAGS_NO_POPULATE)
+	} else if (flags & MM_CACHE_GET_PAGE_FLAGS_NO_POPULATE) {
 		return ENOENT;
+	}
 
 	void *phys = mm_alloc_page(MEMORY_SECTION_DEFAULT);
 	if (phys == NULL)
@@ -136,12 +160,10 @@ retry_page:
 	pushlock_acquire_exclusive(&vnode->pages_lock);
 	page_t *tmp = lookup_page(vnode, offset);
 	if (tmp) {
-		mm_hold_page(mm_get_page_address(tmp));
 		pushlock_release_exclusive(&vnode->pages_lock);
 		trie_free_preallocation(trie_preallocation);
 		mm_release_page(phys);
-		page = tmp;
-		goto retry_page;
+		goto retry_lookup;
 	}
 
 	__assert(insert_page(vnode, offset, page, trie_preallocation) == 0);
@@ -150,50 +172,81 @@ retry_page:
 	VOP_LOCK(vnode);
 	int error = VOP_GETPAGE(vnode, offset, page);
 	VOP_UNLOCK(vnode);
-	if (error) {
-		pushlock_acquire_exclusive(&vnode->pages_lock);
+
+	bool release_pin = false;
+	pushlock_acquire_exclusive(&vnode->pages_lock);
+	int page_flags = __atomic_load_n(&page->flags, __ATOMIC_ACQUIRE);
+	if (page_flags & PAGE_FLAGS_TRUNCATED) {
+		release_pin = __atomic_fetch_and(&page->flags, ~PAGE_FLAGS_PINNED, __ATOMIC_ACQ_REL) & PAGE_FLAGS_PINNED;
+	} else if (error) {
 		remove_page(vnode, offset);
-		pushlock_release_exclusive(&vnode->pages_lock);
+		mm_make_page_anonymous(page);
 	} else {
 		page->backing = vnode;
 		page->offset = offset;
 	}
+	pushlock_release_exclusive(&vnode->pages_lock);
+
+	if (release_pin)
+		mm_release_page(phys);
 
 	__atomic_or_fetch(&page->flags, PAGE_FLAGS_READY | (error ? PAGE_FLAGS_ERROR : 0), __ATOMIC_RELEASE);
 	page_notify_waiters(page);
 	*res = page;
 	trie_free_preallocation(trie_preallocation);
-	if (error) {
+	if (error)
 		mm_release_page(phys);
-	}
 
 	return error;
 }
 
-// removes a page from the page cache if only the caller holds a reference
-// keeps the page in the same state as if it were in the page cache
-int mm_cache_take_page(page_t *page) {
-	pushlock_acquire_exclusive(&page->backing->pages_lock);
-	if (page->refcount > 1) {
-		pushlock_release_exclusive(&page->backing->pages_lock);
-		return EAGAIN;
+void mm_cache_take_page(page_t *page) {
+	int flags = __atomic_load_n(&page->flags, __ATOMIC_ACQUIRE);
+	__assert(flags & PAGE_FLAGS_RECLAIMING);
+	__assert((flags & PAGE_FLAGS_DIRTY) == 0);
+
+	vnode_t *vnode = page->backing;
+	__assert(vnode);
+
+	bool signal = false;
+	pushlock_acquire_exclusive(&vnode->pages_lock);
+	flags = __atomic_load_n(&page->flags, __ATOMIC_ACQUIRE);
+	if ((flags & PAGE_FLAGS_TRUNCATED) == 0)
+		remove_page(vnode, page->offset);
+
+	mm_make_page_anonymous(page);
+	if (flags & PAGE_FLAGS_TRUNCATED) {
+		__assert(vnode->page_reclaim_handoffs != 0);
+		if (--vnode->page_reclaim_handoffs == 0)
+			signal = true;
 	}
+	pushlock_release_exclusive(&vnode->pages_lock);
 
-	__assert((__atomic_load_n(&page->flags, __ATOMIC_RELAXED) & PAGE_FLAGS_DIRTY) == 0);
-	// TODO: remove the need for this check (i.e. transform truncated pages into anonymous pages)
-	if ((__atomic_load_n(&page->flags, __ATOMIC_RELAXED) & PAGE_FLAGS_TRUNCATED) == 0)
-		remove_page(page->backing, page->offset);
+	if (signal)
+		EVENT_SIGNAL(&vnode->zero_reclaim_event);
 
-	pushlock_release_exclusive(&page->backing->pages_lock);
-	return 0;
+	__atomic_and_fetch(&page->flags, ~PAGE_FLAGS_RECLAIMING, __ATOMIC_RELEASE);
+	page_notify_waiters(page);
 }
 
 static void truncate_iterate(void *p) {
 	page_t *page = p;
 	__atomic_sub_fetch(&mm_cache_cached_pages, 1, __ATOMIC_RELAXED);
-	if (__atomic_or_fetch(&page->flags, PAGE_FLAGS_TRUNCATED, __ATOMIC_RELEASE) & PAGE_FLAGS_PINNED) {
-		mm_release_page(mm_get_page_address(page));
+
+	int old_flags = __atomic_load_n(&page->flags, __ATOMIC_RELAXED);
+	for (;;) {
+		int new_flags = (old_flags | PAGE_FLAGS_TRUNCATED) & ~PAGE_FLAGS_PINNED;
+		if (__atomic_compare_exchange_n(&page->flags, &old_flags, new_flags, true, __ATOMIC_ACQ_REL, __ATOMIC_RELAXED))
+			break;
 	}
+
+	if (old_flags & PAGE_FLAGS_RECLAIMING)
+		++page->backing->page_reclaim_handoffs;
+	else
+		mm_make_page_anonymous(page);
+
+	if (old_flags & PAGE_FLAGS_PINNED)
+		mm_release_page(mm_get_page_address(page));
 }
 
 int mm_cache_truncate(vnode_t *vnode, uintmax_t offset) {
@@ -204,7 +257,27 @@ int mm_cache_truncate(vnode_t *vnode, uintmax_t offset) {
 	trie_iterate(&vnode->pages, min_page, UINT64_MAX, truncate_iterate);
 	trie_truncate(&vnode->pages, min_page);
 
+	bool wait = vnode->page_reclaim_handoffs != 0;
+	eventlistener_t listener;
+	if (wait) {
+		EVENT_INITLISTENER(&listener);
+		EVENT_ATTACH(&listener, &vnode->zero_reclaim_event);
+	}
 	pushlock_release_exclusive(&vnode->pages_lock);
+
+	// TODO use another abstraction for waiting here OR make interruptible sleep optional
+	while (wait) {
+		EVENT_WAIT(&listener, 0);
+		EVENT_DETACHALL(&listener);
+
+		pushlock_acquire_exclusive(&vnode->pages_lock);
+		wait = vnode->page_reclaim_handoffs != 0;
+		if (wait) {
+			EVENT_INITLISTENER(&listener);
+			EVENT_ATTACH(&listener, &vnode->zero_reclaim_event);
+		}
+		pushlock_release_exclusive(&vnode->pages_lock);
+	}
 	return 0;
 }
 

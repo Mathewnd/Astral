@@ -124,6 +124,18 @@ static void internal_hold(page_t *page) {
 	}
 }
 
+static bool try_page_reclaim(page_t *page) {
+	int flags = __atomic_load_n(&page->flags, __ATOMIC_RELAXED);
+
+	for (;;) {
+		if (flags & PAGE_FLAGS_TRUNCATED)
+			return false;
+
+		if (__atomic_compare_exchange_n(&page->flags, &flags, flags | PAGE_FLAGS_RECLAIMING, true, __ATOMIC_ACQ_REL, __ATOMIC_RELAXED))
+			return true;
+	}
+}
+
 page_t *mm_get_page(void *address) {
 	return &pages[((uintptr_t)address / PAGE_SIZE)];
 }
@@ -155,6 +167,25 @@ void mm_release_page(void *addr) {
 	MUTEX_RELEASE(&free_list_mutex);
 }
 
+void mm_make_page_anonymous(page_t *page) {
+	MUTEX_ACQUIRE(&free_list_mutex);
+
+	__assert(page->backing);
+
+	bool on_standby = page->refcount == 0;
+	if (on_standby)
+		remove_from_free_list(page);
+
+	page->backing = NULL;
+
+	if (on_standby) {
+		__atomic_or_fetch(&page->flags, PAGE_FLAGS_FREE, __ATOMIC_RELAXED);
+		insert_in_free_list(page);
+	}
+
+	MUTEX_RELEASE(&free_list_mutex);
+}
+
 void mm_unlock_and_release_page(void *addr) {
 	page_t *page = &pages[(uintptr_t)addr / PAGE_SIZE];
 	mm_unlock_page(page);
@@ -176,7 +207,6 @@ static void do_alloc(page_t *page) {
 }
 
 void *mm_alloc_page(int section) {
-	retry:
 	MUTEX_ACQUIRE(&free_list_mutex);
 	page_t *page = NULL;
 
@@ -196,23 +226,22 @@ void *mm_alloc_page(int section) {
 	if (page == NULL) {
 		for (int i = section; i >= 0; --i) {
 			page = standby_tails[i];
-			if (page) {
-				cache_page = true;
-				internal_hold(page);
-				break;
-			}
+			while (page && try_page_reclaim(page) == false)
+				page = page->free_prev;
+
+			if (page == NULL)
+				continue;
+
+			cache_page = true;
+			internal_hold(page);
+			break;
 		}
 	}
 
 	MUTEX_RELEASE(&free_list_mutex);
 
-	if (cache_page && mm_cache_take_page(page) == EAGAIN) {
-		// someone already got the page from the cache between us holding it and taking it
-		mm_release_page(mm_get_page_address(page));
-		page = NULL;
-		// retry it from the start, as an anonymous page could have been released while the lock was not held
-		goto retry;
-	} else if (cache_page) {
+	if (cache_page) {
+		mm_cache_take_page(page);
 		// we got the page from the cache, all is good and we hold the only reference to it.
 		// set the refcount to 0, as expected by the do_alloc call
 		page->refcount = 0;

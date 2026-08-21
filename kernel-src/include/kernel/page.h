@@ -18,6 +18,7 @@
 #define PAGE_FLAGS_READY 16
 #define PAGE_FLAGS_ERROR 32
 #define PAGE_FLAGS_SYNCING 64
+#define PAGE_FLAGS_RECLAIMING 128
 
 typedef struct page_t {
 	struct vnode_t *backing;
@@ -47,6 +48,7 @@ void mm_page_init();
 void mm_get_page_statistics(size_t *total_pages, size_t *free_pages);
 void mm_unlock_page(page_t *page);
 bool mm_is_page_locked(page_t *page);
+void mm_make_page_anonymous(page_t *page);
 
 extern uintptr_t hhdm_base;
 
