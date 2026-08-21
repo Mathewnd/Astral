@@ -508,7 +508,7 @@ int vfs_write_iovec(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size
 				goto leave;
 			}
 
-			mm_cache_make_dirty(page);
+			mm_cache_make_dirty(node, page);
 			*written += writesize;
 
 			pageoffset += 1;
@@ -532,7 +532,7 @@ int vfs_write_iovec(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size
 				goto leave;
 			}
 
-			mm_cache_make_dirty(page);
+			mm_cache_make_dirty(node, page);
 			*written += writesize;
 
 			mm_release_page(FROM_HHDM(address));
