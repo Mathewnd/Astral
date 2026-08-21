@@ -113,7 +113,6 @@ int mm_cache_sync_vnode(vnode_t *vnode) {
 
 		VOP_LOCK(vnode);
 
-		// TODO: remark as dirty on error
 		int error = 0;
 		if ((__atomic_load_n(&page->flags, __ATOMIC_RELAXED) & PAGE_FLAGS_TRUNCATED) == 0)
 			error = VOP_PUTPAGE(vnode, page->offset, page);
@@ -121,6 +120,8 @@ int mm_cache_sync_vnode(vnode_t *vnode) {
 		VOP_UNLOCK(vnode);
 		if (first_error == 0)
 			first_error = error;
+		if (error)
+			__atomic_fetch_or(&page->flags, PAGE_FLAGS_DIRTY, __ATOMIC_RELEASE);
 
 		int flags = __atomic_and_fetch(&page->flags, ~PAGE_FLAGS_SYNCING, __ATOMIC_ACQUIRE);
 		if (flags & PAGE_FLAGS_DIRTY) {
@@ -129,6 +130,11 @@ int mm_cache_sync_vnode(vnode_t *vnode) {
 			MUTEX_RELEASE(&vnode->dirty_list_mutex);
 		} else {
 			mm_release_page(mm_get_page_address(page));
+		}
+
+		if (error) {
+			MUTEX_RELEASE(&vnode->writeback_mutex);
+			return first_error;
 		}
 	}
 }
