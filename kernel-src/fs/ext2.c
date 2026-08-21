@@ -1813,7 +1813,7 @@ static int ext2_getpage(vnode_t *node, uintmax_t offset, struct page_t *page) {
 	int error = VOP_READ(node, &iovec_iterator, PAGE_SIZE, offset, 0, &readc, NULL);
 	if (readc == 0)
 		return ENXIO;
-	else if (readc != PAGE_SIZE)
+	else if (readc < PAGE_SIZE)
 		memset((void *)((uintptr_t)addr + readc), 0, PAGE_SIZE - readc);
 
 	return error;
