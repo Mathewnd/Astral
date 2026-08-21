@@ -2,6 +2,7 @@
 #include <semaphore.h>
 #include <logging.h>
 #include <kernel/init.h>
+#include <string.h>
 
 typedef struct {
 	list_node_t list_node;
@@ -228,10 +229,7 @@ void mm_cache_take_page(page_t *page) {
 	page_notify_waiters(page);
 }
 
-static void truncate_iterate(void *p) {
-	page_t *page = p;
-	__atomic_sub_fetch(&mm_cache_cached_pages, 1, __ATOMIC_RELAXED);
-
+static void truncate_page(page_t *page) {
 	int old_flags = __atomic_load_n(&page->flags, __ATOMIC_RELAXED);
 	for (;;) {
 		int new_flags = (old_flags | PAGE_FLAGS_TRUNCATED) & ~PAGE_FLAGS_PINNED;
@@ -248,10 +246,31 @@ static void truncate_iterate(void *p) {
 		mm_release_page(mm_get_page_address(page));
 }
 
+static void truncate_iterate(void *p) {
+	__atomic_sub_fetch(&mm_cache_cached_pages, 1, __ATOMIC_RELAXED);
+	truncate_page(p);
+}
+
 int mm_cache_truncate(vnode_t *vnode, uintmax_t offset) {
 	uintmax_t min_page = ROUND_UP(offset, PAGE_SIZE) / PAGE_SIZE;
+	size_t page_offset = offset % PAGE_SIZE;
 
 	pushlock_acquire_exclusive(&vnode->pages_lock);
+
+	if (page_offset) {
+		uintmax_t page_start = offset - page_offset;
+		page_t *page = lookup_page(vnode, page_start);
+		if (page) {
+			int flags = __atomic_load_n(&page->flags, __ATOMIC_ACQUIRE);
+			if (flags & PAGE_FLAGS_READY) {
+				void *address = MAKE_HHDM(mm_get_page_address(page));
+				memset((char *)address + page_offset, 0, PAGE_SIZE - page_offset);
+			} else {
+				remove_page(vnode, page_start);
+				truncate_page(page);
+			}
+		}
+	}
 
 	trie_iterate(&vnode->pages, min_page, UINT64_MAX, truncate_iterate);
 	trie_truncate(&vnode->pages, min_page);
