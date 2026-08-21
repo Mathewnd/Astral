@@ -930,9 +930,10 @@ static int fatfs_resize(vnode_t *vnode, size_t new_size, cred_t *cred) {
 	fatfs_t *fs = (fatfs_t *)vnode->vfs;
 
 	int error = 0;
-	if (node->size != new_size) {
+	size_t old_size = node->size;
+	if (old_size != new_size) {
 		error = fatfs_resize_file(fs, node, new_size);
-		if (node->size > new_size)
+		if (error == 0 && old_size > new_size)
 			mm_cache_truncate(vnode, new_size);
 	}
 
