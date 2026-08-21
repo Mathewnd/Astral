@@ -478,15 +478,15 @@ int vfs_write_iovec(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size
 			mm_release_page(FROM_HHDM(address));
 		}
 
-		if (flags & V_FFLAG_MUST_SYNC)
-			err = mm_cache_sync_vnode(node);
-
 	} else {
 		// Non-cacheable objects and direct I/O bypass the page cache.
 		VOP_LOCK(node);
 		err = VOP_WRITE(node, iovec_iterator, size, offset, flags, written, getcred());
 		VOP_UNLOCK(node);
 	}
+
+	if (err == 0 && cacheable && (flags & V_FFLAG_MUST_SYNC))
+		err = VOP_SYNC(node);
 
 	leave:
 	if (cacheable)
