@@ -16,12 +16,15 @@ static bool writer_syncing;
 static eventheader_t writer_wakeup_event;
 static eventheader_t sync_complete_event;
 
-// OK
-void mm_cache_make_dirty(page_t *page) {
-	vnode_t *vnode = page->backing;
+void mm_cache_make_dirty(vnode_t *vnode, page_t *page) {
+	// check this here as a fast-path to reduce the mutex contention
+	int flags = __atomic_load_n(&page->flags, __ATOMIC_ACQUIRE);
+	if (flags & PAGE_FLAGS_TRUNCATED)
+		return;
+
 	MUTEX_ACQUIRE(&vnode->dirty_list_mutex);
 
-	int flags = __atomic_load_n(&page->flags, __ATOMIC_RELAXED);
+	flags = __atomic_load_n(&page->flags, __ATOMIC_RELAXED);
 	for (;;) {
 		if (flags & PAGE_FLAGS_TRUNCATED) {
 			MUTEX_RELEASE(&vnode->dirty_list_mutex);

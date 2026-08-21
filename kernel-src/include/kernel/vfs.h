@@ -147,6 +147,8 @@ typedef struct vnode_t {
 
 	pushlock_t pages_lock;
 	trie_t pages;
+	size_t page_reclaim_handoffs;
+	eventheader_t zero_reclaim_event;
 
 	mutex_t adv_mutex;
 	advlock_t *advlock;
@@ -222,6 +224,8 @@ typedef struct vops_t {
 	(vn)->vfsmounted = NULL; \
 	trie_init(&(vn)->pages); \
 	(vn)->pages_lock = 0; \
+	(vn)->page_reclaim_handoffs = 0; \
+	EVENT_INITHEADER(&(vn)->zero_reclaim_event); \
 	MUTEX_INIT(&(vn)->writeback_mutex); \
 	MUTEX_INIT(&(vn)->dirty_list_mutex); \
 	(vn)->dirty = false; \
