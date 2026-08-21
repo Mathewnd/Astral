@@ -166,6 +166,8 @@ int mm_cache_get_page(vnode_t *vnode, uintmax_t offset, int flags, page_t **res)
 		goto retry_lookup;
 	}
 
+	page->backing = vnode;
+	page->offset = offset;
 	__assert(insert_page(vnode, offset, page, trie_preallocation) == 0);
 	pushlock_release_exclusive(&vnode->pages_lock);
 
@@ -181,9 +183,6 @@ int mm_cache_get_page(vnode_t *vnode, uintmax_t offset, int flags, page_t **res)
 	} else if (error) {
 		remove_page(vnode, offset);
 		mm_make_page_anonymous(page);
-	} else {
-		page->backing = vnode;
-		page->offset = offset;
 	}
 	pushlock_release_exclusive(&vnode->pages_lock);
 
