@@ -414,8 +414,7 @@ static int fatfs_getpage(vnode_t *node, uintmax_t offset, struct page_t *page) {
 	int error = VOP_READ(node, &iovec_iterator, PAGE_SIZE, offset, 0, &read_count, NULL);
 	if (read_count == 0)
 		return ENXIO;
-
-	else if (read_count != PAGE_SIZE)
+	else if (read_count < PAGE_SIZE)
 		memset((void *)((uintptr_t)addr + read_count), 0, PAGE_SIZE - read_count);
 
 	return error;
