@@ -1,7 +1,7 @@
 name=binutils
 version=2.45.1
 source_method=tarball
-tarball_url="https://ftpmirror.gnu.org/binutils/binutils-${version}.tar.xz"
+tarball_url="https://ftp.gnu.org/gnu/binutils/binutils-${version}.tar.xz"
 tarball_sha512="ea030419eba387579ab717be7e3223fc99e93b586860b06003c12489f93441640d4082736f76aa5e98233db4f46e232f536a45e471486de1f5b64e1b827c167e"
 hostdeps="autoconf automake"
 
