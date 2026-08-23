@@ -1,7 +1,7 @@
 name=xcb-util-cursor
 version=0.1.6
 source_method=tarball
-tarball_url="https://xorg.freedesktop.org/archive/individual/lib/xcb-util-cursor-${version}.tar.xz"
+tarball_url="https://ftp.uni-erlangen.de/mirrors/gentoo/distfiles/6b/xcb-util-cursor-${version}.tar.xz"
 tarball_sha512="5cdf2f942e3aad9662456cf6b5c2be2ff1837d73348046f6d8b72aeabf005c481a5f00ee169d9ccd18878697cb1744f0b274d0caa85955979c8e4f92d2cc3f72"
 hostdeps="autoconf automake util-macros pkgconfig libtool"
 prepare() {
