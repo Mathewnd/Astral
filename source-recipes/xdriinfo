@@ -1,7 +1,7 @@
 name=xdriinfo
 version=1.0.8
 source_method=tarball
-tarball_url="https://www.x.org/releases/individual/app/xdriinfo-${version}.tar.xz"
+tarball_url="https://xorg.freedesktop.org/archive/individual/app/xdriinfo-${version}.tar.xz"
 tarball_sha512="36ea6a453b7f3ec7caa028282c701c98dfb45886dc833e31931d3ed6333a96a5bf7d3816bf5db51b3c359297f25e242c913eae4dd01be5de557475b4cd98d458"
 hostdeps="autoconf automake util-macros pkgconfig libtool"
 prepare() {
