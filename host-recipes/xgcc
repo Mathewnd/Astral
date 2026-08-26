@@ -1,5 +1,5 @@
 name=xgcc
-revision=5
+revision=6
 from_source=gcc
 imagedeps="build-essential libmpfr-dev libmpc-dev libgmp-dev"
 hostdeps="automake autoconf xbinutils pkgconfig"
@@ -7,8 +7,10 @@ deps="mlibc-headers"
 clean_workdirs=no
 
 configure() {
-	GMPINC="-I/usr/include/x86_64-linux-gnu" \
-	${source_dir}/configure --target=x86_64-astral --prefix=${prefix} --with-sysroot=${sysroot_dir} --enable-languages=c,c++,fortran --enable-threads=posix --enable-libgomp --disable-multilib --enable-shared --enable-host-shared --with-pic
+	gmp_include_dir="/usr/include/$(gcc -print-multiarch)"
+	[ -f "${gmp_include_dir}/gmp.h" ] || gmp_include_dir=/usr/include
+
+	${source_dir}/configure --target=x86_64-astral --prefix=${prefix} --with-sysroot=${sysroot_dir} --with-gmp-include="${gmp_include_dir}" --enable-languages=c,c++,fortran --enable-threads=posix --enable-libgomp --disable-multilib --enable-shared --enable-host-shared --with-pic
 }
 
 build() {
