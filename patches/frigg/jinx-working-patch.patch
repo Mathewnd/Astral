@@ -1,5 +1,5 @@
 diff --git frigg-clean/include/frg/formatting.hpp frigg-workdir/include/frg/formatting.hpp
-index a6c89d39..f066c03c 100644
+index a6c89d3..f066c03 100644
 --- frigg-clean/include/frg/formatting.hpp
 +++ frigg-workdir/include/frg/formatting.hpp
 @@ -341,7 +341,9 @@ namespace _fmt_basics {
@@ -98,7 +98,7 @@ index a6c89d39..f066c03c 100644
  #endif /* __STDC_HOSTED__ */
  };
 diff --git frigg-clean/include/frg/printf.hpp frigg-workdir/include/frg/printf.hpp
-index bce5e241..c4558f85 100644
+index bce5e24..c4558f8 100644
 --- frigg-clean/include/frg/printf.hpp
 +++ frigg-workdir/include/frg/printf.hpp
 @@ -991,7 +991,8 @@ void do_printf_floats(S &sink, Char t, format_options opts,

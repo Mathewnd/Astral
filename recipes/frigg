@@ -1,6 +1,6 @@
 name=frigg
 from_source=frigg
-revision=5
+revision=6
 hostdeps="xgcc xbinutils pkgconfig"
 imagedeps="meson ninja-build build-essential"
 
