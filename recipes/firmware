@@ -1,0 +1,8 @@
+name=firmware
+revision=1
+from_source=firmware
+
+package() {
+	mkdir -p ${dest_dir}/usr/lib/firmware
+	cp -r ${source_dir}/* ${dest_dir}/usr/lib/firmware
+}
