@@ -53,6 +53,7 @@ struct u80211_device {
 
 	void *scan_spinlock;
 	void *scan_context;
+	void *scan_cleanup_work;
 	u80211_list_t scan_waiters;
 
 	bss_cache_t bss_cache;
@@ -60,6 +61,8 @@ struct u80211_device {
 	void *association_spinlock;
 	void *association_context;
 	void *association_cleanup_work;
+	void *association_cleanup_context;
+	bool association_cleanup_pending;
 	u80211_list_t association_waiters;
 	unsigned int association_generation;
 	int association_result;

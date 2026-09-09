@@ -1,26 +1,24 @@
 #include <u80211/kernel_interface.h>
 
+#include <errno.h>
 #include <kernel/alloc.h>
 #include <kernel/eth.h>
-#include <kernel/event.h>
 #include <kernel/init.h>
 #include <kernel/interrupt.h>
-#include <kernel/page.h>
-#include <kernel/scheduler.h>
+#include <kernel/itimer.h>
 #include <kernel/slab.h>
-#include <kernel/thread.h>
-#include <kernel/timekeeper.h>
+#include <kernel/work.h>
 #include <mutex.h>
 #include <pushlock.h>
 #include <semaphore.h>
 #include <spinlock.h>
 #include <string.h>
-#include <time.h>
 
 static scache_t *pushlock_cache;
 static scache_t *semaphore_cache;
 static scache_t *spinlock_cache;
 static scache_t *work_cache;
+static scache_t *timer_cache;
 
 void *u80211_kernel_allocate(size_t size) {
 	return alloc(size);
@@ -126,198 +124,162 @@ void u80211_kernel_release_rwlock_shared(void *rwlock) {
 	pushlock_release_shared(rwlock);
 }
 
-typedef struct u80211_work_t {
-	struct u80211_work_t *next;
-	timespec_t deadline;
+typedef struct u80211_timer u80211_timer_t;
+
+typedef struct u80211_work {
+	work_t work;
+	u80211_timer_t *timer;
 	u80211_kernel_work_fn_t function;
 	void *context;
-	eventheader_t finished_event;
 	bool pending;
-	bool running;
 	bool freeing;
-	bool destroy_on_return;
 } u80211_work_t;
 
-static spinlock_t work_queue_lock;
-static eventheader_t work_queue_event;
-static u80211_work_t *work_queue;
-static u80211_work_t *current_work;
-static thread_t *worker_thread;
+struct u80211_timer {
+	itimer_t timer;
+	u80211_work_t *work;
+};
 
-static long acquire_work_queue_lock(void) {
-	return spinlock_acquire_raise_ipl(&work_queue_lock, IPL_NET);
+static work_queue_t *u80211_work_queue;
+static spinlock_t work_state_lock;
+
+static long acquire_work_state_lock(void) {
+	return spinlock_acquire_raise_ipl(&work_state_lock, IPL_NET);
 }
 
-static void release_work_queue_lock(long old_ipl) {
-	spinlock_release_lower_ipl(&work_queue_lock, old_ipl);
+static void release_work_state_lock(long old_ipl) {
+	spinlock_release_lower_ipl(&work_state_lock, old_ipl);
 }
 
-static timespec_t deadline_after_ms(size_t ms) {
-	timespec_t delay = {
-		.s = ms / 1000,
-		.ns = (ms % 1000) * 1000000,
-	};
+static void dispatch_work(void *context, size_t) {
+	u80211_work_t *work = context;
+	u80211_kernel_work_fn_t function;
+	void *function_context;
 
-	return timespec_add(timekeeper_timefromboot(), delay);
-}
-
-static void insert_work(u80211_work_t *work) {
-	// insert in the ordered list
-	u80211_work_t **entry = &work_queue;
-	while (*entry && !timespec_bigger((*entry)->deadline, work->deadline))
-		entry = &(*entry)->next;
-
-	work->next = *entry;
-	*entry = work;
-	work->pending = true;
-}
-
-static bool remove_work(u80211_work_t *work) {
-	// find previous in the ordered list
-	u80211_work_t **entry = &work_queue;
-	while (*entry && *entry != work)
-		entry = &(*entry)->next;
-
-	if (*entry == NULL)
-		return false;
-
-	*entry = work->next;
-	work->next = NULL;
+	long old_ipl = acquire_work_state_lock();
 	work->pending = false;
-	return true;
-}
-
-static time_t deadline_wait_us(timespec_t deadline, timespec_t now) {
-	return (deadline.s - now.s) * 1000000 + (deadline.ns - now.ns) / 1000;
-}
-
-static void wake_work_thread(void) {
-	EVENT_SIGNAL(&work_queue_event);
-}
-
-static void work_thread(void) {
-	for (;;) {
-		eventlistener_t listener;
-		EVENT_INITLISTENER(&listener);
-		EVENT_ATTACH(&listener, &work_queue_event);
-
-		long old_ipl = acquire_work_queue_lock();
-		u80211_work_t *work = work_queue;
-		if (work == NULL) {
-			release_work_queue_lock(old_ipl);
-			EVENT_WAIT(&listener, 0);
-			EVENT_DETACHALL(&listener);
-			continue;
-		}
-
-		timespec_t now = timekeeper_timefromboot();
-		if (timespec_bigger(work->deadline, now)) {
-			time_t wait_us = deadline_wait_us(work->deadline, now);
-			release_work_queue_lock(old_ipl);
-			EVENT_WAIT(&listener, wait_us);
-			EVENT_DETACHALL(&listener);
-			continue;
-		}
-
-		work_queue = work->next;
-
-		work->next = NULL;
-		work->pending = false;
-		work->running = true;
-
-		current_work = work;
-
-		u80211_kernel_work_fn_t function = work->function;
-		void *context = work->context;
-
-		release_work_queue_lock(old_ipl);
-		EVENT_DETACHALL(&listener);
-
-		function(context);
-
-		old_ipl = acquire_work_queue_lock();
-		current_work = NULL;
-		work->running = false;
-		bool destroy = work->freeing && work->destroy_on_return;
-		bool notify = work->freeing && !work->destroy_on_return;
-		release_work_queue_lock(old_ipl);
-
-		if (notify)
-			EVENT_SIGNAL(&work->finished_event);
-		else if (destroy)
-			slab_free(work_cache, work);
+	if (work->freeing) {
+		release_work_state_lock(old_ipl);
+		return;
 	}
+
+	function = work->function;
+	function_context = work->context;
+	release_work_state_lock(old_ipl);
+
+	function(function_context);
+}
+
+static void delayed_work_timer(context_t *, dpcarg_t argument) {
+	u80211_timer_t *timer = argument;
+
+	long old_ipl = acquire_work_state_lock();
+
+	u80211_work_t *work = timer->work;
+	if (work) {
+		timer->work = NULL;
+		work->timer = NULL;
+		if (work->pending && !work->freeing)
+			work_enqueue(u80211_work_queue, &work->work);
+		else
+			work->pending = false;
+	}
+
+	release_work_state_lock(old_ipl);
+}
+
+void *u80211_kernel_allocate_timer(void) {
+	u80211_timer_t *timer = slab_allocate(timer_cache);
+	if (timer) {
+		timer->work = NULL;
+		itimer_init(&timer->timer, delayed_work_timer, timer);
+	}
+
+	return timer;
+}
+
+void u80211_kernel_free_timer(void *opaque_timer) {
+	u80211_timer_t *timer = opaque_timer;
+	itimer_pause(&timer->timer, NULL, NULL);
+
+	long old_ipl = acquire_work_state_lock();
+
+	u80211_work_t *work = timer->work;
+	if (work && work->timer == timer) {
+		work->timer = NULL;
+		work->pending = false;
+	}
+
+	timer->work = NULL;
+
+	release_work_state_lock(old_ipl);
+
+	slab_free(timer_cache, timer);
 }
 
 void *u80211_kernel_allocate_work(void) {
 	u80211_work_t *work = slab_allocate(work_cache);
 	if (work) {
 		memset(work, 0, sizeof(*work));
-		EVENT_INITHEADER(&work->finished_event);
+		WORK_INIT(&work->work, dispatch_work, work);
 	}
 
 	return work;
 }
 
-void u80211_kernel_enqueue_work(void *opaque_work, u80211_kernel_work_fn_t function, void *context, size_t ms) {
+void u80211_kernel_enqueue_work(void *opaque_work, u80211_kernel_work_fn_t function, void *context) {
 	u80211_work_t *work = opaque_work;
-	timespec_t deadline = deadline_after_ms(ms);
 
-	long old_ipl = acquire_work_queue_lock();
+	long old_ipl = acquire_work_state_lock();
+
 	if (!work->pending && !work->freeing) {
-		work->deadline = deadline;
 		work->function = function;
 		work->context = context;
+		work->pending = true;
+		work_enqueue(u80211_work_queue, &work->work);
+	}
 
-		insert_work(work);
-		release_work_queue_lock(old_ipl);
+	release_work_state_lock(old_ipl);
+}
 
-		wake_work_thread();
+void u80211_kernel_enqueue_delayed_work(void *opaque_work, void *opaque_timer, u80211_kernel_work_fn_t function, void *context, size_t ms) {
+	if (ms == 0) {
+		u80211_kernel_enqueue_work(opaque_work, function, context);
 		return;
 	}
 
-	release_work_queue_lock(old_ipl);
+	u80211_work_t *work = opaque_work;
+	u80211_timer_t *timer = opaque_timer;
+
+	long old_ipl = acquire_work_state_lock();
+
+	if (!work->pending && !work->freeing && timer->work == NULL) {
+		work->function = function;
+		work->context = context;
+		work->pending = true;
+		work->timer = timer;
+		timer->work = work;
+
+		itimer_set(&timer->timer, ms * 1000, 0);
+		itimer_resume(&timer->timer);
+	}
+
+	release_work_state_lock(old_ipl);
 }
 
 void u80211_kernel_free_work(void *opaque_work) {
 	u80211_work_t *work = opaque_work;
-	bool removed;
-	eventlistener_t listener;
-	EVENT_INITLISTENER(&listener);
-	EVENT_ATTACH(&listener, &work->finished_event);
 
-	long old_ipl = acquire_work_queue_lock();
-	removed = remove_work(work);
-	if (!work->running) {
-		release_work_queue_lock(old_ipl);
-		EVENT_DETACHALL(&listener);
-
-		if (removed)
-			wake_work_thread();
-
-		slab_free(work_cache, work);
-		return;
-	}
+	long old_ipl = acquire_work_state_lock();
 
 	work->freeing = true;
-	if (current_thread() == worker_thread && current_work == work) {
-		work->destroy_on_return = true;
-		release_work_queue_lock(old_ipl);
-		EVENT_DETACHALL(&listener);
+	work->pending = false;
 
-		if (removed)
-			wake_work_thread();
+	release_work_state_lock(old_ipl);
 
-		return;
-	}
+	while (work_dequeue(u80211_work_queue, &work->work) == EBUSY)
+		work_wait(u80211_work_queue, &work->work);
 
-	release_work_queue_lock(old_ipl);
-
-	if (removed)
-		wake_work_thread();
-
-	EVENT_WAIT(&listener, 0);
-	EVENT_DETACHALL(&listener);
 	slab_free(work_cache, work);
 }
 
@@ -326,17 +288,15 @@ static void u80211_kernel_interface_init(void) {
 	semaphore_cache = slab_newcache(sizeof(semaphore_t), 0, NULL, NULL);
 	spinlock_cache = slab_newcache(sizeof(u80211_spinlock_t), 0, NULL, NULL);
 	work_cache = slab_newcache(sizeof(u80211_work_t), 0, NULL, NULL);
-	__assert(pushlock_cache && semaphore_cache && spinlock_cache && work_cache);
+	timer_cache = slab_newcache(sizeof(u80211_timer_t), 0, NULL, NULL);
+	__assert(pushlock_cache && semaphore_cache && spinlock_cache && work_cache && timer_cache);
 
-	SPINLOCK_INIT(work_queue_lock);
-	EVENT_INITHEADER(&work_queue_event);
-
-	worker_thread = sched_newthread(work_thread, PAGE_SIZE * 4, 0, NULL, NULL);
-	__assert(worker_thread);
-	sched_queue(worker_thread);
+	SPINLOCK_INIT(work_state_lock);
+	u80211_work_queue = work_queue_create("u80211", 1, IPL_NET);
+	__assert(u80211_work_queue);
 }
 
-INIT_ROUTINE_DEFINE(u80211, INIT_ROUTINE_FLAGS_NONE, u80211_kernel_interface_init, scheduler);
+INIT_ROUTINE_DEFINE(u80211, INIT_ROUTINE_FLAGS_NONE, u80211_kernel_interface_init, work_queue);
 
 void u80211_kernel_receive_callback(u80211_device_t *device, void *buffer, size_t size) {
 	(void)size;

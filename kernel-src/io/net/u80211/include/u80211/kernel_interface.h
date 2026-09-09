@@ -67,19 +67,30 @@ void u80211_kernel_release_rwlock_shared(void *rwlock);
 
 typedef void (*u80211_kernel_work_fn_t)(void *context);
 
+// allocates an opaque timer object
+// return NULL on allocation failure
+void *u80211_kernel_allocate_timer(void);
+
+// cancels and frees the timer object referenced by 'timer'
+// 'timer' will never be NULL
+void u80211_kernel_free_timer(void *timer);
+
 // allocates an opaque work object
 // return NULL on allocation failure
 void *u80211_kernel_allocate_work(void);
 
 // enqueue threaded work. this might be called from an interrupt context
-// 'ms' == 0 enqueues the work immediatelly. otherwise, 
-// work is enqueued 'ms' milliseconds in the future
 // if work is already pending, the new request must be ignored
-void u80211_kernel_enqueue_work(void *work, u80211_kernel_work_fn_t function, void *context, size_t ms);
+void u80211_kernel_enqueue_work(void *work, u80211_kernel_work_fn_t function, void *context);
+
+// enqueue threaded work 'ms' milliseconds in the future
+// 'timer' must not be used by another delayed work request
+// if work is already pending, the new request must be ignored
+void u80211_kernel_enqueue_delayed_work(void *work, void *timer, u80211_kernel_work_fn_t function, void *context, size_t ms);
 
 // frees the work object referenced by 'work'
 // 'work' will never be NULL
-// may be called by the work's callback
+// must not be called by the work's callback
 void u80211_kernel_free_work(void *work);
 
 // kernel packet receive callback

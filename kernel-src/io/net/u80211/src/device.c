@@ -29,10 +29,18 @@ int u80211_register_device(const u80211_device_metadata_t *metadata, const u8021
 		return U80211_STATUS_ENOMEM;
 	}
 	device->scan_context = NULL;
+	device->scan_cleanup_work = u80211_kernel_allocate_work();
+	if (device->scan_cleanup_work == NULL) {
+		u80211_kernel_free_spinlock(device->scan_spinlock);
+		u80211_key_state_deinit(device);
+		u80211_kernel_free(device);
+		return U80211_STATUS_ENOMEM;
+	}
 	u80211_list_init(&device->scan_waiters);
 
 	device->association_spinlock = u80211_kernel_allocate_spinlock();
 	if (device->association_spinlock == NULL) {
+		u80211_kernel_free_work(device->scan_cleanup_work);
 		u80211_kernel_free_spinlock(device->scan_spinlock);
 		u80211_key_state_deinit(device);
 		u80211_kernel_free(device);
@@ -41,12 +49,15 @@ int u80211_register_device(const u80211_device_metadata_t *metadata, const u8021
 	device->association_cleanup_work = u80211_kernel_allocate_work();
 	if (device->association_cleanup_work == NULL) {
 		u80211_kernel_free_spinlock(device->association_spinlock);
+		u80211_kernel_free_work(device->scan_cleanup_work);
 		u80211_kernel_free_spinlock(device->scan_spinlock);
 		u80211_key_state_deinit(device);
 		u80211_kernel_free(device);
 		return U80211_STATUS_ENOMEM;
 	}
 	device->association_context = NULL;
+	device->association_cleanup_context = NULL;
+	device->association_cleanup_pending = false;
 	u80211_list_init(&device->association_waiters);
 	device->association_generation = 0;
 	device->association_result = U80211_STATUS_UNKNOWN_ERROR;
@@ -60,6 +71,7 @@ int u80211_register_device(const u80211_device_metadata_t *metadata, const u8021
 	if (status != U80211_STATUS_SUCCESS) {
 		u80211_kernel_free_work(device->association_cleanup_work);
 		u80211_kernel_free_spinlock(device->association_spinlock);
+		u80211_kernel_free_work(device->scan_cleanup_work);
 		u80211_kernel_free_spinlock(device->scan_spinlock);
 		u80211_key_state_deinit(device);
 		u80211_kernel_free(device);
@@ -72,6 +84,7 @@ int u80211_register_device(const u80211_device_metadata_t *metadata, const u8021
 
 void u80211_unregister_device(u80211_device_t *device) {
 	u80211_key_state_deinit(device);
+	u80211_kernel_free_work(device->scan_cleanup_work);
 	u80211_kernel_free_work(device->association_cleanup_work);
 	if (device->disconnected_ap != NULL)
 		u80211_ap_release(device->disconnected_ap);
