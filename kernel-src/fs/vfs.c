@@ -13,6 +13,7 @@
 #include <kernel/auth.h>
 #include <kernel/init.h>
 #include <kernel/slab.h>
+#include <list.h>
 
 #define PATHNAME_MAX 512
 #define MAXLINKDEPTH 64
@@ -43,6 +44,48 @@ int vfs_pollstub(vnode_t *node, struct polldata *, int events) {
 	return revents;
 }
 
+typedef struct {
+	list_node_t list_node;
+	void (*fn)(void *);
+	void *ctx;
+} root_event_waiter_t;
+
+static list_t root_event_list;
+static bool root_mounted;
+static mutex_t root_event_mutex;
+
+void vfs_root_event_signal(void) {
+	MUTEX_ACQUIRE(&root_event_mutex);
+	root_mounted = true;
+	MUTEX_RELEASE(&root_event_mutex);
+
+	list_for_each_safe (&root_event_list, node) {
+		root_event_waiter_t *rew = (root_event_waiter_t *)node;
+		rew->fn(rew->ctx);
+		free(rew);
+	}
+}
+
+int vfs_root_event_attach(void (*fn)(void *), void *ctx) {
+	root_event_waiter_t *rew = alloc(sizeof(root_event_waiter_t));
+	if (rew == NULL)
+		return ENOMEM;
+
+	MUTEX_ACQUIRE(&root_event_mutex);
+	if (root_mounted) {
+		MUTEX_RELEASE(&root_event_mutex);
+		free(rew);
+		return EBUSY;
+	}
+
+	rew->fn = fn;
+	rew->ctx = ctx;
+	list_push_back(&root_event_list, &rew->list_node);
+
+	MUTEX_RELEASE(&root_event_mutex);
+	return 0;
+}
+
 static int noop() {
 	return 0;
 }
@@ -71,6 +114,8 @@ void vfs_init() {
 	vfsroot->ops = &vnops;
 	advlock_cache = slab_newcache(sizeof(advlock_t), 0, advlock_ctor, NULL);
 	__assert(advlock_cache);
+	list_init(&root_event_list);
+	MUTEX_INIT(&root_event_mutex);
 }
 
 INIT_ROUTINE_DEFINE(vfs, INIT_ROUTINE_FLAGS_NONE, vfs_init, abc);
@@ -850,7 +895,7 @@ static vnode_t *lowestnodeinmp(vnode_t *node) {
 // if flags & VFS_LOOKUP_NOLINK, the last component will not be dereferenced if its a symbolic link
 // if flags & VFS_LOOKUP_INTERNAL, the first byte of flags will be the current count of symlinks transversed
 // this is not an external flag and is meant to be called from inside the function itself
-int vfs_lookup(vnode_t **result, vnode_t *start, char *path, char *lastcomp, int flags) {
+int vfs_lookup(vnode_t **result, vnode_t *start, const char *path, char *lastcomp, int flags) {
 	if ((flags & VFS_LOOKUP_INTERNAL) && (flags & 0xff) > MAXLINKDEPTH)
 		return ELOOP;
 
@@ -883,6 +928,7 @@ int vfs_lookup(vnode_t **result, vnode_t *start, char *path, char *lastcomp, int
 
 	VOP_HOLD(current);
 	VOP_LOCK(current);
+	bool current_locked = true;
 
 	for (int i = 0; i < pathlen; ++i) {
 		if (compbuffer[i] == '\0')
@@ -943,8 +989,11 @@ int vfs_lookup(vnode_t **result, vnode_t *start, char *path, char *lastcomp, int
 			break;
 
 		// if the current node is not the next one and VOP_LOOKUP didn't already by looking up "..", unlock it
-		if (current != next && isdotdot == false)
-			VOP_UNLOCK(current);
+		if (current != next) {
+			if (isdotdot == false)
+				VOP_UNLOCK(current);
+			current_locked = false;
+		}
 
 		vnode_t *r = next;
 		error = highestnodeinmp(next, &r);
@@ -959,6 +1008,8 @@ int vfs_lookup(vnode_t **result, vnode_t *start, char *path, char *lastcomp, int
 		if (r != next) {
 			VOP_HOLD(r);
 			VOP_UNLOCK(next);
+			if (current == next)
+				current_locked = false;
 			VOP_RELEASE(next);
 			next = r;
 			VOP_LOCK(next);
@@ -972,6 +1023,8 @@ int vfs_lookup(vnode_t **result, vnode_t *start, char *path, char *lastcomp, int
 			// next is already returned locked by VOP_LOOKUP
 			error = VOP_READLINK(next, &linkderef, getcred());
 			VOP_UNLOCK(next);
+			if (current == next)
+				current_locked = false;
 			if (error) {
 				VOP_RELEASE(next);
 				break;
@@ -1011,11 +1064,13 @@ int vfs_lookup(vnode_t **result, vnode_t *start, char *path, char *lastcomp, int
 
 		VOP_RELEASE(current);
 		current = next;
+		current_locked = true;
 		i += complen;
 	}
 
 	if (error) {
-		VOP_UNLOCK(current);
+		if (current_locked)
+			VOP_UNLOCK(current);
 		VOP_RELEASE(current);
 	} else {
 		// result is already locked here

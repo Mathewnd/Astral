@@ -260,6 +260,9 @@ void vfs_init();
 int vfs_mount(vnode_t *backing, vnode_t *pathref, char *path, char *name, void *data);
 int vfs_register(vfsops_t *vfsops, char *name);
 
+void vfs_root_event_signal(void);
+int vfs_root_event_attach(void (*fn)(void *), void *ctx);
+
 int vfs_open(vnode_t *ref, char *path, int flags, vnode_t **result);
 int vfs_close(vnode_t *node, int flags);
 int vfs_write_iovec(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size, uintmax_t offset, size_t *written, int flags);
@@ -277,7 +280,7 @@ void vfs_inactive(vnode_t *node);
 #define VFS_LOOKUP_PARENT 	0x20000000
 #define VFS_LOOKUP_NOLINK 	0x40000000
 #define VFS_LOOKUP_INTERNAL 	0x80000000
-int vfs_lookup(vnode_t **result, vnode_t *start, char *path, char *lastcomp, int flags);
+int vfs_lookup(vnode_t **result, vnode_t *start, const char *path, char *lastcomp, int flags);
 
 static inline mode_t vfs_getposixtype(int type) {
 	switch (type) {
