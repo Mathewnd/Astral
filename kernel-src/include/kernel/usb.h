@@ -284,6 +284,19 @@ struct usb_device {
 	usb_interface_t *interfaces;
 };
 
+static inline usb_endpoint_t *usb_find_endpoint(usb_device_t *device, uint8_t endpoint_address) {
+	for (uint8_t i = 0; i < device->config_desc->bNumInterfaces; ++i) {
+		usb_interface_t *interface = &device->interfaces[i];
+		for (uint8_t j = 0; j < interface->desc->bNumEndpoints; ++j) {
+			usb_endpoint_t *endpoint = &interface->endpoints[j];
+			if (endpoint->desc->bEndpointAddress == endpoint_address)
+				return endpoint;
+		}
+	}
+
+	return NULL;
+}
+
 typedef enum {
 	USB_XFER_FLAG_TO_DEVICE = (1 << 0),
 	USB_XFER_FLAG_TO_HOST = (1 << 1),

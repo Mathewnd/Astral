@@ -66,6 +66,8 @@ void kernel_entry() {
 	if (GET_KERNEL_ARGUMENT(initrd, bool))
 		initrd_unpack();
 
+	vfs_root_event_signal();
+
 	// spawn init
 
 	proc_run_init();

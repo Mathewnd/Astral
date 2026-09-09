@@ -798,4 +798,4 @@ void xhci_init(void) {
 	}
 }
 
-INIT_ROUTINE_DEFINE(xhci, INIT_ROUTINE_FLAGS_NONE, xhci_init, acpi);
+INIT_ROUTINE_DEFINE(xhci, INIT_ROUTINE_FLAGS_NONE, xhci_init, acpi, u80211_drv_usb);
