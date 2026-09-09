@@ -42,7 +42,7 @@ void acpi_init(void) {
 	uacpi_install_fixed_event_handler(UACPI_FIXED_EVENT_POWER_BUTTON, handle_pwrbtn, UACPI_NULL);
 }
 
-INIT_ROUTINE_DEFINE(acpi, INIT_ROUTINE_FLAGS_NONE, acpi_init, pci, devfs, scheduler);
+INIT_ROUTINE_DEFINE(acpi, INIT_ROUTINE_FLAGS_NONE, acpi_init, pci, devfs, scheduler, acpi_work);
 
 int acpi_poweroff(void) {
 	uacpi_status ret = uacpi_prepare_for_sleep_state(UACPI_SLEEP_STATE_S5);

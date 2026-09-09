@@ -2,11 +2,13 @@
 #include <uacpi/status.h>
 #include <uacpi/types.h>
 #include <kernel/interrupt.h>
+#include <kernel/init.h>
 #include <kernel/scheduler.h>
 #include <kernel/alloc.h>
 #include <kernel/page.h>
 #include <kernel/pci.h>
 #include <kernel/timekeeper.h>
+#include <kernel/work.h>
 #include <arch/cpu.h>
 #include <arch/mmu.h>
 #include <arch/context.h>
@@ -348,71 +350,51 @@ uacpi_status uacpi_kernel_uninstall_interrupt_handler(uacpi_interrupt_handler ha
 	return UACPI_STATUS_UNIMPLEMENTED;
 }
 
+#define ACPI_WORK_POOL_SIZE 16
+
+struct acpi_workctx;
+
 struct acpi_work {
+	work_t work;
+	list_node_t pool_node;
 	uacpi_work_handler handler;
 	uacpi_handle ctx;
-	struct acpi_work *next;
+	struct acpi_workctx *workctx;
 };
 
 struct acpi_workctx {
-	semaphore_t sem;
-	spinlock_t queuelock;
-	thread_t *thread;
-	struct acpi_work *head;
+	work_queue_t *queue;
+	spinlock_t pool_lock;
+	list_t free_list;
+	struct acpi_work pool[ACPI_WORK_POOL_SIZE];
+	bool target_bsp;
 };
 
 static struct acpi_workctx gpework;
 static struct acpi_workctx notifywork;
 
-static void acpi_initwork(struct acpi_workctx *ctx, void (*proc)(void)) {
-	SEMAPHORE_INIT(&ctx->sem, 0);
-	SPINLOCK_INIT(ctx->queuelock);
+static void acpi_dowork(void *context, size_t pending) {
+	(void)pending;
 
-	ctx->thread = sched_newthread(proc, PAGE_SIZE * 4, 0, NULL, NULL);
-	__assert(ctx->thread);
-	sched_queue(ctx->thread);
-}
+	struct acpi_work *work = context;
+	struct acpi_workctx *workctx = work->workctx;
+	uacpi_work_handler handler = work->handler;
+	uacpi_handle handler_ctx = work->ctx;
 
-static void acpi_dowork(struct acpi_workctx *ctx) {
-	for (;;) {
-		semaphore_wait(&ctx->sem, true);
+	// no need to untarget later, a workctx that takes this path 
+	// will always run on the bsp
+	if (workctx->target_bsp)
+		sched_reschedule_on_cpu(get_bsp(), true);
 
-		struct acpi_work *work = NULL;
+	handler(handler_ctx);
 
-		bool irqstate = spinlock_acquire_irq_clear(&ctx->queuelock);
-		if (ctx->head) {
-			work = ctx->head;
-			ctx->head = work->next;
-		}
-		spinlock_release_irq_restore(&ctx->queuelock, irqstate);
-
-		if (work == NULL)
-			continue;
-
-		work->handler(work->ctx);
-		free(work);
-	}
-}
-
-static void acpi_dogpework() {
-	sched_reschedule_on_cpu(get_bsp(), true);
-
-	acpi_dowork(&gpework);
-
-	sched_target_cpu(NULL);
-}
-
-static void acpi_donotifywork() {
-	acpi_dowork(&notifywork);
+	long old_ipl = spinlock_acquire_raise_ipl(&workctx->pool_lock, IPL_ACPI);
+	list_push_back(&workctx->free_list, &work->pool_node);
+	spinlock_release_lower_ipl(&workctx->pool_lock, old_ipl);
 }
 
 uacpi_status uacpi_kernel_initialize(uacpi_init_level lvl) {
-	if (lvl != UACPI_INIT_LEVEL_SUBSYSTEM_INITIALIZED)
-		return UACPI_STATUS_OK;
-
-	acpi_initwork(&gpework, acpi_dogpework);
-	acpi_initwork(&notifywork, acpi_donotifywork);
-
+	(void)lvl;
 	return UACPI_STATUS_OK;
 }
 
@@ -420,15 +402,7 @@ void uacpi_kernel_deinitialize() { }
 
 uacpi_status uacpi_kernel_schedule_work(
 	uacpi_work_type type, uacpi_work_handler handler, uacpi_handle ctx) {
-	struct acpi_work *work;
 	struct acpi_workctx *workctx;
-
-	work = alloc(sizeof(*work));
-	if (work == NULL)
-		return UACPI_STATUS_OUT_OF_MEMORY;
-
-	work->ctx = ctx;
-	work->handler = handler;
 
 	switch (type) {
 		case UACPI_WORK_GPE_EXECUTION:
@@ -439,35 +413,49 @@ uacpi_status uacpi_kernel_schedule_work(
 			break;
 	}
 
-	bool irqstate = spinlock_acquire_irq_clear(&workctx->queuelock);
-	work->next = workctx->head;
-	workctx->head = work;
-	spinlock_release_irq_restore(&workctx->queuelock, irqstate);
-
-	semaphore_signal(&workctx->sem);
-	return UACPI_STATUS_OK;
-}
-
-static void work_await(struct acpi_workctx *ctx) {
-	for (;;) {
-		bool empty;
-
-		bool irqstate = spinlock_acquire_irq_clear(&ctx->queuelock);
-		empty = ctx->head == NULL;
-		spinlock_release_irq_restore(&ctx->queuelock, irqstate);
-
-		if (empty)
-			return;
-
-		sched_sleep_us(100 * 1000);
+	long old_ipl = spinlock_acquire_raise_ipl(&workctx->pool_lock, IPL_ACPI);
+	list_node_t *node = list_pop_front(&workctx->free_list);
+	if (node == NULL) {
+		spinlock_release_lower_ipl(&workctx->pool_lock, old_ipl);
+		return UACPI_STATUS_OUT_OF_MEMORY;
 	}
+
+	struct acpi_work *work = container_of(node, struct acpi_work, pool_node);
+	work->handler = handler;
+	work->ctx = ctx;
+	spinlock_release_lower_ipl(&workctx->pool_lock, old_ipl);
+
+	work_enqueue(workctx->queue, &work->work);
+	return UACPI_STATUS_OK;
 }
 
 uacpi_status uacpi_kernel_wait_for_work_completion(void) {
-	work_await(&gpework);
-	work_await(&notifywork);
+	work_drain(gpework.queue);
+	work_drain(notifywork.queue);
 	return UACPI_STATUS_OK;
 }
+
+static void acpi_initwork(struct acpi_workctx *workctx, const char *name, bool target_bsp) {
+	SPINLOCK_INIT(workctx->pool_lock);
+	list_init(&workctx->free_list);
+	workctx->target_bsp = target_bsp;
+	workctx->queue = work_queue_create(name, 1, IPL_ACPI);
+	__assert(workctx->queue);
+
+	for (size_t i = 0; i < ACPI_WORK_POOL_SIZE; ++i) {
+		struct acpi_work *work = &workctx->pool[i];
+		WORK_INIT(&work->work, acpi_dowork, work);
+		work->workctx = workctx;
+		list_push_back(&workctx->free_list, &work->pool_node);
+	}
+}
+
+static void acpi_work_init(void) {
+	acpi_initwork(&gpework, "acpi-gpe", true);
+	acpi_initwork(&notifywork, "acpi-notify", false);
+}
+
+INIT_ROUTINE_DEFINE(acpi_work, INIT_ROUTINE_FLAGS_NONE, acpi_work_init, work_queue);
 
 uacpi_status uacpi_kernel_handle_firmware_request(
 	uacpi_firmware_request *req) {
