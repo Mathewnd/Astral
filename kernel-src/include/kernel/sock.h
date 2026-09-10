@@ -10,6 +10,7 @@
 #include <kernel/iovec.h>
 #include <stdbool.h>
 #include <errno.h>
+#include <kernel/raw.h>
 
 #define SOCKET_STATE_UNBOUND 0
 #define SOCKET_STATE_BOUND 1
@@ -20,7 +21,7 @@
 #define SOCKET_SHUTDOWN_WRITE 2
 #define SOCKET_SHUTDOWN_RW 3
 
-typedef struct {
+typedef struct socket {
 	struct socketops_t *ops;
 	mutex_t mutex;
 	int state;
@@ -38,6 +39,7 @@ typedef struct {
 	union {
 		ipv4addr_t ipv4addr;
 		char path[256];
+		raw_addr_t raw;
 	};
 } sockaddr_t;
 
