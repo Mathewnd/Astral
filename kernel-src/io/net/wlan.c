@@ -19,6 +19,9 @@ typedef struct {
 	int id;
 } wlan_device_t;
 
+// TODO: proper up/down handling
+// TODO: make hardware keys take peer into account too
+// TODO: proper concurrency protection for key and channel setting
 // TODO: make u80211 bss cache get more generic than having to pass the bss cache directly
 // TODO: handle hotplug
 // TODO: in u80211_drv *_tx_buffer ops, pass device handle
@@ -201,7 +204,7 @@ int wlan_register(void *handle, const u80211_drv_device_metadata_t *drv_metadata
 	wlan->netdev.sendpacket = wlan_send_packet;
 	wlan->netdev.allocdesc = wlan_alloc_desc;
 	wlan->netdev.freedesc = wlan_free_desc;
-	wlan->netdev.flags = NETDEV_FLAGS_WLAN;
+	wlan->netdev.flags = NETDEV_FLAGS_WLAN | NETDEV_FLAGS_UP | NETDEV_FLAGS_BROADCAST | NETDEV_FLAGS_RUNNING;
 	memcpy(&wlan->netdev.mac, &drv_metadata->mac_address, 6);
 	if (hashtable_init(&wlan->netdev.arpcache, 30)) {
 		free(wlan);
@@ -430,5 +433,5 @@ int wlan_del_key(netdev_t *netdev, uint8_t index, uint8_t peer[6], uint32_t flag
 	u80211_mac_address_t mac;
 	memcpy(&mac, peer, 6);
 
-	return u80211_del_key(wlan->u80211_device, index, &mac, flags) == U80211_STATUS_SUCCESS ? 0 : EINVAL;
+	return u80211_del_key(wlan->u80211_device, index, &mac, wlan_flags_to_u80211_flags(flags)) == U80211_STATUS_SUCCESS ? 0 : EINVAL;
 }
