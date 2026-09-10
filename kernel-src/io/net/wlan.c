@@ -4,6 +4,7 @@
 #include <kernel/net.h>
 #include <kernel/eth.h>
 #include <kernel/interrupt.h>
+#include <kernel/usercopy.h>
 #include <logging.h>
 #include <string.h>
 #include <errno.h>
@@ -18,6 +19,8 @@ typedef struct {
 	int id;
 } wlan_device_t;
 
+// TODO: make u80211 bss cache get more generic than having to pass the bss cache directly
+// TODO: handle hotplug
 // TODO: in u80211_drv *_tx_buffer ops, pass device handle
 // TODO: change how netdesc_t is handled in kernel overall (?)
 // TODO: map u80211 errors to errnos
@@ -243,4 +246,93 @@ void wlan_process_packet(u80211_drv_network_device_handle_t handle, void *packet
 	long ipl = interrupt_raiseipl(IPL_DPC);
 	u80211_process_packet(wlan->u80211_device, packet, packet_size);
 	interrupt_loweripl(ipl);
+}
+
+int wlan_active_scan(netdev_t *netdev) {
+	wlan_device_t *wlan = (wlan_device_t *)netdev;
+
+	return u80211_scan(wlan->u80211_device) == U80211_STATUS_SUCCESS ? 0 : EINVAL;
+}
+
+int wlan_wait_for_scan(netdev_t *netdev) {
+	wlan_device_t *wlan = (wlan_device_t *)netdev;
+
+	return u80211_wait_for_scan_completion(wlan->u80211_device) == U80211_STATUS_SUCCESS ? 0 : EINVAL;
+}
+
+typedef struct {
+	uint16_t length;
+	uint16_t rsn_ie_length;
+	uint16_t variable_offset;
+	uint16_t interval;
+	uint16_t capabilities;
+	uint8_t bssid[6];
+	uint8_t rate_bitmap[16];
+	uint8_t channel;
+	uint8_t ssid_length;
+	// SSID
+	// RSN IE
+} wlan_bss_info_t;
+
+// this may seem excessive (and, for your average residential air, it is).
+// however, some places (like university campi or dense urban environments)
+// can easily cross into the hundreds of APs. many different implementations
+// have moved to use a 1000 limit to bss entries (see cfg80211 or the discussions on
+// hostapd/wpa_supplicant to raise the limit)
+#define MAX_APS 1000
+
+int wlan_get_bss_cache(netdev_t *netdev, void *buffer, size_t size, size_t *records_written) {
+	wlan_device_t *wlan = (wlan_device_t *)netdev;
+
+	u80211_ap_t **ap_buffer = alloc(sizeof(u80211_ap_t *) * MAX_APS);
+	if (ap_buffer == NULL)
+		return ENOMEM;
+
+	size_t ap_count = u80211_bss_cache_get_aps(&wlan->u80211_device->bss_cache, ap_buffer, MAX_APS);
+
+	int error = 0;
+	*records_written = 0;
+	for (size_t i = 0; i < ap_count; ++i) {
+		u80211_ap_t *ap = ap_buffer[i];
+		wlan_bss_info_t bss_info;
+		bss_info.ssid_length = strlen(ap->ssid);
+		bss_info.length = sizeof(wlan_bss_info_t) + bss_info.ssid_length + ap->rsn_size;
+
+		if (size < bss_info.length)
+			break;
+
+		bss_info.variable_offset = sizeof(bss_info);
+		bss_info.rsn_ie_length = ap->rsn_size;
+		bss_info.interval = ap->interval;
+		bss_info.capabilities = ap->capabilities;
+		bss_info.channel = ap->channel;
+		memcpy(bss_info.bssid, &ap->mac_address, 6);
+		memcpy(bss_info.rate_bitmap, ap->rate_bitmap, sizeof(bss_info.rate_bitmap));
+
+		error = USERCOPY_POSSIBLY_TO_USER(buffer, &bss_info, sizeof(bss_info));
+		if (error)
+			break;
+
+		if (bss_info.ssid_length) {
+			error = USERCOPY_POSSIBLY_TO_USER((void *)((uintptr_t)buffer + sizeof(bss_info)), ap->ssid, bss_info.ssid_length);
+			if (error)
+				break;
+		}
+
+		if (bss_info.rsn_ie_length) {
+			error = USERCOPY_POSSIBLY_TO_USER((void *)((uintptr_t)buffer + sizeof(bss_info) + bss_info.ssid_length), ap->rsn, bss_info.rsn_ie_length);
+			if (error)
+				break;
+		}
+
+		size -= bss_info.length;
+		buffer = (void *)((uintptr_t)buffer + bss_info.length);
+		*records_written += 1;
+	}
+
+	for (size_t i = 0; i < ap_count; ++i)
+		u80211_ap_release(ap_buffer[i]);
+
+	free(ap_buffer);
+	return error;
 }
