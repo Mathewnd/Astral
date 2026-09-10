@@ -54,6 +54,7 @@
 #define RX_DESCRIPTOR_COUNT 1024
 #define TX_DESCRIPTOR_COUNT 1024
 #define RX_BUFFER_SIZE 1524
+#define RX_FCS_SIZE 4
 
 #define DESCRIPTOR_OWN (1 << 15)
 #define DESCRIPTOR_EOR (1 << 14)
@@ -133,7 +134,8 @@ static void rtl8169_dpc_rx(context_t *, dpcarg_t arg) {
 		volatile descriptor_t *descriptor = &dev->rx_ring[dev->rx_next];
 		void *buffer = MAKE_HHDM((void *)(descriptor->addr_low | ((uint64_t)descriptor->addr_high << 32)));
 
-		eth_process(&dev->netdev, buffer);
+		if (descriptor->length >= RX_FCS_SIZE)
+			eth_process(&dev->netdev, buffer, descriptor->length - RX_FCS_SIZE);
 
 		uint16_t eor = descriptor->flags & DESCRIPTOR_EOR;
 		descriptor->length = RX_BUFFER_SIZE;

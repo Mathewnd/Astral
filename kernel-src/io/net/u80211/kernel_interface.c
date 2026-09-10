@@ -299,6 +299,5 @@ static void u80211_kernel_interface_init(void) {
 INIT_ROUTINE_DEFINE(u80211, INIT_ROUTINE_FLAGS_NONE, u80211_kernel_interface_init, work_queue);
 
 void u80211_kernel_receive_callback(u80211_device_t *device, void *buffer, size_t size) {
-	(void)size;
-	eth_process(device->driver_data, buffer);
+	eth_process(device->driver_data, buffer, size);
 }

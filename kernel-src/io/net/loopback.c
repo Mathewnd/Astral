@@ -40,7 +40,7 @@ static int loopback_sendpacket(netdev_t *netdev, netdesc_t desc, mac_t targetmac
 	memcpy(desc.address, &ethframe, sizeof(ethframe_t));
 
 	long ipl = interrupt_raiseipl(IPL_DPC);
-	eth_process(netdev, desc.address);
+	eth_process(netdev, desc.address, desc.size);
 	interrupt_loweripl(ipl);
 
 	return netdev->freedesc(netdev, &desc);

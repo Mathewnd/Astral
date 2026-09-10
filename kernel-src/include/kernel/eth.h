@@ -1,6 +1,7 @@
 #ifndef _ETH_H
 #define _ETH_H
 
+#include <stddef.h>
 #include <stdint.h>
 #include <kernel/net.h>
 
@@ -13,6 +14,6 @@ typedef struct {
 #define ETH_PROTO_IP 0x0800
 #define ETH_PROTO_ARP 0x0806
 
-void eth_process(netdev_t *netdev, void *buffer);
+void eth_process(netdev_t *netdev, void *buffer, size_t size);
 
 #endif

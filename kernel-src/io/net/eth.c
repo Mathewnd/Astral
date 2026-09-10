@@ -3,7 +3,10 @@
 #include <logging.h>
 
 // runs on dpc context, called by the individual driver dpcs on a receive.
-void eth_process(netdev_t *netdev, void *buffer) {
+void eth_process(netdev_t *netdev, void *buffer, size_t size) {
+	if (size < sizeof(ethframe_t))
+		return;
+
 	ethframe_t *frame = buffer;
 
 	mac_t dst, src;

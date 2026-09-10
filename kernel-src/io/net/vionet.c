@@ -45,8 +45,11 @@ static void rx_dpc(context_t *context, dpcarg_t arg) {
 	while (netdev->rxqueue.lastusedindex != VIO_QUEUE_DEV_IDX(&netdev->rxqueue)) {
 		int idx = netdev->rxqueue.lastusedindex++ % netdev->rxqueue.size;
 		int buffidx = VIO_QUEUE_DEV_RING(&netdev->rxqueue)[idx].index;
-		void *ethbufferphys = (void *)(buffers[buffidx].address + sizeof(vioframe_t));
-		eth_process((netdev_t *)netdev, MAKE_HHDM(ethbufferphys));
+		size_t size = VIO_QUEUE_DEV_RING(&netdev->rxqueue)[idx].length;
+		if (size >= sizeof(vioframe_t)) {
+			void *phys = (void *)(buffers[buffidx].address + sizeof(vioframe_t));
+			eth_process((netdev_t *)netdev, MAKE_HHDM(phys), size - sizeof(vioframe_t));
+		}
 		VIO_QUEUE_DRV_RING(&netdev->rxqueue)[VIO_QUEUE_DRV_IDX(&netdev->rxqueue)++ % netdev->rxqueue.size] = buffidx;
 		*netdev->rxqueue.notify = 0;
 	}
