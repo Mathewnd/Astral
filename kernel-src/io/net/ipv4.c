@@ -215,7 +215,6 @@ int ipv4_sendpacket(void *buffer, size_t packetsize, uint32_t ip, int proto, net
 		memcpy((void *)((uintptr_t)fragdesc.address + fragdesc.curroffset + sizeof(ipv4frame_t)), (void *)((uintptr_t)buffer + i * devfragmentsize), fragmentlen);
 
 		e = dispatch_fragment(netdev, fragdesc, i * devfragmentsize, fragmentlen, id, ip, mac, proto, i == fragmentcount - 1);
-		netdev->freedesc(netdev, &fragdesc);
 		if (e)
 			return e;
 	}

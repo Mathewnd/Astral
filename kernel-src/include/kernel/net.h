@@ -44,6 +44,7 @@ typedef struct netdev_t {
 	short flags;
 	int (*allocdesc)(struct netdev_t *netdev, size_t requestedsize, netdesc_t *desc);
 	int (*freedesc)(struct netdev_t *netdev, netdesc_t *desc);
+	// consumes desc regardless of the returned status
 	int (*sendpacket)(struct netdev_t *_internal, netdesc_t desc, mac_t targetmac, int proto);
 } netdev_t;
 

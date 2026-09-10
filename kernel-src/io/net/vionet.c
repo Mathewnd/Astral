@@ -148,7 +148,7 @@ static int vionet_sendpacket(netdev_t *internal, netdesc_t desc, mac_t targetmac
 	sched_yield();
 
 	interrupt_set(intstatus);
-	return 0;
+	return internal->freedesc(internal, &desc);
 }
 
 int vionet_newdevice(viodevice_t *viodevice) {

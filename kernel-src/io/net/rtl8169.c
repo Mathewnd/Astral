@@ -191,7 +191,7 @@ static int rtl8169_sendpacket(netdev_t *internal, netdesc_t desc, mac_t target, 
 	spinlock_release_lower_ipl(&netdev->tx_lock, ipl);
 	sched_yield();
 
-	return 0;
+	return internal->freedesc(internal, &desc);
 }
 
 // requested size doesn't account for ethernet header

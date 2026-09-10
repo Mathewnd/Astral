@@ -6,12 +6,9 @@
 #include <hashtable.h>
 #include <arch/cpu.h>
 #include <kernel/init.h>
+#include <kernel/interrupt.h>
 
 static netdev_t loopbacknetdev;
-
-static void rx_dpc(context_t *context, dpcarg_t arg) {
-	eth_process(&loopbacknetdev, arg);
-}
 
 // requested size doesn't account for ethernet header or the virtio header
 static int loopback_allocdesc(netdev_t *netdev, size_t requestedsize, netdesc_t *desc) {
@@ -42,11 +39,11 @@ static int loopback_sendpacket(netdev_t *netdev, netdesc_t desc, mac_t targetmac
 	memcpy(&ethframe.destination, &broadcast, sizeof(mac_t));
 	memcpy(desc.address, &ethframe, sizeof(ethframe_t));
 
-	dpc_t dpc = {0};
-	dpc_prepare(&dpc, rx_dpc);
-	dpc_enqueue(&dpc, desc.address);
+	long ipl = interrupt_raiseipl(IPL_DPC);
+	eth_process(netdev, desc.address);
+	interrupt_loweripl(ipl);
 
-	return 0;
+	return netdev->freedesc(netdev, &desc);
 }
 
 netdev_t *loopback_device() {
