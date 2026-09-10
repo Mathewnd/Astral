@@ -28,6 +28,7 @@ typedef struct {
 	netdev_t *netdev;
 	pollheader_t pollheader;
 	int type;
+	int protocol;
 	int shutdown;
 	int error;
 	bool nonblocking;
@@ -363,13 +364,13 @@ static inline size_t sock_countctrl(sockctrl_t *ctrl, size_t len) {
 }
 
 void localsock_leavebinding(vnode_t *vnode);
-int localsock_pair(socket_t **ret1, socket_t **ret2);
-int localsock_pair_seqpacket(socket_t **ret1, socket_t **ret2);
-socket_t *localsock_createsocket(void);
-socket_t *localsock_create_seqpacket_socket(void);
-socket_t *udp_createsocket();
-socket_t *tcp_createsocket();
-socket_t *socket_create(int type);
+int localsock_pair(socket_t **ret1, socket_t **ret2, int protocol);
+int localsock_pair_seqpacket(socket_t **ret1, socket_t **ret2, int protocol);
+socket_t *localsock_createsocket(int protocol);
+socket_t *localsock_create_seqpacket_socket(int protocol);
+socket_t *udp_createsocket(int protocol);
+socket_t *tcp_createsocket(int protocol);
+socket_t *socket_create(int type, int protocol);
 int sockfs_newsocket(vnode_t **vnodep, socket_t *socket);
 void sockfs_init();
 

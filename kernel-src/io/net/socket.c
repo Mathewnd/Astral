@@ -2,7 +2,7 @@
 #include <kernel/raw.h>
 #include <logging.h>
 
-static socket_t *(*createsocket[])() = {
+static socket_t *(*createsocket[])(int) = {
 	udp_createsocket,
 	localsock_createsocket,
 	tcp_createsocket,
@@ -10,9 +10,9 @@ static socket_t *(*createsocket[])() = {
 	raw_create_socket
 };
 
-socket_t *socket_create(int type) {
+socket_t *socket_create(int type, int protocol) {
 	__assert(type < sizeof(createsocket) / sizeof(createsocket[0]));
-	socket_t *socket = createsocket[type]();
+	socket_t *socket = createsocket[type](protocol);
 	if (socket == NULL)
 		return NULL;
 
@@ -20,6 +20,7 @@ socket_t *socket_create(int type) {
 	socket->state = SOCKET_STATE_UNBOUND;
 	MUTEX_INIT(&socket->mutex);
 	socket->type = type;
+	socket->protocol = protocol;
 	socket->nonblocking = false;
 
 	return socket;

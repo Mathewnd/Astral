@@ -1132,12 +1132,12 @@ void localsock_leavebinding(vnode_t *vnode) {
 	vnode->socketbinding = NULL;
 }
 
-int localsock_pair(socket_t **ret1, socket_t **ret2) {
-	socket_t *socket1 = socket_create(SOCKET_TYPE_LOCAL);
+int localsock_pair(socket_t **ret1, socket_t **ret2, int protocol) {
+	socket_t *socket1 = socket_create(SOCKET_TYPE_LOCAL, protocol);
 	if (socket1 == NULL)
 		return ENOMEM;
 
-	socket_t *socket2 = socket_create(SOCKET_TYPE_LOCAL);
+	socket_t *socket2 = socket_create(SOCKET_TYPE_LOCAL, protocol);
 	if (socket2 == NULL) {
 		localsock_destroy(socket1);
 		return ENOMEM;
@@ -1168,8 +1168,8 @@ int localsock_pair(socket_t **ret1, socket_t **ret2) {
 	return 0;
 }
 
-int localsock_pair_seqpacket(socket_t **ret1, socket_t **ret2) {
-	int error = localsock_pair(ret1, ret2);
+int localsock_pair_seqpacket(socket_t **ret1, socket_t **ret2, int protocol) {
+	int error = localsock_pair(ret1, ret2, protocol);
 	if (error)
 		return error;
 
@@ -1421,7 +1421,7 @@ static socketops_t socketops = {
 	.setopt = localsock_setopt
 };
 
-socket_t *localsock_createsocket(void) {
+socket_t *localsock_createsocket(int protocol) {
 	// XXX possibly move this to a slab?
 	localsocket_t *socket = alloc(sizeof(localsocket_t));
 	if (socket == NULL)
@@ -1444,8 +1444,8 @@ socket_t *localsock_createsocket(void) {
 	return (socket_t *)socket;
 }
 
-socket_t *localsock_create_seqpacket_socket(void) {
-	localsocket_t *localsocket = (localsocket_t *)localsock_createsocket();
+socket_t *localsock_create_seqpacket_socket(int protocol) {
+	localsocket_t *localsocket = (localsocket_t *)localsock_createsocket(protocol);
 	if (localsocket == NULL)
 		return NULL;
 

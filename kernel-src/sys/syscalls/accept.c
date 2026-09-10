@@ -28,7 +28,7 @@ syscallret_t syscall_accept(context_t *, int oldfd, abisockaddr_t *abisockaddr, 
 		goto cleanup;
 	}
 
-	socket_t *client = socket_create(server->type);
+	socket_t *client = socket_create(server->type, server->protocol);
 	if (client == NULL) {
 		ret.errno = ENOMEM;
 		goto cleanup;

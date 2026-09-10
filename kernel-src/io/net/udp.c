@@ -382,7 +382,7 @@ static socketops_t socketops = {
 	.connect = udp_connect
 };
 
-socket_t *udp_createsocket() {
+socket_t *udp_createsocket(int protocol) {
 	// XXX possibly move this to a slab?
 	udpsocket_t *socket = alloc(sizeof(udpsocket_t));
 	if (socket == NULL)

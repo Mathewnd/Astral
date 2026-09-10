@@ -37,9 +37,9 @@ syscallret_t syscall_socketpair(context_t *, int domain, int type, int protocol)
 
 	// create pair
 	if (type == SOCK_SEQPACKET)
-		ret.errno = localsock_pair_seqpacket(&sock1, &sock2);
+		ret.errno = localsock_pair_seqpacket(&sock1, &sock2, protocol);
 	else
-		ret.errno = localsock_pair(&sock1, &sock2);
+		ret.errno = localsock_pair(&sock1, &sock2, protocol);
 	if (ret.errno)
 		return ret;
 

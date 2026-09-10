@@ -1973,7 +1973,7 @@ static socketops_t socketops = {
 	.getopt = tcp_getopt
 };
 
-socket_t *tcp_createsocket() {
+socket_t *tcp_createsocket(int protocol) {
 	tcpsocket_t *socket = alloc(sizeof(tcpsocket_t));
 	if (socket == NULL)
 		return NULL;

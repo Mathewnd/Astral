@@ -43,7 +43,7 @@ syscallret_t syscall_socket(context_t *, int domain, int type, int protocol) {
 		return ret;
 	}
 
-	socket_t *socket = socket_create(socktype);
+	socket_t *socket = socket_create(socktype, protocol);
 	if (socket == NULL) {
 		ret.errno = ENOMEM;
 		return ret;
