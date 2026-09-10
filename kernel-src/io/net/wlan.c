@@ -38,7 +38,7 @@ static int allocate_id(void) {
 		if (snapshot == UINT64_MAX)
 			return -1;
 
-		int id = __builtin_ctz(~snapshot);
+		int id = __builtin_ctzll(~snapshot);
 		uint64_t mask = 1lu << id;
 		if (__atomic_fetch_or(&id_bitmap, mask, __ATOMIC_RELAXED) & mask)
 			continue;
@@ -160,7 +160,8 @@ static int wlan_alloc_desc(netdev_t *netdev, size_t requested_size, netdesc_t *d
 		return EINVAL;
 
 	desc->address = u80211_desc.data;
-	desc->curroffset = u80211_desc.current_offset;
+	// the network stack writes forward from curroffset. u80211 builds backward from the end.
+	desc->curroffset = u80211_desc.current_offset - requested_size;
 	desc->size = u80211_desc.size;
 	return 0;
 }
@@ -173,7 +174,8 @@ static int wlan_free_desc(netdev_t *netdev, netdesc_t *desc) {
 static int wlan_send_packet(netdev_t *netdev, netdesc_t desc, mac_t target, int proto) {
 	wlan_device_t *wlan = (wlan_device_t *)netdev;
 
-	ethframe_t *ethframe = desc.address;
+	desc.curroffset -= sizeof(ethframe_t);
+	ethframe_t *ethframe = (void *)((uintptr_t)desc.address + desc.curroffset);
 	ethframe->type = cpu_to_be_w(proto);
 	memcpy(&ethframe->source, &wlan->netdev.mac, sizeof(mac_t));
 	memcpy(&ethframe->destination, &target, sizeof(mac_t));

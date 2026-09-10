@@ -57,6 +57,10 @@ typedef struct {
 
 int handle_wlan_ioctl(netdev_t *netdev, unsigned long request, void *arg, int *result, cred_t *cred) {
 	// TODO: make every operation besides get bss cache be privileged
+
+	if ((netdev->flags & NETDEV_FLAGS_WLAN) == 0)
+		return EINVAL;
+	
 	switch (request) {
 		case NETDEV_IOCTL_WLAN_SCAN:
 			return wlan_active_scan(netdev);
@@ -71,7 +75,10 @@ int handle_wlan_ioctl(netdev_t *netdev, unsigned long request, void *arg, int *r
 			if (IS_USER_ADDRESS(arg) && !IS_USER_ADDRESS(bss_request.buffer))
 				return EFAULT;
 
-			wlan_get_bss_cache(netdev, bss_request.buffer, bss_request.buffer_size, &bss_request.records_returned);
+			error = wlan_get_bss_cache(netdev, bss_request.buffer, bss_request.buffer_size, &bss_request.records_returned);
+			if (error)
+				return error;
+
 			return USERCOPY_POSSIBLY_TO_USER(arg, &bss_request, sizeof(bss_request));
 		}
 		case NETDEV_IOCTL_WLAN_ASSOCIATE: {
@@ -240,6 +247,7 @@ static devops_t devops = {
 };
 
 int netdev_register(netdev_t *netdev, char *name) {
+	// TODO: better allocation strategy (copy wlan's?)
 	int minor = __atomic_fetch_add(&current_minor, 1, __ATOMIC_RELAXED);
 	MUTEX_ACQUIRE(&tablelock);
 	int e = hashtable_set(&nametable, netdev, name, strlen(name), true);
