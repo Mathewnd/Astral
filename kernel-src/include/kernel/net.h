@@ -95,5 +95,6 @@ void ipv4_process(netdev_t *netdev, void *nextbuff);
 int ipv4_addroute(netdev_t *netdev, uint32_t addr, uint32_t gateway, uint32_t mask, int weight);
 int netdev_register(netdev_t *netdev, char *name);
 netdev_t *netdev_getdev(char *name);
+netdev_t *netdev_from_minor(uint16_t minor);
 
 #endif

@@ -246,6 +246,10 @@ static devops_t devops = {
 	.ioctl = netdev_ioctl
 };
 
+netdev_t *netdev_from_minor(uint16_t minor) {
+	return minors[minor];
+}
+
 int netdev_register(netdev_t *netdev, char *name) {
 	// TODO: better allocation strategy (copy wlan's?)
 	int minor = __atomic_fetch_add(&current_minor, 1, __ATOMIC_RELAXED);
