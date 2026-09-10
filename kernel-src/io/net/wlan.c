@@ -336,3 +336,30 @@ int wlan_get_bss_cache(netdev_t *netdev, void *buffer, size_t size, size_t *reco
 	free(ap_buffer);
 	return error;
 }
+
+int wlan_associate(netdev_t *netdev, uint8_t bssid[6], void *ie, size_t ie_size) {
+	wlan_device_t *wlan = (wlan_device_t *)netdev;
+
+	u80211_mac_address_t mac;
+	memcpy(&mac, bssid, 6);
+
+	u80211_ap_t *ap = u80211_bss_cache_find(&wlan->u80211_device->bss_cache, &mac);
+	if (ap == NULL)
+		return EINVAL;
+
+	int error = u80211_associate(wlan->u80211_device, ap, ie, ie_size) == U80211_STATUS_SUCCESS ? 0 : EINVAL;
+	u80211_ap_release(ap);
+	return error;
+}
+
+int wlan_associate_wait(netdev_t *netdev) {
+	wlan_device_t *wlan = (wlan_device_t *)netdev;
+
+	return u80211_wait_for_association_completion(wlan->u80211_device) == U80211_STATUS_SUCCESS ? 0 : EINVAL;
+}
+
+int wlan_disassociate(netdev_t *netdev) {
+	wlan_device_t *wlan = (wlan_device_t *)netdev;
+
+	return u80211_disassociate(wlan->u80211_device) == U80211_STATUS_SUCCESS ? 0 : EINVAL;
+}

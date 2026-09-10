@@ -12,4 +12,8 @@ int wlan_wait_for_scan(netdev_t *netdev);
 
 int wlan_get_bss_cache(netdev_t *netdev, void *buffer, size_t size, size_t *records_written);
 
+int wlan_associate(netdev_t *netdev, uint8_t bssid[6], void *ie, size_t ie_size);
+int wlan_associate_wait(netdev_t *netdev);
+int wlan_disassociate(netdev_t *netdev);
+
 #endif

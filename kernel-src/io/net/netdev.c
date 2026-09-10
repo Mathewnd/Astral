@@ -29,6 +29,14 @@ typedef struct {
 	size_t records_returned; // filled in by kernel
 } wlan_bss_request_t;
 
+typedef struct {
+	uint8_t bssid[6];
+	void *ie;
+	size_t ie_size;
+} wlan_association_request_t;
+
+#define MAX_IE_SIZE 1024
+
 #define NETDEV_IOCTL_GET_INFO 0x1337631
 #define NETDEV_IOCTL_WLAN_SCAN 0x8021101
 #define NETDEV_IOCTL_WLAN_SCAN_WAIT 0x8021102
@@ -58,19 +66,42 @@ int handle_wlan_ioctl(netdev_t *netdev, unsigned long request, void *arg, int *r
 			wlan_get_bss_cache(netdev, bss_request.buffer, bss_request.buffer_size, &bss_request.records_returned);
 			return USERCOPY_POSSIBLY_TO_USER(arg, &bss_request, sizeof(bss_request));
 		}
-		case NETDEV_IOCTL_WLAN_ASSOCIATE:
+		case NETDEV_IOCTL_WLAN_ASSOCIATE: {
+			wlan_association_request_t ar;
+			int error = USERCOPY_POSSIBLY_FROM_USER(&ar, arg, sizeof(ar));
+			if (error)
+				return error;
 
-			break;
+			if (IS_USER_ADDRESS(arg) && !IS_USER_ADDRESS(ar.ie))
+				return EFAULT;
+
+			if (ar.ie_size > MAX_IE_SIZE)
+				return EINVAL;
+
+			void *ie = alloc(ar.ie_size);
+			if (ie == NULL)
+				return ENOMEM;
+
+			error = USERCOPY_POSSIBLY_FROM_USER(ie, ar.ie, ar.ie_size);
+			if (error) {
+				free(ie);
+				return error;
+			}
+
+			error = wlan_associate(netdev, ar.bssid, ie, ar.ie_size);
+			free(ie);
+			return error;
+		}
+		case NETDEV_IOCTL_WLAN_ASSOCIATION_WAIT:
+			return wlan_associate_wait(netdev);
 		case NETDEV_IOCTL_WLAN_DISASSOCIATE:
-
-			break;
+			return wlan_disassociate(netdev);
 		case NETDEV_IOCTL_WLAN_SET_KEY:
 
 			break;
 		case NETDEV_IOCTL_WLAN_DEL_KEY:
 
 			break;
-
 		default:
 			return ENOTTY;
 	}
