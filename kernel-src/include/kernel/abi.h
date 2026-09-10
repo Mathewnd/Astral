@@ -88,6 +88,7 @@ typedef struct {
 
 #define AF_LOCAL 1
 #define AF_INET 2
+#define AF_PACKET 17
 
 #define SOCK_STREAM 1
 #define SOCK_DGRAM 2
@@ -154,6 +155,16 @@ typedef struct {
 	uint16_t sun_family;
 	char sun_path[ABISOCKADDR_UN_MAX];
 } unaddr_t;
+
+typedef struct {
+	uint16_t sll_family;
+	uint16_t sll_protocol;
+	int32_t sll_ifindex;
+	uint16_t sll_hatype;
+	uint8_t sll_pkttype;
+	uint8_t sll_halen;
+	uint8_t sll_addr[8];
+} sockaddr_ll_t;
 
 typedef struct {
 	void *addr;

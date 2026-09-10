@@ -36,6 +36,11 @@ syscallret_t syscall_socket(context_t *, int domain, int type, int protocol) {
 				socktype = SOCKET_TYPE_LOCAL;
 			if (type == SOCK_SEQPACKET)
 				socktype = SOCKET_TYPE_LOCAL_SEQPACKET;
+			break;
+		case AF_PACKET:
+			if (type == SOCK_DGRAM)
+				socktype = SOCKET_TYPE_RAW_STRIPPED;
+			break;
 	}
 
 	if (socktype == -1) {

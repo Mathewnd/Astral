@@ -175,8 +175,8 @@ static inline int socket_send(socket_t *socket, void *buffer, size_t size, uintm
 	return e;
 }
 
-static inline int sock_convertaddress(sockaddr_t *sockaddr, abisockaddr_t *abisockaddr) {
-	switch (abisockaddr->type) {
+static inline int sock_convertaddress(sockaddr_t *sockaddr, void *abisockaddr) {
+	switch (((abisockaddr_t *)abisockaddr)->type) {
 		case AF_INET:
 			inaddr_t *inaddr = (inaddr_t *)abisockaddr;
 			sockaddr->ipv4addr.addr = be_to_cpu_d(inaddr->sin_addr);
@@ -190,6 +190,18 @@ static inline int sock_convertaddress(sockaddr_t *sockaddr, abisockaddr_t *abiso
 
 			memcpy(sockaddr->path, unaddr->sun_path, length + 1);
 			break;
+		case AF_PACKET: {
+			sockaddr_ll_t lladdr;
+			memcpy(&lladdr, abisockaddr, sizeof(lladdr));
+			if (lladdr.sll_ifindex < 0 || lladdr.sll_ifindex > 0xffff)
+				return EINVAL;
+
+			sockaddr->raw.netdev = lladdr.sll_ifindex;
+			sockaddr->raw.proto = be_to_cpu_w(lladdr.sll_protocol);
+			memset(sockaddr->raw.mac, 0, sizeof(sockaddr->raw.mac));
+			memcpy(sockaddr->raw.mac, lladdr.sll_addr, min((size_t)lladdr.sll_halen, sizeof(sockaddr->raw.mac)));
+			break;
+		}
 		default:
 			return EINVAL;
 	}
@@ -197,21 +209,33 @@ static inline int sock_convertaddress(sockaddr_t *sockaddr, abisockaddr_t *abiso
 	return 0;
 }
 
-static inline int sock_addrtoabiaddr(int socktype, sockaddr_t *sockaddr, abisockaddr_t *abisockaddr) {
+static inline int sock_addrtoabiaddr(int socktype, sockaddr_t *sockaddr, void *abisockaddr) {
 	switch (socktype) {
 		case SOCKET_TYPE_UDP:
 		case SOCKET_TYPE_TCP:
-			abisockaddr->type = AF_INET;
+			((abisockaddr_t *)abisockaddr)->type = AF_INET;
 			inaddr_t *inaddr = (inaddr_t *)abisockaddr;
 			inaddr->sin_addr = cpu_to_be_d(sockaddr->ipv4addr.addr);
 			inaddr->sin_port = cpu_to_be_w(sockaddr->ipv4addr.port);
 			break;
 		case SOCKET_TYPE_LOCAL:
 		case SOCKET_TYPE_LOCAL_SEQPACKET:
-			abisockaddr->type = AF_LOCAL;
+			((abisockaddr_t *)abisockaddr)->type = AF_LOCAL;
 			unaddr_t *unaddr = (unaddr_t *)abisockaddr;
 			strcpy(unaddr->sun_path, sockaddr->path);
 			break;
+		case SOCKET_TYPE_RAW_STRIPPED: {
+			sockaddr_ll_t lladdr = {
+				.sll_family = AF_PACKET,
+				.sll_protocol = cpu_to_be_w(sockaddr->raw.proto),
+				.sll_ifindex = sockaddr->raw.netdev,
+				.sll_hatype = ARPHRD_ETHER,
+				.sll_halen = sizeof(sockaddr->raw.mac)
+			};
+			memcpy(lladdr.sll_addr, sockaddr->raw.mac, sizeof(sockaddr->raw.mac));
+			memcpy(abisockaddr, &lladdr, sizeof(lladdr));
+			break;
+		}
 		default:
 			return EINVAL;
 	}
@@ -252,6 +276,13 @@ static inline int sock_copy_addr_to_user(int socktype, sockaddr_t *sockaddr, voi
 			}
 
 			return 0;
+		}
+		case SOCKET_TYPE_RAW_STRIPPED: {
+			sockaddr_ll_t lladdr = {0};
+			sock_addrtoabiaddr(socktype, sockaddr, &lladdr);
+
+			*actual_len = sizeof(lladdr);
+			return usercopy_touser(uaddr, &lladdr, min(uaddrlen, sizeof(lladdr)));
 		}
 		default:
 			return EINVAL;
