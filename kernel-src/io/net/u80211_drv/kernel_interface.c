@@ -253,8 +253,7 @@ int u80211_drv_kernel_submit_bulk_xfer_and_wait(u80211_drv_device_handle_t opaqu
 }
 
 int u80211_drv_device_ready(void *device, const u80211_drv_device_metadata_t *metadata, const u80211_drv_device_ops_t *ops, u80211_drv_network_device_handle_t *network_device) {
-	printf("device ready\n");
-	return 0;
+	return wlan_register(device, metadata, ops, network_device) ? U80211_DRV_STATUS_UNKNOWN_ERROR : U80211_DRV_STATUS_SUCCESS;
 }
 
 void u80211_drv_packet_received(u80211_drv_network_device_handle_t device, void *packet, size_t packet_size) {

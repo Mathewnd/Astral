@@ -33,6 +33,7 @@ typedef struct {
 #define NETDEV_FLAGS_DEBUG 0x4
 #define NETDEV_FLAGS_LOOPBACK 0x8
 #define NETDEV_FLAGS_RUNNING 0x40
+#define NETDEV_FLAGS_WLAN 0x80
 
 typedef struct netdev_t {
 	mac_t mac;
