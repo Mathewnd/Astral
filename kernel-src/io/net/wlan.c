@@ -1,7 +1,9 @@
 #include <kernel/wlan.h>
 #include <u80211/u80211.h>
+#include <u80211_drv/u80211_drv.h>
 #include <kernel/net.h>
 #include <kernel/eth.h>
+#include <kernel/interrupt.h>
 #include <logging.h>
 #include <string.h>
 #include <errno.h>
@@ -16,8 +18,10 @@ typedef struct {
 	int id;
 } wlan_device_t;
 
+// TODO: in u80211_drv *_tx_buffer ops, pass device handle
 // TODO: change how netdesc_t is handled in kernel overall (?)
 // TODO: map u80211 errors to errnos
+// TODO: map u80211 errors to u80211_drv errors
 // TODO: in u80211, change the device ops to take a (void *) handle
 // TODO: general netdev cleanup:
 // - use struct ops instead of having function pointers in netdev struct
@@ -44,33 +48,92 @@ static void free_id(int id) {
 	__atomic_fetch_and(&id_bitmap, ~(1lu << id), __ATOMIC_RELAXED);
 }
 
-
 static int allocate_tx_buffer(u80211_device_t *device, size_t size, u80211_tx_buffer_descriptor_t *buffer_descriptor) {
 	wlan_device_t *wlan = device->driver_data;
+
+	buffer_descriptor->size = size;
+	buffer_descriptor->current_offset = size;
+	return wlan->ops->allocate_tx_buffer(size, &buffer_descriptor->data) == U80211_DRV_STATUS_SUCCESS ?
+		U80211_STATUS_SUCCESS : U80211_STATUS_UNKNOWN_ERROR;
 }
 
 static int free_tx_buffer(u80211_device_t *device, u80211_tx_buffer_descriptor_t *buffer_descriptor) {
 	wlan_device_t *wlan = device->driver_data;
+	wlan->ops->free_tx_buffer(buffer_descriptor->data);
+	return 0;
+}
+
+static int convert_cipher(int cipher, int *drv_cipher) {
+	switch (cipher) {
+		case -1:
+			*drv_cipher = U80211_DRV_CIPHER_NONE;
+			return U80211_STATUS_SUCCESS;
+		case U80211_CIPHER_CCMP:
+			*drv_cipher = U80211_DRV_CIPHER_CCMP;
+			return U80211_STATUS_SUCCESS;
+		case U80211_CIPHER_TKIP:
+			*drv_cipher = U80211_DRV_CIPHER_TKIP;
+			return U80211_STATUS_SUCCESS;
+		case U80211_CIPHER_WEP40:
+			*drv_cipher = U80211_DRV_CIPHER_WEP40;
+			return U80211_STATUS_SUCCESS;
+		case U80211_CIPHER_WEP104:
+			*drv_cipher = U80211_DRV_CIPHER_WEP104;
+			return U80211_STATUS_SUCCESS;
+		default:
+			return U80211_STATUS_UNSUPPORTED;
+	}
 }
 
 static int transmit(u80211_device_t *device, u80211_tx_buffer_descriptor_t *buffer_descriptor, const u80211_transmit_options_t *options) {
 	wlan_device_t *wlan = device->driver_data;
 
+	u80211_drv_transmit_options_t drv_options = {
+		.key = options->key
+	};
+	int status = convert_cipher(options->cipher, &drv_options.cipher);
+	if (status != U80211_STATUS_SUCCESS) {
+		wlan->ops->free_tx_buffer(buffer_descriptor->data);
+		return status;
+	}
+
+	return wlan->ops->transmit(wlan->driver_handle, buffer_descriptor->data, buffer_descriptor->size, buffer_descriptor->current_offset, &drv_options) == U80211_DRV_STATUS_SUCCESS ?
+		U80211_STATUS_SUCCESS : U80211_STATUS_UNKNOWN_ERROR;
 }
 
 static int set_channel(u80211_device_t *device, int channel) {
 	wlan_device_t *wlan = device->driver_data;
 
+	return wlan->ops->set_channel(wlan->driver_handle, channel) == U80211_DRV_STATUS_SUCCESS ?
+		U80211_STATUS_SUCCESS : U80211_STATUS_UNKNOWN_ERROR;
 }
 
 static int set_key(u80211_device_t *device, const u80211_key_t *key) {
 	wlan_device_t *wlan = device->driver_data;
 
+	u80211_drv_key_t drv_key = {
+		.index = key->index,
+		.key = key->key,
+		.key_len = key->key_len,
+		.flags = key->flags
+	};
+	memcpy(drv_key.peer, key->peer.bytes, sizeof(drv_key.peer));
+
+	int status = convert_cipher(key->cipher, &drv_key.cipher);
+	if (status != U80211_STATUS_SUCCESS)
+		return status;
+
+	return wlan->ops->set_key(wlan->driver_handle, &drv_key) == U80211_DRV_STATUS_SUCCESS ?
+		U80211_STATUS_SUCCESS : U80211_STATUS_UNKNOWN_ERROR;
 }
 
 static int del_key(u80211_device_t *device, uint8_t index, const u80211_mac_address_t *peer, uint32_t flags) {
+	(void)peer;
+	(void)flags;
 	wlan_device_t *wlan = device->driver_data;
 
+	return wlan->ops->del_key(wlan->driver_handle, index) == U80211_DRV_STATUS_SUCCESS ?
+		U80211_STATUS_SUCCESS : U80211_STATUS_UNKNOWN_ERROR;
 }
 
 static u80211_device_ops_t ops = {
@@ -101,6 +164,7 @@ static int wlan_alloc_desc(netdev_t *netdev, size_t requested_size, netdesc_t *d
 
 static int wlan_free_desc(netdev_t *netdev, netdesc_t *desc) {
 	// TODO: u80211 free descriptor call
+	return 0;
 }
 
 static int wlan_send_packet(netdev_t *netdev, netdesc_t desc, mac_t target, int proto) {
@@ -166,6 +230,17 @@ int wlan_register(void *handle, const u80211_drv_device_metadata_t *drv_metadata
 		free_id(wlan->id);
 		hashtable_destroy(&wlan->netdev.arpcache);
 		free(wlan);
+		return error;
 	}
-	return error;
+
+	*network_device = wlan;
+	return 0;
+}
+
+void wlan_process_packet(u80211_drv_network_device_handle_t handle, void *packet, size_t packet_size) {
+	wlan_device_t *wlan = (wlan_device_t *)handle;
+
+	long ipl = interrupt_raiseipl(IPL_DPC);
+	u80211_process_packet(wlan->u80211_device, packet, packet_size);
+	interrupt_loweripl(ipl);
 }

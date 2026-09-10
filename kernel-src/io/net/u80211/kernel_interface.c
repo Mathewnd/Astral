@@ -88,7 +88,7 @@ void u80211_kernel_free_spinlock(void *spinlock) {
 
 void u80211_kernel_acquire_spinlock(void *opaque_spinlock) {
 	u80211_spinlock_t *spinlock = opaque_spinlock;
-	spinlock->old_ipl = spinlock_acquire_raise_ipl(&spinlock->lock, IPL_NET);
+	spinlock->old_ipl = spinlock_acquire_raise_ipl(&spinlock->lock, IPL_DPC);
 }
 
 void u80211_kernel_release_spinlock(void *opaque_spinlock) {
@@ -144,7 +144,7 @@ static work_queue_t *u80211_work_queue;
 static spinlock_t work_state_lock;
 
 static long acquire_work_state_lock(void) {
-	return spinlock_acquire_raise_ipl(&work_state_lock, IPL_NET);
+	return spinlock_acquire_raise_ipl(&work_state_lock, IPL_DPC);
 }
 
 static void release_work_state_lock(long old_ipl) {
@@ -292,7 +292,7 @@ static void u80211_kernel_interface_init(void) {
 	__assert(pushlock_cache && semaphore_cache && spinlock_cache && work_cache && timer_cache);
 
 	SPINLOCK_INIT(work_state_lock);
-	u80211_work_queue = work_queue_create("u80211", 1, IPL_NET);
+	u80211_work_queue = work_queue_create("u80211", 1, IPL_DPC);
 	__assert(u80211_work_queue);
 }
 

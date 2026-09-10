@@ -1,6 +1,6 @@
 #include <u80211_drv/kernel_interface.h>
 #include <u80211_drv/status.h>
-
+#include <kernel/wlan.h>
 #include <errno.h>
 #include <arch/mmu.h>
 #include <kernel/alloc.h>
@@ -257,5 +257,5 @@ int u80211_drv_device_ready(void *device, const u80211_drv_device_metadata_t *me
 }
 
 void u80211_drv_packet_received(u80211_drv_network_device_handle_t device, void *packet, size_t packet_size) {
-	printf("got packet!\n");
+	wlan_process_packet(device, packet, packet_size);
 }
