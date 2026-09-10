@@ -1,11 +1,13 @@
 #include <kernel/sock.h>
+#include <kernel/raw.h>
 #include <logging.h>
 
 static socket_t *(*createsocket[])() = {
 	udp_createsocket,
 	localsock_createsocket,
 	tcp_createsocket,
-	localsock_create_seqpacket_socket
+	localsock_create_seqpacket_socket,
+	raw_create_socket
 };
 
 socket_t *socket_create(int type) {

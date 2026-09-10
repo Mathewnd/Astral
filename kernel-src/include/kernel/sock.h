@@ -92,6 +92,7 @@ typedef struct {
 #define SOCKET_TYPE_LOCAL 1
 #define SOCKET_TYPE_TCP 2
 #define SOCKET_TYPE_LOCAL_SEQPACKET 3
+#define SOCKET_TYPE_RAW_STRIPPED 4
 #define SOCKFS_SOCKET_FROM_NODE(nodep) (((socketnode_t *)(nodep))->socket)
 
 static inline int sockfd_get(int fd, vnode_t **vnodep, int *fileflags) {
