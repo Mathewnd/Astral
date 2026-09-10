@@ -363,3 +363,70 @@ int wlan_disassociate(netdev_t *netdev) {
 
 	return u80211_disassociate(wlan->u80211_device) == U80211_STATUS_SUCCESS ? 0 : EINVAL;
 }
+
+static bool wlan_cipher_to_u80211_cipher(uint8_t cipher, u80211_cipher_t *out) {
+	switch (cipher) {
+		case WLAN_CIPHER_CCMP:
+			*out = U80211_CIPHER_CCMP;
+			break;
+		case WLAN_CIPHER_TKIP:
+			*out = U80211_CIPHER_TKIP;
+			break;
+		case WLAN_CIPHER_WEP40:
+			*out = U80211_CIPHER_WEP40;
+			break;
+		case WLAN_CIPHER_WEP104:
+			*out = U80211_CIPHER_WEP104;
+			break;
+		default:
+			return false;
+	}
+
+	return true;
+}
+
+static uint32_t wlan_flags_to_u80211_flags(uint32_t flags) {
+	uint32_t out = 0;
+
+	if (flags & WLAN_KEY_PAIRWISE)
+		out |= U80211_KEY_PAIRWISE;
+
+	if (flags & WLAN_KEY_GROUP)
+		out |= U80211_KEY_GROUP;
+
+	if (flags & WLAN_KEY_RX)
+		out |= U80211_KEY_RX;
+
+	if (flags & WLAN_KEY_TX)
+		out |= U80211_KEY_TX;
+
+	return out;
+}
+
+int wlan_set_key(netdev_t *netdev, wlan_key_t *key) {
+	wlan_device_t *wlan = (wlan_device_t *)netdev;
+
+	u80211_key_t u80211_key = {
+		.index = key->index,
+		.key = key->key,
+		.key_len = key->key_len,
+		.rx_seq = key->rx_seq,
+		.rx_seq_len = key->rx_seq_len,
+		.flags = wlan_flags_to_u80211_flags(key->flags)
+	};
+	memcpy(&u80211_key.peer, key->peer, 6);
+
+	if (!wlan_cipher_to_u80211_cipher(key->cipher, &u80211_key.cipher))
+		return EINVAL;
+
+	return u80211_set_key(wlan->u80211_device, &u80211_key) == U80211_STATUS_SUCCESS ? 0 : EINVAL;
+}
+
+int wlan_del_key(netdev_t *netdev, uint8_t index, uint8_t peer[6], uint32_t flags) {
+	wlan_device_t *wlan = (wlan_device_t *)netdev;
+
+	u80211_mac_address_t mac;
+	memcpy(&mac, peer, 6);
+
+	return u80211_del_key(wlan->u80211_device, index, &mac, flags) == U80211_STATUS_SUCCESS ? 0 : EINVAL;
+}

@@ -35,6 +35,14 @@ typedef struct {
 	size_t ie_size;
 } wlan_association_request_t;
 
+typedef struct {
+	uint8_t peer[6];
+	uint8_t index;
+	uint32_t flags;
+} wlan_del_key_request_t;
+
+#define MAX_KEY_SIZE 128
+#define MAX_SEQ_SIZE 16
 #define MAX_IE_SIZE 1024
 
 #define NETDEV_IOCTL_GET_INFO 0x1337631
@@ -96,12 +104,71 @@ int handle_wlan_ioctl(netdev_t *netdev, unsigned long request, void *arg, int *r
 			return wlan_associate_wait(netdev);
 		case NETDEV_IOCTL_WLAN_DISASSOCIATE:
 			return wlan_disassociate(netdev);
-		case NETDEV_IOCTL_WLAN_SET_KEY:
+		case NETDEV_IOCTL_WLAN_SET_KEY: {
+			wlan_key_t req;
+			int error = USERCOPY_POSSIBLY_FROM_USER(&req, arg, sizeof(req));
+			if (error)
+				return error;
 
-			break;
-		case NETDEV_IOCTL_WLAN_DEL_KEY:
+			if (req.rx_seq_len > MAX_SEQ_SIZE)
+				return EINVAL;
 
-			break;
+			if (req.key_len > MAX_KEY_SIZE)
+				return EINVAL;
+
+			void *key = NULL;
+			void *seq = NULL;
+
+			if (req.key_len) {
+				if (IS_USER_ADDRESS(arg) && !IS_USER_ADDRESS(req.key))
+					return EFAULT;
+
+				key = alloc(req.key_len);
+				if (key == NULL)
+					return ENOMEM;
+
+				error = USERCOPY_POSSIBLY_FROM_USER(key, req.key, req.key_len);
+				if (error)
+					goto wlan_set_key_done;
+			}
+
+			if (req.rx_seq_len) {
+				if (IS_USER_ADDRESS(arg) && !IS_USER_ADDRESS(req.rx_seq)) {
+					error = EFAULT;
+					goto wlan_set_key_done;
+				}
+
+				seq = alloc(req.rx_seq_len);
+				if (seq == NULL) {
+					error = ENOMEM;
+					goto wlan_set_key_done;
+				}
+
+				error = USERCOPY_POSSIBLY_FROM_USER(seq, req.rx_seq, req.rx_seq_len);
+				if (error)
+					goto wlan_set_key_done;
+			}
+
+			req.key = key;
+			req.rx_seq = seq;
+
+			error = wlan_set_key(netdev, &req);
+
+wlan_set_key_done:
+			if (key)
+				free(key);
+			if (seq)
+				free(seq);
+			return error;
+		}
+		case NETDEV_IOCTL_WLAN_DEL_KEY: {
+			wlan_del_key_request_t req;
+			int error = USERCOPY_POSSIBLY_FROM_USER(&req, arg, sizeof(req));
+			if (error)
+				return error;
+
+			return wlan_del_key(netdev, req.index, req.peer, req.flags);
+		}
 		default:
 			return ENOTTY;
 	}
