@@ -62,6 +62,8 @@ typedef struct {
 	uint32_t dstaddr;
 } __attribute__((packed)) ipv4frame_t;
 
+#define IPV4_HEADER_LENGTH(version_length) (((version_length) & 0xf) * 4)
+
 typedef struct {
 	uint16_t srcport;
 	uint16_t dstport;
@@ -92,7 +94,7 @@ int udp_sendpacket(iovec_iterator_t *iovec_iterator, size_t packetsize, uint32_t
 int ipv4_sendpacket(void *buffer, size_t packetsize, uint32_t ip, int proto, netdev_t *broadcastdev);
 size_t ipv4_getmtu(uint32_t ip);
 uint32_t ipv4_getnetdevip(uint32_t ip);
-void ipv4_process(netdev_t *netdev, void *nextbuff);
+void ipv4_process(netdev_t *netdev, void *nextbuff, size_t size);
 int ipv4_addroute(netdev_t *netdev, uint32_t addr, uint32_t gateway, uint32_t mask, int weight);
 int netdev_register(netdev_t *netdev, char *name);
 netdev_t *netdev_getdev(char *name);

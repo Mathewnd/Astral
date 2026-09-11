@@ -1,5 +1,6 @@
 #include <kernel/net.h>
 #include <kernel/eth.h>
+#include <kernel/raw.h>
 #include <logging.h>
 
 // runs on dpc context, called by the individual driver dpcs on a receive.
@@ -20,12 +21,15 @@ void eth_process(netdev_t *netdev, void *buffer, size_t size) {
 
 	void *nextbuff = (void *)((uintptr_t)buffer + sizeof(ethframe_t));
 
-	switch (be_to_cpu_w(frame->type)) {
+	uint16_t ethertype = be_to_cpu_w(frame->type);
+	switch (ethertype) {
 		case ETH_PROTO_IP:
-			ipv4_process(netdev, nextbuff);
+			ipv4_process(netdev, nextbuff, size - sizeof(ethframe_t));
 			break;
 		case ETH_PROTO_ARP:
 			arp_process(netdev, nextbuff);
 			break;
 	}
+
+	raw_process(netdev, nextbuff, &src, ethertype, size - sizeof(ethframe_t));
 }

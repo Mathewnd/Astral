@@ -413,7 +413,7 @@ void tcp_process(netdev_t *netdev, void *buffer, ipv4frame_t *ipv4frame) {
 		.zero = 0,
 		.protocol = ipv4frame->protocol,
 		// ipv4 len is header + size
-		.length = cpu_to_be_w(be_to_cpu_w(ipv4frame->packetlen) - sizeof(ipv4frame_t))
+		.length = cpu_to_be_w(be_to_cpu_w(ipv4frame->packetlen) - IPV4_HEADER_LENGTH(ipv4frame->version_length))
 	};
 
 	if (checksum(&ipv4pseudoheader, buffer) != 0) {

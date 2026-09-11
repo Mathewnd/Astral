@@ -86,14 +86,14 @@ int ipv4_addroute(netdev_t *netdev, uint32_t addr, uint32_t gateway, uint32_t ma
 
 static int checksum(void *buffer, size_t size) {
 	uint16_t *p = buffer;
-	int sum = 0;
+	uint32_t sum = 0;
 	int i;
 	for (i = 0; i < (size & ~(1lu)); i += 2) {
 		sum += be_to_cpu_w(p[i >> 1]);
 	}
 
 	if (size & 1) {
-		sum += ((uint8_t *)p)[i];
+		sum += ((uint8_t *)p)[i] << 8;
 	}
 
 	sum = (sum >> 16) + (sum & 0xffff);
@@ -124,22 +124,26 @@ static int dispatch_fragment(netdev_t *netdev, netdesc_t fragdesc,
 	return netdev->sendpacket(netdev, fragdesc, mac, ETH_PROTO_IP);
 }
 
-void ipv4_process(netdev_t *netdev, void *buff) {
+void ipv4_process(netdev_t *netdev, void *buff, size_t size) {
 	ipv4frame_t *frame = buff;
 
-	if (checksum(frame, sizeof(ipv4frame_t)) != 0) {
-		printf("ipv4: bad checksum\n");
+	if (size < sizeof(ipv4frame_t) || (frame->version_length >> 4) != 4)
 		return;
-	}
 
-	if (frame->version_length != VERSION_LENGTH(4, 5))
+	size_t headerlen = IPV4_HEADER_LENGTH(frame->version_length);
+	if (headerlen < sizeof(ipv4frame_t) || headerlen > size)
+		return;
+
+	size_t packetlen = be_to_cpu_w(frame->packetlen);
+	if (packetlen < headerlen || packetlen > size)
+		return;
+
+	if (checksum(frame, headerlen) != 0)
 		return;
 
 	uint16_t flagsfrag = be_to_cpu_w(frame->flags_fragoffset);
-	if ((GET_FLAGS(flagsfrag) & FLAG_MF) || (GET_FRAGOFFSET(flagsfrag) > 0)) {
-		printf("ipv4: reassembly not yet supported!\n");
+	if ((GET_FLAGS(flagsfrag) & FLAG_MF) || (GET_FRAGOFFSET(flagsfrag) > 0))
 		return;
-	}
 
 	uint32_t dstip = be_to_cpu_d(frame->dstaddr);
 	uint32_t srcip = be_to_cpu_d(frame->srcaddr);
@@ -147,7 +151,7 @@ void ipv4_process(netdev_t *netdev, void *buff) {
 	if (dstip != IPV4_BROADCAST_ADDRESS && dstip != netdev->ip)
 		return;
 
-	void *nextbuff = (void *)((uintptr_t)buff + sizeof(ipv4frame_t));
+	void *nextbuff = (void *)((uintptr_t)buff + headerlen);
 
 	switch (frame->protocol) {
 		case IPV4_PROTO_UDP:
