@@ -139,9 +139,12 @@ void u80211_process_packet(u80211_device_t *device, void *packet, size_t packet_
 			u80211_process_management_packet(device, &header, data_start, data_size);
 			break;
 		case U80211_HEADER_FRAME_CONTROL_TYPE_DATA:
-			if (data_packet_for_device(device, &header) &&
-				u80211_association_is_duplicate(device, &header, U80211_DEVICE_STATE_ASSOCIATED))
+			if (!data_packet_for_device(device, &header))
 				return;
+
+			if (u80211_association_is_duplicate(device, &header, U80211_DEVICE_STATE_ASSOCIATED))
+				return;
+
 			u80211_process_data_packet(device, &header, data_start, data_size);
 			break;
 	}
