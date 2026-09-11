@@ -1,0 +1,38 @@
+name=wpa-supplicant
+revision=1
+from_source=wpa-supplicant
+imagedeps="build-essential"
+hostdeps="xgcc xbinutils"
+deps="base openssl"
+
+configure() {
+	cp -rpa ${source_dir}/*  .
+	cat > wpa_supplicant/.config << EOF
+CONFIG_NO_LINUX_PACKET_SOCKET_WAR=y
+CONFIG_L2_PACKET=linux
+CONFIG_ELOOP=eloop
+CONFIG_OS=unix
+CONFIG_DRIVER_ASTRAL=y
+
+CONFIG_BACKEND=file
+
+# TODO use unix datagram sockets when implemented
+CONFIG_CTRL_IFACE=udp
+EOF
+
+	cat > wpa_supplicant.conf << EOF
+ctrl_interface=udp
+update_config=1
+ap_scan=1
+EOF
+}
+
+build() {
+	make V=1 CC=x86_64-astral-gcc AR=x86_64-astral-ar RANLIB=x86_64-astral-ranlib -C wpa_supplicant -j${parallelism}
+}
+
+package() {
+	install -Dm755 ./wpa_supplicant/wpa_supplicant ${dest_dir}${prefix}/sbin/wpa_supplicant
+	install -Dm755 ./wpa_supplicant/wpa_cli ${dest_dir}${prefix}/bin/wpa_cli
+	install -Dm644 wpa_supplicant.conf ${dest_dir}/etc/wpa_supplicant.conf
+}

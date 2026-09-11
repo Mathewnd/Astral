@@ -1,0 +1,5 @@
+name=wpa-supplicant
+version=2.12
+source_method=tarball
+tarball_url="https://w1.fi/releases/wpa_supplicant-${version}.tar.gz"
+tarball_sha512="5e996323fea2a5f6fefe4f2456481b9e8409adb5bf1d7a72d4489f3db2e3a968d6d9fe5cc0959b820f5b18faa330adb1245da98aad49631009609fbd0f447901"

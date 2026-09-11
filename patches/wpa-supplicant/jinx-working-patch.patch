@@ -1,0 +1,695 @@
+diff --git wpa-supplicant-clean/src/common/defs.h wpa-supplicant-workdir/src/common/defs.h
+index c88766e7..8f8c7431 100644
+--- wpa-supplicant-clean/src/common/defs.h
++++ wpa-supplicant-workdir/src/common/defs.h
+@@ -9,6 +9,9 @@
+ #ifndef DEFS_H
+ #define DEFS_H
+ 
++#include <stddef.h>
++#include <stdbool.h>
++
+ #define WPA_CIPHER_NONE BIT(0)
+ #define WPA_CIPHER_WEP40 BIT(1)
+ #define WPA_CIPHER_WEP104 BIT(2)
+diff --git wpa-supplicant-clean/src/common/wpa_common.h wpa-supplicant-workdir/src/common/wpa_common.h
+index 51bd3886..045e17d3 100644
+--- wpa-supplicant-clean/src/common/wpa_common.h
++++ wpa-supplicant-workdir/src/common/wpa_common.h
+@@ -9,6 +9,9 @@
+ #ifndef WPA_COMMON_H
+ #define WPA_COMMON_H
+ 
++#include <stdbool.h>
++#include <stddef.h>
++
+ #include "common/defs.h"
+ 
+ /* IEEE 802.11i */
+diff --git wpa-supplicant-clean/src/drivers/driver.h wpa-supplicant-workdir/src/drivers/driver.h
+index ea5e28be..0825e661 100644
+--- wpa-supplicant-clean/src/drivers/driver.h
++++ wpa-supplicant-workdir/src/drivers/driver.h
+@@ -7932,6 +7932,9 @@ extern const struct wpa_driver_ops wpa_driver_bsd_ops; /* driver_bsd.c */
+ /* driver_openbsd.c */
+ extern const struct wpa_driver_ops wpa_driver_openbsd_ops;
+ #endif /* CONFIG_DRIVER_OPENBSD */
++#ifdef CONFIG_DRIVER_ASTRAL
++extern const struct wpa_driver_ops wpa_driver_astral_ops; /* driver_astral.c */
++#endif /* CONFIG_DRIVER_ASTRAL */
+ #ifdef CONFIG_DRIVER_NDIS
+ extern struct wpa_driver_ops wpa_driver_ndis_ops; /* driver_ndis.c */
+ #endif /* CONFIG_DRIVER_NDIS */
+diff --git wpa-supplicant-workdir/src/drivers/driver_astral.c wpa-supplicant-workdir/src/drivers/driver_astral.c
+new file mode 100644
+index 00000000..bd340511
+--- /dev/null
++++ wpa-supplicant-workdir/src/drivers/driver_astral.c
+@@ -0,0 +1,604 @@
++#include "includes.h"
++#include <fcntl.h>
++#include <sys/ioctl.h>
++
++#include "common.h"
++#include "eloop.h"
++#include "common/defs.h"
++#include "common/ieee802_11_defs.h"
++#include "common/wpa_common.h"
++#include "driver.h"
++
++#define ASTRAL_IOCTL_GET_INFO			0x1337631UL
++#define ASTRAL_IOCTL_WLAN_SCAN			0x8021101UL
++#define ASTRAL_IOCTL_WLAN_SCAN_WAIT		0x8021102UL
++#define ASTRAL_IOCTL_WLAN_GET_BSS_CACHE	0x8021103UL
++#define ASTRAL_IOCTL_WLAN_ASSOCIATE		0x8021104UL
++#define ASTRAL_IOCTL_WLAN_ASSOCIATION_WAIT	0x8021105UL
++#define ASTRAL_IOCTL_WLAN_DISASSOCIATE		0x8021106UL
++#define ASTRAL_IOCTL_WLAN_SET_KEY		0x8021107UL
++#define ASTRAL_IOCTL_WLAN_DEL_KEY		0x8021108UL
++
++#define ASTRAL_MAX_KEY_SIZE	128
++#define ASTRAL_MAX_SEQ_SIZE	16
++#define ASTRAL_MAX_IE_SIZE	1024
++#define ASTRAL_MAX_APS		1000
++#define ASTRAL_MAX_RSN_SIZE	255
++#define ASTRAL_MAX_SCAN_IE_SIZE	512
++
++#define ASTRAL_CIPHER_CCMP	0
++#define ASTRAL_CIPHER_TKIP	1
++#define ASTRAL_CIPHER_WEP40	2
++#define ASTRAL_CIPHER_WEP104	3
++
++#define ASTRAL_KEY_PAIRWISE	(1U << 0)
++#define ASTRAL_KEY_GROUP	(1U << 1)
++#define ASTRAL_KEY_RX		(1U << 2)
++#define ASTRAL_KEY_TX		(1U << 3)
++
++struct astral_abi_sockaddr {
++	u16 type;
++	char addr[14];
++};
++
++struct astral_net_info {
++	struct astral_abi_sockaddr addr;
++	struct astral_abi_sockaddr broadaddr;
++	struct astral_abi_sockaddr netmask;
++	struct astral_abi_sockaddr hwaddr;
++	short flags;
++	int mtu;
++};
++
++struct astral_bss_request {
++	void *buffer;
++	size_t buffer_size;
++	size_t records_returned;
++};
++
++struct astral_bss_info {
++	u16 length;
++	u16 rsn_ie_length;
++	u16 variable_offset;
++	u16 interval;
++	u16 capabilities;
++	u8 bssid[ETH_ALEN];
++	u8 rate_bitmap[16];
++	u8 channel;
++	u8 ssid_length;
++};
++
++struct astral_association_request {
++	u8 bssid[ETH_ALEN];
++	void *ie;
++	size_t ie_size;
++};
++
++struct astral_key_request {
++	u8 cipher;
++	u8 index;
++	u8 peer[ETH_ALEN];
++	u8 *key;
++	size_t key_len;
++	u8 *rx_seq;
++	size_t rx_seq_len;
++	u32 flags;
++};
++
++struct astral_del_key_request {
++	u8 peer[ETH_ALEN];
++	u8 index;
++	u32 flags;
++};
++
++struct astral_driver_data {
++	void *ctx;
++	int fd;
++	u8 own_addr[ETH_ALEN];
++
++	u8 bssid[ETH_ALEN];
++	u8 ssid[SSID_MAX_LEN];
++	size_t ssid_len;
++
++	u8 pending_bssid[ETH_ALEN];
++	u8 pending_ssid[SSID_MAX_LEN];
++	size_t pending_ssid_len;
++	bool association_pending;
++	bool scan_pending;
++};
++
++static int astral_ioctl(struct astral_driver_data *drv, unsigned long request,
++			void *arg)
++{
++	if (ioctl(drv->fd, request, arg) < 0) {
++		wpa_printf(MSG_DEBUG, "Astral ioctl 0x%lx failed: %s", request,
++			   strerror(errno));
++		return -1;
++	}
++
++	return 0;
++}
++
++static int astral_channel_to_freq(u8 channel)
++{
++	if (channel >= 1 && channel <= 13)
++		return 2407 + 5 * channel;
++	if (channel == 14)
++		return 2484;
++	return 0;
++}
++
++static void astral_append_ie(u8 **pos, u8 id, const u8 *data, size_t len)
++{
++	*(*pos)++ = id;
++	*(*pos)++ = (u8) len;
++	if (len)
++		os_memcpy(*pos, data, len);
++	*pos += len;
++}
++
++static size_t astral_build_scan_ies(const struct astral_bss_info *bss,
++					const u8 *variables, u8 *ies)
++{
++	u8 rates[sizeof(bss->rate_bitmap) * 8];
++	size_t rate_count = 0;
++	size_t i;
++	u8 *pos = ies;
++
++	astral_append_ie(&pos, WLAN_EID_SSID, variables, bss->ssid_length);
++
++	for (i = 0; i <= 125; ++i) {
++		if (bss->rate_bitmap[i / 8] & BIT(i % 8))
++			rates[rate_count++] = (u8) i;
++	}
++	if (rate_count) {
++		size_t supported = rate_count > 8 ? 8 : rate_count;
++		astral_append_ie(&pos, WLAN_EID_SUPP_RATES, rates, supported);
++		if (rate_count > supported)
++			astral_append_ie(&pos, WLAN_EID_EXT_SUPP_RATES,
++					rates + supported, rate_count - supported);
++	}
++
++	if (bss->rsn_ie_length)
++		astral_append_ie(&pos, WLAN_EID_RSN,
++				variables + bss->ssid_length, bss->rsn_ie_length);
++
++	return pos - ies;
++}
++
++static void astral_scan_complete(void *eloop_ctx, void *user_ctx)
++{
++	struct astral_driver_data *drv = eloop_ctx;
++
++	(void) user_ctx;
++	if (!drv->scan_pending)
++		return;
++
++	drv->scan_pending = false;
++	if (astral_ioctl(drv, ASTRAL_IOCTL_WLAN_SCAN_WAIT, NULL) < 0)
++		wpa_printf(MSG_DEBUG, "Astral scan did not complete successfully");
++
++	/* The result callback reads the cache populated by the completed scan. */
++	wpa_supplicant_event(drv->ctx, EVENT_SCAN_RESULTS, NULL);
++}
++
++static void astral_association_complete(void *eloop_ctx, void *user_ctx)
++{
++	struct astral_driver_data *drv = eloop_ctx;
++	union wpa_event_data event;
++
++	(void) user_ctx;
++	if (!drv->association_pending)
++		return;
++
++	drv->association_pending = false;
++	if (astral_ioctl(drv, ASTRAL_IOCTL_WLAN_ASSOCIATION_WAIT, NULL) == 0) {
++		os_memcpy(drv->bssid, drv->pending_bssid, ETH_ALEN);
++		drv->ssid_len = drv->pending_ssid_len;
++		os_memcpy(drv->ssid, drv->pending_ssid, drv->ssid_len);
++		wpa_supplicant_event(drv->ctx, EVENT_ASSOC, NULL);
++		return;
++	}
++
++	/* The current kernel ABI maps all association failures to EINVAL. */
++	os_memset(&event, 0, sizeof(event));
++	event.assoc_reject.bssid = drv->pending_bssid;
++	event.assoc_reject.status_code = WLAN_STATUS_UNSPECIFIED_FAILURE;
++	event.assoc_reject.reason_code = STA_CONNECT_FAIL_REASON_UNSPECIFIED;
++	wpa_supplicant_event(drv->ctx, EVENT_ASSOC_REJECT, &event);
++}
++
++static void *astral_init(void *ctx, const char *ifname)
++{
++	struct astral_driver_data *drv;
++	struct astral_net_info info;
++	char path[sizeof("/dev/") + IFNAMSIZ];
++	int path_len;
++
++	if (!ifname || os_strlen(ifname) >= IFNAMSIZ || os_strchr(ifname, '/'))
++		return NULL;
++
++	drv = os_zalloc(sizeof(*drv));
++	if (!drv)
++		return NULL;
++	drv->ctx = ctx;
++	drv->fd = -1;
++
++	path_len = os_snprintf(path, sizeof(path), "/dev/%s", ifname);
++	if (path_len < 0 || (size_t) path_len >= sizeof(path))
++		goto fail;
++
++	drv->fd = open(path, O_RDWR);
++	if (drv->fd < 0) {
++		wpa_printf(MSG_DEBUG, "Could not open %s: %s", path,
++			   strerror(errno));
++		goto fail;
++	}
++
++	os_memset(&info, 0, sizeof(info));
++	if (astral_ioctl(drv, ASTRAL_IOCTL_GET_INFO, &info) < 0)
++		goto fail;
++	os_memcpy(drv->own_addr, info.hwaddr.addr, ETH_ALEN);
++
++	return drv;
++
++fail:
++	if (drv->fd >= 0)
++		close(drv->fd);
++	os_free(drv);
++	return NULL;
++}
++
++static void astral_deinit(void *priv)
++{
++	struct astral_driver_data *drv = priv;
++
++	if (!drv)
++		return;
++
++	eloop_cancel_timeout(astral_scan_complete, drv, NULL);
++	eloop_cancel_timeout(astral_association_complete, drv, NULL);
++
++	/* Drain kernel operations whose completion callbacks were cancelled. */
++	if (drv->scan_pending) {
++		(void) astral_ioctl(drv, ASTRAL_IOCTL_WLAN_SCAN_WAIT, NULL);
++		drv->scan_pending = false;
++	}
++	if (drv->association_pending) {
++		(void) astral_ioctl(drv, ASTRAL_IOCTL_WLAN_ASSOCIATION_WAIT, NULL);
++		drv->association_pending = false;
++	}
++
++	if (drv->fd >= 0)
++		close(drv->fd);
++	os_free(drv);
++}
++
++static int astral_get_bssid(void *priv, u8 *bssid)
++{
++	struct astral_driver_data *drv = priv;
++
++	if (!drv || is_zero_ether_addr(drv->bssid))
++		return -1;
++	os_memcpy(bssid, drv->bssid, ETH_ALEN);
++	return 0;
++}
++
++static int astral_get_ssid(void *priv, u8 *ssid)
++{
++	struct astral_driver_data *drv = priv;
++
++	if (!drv || is_zero_ether_addr(drv->bssid))
++		return -1;
++	os_memcpy(ssid, drv->ssid, drv->ssid_len);
++	return drv->ssid_len;
++}
++
++static int astral_scan(void *priv, struct wpa_driver_scan_params *params)
++{
++	struct astral_driver_data *drv = priv;
++
++	(void) params;
++	if (!drv || drv->scan_pending)
++		return -1;
++	if (astral_ioctl(drv, ASTRAL_IOCTL_WLAN_SCAN, NULL) < 0)
++		return -1;
++
++	drv->scan_pending = true;
++	if (eloop_register_timeout(0, 0, astral_scan_complete, drv, NULL) < 0) {
++		(void) astral_ioctl(drv, ASTRAL_IOCTL_WLAN_SCAN_WAIT, NULL);
++		drv->scan_pending = false;
++		return -1;
++	}
++	return 0;
++}
++
++static struct wpa_scan_results *astral_get_scan_results(void *priv)
++{
++	struct astral_driver_data *drv = priv;
++	struct astral_bss_request request;
++	struct wpa_scan_results *results = NULL;
++	u8 *buffer;
++	size_t buffer_size;
++	size_t remaining;
++	size_t offset = 0;
++	size_t i;
++
++	buffer_size = ASTRAL_MAX_APS *
++		(sizeof(struct astral_bss_info) + SSID_MAX_LEN + ASTRAL_MAX_RSN_SIZE);
++	buffer = os_malloc(buffer_size);
++	if (!buffer)
++		return NULL;
++
++	os_memset(&request, 0, sizeof(request));
++	request.buffer = buffer;
++	request.buffer_size = buffer_size;
++	if (astral_ioctl(drv, ASTRAL_IOCTL_WLAN_GET_BSS_CACHE, &request) < 0)
++		goto fail;
++	if (request.records_returned > ASTRAL_MAX_APS)
++		goto fail;
++
++	results = os_zalloc(sizeof(*results));
++	if (!results)
++		goto fail;
++	if (request.records_returned) {
++		results->res = os_calloc(request.records_returned,
++					 sizeof(*results->res));
++		if (!results->res)
++			goto fail_results;
++	}
++
++	remaining = buffer_size;
++	for (i = 0; i < request.records_returned; ++i) {
++		const struct astral_bss_info *bss;
++		const u8 *variables;
++		struct wpa_scan_res *result;
++		u8 ies[ASTRAL_MAX_SCAN_IE_SIZE];
++		size_t ie_len;
++
++		if (remaining < sizeof(*bss))
++			goto fail_results;
++		bss = (const struct astral_bss_info *) (buffer + offset);
++		if (bss->length < sizeof(*bss) || bss->length > remaining ||
++		    bss->variable_offset < sizeof(*bss) ||
++		    bss->variable_offset > bss->length ||
++		    bss->ssid_length > bss->length - bss->variable_offset ||
++		    bss->rsn_ie_length > bss->length - bss->variable_offset -
++						bss->ssid_length)
++			goto fail_results;
++
++		variables = (const u8 *) bss + bss->variable_offset;
++		ie_len = astral_build_scan_ies(bss, variables, ies);
++		if (ie_len > ASTRAL_MAX_SCAN_IE_SIZE)
++			goto fail_results;
++
++		result = os_zalloc(sizeof(*result) + ie_len);
++		if (!result)
++			goto fail_results;
++		result->flags = WPA_SCAN_QUAL_INVALID |
++			WPA_SCAN_NOISE_INVALID | WPA_SCAN_LEVEL_INVALID;
++		os_memcpy(result->bssid, bss->bssid, ETH_ALEN);
++		result->freq = astral_channel_to_freq(bss->channel);
++		result->beacon_int = bss->interval;
++		result->caps = bss->capabilities;
++		result->ie_len = ie_len;
++		os_memcpy(result + 1, ies, ie_len);
++		results->res[results->num++] = result;
++
++		offset += bss->length;
++		remaining -= bss->length;
++	}
++
++	os_free(buffer);
++	return results;
++
++fail_results:
++	wpa_scan_results_free(results);
++fail:
++	os_free(buffer);
++	return NULL;
++}
++
++static int astral_associate(void *priv,
++				struct wpa_driver_associate_params *params)
++{
++	struct astral_driver_data *drv = priv;
++	struct astral_association_request request;
++
++	if (!drv || !params || !params->bssid || drv->association_pending ||
++	    params->ssid_len > SSID_MAX_LEN ||
++	    (params->ssid_len && !params->ssid) ||
++	    params->wpa_ie_len > ASTRAL_MAX_IE_SIZE ||
++	    (params->wpa_ie_len && !params->wpa_ie))
++		return -1;
++
++	os_memset(&request, 0, sizeof(request));
++	os_memcpy(request.bssid, params->bssid, ETH_ALEN);
++	request.ie = (void *) params->wpa_ie;
++	request.ie_size = params->wpa_ie_len;
++	if (astral_ioctl(drv, ASTRAL_IOCTL_WLAN_ASSOCIATE, &request) < 0)
++		return -1;
++
++	os_memcpy(drv->pending_bssid, params->bssid, ETH_ALEN);
++	drv->pending_ssid_len = params->ssid_len;
++	if (drv->pending_ssid_len)
++		os_memcpy(drv->pending_ssid, params->ssid, drv->pending_ssid_len);
++	os_memset(drv->bssid, 0, ETH_ALEN);
++	drv->ssid_len = 0;
++	drv->association_pending = true;
++
++	if (eloop_register_timeout(0, 0, astral_association_complete, drv, NULL) < 0) {
++		(void) astral_ioctl(drv, ASTRAL_IOCTL_WLAN_ASSOCIATION_WAIT, NULL);
++		(void) astral_ioctl(drv, ASTRAL_IOCTL_WLAN_DISASSOCIATE, NULL);
++		drv->association_pending = false;
++		return -1;
++	}
++	return 0;
++}
++
++static int astral_deauthenticate(void *priv, const u8 *addr, u16 reason_code)
++{
++	struct astral_driver_data *drv = priv;
++
++	(void) addr;
++	(void) reason_code;
++	if (!drv)
++		return -1;
++	if (drv->association_pending) {
++		eloop_cancel_timeout(astral_association_complete, drv, NULL);
++		if (astral_ioctl(drv, ASTRAL_IOCTL_WLAN_ASSOCIATION_WAIT, NULL) < 0) {
++			drv->association_pending = false;
++			os_memset(drv->bssid, 0, ETH_ALEN);
++			drv->ssid_len = 0;
++			return 0;
++		}
++		drv->association_pending = false;
++	}
++	if (astral_ioctl(drv, ASTRAL_IOCTL_WLAN_DISASSOCIATE, NULL) < 0)
++		return -1;
++
++	os_memset(drv->bssid, 0, ETH_ALEN);
++	drv->ssid_len = 0;
++	return 0;
++}
++
++static int astral_wpa_cipher(enum wpa_alg alg, size_t key_len, u8 *cipher)
++{
++	switch (alg) {
++	case WPA_ALG_CCMP:
++		*cipher = ASTRAL_CIPHER_CCMP;
++		return 0;
++	case WPA_ALG_TKIP:
++		*cipher = ASTRAL_CIPHER_TKIP;
++		return 0;
++	case WPA_ALG_WEP:
++		if (key_len == 5)
++			*cipher = ASTRAL_CIPHER_WEP40;
++		else if (key_len == 13)
++			*cipher = ASTRAL_CIPHER_WEP104;
++		else
++			return -1;
++		return 0;
++	default:
++		return -1;
++	}
++}
++
++static u32 astral_key_flags(const struct wpa_driver_set_key_params *params)
++{
++	u32 flags = 0;
++
++	if (params->key_flag & KEY_FLAG_PAIRWISE)
++		flags |= ASTRAL_KEY_PAIRWISE;
++	if (params->key_flag & KEY_FLAG_GROUP)
++		flags |= ASTRAL_KEY_GROUP;
++	if (params->key_flag & KEY_FLAG_RX)
++		flags |= ASTRAL_KEY_RX;
++	if (params->key_flag & KEY_FLAG_TX)
++		flags |= ASTRAL_KEY_TX;
++	if (params->set_tx)
++		flags |= ASTRAL_KEY_TX;
++	return flags;
++}
++
++static int astral_set_key(void *priv,
++				struct wpa_driver_set_key_params *params)
++{
++	struct astral_driver_data *drv = priv;
++	struct astral_key_request request;
++	struct astral_del_key_request del_request;
++
++	if (!drv || !params || params->key_idx < 0 || params->key_idx > 255 ||
++	    (params->key_len && !params->key) ||
++	    (params->seq_len && !params->seq) ||
++	    params->key_len > ASTRAL_MAX_KEY_SIZE ||
++	    params->seq_len > ASTRAL_MAX_SEQ_SIZE ||
++	    (params->key_flag & (KEY_FLAG_NEXT | KEY_FLAG_PMK)))
++		return -1;
++
++	if (params->alg == WPA_ALG_NONE) {
++		os_memset(&del_request, 0, sizeof(del_request));
++		del_request.index = params->key_idx;
++		del_request.flags = astral_key_flags(params);
++		if (del_request.flags & ASTRAL_KEY_GROUP)
++			os_memset(del_request.peer, 0, ETH_ALEN);
++		else if (params->addr)
++			os_memcpy(del_request.peer, params->addr, ETH_ALEN);
++		return astral_ioctl(drv, ASTRAL_IOCTL_WLAN_DEL_KEY, &del_request);
++	}
++
++	os_memset(&request, 0, sizeof(request));
++	if (astral_wpa_cipher(params->alg, params->key_len,
++				      &request.cipher) < 0)
++		return -1;
++	request.index = params->key_idx;
++	request.key = (u8 *) params->key;
++	request.key_len = params->key_len;
++	request.rx_seq = (u8 *) params->seq;
++	request.rx_seq_len = params->seq_len;
++	request.flags = astral_key_flags(params);
++	if ((request.flags & ASTRAL_KEY_PAIRWISE) &&
++	    (request.flags & ASTRAL_KEY_GROUP))
++		return -1;
++	if (!(request.flags & (ASTRAL_KEY_PAIRWISE | ASTRAL_KEY_GROUP))) {
++		if (params->addr && !is_broadcast_ether_addr(params->addr))
++			request.flags |= ASTRAL_KEY_PAIRWISE;
++		else
++			request.flags |= ASTRAL_KEY_GROUP;
++	}
++	if ((request.flags & ASTRAL_KEY_PAIRWISE) && !params->addr)
++		return -1;
++	if (request.flags & ASTRAL_KEY_GROUP)
++		os_memset(request.peer, 0, ETH_ALEN);
++	else
++		os_memcpy(request.peer, params->addr, ETH_ALEN);
++
++	return astral_ioctl(drv, ASTRAL_IOCTL_WLAN_SET_KEY, &request);
++}
++
++static int astral_get_capa(void *priv, struct wpa_driver_capa *capa)
++{
++	int i;
++
++	(void) priv;
++	if (!capa)
++		return -1;
++
++	os_memset(capa, 0, sizeof(*capa));
++	capa->key_mgmt = WPA_DRIVER_CAPA_KEY_MGMT_WPA |
++		WPA_DRIVER_CAPA_KEY_MGMT_WPA2 |
++		WPA_DRIVER_CAPA_KEY_MGMT_WPA_PSK |
++		WPA_DRIVER_CAPA_KEY_MGMT_WPA2_PSK;
++	capa->enc = WPA_DRIVER_CAPA_ENC_WEP40 |
++		WPA_DRIVER_CAPA_ENC_WEP104 |
++		WPA_DRIVER_CAPA_ENC_TKIP |
++		WPA_DRIVER_CAPA_ENC_CCMP;
++	capa->auth = WPA_DRIVER_AUTH_OPEN;
++	capa->max_scan_ssids = 1;
++	for (i = 0; i < WPA_IF_MAX; ++i)
++		capa->key_mgmt_iftype[i] = capa->key_mgmt;
++	return 0;
++}
++
++static const u8 *astral_get_mac_addr(void *priv)
++{
++	struct astral_driver_data *drv = priv;
++
++	return drv ? drv->own_addr : NULL;
++}
++
++const struct wpa_driver_ops wpa_driver_astral_ops = {
++	.name = "astral",
++	.desc = "Astral WPA supplicant port",
++	.init = astral_init,
++	.deinit = astral_deinit,
++	.get_bssid = astral_get_bssid,
++	.get_ssid = astral_get_ssid,
++	.scan2 = astral_scan,
++	.get_scan_results2 = astral_get_scan_results,
++	.associate = astral_associate,
++	.deauthenticate = astral_deauthenticate,
++	.set_key = astral_set_key,
++	.get_capa = astral_get_capa,
++	.get_mac_addr = astral_get_mac_addr,
++};
+diff --git wpa-supplicant-clean/src/drivers/drivers.c wpa-supplicant-workdir/src/drivers/drivers.c
+index f088b6f2..dd913f63 100644
+--- wpa-supplicant-clean/src/drivers/drivers.c
++++ wpa-supplicant-workdir/src/drivers/drivers.c
+@@ -25,6 +25,9 @@ const struct wpa_driver_ops *const wpa_drivers[] =
+ #ifdef CONFIG_DRIVER_OPENBSD
+ 	&wpa_driver_openbsd_ops,
+ #endif /* CONFIG_DRIVER_OPENBSD */
++#ifdef CONFIG_DRIVER_ASTRAL
++	&wpa_driver_astral_ops,
++#endif /* CONFIG_DRIVER_ASTRAL */
+ #ifdef CONFIG_DRIVER_NDIS
+ 	&wpa_driver_ndis_ops,
+ #endif /* CONFIG_DRIVER_NDIS */
+diff --git wpa-supplicant-clean/src/drivers/drivers.mak wpa-supplicant-workdir/src/drivers/drivers.mak
+index 160b5378..1b5f4f8f 100644
+--- wpa-supplicant-clean/src/drivers/drivers.mak
++++ wpa-supplicant-workdir/src/drivers/drivers.mak
+@@ -77,6 +77,11 @@ DRV_CFLAGS += -DCONFIG_DRIVER_OPENBSD
+ DRV_OBJS += ../src/drivers/driver_openbsd.o
+ endif
+ 
++ifdef CONFIG_DRIVER_ASTRAL
++DRV_CFLAGS += -DCONFIG_DRIVER_ASTRAL
++DRV_OBJS += ../src/drivers/driver_astral.o
++endif
++
+ ifdef CONFIG_DRIVER_NONE
+ DRV_CFLAGS += -DCONFIG_DRIVER_NONE
+ DRV_OBJS += ../src/drivers/driver_none.o
+diff --git wpa-supplicant-clean/src/utils/common.h wpa-supplicant-workdir/src/utils/common.h
+index 076f2669..4852dd44 100644
+--- wpa-supplicant-clean/src/utils/common.h
++++ wpa-supplicant-workdir/src/utils/common.h
+@@ -11,7 +11,7 @@
+ 
+ #include "os.h"
+ 
+-#if defined(__linux__) || defined(__GLIBC__)
++#if defined(__linux__) || defined(__GLIBC__) || defined(__astral__)
+ #include <endian.h>
+ #include <byteswap.h>
+ #endif /* __linux__ */
