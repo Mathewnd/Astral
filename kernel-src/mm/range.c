@@ -122,6 +122,9 @@ void mm_insert_range(mm_space_t *space, mm_range_t *new_range) {
 	if (next_range && ranges_compatible(new_range, next_range)) {
 		new_range->size += next_range->size;
 
+		if (space->last_pagefault == next_range)
+			space->last_pagefault = NULL;
+
 		rbtree_remove(&space->ranges, &next_range->rbtree_node);
 		mm_free_range(next_range);
 		if (new_range->flags & MM_RANGE_FLAGS_FILE) {
@@ -132,6 +135,9 @@ void mm_insert_range(mm_space_t *space, mm_range_t *new_range) {
 	// check prev range
 	if (prev_range && ranges_compatible(prev_range, new_range)) {
 		prev_range->size += new_range->size;
+
+		if (space->last_pagefault == new_range)
+			space->last_pagefault = NULL;
 
 		rbtree_remove(&space->ranges, &new_range->rbtree_node);
 		mm_free_range(new_range);
@@ -382,6 +388,9 @@ int mm_change_range(mm_space_t *space, void *address, size_t size, bool free, in
 
 		// remove or change the flags of the range
 		if (free) {
+			if (space->last_pagefault == range)
+				space->last_pagefault = NULL;
+
 			rbtree_remove(&space->ranges, &range->rbtree_node);
 			mm_destroy_range(range, 0, range->size, 0);
 			mm_free_range(range);
@@ -410,8 +419,9 @@ int mm_change_range(mm_space_t *space, void *address, size_t size, bool free, in
 		}
 
 		size_t difference = (uintptr_t)top - (uintptr_t)range->start;
-		if (free)
+		if (free) {
 			mm_destroy_range(range, 0, difference, 0);
+		}
 
 		range->start = (void *)((uintptr_t)range->start + difference);
 		range->size -= difference;
