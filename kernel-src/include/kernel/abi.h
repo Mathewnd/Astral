@@ -184,6 +184,7 @@ typedef struct {
 #define SIOCSIFADDR	0x8916
 #define SIOCGIFMTU 0x8921
 #define SIOCGIFHWADDR 0x8927
+#define SIOCGIFINDEX 0x8933
 #define SIOCADDRT 0x890b
 #define FIONREAD 0x541B
 #define FIONBIO 0x5421
@@ -193,6 +194,7 @@ typedef struct {
 	union {
 		abisockaddr_t addr;
 		int mtu;
+		int ifindex;
 		short flags;
 	};
 } ifreq_t;

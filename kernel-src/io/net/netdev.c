@@ -264,6 +264,7 @@ int netdev_register(netdev_t *netdev, char *name) {
 		hashtable_remove(&nametable, name, strlen(name));
 
 	minors[minor] = netdev;
+	netdev->ifindex = minor + 1;
 
 	leave:
 	MUTEX_RELEASE(&tablelock);

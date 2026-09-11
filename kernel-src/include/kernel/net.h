@@ -37,6 +37,7 @@ typedef struct {
 
 typedef struct netdev_t {
 	mac_t mac;
+	int ifindex;
 	size_t mtu;
 	uint32_t ip;
 	int ipcurrid; // XXX This is defined as something per peer. However, having only one of these *should* work for most cases

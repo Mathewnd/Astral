@@ -137,6 +137,10 @@ static int handle_ifreq(unsigned long request, ifreq_t *uifreq, cred_t *cred) {
 			int mtu = netdev->mtu;
 			return USERCOPY_POSSIBLY_TO_USER(&uifreq->mtu, &mtu, sizeof(mtu));
 		}
+		case SIOCGIFINDEX: {
+			int ifindex = netdev->ifindex;
+			return USERCOPY_POSSIBLY_TO_USER(&uifreq->ifindex, &ifindex, sizeof(ifindex));
+		}
 		case SIOCGIFFLAGS: {
 			short flags = netdev->flags;
 			return USERCOPY_POSSIBLY_TO_USER(&uifreq->flags, &flags, sizeof(flags));
@@ -152,6 +156,7 @@ int sockfs_ioctl(vnode_t *node, unsigned long request, void *arg, int *result, c
 		case SIOCSIFADDR:
 		case SIOCGIFHWADDR:
 		case SIOCGIFMTU:
+		case SIOCGIFINDEX:
 		case SIOCGIFFLAGS:
 			return handle_ifreq(request, arg, cred);
 		case SIOCADDRT: {
