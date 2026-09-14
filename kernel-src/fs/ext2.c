@@ -2178,8 +2178,15 @@ static int ext2_mount(vfs_t **vfs, vnode_t *mountpoint, vnode_t *backing, void *
 	return err;
 }
 
+static int ext2_syncfs(vfs_t *vfs) {
+	ext2fs_t *fs = (ext2fs_t *)vfs;
+	abc_sync(&fs->abc);
+	return error;
+}
+
 static vfsops_t vfsops = {
 	.mount = ext2_mount,
+	.sync = ext2_syncfs,
 	.root = ext2_root,
 	.statfs = ext2_statfs
 };

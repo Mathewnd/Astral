@@ -3,7 +3,8 @@
 
 syscallret_t syscall_sync(context_t *) {
 	syscallret_t ret = {0};
-	mm_cache_sync();
+	ret.errno = vfs_sync();
+	ret.ret = ret.errno ? -1 : 0;
 	return ret;
 }
 

@@ -259,6 +259,7 @@ void advlock_free(advlock_t *advlock);
 void vfs_init();
 int vfs_mount(vnode_t *backing, vnode_t *pathref, char *path, char *name, void *data);
 int vfs_register(vfsops_t *vfsops, char *name);
+int vfs_sync(void);
 
 void vfs_root_event_signal(void);
 int vfs_root_event_attach(void (*fn)(void *), void *ctx);

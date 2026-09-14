@@ -136,6 +136,21 @@ int vfs_register(vfsops_t *ops, char *name) {
 	return hashtable_set(&fstable, ops, name, strlen(name), true);
 }
 
+int vfs_sync(void) {
+	int error = mm_cache_sync();
+
+	MUTEX_ACQUIRE(&listlock);
+	for (vfs_t *vfs = vfslist; vfs; vfs = vfs->next) {
+		if (vfs->ops->sync) {
+			int e = VFS_SYNC(vfs);
+			if (error == 0)
+				error = e;
+		}
+	}
+	MUTEX_RELEASE(&listlock);
+	return error;
+}
+
 void vfs_inactive(vnode_t *vnode) {
 	if (vnode->type == V_TYPE_SOCKET && vnode->socketbinding) {
 		localsock_leavebinding(vnode);
