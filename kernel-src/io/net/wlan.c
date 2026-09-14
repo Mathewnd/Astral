@@ -25,8 +25,6 @@ typedef struct {
 // TODO: handle hotplug
 // TODO: in u80211_drv *_tx_buffer ops, pass device handle
 // TODO: change how netdesc_t is handled in kernel overall (?)
-// TODO: map u80211 errors to errnos
-// TODO: map u80211 errors to u80211_drv errors
 // TODO: general netdev cleanup:
 // - use struct ops instead of having function pointers in netdev struct
 // - proper initialize() function
@@ -52,13 +50,55 @@ static void free_id(int id) {
 	__atomic_fetch_and(&id_bitmap, ~(1lu << id), __ATOMIC_RELAXED);
 }
 
+static int u80211_status_to_errno(int status) {
+	switch (status) {
+		case U80211_STATUS_SUCCESS:
+			return 0;
+		case U80211_STATUS_ENOMEM:
+			return ENOMEM;
+		case U80211_STATUS_UNSUPPORTED:
+			return EOPNOTSUPP;
+		case U80211_STATUS_NOT_ENOUGH_SPACE:
+			return ENOBUFS;
+		case U80211_STATUS_BUSY:
+			return EBUSY;
+		case U80211_STATUS_NOT_PERMITTED:
+			return EPERM;
+		case U80211_STATUS_RETRY:
+			return EAGAIN;
+		case U80211_STATUS_REJECTED:
+			return ECONNREFUSED;
+		case U80211_STATUS_TIMED_OUT:
+			return ETIMEDOUT;
+		case U80211_STATUS_NOT_ASSOCIATED:
+			return ENOTCONN;
+		default:
+			return EIO;
+	}
+}
+
+static int u80211_drv_status_to_u80211_status(int status) {
+	switch (status) {
+		case U80211_DRV_STATUS_SUCCESS:
+			return U80211_STATUS_SUCCESS;
+		case U80211_DRV_STATUS_NO_MATCH:
+		case U80211_DRV_STATUS_NOT_SUPPORTED:
+			return U80211_STATUS_UNSUPPORTED;
+		case U80211_DRV_STATUS_TIMEOUT:
+			return U80211_STATUS_TIMED_OUT;
+		case U80211_DRV_STATUS_OUT_OF_MEMORY:
+			return U80211_STATUS_ENOMEM;
+		default:
+			return U80211_STATUS_UNKNOWN_ERROR;
+	}
+}
+
 static int allocate_tx_buffer(void *driver_data, size_t size, u80211_tx_buffer_descriptor_t *buffer_descriptor) {
 	wlan_device_t *wlan = driver_data;
 
 	buffer_descriptor->size = size;
 	buffer_descriptor->current_offset = size;
-	return wlan->ops->allocate_tx_buffer(size, &buffer_descriptor->data) == U80211_DRV_STATUS_SUCCESS ?
-		U80211_STATUS_SUCCESS : U80211_STATUS_UNKNOWN_ERROR;
+	return u80211_drv_status_to_u80211_status(wlan->ops->allocate_tx_buffer(size, &buffer_descriptor->data));
 }
 
 static int free_tx_buffer(void *driver_data, u80211_tx_buffer_descriptor_t *buffer_descriptor) {
@@ -101,15 +141,15 @@ static int transmit(void *driver_data, u80211_tx_buffer_descriptor_t *buffer_des
 		return status;
 	}
 
-	return wlan->ops->transmit(wlan->driver_handle, buffer_descriptor->data, buffer_descriptor->size, buffer_descriptor->current_offset, &drv_options) == U80211_DRV_STATUS_SUCCESS ?
-		U80211_STATUS_SUCCESS : U80211_STATUS_UNKNOWN_ERROR;
+	return u80211_drv_status_to_u80211_status(wlan->ops->transmit(wlan->driver_handle,
+		buffer_descriptor->data, buffer_descriptor->size, buffer_descriptor->current_offset,
+		&drv_options));
 }
 
 static int set_channel(void *driver_data, int channel) {
 	wlan_device_t *wlan = driver_data;
 
-	return wlan->ops->set_channel(wlan->driver_handle, channel) == U80211_DRV_STATUS_SUCCESS ?
-		U80211_STATUS_SUCCESS : U80211_STATUS_UNKNOWN_ERROR;
+	return u80211_drv_status_to_u80211_status(wlan->ops->set_channel(wlan->driver_handle, channel));
 }
 
 static int set_key(void *driver_data, const u80211_key_t *key) {
@@ -127,8 +167,7 @@ static int set_key(void *driver_data, const u80211_key_t *key) {
 	if (status != U80211_STATUS_SUCCESS)
 		return status;
 
-	return wlan->ops->set_key(wlan->driver_handle, &drv_key) == U80211_DRV_STATUS_SUCCESS ?
-		U80211_STATUS_SUCCESS : U80211_STATUS_UNKNOWN_ERROR;
+	return u80211_drv_status_to_u80211_status(wlan->ops->set_key(wlan->driver_handle, &drv_key));
 }
 
 static int del_key(void *driver_data, uint8_t index, const u80211_mac_address_t *peer, uint32_t flags) {
@@ -136,8 +175,7 @@ static int del_key(void *driver_data, uint8_t index, const u80211_mac_address_t 
 	(void)flags;
 	wlan_device_t *wlan = driver_data;
 
-	return wlan->ops->del_key(wlan->driver_handle, index) == U80211_DRV_STATUS_SUCCESS ?
-		U80211_STATUS_SUCCESS : U80211_STATUS_UNKNOWN_ERROR;
+	return u80211_drv_status_to_u80211_status(wlan->ops->del_key(wlan->driver_handle, index));
 }
 
 static u80211_device_ops_t ops = {
@@ -158,7 +196,7 @@ static int wlan_alloc_desc(netdev_t *netdev, size_t requested_size, netdesc_t *d
 	u80211_tx_buffer_descriptor_t u80211_desc;
 	int status = u80211_allocate_tx_buffer(wlan->u80211_device, &u80211_desc);
 	if (status != U80211_STATUS_SUCCESS)
-		return EINVAL;
+		return u80211_status_to_errno(status);
 
 	desc->address = u80211_desc.data;
 	// the network stack writes forward from curroffset. u80211 builds backward from the end.
@@ -187,7 +225,7 @@ static int wlan_send_packet(netdev_t *netdev, netdesc_t desc, mac_t target, int 
 		.size = desc.size
 	};
 
-	return u80211_transmit_buffer(wlan->u80211_device, &descriptor) == U80211_STATUS_SUCCESS ? 0 : EINVAL;
+	return u80211_status_to_errno(u80211_transmit_buffer(wlan->u80211_device, &descriptor));
 }
 
 int wlan_register(void *handle, const u80211_drv_device_metadata_t *drv_metadata, const u80211_drv_device_ops_t *drv_ops, u80211_drv_network_device_handle_t *network_device) {
@@ -225,7 +263,7 @@ int wlan_register(void *handle, const u80211_drv_device_metadata_t *drv_metadata
 		free_id(wlan->id);
 		hashtable_destroy(&wlan->netdev.arpcache);
 		free(wlan);
-		return EINVAL;
+		return u80211_status_to_errno(status);
 	}
 
 	char name[10];
@@ -254,13 +292,13 @@ void wlan_process_packet(u80211_drv_network_device_handle_t handle, void *packet
 int wlan_active_scan(netdev_t *netdev) {
 	wlan_device_t *wlan = (wlan_device_t *)netdev;
 
-	return u80211_scan(wlan->u80211_device) == U80211_STATUS_SUCCESS ? 0 : EINVAL;
+	return u80211_status_to_errno(u80211_scan(wlan->u80211_device));
 }
 
 int wlan_wait_for_scan(netdev_t *netdev) {
 	wlan_device_t *wlan = (wlan_device_t *)netdev;
 
-	return u80211_wait_for_scan_completion(wlan->u80211_device) == U80211_STATUS_SUCCESS ? 0 : EINVAL;
+	return u80211_status_to_errno(u80211_wait_for_scan_completion(wlan->u80211_device));
 }
 
 typedef struct {
@@ -350,7 +388,7 @@ int wlan_associate(netdev_t *netdev, uint8_t bssid[6], void *ie, size_t ie_size)
 	if (ap == NULL)
 		return EINVAL;
 
-	int error = u80211_associate(wlan->u80211_device, ap, ie, ie_size) == U80211_STATUS_SUCCESS ? 0 : EINVAL;
+	int error = u80211_status_to_errno(u80211_associate(wlan->u80211_device, ap, ie, ie_size));
 	u80211_ap_release(ap);
 	return error;
 }
@@ -358,13 +396,13 @@ int wlan_associate(netdev_t *netdev, uint8_t bssid[6], void *ie, size_t ie_size)
 int wlan_associate_wait(netdev_t *netdev) {
 	wlan_device_t *wlan = (wlan_device_t *)netdev;
 
-	return u80211_wait_for_association_completion(wlan->u80211_device) == U80211_STATUS_SUCCESS ? 0 : EINVAL;
+	return u80211_status_to_errno(u80211_wait_for_association_completion(wlan->u80211_device));
 }
 
 int wlan_disassociate(netdev_t *netdev) {
 	wlan_device_t *wlan = (wlan_device_t *)netdev;
 
-	return u80211_disassociate(wlan->u80211_device) == U80211_STATUS_SUCCESS ? 0 : EINVAL;
+	return u80211_status_to_errno(u80211_disassociate(wlan->u80211_device));
 }
 
 static bool wlan_cipher_to_u80211_cipher(uint8_t cipher, u80211_cipher_t *out) {
@@ -422,7 +460,7 @@ int wlan_set_key(netdev_t *netdev, wlan_key_t *key) {
 	if (!wlan_cipher_to_u80211_cipher(key->cipher, &u80211_key.cipher))
 		return EINVAL;
 
-	return u80211_set_key(wlan->u80211_device, &u80211_key) == U80211_STATUS_SUCCESS ? 0 : EINVAL;
+	return u80211_status_to_errno(u80211_set_key(wlan->u80211_device, &u80211_key));
 }
 
 int wlan_del_key(netdev_t *netdev, uint8_t index, uint8_t peer[6], uint32_t flags) {
@@ -431,5 +469,5 @@ int wlan_del_key(netdev_t *netdev, uint8_t index, uint8_t peer[6], uint32_t flag
 	u80211_mac_address_t mac;
 	memcpy(&mac, peer, 6);
 
-	return u80211_del_key(wlan->u80211_device, index, &mac, wlan_flags_to_u80211_flags(flags)) == U80211_STATUS_SUCCESS ? 0 : EINVAL;
+	return u80211_status_to_errno(u80211_del_key(wlan->u80211_device, index, &mac, wlan_flags_to_u80211_flags(flags)));
 }
