@@ -1,5 +1,6 @@
 #include <kernel/syscalls.h>
 #include <kernel/abi.h>
+#include <kernel/auth.h>
 #include <kernel/sock.h>
 #include <errno.h>
 
@@ -46,6 +47,12 @@ syscallret_t syscall_socket(context_t *, int domain, int type, int protocol) {
 	if (socktype == -1) {
 		ret.errno = EAFNOSUPPORT;
 		return ret;
+	}
+
+	if (socktype == SOCKET_TYPE_RAW_STRIPPED) {
+		ret.errno = auth_network_check(&current_thread()->proc->cred, AUTH_ACTIONS_NETWORK_CREATERAW, NULL, NULL);
+		if (ret.errno)
+			return ret;
 	}
 
 	socket_t *socket = socket_create(socktype, protocol);

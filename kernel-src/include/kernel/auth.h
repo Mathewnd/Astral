@@ -43,6 +43,7 @@
 
 #define AUTH_ACTIONS_NETWORK_CONFIGURE		1
 #define AUTH_ACTIONS_NETWORK_BINDRESERVED	2
+#define AUTH_ACTIONS_NETWORK_CREATERAW		4
 
 typedef int (*authlistener_t)(cred_t *cred, int actions, void *arg0, void *arg1, void *arg2);
 

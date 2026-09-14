@@ -6,12 +6,9 @@
 #include <spinlock.h>
 #include <kernel/interrupt.h>
 #include <ringbuffer.h>
-#include <kernel/auth.h>
 #include <list.h>
 
 #define SOCKET_BUFFER (16 * 1024)
-
-// TODO: check user creating socket is root
 
 SPINLOCK_DEFINE(list_lock);
 static list_t socket_list;
