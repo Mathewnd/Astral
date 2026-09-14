@@ -23,7 +23,6 @@ typedef struct {
 // TODO: make hardware keys take peer into account too
 // TODO: proper concurrency protection for key and channel setting
 // TODO: handle hotplug
-// TODO: in u80211_drv *_tx_buffer ops, pass device handle
 // TODO: change how netdesc_t is handled in kernel overall (?)
 static uint64_t id_bitmap;
 static int allocate_id(void) {

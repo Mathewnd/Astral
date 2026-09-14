@@ -2181,7 +2181,7 @@ static int ext2_mount(vfs_t **vfs, vnode_t *mountpoint, vnode_t *backing, void *
 static int ext2_syncfs(vfs_t *vfs) {
 	ext2fs_t *fs = (ext2fs_t *)vfs;
 	abc_sync(&fs->abc);
-	return error;
+	return 0;
 }
 
 static vfsops_t vfsops = {
