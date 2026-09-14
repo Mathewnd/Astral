@@ -7,6 +7,7 @@
 #include <kernel/usercopy.h>
 #include <kernel/sock.h>
 #include <kernel/wlan.h>
+#include <kernel/auth.h>
 
 static int current_minor;
 static netdev_t *minors[64];
@@ -56,10 +57,27 @@ typedef struct {
 #define NETDEV_IOCTL_WLAN_DEL_KEY 0x8021108
 
 int handle_wlan_ioctl(netdev_t *netdev, unsigned long request, void *arg, int *result, cred_t *cred) {
-	// TODO: make every operation besides get bss cache be privileged
-
 	if ((netdev->flags & NETDEV_FLAGS_WLAN) == 0)
 		return EINVAL;
+
+	switch (request) {
+		case NETDEV_IOCTL_WLAN_GET_BSS_CACHE:
+			break;
+		case NETDEV_IOCTL_WLAN_SCAN:
+		case NETDEV_IOCTL_WLAN_SCAN_WAIT:
+		case NETDEV_IOCTL_WLAN_ASSOCIATE:
+		case NETDEV_IOCTL_WLAN_ASSOCIATION_WAIT:
+		case NETDEV_IOCTL_WLAN_DISASSOCIATE:
+		case NETDEV_IOCTL_WLAN_SET_KEY:
+		case NETDEV_IOCTL_WLAN_DEL_KEY: {
+			int error = auth_network_check(cred, AUTH_ACTIONS_NETWORK_CONFIGURE, NULL, netdev);
+			if (error)
+				return error;
+			break;
+		}
+		default:
+			return ENOTTY;
+	}
 	
 	switch (request) {
 		case NETDEV_IOCTL_WLAN_SCAN:
