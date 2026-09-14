@@ -367,8 +367,8 @@ int u80211_drv_rtl8188eu_set_tx_power(u80211_drv_rtl8188eu_t *rtl8188eu, uint8_t
 int u80211_drv_rtl8188eu_set_channel(u80211_drv_rtl8188eu_t *rtl8188eu, uint8_t channel);
 int u80211_drv_rtl8188eu_set_key(u80211_drv_rtl8188eu_t *rtl8188eu, const u80211_drv_key_t *key);
 int u80211_drv_rtl8188eu_del_key(u80211_drv_rtl8188eu_t *rtl8188eu, uint8_t index);
-int u80211_drv_rtl8188eu_tx_buffer_allocate(size_t size, void **buffer);
-void u80211_drv_rtl8188eu_tx_buffer_free(void *buffer);
+int u80211_drv_rtl8188eu_tx_buffer_allocate(u80211_drv_device_handle_t device, size_t size, void **buffer);
+void u80211_drv_rtl8188eu_tx_buffer_free(u80211_drv_device_handle_t device, void *buffer);
 int u80211_drv_rtl8188eu_transmit(u80211_drv_rtl8188eu_t *rtl8188eu, void *buffer, size_t size, size_t current_offset, const u80211_drv_transmit_options_t *options);
 int u80211_drv_rtl8188eu_rx_start(u80211_drv_rtl8188eu_t *rtl8188eu);
 

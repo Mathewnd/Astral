@@ -98,12 +98,12 @@ static int allocate_tx_buffer(void *driver_data, size_t size, u80211_tx_buffer_d
 
 	buffer_descriptor->size = size;
 	buffer_descriptor->current_offset = size;
-	return u80211_drv_status_to_u80211_status(wlan->ops->allocate_tx_buffer(size, &buffer_descriptor->data));
+	return u80211_drv_status_to_u80211_status(wlan->ops->allocate_tx_buffer(wlan->driver_handle, size, &buffer_descriptor->data));
 }
 
 static int free_tx_buffer(void *driver_data, u80211_tx_buffer_descriptor_t *buffer_descriptor) {
 	wlan_device_t *wlan = driver_data;
-	wlan->ops->free_tx_buffer(buffer_descriptor->data);
+	wlan->ops->free_tx_buffer(wlan->driver_handle, buffer_descriptor->data);
 	return 0;
 }
 
@@ -137,7 +137,7 @@ static int transmit(void *driver_data, u80211_tx_buffer_descriptor_t *buffer_des
 	};
 	int status = convert_cipher(options->cipher, &drv_options.cipher);
 	if (status != U80211_STATUS_SUCCESS) {
-		wlan->ops->free_tx_buffer(buffer_descriptor->data);
+		wlan->ops->free_tx_buffer(wlan->driver_handle, buffer_descriptor->data);
 		return status;
 	}
 

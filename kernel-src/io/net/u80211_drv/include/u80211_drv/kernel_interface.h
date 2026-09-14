@@ -81,8 +81,8 @@ typedef struct {
 typedef struct {
 	// allocates a buffer of 'size' bytes
 	// on success '*buffer' points at the start of the writable 802.11 frame region
-	int (*allocate_tx_buffer)(size_t size, void **buffer);
-	void (*free_tx_buffer)(void *buffer);
+	int (*allocate_tx_buffer)(u80211_drv_device_handle_t device, size_t size, void **buffer);
+	void (*free_tx_buffer)(u80211_drv_device_handle_t device, void *buffer);
 	// transmits the bytes and consumes buffer including on failure
 	int (*transmit)(void *device, void *buffer, size_t size, size_t current_offset, const u80211_drv_transmit_options_t *options);
 	// sets the rf channel number the device will rx/tx on

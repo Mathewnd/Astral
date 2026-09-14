@@ -142,7 +142,8 @@ static int build_descriptor(const uint8_t *frame, size_t frame_size, const u8021
 	return U80211_DRV_STATUS_SUCCESS;
 }
 
-int u80211_drv_rtl8188eu_tx_buffer_allocate(size_t size, void **buffer) {
+int u80211_drv_rtl8188eu_tx_buffer_allocate(u80211_drv_device_handle_t device, size_t size, void **buffer) {
+	(void)device;
 	if (size > U80211_DRV_80211_MAX_MPDU_SIZE)
 		return U80211_DRV_STATUS_INVALID_ARGUMENT;
 
@@ -155,7 +156,8 @@ int u80211_drv_rtl8188eu_tx_buffer_allocate(size_t size, void **buffer) {
 	return U80211_DRV_STATUS_SUCCESS;
 }
 
-void u80211_drv_rtl8188eu_tx_buffer_free(void *buffer) {
+void u80211_drv_rtl8188eu_tx_buffer_free(u80211_drv_device_handle_t device, void *buffer) {
+	(void)device;
 	u80211_drv_kernel_free((uint8_t *)buffer - RTL8188EU_TX_DESCRIPTOR_SIZE);
 }
 
@@ -185,6 +187,6 @@ int u80211_drv_rtl8188eu_transmit(u80211_drv_rtl8188eu_t *rtl8188eu, void *buffe
 		status = U80211_DRV_STATUS_UNKNOWN_ERROR;
 
 cleanup:
-	u80211_drv_rtl8188eu_tx_buffer_free(buffer);
+	u80211_drv_rtl8188eu_tx_buffer_free(rtl8188eu->device, buffer);
 	return status;
 }

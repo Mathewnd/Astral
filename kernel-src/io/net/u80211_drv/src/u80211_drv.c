@@ -16,6 +16,7 @@ typedef struct {
 
 static const u80211_drv_match_table_entry_t match_table[] = {
 	{0x20013310, 0xffffff, u80211_drv_rtl8188eu_init, "DWA-123 (Revision D1, rtl8188eu driver)"},
+	{0x0bda8179, 0xffffff, u80211_drv_rtl8188eu_init, "Realtek RTL8188EUS (rtl8188eu driver)"}
 };
 
 #define MATCH_TABLE_ENTRIES (sizeof(match_table) / sizeof(*match_table))
