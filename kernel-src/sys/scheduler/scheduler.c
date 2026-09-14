@@ -17,19 +17,23 @@
 #define QUANTUM_US 10000
 #define SCHEDULER_STACK_SIZE PAGE_SIZE * 16
 
-static __attribute__((noreturn)) void switch_thread(thread_t *thread) {
+// requires the current CPU scheduler lock and, when migrating, the destination
+// CPU scheduler lock to be held. The locks are released only after the outgoing
+// thread context has been saved and ownership has moved to the incoming thread.
+static __attribute__((noreturn)) void switch_thread(thread_t *thread, cpu_t *migration_cpu) {
 	interrupt_set(false);
+	cpu_t *cpu = current_cpu();
 	thread_t* current = current_thread();
 
 	sched_thread_running_callback(thread);
 
-	current_cpu()->thread = thread;
+	cpu->thread = thread;
 
 	if(current == NULL || thread->mmctx != current->mmctx)
 		mm_switch_context(thread->mmctx);
 
-	current_cpu()->intstatus = ARCH_CONTEXT_INTSTATUS(&thread->context);
-	thread->cpu = current_cpu();
+	cpu->intstatus = ARCH_CONTEXT_INTSTATUS(&thread->context);
+	thread->cpu = cpu;
 	if (current)
 		current->flags &= ~THREAD_FLAGS_RUNNING;
 
@@ -41,8 +45,12 @@ static __attribute__((noreturn)) void switch_thread(thread_t *thread) {
 	thread->flags |= THREAD_FLAGS_RUNNING;
 	__assert((thread->flags & THREAD_FLAGS_QUEUED) == 0);
 
-	void *schedulerstack = current_cpu()->schedulerstack;
+	void *schedulerstack = cpu->schedulerstack;
 	__assert(!((void *)thread->context.rsp < schedulerstack && (void *)thread->context.rsp >= (schedulerstack - SCHEDULER_STACK_SIZE)));
+
+	if (migration_cpu)
+		spinlock_release(&migration_cpu->sched_lock);
+	spinlock_release(&cpu->sched_lock);
 
 	ARCH_CONTEXT_SWITCHTHREAD(thread);
 	__builtin_unreachable();
@@ -52,16 +60,16 @@ static __attribute__((noreturn)) void switch_thread(thread_t *thread) {
 __attribute__((noreturn)) void sched_stop_current_thread() {
 	interrupt_set(false);
 
+	spinlock_acquire(&current_cpu()->sched_lock);
+
 	if (current_thread())
 		current_thread()->flags &= ~THREAD_FLAGS_RUNNING;
 
-	spinlock_acquire(&current_cpu()->sched_lock);
 	thread_t *next = sched_select_next_thread();
-	spinlock_release(&current_cpu()->sched_lock);
 
 	__assert(next);
 
-	switch_thread(next);
+	switch_thread(next, NULL);
 }
 
 typedef struct {
@@ -160,18 +168,16 @@ static void yield(context_t *context, void *) {
 
 	thread_t *next = sched_select_next_thread();
 
-	if (thread == next)
+	if (thread == next) {
+		__assert(sleeping == false);
 		thread->flags |= THREAD_FLAGS_RUNNING;
-
-	spinlock_release(&current_cpu()->sched_lock);
-
-	if (next != thread || sleeping) {
-		ARCH_CONTEXT_THREADSAVE(thread, context);
-
-		switch_thread(next);
+		spinlock_release(&current_cpu()->sched_lock);
+		sched_thread_running_callback(thread);
+		return;
 	}
 
-	sched_thread_running_callback(current_thread());
+	ARCH_CONTEXT_THREADSAVE(thread, context);
+	switch_thread(next, NULL);
 }
 
 int sched_yield() {
@@ -225,9 +231,7 @@ static void dopreempt() {
 	sched_insert_in_cpu_queue(current_cpu(), current);
 	thread_t *next = sched_select_next_thread();
 
-	spinlock_release(&current_cpu()->sched_lock);
-
-	switch_thread(next);
+	switch_thread(next, NULL);
 }
 
 static void sched_reschedule_dpc(context_t *context, dpcarg_t arg) {
@@ -284,22 +288,24 @@ void sched_target_cpu(cpu_t *cpu) {
 static void reschedule_yield(context_t *context, void *_cpu) {
 	thread_t *thread = current_thread();
 	cpu_t *cpu = _cpu;
+	cpu_t *source = current_cpu();
 
 	ARCH_CONTEXT_THREADSAVE(thread, context);
 
-	spinlock_acquire(&cpu->sched_lock);
+	cpu_t *first = source->internal_id < cpu->internal_id ? source : cpu;
+	cpu_t *second = first == source ? cpu : source;
+	spinlock_acquire(&first->sched_lock);
+	spinlock_acquire(&second->sched_lock);
+
 	thread->flags &= ~THREAD_FLAGS_RUNNING;
 	sched_insert_in_cpu_queue(cpu, thread);
-	spinlock_release(&cpu->sched_lock);
 
-	spinlock_acquire(&current_cpu()->sched_lock);
 	thread_t *next = sched_select_next_thread();
 
 	if (sched_thread_can_run_in_cpu(thread, cpu->last_queue, cpu->last_interactivity))
 		arch_smp_send_ipi(cpu, cpu->reschedule_isr, ARCH_SMP_IPI_TARGET, false);
 
-	spinlock_release(&current_cpu()->sched_lock);
-	switch_thread(next);
+	switch_thread(next, cpu);
 }
 
 // TODO verify if something like this is really needed
