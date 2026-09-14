@@ -11,14 +11,14 @@ typedef struct {
 	size_t entry_count;
 } bss_cache_t;
 
-int u80211_bss_cache_init(bss_cache_t *cache);
-void u80211_bss_cache_deinit(bss_cache_t *cache);
-void u80211_bss_cache_purge(bss_cache_t *cache);
-void u80211_bss_cache_insert(bss_cache_t *cache, u80211_ap_t *ap);
-void u80211_bss_cache_remove(bss_cache_t *cache, u80211_mac_address_t *mac);
-u80211_ap_t *u80211_bss_cache_find(bss_cache_t *cache, u80211_mac_address_t *mac);
+int u80211_bss_cache_init(u80211_device_t *device);
+void u80211_bss_cache_deinit(u80211_device_t *device);
+void u80211_bss_cache_purge(u80211_device_t *device);
+void u80211_bss_cache_insert(u80211_device_t *device, u80211_ap_t *ap);
+void u80211_bss_cache_remove(u80211_device_t *device, u80211_mac_address_t *mac);
+u80211_ap_t *u80211_bss_cache_find(u80211_device_t *device, u80211_mac_address_t *mac);
 // each AP pointer written to buffer has an acquired reference that the caller must release.
-size_t u80211_bss_cache_get_aps(bss_cache_t *cache, u80211_ap_t **buffer, size_t capacity);
-size_t u80211_bss_cache_get_count(bss_cache_t *cache);
+size_t u80211_bss_cache_get_aps(u80211_device_t *device, u80211_ap_t **buffer, size_t capacity);
+size_t u80211_bss_cache_get_count(u80211_device_t *device);
 
 #endif

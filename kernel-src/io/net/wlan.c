@@ -22,13 +22,11 @@ typedef struct {
 // TODO: proper up/down handling
 // TODO: make hardware keys take peer into account too
 // TODO: proper concurrency protection for key and channel setting
-// TODO: make u80211 bss cache get more generic than having to pass the bss cache directly
 // TODO: handle hotplug
 // TODO: in u80211_drv *_tx_buffer ops, pass device handle
 // TODO: change how netdesc_t is handled in kernel overall (?)
 // TODO: map u80211 errors to errnos
 // TODO: map u80211 errors to u80211_drv errors
-// TODO: in u80211, change the device ops to take a (void *) handle
 // TODO: general netdev cleanup:
 // - use struct ops instead of having function pointers in netdev struct
 // - proper initialize() function
@@ -54,8 +52,8 @@ static void free_id(int id) {
 	__atomic_fetch_and(&id_bitmap, ~(1lu << id), __ATOMIC_RELAXED);
 }
 
-static int allocate_tx_buffer(u80211_device_t *device, size_t size, u80211_tx_buffer_descriptor_t *buffer_descriptor) {
-	wlan_device_t *wlan = device->driver_data;
+static int allocate_tx_buffer(void *driver_data, size_t size, u80211_tx_buffer_descriptor_t *buffer_descriptor) {
+	wlan_device_t *wlan = driver_data;
 
 	buffer_descriptor->size = size;
 	buffer_descriptor->current_offset = size;
@@ -63,8 +61,8 @@ static int allocate_tx_buffer(u80211_device_t *device, size_t size, u80211_tx_bu
 		U80211_STATUS_SUCCESS : U80211_STATUS_UNKNOWN_ERROR;
 }
 
-static int free_tx_buffer(u80211_device_t *device, u80211_tx_buffer_descriptor_t *buffer_descriptor) {
-	wlan_device_t *wlan = device->driver_data;
+static int free_tx_buffer(void *driver_data, u80211_tx_buffer_descriptor_t *buffer_descriptor) {
+	wlan_device_t *wlan = driver_data;
 	wlan->ops->free_tx_buffer(buffer_descriptor->data);
 	return 0;
 }
@@ -91,8 +89,8 @@ static int convert_cipher(int cipher, int *drv_cipher) {
 	}
 }
 
-static int transmit(u80211_device_t *device, u80211_tx_buffer_descriptor_t *buffer_descriptor, const u80211_transmit_options_t *options) {
-	wlan_device_t *wlan = device->driver_data;
+static int transmit(void *driver_data, u80211_tx_buffer_descriptor_t *buffer_descriptor, const u80211_transmit_options_t *options) {
+	wlan_device_t *wlan = driver_data;
 
 	u80211_drv_transmit_options_t drv_options = {
 		.key = options->key
@@ -107,15 +105,15 @@ static int transmit(u80211_device_t *device, u80211_tx_buffer_descriptor_t *buff
 		U80211_STATUS_SUCCESS : U80211_STATUS_UNKNOWN_ERROR;
 }
 
-static int set_channel(u80211_device_t *device, int channel) {
-	wlan_device_t *wlan = device->driver_data;
+static int set_channel(void *driver_data, int channel) {
+	wlan_device_t *wlan = driver_data;
 
 	return wlan->ops->set_channel(wlan->driver_handle, channel) == U80211_DRV_STATUS_SUCCESS ?
 		U80211_STATUS_SUCCESS : U80211_STATUS_UNKNOWN_ERROR;
 }
 
-static int set_key(u80211_device_t *device, const u80211_key_t *key) {
-	wlan_device_t *wlan = device->driver_data;
+static int set_key(void *driver_data, const u80211_key_t *key) {
+	wlan_device_t *wlan = driver_data;
 
 	u80211_drv_key_t drv_key = {
 		.index = key->index,
@@ -133,10 +131,10 @@ static int set_key(u80211_device_t *device, const u80211_key_t *key) {
 		U80211_STATUS_SUCCESS : U80211_STATUS_UNKNOWN_ERROR;
 }
 
-static int del_key(u80211_device_t *device, uint8_t index, const u80211_mac_address_t *peer, uint32_t flags) {
+static int del_key(void *driver_data, uint8_t index, const u80211_mac_address_t *peer, uint32_t flags) {
 	(void)peer;
 	(void)flags;
-	wlan_device_t *wlan = device->driver_data;
+	wlan_device_t *wlan = driver_data;
 
 	return wlan->ops->del_key(wlan->driver_handle, index) == U80211_DRV_STATUS_SUCCESS ?
 		U80211_STATUS_SUCCESS : U80211_STATUS_UNKNOWN_ERROR;
@@ -293,7 +291,7 @@ int wlan_get_bss_cache(netdev_t *netdev, void *buffer, size_t size, size_t *reco
 	if (ap_buffer == NULL)
 		return ENOMEM;
 
-	size_t ap_count = u80211_bss_cache_get_aps(&wlan->u80211_device->bss_cache, ap_buffer, MAX_APS);
+	size_t ap_count = u80211_bss_cache_get_aps(wlan->u80211_device, ap_buffer, MAX_APS);
 
 	int error = 0;
 	*records_written = 0;
@@ -348,7 +346,7 @@ int wlan_associate(netdev_t *netdev, uint8_t bssid[6], void *ie, size_t ie_size)
 	u80211_mac_address_t mac;
 	memcpy(&mac, bssid, 6);
 
-	u80211_ap_t *ap = u80211_bss_cache_find(&wlan->u80211_device->bss_cache, &mac);
+	u80211_ap_t *ap = u80211_bss_cache_find(wlan->u80211_device, &mac);
 	if (ap == NULL)
 		return EINVAL;
 

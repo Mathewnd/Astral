@@ -154,13 +154,13 @@ static size_t serialize_rate_information_elements(uint8_t *destination, const ui
 }
 
 static int prepare_management_packet(u80211_device_t *device, const u80211_mac_address_t *address, int subtype, size_t data_size, u80211_tx_buffer_descriptor_t *descriptor, uint8_t **data) {
-	int status = device->ops->allocate_tx_buffer(device, MANAGEMENT_HEADER_SIZE + data_size, descriptor);
+	int status = device->ops->allocate_tx_buffer(device->driver_data, MANAGEMENT_HEADER_SIZE + data_size, descriptor);
 	if (status != U80211_STATUS_SUCCESS)
 		return status;
 
 	*data = u80211_descriptor_allocate_space(descriptor, data_size);
 	if (*data == NULL) {
-		device->ops->free_tx_buffer(device, descriptor);
+		device->ops->free_tx_buffer(device->driver_data, descriptor);
 		return U80211_STATUS_NOT_ENOUGH_SPACE;
 	}
 
@@ -176,7 +176,7 @@ static int prepare_management_packet(u80211_device_t *device, const u80211_mac_a
 
 	status = u80211_serialize_header(&header, descriptor);
 	if (status != U80211_STATUS_SUCCESS)
-		device->ops->free_tx_buffer(device, descriptor);
+		device->ops->free_tx_buffer(device->driver_data, descriptor);
 
 	return status;
 }
@@ -304,7 +304,7 @@ int u80211_send_authentication(u80211_device_t *device, u80211_auth_data_t *auth
 	serialize_le16(data + 4, auth_data->status);
 
 	const u80211_transmit_options_t options = { .key = -1, .cipher = -1 };
-	return device->ops->transmit(device, &descriptor, &options);
+	return device->ops->transmit(device->driver_data, &descriptor, &options);
 }
 
 int u80211_send_deauthentication(u80211_device_t *device, u80211_deauthentication_data_t *deauthentication_data) {
@@ -317,7 +317,7 @@ int u80211_send_deauthentication(u80211_device_t *device, u80211_deauthenticatio
 	serialize_le16(data, deauthentication_data->reason);
 
 	const u80211_transmit_options_t options = { .key = -1, .cipher = -1 };
-	return device->ops->transmit(device, &descriptor, &options);
+	return device->ops->transmit(device->driver_data, &descriptor, &options);
 }
 
 int u80211_send_probe_request(u80211_device_t *device) {
@@ -336,7 +336,7 @@ int u80211_send_probe_request(u80211_device_t *device) {
 	serialize_rate_information_elements(probe_request_data + 2, device->metadata.rate_bitmap, rate_count);
 
 	const u80211_transmit_options_t options = { .key = -1, .cipher = -1 };
-	return device->ops->transmit(device, &descriptor, &options);
+	return device->ops->transmit(device->driver_data, &descriptor, &options);
 }
 
 int u80211_send_association_request(u80211_device_t *device, const void *information_elements, size_t information_elements_size) {
@@ -365,5 +365,5 @@ int u80211_send_association_request(u80211_device_t *device, const void *informa
 		u80211_memcpy(data + 6 + ssid_size + rate_information_size, information_elements, information_elements_size);
 
 	const u80211_transmit_options_t options = { .key = -1, .cipher = -1 };
-	return device->ops->transmit(device, &descriptor, &options);
+	return device->ops->transmit(device->driver_data, &descriptor, &options);
 }

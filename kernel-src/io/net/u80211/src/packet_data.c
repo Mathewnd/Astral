@@ -111,7 +111,7 @@ static int prepare_tkip_tx(u80211_device_t *device, u80211_header_description_t 
 }
 
 int u80211_allocate_tx_buffer(u80211_device_t *device, u80211_tx_buffer_descriptor_t *descriptor) {
-	int status = device->ops->allocate_tx_buffer(device, ETHERNET_MAX_FRAME_SIZE + TX_BUFFER_HEADROOM + TX_BUFFER_TAILROOM, descriptor);
+	int status = device->ops->allocate_tx_buffer(device->driver_data, ETHERNET_MAX_FRAME_SIZE + TX_BUFFER_HEADROOM + TX_BUFFER_TAILROOM, descriptor);
 	if (status != U80211_STATUS_SUCCESS)
 		return status;
 
@@ -131,7 +131,7 @@ int u80211_transmit_buffer(u80211_device_t *device, u80211_tx_buffer_descriptor_
 	u80211_ap_t *ap = device->ap;
 	if (u80211_get_device_state(device) != U80211_DEVICE_STATE_ASSOCIATED || ap == NULL) {
 		u80211_kernel_release_spinlock(device->association_spinlock);
-		device->ops->free_tx_buffer(device, descriptor);
+		device->ops->free_tx_buffer(device->driver_data, descriptor);
 		return U80211_STATUS_NOT_ASSOCIATED;
 	}
 	u80211_ap_hold(ap);
@@ -140,7 +140,7 @@ int u80211_transmit_buffer(u80211_device_t *device, u80211_tx_buffer_descriptor_
 	size_t ethernet_frame_size = descriptor->size - descriptor->current_offset;
 	if (ethernet_frame_size < ETHERNET_HEADER_SIZE) {
 		u80211_ap_release(ap);
-		device->ops->free_tx_buffer(device, descriptor);
+		device->ops->free_tx_buffer(device->driver_data, descriptor);
 		return U80211_STATUS_NOT_ENOUGH_SPACE;
 	}
 
@@ -156,7 +156,7 @@ int u80211_transmit_buffer(u80211_device_t *device, u80211_tx_buffer_descriptor_
 	uint8_t *llc_snap = u80211_descriptor_allocate_space(descriptor, LLCSNAP_SIZE);
 	if (llc_snap == NULL) {
 		u80211_ap_release(ap);
-		device->ops->free_tx_buffer(device, descriptor);
+		device->ops->free_tx_buffer(device->driver_data, descriptor);
 		return U80211_STATUS_NOT_ENOUGH_SPACE;
 	}
 	u80211_memcpy(llc_snap, byte_header, sizeof(byte_header));
@@ -178,7 +178,7 @@ int u80211_transmit_buffer(u80211_device_t *device, u80211_tx_buffer_descriptor_
 	if (key >= 0) {
 		// supported cipher headers have two bits for key selection
 		if (key > 3) {
-			device->ops->free_tx_buffer(device, descriptor);
+			device->ops->free_tx_buffer(device->driver_data, descriptor);
 			return U80211_STATUS_NOT_PERMITTED;
 		}
 
@@ -192,21 +192,21 @@ int u80211_transmit_buffer(u80211_device_t *device, u80211_tx_buffer_descriptor_
 				cipher_status = prepare_tkip_tx(device, &header, key, descriptor);
 				break;
 			default:
-				device->ops->free_tx_buffer(device, descriptor);
+				device->ops->free_tx_buffer(device->driver_data, descriptor);
 				return U80211_STATUS_UNSUPPORTED;
 		}
 		if (cipher_status != U80211_STATUS_SUCCESS) {
-			device->ops->free_tx_buffer(device, descriptor);
+			device->ops->free_tx_buffer(device->driver_data, descriptor);
 			return cipher_status;
 		}
 	}
 
 	int status = u80211_serialize_header(&header, descriptor);
 	if (status != U80211_STATUS_SUCCESS) {
-		device->ops->free_tx_buffer(device, descriptor);
+		device->ops->free_tx_buffer(device->driver_data, descriptor);
 		return status;
 	}
 
 	const u80211_transmit_options_t options = { .key = key, .cipher = cipher };
-	return device->ops->transmit(device, descriptor, &options);
+	return device->ops->transmit(device->driver_data, descriptor, &options);
 }

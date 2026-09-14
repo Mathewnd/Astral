@@ -76,7 +76,7 @@ int u80211_set_key(u80211_device_t *device, const u80211_key_t *key) {
 	if (key->key_len != 0)
 		u80211_memcpy(metadata->key, key->key, key->key_len);
 
-	int status = device->ops->set_key(device, key);
+	int status = device->ops->set_key(device->driver_data, key);
 	if (status != U80211_STATUS_SUCCESS) {
 		destroy_key_metadata(metadata);
 		return status;
@@ -104,7 +104,7 @@ int u80211_del_key(u80211_device_t *device, uint8_t index, const u80211_mac_addr
 	if (device->ops->del_key == NULL)
 		return U80211_STATUS_UNSUPPORTED;
 
-	int status = device->ops->del_key(device, index, peer, flags);
+	int status = device->ops->del_key(device->driver_data, index, peer, flags);
 	if (status != U80211_STATUS_SUCCESS)
 		return status;
 

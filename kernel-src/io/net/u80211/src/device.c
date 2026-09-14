@@ -67,7 +67,7 @@ int u80211_register_device(const u80211_device_metadata_t *metadata, const u8021
 	device->ops = ops;
 	device->driver_data = driver_data;
 
-	status = u80211_bss_cache_init(&device->bss_cache);
+	status = u80211_bss_cache_init(device);
 	if (status != U80211_STATUS_SUCCESS) {
 		u80211_kernel_free_work(device->association_cleanup_work);
 		u80211_kernel_free_spinlock(device->association_spinlock);
@@ -88,7 +88,7 @@ void u80211_unregister_device(u80211_device_t *device) {
 	u80211_kernel_free_work(device->association_cleanup_work);
 	if (device->disconnected_ap != NULL)
 		u80211_ap_release(device->disconnected_ap);
-	u80211_bss_cache_deinit(&device->bss_cache);
+	u80211_bss_cache_deinit(device);
 	u80211_kernel_free_spinlock(device->association_spinlock);
 	u80211_kernel_free_spinlock(device->scan_spinlock);
 	u80211_kernel_free(device);

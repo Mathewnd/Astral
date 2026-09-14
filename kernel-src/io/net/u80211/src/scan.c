@@ -142,7 +142,7 @@ static void scan_work(void *ctx) {
 		if (ap == NULL)
 			continue;
 
-		u80211_bss_cache_insert(&device->bss_cache, ap);
+		u80211_bss_cache_insert(device, ap);
 		u80211_ap_release(ap);
 	}
 
@@ -156,7 +156,7 @@ static void scan_work(void *ctx) {
 	scan_state->current_channel = current_channel;
 	u80211_kernel_release_spinlock(device->scan_spinlock);
 
-	device->ops->set_channel(device, scan_state->current_channel);
+	device->ops->set_channel(device->driver_data, scan_state->current_channel);
 
 	u80211_kernel_acquire_spinlock(device->scan_spinlock);
 	scan_state->receiving = true;
@@ -210,9 +210,9 @@ int u80211_scan(u80211_device_t *device) {
 	device->scan_context = scan_state;
 	u80211_kernel_release_spinlock(device->scan_spinlock);
 
-	u80211_bss_cache_purge(&device->bss_cache);
+	u80211_bss_cache_purge(device);
 
-	device->ops->set_channel(device, scan_state->current_channel);
+	device->ops->set_channel(device->driver_data, scan_state->current_channel);
 
 	u80211_kernel_acquire_spinlock(device->scan_spinlock);
 	scan_state->receiving = true;

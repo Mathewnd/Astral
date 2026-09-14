@@ -1,9 +1,9 @@
 #include <stddef.h>
 
-#include <u80211/bss_cache.h>
 #include <u80211/kernel_interface.h>
 #include <u80211/rbtree.h>
 #include <u80211/status.h>
+#include <u80211/u80211.h>
 #include <u80211/util.h>
 
 static int mac_compare(u80211_mac_address_t *a, u80211_mac_address_t *b) {
@@ -30,7 +30,8 @@ static int rbtree_value_compare(void *a, u80211_rbtree_t *b) {
 	return mac_compare(a, &ap_b->mac_address);
 }
 
-int u80211_bss_cache_init(bss_cache_t *cache) {
+int u80211_bss_cache_init(u80211_device_t *device) {
+	bss_cache_t *cache = &device->bss_cache;
 	cache->root = NULL;
 	cache->entry_count = 0;
 	cache->rwlock = u80211_kernel_allocate_rwlock();
@@ -40,7 +41,8 @@ int u80211_bss_cache_init(bss_cache_t *cache) {
 	return U80211_STATUS_SUCCESS;
 }
 
-void u80211_bss_cache_deinit(bss_cache_t *cache) {
+void u80211_bss_cache_deinit(u80211_device_t *device) {
+	bss_cache_t *cache = &device->bss_cache;
 	u80211_kernel_acquire_rwlock_exclusive(cache->rwlock);
 
 	u80211_rbtree_t *iterator = cache->root == NULL ? NULL : u80211_rbtree_first(cache->root);
@@ -60,7 +62,8 @@ void u80211_bss_cache_deinit(bss_cache_t *cache) {
 	cache->root = NULL;
 }
 
-void u80211_bss_cache_purge(bss_cache_t *cache) {
+void u80211_bss_cache_purge(u80211_device_t *device) {
+	bss_cache_t *cache = &device->bss_cache;
 	u80211_kernel_acquire_rwlock_exclusive(cache->rwlock);
 
 	u80211_rbtree_t *iterator = cache->root == NULL ? NULL : u80211_rbtree_first(cache->root);
@@ -80,7 +83,8 @@ void u80211_bss_cache_purge(bss_cache_t *cache) {
 	u80211_kernel_release_rwlock_exclusive(cache->rwlock);
 }
 
-void u80211_bss_cache_insert(bss_cache_t *cache, u80211_ap_t *ap) {
+void u80211_bss_cache_insert(u80211_device_t *device, u80211_ap_t *ap) {
+	bss_cache_t *cache = &device->bss_cache;
 	u80211_kernel_acquire_rwlock_exclusive(cache->rwlock);
 
 	u80211_rbtree_t *node = u80211_rbtree_lookup(cache->root, &ap->mac_address, rbtree_value_compare);
@@ -96,7 +100,8 @@ void u80211_bss_cache_insert(bss_cache_t *cache, u80211_ap_t *ap) {
 	u80211_kernel_release_rwlock_exclusive(cache->rwlock);
 }
 
-void u80211_bss_cache_remove(bss_cache_t *cache, u80211_mac_address_t *mac) {
+void u80211_bss_cache_remove(u80211_device_t *device, u80211_mac_address_t *mac) {
+	bss_cache_t *cache = &device->bss_cache;
 	u80211_kernel_acquire_rwlock_exclusive(cache->rwlock);
 
 	u80211_rbtree_t *node = u80211_rbtree_lookup(cache->root, mac, rbtree_value_compare);
@@ -114,7 +119,8 @@ void u80211_bss_cache_remove(bss_cache_t *cache, u80211_mac_address_t *mac) {
 	u80211_kernel_release_rwlock_exclusive(cache->rwlock);
 }
 
-u80211_ap_t *u80211_bss_cache_find(bss_cache_t *cache, u80211_mac_address_t *mac) {
+u80211_ap_t *u80211_bss_cache_find(u80211_device_t *device, u80211_mac_address_t *mac) {
+	bss_cache_t *cache = &device->bss_cache;
 	u80211_kernel_acquire_rwlock_shared(cache->rwlock);
 
 	u80211_rbtree_t *node = u80211_rbtree_lookup(cache->root, mac, rbtree_value_compare);
@@ -131,7 +137,8 @@ u80211_ap_t *u80211_bss_cache_find(bss_cache_t *cache, u80211_mac_address_t *mac
 	return ap;
 }
 
-size_t u80211_bss_cache_get_aps(bss_cache_t *cache, u80211_ap_t **buffer, size_t capacity) {
+size_t u80211_bss_cache_get_aps(u80211_device_t *device, u80211_ap_t **buffer, size_t capacity) {
+	bss_cache_t *cache = &device->bss_cache;
 	u80211_kernel_acquire_rwlock_shared(cache->rwlock);
 
 	size_t count = 0;
@@ -148,7 +155,8 @@ size_t u80211_bss_cache_get_aps(bss_cache_t *cache, u80211_ap_t **buffer, size_t
 	return count;
 }
 
-size_t u80211_bss_cache_get_count(bss_cache_t *cache) {
+size_t u80211_bss_cache_get_count(u80211_device_t *device) {
+	bss_cache_t *cache = &device->bss_cache;
 	u80211_kernel_acquire_rwlock_shared(cache->rwlock);
 	size_t count = cache->entry_count;
 	u80211_kernel_release_rwlock_shared(cache->rwlock);

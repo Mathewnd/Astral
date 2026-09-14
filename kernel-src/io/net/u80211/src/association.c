@@ -352,7 +352,7 @@ int u80211_associate(u80211_device_t *device, u80211_ap_t *ap, const void *infor
 		.auth_transaction = 1,
 		.status = 0,
 	};
-	device->ops->set_channel(device, ap->channel);
+	device->ops->set_channel(device->driver_data, ap->channel);
 	u80211_send_authentication(device, &auth_data);
 
 	u80211_kernel_enqueue_delayed_work(association_context->auth_timeout_work, association_context->auth_timeout_timer,
