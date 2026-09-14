@@ -121,7 +121,7 @@ static int dispatch_fragment(netdev_t *netdev, netdesc_t fragdesc,
 	frame.framechecksum = cpu_to_be_w(checksum(&frame, sizeof(frame)));
 
 	memcpy((void *)((uintptr_t)fragdesc.address + fragdesc.curroffset), &frame, sizeof(ipv4frame_t));
-	return netdev->sendpacket(netdev, fragdesc, mac, ETH_PROTO_IP);
+	return netdev->ops->sendpacket(netdev, fragdesc, mac, ETH_PROTO_IP);
 }
 
 void ipv4_process(netdev_t *netdev, void *buff, size_t size) {
@@ -212,7 +212,7 @@ int ipv4_sendpacket(void *buffer, size_t packetsize, uint32_t ip, int proto, net
 	for (int i = 0; i < fragmentcount; ++i) {
 		size_t fragmentlen = (i == fragmentcount - 1) ? packetsize - devfragmentsize * (fragmentcount - 1) : devfragmentsize;
 		netdesc_t fragdesc;
-		int e = netdev->allocdesc(netdev, fragmentlen + sizeof(ipv4frame_t), &fragdesc);
+		int e = netdev->ops->allocdesc(netdev, fragmentlen + sizeof(ipv4frame_t), &fragdesc);
 		if (e)
 			return e;
 

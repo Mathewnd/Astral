@@ -121,19 +121,19 @@ static int raw_send(socket_t *socket_handle, sockdesc_t *sockdesc) {
 		goto leave;
 	}
 
-	error = socket->netdev_binding->allocdesc(socket->netdev_binding, sockdesc->count, &desc);
+	error = socket->netdev_binding->ops->allocdesc(socket->netdev_binding, sockdesc->count, &desc);
 	if (error)
 		goto leave;
 
 	error = iovec_iterator_copy_to_buffer(sockdesc->iovec_iterator, (void *)((uintptr_t)desc.address + desc.curroffset), sockdesc->count);
 	if (error) {
-		socket->netdev_binding->freedesc(socket->netdev_binding, &desc);
+		socket->netdev_binding->ops->freedesc(socket->netdev_binding, &desc);
 		goto leave;
 	}
 
 	mac_t target;
 	memcpy(&target, sockdesc->addr->raw.mac, sizeof(target));
-	error = socket->netdev_binding->sendpacket(socket->netdev_binding, desc, target, socket->proto);
+	error = socket->netdev_binding->ops->sendpacket(socket->netdev_binding, desc, target, socket->proto);
 	if (error == 0)
 		sockdesc->donecount = sockdesc->count;
 

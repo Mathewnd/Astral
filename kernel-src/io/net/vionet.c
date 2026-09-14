@@ -151,8 +151,14 @@ static int vionet_sendpacket(netdev_t *internal, netdesc_t desc, mac_t targetmac
 	sched_yield();
 
 	interrupt_set(intstatus);
-	return internal->freedesc(internal, &desc);
+	return internal->ops->freedesc(internal, &desc);
 }
+
+static const netdevops_t vionet_ops = {
+	.allocdesc = vionet_allocdesc,
+	.freedesc = vionet_freedesc,
+	.sendpacket = vionet_sendpacket
+};
 
 int vionet_newdevice(viodevice_t *viodevice) {
 	static int id = 0;
@@ -174,13 +180,12 @@ int vionet_newdevice(viodevice_t *viodevice) {
 
 	vionetdev_t *netdev = alloc(sizeof(vionetdev_t));
 	__assert(netdev);
+	mac_t mac;
+	for (int i = 0; i < 6; ++i)
+		mac.address[i] = vionetconfig->mac[i];
+	__assert(netdev_initialize(&netdev->netdev, &vionet_ops, 1500, mac) == 0);
 	netdev->viodevice = viodevice;
 	netdev->id = id++;
-	netdev->netdev.mtu = 1500;
-	netdev->netdev.sendpacket = vionet_sendpacket;
-	netdev->netdev.allocdesc = vionet_allocdesc;
-	netdev->netdev.freedesc = vionet_freedesc;
-	__assert(hashtable_init(&netdev->netdev.arpcache, 30) == 0);
 	dpc_prepare(&netdev->rxdpc, rx_dpc);
 	dpc_prepare(&netdev->txdpc, tx_dpc);
 
@@ -224,9 +229,6 @@ int vionet_newdevice(viodevice_t *viodevice) {
 		VIO_QUEUE_DRV_IDX(&netdev->rxqueue)++;
 		*netdev->rxqueue.notify = 0;
 	}
-
-	for (int i = 0; i < 6; ++i)
-		netdev->netdev.mac.address[i] = vionetconfig->mac[i];
 
 	printf("vionet%d: mac: %02x:%02x:%02x:%02x:%02x:%02x\n", netdev->id, netdev->netdev.mac.address[0], netdev->netdev.mac.address[1], netdev->netdev.mac.address[2], netdev->netdev.mac.address[3], netdev->netdev.mac.address[4], netdev->netdev.mac.address[5]);
 

@@ -140,13 +140,13 @@ static void send_reply(netdev_t *netdev, uint32_t ip, mac_t mac) {
 	memcpy(&frame.srchw, &netdev->mac, sizeof(mac_t));
 	memcpy(&frame.dsthw, &mac, sizeof(mac_t));
 	netdesc_t desc;
-	int e = netdev->allocdesc(netdev, sizeof(arpframe_t), &desc);
+	int e = netdev->ops->allocdesc(netdev, sizeof(arpframe_t), &desc);
 	if (e)
 		return;
 
 	memcpy((void *)((uintptr_t)desc.address + desc.curroffset), &frame, sizeof(frame));
 
-	netdev->sendpacket(netdev, desc, mac, ETH_PROTO_ARP);
+	netdev->ops->sendpacket(netdev, desc, mac, ETH_PROTO_ARP);
 }
 
 static void handlerthreadfn() {
@@ -229,13 +229,13 @@ static int sendrequest(netdev_t *netdev, uint32_t ip) {
 
 	memcpy(&frame.srchw, &netdev->mac, sizeof(mac_t));
 	netdesc_t desc;
-	int e = netdev->allocdesc(netdev, sizeof(arpframe_t), &desc);
+	int e = netdev->ops->allocdesc(netdev, sizeof(arpframe_t), &desc);
 	if (e)
 		return e;
 
 	memcpy((void *)((uintptr_t)desc.address + desc.curroffset), &frame, sizeof(frame));
 
-	e = netdev->sendpacket(netdev, desc, NET_BROADCAST_MAC, ETH_PROTO_ARP);
+	e = netdev->ops->sendpacket(netdev, desc, NET_BROADCAST_MAC, ETH_PROTO_ARP);
 	return e;
 }
 

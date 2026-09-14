@@ -25,11 +25,6 @@ typedef struct {
 // TODO: handle hotplug
 // TODO: in u80211_drv *_tx_buffer ops, pass device handle
 // TODO: change how netdesc_t is handled in kernel overall (?)
-// TODO: general netdev cleanup:
-// - use struct ops instead of having function pointers in netdev struct
-// - proper initialize() function
-// - proper destroy() function
-
 static uint64_t id_bitmap;
 static int allocate_id(void) {
 	for (;;) {
@@ -228,28 +223,32 @@ static int wlan_send_packet(netdev_t *netdev, netdesc_t desc, mac_t target, int 
 	return u80211_status_to_errno(u80211_transmit_buffer(wlan->u80211_device, &descriptor));
 }
 
+static const netdevops_t netdev_ops = {
+	.allocdesc = wlan_alloc_desc,
+	.freedesc = wlan_free_desc,
+	.sendpacket = wlan_send_packet
+};
+
 int wlan_register(void *handle, const u80211_drv_device_metadata_t *drv_metadata, const u80211_drv_device_ops_t *drv_ops, u80211_drv_network_device_handle_t *network_device) {
 	wlan_device_t *wlan = alloc(sizeof(wlan_device_t));
 	if (wlan == NULL)
 		return ENOMEM;
+	mac_t mac;
+	memcpy(&mac, &drv_metadata->mac_address, sizeof(mac));
+	int error = netdev_initialize(&wlan->netdev, &netdev_ops, WLAN_MTU, mac);
+	if (error) {
+		free(wlan);
+		return error;
+	}
 
 	wlan->driver_handle = handle;
 	wlan->ops = drv_ops;
 
-	wlan->netdev.mtu = WLAN_MTU;
-	wlan->netdev.sendpacket = wlan_send_packet;
-	wlan->netdev.allocdesc = wlan_alloc_desc;
-	wlan->netdev.freedesc = wlan_free_desc;
 	wlan->netdev.flags = NETDEV_FLAGS_WLAN | NETDEV_FLAGS_UP | NETDEV_FLAGS_BROADCAST | NETDEV_FLAGS_RUNNING;
-	memcpy(&wlan->netdev.mac, &drv_metadata->mac_address, 6);
-	if (hashtable_init(&wlan->netdev.arpcache, 30)) {
-		free(wlan);
-		return ENOMEM;
-	}
 
 	wlan->id = allocate_id();
 	if (wlan->id == -1) {
-		hashtable_destroy(&wlan->netdev.arpcache);
+		netdev_destroy(&wlan->netdev);
 		free(wlan);
 		return EAGAIN;
 	}
@@ -261,18 +260,18 @@ int wlan_register(void *handle, const u80211_drv_device_metadata_t *drv_metadata
 	int status = u80211_register_device(&metadata, &ops, wlan, &wlan->u80211_device);
 	if (status != U80211_STATUS_SUCCESS) {
 		free_id(wlan->id);
-		hashtable_destroy(&wlan->netdev.arpcache);
+		netdev_destroy(&wlan->netdev);
 		free(wlan);
 		return u80211_status_to_errno(status);
 	}
 
 	char name[10];
 	snprintf(name, 10, "wlan%d", wlan->id);
-	int error = netdev_register(&wlan->netdev, name);
+	error = netdev_register(&wlan->netdev, name);
 	if (error) {
 		u80211_unregister_device(wlan->u80211_device);
 		free_id(wlan->id);
-		hashtable_destroy(&wlan->netdev.arpcache);
+		netdev_destroy(&wlan->netdev);
 		free(wlan);
 		return error;
 	}

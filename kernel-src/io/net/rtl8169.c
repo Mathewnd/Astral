@@ -193,7 +193,7 @@ static int rtl8169_sendpacket(netdev_t *internal, netdesc_t desc, mac_t target, 
 	spinlock_release_lower_ipl(&netdev->tx_lock, ipl);
 	sched_yield();
 
-	return internal->freedesc(internal, &desc);
+	return internal->ops->freedesc(internal, &desc);
 }
 
 // requested size doesn't account for ethernet header
@@ -214,6 +214,12 @@ static int rtl8169_freedesc(netdev_t *netdev, netdesc_t *desc) {
 	mm_release_page(FROM_HHDM(desc->address));
 	return 0;
 }
+
+static const netdevops_t rtl8169_ops = {
+	.allocdesc = rtl8169_allocdesc,
+	.freedesc = rtl8169_freedesc,
+	.sendpacket = rtl8169_sendpacket
+};
 
 static int controller_id = 0;
 
@@ -324,12 +330,7 @@ static void init_controller(pcienum_t *pci_enum) {
 
 	rtl8169dev_t *netdev = alloc(sizeof(rtl8169dev_t));
 	__assert(netdev);
-	netdev->netdev.mtu = 1500;
-	netdev->netdev.sendpacket = rtl8169_sendpacket;
-	netdev->netdev.allocdesc = rtl8169_allocdesc;
-	netdev->netdev.freedesc = rtl8169_freedesc;
-	memcpy(&netdev->netdev.mac, &mac, sizeof(mac));
-	__assert(hashtable_init(&netdev->netdev.arpcache, 30) == 0);
+	__assert(netdev_initialize(&netdev->netdev, &rtl8169_ops, 1500, mac) == 0);
 
 	netdev->tx_ring = tx_ring;
 	netdev->rx_ring = rx_ring;

@@ -250,6 +250,21 @@ netdev_t *netdev_from_minor(uint16_t minor) {
 	return minors[minor];
 }
 
+int netdev_initialize(netdev_t *netdev, const netdevops_t *ops, size_t mtu, mac_t mac) {
+	int error = hashtable_init(&netdev->arpcache, 30);
+	if (error)
+		return error;
+
+	netdev->ops = ops;
+	netdev->mtu = mtu;
+	netdev->mac = mac;
+	return 0;
+}
+
+void netdev_destroy(netdev_t *netdev) {
+	hashtable_destroy(&netdev->arpcache);
+}
+
 int netdev_register(netdev_t *netdev, char *name) {
 	// TODO: better allocation strategy (copy wlan's?)
 	int minor = __atomic_fetch_add(&current_minor, 1, __ATOMIC_RELAXED);

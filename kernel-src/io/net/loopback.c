@@ -43,24 +43,23 @@ static int loopback_sendpacket(netdev_t *netdev, netdesc_t desc, mac_t targetmac
 	eth_process(netdev, desc.address, desc.size);
 	interrupt_loweripl(ipl);
 
-	return netdev->freedesc(netdev, &desc);
+	return netdev->ops->freedesc(netdev, &desc);
 }
+
+static const netdevops_t loopback_ops = {
+	.allocdesc = loopback_allocdesc,
+	.freedesc = loopback_freedesc,
+	.sendpacket = loopback_sendpacket
+};
 
 netdev_t *loopback_device() {
 	return &loopbacknetdev;
 }
 
 void loopback_init() {
-	loopbacknetdev.mtu = 30000;
-	loopbacknetdev.sendpacket = loopback_sendpacket;
-	loopbacknetdev.allocdesc = loopback_allocdesc;
-	loopbacknetdev.freedesc = loopback_freedesc;
+	__assert(netdev_initialize(&loopbacknetdev, &loopback_ops, 30000, (mac_t){0}) == 0);
 	loopbacknetdev.ip = 0x7f000001;
 	loopbacknetdev.flags = NETDEV_FLAGS_UP | NETDEV_FLAGS_LOOPBACK | NETDEV_FLAGS_RUNNING;
-	__assert(hashtable_init(&loopbacknetdev.arpcache, 30) == 0);
-
-	for (int i = 0; i < 6; ++i)
-		loopbacknetdev.mac.address[i] = 0;
 
 	__assert(netdev_register(&loopbacknetdev, "lo") == 0);
 }

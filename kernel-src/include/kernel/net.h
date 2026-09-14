@@ -35,6 +35,15 @@ typedef struct {
 #define NETDEV_FLAGS_RUNNING 0x40
 #define NETDEV_FLAGS_WLAN 0x80
 
+struct netdev_t;
+
+typedef struct {
+	int (*allocdesc)(struct netdev_t *netdev, size_t requestedsize, netdesc_t *desc);
+	int (*freedesc)(struct netdev_t *netdev, netdesc_t *desc);
+	// consumes desc regardless of the returned status
+	int (*sendpacket)(struct netdev_t *netdev, netdesc_t desc, mac_t targetmac, int proto);
+} netdevops_t;
+
 typedef struct netdev_t {
 	mac_t mac;
 	int ifindex;
@@ -43,10 +52,7 @@ typedef struct netdev_t {
 	int ipcurrid; // XXX This is defined as something per peer. However, having only one of these *should* work for most cases
 	hashtable_t arpcache;
 	short flags;
-	int (*allocdesc)(struct netdev_t *netdev, size_t requestedsize, netdesc_t *desc);
-	int (*freedesc)(struct netdev_t *netdev, netdesc_t *desc);
-	// consumes desc regardless of the returned status
-	int (*sendpacket)(struct netdev_t *_internal, netdesc_t desc, mac_t targetmac, int proto);
+	const netdevops_t *ops;
 } netdev_t;
 
 typedef struct {
@@ -83,7 +89,6 @@ void arp_init();
 void ipv4_init();
 void udp_init();
 void tcp_init();
-void netdev_init();
 void loopback_init();
 netdev_t *loopback_device();
 void udp_process(netdev_t *netdev, void *buffer, uint32_t ip);
@@ -96,6 +101,8 @@ size_t ipv4_getmtu(uint32_t ip);
 uint32_t ipv4_getnetdevip(uint32_t ip);
 void ipv4_process(netdev_t *netdev, void *nextbuff, size_t size);
 int ipv4_addroute(netdev_t *netdev, uint32_t addr, uint32_t gateway, uint32_t mask, int weight);
+int netdev_initialize(netdev_t *netdev, const netdevops_t *ops, size_t mtu, mac_t mac);
+void netdev_destroy(netdev_t *netdev);
 int netdev_register(netdev_t *netdev, char *name);
 netdev_t *netdev_getdev(char *name);
 netdev_t *netdev_from_minor(uint16_t minor);
