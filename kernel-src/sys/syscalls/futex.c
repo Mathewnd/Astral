@@ -26,7 +26,7 @@ typedef struct {
 static futex_bucket_t buckets[BUCKET_COUNT];
 
 static futex_bucket_t *get_futex_bucket(uintptr_t key) {
-	return &buckets[(key / 16) % 256]; // TODO proper hash
+	return &buckets[(key / 16) % BUCKET_COUNT]; // TODO proper hash
 }
 
 // expects bucket mutex held
