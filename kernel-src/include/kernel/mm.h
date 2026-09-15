@@ -92,6 +92,7 @@ void mm_switch_context(mm_context_t *ctx);
 #define MM_GET_PHYSICAL_ADDRESS_FLAGS_LOCK 2
 #define MM_GET_PHYSICAL_ADDRESS_FLAGS_LOCK_HINT_READ 4
 #define MM_GET_PHYSICAL_ADDRESS_FLAGS_LOCK_HINT_WRITE 8
+#define MM_GET_PHYSICAL_ADDRESS_FLAGS_LOCK_FULL 16
 void *mm_get_physical_address(void *addr, int flags);
 void mm_apinit();
 void mm_init();

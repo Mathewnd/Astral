@@ -323,6 +323,7 @@ static int lock_page(mm_space_t *space, void *vaddr, int hint) {
 	mm_range_t *range = mm_get_range(space, vaddr);
 	bool read_hint = hint & MM_GET_PHYSICAL_ADDRESS_FLAGS_LOCK_HINT_READ;
 	bool write_hint = hint & MM_GET_PHYSICAL_ADDRESS_FLAGS_LOCK_HINT_WRITE;
+	bool full = hint & MM_GET_PHYSICAL_ADDRESS_FLAGS_LOCK_FULL;
 	if (!range || (write_hint && !(range->mmuflags & ARCH_MMU_FLAGS_WRITE)) || (read_hint && !(range->mmuflags & ARCH_MMU_FLAGS_READ)))
 		return EFAULT;
 
@@ -335,10 +336,10 @@ static int lock_page(mm_space_t *space, void *vaddr, int hint) {
 
 	// we need to make sure the address is fully paged in before locking, as it needs
 	// to affect the final state of the page
-	// the only exception to this is if we know this operation will be read-only, which can safely operate on a partial page.
+	// the only exception to this is if we know this operation will be read-only and can safely operate on a partial page.
 	page_t *page;
 	int error;
-	if (read_hint && !write_hint)
+	if (read_hint && !write_hint && !full)
 		error = mm_partial_page_in(range, vaddr, &page);
 	else
 		error = mm_full_page_in(range, vaddr, &page);
