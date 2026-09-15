@@ -1,39 +1,111 @@
 #include <kernel/syscalls.h>
-#include <kernel/slab.h>
 #include <kernel/mm.h>
-#include <time.h>
-#include <hashtable.h>
-#include <kernel/poll.h>
-#include <kernel/alloc.h>
-#include <arch/cpu.h>
+#include <list.h>
+#include <semaphore.h>
+#include <mutex.h>
 
-static MUTEX_DEFINE(futexmutex);
-HASHTABLE_DEFINE_STATIC(hashtable, 256);
+// TODO support private futexes
+
+#define ENTRY_STATE_WAITING 0
+#define ENTRY_STATE_TIMEOUT 1
+#define ENTRY_STATE_AWOKEN   2
 
 typedef struct {
-	pollheader_t pollheader;
-	int waiting;
-	int waking;
-} futex_t;
+	list_node_t list_node;
+	uintptr_t key;
+	semaphore_t semaphore;
+	int state;
+} futex_entry_t;
+
+typedef struct {
+	mutex_t mutex;
+	list_t list;
+} futex_bucket_t;
+
+#define BUCKET_COUNT 256
+static futex_bucket_t buckets[BUCKET_COUNT];
+
+static futex_bucket_t *get_futex_bucket(uintptr_t key) {
+	return &buckets[(key / 16) % 256]; // TODO proper hash
+}
+
+// expects bucket mutex held
+static size_t wake_bucket(futex_bucket_t *bucket, uintptr_t key, size_t count) {
+	size_t awoken = 0;
+
+	if (count == 0)
+		return 0;
+
+	list_for_each (&bucket->list, list_node) {
+		futex_entry_t *entry = (futex_entry_t *)list_node;
+
+		if (entry->key == key) {
+			int expected = ENTRY_STATE_WAITING;
+			if (!__atomic_compare_exchange_n(&entry->state, &expected, ENTRY_STATE_AWOKEN, false, __ATOMIC_RELAXED, __ATOMIC_RELAXED))
+				continue;
+
+			semaphore_signal(&entry->semaphore);
+			++awoken;
+			if (--count == 0)
+				break;
+		}
+	}
+
+	return awoken;
+}
+
+static void timeout(context_t *, dpcarg_t arg) {
+	futex_entry_t *entry = arg;
+	int expected = ENTRY_STATE_WAITING;
+	if (__atomic_compare_exchange_n(&entry->state, &expected, ENTRY_STATE_TIMEOUT, false, __ATOMIC_RELAXED, __ATOMIC_RELAXED))
+		semaphore_signal(&entry->semaphore);
+}
+
+// expects bucket mutex to be held
+// returns without the bucket held
+static int wait_on_bucket(futex_bucket_t *bucket, uintptr_t key, size_t timeoutus) {
+	itimer_t itimer;
+	futex_entry_t entry = {
+		.key = key
+	};
+
+	__atomic_store_n(&entry.state, ENTRY_STATE_WAITING, __ATOMIC_RELAXED);
+	SEMAPHORE_INIT(&entry.semaphore, 0);
+
+	list_push_back(&bucket->list, &entry.list_node);
+	MUTEX_RELEASE(&bucket->mutex);
+
+	if (timeoutus) {
+		itimer_init(&itimer, timeout, &entry);
+		itimer_set(&itimer, timeoutus, 0);
+		itimer_resume(&itimer);
+	}
+	int error = semaphore_wait(&entry.semaphore, true) ? EINTR : 0;
+
+	if (timeoutus) {
+		itimer_pause(&itimer, NULL, NULL);
+	}
+
+	MUTEX_ACQUIRE(&bucket->mutex);
+
+	int state = __atomic_load_n(&entry.state, __ATOMIC_RELAXED);
+	if (state == ENTRY_STATE_AWOKEN)
+		error = 0;
+	else if (state == ENTRY_STATE_TIMEOUT)
+		error = ETIMEDOUT;
+
+	list_remove(&bucket->list, &entry.list_node);
+
+	MUTEX_RELEASE(&bucket->mutex);
+
+	if (error)
+		return error;
+
+	return 0;
+}
 
 #define FUTEX_WAIT 0
 #define FUTEX_WAKE 1
-
-static futex_t *getfutex(void *physical) {
-	void *tmp;
-	if (hashtable_get(&hashtable, &tmp, &physical, sizeof(physical)))
-		tmp = NULL;
-
-	return tmp;
-}
-
-static int setfutex(futex_t *futex, void *physical) {
-	return hashtable_set(&hashtable, futex, &physical, sizeof(physical), true);
-}
-
-static void removefutex(void *physical) {
-	hashtable_remove(&hashtable, &physical, sizeof(physical));
-}
 
 syscallret_t syscall_futex(context_t *, uint32_t *futexp, int op, uint32_t value, timespec_t *tm) {
 	syscallret_t ret = {
@@ -45,6 +117,11 @@ syscallret_t syscall_futex(context_t *, uint32_t *futexp, int op, uint32_t value
 		return ret;
 	}
 
+	if ((uintptr_t)futexp % 4) {
+		ret.errno = EINVAL;
+		return ret;
+	}
+
 	timespec_t timespec = {0};
 	if (tm) {
 		ret.errno = usercopy_fromuser(&timespec, tm, sizeof(timespec_t));
@@ -53,124 +130,53 @@ syscallret_t syscall_futex(context_t *, uint32_t *futexp, int op, uint32_t value
 	}
 	uintmax_t us = timespec.s * 1000000 + timespec.ns / 1000;
 
-	polldesc_t desc = {0};
-	ret.errno = poll_initdesc(&desc, 1);
-	if (unlikely(ret.errno))
-		return ret;
-
-	MUTEX_ACQUIRE(&futexmutex);
-
-	bool doleave = true;
-	uint32_t word;
-	uint32_t *physical = NULL;
-	ret.errno = usercopy_fromuseratomic32(futexp, &word);
-	if (unlikely(ret.errno))
-		goto cleanup;
-
-	physical = mm_get_physical_address(futexp, MM_GET_PHYSICAL_ADDRESS_FLAGS_HOLD | MM_GET_PHYSICAL_ADDRESS_FLAGS_LOCK);
-	if (unlikely(physical == NULL)) {
+	uint32_t *physical = mm_get_physical_address(
+		futexp,
+		MM_GET_PHYSICAL_ADDRESS_FLAGS_HOLD |
+		MM_GET_PHYSICAL_ADDRESS_FLAGS_LOCK |
+		MM_GET_PHYSICAL_ADDRESS_FLAGS_LOCK_HINT_READ |
+		MM_GET_PHYSICAL_ADDRESS_FLAGS_LOCK_FULL
+	);
+	if (physical == NULL) {
 		ret.errno = EFAULT;
-		goto cleanup;
+		return ret;
 	}
 
-	futex_t *futex = getfutex(physical);
+	uintptr_t key = (uintptr_t)physical;
+	uint32_t *p = MAKE_HHDM(physical);
+	futex_bucket_t *bucket = get_futex_bucket(key);
 
+	MUTEX_ACQUIRE(&bucket->mutex);
+	
 	switch (op) {
-		case FUTEX_WAKE:
-			ret.errno = 0;
-			if (futex == NULL) {
-				ret.ret = 0;
-				break;
-			}
-
-			int delta = futex->waiting - futex->waking;
-			ret.ret = value > delta ? delta : value;
-
-			futex->waking += ret.ret;
-
-			poll_event(&futex->pollheader, POLLOUT);
-
-			break;
 		case FUTEX_WAIT:
-			if (word != value) {
+			if (__atomic_load_n(p, __ATOMIC_RELAXED) != value) {
+				MUTEX_RELEASE(&bucket->mutex);
 				ret.errno = EAGAIN;
 				break;
 			}
 
-			// if timeout is zero, do not sleep
 			if (tm && us == 0) {
+				MUTEX_RELEASE(&bucket->mutex);
 				ret.errno = ETIMEDOUT;
 				break;
 			}
 
-			if (futex == NULL) {
-				futex = alloc(sizeof(futex_t));
-				if (futex == NULL) {
-					ret.errno = ENOMEM;
-					break;
-				}
-				POLL_INITHEADER(&futex->pollheader);
-
-				ret.errno = setfutex(futex, physical);
-				if (ret.errno) {
-					free(futex);
-					break;
-				}
-			}
-
-			++futex->waiting;
-
-			for (;;) {
-				poll_add(&futex->pollheader, &desc.data[0], POLLOUT);
-
-				MUTEX_RELEASE(&futexmutex);
-
-				ret.errno = poll_dowait(&desc, us);
-
-				MUTEX_ACQUIRE(&futexmutex);
-
-				if (ret.errno) {
-					// timed out or interrupted
-					--futex->waiting;
-					futex->waking = futex->waking > futex->waiting ? futex->waiting : futex->waking; // if it happened during a wakeup, just to make sure nothing bad happens
-				} else if (futex->waking == 0) {
-					// should go back to sleep
-					poll_leave(&desc);
-					desc.event = NULL;
-					desc.data[0].revents = 0;
-					continue;
-				} else {
-					// can leave normally!
-					--futex->waiting;
-					--futex->waking;
-					ret.errno = 0;
-				}
-
-				// clean up if needed
-				if (futex->waiting == 0) {
-					poll_leave(&desc);
-					doleave = false;
-					removefutex(physical);
-					free(futex);
-				}
-
-				ret.ret = 0;
-				break;
-			}
+			ret.errno = wait_on_bucket(bucket, key, us);
+			ret.ret = ret.errno ? -1 : 0;
+			break;
+		case FUTEX_WAKE:
+			ret.ret = wake_bucket(bucket, key, value);
+			ret.errno = 0;
+			MUTEX_RELEASE(&bucket->mutex);
 			break;
 		default:
-			ret.errno = ENOSYS;
+			ret.errno = EINVAL;
+			MUTEX_RELEASE(&bucket->mutex);
+			break;
 	}
 
-	cleanup:
-	if (doleave)
-		poll_leave(&desc);
 
-	poll_destroydesc(&desc);
-
-	if (physical)
-		mm_unlock_and_release_page(physical);
-
-	MUTEX_RELEASE(&futexmutex);
+	mm_unlock_and_release_page(physical);
 	return ret;
 }
