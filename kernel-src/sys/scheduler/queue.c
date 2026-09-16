@@ -227,6 +227,12 @@ found:
 	if (thread->cputarget == NULL)
 		--current_cpu()->stealable_thread_count;
 
+	if (thread == current_cpu()->idlethread) {
+		spinlock_acquire(&sched_idle_cpu_bitmap_lock);
+		bitmap_set(&sched_idle_cpu_bitmap, current_cpu()->internal_id, 1);
+		spinlock_release(&sched_idle_cpu_bitmap_lock);
+	}
+
 	__assert((thread->flags & THREAD_FLAGS_QUEUED) == 0);
 	__assert((thread->flags & THREAD_FLAGS_RUNNING) == 0);
 	return thread;
