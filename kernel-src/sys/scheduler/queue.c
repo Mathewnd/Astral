@@ -195,9 +195,59 @@ thread_t *sched_steal_work_from_cpu(cpu_t *cpu) {
 	thread = steal_from_run_queue(&cpu->idle_queue);
 	found:
 
+	if (thread == NULL)
+		return NULL;
+
 	--cpu->thread_count;
 	--cpu->stealable_thread_count;
 	return thread;
+}
+
+bool sched_idle_steal_work(void) {
+	bool intstatus = interrupt_set(false);
+	cpu_t *destination = current_cpu();
+	bool work = false;
+
+	spinlock_acquire(&destination->sched_lock);
+	work = destination->thread_count != 0;
+	spinlock_release(&destination->sched_lock);
+	if (work)
+		goto leave;
+
+	size_t cpu_count = arch_smp_get_cpu_count();
+	if (cpu_count == 1 || unlikely(arch_smp_cpusawake != cpu_count))
+		goto leave;
+
+	for (size_t offset = 1; offset < cpu_count; ++offset) {
+		cpu_t *source = smp_cpus[(destination->internal_id + offset) % cpu_count];
+		cpu_t *first = source->internal_id < destination->internal_id ? source : destination;
+		cpu_t *second = first == source ? destination : source;
+
+		if (!spinlock_try(&first->sched_lock))
+			continue;
+
+		if (!spinlock_try(&second->sched_lock)) {
+			spinlock_release(&first->sched_lock);
+			continue;
+		}
+
+		work = destination->thread_count != 0;
+		if (!work && source->stealable_thread_count) {
+			thread_t *thread = sched_steal_work_from_cpu(source);
+			__assert(thread);
+			sched_insert_in_cpu_queue(destination, thread);
+			work = true;
+		}
+
+		spinlock_release(&second->sched_lock);
+		spinlock_release(&first->sched_lock);
+		if (work)
+			break;
+	}
+
+leave:
+	interrupt_set(intstatus);
+	return work;
 }
 
 // requires cpu queue to be locked

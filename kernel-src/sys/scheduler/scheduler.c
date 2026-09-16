@@ -274,8 +274,12 @@ void sched_preempt_cpu(cpu_t *cpu) {
 
 static void idle_thread(void) {
 	interrupt_set(true);
-	while (1)
-		CPU_HALT();
+	while (1) {
+		if (sched_idle_steal_work())
+			sched_yield();
+		else
+			CPU_HALT();
+	}
 }
 
 void sched_target_cpu(cpu_t *cpu) {
