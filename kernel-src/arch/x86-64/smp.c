@@ -26,12 +26,8 @@ static void cpuwakeuphalt(struct limine_mp_info *info) {
 	for (;;) CPU_HALT();
 }
 
-static long next_id = 1;
-
 static void cpuwakeup(struct limine_mp_info *info) {
 	cpu_set((cpu_t *)info->extra_argument);
-
-	current_cpu()->internal_id = __atomic_fetch_add(&next_id, 1, __ATOMIC_SEQ_CST);
 
 	arch_gdt_reload();
 	arch_idt_reload();
@@ -107,17 +103,23 @@ void arch_smp_wakeup(void) {
 
 	void (*wakeupfn)(struct limine_mp_info *) = GET_KERNEL_ARGUMENT(nosmp, bool) ? cpuwakeuphalt : cpuwakeup;
 
-	// make the other processors jump to cpuwakeup()
+	get_bsp()->internal_id = 0;
+	smp_cpus[0] = get_bsp();
+	long next_id = 1;
+
 	for (int i = 0; i < response->cpu_count; ++i) {
-		// skip the bootstrap processor
-		if (response->cpus[i]->lapic_id == response->bsp_lapic_id) {
-			smp_cpus[i] = get_bsp();
+		if (response->cpus[i]->lapic_id == response->bsp_lapic_id)
 			continue;
-		}
 
 		cpu_t *cpu = (cpu_t *)((uintptr_t)cpus + cpu_stride * i);
-		smp_cpus[i] = cpu;
+		cpu->internal_id = next_id;
+		smp_cpus[next_id++] = cpu;
 		response->cpus[i]->extra_argument = (uint64_t)cpu;
+	}
+
+	for (int i = 0; i < response->cpu_count; ++i) {
+		if (response->cpus[i]->lapic_id == response->bsp_lapic_id)
+			continue;
 
 		__atomic_store_n(&response->cpus[i]->goto_address, wakeupfn, __ATOMIC_SEQ_CST);
 	}
