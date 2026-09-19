@@ -1,12 +1,12 @@
 name=fontconfig
-revision=3
+revision=4
 from_source=fontconfig
 imagedeps="build-essential python3 gperf"
 hostdeps="xgcc xbinutils pkgconfig"
 deps="base freetype libexpat"
 
 configure() {
-	${source_dir}/configure --prefix=${prefix} --host=x86_64-astral --enable-shared --disable-static
+	ac_cv_va_copy=C99 ${source_dir}/configure --prefix=${prefix} --host=x86_64-astral --enable-shared --disable-static --disable-nls
 }
 
 build() {

@@ -1,5 +1,5 @@
 name=freetype
-revision=3
+revision=4
 from_source=freetype
 imagedeps="gcc build-essential"
 hostdeps="xgcc xbinutils pkgconfig"

@@ -1,0 +1,5 @@
+name=poppler
+version=26.09.0
+source_method=tarball
+tarball_url="https://poppler.freedesktop.org/poppler-${version}.tar.xz"
+tarball_sha512="c5207d7b97cfe72153b94a7b3a2634a188fcef1fc4a192a0b15b798d2c385e3dae27e10c5da36f226740baa9cf334062beb05c7d2c18de26f4d1f8a1e989e642"

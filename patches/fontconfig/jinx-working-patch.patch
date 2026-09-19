@@ -1,13 +1,18 @@
-diff --git fontconfig-clean/src/fcstat.c fontconfig-workdir/src/fcstat.c
-index 4f69eae..03c1b95 100644
---- fontconfig-clean/src/fcstat.c
-+++ fontconfig-workdir/src/fcstat.c
-@@ -386,7 +386,7 @@ FcFStatFs (int fd, FcStatFS *statb)
- #  endif
- #  if defined(HAVE_STRUCT_STATFS_F_FSTYPENAME)
- 	p = buf.f_fstypename;
--#  elif defined(__linux__) || defined (__EMSCRIPTEN__)
-+#  elif defined(__linux__) || defined (__EMSCRIPTEN__) || defined(__astral__)
- 	switch (buf.f_type)
- 	{
- 	case 0x6969: /* nfs */
+--- a/src/fcstat.c
++++ b/src/fcstat.c
+@@ -375,1 +375,1 @@
+-#  elif defined(__linux__) || defined(__EMSCRIPTEN__)
++#  elif defined(__linux__) || defined(__EMSCRIPTEN__) || defined(__astral__)
+--- a/configure.ac
++++ b/configure.ac
+@@ -26,1 +26,1 @@
+-AC_PREREQ([2.71])
++AC_PREREQ([2.69])
+@@ -195,1 +195,0 @@
+-AC_CHECK_INCLUDES_DEFAULT
+@@ -208,1 +208,0 @@
+-AX_FUNC_SNPRINTF
+--- a/git.mk
++++ b/git.mk
+@@ -235,1 +235,0 @@
+-all: $(srcdir)/.gitignore gitignore-recurse-maybe

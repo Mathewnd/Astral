@@ -1,0 +1,52 @@
+name=poppler
+revision=1
+from_source=poppler
+imagedeps="build-essential cmake"
+hostdeps="xgcc xbinutils pkgconfig libstdc++-v3"
+deps="base cairo fontconfig freetype glib harfbuzz lcms libjpeg-turbo libpng openjpeg zlib"
+
+configure() {
+	cmake \
+	-DPKG_CONFIG_EXECUTABLE="/usr/local/bin/x86_64-astral-pkg-config" \
+	-DCMAKE_TOOLCHAIN_FILE=${base_dir}/util/cmake \
+	-DCMAKE_INSTALL_PREFIX=${prefix} \
+	-DCMAKE_INSTALL_LIBDIR=lib \
+	-DCMAKE_BUILD_TYPE=Release \
+	-DBUILD_SHARED_LIBS=ON \
+	-DENABLE_UNSTABLE_API_ABI_HEADERS=ON \
+	-DENABLE_UTILS=ON \
+	-DENABLE_CPP=ON \
+	-DENABLE_GLIB=ON \
+	-DENABLE_GOBJECT_INTROSPECTION=OFF \
+	-DGLIB2_MKENUMS=/sysroot/usr/bin/glib-mkenums \
+	-DENABLE_GTK_DOC=OFF \
+	-DENABLE_QT5=OFF \
+	-DENABLE_QT6=OFF \
+	-DENABLE_BOOST=OFF \
+	-DENABLE_LIBCURL=OFF \
+	-DENABLE_LIBTIFF=OFF \
+	-DENABLE_NSS3=OFF \
+	-DENABLE_GPGME=OFF \
+	-DENABLE_PGP_SIGNATURES=OFF \
+	-DENABLE_ZLIB_UNCOMPRESS=OFF \
+	-DENABLE_LIBJPEG=ON \
+	-DENABLE_LIBOPENJPEG=ON \
+	-DENABLE_LCMS=ON \
+	-DENABLE_HARFBUZZ=ON \
+	-DBUILD_GTK_TESTS=OFF \
+	-DBUILD_QT5_TESTS=OFF \
+	-DBUILD_QT6_TESTS=OFF \
+	-DBUILD_CPP_TESTS=OFF \
+	-DBUILD_MANUAL_TESTS=OFF \
+	-DINSTALL_GLIB_DEMO=OFF \
+	-DRUN_GPERF_IF_PRESENT=OFF \
+	${source_dir}
+}
+
+build() {
+	make -j${parallelism}
+}
+
+package() {
+	DESTDIR=${dest_dir} make install
+}

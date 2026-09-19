@@ -1,8 +1,8 @@
 name=fontconfig
-version=2.14.0
+version=2.18.3
 source_method=tarball
-tarball_url="https://www.freedesktop.org/software/fontconfig/release/fontconfig-${version}.tar.xz"
-tarball_sha512="a5257249d031b3cd1a7b1521cd58f48d235a970020da4136a727db5407ec98e74a3776bc467d7e39f30ec664f56ff9fe39068317744a5e737a65109f7a005bfc"
+tarball_url="https://gitlab.freedesktop.org/fontconfig/fontconfig/-/archive/${version}/fontconfig-${version}.tar.gz"
+tarball_sha512="b3503cd7d56229ff80accae214b6e39335cb6724a36b28ca357bdd3ca749dcfb6bdda7eafe0a14b68b5fe1878bd1c363ae4526ca2aca00e9d1fb6f8fa7638282"
 hostdeps="autoconf automake util-macros pkgconfig libtool"
 prepare() {
         autoreconf -fvi
