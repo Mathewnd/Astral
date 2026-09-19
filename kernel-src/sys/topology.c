@@ -90,6 +90,12 @@ cpu_t *topology_find_next_cpu_to_run(topology_node_t *last_cpu, thread_t *thread
 	if (sleep_time <= SCHED_SLEEP_TIME_LIMIT_CPU_US && sched_thread_can_run_in_cpu(thread, last_cpu->cpu->last_queue, last_cpu->cpu->last_interactivity))
 		return last_cpu->cpu;
 
+	spinlock_acquire(&sched_idle_cpu_bitmap_lock);
+	bool last_cpu_idle = bitmap_get(&sched_idle_cpu_bitmap, last_cpu->cpu->internal_id);
+	spinlock_release(&sched_idle_cpu_bitmap_lock);
+	if (last_cpu_idle)
+		return last_cpu->cpu;
+
 	cpu_t *cpu = search_internal_recursive_up(last_cpu->parent, last_cpu, thread, sleep_time, 2);
 
 	return cpu;
