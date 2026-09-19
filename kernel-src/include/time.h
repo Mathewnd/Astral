@@ -32,9 +32,20 @@ static inline time_t timespec_diffms(timespec_t a, timespec_t b) {
 }
 
 static inline time_t timespec_diffus(timespec_t a, timespec_t b) {
-	time_t nsecdiff = abs(a.ns - b.ns);
-	time_t secdiff = abs(a.s - b.s);
-	return nsecdiff / 1000 + secdiff * 1000000;
+	if (a.s > b.s || (a.s == b.s && a.ns > b.ns)) {
+		timespec_t tmp = a;
+		a = b;
+		b = tmp;
+	}
+
+	time_t secdiff = b.s - a.s;
+	time_t nsecdiff = b.ns - a.ns;
+	if (nsecdiff < 0) {
+		secdiff--;
+		nsecdiff += 1000000000;
+	}
+
+	return secdiff * 1000000 + nsecdiff / 1000;
 }
 
 static inline time_t timespec_ns(timespec_t a) {
