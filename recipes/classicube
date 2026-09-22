@@ -1,0 +1,22 @@
+name=classicube
+revision=2
+from_source=classicube
+imagedeps="build-essential"
+hostdeps="xgcc xbinutils pkgconfig"
+deps="base sdl2 mesa openal"
+
+configure() {
+	cp -rp ${source_dir}/* .
+}
+
+build() {
+	make -j${parallelism} sdl2 \
+		CC=x86_64-astral-gcc \
+		EXTRA_CFLAGS="-Wno-error=implicit-function-declaration" \
+		RELEASE=1
+}
+
+package() {
+	mkdir -p ${dest_dir}/usr/bin
+	cp -f ClassiCube ${dest_dir}/usr/bin/classicube
+}

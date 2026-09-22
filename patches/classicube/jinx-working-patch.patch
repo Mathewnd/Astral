@@ -1,0 +1,39 @@
+diff --git classicube-clean/misc/makefiles/linux.mk classicube-workdir/misc/makefiles/linux.mk
+index a3e3e068..676adcca 100644
+--- classicube-clean/misc/makefiles/linux.mk
++++ classicube-workdir/misc/makefiles/linux.mk
+@@ -10,6 +10,13 @@ TARGET 		:= ClassiCube
+ DIST_NAME	:= ClassiCube
+ 
+ CFLAGS  := -fvisibility=hidden -fno-ident
++CFLAGS  += -DCC_BUILD_ASTRAL -DCC_BUILD_LINUX -DCC_BUILD_POSIX -DCC_BUILD_XINPUT2 \
++	-DDEFAULT_NET_BACKEND=CC_NET_BACKEND_BUILTIN \
++	-DDEFAULT_SSL_BACKEND=CC_SSL_BACKEND_BEARSSL \
++	-DDEFAULT_CRT_BACKEND=CC_CRT_BACKEND_OPENSSL \
++	-DDEFAULT_AUD_BACKEND=CC_AUD_BACKEND_OPENAL \
++	-DDEFAULT_GFX_BACKEND=CC_GFX_BACKEND_GL1 \
++	-DDEFAULT_WIN_BACKEND=CC_WIN_BACKEND_X11
+ LDFLAGS	:= -rdynamic
+ # -lm may be needed for __builtin_sqrtf (in cases where it isn't replaced by a CPU instruction intrinsic)
+ LIBS 	:= -lX11 -lXi -lpthread -lGL -ldl -lm
+diff --git classicube-clean/src/Platform_Posix.c classicube-workdir/src/Platform_Posix.c
+index 614de99a..94af4e8e 100644
+--- classicube-clean/src/Platform_Posix.c
++++ classicube-workdir/src/Platform_Posix.c
+@@ -1055,7 +1055,15 @@ cc_result Process_StartOpen(const cc_string* args) {
+ #endif
+ 
+ /* Retrieving exe path is completely OS dependant */
+-#if defined CC_BUILD_MACOS
++#if defined CC_BUILD_ASTRAL
++static cc_result Process_RawGetExePath(char* path, int* len) {
++	static const char exePath[] = "/usr/bin/classicube";
++
++	*len = sizeof(exePath) - 1;
++	Mem_Copy(path, exePath, *len);
++	return 0;
++}
++#elif defined CC_BUILD_MACOS
+ static cc_result Process_RawGetExePath(char* path, int* len) {
+ 	Mem_Set(path, '\0', NATIVE_STR_LEN);
+ 	cc_uint32 size = NATIVE_STR_LEN;
