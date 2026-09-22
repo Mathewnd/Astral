@@ -217,6 +217,32 @@ dq syscall_eventfd
 syscallcount equ 107
 section .text
 global arch_syscall_entry
+
+%macro restore_context 0
+	add rsp, 32 ; r9 argument, cr2, gs, and fs are not popped.
+	pop rbx
+	mov es,rbx
+	pop rbx
+	mov ds,rbx
+	pop rax
+	pop rbx
+	pop rcx
+	pop rdx
+	pop r8
+	pop r9
+	pop r10
+	pop r11
+	pop r12
+	pop r13
+	pop r14
+	pop r15
+	pop rdi
+	pop rsi
+	add rsp, 8 ; remove irq
+	pop rbp
+	add rsp, 8 ; remove error code
+%endmacro
+
 ; on entry:
 ; rcx has the return address
 ; r11 has the old rflags
@@ -292,7 +318,7 @@ arch_syscall_entry:
 	sti
 	mov rdi, rax
 	extern arch_syscall_log
-	call arch_syscall_log ; compiled with __attribute__((no_caller_saved_registers)) 
+	call arch_syscall_log ; compiled with __attribute__((no_caller_saved_registers))
 
 	; prepare context argument
 	mov rdi, rsp
@@ -317,7 +343,7 @@ arch_syscall_entry:
 	mov rdi, rax
 	mov rsi, rdx
 	extern arch_syscall_log_return
-	call arch_syscall_log_return ; compiled with __attribute__((no_caller_saved_registers)) 
+	call arch_syscall_log_return ; compiled with __attribute__((no_caller_saved_registers))
 
 	mov rdi, rsp
 	add rdi, 8 ; context pointer is after r9 argument
@@ -329,32 +355,24 @@ arch_syscall_entry:
 	call sched_userspacecheck ; compiled with __attribute__((no_caller_saved_registers))
 	cli
 
-	; restore context
-	add rsp, 32 ; r9 argument, cr2, gs, and fs are not popped.
-	pop rbx
-	mov es,rbx
-	pop rbx
-	mov ds,rbx
-	pop rax
-	pop rbx
-	pop rcx
-	pop rdx
-	pop r8
-	pop r9
-	pop r10
-	pop r11
-	pop r12
-	pop r13
-	pop r14
-	pop r15
-	pop rdi
-	pop rsi
-	add rsp, 8 ; remove irq
-	pop rbp
-	add rsp, 8 ; remove error code
+	; on intel cpu's, a non-canonical rip will cause a #GP in ring 0 on the user stack when sysret is used
+	mov rax, [rdi + 176] ; context->rip
+	mov rbx, rax
+	shl rax, 64 - 48 ; this breaks if LA57 is enabled (it's not)
+	sar rax, 64 - 48
+	cmp rax, rbx
+	jne .gpf
+
+	restore_context
 	pop rcx
 	add rsp, 8 ; user CS
-	pop r11    ; rflags
+	pop r11 ; rflags
 	pop rsp
 	swapgs
 	o64 sysret
+.gpf:
+	restore_context
+	push 0 ; error code
+	swapgs
+	extern isr_table
+	jmp [isr_table + 13 * 8] ; jump to the #GP handler with the user interrupt frame
