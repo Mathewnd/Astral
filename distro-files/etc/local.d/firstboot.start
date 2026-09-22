@@ -1,4 +1,15 @@
 if [ ! -f "/var/lib/.first_boot_done" ] ; then
+	if [ ! -s /etc/machine-id ]; then
+		machine_id=$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')
+		if [ "${#machine_id}" -ne 32 ]; then
+			echo "Failed to generate /etc/machine-id" >&2
+			exit 1
+		fi
+
+		printf '%s\n' "$machine_id" > /etc/machine-id
+		chmod 444 /etc/machine-id
+	fi
+
 	mkdir -p /var/log
 	xbps-reconfigure -a > /var/log/first_install_reconfigure.log
 
