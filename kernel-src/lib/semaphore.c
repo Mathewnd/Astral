@@ -74,16 +74,17 @@ int semaphore_wait(semaphore_t *sem, bool interruptible) {
 		sched_prepare_sleep(interruptible);
 		spinlock_release(&sem->lock);
 		ret = sched_yield();
-		if (ret) {
-			spinlock_acquire(&sem->lock);
 
+		// Wait for the signaller to finish using this semaphore before
+		// returning as it may belong to the caller's stack.
+		spinlock_acquire(&sem->lock);
+		if (ret) {
 			if (removeself(sem))
 				++sem->i;
 			else
-				ret = 0; // we have already been removed in the meantime, so pretend we did not actually get interrupted
-
-			spinlock_release(&sem->lock);
+				ret = 0; // The semaphore signal won the race.
 		}
+		spinlock_release(&sem->lock);
 		goto leave;
 	}
 
@@ -121,11 +122,13 @@ void semaphore_signal(semaphore_t *sem) {
 		__assert(thread);
 	}
 
-	spinlock_release(&sem->lock);
-	interrupt_set(intstate);
-
+	// Complete the wake before an interrupted waiter can observe its
+	// removal and return (otherwise this wake could reach its next wait).
 	if (thread)
 		sched_wakeup(thread, 0);
+
+	spinlock_release(&sem->lock);
+	interrupt_set(intstate);
 }
 
 bool semaphore_signal_limit(semaphore_t *sem, int limit) {
@@ -146,11 +149,13 @@ bool semaphore_signal_limit(semaphore_t *sem, int limit) {
 
 	successful = true;
 
-	leave:
-	spinlock_release(&sem->lock);
-	interrupt_set(intstate);
+leave:
+	// Complete the wake before an interrupted waiter can observe its
+	// removal and return (otherwise this wake could reach its next wait).
 	if (thread)
 		sched_wakeup(thread, 0);
+	spinlock_release(&sem->lock);
+	interrupt_set(intstate);
 	return successful;
 }
 
