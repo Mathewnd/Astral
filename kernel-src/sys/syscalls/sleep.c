@@ -32,11 +32,13 @@ syscallret_t syscall_nanosleep(context_t *, timespec_t *utime, timespec_t *remai
 
 	ret.errno = sched_yield() == SCHED_WAKEUP_REASON_INTERRUPTED ? EINTR : 0;
 
-	if (ret.errno && remaining) {
+	if (ret.errno) {
 		uintmax_t remainingus = timer_remove(current_cpu()->timer, &sleepentry);
-		time.ns = (remainingus % 1000000) * 1000;
-		time.s  = (remainingus / 1000000);
-		ret.errno = usercopy_touser(remaining, &time, sizeof(timespec_t)) ? EFAULT : EINTR;
+		if (remaining) {
+			time.ns = (remainingus % 1000000) * 1000;
+			time.s  = (remainingus / 1000000);
+			ret.errno = usercopy_touser(remaining, &time, sizeof(timespec_t)) ? EFAULT : EINTR;
+		}
 	}
 
 	sched_target_cpu(NULL);
