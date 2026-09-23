@@ -16,18 +16,21 @@ typedef struct {
 #define EVENT_INITLISTENER(e) { \
 		poll_initdesc(&(e)->polldesc, 0); \
 		(e)->polldesc.data = (e)->polldata; \
+		(e)->polldesc.size = EVENT_MAX_ATTACHMENT; \
 		(e)->current = 0; \
-		for (int i = 0; i < EVENT_MAX_ATTACHMENT; ++i) \
+		for (int i = 0; i < EVENT_MAX_ATTACHMENT; ++i) { \
 			(e)->polldata[i].desc = &(e)->polldesc; \
+			(e)->polldata[i].header = NULL; \
+		} \
 	}
 
 #define EVENT_ATTACH(e, h) { \
-		poll_add(h, &(e)->polldata[(e)->current++], POLLPRI); \
 		if ((e)->current >= EVENT_MAX_ATTACHMENT) { \
 			/* spin forever to say that there have been too many attachments */ \
 			/* this should never happen normally and is meant as a way to alert whoever is programming about it */ \
 			for (;;) asm volatile(""); \
 		} \
+		poll_add(h, &(e)->polldata[(e)->current++], POLLPRI); \
 	}
 
 #define EVENT_WAIT(e, t) poll_dowait(&(e)->polldesc, t)
