@@ -442,6 +442,60 @@ static void bytestopages(uintmax_t offset, size_t size, uintmax_t *pageoffset, s
 	*pagecount = toppage - *pageoffset;
 }
 
+static int vfs_write_buffered(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size, uintmax_t offset, size_t *written) {
+	uintmax_t pageoffset, pagecount, startoffset;
+	bytestopages(offset, size, &pageoffset, &pagecount, &startoffset);
+	page_t *page = NULL;
+	int err;
+
+	if (startoffset) {
+		// unaligned first page
+		err = mm_cache_get_page(node, pageoffset * PAGE_SIZE, 0, &page);
+		if (err)
+			return err;
+
+		size_t writesize = min(PAGE_SIZE - startoffset, size);
+		void *address = MAKE_HHDM(mm_get_page_address(page));
+
+		err = iovec_iterator_copy_to_buffer(iovec_iterator, (void *)((uintptr_t)address + startoffset), writesize);
+		if (err) {
+			mm_release_page(FROM_HHDM(address));
+			return err;
+		}
+
+		mm_cache_make_dirty(node, page);
+		*written += writesize;
+
+		pageoffset += 1;
+		pagecount -= 1;
+
+		mm_release_page(FROM_HHDM(address));
+	}
+
+	for (uintmax_t offset = 0; offset < pagecount * PAGE_SIZE; offset += PAGE_SIZE) {
+		// the other pages
+		err = mm_cache_get_page(node, pageoffset * PAGE_SIZE + offset, 0, &page);
+		if (err)
+			return err;
+
+		size_t writesize = min(PAGE_SIZE, size - *written);
+		void *address = MAKE_HHDM(mm_get_page_address(page));
+
+		err = iovec_iterator_copy_to_buffer(iovec_iterator, address, writesize);
+		if (err) {
+			mm_release_page(FROM_HHDM(address));
+			return err;
+		}
+
+		mm_cache_make_dirty(node, page);
+		*written += writesize;
+
+		mm_release_page(FROM_HHDM(address));
+	}
+
+	return 0;
+}
+
 int vfs_write_iovec(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size, uintmax_t offset, size_t *written, int flags) {
 	int err = 0;
 	bool cacheable = vfs_iscacheable(node);
@@ -490,55 +544,7 @@ int vfs_write_iovec(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size
 	}
 
 	if (cacheable && (flags & V_FFLAGS_NOCACHE) == 0) {
-		uintmax_t pageoffset, pagecount, startoffset;
-		bytestopages(offset, size, &pageoffset, &pagecount, &startoffset);
-		page_t *page = NULL;
-
-		if (startoffset) {
-			// unaligned first page
-			err = mm_cache_get_page(node, pageoffset * PAGE_SIZE, 0, &page);
-			if (err)
-				goto leave;
-
-			size_t writesize = min(PAGE_SIZE - startoffset, size);
-			void *address = MAKE_HHDM(mm_get_page_address(page));
-
-			err = iovec_iterator_copy_to_buffer(iovec_iterator, (void *)((uintptr_t)address + startoffset), writesize);
-			if (err) {
-				mm_release_page(FROM_HHDM(address));
-				goto leave;
-			}
-
-			mm_cache_make_dirty(node, page);
-			*written += writesize;
-
-			pageoffset += 1;
-			pagecount -= 1;
-
-			mm_release_page(FROM_HHDM(address));
-		}
-
-		for (uintmax_t offset = 0; offset < pagecount * PAGE_SIZE; offset += PAGE_SIZE) {
-			// the other pages
-			err = mm_cache_get_page(node, pageoffset * PAGE_SIZE + offset, 0, &page);
-			if (err)
-				goto leave;
-
-			size_t writesize = min(PAGE_SIZE, size - *written);
-			void *address = MAKE_HHDM(mm_get_page_address(page));
-
-			err = iovec_iterator_copy_to_buffer(iovec_iterator, address, writesize);
-			if (err) {
-				mm_release_page(FROM_HHDM(address));
-				goto leave;
-			}
-
-			mm_cache_make_dirty(node, page);
-			*written += writesize;
-
-			mm_release_page(FROM_HHDM(address));
-		}
-
+		err = vfs_write_buffered(node, iovec_iterator, size, offset, written);
 	} else {
 		// Non-cacheable objects and direct I/O bypass the page cache.
 		VOP_LOCK(node);
@@ -554,6 +560,57 @@ int vfs_write_iovec(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size
 		MUTEX_RELEASE(&node->size_lock);
 
 	return err;
+}
+
+static int vfs_read_buffered(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size, uintmax_t offset, size_t *bytesread) {
+	uintmax_t pageoffset, pagecount, startoffset;
+	bytestopages(offset, size, &pageoffset, &pagecount, &startoffset);
+	page_t *page = NULL;
+	int err;
+
+	if (startoffset) {
+		// unaligned first page
+		err = mm_cache_get_page(node, pageoffset * PAGE_SIZE, 0, &page);
+		if (err)
+			return err;
+
+		size_t readsize = min(PAGE_SIZE - startoffset, size);
+		void *address = MAKE_HHDM(mm_get_page_address(page));
+
+		err = iovec_iterator_copy_from_buffer(iovec_iterator, (void *)((uintptr_t)address + startoffset), readsize);
+		if (err) {
+			mm_release_page(FROM_HHDM(address));
+			return err;
+		}
+
+		*bytesread += readsize;
+
+		pageoffset += 1;
+		pagecount -= 1;
+
+		mm_release_page(FROM_HHDM(address));
+	}
+
+	for (uintmax_t offset = 0; offset < pagecount * PAGE_SIZE; offset += PAGE_SIZE) {
+		// the other pages
+		err = mm_cache_get_page(node, pageoffset * PAGE_SIZE + offset, 0, &page);
+		if (err)
+			return err;
+
+		size_t readsize = min(PAGE_SIZE, size - *bytesread);
+		void *address = MAKE_HHDM(mm_get_page_address(page));
+
+		err = iovec_iterator_copy_from_buffer(iovec_iterator, address, readsize);
+		if (err) {
+			mm_release_page(FROM_HHDM(address));
+			return err;
+		}
+
+		*bytesread += readsize;
+		mm_release_page(FROM_HHDM(address));
+	}
+
+	return 0;
 }
 
 int vfs_read_iovec(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size, uintmax_t offset, size_t *bytesread, int flags) {
@@ -600,51 +657,7 @@ int vfs_read_iovec(vnode_t *node, iovec_iterator_t *iovec_iterator, size_t size,
 	}
 
 	if (cacheable && (flags & V_FFLAGS_NOCACHE) == 0) {
-		uintmax_t pageoffset, pagecount, startoffset;
-		bytestopages(offset, size, &pageoffset, &pagecount, &startoffset);
-		page_t *page = NULL;
-
-		if (startoffset) {
-			// unaligned first page
-			err = mm_cache_get_page(node, pageoffset * PAGE_SIZE, 0, &page);
-			if (err)
-				goto leave;
-
-			size_t readsize = min(PAGE_SIZE - startoffset, size);
-			void *address = MAKE_HHDM(mm_get_page_address(page));
-
-			err = iovec_iterator_copy_from_buffer(iovec_iterator, (void *)((uintptr_t)address + startoffset), readsize);
-			if (err) {
-				mm_release_page(FROM_HHDM(address));
-				goto leave;
-			}
-
-			*bytesread += readsize;
-
-			pageoffset += 1;
-			pagecount -= 1;
-
-			mm_release_page(FROM_HHDM(address));
-		}
-
-		for (uintmax_t offset = 0; offset < pagecount * PAGE_SIZE; offset += PAGE_SIZE) {
-			// the other pages
-			err = mm_cache_get_page(node, pageoffset * PAGE_SIZE + offset, 0, &page);
-			if (err)
-				goto leave;
-
-			size_t readsize = min(PAGE_SIZE, size - *bytesread);
-			void *address = MAKE_HHDM(mm_get_page_address(page));
-
-			err = iovec_iterator_copy_from_buffer(iovec_iterator, address, readsize);
-			if (err) {
-				mm_release_page(FROM_HHDM(address));
-				goto leave;
-			}
-
-			*bytesread += readsize;
-			mm_release_page(FROM_HHDM(address));
-		}
+		err = vfs_read_buffered(node, iovec_iterator, size, offset, bytesread);
 	} else {
 		// Non-cacheable objects and direct I/O bypass the page cache.
 		VOP_LOCK(node);
