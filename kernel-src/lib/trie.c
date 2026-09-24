@@ -359,3 +359,35 @@ void trie_iterate(trie_t *trie, uint64_t min_key, uint64_t max_key, trie_iterate
 
 	trie_iterate_internal(trie->root, min_key, max_key, trie->height - 1, fn, true, key_height(max_key) <= trie->height);
 }
+
+static bool trie_exists_in_range_internal(const trie_node_t *trie_node, uint64_t min_key, uint64_t max_key, uint8_t height, bool edge_low, bool edge_high) {
+	if (trie_node == NULL)
+		return false;
+
+	if (!edge_low && !edge_high)
+		return trie_node->count != 0;
+
+	uint8_t min_offset = edge_low ? get_offset(min_key, height) : 0;
+	uint8_t max_offset = edge_high ? get_offset(max_key, height) : TRIE_NODE_COUNT - 1;
+
+	for (uint8_t i = min_offset; i <= max_offset; ++i) {
+		if (height) {
+			if (trie_exists_in_range_internal(trie_node->nodes[i], min_key, max_key, height - 1, edge_low && i == min_offset, edge_high && i == max_offset))
+				return true;
+		} else if (trie_node->items[i]) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+bool trie_exists_in_range(const trie_t *trie, uint64_t min_key, uint64_t max_key) {
+	if (min_key > max_key || key_height(min_key) > trie->height)
+		return false;
+
+	if (trie->height == 0)
+		return min_key == 0 && trie->root_item != NULL;
+
+	return trie_exists_in_range_internal(trie->root, min_key, max_key, trie->height - 1, true, key_height(max_key) <= trie->height);
+}

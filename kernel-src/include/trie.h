@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 #define TRIE_BITS 6
 #define TRIE_NODE_COUNT (1 << TRIE_BITS)
@@ -41,5 +42,6 @@ int trie_lookup(trie_t *trie, uint64_t key, void **ret);
 int trie_remove(trie_t *trie, uint64_t key);
 void trie_truncate(trie_t *trie, uint64_t min_key);
 void trie_iterate(trie_t *trie, uint64_t min_key, uint64_t max_key, trie_iterate_fn_t);
+bool trie_exists_in_range(const trie_t *trie, uint64_t min_key, uint64_t max_key);
 
 #endif
