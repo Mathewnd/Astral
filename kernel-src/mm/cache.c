@@ -135,6 +135,13 @@ static int wait_for_ready(page_t *page) {
 	}
 }
 
+bool mm_cache_present_in_range(vnode_t *vnode, size_t start_offset, size_t end_offset) {
+	pushlock_acquire_shared(&vnode->pages_lock);
+	bool present = trie_exists_in_range(&vnode->pages, start_offset / PAGE_SIZE, (end_offset - 1) / PAGE_SIZE);
+	pushlock_release_shared(&vnode->pages_lock);
+	return present;
+}
+
 // TODO: clustered page in
 int mm_cache_get_page(vnode_t *vnode, uintmax_t offset, int flags, page_t **res) {
 	retry_lookup:
