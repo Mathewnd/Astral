@@ -1,6 +1,6 @@
 name=mlibc-headers
 from_source=mlibc
-revision=10
+revision=11
 imagedeps="ninja-build meson build-essential rsync"
 builddeps="linux-headers"
 
