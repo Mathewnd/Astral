@@ -1,0 +1,5 @@
+name=mupdf
+version=1.26.12
+source_method=tarball
+tarball_url="https://mupdf.com/downloads/archive/mupdf-${version}-source.tar.gz"
+tarball_sha512="210e6f0d78f0ab7cae546a96cc59eedca8806f96f80227e008eba91750e4f7049559ff68736dfdbd781f928086f1abc64c571ea5116fd44e63b6a2cca9a13f28"

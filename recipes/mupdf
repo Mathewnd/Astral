@@ -1,0 +1,70 @@
+name=mupdf
+revision=1
+from_source=mupdf
+imagedeps="build-essential"
+hostdeps="xgcc xbinutils pkgconfig"
+deps="base freetype harfbuzz libjpeg-turbo openjpeg openssl zlib libx11 libxext"
+
+configure() {
+	cp -rp ${source_dir}/* .
+}
+
+build() {
+	make -j${parallelism} \
+		OS=Linux \
+		CC=x86_64-astral-gcc \
+		CXX=x86_64-astral-g++ \
+		AR=x86_64-astral-ar \
+		RANLIB=x86_64-astral-ranlib \
+		OUT=${build_dir}/mupdf-shared \
+		prefix=${prefix} \
+		shared=yes \
+		build=release \
+		USE_SYSTEM_LIBS=no \
+		USE_SYSTEM_FREETYPE=yes \
+		SYS_FREETYPE_CFLAGS="-I${sysroot_dir}/usr/include/freetype2" \
+		SYS_FREETYPE_LIBS="-L${sysroot_dir}/usr/lib -lfreetype" \
+		USE_SYSTEM_HARFBUZZ=yes \
+		SYS_HARFBUZZ_CFLAGS="-I${sysroot_dir}/usr/include/harfbuzz" \
+		USE_SYSTEM_LIBJPEG=yes \
+		USE_SYSTEM_OPENJPEG=yes \
+		SYS_OPENJPEG_CFLAGS="-I${sysroot_dir}/usr/include/openjpeg-2.5" \
+		USE_SYSTEM_ZLIB=yes \
+		HAVE_X11=yes \
+		X11_CFLAGS="-I${sysroot_dir}/usr/include" \
+		X11_LIBS="-L${sysroot_dir}/usr/lib -lX11 -lXext" \
+		HAVE_GLUT=no \
+		HAVE_CURL=no \
+		HAVE_LIBCRYPTO=yes \
+		LIBCRYPTO_CFLAGS="-I${sysroot_dir}/usr/include -DHAVE_LIBCRYPTO" \
+		LIBCRYPTO_LIBS="-L${sysroot_dir}/usr/lib -lcrypto" \
+		mujs=no brotli=no xps=no svg=no extract=no
+}
+
+package() {
+	DESTDIR=${dest_dir} make \
+		OS=Linux \
+		OUT=${build_dir}/mupdf-shared \
+		prefix=${prefix} \
+		shared=yes \
+		USE_SYSTEM_LIBS=no \
+		USE_SYSTEM_FREETYPE=yes \
+		SYS_FREETYPE_CFLAGS="-I${sysroot_dir}/usr/include/freetype2" \
+		SYS_FREETYPE_LIBS="-L${sysroot_dir}/usr/lib -lfreetype" \
+		USE_SYSTEM_HARFBUZZ=yes \
+		SYS_HARFBUZZ_CFLAGS="-I${sysroot_dir}/usr/include/harfbuzz" \
+		USE_SYSTEM_LIBJPEG=yes \
+		USE_SYSTEM_OPENJPEG=yes \
+		SYS_OPENJPEG_CFLAGS="-I${sysroot_dir}/usr/include/openjpeg-2.5" \
+		USE_SYSTEM_ZLIB=yes \
+		HAVE_X11=yes \
+		X11_CFLAGS="-I${sysroot_dir}/usr/include" \
+		X11_LIBS="-L${sysroot_dir}/usr/lib -lX11 -lXext" \
+		HAVE_GLUT=no \
+		HAVE_CURL=no \
+		HAVE_LIBCRYPTO=yes \
+		LIBCRYPTO_CFLAGS="-I${sysroot_dir}/usr/include -DHAVE_LIBCRYPTO" \
+		LIBCRYPTO_LIBS="-L${sysroot_dir}/usr/lib -lcrypto" \
+		mujs=no brotli=no xps=no svg=no extract=no \
+		install
+}
