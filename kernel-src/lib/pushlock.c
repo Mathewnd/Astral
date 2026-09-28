@@ -141,8 +141,10 @@ static void pushlock_update_waiters(pushlock_t *pushlock, pushlock_t state) {
 
 	for (;;) {
 		pushlock_assert_state(state);
+#ifdef DEBUG_LOCKS
 		__assert(state & PUSHLOCK_FLAGS_CONTENDED);
 		__assert(state & PUSHLOCK_FLAGS_WAKING);
+#endif
 
 		head = PUSHLOCK_GET_POINTER(state);
 		oldest = pushlock_complete_waiter_links(head);
