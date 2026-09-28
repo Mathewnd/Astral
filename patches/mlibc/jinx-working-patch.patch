@@ -148,6 +148,165 @@ index f0d6edd1..ab57b6b1 100644
  #endif /* _MLIBC_POSIX_STDIO_H */
  
 -
+diff --git mlibc-clean/options/posix/musl-generic-regex/glob.c mlibc-workdir/options/posix/musl-generic-regex/glob.c
+index 411f6a84..cbf0fd26 100644
+--- mlibc-clean/options/posix/musl-generic-regex/glob.c
++++ mlibc-workdir/options/posix/musl-generic-regex/glob.c
+@@ -18,6 +18,58 @@ struct match
+ 	char name[];
+ };
+ 
++struct glob_context
++{
++	int (*errfunc)(const char *path, int err);
++	__typeof__(((glob_t *)0)->gl_opendir) opendir;
++	__typeof__(((glob_t *)0)->gl_readdir) readdir;
++	__typeof__(((glob_t *)0)->gl_closedir) closedir;
++	__typeof__(((glob_t *)0)->gl_stat) stat;
++	__typeof__(((glob_t *)0)->gl_lstat) lstat;
++};
++
++static void *default_opendir(const char *path)
++{
++	return opendir(path);
++}
++
++#if defined(_GNU_SOURCE)
++static struct dirent *default_readdir(void *dir)
++{
++	return readdir(dir);
++}
++
++static int default_stat(const char *path, struct stat *st)
++{
++	return stat(path, st);
++}
++
++static int default_lstat(const char *path, struct stat *st)
++{
++	return lstat(path, st);
++}
++#else
++static void *default_readdir(void *dir)
++{
++	return readdir(dir);
++}
++
++static int default_stat(const char *path, void *st)
++{
++	return stat(path, st);
++}
++
++static int default_lstat(const char *path, void *st)
++{
++	return lstat(path, st);
++}
++#endif
++
++static void default_closedir(void *dir)
++{
++	closedir(dir);
++}
++
+ static int append(struct match **tail, const char *name, size_t len, int mark)
+ {
+ 	struct match *new = malloc(sizeof(struct match) + len + 2);
+@@ -33,7 +85,7 @@ static int append(struct match **tail, const char *name, size_t len, int mark)
+ 	return 0;
+ }
+ 
+-static int do_glob(char *buf, size_t pos, int type, char *pat, int flags, int (*errfunc)(const char *path, int err), struct match **tail)
++static int do_glob(char *buf, size_t pos, int type, char *pat, int flags, struct glob_context *context, struct match **tail)
+ {
+ 	/* If GLOB_MARK is unused, we don't care about type. */
+ 	if (!type && !(flags & GLOB_MARK)) type = DT_REG;
+@@ -101,12 +153,12 @@ static int do_glob(char *buf, size_t pos, int type, char *pat, int flags, int (*
+ 		 * or if that fails, use lstat for determining existence to
+ 		 * avoid false negatives in the case of broken symlinks. */
+ 		struct stat st;
+-		if ((flags & GLOB_MARK) && (!type||type==DT_LNK) && !stat(buf, &st)) {
++		if ((flags & GLOB_MARK) && (!type||type==DT_LNK) && !context->stat(buf, &st)) {
+ 			if (S_ISDIR(st.st_mode)) type = DT_DIR;
+ 			else type = DT_REG;
+ 		}
+-		if (!type && lstat(buf, &st)) {
+-			if (errno!=ENOENT && (errfunc(buf, errno) || (flags & GLOB_ERR)))
++		if (!type && context->lstat(buf, &st)) {
++			if (errno!=ENOENT && (context->errfunc(buf, errno) || (flags & GLOB_ERR)))
+ 				return GLOB_ABORTED;
+ 			return 0;
+ 		}
+@@ -125,15 +177,15 @@ static int do_glob(char *buf, size_t pos, int type, char *pat, int flags, int (*
+ 			saved_sep = '\\';
+ 		}
+ 	}
+-	DIR *dir = opendir(pos ? buf : ".");
++	void *dir = context->opendir(pos ? buf : ".");
+ 	if (!dir) {
+-		if (errfunc(buf, errno) || (flags & GLOB_ERR))
++		if (context->errfunc(buf, errno) || (flags & GLOB_ERR))
+ 			return GLOB_ABORTED;
+ 		return 0;
+ 	}
+ 	int old_errno = errno;
+ 	struct dirent *de;
+-	while (errno=0, de=readdir(dir)) {
++	while (errno=0, de=context->readdir(dir)) {
+ 		/* Quickly skip non-directories when there's pattern left. */
+ 		if (p2 && de->d_type && de->d_type!=DT_DIR && de->d_type!=DT_LNK)
+ 			continue;
+@@ -158,16 +210,16 @@ static int do_glob(char *buf, size_t pos, int type, char *pat, int flags, int (*
+ 
+ 		memcpy(buf+pos, de->d_name, l+1);
+ 		if (p2) *p2 = saved_sep;
+-		int r = do_glob(buf, pos+l, de->d_type, p2 ? p2 : "", flags, errfunc, tail);
++		int r = do_glob(buf, pos+l, de->d_type, p2 ? p2 : "", flags, context, tail);
+ 		if (r) {
+-			closedir(dir);
++			context->closedir(dir);
+ 			return r;
+ 		}
+ 	}
+ 	int readerr = errno;
+ 	if (p2) *p2 = saved_sep;
+-	closedir(dir);
+-	if (readerr && (errfunc(buf, errno) || (flags & GLOB_ERR)))
++	context->closedir(dir);
++	if (readerr && (context->errfunc(buf, errno) || (flags & GLOB_ERR)))
+ 		return GLOB_ABORTED;
+ 	errno = old_errno;
+ 	return 0;
+@@ -228,13 +280,19 @@ static int expand_tilde(char **pat, char *buf, size_t *pos)
+ int glob(const char *restrict pat, int flags, int (*errfunc)(const char *path, int err), glob_t *restrict g)
+ {
+ 	struct match head = { .next = NULL }, *tail = &head;
++	struct glob_context context = {
++		.errfunc = errfunc ? errfunc : ignore_err,
++		.opendir = (flags & GLOB_ALTDIRFUNC) ? g->gl_opendir : default_opendir,
++		.readdir = (flags & GLOB_ALTDIRFUNC) ? g->gl_readdir : default_readdir,
++		.closedir = (flags & GLOB_ALTDIRFUNC) ? g->gl_closedir : default_closedir,
++		.stat = (flags & GLOB_ALTDIRFUNC) ? g->gl_stat : default_stat,
++		.lstat = (flags & GLOB_ALTDIRFUNC) ? g->gl_lstat : default_lstat,
++	};
+ 	size_t cnt, i;
+ 	size_t offs = (flags & GLOB_DOOFFS) ? g->gl_offs : 0;
+ 	int error = 0;
+ 	char buf[PATH_MAX];
+ 	
+-	if (!errfunc) errfunc = ignore_err;
+-
+ 	if (!(flags & GLOB_APPEND)) {
+ 		g->gl_offs = offs;
+ 		g->gl_pathc = 0;
+@@ -250,7 +308,7 @@ int glob(const char *restrict pat, int flags, int (*errfunc)(const char *path, i
+ 		if ((flags & (GLOB_TILDE | GLOB_TILDE_CHECK)) && *p == '~')
+ 			error = expand_tilde(&s, buf, &pos);
+ 		if (!error)
+-			error = do_glob(buf, pos, 0, s, flags, errfunc, &tail);
++			error = do_glob(buf, pos, 0, s, flags, &context, &tail);
+ 		free(p);
+ 	}
+ 
 diff --git mlibc-workdir/tests/glibc/memalign.c mlibc-workdir/tests/glibc/memalign.c
 new file mode 100644
 index 00000000..0b3a1581
