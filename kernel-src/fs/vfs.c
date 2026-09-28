@@ -231,14 +231,15 @@ int vfs_open(vnode_t *ref, char *path, int flags, vnode_t **res) {
 
 	vnode_t *new = tmp;
 	err = VOP_OPEN(&new, flags, getcred());
+
+	// locked by vfs_lookup
+	VOP_UNLOCK(tmp);
+
 	if (err) {
 		VOP_RELEASE(tmp);
 	} else {
 		*res = new != tmp ? new : tmp;
 	}
-
-	// locked by vfs_lookup
-	VOP_UNLOCK(tmp);
 
 	return err;
 }
