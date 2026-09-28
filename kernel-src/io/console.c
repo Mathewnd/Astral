@@ -9,6 +9,9 @@
 #include <kernel/poll.h>
 #include <kernel/tty.h>
 #include <kernel/init.h>
+#include <kernel/kernel_args.h>
+
+DEFINE_KERNEL_ARGUMENT(nofblog, bool);
 
 static spinlock_t input_buffer_lock = SPINLOCK_INIT_VALUE;
 static ringbuffer_t input_buffer;
@@ -274,7 +277,8 @@ void console_init() {
 	tty->winsize.ws_xpixel = fbx;
 	tty->winsize.ws_ypixel = fby;
 
-	logging_sethook(console_putc);
+	if (!GET_KERNEL_ARGUMENT(nofblog, bool))
+		logging_sethook(console_putc);
 }
 
 INIT_ROUTINE_DEFINE(console, INIT_ROUTINE_FLAGS_NONE, console_init, scheduler);

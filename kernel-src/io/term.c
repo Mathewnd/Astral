@@ -10,6 +10,9 @@
 #include <arch/mmu.h>
 #include <kernel/init.h>
 #include <logging.h>
+#include <kernel/kernel_args.h>
+
+DEFINE_KERNEL_ARGUMENT(nofblog, bool);
 
 static volatile struct limine_flanterm_fb_init_params_request flanterm_request = {
 	.id = LIMINE_FLANTERM_FB_INIT_PARAMS_REQUEST_ID
@@ -99,7 +102,9 @@ void term_init() {
 	fbys = fb->height;
 
 	MUTEX_INIT(&term_mutex);
-	logging_sethook(term_putchar);
+
+	if (!GET_KERNEL_ARGUMENT(nofblog, bool))
+		logging_sethook(term_putchar);
 }
 
 INIT_ROUTINE_DEFINE(term, INIT_ROUTINE_FLAGS_NONE, term_init, mm);
