@@ -36,6 +36,7 @@ static void offset_times(thread_t *thread, time_t run_us, time_t sleep_us) {
 	}
 
 	update_interactivity(thread);
+	sched_update_base_priority(thread);
 }
 
 void sched_thread_running_callback(thread_t *thread) {
@@ -55,6 +56,8 @@ void sched_thread_stopping_callback(thread_t *thread, bool sleeping) {
 
 	if (sleeping)
 		thread->metrics.sleep_start = now;
+
+	piab_pre_switch();
 }
 
 // called right before the specified thread gets enqueued after sleeping
