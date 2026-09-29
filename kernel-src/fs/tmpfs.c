@@ -498,7 +498,6 @@ static int tmpfs_getdents(vnode_t *node, dent_t *buffer, size_t count, uintmax_t
 }
 
 static int tmpfs_inactive(vnode_t *node) {
-	arch_e9_puts("tmpfs_inactive\n");
 	tmpfsnode_t *tmp_node = (tmpfsnode_t *)node;
 	__assert(tmp_node->attr.nlinks == (node->type == V_TYPE_DIR ? 1 : 0));
 	if (node->type == V_TYPE_REGULAR) {
