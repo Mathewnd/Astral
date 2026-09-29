@@ -13,8 +13,16 @@
 #define INTERP_BASE (void *)0x00000beef0000000
 
 #define SCHED_RUN_QUEUE_SIZE 32
-#define SCHED_MAX_INTERACTIVITY 100
+
+enum {
+	SCHED_QUEUE_REALTIME,
+	SCHED_QUEUE_TIMESHARE,
+	SCHED_QUEUE_IDLE
+};
+
+// Timeshare threads above this use the calendar queue
 #define SCHED_INTERACTIVITY_LIMIT 30
+
 #define SCHED_NICE_MAX  19
 #define SCHED_NICE_MIN -20
 #define SCHED_SLEEP_TIME_LIMIT_CPU_US 1000
@@ -33,6 +41,15 @@ typedef struct {
 
 extern bitmap_t sched_idle_cpu_bitmap;
 extern spinlock_t sched_idle_cpu_bitmap_lock;
+
+sched_priority_t sched_thread_priority(thread_t *thread);
+void sched_update_base_priority(thread_t *thread);
+void sched_priority_changed(thread_t *thread);
+
+void sched_set_priority_floor(thread_t *thread, sched_priority_t priority);
+void sched_clear_priority_floor(thread_t *thread, sched_priority_t priority);
+void sched_update_priority_floor(thread_t *thread, sched_priority_t old, sched_priority_t priority);
+bool sched_replace_priority_floor_locked(thread_t *thread, sched_priority_t old, sched_priority_t priority);
 
 void sched_init();
 void sched_ap_entry();
@@ -61,19 +78,25 @@ static inline int sched_thread_run_queue_index(int interactivity) {
 	return min(interactivity * SCHED_RUN_QUEUE_SIZE / SCHED_MAX_INTERACTIVITY, SCHED_RUN_QUEUE_SIZE - 1);
 }
 
+static inline unsigned sched_priority_queue(sched_priority_t priority) {
+	return (SCHED_PRIORITY_MAX - priority) / SCHED_MAX_INTERACTIVITY;
+}
+
+static inline unsigned sched_priority_score(sched_priority_t priority) {
+	return (SCHED_PRIORITY_MAX - priority) % SCHED_MAX_INTERACTIVITY;
+}
+
 static inline bool sched_thread_can_run_in_cpu(thread_t *thread, int cpu_queue, int cpu_interactivity) {
-	int current_queue = 0;
-	if (thread->class == THREAD_CLASS_TIMESHARE && thread->metrics.interactivity_score > SCHED_INTERACTIVITY_LIMIT)
-		current_queue = 1;
-	else if (thread->class == THREAD_CLASS_IDLE)
-		current_queue = 2;
+	sched_priority_t priority = sched_thread_priority(thread);
+	unsigned queue = sched_priority_queue(priority);
+	unsigned score = sched_priority_score(priority);
 
 	// if thread is timeshare, can only immediatelly run when cpu queue is running idle threads,
-	if (current_queue == 1)
-		return cpu_queue == 2;
+	if (queue == SCHED_QUEUE_TIMESHARE)
+		return cpu_queue == SCHED_QUEUE_IDLE;
 
 	// otherwise, realtime > idle and if a tie the index in the queue
-	return current_queue < cpu_queue || sched_thread_run_queue_index(thread->metrics.interactivity_score) < sched_thread_run_queue_index(cpu_interactivity);
+	return queue < cpu_queue || (queue == cpu_queue && sched_thread_run_queue_index(score) < sched_thread_run_queue_index(cpu_interactivity));
 }
 
 #endif

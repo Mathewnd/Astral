@@ -1,3 +1,6 @@
+#ifdef PIAB_TEST_HOOKS
+#include "../../tests/piab_hooks.h"
+#endif
 #include <kernel/scheduler.h>
 #include <arch/cpu.h>
 #include <arch/smp.h>
@@ -51,8 +54,9 @@ static cpu_t *pick_cpu(thread_t *thread) {
 	return least_loaded_can_run ? least_loaded_can_run : least_loaded;
 }
 
-static void insert_in_run_queue(sched_run_queue_t *run_queue, thread_t *thread) {
-	int idx = sched_thread_run_queue_index(thread->metrics.interactivity_score);
+static void insert_in_run_queue(sched_run_queue_t *run_queue, thread_t *thread, unsigned score) {
+	int idx = sched_thread_run_queue_index(score);
+	thread->queue_index = idx;
 
 	list_push_back(&run_queue->queues[idx], &thread->queue_node);
 	bitmap_set(&run_queue->thread_bitmap, idx, 1);
@@ -125,9 +129,10 @@ static thread_t *steal_from_run_queue(sched_run_queue_t *run_queue) {
 	return NULL;
 }
 
-static void insert_in_calendar_queue(sched_calendar_queue_t *calendar_queue, thread_t *thread) {
-	int idx = (calendar_queue->ins + thread->metrics.interactivity_score - SCHED_INTERACTIVITY_LIMIT) % SCHED_RUN_QUEUE_SIZE;
+static void insert_in_calendar_queue(sched_calendar_queue_t *calendar_queue, thread_t *thread, unsigned score) {
+	int idx = (calendar_queue->ins + score - SCHED_INTERACTIVITY_LIMIT) % SCHED_RUN_QUEUE_SIZE;
 
+	thread->queue_index = idx;
 	list_push_front(&calendar_queue->queues[idx], &thread->queue_node);
 	++calendar_queue->thread_count;
 }
@@ -223,26 +228,26 @@ leave:
 
 // requires cpu queue to be locked
 thread_t *sched_select_next_thread(void) {
+	sched_priority_t priority;
 	thread_t *thread = pop_from_run_queue(&current_cpu()->rt_queue);
 	if (thread) {
-		current_cpu()->last_queue = 0;
 		goto found;
 	}
 
 	thread = pop_from_calendar_queue(&current_cpu()->ts_queue);
 	if (thread) {
-		current_cpu()->last_queue = 1;
 		goto found;
 	}
 
 	thread = pop_from_run_queue(&current_cpu()->idle_queue);
 	if (thread == NULL)
 		return NULL;
-	current_cpu()->last_queue = 2;
 found:
 	thread->flags &= ~THREAD_FLAGS_QUEUED;
 
-	current_cpu()->last_interactivity = thread->metrics.interactivity_score;
+	priority = sched_thread_priority(thread);
+	current_cpu()->last_queue = sched_priority_queue(priority);
+	current_cpu()->last_interactivity = sched_priority_score(priority);
 	thread->last_cpu = current_cpu();
 	--current_cpu()->thread_count;
 	if (thread->cputarget == NULL)
@@ -261,22 +266,31 @@ found:
 
 // requires cpu queue to be locked
 void sched_insert_in_cpu_queue(cpu_t *cpu, thread_t *thread) {
+	sched_priority_t priority;
+	unsigned score;
+
 	__assert((thread->flags & THREAD_FLAGS_RUNNING) == 0);
 	thread->flags |= THREAD_FLAGS_QUEUED;
 
-	switch (thread->class) {
-		case THREAD_CLASS_TIMESHARE:
-			if (thread->metrics.interactivity_score > SCHED_INTERACTIVITY_LIMIT) {
-				// thread is not interactive
-				insert_in_calendar_queue(&cpu->ts_queue, thread);
-				break;
-			}
-		case THREAD_CLASS_REAL_TIME:
-			insert_in_run_queue(&cpu->rt_queue, thread);
+	// Publish the destination before reading priority. An updater either
+	// locks this CPU or changes priority before the load below.
+	__atomic_store_n(&thread->cpu, cpu, __ATOMIC_SEQ_CST);
+#ifdef PIAB_TEST_HOOKS
+	piab_test_cpu_published(thread);
+#endif
+	priority = sched_thread_priority(thread);
+	score = sched_priority_score(priority);
+	thread->queued_priority = priority;
+
+	switch (sched_priority_queue(priority)) {
+		case SCHED_QUEUE_REALTIME:
+			insert_in_run_queue(&cpu->rt_queue, thread, score);
 			break;
-		case THREAD_CLASS_IDLE:
-			insert_in_run_queue(&cpu->idle_queue, thread);
-			
+		case SCHED_QUEUE_TIMESHARE:
+			insert_in_calendar_queue(&cpu->ts_queue, thread, score);
+			break;
+		case SCHED_QUEUE_IDLE:
+			insert_in_run_queue(&cpu->idle_queue, thread, score);
 			break;
 	}
 
@@ -293,6 +307,7 @@ void sched_insert_in_cpu_queue(cpu_t *cpu, thread_t *thread) {
 
 void sched_queue(thread_t *thread) {
 	bool status = interrupt_set(false);
+	sched_update_base_priority(thread);
 	cpu_t *cpu = pick_cpu(thread);
 
 	spinlock_acquire(&cpu->sched_lock);
@@ -376,4 +391,90 @@ void sched_load_balancer(context_t *, dpcarg_t) {
 	leave:
 	spinlock_release(&second->sched_lock);
 	spinlock_release(&first->sched_lock);
+}
+
+// Use saved placement as the current priority may already have changed
+static void remove_from_cpu_queue(cpu_t *cpu, thread_t *thread) {
+	unsigned idx = thread->queue_index;
+	unsigned queue_class = sched_priority_queue(thread->queued_priority);
+	sched_run_queue_t *queue;
+
+	__assert(thread->flags & THREAD_FLAGS_QUEUED);
+	__assert(idx < SCHED_RUN_QUEUE_SIZE);
+
+	if (queue_class == SCHED_QUEUE_TIMESHARE) {
+		list_remove(&thread->queue_node);
+
+		__assert(cpu->ts_queue.thread_count);
+		--cpu->ts_queue.thread_count;
+	} else {
+		if (queue_class == SCHED_QUEUE_REALTIME) {
+			queue = &cpu->rt_queue;
+		} else {
+			__assert(queue_class == SCHED_QUEUE_IDLE);
+			queue = &cpu->idle_queue;
+		}
+
+		list_remove(&thread->queue_node);
+		if (list_is_empty(&queue->queues[idx]))
+			bitmap_set(&queue->thread_bitmap, idx, 0);
+	}
+
+	thread->flags &= ~THREAD_FLAGS_QUEUED;
+	__assert(cpu->thread_count);
+	--cpu->thread_count;
+
+	if (thread->cputarget == NULL) {
+		__assert(cpu->stealable_thread_count);
+		--cpu->stealable_thread_count;
+	}
+}
+
+// Apply a priority change to the thread's current CPU queue. The caller
+// keeps thread alive and must not hold a CPU queue lock. Sleeping threads
+// use the new priority when sched_queue inserts them after wakeup.
+void sched_priority_changed(thread_t *thread) {
+	cpu_t *cpu;
+	sched_priority_t priority;
+	unsigned queue, score;
+	bool lowered;
+	bool irq = interrupt_set(false);
+
+	for (;;) {
+		cpu = __atomic_load_n(&thread->cpu, __ATOMIC_SEQ_CST);
+#ifdef PIAB_TEST_HOOKS
+		piab_test_cpu_loaded(thread);
+#endif
+		if (cpu == NULL)
+			break;
+
+		// Migration can move thread after the first load. Its new queue
+		// must be changed under the destination CPU's lock.
+		spinlock_acquire(&cpu->sched_lock);
+		if (__atomic_load_n(&thread->cpu, __ATOMIC_SEQ_CST) != cpu) {
+			spinlock_release(&cpu->sched_lock);
+			continue;
+		}
+
+		priority = sched_thread_priority(thread);
+		if ((thread->flags & THREAD_FLAGS_QUEUED) && priority != thread->queued_priority) {
+			remove_from_cpu_queue(cpu, thread);
+			sched_insert_in_cpu_queue(cpu, thread);
+			if (sched_thread_can_run_in_cpu(thread, cpu->last_queue, cpu->last_interactivity))
+				sched_preempt_cpu(cpu);
+		} else if (cpu->thread == thread) {
+			queue = sched_priority_queue(priority);
+			score = sched_priority_score(priority);
+			lowered = queue > cpu->last_queue ||
+				(queue == cpu->last_queue && score > cpu->last_interactivity);
+			cpu->last_queue = queue;
+			cpu->last_interactivity = score;
+			// Only a decrease can put a queued thread ahead of this one
+			if (lowered)
+				sched_preempt_cpu(cpu);
+		}
+		spinlock_release(&cpu->sched_lock);
+		break;
+	}
+	interrupt_set(irq);
 }
