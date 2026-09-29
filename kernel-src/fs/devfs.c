@@ -274,6 +274,7 @@ int devfs_inactive(vnode_t *node) {
 	if (devnode->devops && devnode->devops->inactive)
 		devnode->devops->inactive(devnode->attr.rdevminor);
 
+	INTERNAL_UNLOCK(node);
 	destroy_node(devnode);
 	return 0;
 }
