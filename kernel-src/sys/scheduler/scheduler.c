@@ -27,13 +27,15 @@ static __attribute__((noreturn)) void switch_thread(thread_t *thread, cpu_t *mig
 
 	sched_thread_running_callback(thread);
 
+	if (current && current != thread && (current->flags & THREAD_FLAGS_QUEUED) == 0)
+		__atomic_store_n(&current->cpu, NULL, __ATOMIC_SEQ_CST);
 	cpu->thread = thread;
+	__atomic_store_n(&thread->cpu, cpu, __ATOMIC_SEQ_CST);
 
 	if(current == NULL || thread->mmctx != current->mmctx)
 		mm_switch_context(thread->mmctx);
 
 	cpu->intstatus = ARCH_CONTEXT_INTSTATUS(&thread->context);
-	thread->cpu = cpu;
 	if (current)
 		current->flags &= ~THREAD_FLAGS_RUNNING;
 
@@ -59,6 +61,8 @@ static __attribute__((noreturn)) void switch_thread(thread_t *thread, cpu_t *mig
 // no metrics callback here as this will be called from things like threads stopping
 __attribute__((noreturn)) void sched_stop_current_thread() {
 	interrupt_set(false);
+
+	piab_pre_switch();
 
 	spinlock_acquire(&current_cpu()->sched_lock);
 
@@ -365,6 +369,8 @@ void sched_load_balancer(context_t *, dpcarg_t);
 void sched_ap_entry() {
 	SPINLOCK_INIT(current_cpu()->sched_lock);
 
+	piab_init_cpu();
+
 	dpc_prepare(&current_cpu()->reschedule_dpc, sched_reschedule_dpc);
 	set_up_queues();
 
@@ -393,6 +399,8 @@ void sched_init() {
 	SPINLOCK_INIT(current_cpu()->sched_lock);
 	SPINLOCK_INIT(sched_idle_cpu_bitmap_lock);
 
+	piab_init_cpu();
+
 	dpc_prepare(&current_cpu()->reschedule_dpc, sched_reschedule_dpc);
 	set_up_queues();
 
@@ -409,6 +417,7 @@ void sched_init() {
 
 	current_cpu()->thread = sched_newthread(NULL, PAGE_SIZE * 32, 0, NULL, NULL);
 	__assert(current_thread());
+	__atomic_store_n(&current_thread()->cpu, current_cpu(), __ATOMIC_SEQ_CST);
 
 	sched_queue(current_cpu()->idlethread);
 
