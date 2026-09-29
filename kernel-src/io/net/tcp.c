@@ -984,6 +984,7 @@ __attribute__((noreturn)) static void tcp_worker() {
 				newtcb->rcvwindow = TCB_RINGBUFFER_SIZE;
 				newtcb->rcvurgent = 0;
 				newtcb->irs = tcpheader->seq;
+				newtcb->port = tcb->port;
 
 				// add tcb to the connection table
 				if (tcbset(newtcb, &key, false)) {
