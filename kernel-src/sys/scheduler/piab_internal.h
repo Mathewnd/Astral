@@ -62,7 +62,9 @@ typedef struct piab_thread_state {
 	struct semaphore_t *reference_waiter; // Thread's priority lock
 	unsigned references;			// Thread's priority lock
 	unsigned registered_count;		// Interlocked
+	unsigned waiter_count;			// Interlocked
 	bool queued;
+	bool base_changed;				// Thread's priority lock
 	piab_records_t initial_records;
 } piab_thread_state_t;
 
