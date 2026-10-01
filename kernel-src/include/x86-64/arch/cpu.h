@@ -52,7 +52,7 @@ typedef struct cpu_t {
 	timerentry_t schedtimerentry;
 	void *schedulerstack;
 
-	dpc_t piab_priority_dpc;
+	dpc_t piab_dpc;
 	thread_t *piab_pending_threads;
 
 	dpc_t  reschedule_dpc;
