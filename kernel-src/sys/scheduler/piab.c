@@ -156,7 +156,7 @@ static void piab_process_priority_changes(context_t *context, dpcarg_t arg) {
 
 void piab_init_cpu(void) {
 	current_cpu()->piab_pending_threads = NULL;
-	dpc_prepare(&current_cpu()->piab_priority_dpc, piab_process_priority_changes);
+	dpc_prepare(&current_cpu()->piab_dpc, piab_process_priority_changes);
 }
 
 // Defer priority updates to a DPC queued on the current CPU. Record and
@@ -181,7 +181,7 @@ void piab_thread_priority_changed(thread_t *thread) {
 	// Keep IRQs off until enqueue so neither migration nor the local DPC
 	// can change which CPU owns this list
 	if (current_cpu()->piab_pending_threads)
-		dpc_enqueue(&current_cpu()->piab_priority_dpc, NULL);
+		dpc_enqueue(&current_cpu()->piab_dpc, NULL);
 	interrupt_set(irq);
 }
 
@@ -891,7 +891,7 @@ void piab_pre_switch(void) {
 
 	// Leave propagation and CPU queue updates to the DPC.
 	if (current_cpu()->piab_pending_threads)
-		dpc_enqueue(&current_cpu()->piab_priority_dpc, NULL);
+		dpc_enqueue(&current_cpu()->piab_dpc, NULL);
 }
 
 // Check whether the thread has returned all of its tracking records.
