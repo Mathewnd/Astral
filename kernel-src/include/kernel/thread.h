@@ -17,6 +17,8 @@
 #define THREAD_FLAGS_INTERRUPTIBLE 8
 #define THREAD_FLAGS_PREEMPTED 16
 #define THREAD_FLAGS_DEAD 32
+// sched_yield queues the thread if a wake arrives here
+#define THREAD_FLAGS_SLEEP_PREPARING 64
 
 struct proc_t;
 
