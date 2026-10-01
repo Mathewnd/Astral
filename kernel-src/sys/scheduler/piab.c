@@ -68,7 +68,9 @@ static void piab_lock_record_at_dpc(piab_record_t *record) {
 
 static long piab_lock_record(piab_record_t *record) {
 	long ipl = interrupt_raiseipl(IPL_DPC);
+
 	piab_lock_record_at_dpc(record);
+
 	return ipl;
 }
 
@@ -106,6 +108,7 @@ static void piab_propagate_boosts(thread_t **boost_list) {
 
 	while ((thread = *boost_list) != NULL) {
 		piab = thread->piab_state;
+
 		irq = spinlock_acquire_irq_clear(&thread->priority_lock);
 		*boost_list = piab->boost_next;
 		piab->boost_next = NULL;
@@ -225,11 +228,13 @@ static int piab_compare_resources(rbtree_t *a, rbtree_t *b) {
 // The caller holds the partition lock until it has finished using the head
 static piab_resource_t *piab_find_resource(size_t bucket, const void *lock) {
 	rbtree_t *node = rbtree_lookup(piab_buckets[bucket].resources, (void *)lock, piab_compare_resource_key);
+
 	return node ? container_of(node, piab_resource_t, node) : NULL;
 }
 
 static size_t piab_bucket_index(const void *lock) {
 	uintptr_t value = (uintptr_t)lock >> 3;
+
 	return (value ^ (value >> 8)) & (PIAB_HASH_BUCKETS - 1);
 }
 
@@ -241,6 +246,7 @@ static int piab_compare_records(rbtree_t *a, rbtree_t *b) {
 
 	if (left->priority != right->priority)
 		return left->priority < right->priority ? -1 : 1;
+
 	return (x > y) - (x < y);
 }
 
@@ -277,10 +283,13 @@ static void piab_boost_owners(piab_resource_t *resource, thread_t **boost_list) 
 
 	node = rbtree_last(resource->waiters);
 	priority = container_of(node, piab_record_t, node)->priority;
+
 	for (node = rbtree_first(resource->owners); node; node = next) {
 		record = container_of(node, piab_record_t, node);
 		if (record->priority >= priority)
 			break;
+
+		// Save the next node before reinsertion changes the tree
 		next = rbtree_successor(node);
 		piab_set_record_boost(record, priority, boost_list);
 		rbtree_remove(&resource->owners, node);
@@ -289,7 +298,7 @@ static void piab_boost_owners(piab_resource_t *resource, thread_t **boost_list) 
 }
 
 // Move a registered record between the owner and waiter trees.
-// The caller holds both the record and partition locks.
+// The caller holds both busy and the partition lock.
 static void piab_change_record_state(piab_record_t *record, piab_record_state_t state, thread_t **boost_list) {
 	piab_resource_t *resource;
 	piab_record_state_t old = __atomic_load_n(&record->state, __ATOMIC_ACQUIRE);
@@ -346,19 +355,22 @@ static void piab_update_thread(thread_t *thread, thread_t **boost_list, bool upd
 		while (registered) {
 			index = __builtin_ctz(registered);
 			registered &= registered - 1;
+
 			record = &records->slots[index];
 			ipl = piab_lock_record(record);
 			if (!record->registered) {
 				piab_unlock_record(record, ipl);
 				continue;
 			}
-			// An inherited floor changes waiter keys. Hold busy so a move
-			// into WAITING can't pass this check unnoticed.
+
+			// A floor change affects only waiter keys. busy keeps a move into WAITING
+			// from slipping past this check.
 			state = __atomic_load_n(&record->state, __ATOMIC_ACQUIRE);
 			if (!update_owners && state != PIAB_RECORD_WAITING) {
 				piab_unlock_record(record, ipl);
 				continue;
 			}
+
 			lock = record->lock;
 			bucket = piab_bucket_index(lock);
 			spinlock_acquire(&piab_buckets[bucket].lock);
@@ -376,6 +388,7 @@ static void piab_update_thread(thread_t *thread, thread_t **boost_list, bool upd
 				piab_insert_record(resource, record, state);
 				piab_boost_owners(resource, boost_list);
 			}
+
 			spinlock_release(&piab_buckets[bucket].lock);
 			piab_unlock_record(record, ipl);
 		}
@@ -404,12 +417,14 @@ static __attribute__((cold, noinline)) int piab_allocate_records(thread_t *threa
 		piab = alloc(sizeof(*piab));
 		if (piab == NULL)
 			return ENOMEM;
+
 		memset(piab, 0, sizeof(*piab));
 		records = &piab->initial_records;
 	} else {
 		records = alloc(sizeof(*records));
 		if (records == NULL)
 			return ENOMEM;
+
 		memset(records, 0, sizeof(*records));
 	}
 
@@ -422,10 +437,12 @@ static __attribute__((cold, noinline)) int piab_allocate_records(thread_t *threa
 	// walk these arrays until the last thread reference is dropped
 	records->next = piab->records;
 	__atomic_store_n(&piab->records, records, __ATOMIC_SEQ_CST);
+
 	records->available_next = piab->available;
 	piab->available = records;
 	if (thread->piab_state == NULL)
 		__atomic_store_n(&thread->piab_state, piab, __ATOMIC_SEQ_CST);
+
 	return 0;
 }
 
@@ -444,14 +461,17 @@ int piab_reserve_records(thread_t *thread, unsigned count) {
 		error = piab_allocate_records(thread);
 		if (error)
 			return error;
+
 		capacity += PIAB_RECORD_COUNT;
 	}
+
 	return 0;
 }
 
 // Supply the initial pool of records before the thread can acquire tracked locks.
 int piab_thread_init(thread_t *thread) {
 	__assert(thread->piab_state == NULL);
+
 	return piab_reserve_records(thread, PIAB_RECORD_COUNT);
 }
 
@@ -493,6 +513,7 @@ piab_record_t *piab_pre_acquire(const void *lock, bool exclusive) {
 	// TODO: init the boot thread before taking tracked locks
 	if (thread == NULL)
 		return NULL;
+
 	__assert(current_cpu()->ipl == IPL_NORMAL);
 
 	piab = thread->piab_state;
@@ -510,6 +531,7 @@ piab_record_t *piab_pre_acquire(const void *lock, bool exclusive) {
 		piab->available = records->available_next;
 		records->available_next = NULL;
 	}
+
 	record = &records->slots[index];
 
 	// The pending bit is still clear. Switch out can't register this slot,
@@ -518,6 +540,7 @@ piab_record_t *piab_pre_acquire(const void *lock, bool exclusive) {
 	record->exclusive = exclusive;
 	__atomic_store_n(&record->state, PIAB_RECORD_ACQUIRING, __ATOMIC_RELEASE);
 	__atomic_store_n(&record->lock, lock, __ATOMIC_RELEASE);
+
 #ifdef PIAB_RECORD_TEST_HOOKS
 	piab_test_preparing_record(record);
 #endif
@@ -644,6 +667,7 @@ void piab_pre_wakeup(piab_record_t *record) {
 
 	ipl = piab_lock_record(record);
 	__assert(__atomic_load_n(&record->state, __ATOMIC_ACQUIRE) == PIAB_RECORD_WAITING);
+
 	if (record->registered) {
 		bucket = piab_bucket_index(record->lock);
 		spinlock_acquire(&piab_buckets[bucket].lock);
@@ -687,8 +711,8 @@ static __attribute__((noinline)) void piab_free_registered_record(piab_record_t 
 	if (resource->owners == NULL && resource->waiters == NULL) {
 		rbtree_remove(&piab_buckets[bucket].resources, &resource->node);
 	} else if (resource == &record->head) {
-		// The head can't outlive this record. All head access is under
-		// the partition lock, including release of the successor.
+		// The head belongs to the departing record. The partition lock protects
+		// both heads, so there is no need to take the successor's busy.
 		node = resource->waiters ? resource->waiters : resource->owners;
 		successor = container_of(node, piab_record_t, node);
 		replacement = &successor->head;
@@ -697,9 +721,11 @@ static __attribute__((noinline)) void piab_free_registered_record(piab_record_t 
 
 		replacement->owners = resource->owners;
 		replacement->waiters = resource->waiters;
+
 		// Both heads have the same lock address, so the tree order is unchanged
 		rbtree_replace(&piab_buckets[bucket].resources, &resource->node, &replacement->node);
 	}
+
 	piab_set_record_boost(record, 0, &boost_list);
 	spinlock_release(&piab_buckets[bucket].lock);
 
@@ -732,6 +758,7 @@ void piab_post_release_fast(const void *lock, bool exclusive, piab_record_t *rec
 
 	if (thread == NULL)
 		return;
+
 	__assert(current_cpu()->ipl == IPL_NORMAL);
 
 	if (record == NULL) {
@@ -755,15 +782,19 @@ void piab_post_release(const void *lock, bool exclusive) {
 
 	if (thread == NULL)
 		return;
+
 	__assert(current_cpu()->ipl == IPL_NORMAL);
+
 	records = NULL;
 	if (thread->piab_state)
 		records = thread->piab_state->records;
+
 	for (; records; records = records->next) {
 		occupied = PIAB_RECORD_MASK & ~records->available;
 		while (occupied) {
 			index = __builtin_ctz(occupied);
 			occupied &= occupied - 1;
+
 			record = &records->slots[index];
 			if (record->lock == lock && record->exclusive == exclusive &&
 				__atomic_load_n(&record->state, __ATOMIC_ACQUIRE) == PIAB_RECORD_HELD) {
@@ -842,10 +873,14 @@ void piab_pre_switch(void) {
 
 	records = thread->piab_state->pending;
 	thread->piab_state->pending = NULL;
+
 	for (; records; records = next) {
 		next = records->pending_next;
 		records->pending_next = NULL;
 		__atomic_store_n(&records->pending_queued, false, __ATOMIC_RELEASE);
+
+		// An acquire interrupted before setting its bit will relink this array
+		// when it resumes.
 		pending = __atomic_exchange_n(&records->pending, 0, __ATOMIC_ACQUIRE);
 		while (pending) {
 			index = __builtin_ctz(pending);
@@ -854,8 +889,7 @@ void piab_pre_switch(void) {
 		}
 	}
 
-	// The sleep path still holds sleeplock. Leave chain propagation and
-	// CPU queue updates to the DPC.
+	// Leave propagation and CPU queue updates to the DPC.
 	if (current_cpu()->piab_pending_threads)
 		dpc_enqueue(&current_cpu()->piab_priority_dpc, NULL);
 }
@@ -867,10 +901,12 @@ bool piab_thread_is_clear(thread_t *thread) {
 
 	if (thread->piab_state == NULL)
 		return true;
+
 	for (records = thread->piab_state->records; records; records = records->next) {
 		if (records->available != PIAB_RECORD_MASK)
 			return false;
 	}
+
 	return true;
 }
 
@@ -900,6 +936,7 @@ void piab_thread_destroy(thread_t *thread) {
 		piab->reference_waiter = &reference_waiter;
 	}
 	spinlock_release_irq_restore(&thread->priority_lock, irq);
+
 	if (wait_for_updates)
 		(void)semaphore_wait(&reference_waiter, false);
 
@@ -917,6 +954,7 @@ void piab_thread_destroy(thread_t *thread) {
 		if (records != &piab->initial_records)
 			free(records);
 	}
+
 	thread->piab_state = NULL;
 	free(piab);
 }
@@ -964,5 +1002,6 @@ void piab_get_lock_state(const void *lock, piab_lock_state_t *state) {
 			}
 		}
 	}
+
 	spinlock_release_lower_ipl(&piab_buckets[bucket].lock, ipl);
 }

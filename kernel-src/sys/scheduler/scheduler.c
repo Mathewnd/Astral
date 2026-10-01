@@ -25,6 +25,11 @@ static __attribute__((noreturn)) void switch_thread(thread_t *thread, cpu_t *mig
 	cpu_t *cpu = current_cpu();
 	thread_t* current = current_thread();
 
+#ifdef DEBUG_LOCKS
+	__assert((thread->flags & THREAD_FLAGS_SLEEP_PREPARING) == 0);
+	__assert(current == NULL || (current->flags & THREAD_FLAGS_SLEEP_PREPARING) == 0);
+#endif
+
 	sched_thread_running_callback(thread);
 
 	if (current && current != thread && (current->flags & THREAD_FLAGS_QUEUED) == 0)
@@ -137,6 +142,10 @@ __attribute__((no_caller_saved_registers)) void sched_userspacecheck(context_t *
 static void yield(context_t *context, void *) {
 	thread_t *thread = current_thread();
 
+#ifdef DEBUG_LOCKS
+	__assert((thread->flags & THREAD_FLAGS_SLEEP_PREPARING) == 0);
+#endif
+
 	bool sleeping = thread->flags & THREAD_FLAGS_SLEEP;
 
 	bool gotsignal = false;
@@ -185,10 +194,42 @@ static void yield(context_t *context, void *) {
 }
 
 int sched_yield() {
-	bool sleeping = current_thread()->flags & THREAD_FLAGS_SLEEP;
-	bool old = sleeping ? current_thread()->sleepintstatus : interrupt_set(false);
+	thread_t *thread = current_thread();
+	bool sleeping = thread->flags & THREAD_FLAGS_SLEEP;
+	bool old = sleeping ? thread->sleepintstatus : interrupt_set(false);
 
-	sched_thread_stopping_callback(current_thread(), sleeping);
+#ifdef DEBUG_LOCKS
+	__assert((thread->flags & THREAD_FLAGS_SLEEP_PREPARING) == 0);
+#endif
+
+	// Finish run/sleep accounting before allowing a remote wake.
+	sched_thread_stopping_callback(thread, sleeping);
+
+	// TODO: Give the scheduler a prepare/commit wait path for early wakeups.
+	//
+	// A device ISR can interrupt a partition holder and block on sleeplock.
+	// Drop it before registration so the interrupted holder can make progress.
+	if (sleeping) {
+		thread->flags |= THREAD_FLAGS_SLEEP_PREPARING;
+		spinlock_release(&thread->sleeplock);
+	}
+
+	piab_pre_switch();
+
+	if (sleeping) {
+		spinlock_acquire(&thread->sleeplock);
+#ifdef DEBUG_LOCKS
+		__assert(thread->flags & THREAD_FLAGS_SLEEP_PREPARING);
+		__assert(thread->flags & THREAD_FLAGS_RUNNING);
+		__assert((thread->flags & THREAD_FLAGS_QUEUED) == 0);
+#endif
+		thread->flags &= ~THREAD_FLAGS_SLEEP_PREPARING;
+		// yield handles an early wake. Otherwise keep sleeplock until the context
+		// is saved and cpu->thread points to the next thread.
+		if (!(thread->flags & THREAD_FLAGS_SLEEP))
+			spinlock_release(&thread->sleeplock);
+	}
+
 	arch_context_saveandcall(yield, current_cpu()->schedulerstack, NULL);
 
 	__assert(current_cpu()->ipl == IPL_NORMAL);
@@ -198,6 +239,9 @@ int sched_yield() {
 
 void sched_prepare_sleep(bool interruptible) {
 	current_thread()->sleepintstatus = interrupt_set(false);
+#ifdef DEBUG_LOCKS
+	__assert((current_thread()->flags & (THREAD_FLAGS_SLEEP | THREAD_FLAGS_SLEEP_PREPARING)) == 0);
+#endif
 	spinlock_acquire(&current_thread()->sleeplock);
 	current_thread()->flags |= THREAD_FLAGS_SLEEP | (interruptible ? THREAD_FLAGS_INTERRUPTIBLE : 0);
 }
@@ -217,7 +261,15 @@ bool sched_wakeup(thread_t *thread, int reason) {
 
 	sched_thread_wakeup_callback(thread);
 
-	sched_queue(thread);
+	// Still running in sched_yield. Let yield put it on the run queue.
+#ifdef DEBUG_LOCKS
+	if (thread->flags & THREAD_FLAGS_SLEEP_PREPARING) {
+		__assert(thread->flags & THREAD_FLAGS_RUNNING);
+		__assert((thread->flags & THREAD_FLAGS_QUEUED) == 0);
+	}
+#endif
+	if (!(thread->flags & THREAD_FLAGS_SLEEP_PREPARING))
+		sched_queue(thread);
 	spinlock_release(&thread->sleeplock);
 	interrupt_set(intstate);
 
@@ -247,6 +299,8 @@ static void sched_reschedule_dpc(context_t *context, dpcarg_t arg) {
 		return;
 
 	sched_thread_stopping_callback(current, false);
+
+	piab_pre_switch();
 
 	current->flags |= THREAD_FLAGS_PREEMPTED;
 	ARCH_CONTEXT_THREADSAVE(current, context);
@@ -328,6 +382,8 @@ void sched_reschedule_on_cpu(cpu_t *cpu, bool target) {
 		goto leave;
 
 	sched_thread_stopping_callback(current_thread(), false);
+
+	piab_pre_switch();
 
 	arch_context_saveandcall(reschedule_yield, current_cpu()->schedulerstack, cpu);
 
