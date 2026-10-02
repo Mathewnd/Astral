@@ -6,6 +6,10 @@
 #include <errno.h>
 #include <util.h>
 
+//
+// Push locks
+// ~~~~~~~~~~
+//
 // A push lock is exactly one pointer-sized word.
 //
 // Without PUSHLOCK_STATE_CONTENDED, the high bits contain the shared owner
@@ -34,6 +38,7 @@
 // Every waiter, including its semaphore, is initialized before its address is
 // stored in the lock word. The semaphore retains an early signal, so
 // semaphore_signal() may safely finish before semaphore_wait() starts.
+//
 
 #define PUSHLOCK_STATE_ACQUIRED  ((pushlock_t)1u << 0)
 #define PUSHLOCK_STATE_CONTENDED ((pushlock_t)1u << 1)

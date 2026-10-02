@@ -89,14 +89,16 @@ static inline unsigned sched_priority_score(sched_priority_t priority) {
 static inline bool sched_thread_can_run_in_cpu(thread_t *thread, int cpu_queue, int cpu_interactivity) {
 	sched_priority_t priority = sched_thread_priority(thread);
 	unsigned queue = sched_priority_queue(priority);
-	unsigned score = sched_priority_score(priority);
+	unsigned effective_score = sched_priority_score(priority);
 
 	// if thread is timeshare, can only immediatelly run when cpu queue is running idle threads,
 	if (queue == SCHED_QUEUE_TIMESHARE)
 		return cpu_queue == SCHED_QUEUE_IDLE;
 
 	// otherwise, realtime > idle and if a tie the index in the queue
-	return queue < cpu_queue || (queue == cpu_queue && sched_thread_run_queue_index(score) < sched_thread_run_queue_index(cpu_interactivity));
+	return queue < cpu_queue ||
+	       (queue == cpu_queue && sched_thread_run_queue_index(effective_score) <
+	        sched_thread_run_queue_index(cpu_interactivity));
 }
 
 #endif
