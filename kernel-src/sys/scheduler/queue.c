@@ -158,9 +158,7 @@ static thread_t *steal_from_run_queue(sched_run_queue_t *run_queue) {
 	return NULL;
 }
 
-static void insert_in_calendar_queue(sched_calendar_queue_t *calendar_queue, thread_t *thread, unsigned score) {
-	int idx = (calendar_queue->ins + score - SCHED_INTERACTIVITY_LIMIT) % SCHED_RUN_QUEUE_SIZE;
-
+static void insert_in_calendar_queue_at(sched_calendar_queue_t *calendar_queue, thread_t *thread, unsigned idx) {
 	thread->queue_index = idx;
 	thread->prev = NULL;
 	thread->next = calendar_queue->queues[idx];
@@ -168,6 +166,37 @@ static void insert_in_calendar_queue(sched_calendar_queue_t *calendar_queue, thr
 		thread->next->prev = thread;
 	calendar_queue->queues[idx] = thread;
 	++calendar_queue->thread_count;
+}
+
+static void insert_in_calendar_queue(sched_calendar_queue_t *calendar_queue, thread_t *thread, unsigned score) {
+	unsigned range = SCHED_MAX_INTERACTIVITY - SCHED_INTERACTIVITY_LIMIT - 1;
+	unsigned idx;
+
+	// Scale scores to fit the calendar so higher scores stay further back
+	idx = (score - SCHED_INTERACTIVITY_LIMIT) * (SCHED_RUN_QUEUE_SIZE - 1);
+	idx = (idx + range - 1) / range;
+	idx += (calendar_queue->ins + SCHED_RUN_QUEUE_SIZE - calendar_queue->run) % SCHED_RUN_QUEUE_SIZE;
+
+	// Clamp at the last queue so low priority threads don't wrap into earlier queues
+	idx = min(idx, SCHED_RUN_QUEUE_SIZE - 1);
+	idx = (calendar_queue->run + idx) % SCHED_RUN_QUEUE_SIZE;
+
+	insert_in_calendar_queue_at(calendar_queue, thread, idx);
+}
+
+static void remove_from_calendar_queue(sched_calendar_queue_t *calendar_queue, thread_t *thread) {
+	unsigned idx = thread->queue_index;
+
+	if (thread->prev)
+		thread->prev->next = thread->next;
+	else
+		calendar_queue->queues[idx] = thread->next;
+
+	if (thread->next)
+		thread->next->prev = thread->prev;
+
+	__assert(calendar_queue->thread_count);
+	--calendar_queue->thread_count;
 }
 
 static thread_t *pop_from_calendar_queue(sched_calendar_queue_t *calendar_queue) {
@@ -437,16 +466,7 @@ static void remove_from_cpu_queue(cpu_t *cpu, thread_t *thread) {
 	__assert(idx < SCHED_RUN_QUEUE_SIZE);
 
 	if (queue_class == SCHED_QUEUE_TIMESHARE) {
-		if (thread->prev)
-			thread->prev->next = thread->next;
-		else
-			cpu->ts_queue.queues[idx] = thread->next;
-
-		if (thread->next)
-			thread->next->prev = thread->prev;
-
-		__assert(cpu->ts_queue.thread_count);
-		--cpu->ts_queue.thread_count;
+		remove_from_calendar_queue(&cpu->ts_queue, thread);
 	} else {
 		if (queue_class == SCHED_QUEUE_REALTIME) {
 			queue = &cpu->rt_queue;
@@ -497,8 +517,7 @@ void sched_priority_changed(thread_t *thread) {
 		if (cpu == NULL)
 			break;
 
-		// Migration can move thread after the first load. Its new queue
-		// must be changed under the destination CPU's lock.
+		// Retry if the thread migrated while we were acquiring the CPU lock
 		spinlock_acquire(&cpu->sched_lock);
 		if (__atomic_load_n(&thread->cpu, __ATOMIC_SEQ_CST) != cpu) {
 			spinlock_release(&cpu->sched_lock);
@@ -506,24 +525,43 @@ void sched_priority_changed(thread_t *thread) {
 		}
 
 		priority = sched_thread_priority(thread);
+		queue = sched_priority_queue(priority);
+
 		if ((thread->flags & THREAD_FLAGS_QUEUED) && priority != thread->queued_priority) {
-			remove_from_cpu_queue(cpu, thread);
-			sched_insert_in_cpu_queue(cpu, thread);
+			if (queue == SCHED_QUEUE_TIMESHARE &&
+				sched_priority_queue(thread->queued_priority) == SCHED_QUEUE_TIMESHARE) {
+				// Boosted threads can run now without waiting for the calendar
+				if (priority > thread->queued_priority &&
+					thread->queue_index != (unsigned)cpu->ts_queue.run) {
+					remove_from_calendar_queue(&cpu->ts_queue, thread);
+					insert_in_calendar_queue_at(&cpu->ts_queue, thread, cpu->ts_queue.run);
+				}
+
+				// Keep the thread's place if its priority drops before it runs
+				thread->queued_priority = priority;
+			} else {
+				remove_from_cpu_queue(cpu, thread);
+				sched_insert_in_cpu_queue(cpu, thread);
+			}
+
 			if (sched_thread_can_run_in_cpu(thread, cpu->last_queue, cpu->last_interactivity))
 				sched_preempt_cpu(cpu);
 		} else if (cpu->thread == thread) {
-			queue = sched_priority_queue(priority);
 			score = sched_priority_score(priority);
 			lowered = queue > cpu->last_queue ||
 				(queue == cpu->last_queue && score > cpu->last_interactivity);
+
 			cpu->last_queue = queue;
 			cpu->last_interactivity = score;
+
 			// Only a decrease can put a queued thread ahead of this one
 			if (lowered)
 				sched_preempt_cpu(cpu);
 		}
+
 		spinlock_release(&cpu->sched_lock);
 		break;
 	}
+
 	interrupt_set(irq);
 }
