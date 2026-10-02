@@ -4,21 +4,21 @@
 // Recompute base priority from the scheduler metrics. Lock boosts don't
 // change the thread's class or interactivity score.
 void sched_update_base_priority(thread_t *thread) {
-	unsigned score = thread->metrics.interactivity_score;
+	unsigned interactivity_score = thread->metrics.interactivity_score;
 	unsigned queue;
 	sched_priority_t priority, previous;
 
 	if (thread->class == THREAD_CLASS_IDLE) {
 		queue = SCHED_QUEUE_IDLE;
 	} else if (thread->class == THREAD_CLASS_TIMESHARE &&
-		score > SCHED_INTERACTIVITY_LIMIT) {
+	           interactivity_score > SCHED_INTERACTIVITY_LIMIT) {
 		queue = SCHED_QUEUE_TIMESHARE;
 	} else {
 		queue = SCHED_QUEUE_REALTIME;
 	}
 
-	__assert(score < SCHED_MAX_INTERACTIVITY);
-	priority = SCHED_PRIORITY_MAX - queue * SCHED_MAX_INTERACTIVITY - score;
+	__assert(interactivity_score < SCHED_MAX_INTERACTIVITY);
+	priority = SCHED_PRIORITY_MAX - queue * SCHED_MAX_INTERACTIVITY - interactivity_score;
 	previous = __atomic_exchange_n(&thread->base_priority, priority, __ATOMIC_SEQ_CST);
 
 	if (previous != priority)
@@ -35,12 +35,13 @@ sched_priority_t sched_thread_priority(thread_t *thread) {
 static void sched_assert_priority(sched_priority_t priority) {
 	__assert(priority && priority <= SCHED_PRIORITY_MAX);
 	__assert(sched_priority_queue(priority) != SCHED_QUEUE_TIMESHARE ||
-		sched_priority_score(priority) > SCHED_INTERACTIVITY_LIMIT);
+	         sched_priority_score(priority) > SCHED_INTERACTIVITY_LIMIT);
 }
 
 // Replace one floor reference under priority_lock. Each lock keeps its own
 // reference, even when several locks request the same priority.
-bool sched_replace_priority_floor_locked(thread_t *thread, sched_priority_t old, sched_priority_t priority) {
+bool sched_replace_priority_floor_locked(thread_t *thread, sched_priority_t old,
+                                         sched_priority_t priority) {
 	sched_priority_t maximum, previous, base;
 
 	__assert(old || priority);

@@ -22,8 +22,10 @@ static cpu_t *pick_cpu(thread_t *thread) {
 
 	// find the closest cpu in the hierarchy that the thread can run immediatelly in
 	cpu_t *closest = NULL;
-	if (thread->last_cpu)
-		closest = topology_find_next_cpu_to_run(thread->last_cpu->topology_node, thread, thread->metrics.last_sleep_duration_us);
+	if (thread->last_cpu) {
+		closest = topology_find_next_cpu_to_run(thread->last_cpu->topology_node, thread,
+		                                        thread->metrics.last_sleep_duration_us);
+	}
 	if (closest)
 		return closest;
 
@@ -43,19 +45,24 @@ static cpu_t *pick_cpu(thread_t *thread) {
 	// TODO: possibly could benefit from making the last queue and interactivity a single integer which would allow
 	// atomic operations on these
 	for (int i = 0; i < arch_smp_cpusawake; ++i) {
-		if (least_loaded == NULL || smp_cpus[i]->thread_count < least_loaded->thread_count)
+		if (least_loaded == NULL || smp_cpus[i]->thread_count < least_loaded->thread_count) {
 			least_loaded = smp_cpus[i];
-		
-		if (sched_thread_can_run_in_cpu(thread, smp_cpus[i]->last_queue, smp_cpus[i]->last_interactivity) &&
-				(least_loaded_can_run == NULL || least_loaded_can_run->thread_count > smp_cpus[i]->thread_count))
+		}
+
+		if (sched_thread_can_run_in_cpu(thread, smp_cpus[i]->last_queue,
+		                                smp_cpus[i]->last_interactivity) &&
+		    (least_loaded_can_run == NULL ||
+		     least_loaded_can_run->thread_count > smp_cpus[i]->thread_count)) {
 			least_loaded_can_run = smp_cpus[i];
+		}
 	}
 
 	return least_loaded_can_run ? least_loaded_can_run : least_loaded;
 }
 
-static void insert_in_run_queue(sched_run_queue_t *run_queue, thread_t *thread, unsigned score) {
-	int idx = sched_thread_run_queue_index(score);
+static void insert_in_run_queue(sched_run_queue_t *run_queue, thread_t *thread,
+                                unsigned effective_score) {
+	int idx = sched_thread_run_queue_index(effective_score);
 	thread->queue_index = idx;
 
 	thread->prev = run_queue->queues[idx].ins;
@@ -88,41 +95,6 @@ static thread_t *pop_from_run_queue(sched_run_queue_t *run_queue) {
 	}
 
 	return thread;
-}
-
-static thread_t *steal_from_calendar_queue(sched_calendar_queue_t *calendar_queue) {
-	if (calendar_queue->thread_count == 0)
-		return NULL;
-
-	int run = calendar_queue->run;
-	
-	thread_t *thread = NULL;
-	do {
-		thread = calendar_queue->queues[run];
-		thread_t *prev = NULL;
-		while (thread) {
-			if (thread->cputarget) {
-				prev = thread;
-				thread = thread->next;
-				continue;
-			}
-
-			if (prev)
-				prev->next = thread->next;
-			else
-				calendar_queue->queues[run] = thread->next;
-
-			if (thread->next)
-				thread->next->prev = prev;
-			--calendar_queue->thread_count;
-			return thread;
-		}
-
-		run = (run + 1) % SCHED_RUN_QUEUE_SIZE;
-	} while (run != calendar_queue->run);
-
-	// no thread found to steal
-	return NULL;
 }
 
 static thread_t *steal_from_run_queue(sched_run_queue_t *run_queue) {
@@ -158,22 +130,26 @@ static thread_t *steal_from_run_queue(sched_run_queue_t *run_queue) {
 	return NULL;
 }
 
-static void insert_in_calendar_queue_at(sched_calendar_queue_t *calendar_queue, thread_t *thread, unsigned idx) {
+static void insert_in_calendar_queue_at(sched_calendar_queue_t *calendar_queue, thread_t *thread,
+                                        unsigned idx) {
 	thread->queue_index = idx;
 	thread->prev = NULL;
-	thread->next = calendar_queue->queues[idx];
+	thread->next = calendar_queue->queues[idx].run;
 	if (thread->next)
 		thread->next->prev = thread;
-	calendar_queue->queues[idx] = thread;
+	else
+		calendar_queue->queues[idx].ins = thread;
+	calendar_queue->queues[idx].run = thread;
 	++calendar_queue->thread_count;
 }
 
-static void insert_in_calendar_queue(sched_calendar_queue_t *calendar_queue, thread_t *thread, unsigned score) {
+static void insert_in_calendar_queue(sched_calendar_queue_t *calendar_queue, thread_t *thread,
+                                     unsigned effective_score) {
 	unsigned range = SCHED_MAX_INTERACTIVITY - SCHED_INTERACTIVITY_LIMIT - 1;
 	unsigned idx;
 
 	// Scale scores to fit the calendar so higher scores stay further back
-	idx = (score - SCHED_INTERACTIVITY_LIMIT) * (SCHED_RUN_QUEUE_SIZE - 1);
+	idx = (effective_score - SCHED_INTERACTIVITY_LIMIT) * (SCHED_RUN_QUEUE_SIZE - 1);
 	idx = (idx + range - 1) / range;
 	idx += (calendar_queue->ins + SCHED_RUN_QUEUE_SIZE - calendar_queue->run) % SCHED_RUN_QUEUE_SIZE;
 
@@ -190,10 +166,12 @@ static void remove_from_calendar_queue(sched_calendar_queue_t *calendar_queue, t
 	if (thread->prev)
 		thread->prev->next = thread->next;
 	else
-		calendar_queue->queues[idx] = thread->next;
+		calendar_queue->queues[idx].run = thread->next;
 
 	if (thread->next)
 		thread->next->prev = thread->prev;
+	else
+		calendar_queue->queues[idx].ins = thread->prev;
 
 	__assert(calendar_queue->thread_count);
 	--calendar_queue->thread_count;
@@ -206,13 +184,16 @@ static thread_t *pop_from_calendar_queue(sched_calendar_queue_t *calendar_queue)
 	thread_t *thread;
 
 	do {
-		thread = calendar_queue->queues[calendar_queue->run];
+		thread = calendar_queue->queues[calendar_queue->run].run;
 		if (thread) {
-			calendar_queue->queues[calendar_queue->run] = thread->next;
+			calendar_queue->queues[calendar_queue->run].run = thread->next;
 			if (thread->next)
 				thread->next->prev = NULL;
-		} else
+			else
+				calendar_queue->queues[calendar_queue->run].ins = NULL;
+		} else {
 			calendar_queue->run = (calendar_queue->run + 1) % SCHED_RUN_QUEUE_SIZE;
+		}
 
 		if (calendar_queue->run == calendar_queue->ins)
 			calendar_queue->ins = (calendar_queue->ins + 1) % SCHED_RUN_QUEUE_SIZE;
@@ -221,6 +202,26 @@ static thread_t *pop_from_calendar_queue(sched_calendar_queue_t *calendar_queue)
 	--calendar_queue->thread_count;
 
 	return thread;
+}
+
+static thread_t *steal_from_calendar_queue(sched_calendar_queue_t *calendar_queue) {
+	if (calendar_queue->thread_count == 0)
+		return NULL;
+
+	int run = calendar_queue->run;
+
+	do {
+		for (thread_t *thread = calendar_queue->queues[run].run; thread; thread = thread->next) {
+			if (thread->cputarget == NULL) {
+				remove_from_calendar_queue(calendar_queue, thread);
+				return thread;
+			}
+		}
+
+		run = (run + 1) % SCHED_RUN_QUEUE_SIZE;
+	} while (run != calendar_queue->run);
+
+	return NULL;
 }
 
 // requires cpu queue to be locked
@@ -331,31 +332,49 @@ found:
 
 // requires cpu queue to be locked
 void sched_insert_in_cpu_queue(cpu_t *cpu, thread_t *thread) {
-	sched_priority_t priority;
-	unsigned score;
+	sched_priority_t base, floor, priority;
+	unsigned effective_score;
 
 	__assert((thread->flags & THREAD_FLAGS_RUNNING) == 0);
 	thread->flags |= THREAD_FLAGS_QUEUED;
 
 	// Publish the destination before reading priority. An updater either
-	// locks this CPU or changes priority before the load below.
+	// locks this CPU or changes priority before the loads below.
 	__atomic_store_n(&thread->cpu, cpu, __ATOMIC_SEQ_CST);
 #ifdef PIAB_TEST_HOOKS
 	piab_test_cpu_published(thread);
 #endif
-	priority = sched_thread_priority(thread);
-	score = sched_priority_score(priority);
+	base = __atomic_load_n(&thread->base_priority, __ATOMIC_SEQ_CST);
+	floor = __atomic_load_n(&thread->priority_floor, __ATOMIC_SEQ_CST);
+	priority = max(base, floor);
+	effective_score = sched_priority_score(priority);
 	thread->queued_priority = priority;
 
 	switch (sched_priority_queue(priority)) {
 		case SCHED_QUEUE_REALTIME:
-			insert_in_run_queue(&cpu->rt_queue, thread, score);
+			insert_in_run_queue(&cpu->rt_queue, thread, effective_score);
 			break;
 		case SCHED_QUEUE_TIMESHARE:
-			insert_in_calendar_queue(&cpu->ts_queue, thread, score);
+			// Boosted owners stay at run across wakeups and migration, but go to
+			// the back so yielding gives the next thread a turn
+			if (priority > base) {
+				unsigned idx = cpu->ts_queue.run;
+
+				thread->queue_index = idx;
+				thread->next = NULL;
+				thread->prev = cpu->ts_queue.queues[idx].ins;
+				if (thread->prev)
+					thread->prev->next = thread;
+				else
+					cpu->ts_queue.queues[idx].run = thread;
+				cpu->ts_queue.queues[idx].ins = thread;
+				++cpu->ts_queue.thread_count;
+			} else {
+				insert_in_calendar_queue(&cpu->ts_queue, thread, effective_score);
+			}
 			break;
 		case SCHED_QUEUE_IDLE:
-			insert_in_run_queue(&cpu->idle_queue, thread, score);
+			insert_in_run_queue(&cpu->idle_queue, thread, effective_score);
 			break;
 	}
 
@@ -377,7 +396,8 @@ void sched_queue(thread_t *thread) {
 
 	spinlock_acquire(&cpu->sched_lock);
 
-	__assert((thread->flags & THREAD_FLAGS_QUEUED) == 0 && (thread->flags & THREAD_FLAGS_RUNNING) == 0);
+	__assert((thread->flags & THREAD_FLAGS_QUEUED) == 0 &&
+	         (thread->flags & THREAD_FLAGS_RUNNING) == 0);
 
 	int last_queue = cpu->last_queue;
 	int last_interactivity = cpu->last_interactivity;
@@ -440,7 +460,8 @@ void sched_load_balancer(context_t *, dpcarg_t) {
 	spinlock_acquire(&second->sched_lock);
 
 	// the queues may have changed since the scan, so only move work if it still reduces the imbalance
-	if (most_loaded->stealable_thread_count == 0 || most_loaded->thread_count <= 1 || most_loaded->thread_count <= least_loaded->thread_count)
+	if (most_loaded->stealable_thread_count == 0 || most_loaded->thread_count <= 1 ||
+	    most_loaded->thread_count <= least_loaded->thread_count)
 		goto leave;
 
 	thread_t *thread = sched_steal_work_from_cpu(most_loaded);
@@ -448,8 +469,10 @@ void sched_load_balancer(context_t *, dpcarg_t) {
 
 	sched_insert_in_cpu_queue(least_loaded, thread);
 
-	if (sched_thread_can_run_in_cpu(thread, least_loaded->last_queue, least_loaded->last_interactivity))
+	if (sched_thread_can_run_in_cpu(thread, least_loaded->last_queue,
+	                                least_loaded->last_interactivity)) {
 		sched_preempt_cpu(least_loaded);
+	}
 
 	leave:
 	spinlock_release(&second->sched_lock);
@@ -504,9 +527,9 @@ static void remove_from_cpu_queue(cpu_t *cpu, thread_t *thread) {
 // use the new priority when sched_queue inserts them after wakeup.
 void sched_priority_changed(thread_t *thread) {
 	cpu_t *cpu;
-	sched_priority_t priority;
-	unsigned queue, score;
-	bool lowered;
+	sched_priority_t base, floor, priority;
+	unsigned queue, effective_score;
+	bool boosted, changed, lowered;
 	bool irq = interrupt_set(false);
 
 	for (;;) {
@@ -524,35 +547,43 @@ void sched_priority_changed(thread_t *thread) {
 			continue;
 		}
 
-		priority = sched_thread_priority(thread);
+		base = __atomic_load_n(&thread->base_priority, __ATOMIC_SEQ_CST);
+		floor = __atomic_load_n(&thread->priority_floor, __ATOMIC_SEQ_CST);
+		priority = max(base, floor);
 		queue = sched_priority_queue(priority);
+		boosted = priority > base;
 
-		if ((thread->flags & THREAD_FLAGS_QUEUED) && priority != thread->queued_priority) {
+		if (thread->flags & THREAD_FLAGS_QUEUED) {
+			changed = priority != thread->queued_priority;
+
 			if (queue == SCHED_QUEUE_TIMESHARE &&
-				sched_priority_queue(thread->queued_priority) == SCHED_QUEUE_TIMESHARE) {
+			    sched_priority_queue(thread->queued_priority) == SCHED_QUEUE_TIMESHARE) {
 				// Boosted threads can run now without waiting for the calendar
-				if (priority > thread->queued_priority &&
-					thread->queue_index != (unsigned)cpu->ts_queue.run) {
+				if ((priority > thread->queued_priority || boosted) &&
+				    thread->queue_index != (unsigned)cpu->ts_queue.run) {
 					remove_from_calendar_queue(&cpu->ts_queue, thread);
 					insert_in_calendar_queue_at(&cpu->ts_queue, thread, cpu->ts_queue.run);
+					changed = true;
 				}
 
 				// Keep the thread's place if its priority drops before it runs
 				thread->queued_priority = priority;
-			} else {
+			} else if (changed) {
 				remove_from_cpu_queue(cpu, thread);
 				sched_insert_in_cpu_queue(cpu, thread);
 			}
 
-			if (sched_thread_can_run_in_cpu(thread, cpu->last_queue, cpu->last_interactivity))
+			if (changed && sched_thread_can_run_in_cpu(thread, cpu->last_queue,
+			                                           cpu->last_interactivity)) {
 				sched_preempt_cpu(cpu);
+			}
 		} else if (cpu->thread == thread) {
-			score = sched_priority_score(priority);
+			effective_score = sched_priority_score(priority);
 			lowered = queue > cpu->last_queue ||
-				(queue == cpu->last_queue && score > cpu->last_interactivity);
+			          (queue == cpu->last_queue && effective_score > cpu->last_interactivity);
 
 			cpu->last_queue = queue;
-			cpu->last_interactivity = score;
+			cpu->last_interactivity = effective_score;
 
 			// Only a decrease can put a queued thread ahead of this one
 			if (lowered)
