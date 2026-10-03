@@ -1,4 +1,5 @@
 #include <kernel/thread.h>
+#include <kernel/scheduler.h>
 #include <kernel/proc.h>
 #include <kernel/slab.h>
 #include <logging.h>
@@ -30,6 +31,13 @@ thread_t *sched_newthread(void *ip, size_t kstacksize, int nice, proc_t *proc, v
 		return NULL;
 	}
 
+	if (piab_thread_init(thread)) {
+		mm_unmap(thread->kernelstack, kstacksize, 0);
+		arch_extracontext_free(&thread->extracontext);
+		slab_free(thread_cache, thread);
+		return NULL;
+	}
+
 	thread->kernelstacktop = (void *)((uintptr_t)thread->kernelstack + kstacksize);
 
 	// non kernel thread mm contexts are handled by the caller
@@ -53,10 +61,14 @@ thread_t *sched_newthread(void *ip, size_t kstacksize, int nice, proc_t *proc, v
 	thread->metrics.sleep_time_avg_us = 1; // to prevent a division by 0 when the thread first gets scheduled
 	thread->class = THREAD_CLASS_TIMESHARE;
 
+	sched_update_base_priority(thread);
+
 	return thread;
 }
 
 void sched_destroythread(thread_t *thread) {
+	piab_thread_destroy(thread);
+	__assert(thread->priority_floor == 0);
 	mm_unmap(thread->kernelstack, thread->kernelstacksize, 0);
 	arch_extracontext_free(&thread->extracontext);
 	slab_free(thread_cache, thread);
@@ -64,10 +76,17 @@ void sched_destroythread(thread_t *thread) {
 
 static void threadexit_internal(context_t *, void *) {
 	thread_t *thread = current_thread();
+	cpu_t *cpu = current_cpu();
+
 	// we don't need to access the current thread anymore, as any state will be ignored and we are running on the scheduler stack
 	// as well as not being preempted at all
 	interrupt_set(false);
-	current_cpu()->thread = NULL;
+	__assert(piab_thread_is_clear(thread));
+	// Priority updates check cpu->thread under sched_lock, exclude an updater which loaded thread->cpu before we cleared it
+	spinlock_acquire(&cpu->sched_lock);
+	__atomic_store_n(&thread->cpu, NULL, __ATOMIC_SEQ_CST);
+	cpu->thread = NULL;
+	spinlock_release(&cpu->sched_lock);
 
 	thread->flags |= THREAD_FLAGS_DEAD;
 	if (thread->proc)

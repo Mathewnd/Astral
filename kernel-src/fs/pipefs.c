@@ -348,6 +348,7 @@ int pipefs_inactive(vnode_t *node) {
 	pipenode_t *pipenode = (pipenode_t *)node;
 	INTERNAL_LOCK(node);
 	ringbuffer_destroy(&pipenode->data);
+	INTERNAL_UNLOCK(node);
 	// TODO write this properly using cache ctor and dtor
 	memset(node, 0, sizeof(pipenode_t));
 	VOP_INIT(node, &vnops, 0, V_TYPE_FIFO, NULL);
