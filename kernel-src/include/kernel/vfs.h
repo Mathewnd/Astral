@@ -242,12 +242,13 @@ typedef struct vops_t {
 #define VOP_SYNC(v) (v)->ops->sync(v)
 #define VOP_ADVLOCK(v, o, a) (v)->ops->advlock(v, o, a)
 #define VOP_HOLD(v) __atomic_add_fetch(&(v)->refcount, 1, __ATOMIC_SEQ_CST)
-#define VOP_RELEASE(v) {\
-		if (__atomic_sub_fetch(&(v)->refcount, 1, __ATOMIC_SEQ_CST) == 0) {\
-			vfs_inactive(v); \
+#define VOP_RELEASE(v) do { \
+		vnode_t *vop_release_node = (v); \
+		if (__atomic_sub_fetch(&vop_release_node->refcount, 1, __ATOMIC_SEQ_CST) == 0) { \
 			(v) = NULL; \
+			vfs_inactive(vop_release_node); \
 		} \
-	}
+	} while (0)
 
 #define VFS_STUB(x) static int x () { return ENODEV; }
 
