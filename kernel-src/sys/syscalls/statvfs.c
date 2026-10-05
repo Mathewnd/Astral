@@ -36,6 +36,11 @@ syscallret_t syscall_fstatvfs(context_t *ctx, int fd, statvfs_t *ustatvfs) {
 		return ret;
 	}
 
+	if (file->vnode->vfs == NULL) {
+		ret.errno = ENODEV;
+		goto cleanup;
+	}
+
 	fsattr_t buf;
 	ret.errno = VFS_STATFS(file->vnode->vfs, &buf);
 	if (ret.errno)
@@ -97,6 +102,11 @@ syscallret_t syscall_fstatvfsat(context_t *ctx, int dirfd, char *upath, stat_t *
 		goto cleanup;
 	// locked by vfs_lookup
 	VOP_UNLOCK(node);
+
+	if (node->vfs == NULL) {
+		ret.errno = ENODEV;
+		goto cleanup;
+	}
 
 	fsattr_t buf;
 	ret.errno = VFS_STATFS(node->vfs, &buf);
