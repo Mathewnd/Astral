@@ -4,11 +4,17 @@
 #include <mutex.h>
 #include <util.h>
 #include <arch/cpu.h>
+#include <kernel/kernel_args.h>
+
+DEFINE_KERNEL_ARGUMENT(nouserprint, bool);
 
 syscallret_t syscall_print(context_t *context, char *message) {
 	syscallret_t ret = {
 		.ret = -1
 	};
+
+	if (GET_KERNEL_ARGUMENT(nouserprint, bool))
+		goto leave;
 
 	static MUTEX_DEFINE(mutex);
 
@@ -35,6 +41,7 @@ syscallret_t syscall_print(context_t *context, char *message) {
 	arch_e9_putc('\n');
 	MUTEX_RELEASE(&mutex);
 
+leave:
 	ret.errno = 0;
 	ret.ret = 0;
 	return ret;
