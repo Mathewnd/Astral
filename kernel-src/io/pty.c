@@ -261,25 +261,20 @@ static int open(int oldminor, vnode_t **vnode, int flags) {
 
 	pty->minor = newminor;
 
-	char tmpname[20];
-	snprintf(tmpname, 20, ".ptmx%d", newminor);
-
-	// register a master device and immediatelly remove it from the filesystem and tables
-	// while holding the refcount
-	int error = devfs_register(&devops, tmpname, V_TYPE_CHDEV, DEV_MAJOR_PTY, newminor, 0, NULL);
+	int error = devfs_register_anonymous(&devops, V_TYPE_CHDEV, DEV_MAJOR_PTY, newminor,
+					     0, NULL, &pty->mastervnode);
 	if (error) {
 		freeptyminor(newminor);
 		freepty(pty);
 		return error;
 	}
 
-	__assert(devfs_getbyname(tmpname, &pty->mastervnode) == 0);
-
-	devfs_remove(tmpname, DEV_MAJOR_PTY, newminor);
+	devfs_remove_anonymous(DEV_MAJOR_PTY, newminor);
 
 	// we are now the only ones to hold the master vnode and its inaccessible from devfs
 	// create a pairing slave device
 
+	char tmpname[20];
 	snprintf(tmpname, 20, "pts/%d", newminor);
 	pty->tty = tty_create(tmpname, writetopty, ttyinactive, NULL, hup_check, pty);
 	if (pty->tty == NULL) {
