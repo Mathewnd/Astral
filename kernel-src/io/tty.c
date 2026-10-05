@@ -581,6 +581,8 @@ tty_t *tty_create(char *name, ttydevicewritefn_t writefn, ttyinactivefn_t inacti
 }
 
 void tty_unregister(tty_t *tty) {
+	vnode_t *mastervnode = tty->mastervnode;
+	VOP_HOLD(mastervnode);
 	devfs_remove(tty->name, DEV_MAJOR_TTY, tty->minor);
 
 	proc_t *foreground = getforeground(tty);
@@ -588,6 +590,7 @@ void tty_unregister(tty_t *tty) {
 		jobctl_signal(foreground, SIGHUP, NULL);
 		PROC_RELEASE(foreground);
 	}
+	VOP_RELEASE(mastervnode);
 }
 
 void tty_release(tty_t *tty) {
