@@ -527,8 +527,41 @@ int devfs_getbyname(char *name, vnode_t **ret) {
 	cleanup:
 	return error;
 }
+
+int devfs_register_anonymous(devops_t *devops, int type, int major, int minor, mode_t mode,
+			     cred_t *cred, vnode_t **out) {
+	__assert(type == V_TYPE_CHDEV || type == V_TYPE_BLKDEV);
+	devnode_t *master = slab_allocate(nodecache);
+	if (master == NULL)
+		return ENOMEM;
+
+	master->vnode.type = type;
+	master->devops = devops;
+	master->attr.mode = mode;
+	master->attr.rdevmajor = major;
+	master->attr.rdevminor = minor;
+	master->attr.uid = cred == NULL ? 0 : cred->euid;
+	master->attr.gid = cred == NULL ? 0 : cred->egid;
+
+	int key[2] = {major, minor};
+
+	MUTEX_ACQUIRE(&tablelock);
+	int error = hashtable_set(&devtable, master, key, sizeof(key), true);
+	MUTEX_RELEASE(&tablelock);
+	if (error) {
+		destroy_node(master);
+		return error;
+	}
+
+	VOP_HOLD(&master->vnode);
+	*out = &master->vnode;
+
+	return 0;
+}
+
 // register new device 
-int devfs_register(devops_t *devops, char *name, int type, int major, int minor, mode_t mode, cred_t *cred) {
+int devfs_register(devops_t *devops, char *name, int type, int major, int minor, mode_t mode,
+		   cred_t *cred) {
 	__assert(type == V_TYPE_CHDEV || type == V_TYPE_BLKDEV);
 	devnode_t *master = slab_allocate(nodecache);
 	if (master == NULL)
@@ -611,6 +644,18 @@ int devfs_getnode(vnode_t *physical, int major, int minor, vnode_t **node) {
 	*node = &newnode->vnode;
 	newnode->vnode.type = master->vnode.type;
 	return 0;
+}
+
+void devfs_remove_anonymous(int major, int minor) {
+	int key[2] = {major, minor};
+	void *master;
+	MUTEX_ACQUIRE(&tablelock);
+	__assert(hashtable_get(&devtable, &master, key, sizeof(key)) == 0);
+	__assert(hashtable_remove(&devtable, key, sizeof(key)) == 0);
+	MUTEX_RELEASE(&tablelock);
+
+	vnode_t *vnode = master;
+	VOP_RELEASE(vnode);
 }
 
 void devfs_remove(char *name, int major, int minor) {

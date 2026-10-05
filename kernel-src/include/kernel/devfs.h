@@ -23,6 +23,7 @@
 #define DEV_MAJOR_PROF 14
 #define DEV_MAJOR_INPUT 15
 #define DEV_MAJOR_AUDIO 16
+#define DEV_MAJOR_KCOV 17
 
 typedef struct {
 	int (*open)(int minor, vnode_t **vnode, int flags);
@@ -49,9 +50,13 @@ typedef struct devnode_t {
 
 void devfs_init();
 int devfs_getnode(vnode_t *physical, int major, int minor, vnode_t **node);
-int devfs_register(devops_t *devops, char *name, int type, int major, int minor, mode_t mode, cred_t *cred);
+int devfs_register_anonymous(devops_t *devops, int type, int major, int minor, mode_t mode,
+			     cred_t *cred, vnode_t **out);
+int devfs_register(devops_t *devops, char *name, int type, int major, int minor, mode_t mode,
+		   cred_t *cred);
 int devfs_getbyname(char *name, vnode_t **ret);
 int devfs_createdir(char *name);
+void devfs_remove_anonymous(int major, int minor);
 void devfs_remove(char *name, int major, int minor);
 
 #endif
