@@ -140,7 +140,7 @@ bool arch_cpu_smap_enabled(void) {
 	return has_smap;
 }
 
-void arch_nmi_isr(context_t *ctx) {
+KCOV_DISABLED void arch_nmi_isr(context_t *ctx) {
 	// we are in an NMI context, running on IST0 
 	// first load the proper gsbase to get access to cpu-local variables. 
 	// the pointer to cpu's data is at the beggining of the stack so after the context struct.

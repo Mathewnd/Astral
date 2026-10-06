@@ -2,6 +2,7 @@
 #include <logging.h>
 #include <arch/cpu.h>
 #include <arch/context.h>
+#include <kernel/kcov.h>
 #include <panic.h>
 
 void arch_interrupt_disable();
@@ -9,7 +10,7 @@ void arch_interrupt_enable();
 
 #define DOPENDING_SAVE() arch_context_saveandcall(dopending, NULL, NULL)
 
-static void removefromqueue(isr_t *isr) {
+KCOV_DISABLED static void removefromqueue(isr_t *isr) {
 	if (isr->prev)
 		isr->prev->next = isr->next;
 	else
@@ -19,7 +20,7 @@ static void removefromqueue(isr_t *isr) {
 		isr->next->prev = isr->prev;
 }
 
-static void insertinqueue(isr_t *isr) {
+KCOV_DISABLED static void insertinqueue(isr_t *isr) {
 	if (isr->pending)
 		return;
 
@@ -29,7 +30,7 @@ static void insertinqueue(isr_t *isr) {
 	current_cpu()->isrqueue = isr;
 }
 
-static void runisr(isr_t *isr, context_t *ctx) {
+KCOV_DISABLED static void runisr(isr_t *isr, context_t *ctx) {
 		long oldipl = -1;
 		if (isr->priority != IPL_IGNORE)
 			oldipl = interrupt_raiseipl(isr->priority);
@@ -41,7 +42,7 @@ static void runisr(isr_t *isr, context_t *ctx) {
 			interrupt_loweripl(oldipl);
 }
 
-static void dopending(context_t *ctx, void *) {
+KCOV_DISABLED static void dopending(context_t *ctx, void *) {
 	arch_interrupt_disable();
 	bool entrystatus = current_cpu()->intstatus;
 	current_cpu()->intstatus = false;
@@ -100,7 +101,7 @@ __attribute__((no_caller_saved_registers)) void sched_userspacecheck(context_t *
 								     uint64_t syscallret,
 								     uint64_t syscallerrno);
 
-void interrupt_isr(int vec, context_t *ctx) {
+KCOV_DISABLED void interrupt_isr(int vec, context_t *ctx) {
 	isr_t *isr = &current_cpu()->isr[vec];
 	current_cpu()->intstatus = false;
 
@@ -133,7 +134,7 @@ void interrupt_isr(int vec, context_t *ctx) {
 	current_cpu()->intstatus = ARCH_CONTEXT_INTSTATUS(ctx);
 }
 
-void interrupt_raise(isr_t *isr) {
+KCOV_DISABLED void interrupt_raise(isr_t *isr) {
 	bool entrystate = interrupt_set(false);
 
 	if (isr->pending)
@@ -146,7 +147,8 @@ void interrupt_raise(isr_t *isr) {
 	interrupt_set(entrystate);
 }
 
-void interrupt_register(int vector, void (*func)(isr_t *self, context_t *ctx), void (*eoi)(isr_t *self), long priority) {
+KCOV_DISABLED void interrupt_register(int vector, void (*func)(isr_t *self, context_t *ctx), 
+			void (*eoi)(isr_t *self), long priority) {
 	bool intstatus = interrupt_set(false);
 
 	isr_t *isr = &current_cpu()->isr[vector];
@@ -159,7 +161,8 @@ void interrupt_register(int vector, void (*func)(isr_t *self, context_t *ctx), v
 	interrupt_set(intstatus);
 }
 
-isr_t *interrupt_allocate(void (*func)(isr_t *self, context_t *ctx), void (*eoi)(isr_t *self), long priority) {
+KCOV_DISABLED isr_t *interrupt_allocate(void (*func)(isr_t *self, context_t *ctx), void (*eoi)(isr_t *self),
+			  long priority) {
 	bool intstatus = interrupt_set(false);
 	isr_t *isr = NULL;
 
@@ -175,7 +178,7 @@ isr_t *interrupt_allocate(void (*func)(isr_t *self, context_t *ctx), void (*eoi)
 	return isr;
 }
 
-long interrupt_loweripl(long ipl) {
+KCOV_DISABLED long interrupt_loweripl(long ipl) {
 	bool oldintstatus = interrupt_set(false);
 	long oldipl = current_cpu()->ipl;
 	if (oldipl < ipl)
@@ -185,7 +188,7 @@ long interrupt_loweripl(long ipl) {
 	return oldipl;
 }
 
-long interrupt_raiseipl(long ipl) {
+KCOV_DISABLED long interrupt_raiseipl(long ipl) {
 	bool oldintstatus = interrupt_set(false);
 	long oldipl = current_cpu()->ipl;
 
@@ -197,7 +200,7 @@ long interrupt_raiseipl(long ipl) {
 	return oldipl;
 }
 
-bool interrupt_set(bool status) {
+KCOV_DISABLED bool interrupt_set(bool status) {
 	arch_interrupt_disable();
 	bool old = current_cpu()->intstatus;
 

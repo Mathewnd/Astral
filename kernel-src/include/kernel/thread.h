@@ -6,6 +6,7 @@
 #include <kernel/abi.h>
 #include <kernel/signal.h>
 #include <kernel/event.h>
+#include <kernel/kcov.h>
 
 #define THREAD_FLAGS_QUEUED 1
 #define THREAD_FLAGS_RUNNING 2
@@ -31,6 +32,9 @@ typedef struct thread_t {
 	struct cpu_t *cpu;
 	struct cpu_t *cputarget;
 	struct cpu_t *last_cpu;
+#ifdef KCOV_ENABLED
+	kcov_t *kcov;
+#endif
 	context_t context;
 	extracontext_t extracontext;
 	void *kernelstack;

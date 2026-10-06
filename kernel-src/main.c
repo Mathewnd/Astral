@@ -20,7 +20,7 @@ DEFINE_KERNEL_ARGUMENT(rootfs, char *);
 DEFINE_KERNEL_ARGUMENT(initrd, bool);
 DEFINE_KERNEL_ARGUMENT(root_wait, bool);
 
-void kernel_entry() {
+KCOV_DISABLED void kernel_entry() {
 	cpu_set(&bsp_cpu);
 
 #ifdef TERM_EARLY_INIT

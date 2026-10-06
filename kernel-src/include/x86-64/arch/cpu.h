@@ -122,41 +122,47 @@ void arch_cpu_user_access_end(void);
 bool arch_cpu_smep_enabled(void);
 bool arch_cpu_smap_enabled(void);
 
-static inline __attribute__((always_inline)) thread_t *current_thread(void) {
+KCOV_DISABLED static inline __attribute__((always_inline)) thread_t *current_thread(void) {
 	thread_t *thread;
 	asm volatile ("mov %%gs:0, %%rax" : "=a"(thread) : : "memory");
 	return thread;
 }
 
-static inline __attribute__((always_inline)) cpu_t *current_cpu(void) {
+KCOV_DISABLED static inline __attribute__((always_inline)) cpu_t *current_cpu(void) {
 	cpu_t *cpu;
 	asm volatile ("mov %%gs:8, %%rax" : "=a"(cpu) : : "memory");
 	return cpu;
 }
 
-static inline __attribute__((always_inline)) mm_context_t *current_mm_context(void) {
+KCOV_DISABLED static inline __attribute__((always_inline)) mm_context_t *current_mm_context(void) {
 	mm_context_t *context;
 	asm volatile ("mov %%gs:16, %%rax" : "=a"(context) : : "memory");
 	return context;
 }
 
-static inline __attribute__((always_inline)) void set_current_mm_context(mm_context_t *context) {
+KCOV_DISABLED static inline __attribute__((always_inline)) void set_current_mm_context(mm_context_t *context) {
 	asm volatile ("mov %%rax, %%gs:16" : : "a"(context) : "memory");
 }
 
-static inline __attribute__((always_inline)) long current_cpu_internal_id(void) {
+KCOV_DISABLED static inline __attribute__((always_inline)) long current_cpu_internal_id(void) {
 	long id;
 	asm volatile ("mov %%gs:32, %%rax" : "=a"(id) : : "memory");
 	return id;
 }
 
-static inline __attribute__((always_inline)) long current_cpu_id(void) {
+KCOV_DISABLED static inline __attribute__((always_inline)) long current_cpu_id(void) {
 	long id;
 	asm volatile ("mov %%gs:24, %%rax" : "=a"(id) : : "memory");
 	return id;
 }
 
-static inline void cpu_set(cpu_t *ptr) {
+KCOV_DISABLED static inline __attribute__((always_inline)) unsigned long current_irq_depth(void) {
+	long depth;
+	asm volatile ("mov %%gs:48, %%rax" : "=a"(depth) : : "memory");
+	return depth;
+}
+
+KCOV_DISABLED static inline __attribute__((always_inline)) void cpu_set(cpu_t *ptr) {
 	ptr->self = ptr;
 	wrmsr(MSR_GSBASE, (uint64_t)ptr);
 }

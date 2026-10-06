@@ -9,6 +9,7 @@
 #include <kernel/alloc.h>
 #include <kernel/init.h>
 #include <arch/context.h>
+#include <kernel/kcov.h>
 #include <arch/prof.h>
 
 DEFINE_KERNEL_ARGUMENT(nosmp, bool);
@@ -21,12 +22,12 @@ static volatile struct limine_mp_request smprequest = {
 size_t arch_smp_cpusawake = 1;
 
 // for panic. if the nosmp argument is given to the kernel, this is what the APs will jump to
-static void cpuwakeuphalt(struct limine_mp_info *info) {
+KCOV_DISABLED static void cpuwakeuphalt(struct limine_mp_info *info) {
 	asm("cli");
 	for (;;) CPU_HALT();
 }
 
-static void cpuwakeup(struct limine_mp_info *info) {
+KCOV_DISABLED static void cpuwakeup(struct limine_mp_info *info) {
 	cpu_set((cpu_t *)info->extra_argument);
 
 	arch_gdt_reload();

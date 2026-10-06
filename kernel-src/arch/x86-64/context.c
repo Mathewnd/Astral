@@ -116,7 +116,7 @@ void arch_extracontext_save(extracontext_t *context) {
 	}
 }
 
-void arch_extracontext_load(extracontext_t *context) {
+KCOV_DISABLED void arch_extracontext_load(extracontext_t *context) {
 	if (current_thread()->proc && current_thread()->proc->ldt)
 		arch_gdt_set_ldt(current_thread()->proc->ldt, 0xffff);
 	else
