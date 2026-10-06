@@ -1,5 +1,5 @@
 #include <pushlock.h>
-#include <arch/cpu.h>
+#include <arch/smp.h>
 #include <semaphore.h>
 #include <logging.h>
 #include <util.h>
@@ -40,6 +40,7 @@
 
 #define PUSHLOCK_BACKOFF_MAX     64u
 #define PUSHLOCK_BACKOFF_BATCH   16u
+#define PUSHLOCK_SPIN_MAX        128u
 
 #define PUSHLOCK_MASK_FLAGS \
 	(PUSHLOCK_FLAGS_ACQUIRED | PUSHLOCK_FLAGS_CONTENDED | PUSHLOCK_FLAGS_WAKING)
@@ -60,6 +61,7 @@ typedef struct pushlock_wait_block_t {
 	size_t shared_count;
 	semaphore_t semaphore;
 	bool exclusive;
+	bool spinning;
 } __attribute__((aligned(PUSHLOCK_VALUE_ALIGNMENT))) pushlock_wait_block_t;
 
 _Static_assert(sizeof(pushlock_t) == sizeof(uintptr_t),
@@ -135,6 +137,13 @@ static pushlock_wait_block_t *pushlock_complete_waiter_links(pushlock_wait_block
 	}
 }
 
+// A spinner may return as soon as its flag clears, so only signal the
+// semaphore if the waiter cleared the flag before waiting on it.
+static inline void pushlock_wake_waiter(pushlock_wait_block_t *waiter) {
+	if (!__atomic_exchange_n(&waiter->spinning, false, __ATOMIC_RELEASE))
+		semaphore_signal(&waiter->semaphore);
+}
+
 // Called by the thread that acquired WAKING. Clear it while ACQUIRED remains
 // set or wake waiters after observing ACQUIRED clear.
 static void pushlock_update_waiters(pushlock_t *pushlock, pushlock_t state) {
@@ -193,7 +202,7 @@ static void pushlock_update_waiters(pushlock_t *pushlock, pushlock_t state) {
 			__assert(previous & PUSHLOCK_FLAGS_WAKING);
 			__assert(previous & PUSHLOCK_FLAGS_CONTENDED);
 #endif
-			semaphore_signal(&oldest->semaphore);
+			pushlock_wake_waiter(oldest);
 			return;
 		}
 
@@ -201,10 +210,10 @@ static void pushlock_update_waiters(pushlock_t *pushlock, pushlock_t state) {
 		if (!pushlock_cas_acq_rel(pushlock, &state, 0))
 			continue;
 
-		// Read newer before signalling since the waiter may return immediately
+		// Waking a spinner can let it return before we reach the next waiter
 		while (oldest != NULL) {
 			new_oldest = oldest->newer;
-			semaphore_signal(&oldest->semaphore);
+			pushlock_wake_waiter(oldest);
 			oldest = new_oldest;
 		}
 
@@ -240,11 +249,16 @@ static pushlock_t pushlock_queue_and_wait(pushlock_t *pushlock, pushlock_t state
 	size_t readers;
 	bool acquired_waking;
 	int result;
+	unsigned spins = 0;
 
 	waiter.newer = NULL;
 	waiter.exclusive = exclusive;
+	waiter.spinning = true;
 	// A releaser may signal as soon as the publication CMPXCHG succeeds
 	SEMAPHORE_INIT(&waiter.semaphore, 0);
+
+	if (__atomic_load_n(&arch_smp_cpusawake, __ATOMIC_RELAXED) > 1)
+		spins = PUSHLOCK_SPIN_MAX;
 
 #ifdef DEBUG_LOCKS
 	__assert(((uintptr_t)&waiter & PUSHLOCK_MASK_FLAGS) == 0);
@@ -291,11 +305,25 @@ static pushlock_t pushlock_queue_and_wait(pushlock_t *pushlock, pushlock_t state
 		if (acquired_waking)
 			pushlock_update_waiters(pushlock, desired);
 
-		result = semaphore_wait(&waiter.semaphore, false);
+		// Even an unlocked word may still point at us, so wait until we're
+		// removed from the queue before trying to acquire the lock again.
+		for (; spins != 0; --spins) {
+			if (!__atomic_load_n(&waiter.spinning, __ATOMIC_ACQUIRE))
+				return pushlock_load(pushlock);
+
+			CPU_PAUSE();
+		}
+
+		// If we clear the flag before the releaser does, it owes us a semaphore
+		// signal even if the release arrives before semaphore_wait()
+		if (__atomic_exchange_n(&waiter.spinning, false, __ATOMIC_ACQUIRE)) {
+			result = semaphore_wait(&waiter.semaphore, false);
 #ifdef DEBUG_LOCKS
-		__assert(result == 0);
+			__assert(result == 0);
 #endif
-		(void)result;
+			(void)result;
+		}
+
 		return pushlock_load(pushlock);
 	}
 }
