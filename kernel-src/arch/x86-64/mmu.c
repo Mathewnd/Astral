@@ -442,5 +442,5 @@ void arch_mmu_apswitch() {
 	interrupt_register(12, gpfisr, NULL, IPL_IGNORE);
 	interrupt_register(13, gpfisr, NULL, IPL_IGNORE);
 	interrupt_register(14, pfisr, NULL, IPL_IGNORE);
-	interrupt_register(0xfe, arch_mmu_tlbipi, ARCH_EOI, IPL_IGNORE);
+	interrupt_register(0xfe, arch_mmu_tlbipi, ARCH_EOI, IPL_MAX);
 }
