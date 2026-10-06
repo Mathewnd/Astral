@@ -147,6 +147,8 @@ void arch_nmi_isr(context_t *ctx) {
 	uint64_t old_gsbase = rdmsr(MSR_GSBASE);
 	wrmsr(MSR_GSBASE, *(uint64_t *)(ctx + 1));
 
+	__atomic_fetch_add(&current_cpu()->irq_depth, 1, __ATOMIC_RELAXED);
+
 	bool handled = false;
 
 #ifdef ENABLE_PROFILING
@@ -156,6 +158,8 @@ void arch_nmi_isr(context_t *ctx) {
 
 	if (!handled)
 		_panic("Unhandled NMI", ctx);
+
+	__atomic_fetch_sub(&current_cpu()->irq_depth, 1, __ATOMIC_RELAXED);
 
 	// restore the old gsbase
 	wrmsr(MSR_GSBASE, old_gsbase);

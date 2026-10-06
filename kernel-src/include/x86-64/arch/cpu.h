@@ -30,6 +30,8 @@ typedef struct cpu_t {
 
 	uint64_t scratch; // expected to be here by other code
 
+	unsigned long irq_depth; // expected to be here by other code
+
 	timekeeper_source_t *timekeeper_source;
 	timekeeper_source_info_t *timekeeper_source_info;
 	time_t timekeeper_source_base_ticks;

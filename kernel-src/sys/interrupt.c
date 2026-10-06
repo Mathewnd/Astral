@@ -45,6 +45,7 @@ static void dopending(context_t *ctx, void *) {
 	arch_interrupt_disable();
 	bool entrystatus = current_cpu()->intstatus;
 	current_cpu()->intstatus = false;
+	__atomic_fetch_add(&current_cpu()->irq_depth, 1, __ATOMIC_RELAXED);
 
 	isr_t *list = NULL;
 	isr_t *iterator = current_cpu()->isrqueue;
@@ -87,17 +88,24 @@ static void dopending(context_t *ctx, void *) {
 	}
 
 	cleanup:
+	__atomic_fetch_sub(&current_cpu()->irq_depth, 1, __ATOMIC_RELAXED);
 	if (entrystatus) {
 		current_cpu()->intstatus = true;
 		arch_interrupt_enable();
 	}
 }
 
-__attribute__((no_caller_saved_registers)) void sched_userspacecheck(context_t *context, bool syscall, uint64_t syscallret, uint64_t syscallerrno);
+__attribute__((no_caller_saved_registers)) void sched_userspacecheck(context_t *context,
+								     bool syscall,
+								     uint64_t syscallret,
+								     uint64_t syscallerrno);
 
 void interrupt_isr(int vec, context_t *ctx) {
 	isr_t *isr = &current_cpu()->isr[vec];
 	current_cpu()->intstatus = false;
+
+	if (isr->priority != IPL_IGNORE)
+		__atomic_fetch_add(&current_cpu()->irq_depth, 1, __ATOMIC_RELAXED);
 
 	if (isr->func == NULL) {
 		char oops[64];
@@ -115,6 +123,9 @@ void interrupt_isr(int vec, context_t *ctx) {
 
 	if (isr->eoi)
 		isr->eoi(isr);
+
+	if (isr->priority != IPL_IGNORE)
+		__atomic_fetch_sub(&current_cpu()->irq_depth, 1, __ATOMIC_RELAXED);
 
 	if (ARCH_CONTEXT_ISUSER(ctx))
 		sched_userspacecheck(ctx, false, 0, 0);
