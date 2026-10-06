@@ -353,7 +353,9 @@ void sched_calendar_tick(context_t *, dpcarg_t) {
 // note that there has to be a migrateable thread for this to be possible. 
 // (so if a thread targets the cpu it is ignored in the count)
 void sched_load_balancer(context_t *, dpcarg_t) {
-	if (!smp_cpus)
+	size_t cpu_count = arch_smp_get_cpu_count();
+	if (cpu_count < 2 ||
+	    __atomic_load_n(&arch_smp_cpusawake, __ATOMIC_ACQUIRE) != cpu_count)
 		return;
 
 	interrupt_set(false);
