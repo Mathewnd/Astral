@@ -50,8 +50,11 @@ static void cpuwakeup(struct limine_mp_info *info) {
 	arch_profiling_init();
 #endif
 
-	__atomic_add_fetch(&arch_smp_cpusawake, 1, __ATOMIC_SEQ_CST);
 	sched_ap_entry();
+
+	__atomic_add_fetch(&arch_smp_cpusawake, 1, __ATOMIC_SEQ_CST);
+
+	sched_stop_current_thread();
 }
 
 void arch_smp_send_ipi(cpu_t *targcpu, isr_t *isr, int target, bool nmi) {
