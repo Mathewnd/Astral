@@ -590,21 +590,27 @@ mm_context_t *mm_fork_context(mm_context_t *old_context) {
 
 			bool writeable = arch_mmu_iswritable(old_context->pagetable, vaddr);
 			bool private = !(range->flags & MM_RANGE_FLAGS_SHARED);
-			if ((range->flags & MM_RANGE_FLAGS_FILE) && range->vnode->type == V_TYPE_CHDEV && !private) {
-				// TODO: implement fork semantics for device mappings properly.
-				if (arch_mmu_map(new_context->pagetable, phys, vaddr, new_range->mmuflags) == false)
-					goto error;
+			// the semantics of device mappings in general are:
+			// - a device mapping always gets *fully* mapped on VOP_MMAP
+			// - if a device mapping is private, it gets a valid
+			//   physical page and goes through the normal fork path.
+			// - if a device mapping is shared, it does not have a valid
+			//   physical page and must have VOP_MMAP called for it again.
+			//   defer that until its actually accessed in a new page fault
+			if ((range->flags & MM_RANGE_FLAGS_FILE) &&
+			    range->vnode->type == V_TYPE_CHDEV && !private)
 				continue;
-			}
 
 			page_t *page = mm_get_page(phys);
 			if (mm_is_page_locked(page) && writeable && private) {
-				// the page is a private locked page, eagerly copy it to ensure fork/futex correctness
+				// the page is a private locked page, eagerly copy it
+				// to ensure fork/futex correctness
 				void *new_phys = mm_alloc_page(MEMORY_SECTION_DEFAULT);
 				if (new_phys == NULL)
 					goto error;
 
-				if (arch_mmu_map(new_context->pagetable, new_phys, vaddr, new_range->mmuflags) == false) {
+				if (arch_mmu_map(new_context->pagetable, new_phys, vaddr,
+						 new_range->mmuflags) == false) {
 					mm_release_page(new_phys);
 					goto error;
 				}
@@ -612,12 +618,14 @@ mm_context_t *mm_fork_context(mm_context_t *old_context) {
 				memcpy(MAKE_HHDM(new_phys), MAKE_HHDM(phys), PAGE_SIZE);
 			} else {
 				// go through the normal CoW path
-				if (arch_mmu_map(new_context->pagetable, phys, vaddr, new_range->mmuflags & ~ARCH_MMU_FLAGS_WRITE) == false)
+				if (arch_mmu_map(new_context->pagetable, phys, vaddr,
+						 new_range->mmuflags & ~ARCH_MMU_FLAGS_WRITE) == false)
 					goto error;
 
 				mm_hold_page(phys);
 
-				arch_mmu_remap(old_context->pagetable, phys, vaddr, new_range->mmuflags & ~ARCH_MMU_FLAGS_WRITE);
+				arch_mmu_remap(old_context->pagetable, phys, vaddr,
+					       new_range->mmuflags & ~ARCH_MMU_FLAGS_WRITE);
 			}
 		}
 
