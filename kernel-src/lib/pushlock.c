@@ -1,6 +1,8 @@
 #include <pushlock.h>
+#include <arch/cpu.h>
 #include <semaphore.h>
 #include <logging.h>
+#include <util.h>
 
 // A push lock is exactly one pointer-sized word.
 //
@@ -35,6 +37,9 @@
 #define PUSHLOCK_FLAGS_CONTENDED ((pushlock_t)1u << 1)
 #define PUSHLOCK_FLAGS_WAKING    ((pushlock_t)1u << 2)
 #define PUSHLOCK_SHARED_INC      ((pushlock_t)1u << 3)
+
+#define PUSHLOCK_BACKOFF_MAX     64u
+#define PUSHLOCK_BACKOFF_BATCH   16u
 
 #define PUSHLOCK_MASK_FLAGS \
 	(PUSHLOCK_FLAGS_ACQUIRED | PUSHLOCK_FLAGS_CONTENDED | PUSHLOCK_FLAGS_WAKING)
@@ -355,9 +360,11 @@ bool pushlock_try_acquire_shared(pushlock_t *pushlock) {
 
 void pushlock_acquire_shared(pushlock_t *pushlock) {
 	pushlock_t state = 0;
+	unsigned backoff = 1;
+	unsigned i, remaining, pauses;
 
 	if (pushlock_cas_acquire(pushlock, &state,
-		PUSHLOCK_FLAGS_ACQUIRED | PUSHLOCK_SHARED_INC))
+							 PUSHLOCK_FLAGS_ACQUIRED | PUSHLOCK_SHARED_INC))
 		return;
 
 	for (;;) {
@@ -368,10 +375,31 @@ void pushlock_acquire_shared(pushlock_t *pushlock) {
 			if (pushlock_cas_acquire(pushlock, &state, desired))
 				return;
 
+			// Readers racing to update the count can keep bouncing the cache line,
+			// so spread out the retries and stop delaying when a writer makes us queue.
+			if (pushlock_shared_acquire_value(state, &desired)) {
+				remaining = backoff;
+
+				do {
+					pauses = min(remaining, PUSHLOCK_BACKOFF_BATCH);
+
+					for (i = 0; i < pauses; ++i)
+						CPU_PAUSE();
+
+					state = pushlock_load(pushlock);
+
+					remaining -= pauses;
+				} while (remaining != 0 && pushlock_shared_acquire_value(state, &desired));
+
+				if (backoff < PUSHLOCK_BACKOFF_MAX)
+					backoff <<= 1;
+			}
+
 			continue;
 		}
 
 		state = pushlock_queue_and_wait(pushlock, state, false);
+		backoff = 1;
 	}
 }
 
