@@ -11,7 +11,7 @@
 #define SOCKET_BUFFER (16 * 1024)
 
 SPINLOCK_DEFINE(list_lock);
-static list_t socket_list;
+static list_t socket_list = LIST_INIT_VALUE(socket_list);
 
 typedef struct {
 	uint8_t sender[6];
@@ -260,7 +260,7 @@ static int raw_getpeername(socket_t *socket, sockaddr_t *addr) {
 static void raw_destroy(socket_t *handle) {
 	raw_socket_t *socket = (raw_socket_t *)handle;
 	long ipl = spinlock_acquire_raise_ipl(&list_lock, IPL_DPC);
-	list_remove(&socket_list, &socket->list_node);
+	list_remove(&socket->list_node);
 	spinlock_release_lower_ipl(&list_lock, ipl);
 	free(socket);
 }

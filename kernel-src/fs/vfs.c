@@ -59,7 +59,8 @@ void vfs_root_event_signal(void) {
 	root_mounted = true;
 	MUTEX_RELEASE(&root_event_mutex);
 
-	list_for_each_safe (&root_event_list, node) {
+	list_node_t *node;
+	while ((node = list_pop_front(&root_event_list)) != NULL) {
 		root_event_waiter_t *rew = (root_event_waiter_t *)node;
 		rew->fn(rew->ctx);
 		free(rew);

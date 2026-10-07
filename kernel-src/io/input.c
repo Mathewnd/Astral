@@ -142,7 +142,7 @@ static int input_listener_close(int minor, int flags) {
 	MUTEX_RELEASE(&input_dev_table_lock);
 
 	long ipl = spinlock_acquire_raise_ipl(&lis->device->lock, IPL_INPUT);
-	list_remove(&lis->device->listeners, &lis->node);
+	list_remove(&lis->node);
 	spinlock_release_lower_ipl(&lis->device->lock, ipl);
 
 	ringbuffer_destroy(&lis->buffer);
