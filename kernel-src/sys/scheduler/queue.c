@@ -54,16 +54,7 @@ static cpu_t *pick_cpu(thread_t *thread) {
 static void insert_in_run_queue(sched_run_queue_t *run_queue, thread_t *thread) {
 	int idx = sched_thread_run_queue_index(thread->metrics.interactivity_score);
 
-	thread->prev = run_queue->queues[idx].ins;
-
-	if (thread->prev)
-		thread->prev->next = thread;
-	else
-		run_queue->queues[idx].run = thread;
-
-	thread->next = NULL;
-	run_queue->queues[idx].ins = thread;
-
+	list_push_back(&run_queue->queues[idx], &thread->queue_node);
 	bitmap_set(&run_queue->thread_bitmap, idx, 1);
 }
 
@@ -72,14 +63,12 @@ static thread_t *pop_from_run_queue(sched_run_queue_t *run_queue) {
 	if (idx == -1)
 		return NULL;
 
-	thread_t *thread = run_queue->queues[idx].run;
-	
-	run_queue->queues[idx].run = thread->next;
+	list_node_t *node = run_queue->queues[idx].next;
+	thread_t *thread = container_of(node, thread_t, queue_node);
 
-	if (thread->next) {
-		thread->next->prev = NULL;
-	} else {
-		run_queue->queues[idx].ins = NULL;
+	list_remove(node);
+
+	if (list_is_empty(&run_queue->queues[idx])) {
 		bitmap_set(&run_queue->thread_bitmap, idx, 0);
 	}
 
@@ -91,23 +80,15 @@ static thread_t *steal_from_calendar_queue(sched_calendar_queue_t *calendar_queu
 		return NULL;
 
 	int run = calendar_queue->run;
-	
-	thread_t *thread = NULL;
+
 	do {
-		thread = calendar_queue->queues[run];
-		thread_t *prev = NULL;
-		while (thread) {
+		list_for_each (&calendar_queue->queues[run], node) {
+			thread_t *thread = container_of(node, thread_t, queue_node);
 			if (thread->cputarget) {
-				prev = thread;
-				thread = thread->next;
 				continue;
 			}
 
-			if (prev)
-				prev->next = thread->next;
-			else
-				calendar_queue->queues[run] = thread->next;
-
+			list_remove(node);
 			--calendar_queue->thread_count;
 			return thread;
 		}
@@ -125,26 +106,18 @@ static thread_t *steal_from_run_queue(sched_run_queue_t *run_queue) {
 		return NULL;
 
 	for (; idx < SCHED_RUN_QUEUE_SIZE; ++idx) {
-		for (thread_t *search = run_queue->queues[idx].run; search; search = search->next) {
-			if (search->cputarget)
+		list_for_each (&run_queue->queues[idx], node) {
+			thread_t *thread = container_of(node, thread_t, queue_node);
+			if (thread->cputarget) {
 				continue;
-
-			if (search->next) {
-				search->next->prev = search->prev;
-			} else {
-				run_queue->queues[idx].ins = search->prev;
 			}
 
-			if (search->prev) {
-				search->prev->next = search->next;
-			} else {
-				run_queue->queues[idx].run = search->next;
-			}
-
-			if (run_queue->queues[idx].run == NULL)
+			list_remove(node);
+			if (list_is_empty(&run_queue->queues[idx])) {
 				bitmap_set(&run_queue->thread_bitmap, idx, 0);
+			}
 
-			return search;
+			return thread;
 		}
 	}
 
@@ -155,8 +128,7 @@ static thread_t *steal_from_run_queue(sched_run_queue_t *run_queue) {
 static void insert_in_calendar_queue(sched_calendar_queue_t *calendar_queue, thread_t *thread) {
 	int idx = (calendar_queue->ins + thread->metrics.interactivity_score - SCHED_INTERACTIVITY_LIMIT) % SCHED_RUN_QUEUE_SIZE;
 
-	thread->next = calendar_queue->queues[idx];
-	calendar_queue->queues[idx] = thread;
+	list_push_front(&calendar_queue->queues[idx], &thread->queue_node);
 	++calendar_queue->thread_count;
 }
 
@@ -164,22 +136,21 @@ static thread_t *pop_from_calendar_queue(sched_calendar_queue_t *calendar_queue)
 	if (calendar_queue->thread_count == 0)
 		return NULL;
 
-	thread_t *thread;
+	list_node_t *node;
 
 	do {
-		thread = calendar_queue->queues[calendar_queue->run];
-		if (thread)
-			calendar_queue->queues[calendar_queue->run] = thread->next;
-		else
+		node = list_pop_front(&calendar_queue->queues[calendar_queue->run]);
+		if (node == NULL) {
 			calendar_queue->run = (calendar_queue->run + 1) % SCHED_RUN_QUEUE_SIZE;
+		}
 
 		if (calendar_queue->run == calendar_queue->ins)
 			calendar_queue->ins = (calendar_queue->ins + 1) % SCHED_RUN_QUEUE_SIZE;
-	} while (thread == NULL);
+	} while (node == NULL);
 
 	--calendar_queue->thread_count;
 
-	return thread;
+	return container_of(node, thread_t, queue_node);
 }
 
 // requires cpu queue to be locked

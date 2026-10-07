@@ -346,9 +346,17 @@ void sched_sleep_us(size_t us) {
 	sched_yield();
 }
 
-static void set_up_bitmaps(void) {
-	__assert(bitmap_init(&current_cpu()->rt_queue.thread_bitmap, SCHED_RUN_QUEUE_SIZE) == 0);
-	__assert(bitmap_init(&current_cpu()->idle_queue.thread_bitmap, SCHED_RUN_QUEUE_SIZE) == 0);
+static void set_up_queues(void) {
+	cpu_t *cpu = current_cpu();
+
+	for (size_t i = 0; i < SCHED_RUN_QUEUE_SIZE; ++i) {
+		list_init(&cpu->rt_queue.queues[i]);
+		list_init(&cpu->idle_queue.queues[i]);
+		list_init(&cpu->ts_queue.queues[i]);
+	}
+
+	__assert(bitmap_init(&cpu->rt_queue.thread_bitmap, SCHED_RUN_QUEUE_SIZE) == 0);
+	__assert(bitmap_init(&cpu->idle_queue.thread_bitmap, SCHED_RUN_QUEUE_SIZE) == 0);
 }
 
 void sched_calendar_tick(context_t *, dpcarg_t);
@@ -358,7 +366,7 @@ void sched_ap_entry() {
 	SPINLOCK_INIT(current_cpu()->sched_lock);
 
 	dpc_prepare(&current_cpu()->reschedule_dpc, sched_reschedule_dpc);
-	set_up_bitmaps();
+	set_up_queues();
 
 	current_cpu()->schedulerstack = mm_map(NULL, SCHEDULER_STACK_SIZE, MM_RANGE_FLAGS_ALLOCATE, ARCH_MMU_FLAGS_READ | ARCH_MMU_FLAGS_WRITE | ARCH_MMU_FLAGS_NOEXEC, NULL);
 	__assert(current_cpu()->schedulerstack);
@@ -386,7 +394,7 @@ void sched_init() {
 	SPINLOCK_INIT(sched_idle_cpu_bitmap_lock);
 
 	dpc_prepare(&current_cpu()->reschedule_dpc, sched_reschedule_dpc);
-	set_up_bitmaps();
+	set_up_queues();
 
 	__assert(bitmap_init(&sched_idle_cpu_bitmap, arch_smp_get_cpu_count()) == 0);
 

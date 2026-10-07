@@ -7,6 +7,7 @@
 #include <kernel/signal.h>
 #include <kernel/event.h>
 #include <kernel/kcov.h>
+#include <list.h>
 
 #define THREAD_FLAGS_QUEUED 1
 #define THREAD_FLAGS_RUNNING 2
@@ -23,8 +24,7 @@ struct proc_t;
 
 typedef struct thread_t {
 	void *kernelstacktop;
-	struct thread_t *next;
-	struct thread_t *prev;
+	list_node_t queue_node;
 	struct thread_t *sleepnext;
 	struct thread_t *sleepprev;
 	struct thread_t *procnext;
