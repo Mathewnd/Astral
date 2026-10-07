@@ -4,30 +4,10 @@
 #include <logging.h>
 
 
-static void remove(dpc_t *dpc) {
-	if (dpc->prev)
-		dpc->prev->next = dpc->next;
-	else 
-		current_cpu()->dpcqueue = dpc->next;
-
-	if (dpc->next)
-		dpc->next->prev = dpc->prev;
-}
-
-static void insert(dpc_t *dpc) {
-	dpc->prev = NULL;
-	dpc->next = current_cpu()->dpcqueue;
-
-	if (dpc->next)
-		dpc->next->prev = dpc;
-
-	current_cpu()->dpcqueue = dpc;
-}
-
 static void isrfn(isr_t *self, context_t *context) {
-	while (current_cpu()->dpcqueue) {
-		dpc_t *dpc = current_cpu()->dpcqueue;
-		remove(dpc);
+	list_node_t *node;
+	while ((node = list_pop_front(&current_cpu()->dpcqueue)) != NULL) {
+		dpc_t *dpc = (dpc_t *)node;
 		dpcarg_t arg = dpc->arg;
 
 		__assert(dpc->enqueued);
@@ -42,8 +22,8 @@ static void isrfn(isr_t *self, context_t *context) {
 void dpc_prepare(dpc_t *dpc, dpcfn_t fn) {
 	dpc->fn = fn;
 	dpc->enqueued = false;
-	dpc->next = NULL;
-	dpc->prev = NULL;
+	dpc->list_node.next = NULL;
+	dpc->list_node.prev = NULL;
 }
 
 void dpc_enqueue(dpc_t *dpc, dpcarg_t arg) {
@@ -54,7 +34,7 @@ void dpc_enqueue(dpc_t *dpc, dpcarg_t arg) {
 
 	dpc->arg = arg;
 	dpc->enqueued = true;
-	insert(dpc);
+	list_push_front(&current_cpu()->dpcqueue, &dpc->list_node);
 	interrupt_raise(current_cpu()->dpcisr);
 
 	cleanup:
@@ -68,13 +48,14 @@ void dpc_dequeue(dpc_t *dpc) {
 		goto cleanup;
 
 	dpc->enqueued = false;
-	remove(dpc);
+	list_remove(&dpc->list_node);
 
 	cleanup:
 	interrupt_set(entrystate);
 }
 
 void dpc_init() {
+	list_init(&current_cpu()->dpcqueue);
 	current_cpu()->dpcisr = interrupt_allocate(isrfn, NULL, IPL_DPC);
 	__assert(current_cpu()->dpcisr);
 }
