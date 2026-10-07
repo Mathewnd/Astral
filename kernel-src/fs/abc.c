@@ -164,8 +164,7 @@ static void writer_thread(void) {
 			__assert(written == block_count * abc->block_size);
 		}
 
-		list_node_t *list_node;
-		while ((list_node = list_pop_front(&internal_list)) != NULL) {
+		list_drain_front (&internal_list, list_node) {
 			abc_block_t *blk = (abc_block_t *)list_node;
 			if (__atomic_and_fetch(&blk->flags, ~ABC_BLOCK_FLAGS_BUSY, __ATOMIC_ACQUIRE) & ABC_BLOCK_FLAGS_DIRTY) {
 				pushlock_acquire_exclusive(&abc->dirty_list_lock);
