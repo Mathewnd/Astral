@@ -20,12 +20,12 @@
 #define SCHED_SLEEP_TIME_LIMIT_CPU_US 1000
 
 typedef struct {
-	list_t queues[SCHED_RUN_QUEUE_SIZE];
+	list_node_t queues[SCHED_RUN_QUEUE_SIZE];
 	bitmap_t thread_bitmap;
 } sched_run_queue_t;
 
 typedef struct {
-	list_t queues[SCHED_RUN_QUEUE_SIZE];
+	list_node_t queues[SCHED_RUN_QUEUE_SIZE];
 	int ins;
 	int run;
 	size_t thread_count;

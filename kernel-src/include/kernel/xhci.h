@@ -377,7 +377,7 @@ typedef struct xhci_ctrl {
 	usb_ctrl_t ctrl;
 	pcienum_t *pci_enum;
 
-	list_t hubs;
+	list_node_t hubs;
 
 	uint32_t port_count;
 	uint32_t slot_count;
@@ -394,7 +394,7 @@ typedef struct xhci_ctrl {
 	spinlock_t event_lock;
 	mutex_t callback_mutex;
 	bitmap_t port_change_bitmap;
-	list_t completion_list;
+	list_node_t completion_list;
 	ringbuffer_t callback_ring;
 	dpc_t dpc;
 

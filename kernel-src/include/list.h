@@ -9,35 +9,33 @@ typedef struct _list_node {
 	struct _list_node *next;
 } list_node_t;
 
-typedef list_node_t list_t;
+#define LIST_INIT_VALUE(NAME) ((list_node_t) {.prev = &(NAME), .next = &(NAME)})
 
-#define LIST_INIT_VALUE(NAME) ((list_t) {.prev = &(NAME), .next = &(NAME)})
-
-static inline void list_init(list_t *list) {
+static inline void list_init(list_node_t *list) {
 	list->prev = list;
 	list->next = list;
 }
 
-static inline bool list_is_empty(const list_t *list) {
+static inline bool list_is_empty(const list_node_t *list) {
 	return list->next == list;
 }
 
-static inline list_node_t *list_get_first(const list_t *list) {
+static inline list_node_t *list_get_first(const list_node_t *list) {
 	return list_is_empty(list) ? NULL : list->next;
 }
 
-static inline list_node_t *list_get_last(const list_t *list) {
+static inline list_node_t *list_get_last(const list_node_t *list) {
 	return list_is_empty(list) ? NULL : list->prev;
 }
 
-static inline void list_push_front(list_t *list, list_node_t *node) {
+static inline void list_push_front(list_node_t *list, list_node_t *node) {
 	node->prev = list;
 	node->next = list->next;
 	list->next->prev = node;
 	list->next = node;
 }
 
-static inline void list_push_back(list_t *list, list_node_t *node) {
+static inline void list_push_back(list_node_t *list, list_node_t *node) {
 	node->next = list;
 	node->prev = list->prev;
 	list->prev->next = node;
@@ -51,7 +49,7 @@ static inline void list_remove(list_node_t *node) {
 	node->next = NULL;
 }
 
-static inline list_node_t *list_pop_front(list_t *list) {
+static inline list_node_t *list_pop_front(list_node_t *list) {
 	list_node_t *node = list->next;
 	if (node == list)
 		return NULL;
@@ -59,7 +57,7 @@ static inline list_node_t *list_pop_front(list_t *list) {
 	return node;
 }
 
-static inline list_node_t *list_pop_back(list_t *list) {
+static inline list_node_t *list_pop_back(list_node_t *list) {
 	list_node_t *node = list->prev;
 	if (node == list)
 		return NULL;

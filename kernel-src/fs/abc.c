@@ -77,7 +77,7 @@ static void writer_thread(void) {
 	interrupt_loweripl(ipl);
 
 	for (;;) {
-		list_t internal_list;
+		list_node_t internal_list;
 		list_init(&internal_list);
 
 		eventlistener_t listener;

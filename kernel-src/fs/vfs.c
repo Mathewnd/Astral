@@ -50,7 +50,7 @@ typedef struct {
 	void *ctx;
 } root_event_waiter_t;
 
-static list_t root_event_list;
+static list_node_t root_event_list;
 static bool root_mounted;
 static mutex_t root_event_mutex;
 

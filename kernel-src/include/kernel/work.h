@@ -11,9 +11,9 @@ typedef void (*work_callback_t)(void *, size_t);
 typedef struct {
 	const char *name;
 	spinlock_t lock;
-	list_t work_list;
-	list_t active_list;
-	list_t waiter_list;
+	list_node_t work_list;
+	list_node_t active_list;
+	list_node_t waiter_list;
 	semaphore_t pending_work;
 	thread_t **threads;
 	size_t thread_count;

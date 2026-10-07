@@ -264,7 +264,7 @@ typedef struct {
 
 struct input_device {
 	spinlock_t lock;
-	list_t listeners;
+	list_node_t listeners;
 
 	int clock_id;
 

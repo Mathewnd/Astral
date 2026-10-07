@@ -197,7 +197,7 @@ typedef struct hda hda_t;
 typedef struct hda_output_path hda_output_path_t;
 
 typedef struct {
-	list_t waiter_list;
+	list_node_t waiter_list;
 	spinlock_t waiter_list_lock;
 	size_t function_group_count;
 	size_t starting_node;
@@ -630,7 +630,7 @@ static hda_path_t hda_find_path(hda_fg_t *fg, hda_widget_t *pin, int goal_type) 
 		hda_path_t path;
 	} path_entry_t;
 
-	list_t queue;
+	list_node_t queue;
 	list_init(&queue);
 
 	bool *visited = alloc(sizeof(bool) * fg->widget_count);

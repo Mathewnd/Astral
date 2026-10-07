@@ -25,7 +25,7 @@ typedef struct {
 	size_t block_size;
 
 	pushlock_t dirty_list_lock;
-	list_t dirty_list;
+	list_node_t dirty_list;
 	bool syncing;
 	eventheader_t dirty_list_sync_event;
 	eventheader_t dirty_list_empty_event;

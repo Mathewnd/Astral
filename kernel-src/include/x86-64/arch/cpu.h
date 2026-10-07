@@ -46,7 +46,7 @@ typedef struct cpu_t {
 	timer_t *timer;
 
 	isr_t *dpcisr;
-	list_t dpcqueue;
+	list_node_t dpcqueue;
 
 	thread_t *idlethread;
 	timerentry_t schedtimerentry;

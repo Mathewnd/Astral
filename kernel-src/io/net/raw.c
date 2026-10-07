@@ -11,7 +11,7 @@
 #define SOCKET_BUFFER (16 * 1024)
 
 SPINLOCK_DEFINE(list_lock);
-static list_t socket_list = LIST_INIT_VALUE(socket_list);
+static list_node_t socket_list = LIST_INIT_VALUE(socket_list);
 
 typedef struct {
 	uint8_t sender[6];

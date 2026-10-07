@@ -20,7 +20,7 @@ typedef struct {
 
 typedef struct {
 	mutex_t mutex;
-	list_t list;
+	list_node_t list;
 } futex_bucket_t;
 
 #define BUCKET_COUNT 256
