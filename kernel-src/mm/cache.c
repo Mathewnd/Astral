@@ -315,6 +315,7 @@ static int sync_page(page_t *page, bool backing_lock) {
 	page->flags &= ~PAGE_FLAGS_DIRTY;
 	RELEASE_LOCK();
 	int e = 0;
+	vnode_t *backing = page->backing;
 	if ((page->flags & PAGE_FLAGS_TRUNCATED) == 0) {
 		if (backing_lock)
 			VOP_LOCK(page->backing);
@@ -323,11 +324,11 @@ static int sync_page(page_t *page, bool backing_lock) {
 
 		if (backing_lock)
 			VOP_UNLOCK(page->backing);
-		VOP_RELEASE(page->backing);
+		VOP_RELEASE(backing);
 	} else {
 		// page got truncated from the file while waiting to be written to disk
 		// its still holding a reference to the vnode, so release that
-		VOP_RELEASE(page->backing);
+		VOP_RELEASE(backing);
 	}
 
 	mm_release_page(mm_get_page_address((page_t *)page));
