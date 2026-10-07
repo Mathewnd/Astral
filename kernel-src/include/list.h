@@ -1,6 +1,7 @@
 #ifndef _LIST_H
 #define _LIST_H
 
+#include <stdbool.h>
 #include <stddef.h>
 
 typedef struct _list_node {
@@ -8,77 +9,70 @@ typedef struct _list_node {
 	struct _list_node *next;
 } list_node_t;
 
-typedef struct {
-	list_node_t *head;
-	list_node_t *tail;
-} list_t;
+typedef list_node_t list_t;
 
-#define LIST_INIT_VALUE ((list_t) {.head = NULL, .tail = NULL})
+#define LIST_INIT_VALUE(NAME) ((list_t) {.prev = &(NAME), .next = &(NAME)})
 
 static inline void list_init(list_t *list) {
-	list->head = NULL;
-	list->tail = NULL;
+	list->prev = list;
+	list->next = list;
+}
+
+static inline bool list_is_empty(const list_t *list) {
+	return list->next == list;
+}
+
+static inline list_node_t *list_get_first(const list_t *list) {
+	return list_is_empty(list) ? NULL : list->next;
+}
+
+static inline list_node_t *list_get_last(const list_t *list) {
+	return list_is_empty(list) ? NULL : list->prev;
 }
 
 static inline void list_push_front(list_t *list, list_node_t *node) {
-	node->prev = NULL;
-	node->next = list->head;
-	if (list->head != NULL) {
-		list->head->prev = node;
-	} else {
-		list->tail = node;
-	}
-	list->head = node;
+	node->prev = list;
+	node->next = list->next;
+	list->next->prev = node;
+	list->next = node;
 }
 
 static inline void list_push_back(list_t *list, list_node_t *node) {
-	node->next = NULL;
-	node->prev = list->tail;
-	if (list->tail != NULL) {
-		list->tail->next = node;
-	} else {
-		list->head = node;
-	}
-	list->tail = node;
+	node->next = list;
+	node->prev = list->prev;
+	list->prev->next = node;
+	list->prev = node;
 }
 
-static inline void list_remove(list_t *list, list_node_t *node) {
-	if (node->prev != NULL) {
-		node->prev->next = node->next;
-	} else {
-		list->head = node->next;
-	}
-	if (node->next != NULL) {
-		node->next->prev = node->prev;
-	} else {
-		list->tail = node->prev;
-	}
+static inline void list_remove(list_node_t *node) {
+	node->prev->next = node->next;
+	node->next->prev = node->prev;
 	node->prev = NULL;
 	node->next = NULL;
 }
 
 static inline list_node_t *list_pop_front(list_t *list) {
-	if (list->head == NULL) {
+	list_node_t *node = list->next;
+	if (node == list)
 		return NULL;
-	}
-	list_node_t *node = list->head;
-	list_remove(list, node);
+	list_remove(node);
 	return node;
 }
 
 static inline list_node_t *list_pop_back(list_t *list) {
-	if (list->tail == NULL) {
+	list_node_t *node = list->prev;
+	if (node == list)
 		return NULL;
-	}
-	list_node_t *node = list->tail;
-	list_remove(list, node);
+	list_remove(node);
 	return node;
 }
 
 #define list_for_each(LIST, ITER) \
-	for (list_node_t *ITER = (LIST)->head; ITER != NULL; ITER = ITER->next)
+	for (list_node_t *ITER = (LIST)->next; ITER != (LIST); ITER = ITER->next)
 
-#define list_for_each_safe(LIST, ITER) \
-	for (list_node_t *ITER = (LIST)->head, *_next = (ITER ? ITER->next : NULL); ITER != NULL; ITER = _next, _next = (ITER ? ITER->next : NULL))
+#define list_for_each_safe(LIST, ITER, NEXT) \
+	for (list_node_t *ITER = (LIST)->next, *NEXT = ITER->next; \
+		 ITER != (LIST); \
+		 ITER = NEXT, NEXT = ITER->next)
 
 #endif
