@@ -39,7 +39,7 @@ static list_node_t *try_stealing_from_dirty(abc_t *abc, uint64_t block) {
 	if ((__atomic_load_n(&blk->flags, __ATOMIC_RELAXED) & ABC_BLOCK_FLAGS_DIRTY) == 0)
 		return NULL;
 
-	list_remove(&abc->dirty_list, &blk->dirty_list_node);
+	list_remove(&blk->dirty_list_node);
 	__atomic_exchange_n(&blk->flags, ABC_BLOCK_FLAGS_BUSY, __ATOMIC_ACQUIRE);
 	return &blk->dirty_list_node;
 }
@@ -50,7 +50,7 @@ void abc_sync(abc_t *abc) {
 	EVENT_ATTACH(&listener, &abc->dirty_list_empty_event);
 
 	pushlock_acquire_exclusive(&abc->dirty_list_lock);
-	if (abc->dirty_list.head == NULL && !abc->syncing) {
+	if (list_is_empty(&abc->dirty_list) && !abc->syncing) {
 		pushlock_release_exclusive(&abc->dirty_list_lock);
 		EVENT_DETACHALL(&listener);
 		return;
@@ -77,7 +77,7 @@ static void writer_thread(void) {
 	interrupt_loweripl(ipl);
 
 	for (;;) {
-		list_t internal_list;
+		list_node_t internal_list;
 		list_init(&internal_list);
 
 		eventlistener_t listener;
@@ -133,7 +133,7 @@ static void writer_thread(void) {
 		pushlock_release_shared(&abc->lock);
 		pushlock_release_exclusive(&abc->dirty_list_lock);
 
-		abc_block_t *front_block = (abc_block_t *)internal_list.head;
+		abc_block_t *front_block = (abc_block_t *)list_get_first(&internal_list);
 		size_t blocks_per_page = PAGE_SIZE / abc->block_size;
 		size_t iovec_count = (block_count + front_block->block % blocks_per_page + blocks_per_page - 1) / blocks_per_page;
 		iovec_t iovec[iovec_count];
@@ -164,7 +164,7 @@ static void writer_thread(void) {
 			__assert(written == block_count * abc->block_size);
 		}
 
-		list_for_each_safe(&internal_list, list_node) {
+		list_drain_front (&internal_list, list_node) {
 			abc_block_t *blk = (abc_block_t *)list_node;
 			if (__atomic_and_fetch(&blk->flags, ~ABC_BLOCK_FLAGS_BUSY, __ATOMIC_ACQUIRE) & ABC_BLOCK_FLAGS_DIRTY) {
 				pushlock_acquire_exclusive(&abc->dirty_list_lock);

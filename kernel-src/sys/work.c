@@ -32,11 +32,11 @@ static bool work_active(work_queue_t *wq, work_t *work) {
 }
 
 static void wake_waiters(work_queue_t *wq, work_t *work) {
-	list_for_each_safe (&wq->waiter_list, node) {
+	list_for_each_safe (&wq->waiter_list, node, next) {
 		work_waiter_t *ww = (work_waiter_t *)node;
 
 		if (ww->work == work) {
-			list_remove(&wq->waiter_list, &ww->list_node);
+			list_remove(&ww->list_node);
 			sched_wakeup(ww->thread, SCHED_WAKEUP_REASON_NORMAL);
 		}
 	}
@@ -83,7 +83,7 @@ static void worker() {
 
 		ipl = spinlock_acquire_raise_ipl(&wq->lock, wq->lock_ipl);
 		wake_waiters(wq, work);
-		list_remove(&wq->active_list, &aw.list_node);
+		list_remove(&aw.list_node);
 		spinlock_release_lower_ipl(&wq->lock, ipl);
 	}
 }
@@ -163,7 +163,7 @@ int work_dequeue(work_queue_t *wq, work_t *work) {
 		goto leave;
 
 	wake_waiters(wq, work);
-	list_remove(&wq->work_list, &work->list_node);
+	list_remove(&work->list_node);
 	work->pending = 0;
 
 leave:

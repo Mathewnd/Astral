@@ -1,4 +1,5 @@
 #include <kernel/syscalls.h>
+#include <kernel/init.h>
 #include <kernel/mm.h>
 #include <list.h>
 #include <semaphore.h>
@@ -19,7 +20,7 @@ typedef struct {
 
 typedef struct {
 	mutex_t mutex;
-	list_t list;
+	list_node_t list;
 } futex_bucket_t;
 
 #define BUCKET_COUNT 256
@@ -94,7 +95,7 @@ static int wait_on_bucket(futex_bucket_t *bucket, uintptr_t key, size_t timeoutu
 	else if (state == ENTRY_STATE_TIMEOUT)
 		error = ETIMEDOUT;
 
-	list_remove(&bucket->list, &entry.list_node);
+	list_remove(&entry.list_node);
 
 	MUTEX_RELEASE(&bucket->mutex);
 
@@ -180,3 +181,10 @@ syscallret_t syscall_futex(context_t *, uint32_t *futexp, int op, uint32_t value
 	mm_unlock_and_release_page(physical);
 	return ret;
 }
+
+static void futex_init(void) {
+	for (size_t i = 0; i < BUCKET_COUNT; ++i)
+		list_init(&buckets[i].list);
+}
+
+INIT_ROUTINE_DEFINE(futex, INIT_ROUTINE_FLAGS_NONE, futex_init, bsp_early);

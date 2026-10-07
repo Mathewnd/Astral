@@ -365,7 +365,7 @@ struct acpi_work {
 struct acpi_workctx {
 	work_queue_t *queue;
 	spinlock_t pool_lock;
-	list_t free_list;
+	list_node_t free_list;
 	struct acpi_work pool[ACPI_WORK_POOL_SIZE];
 	bool target_bsp;
 };

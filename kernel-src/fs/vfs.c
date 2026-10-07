@@ -50,7 +50,7 @@ typedef struct {
 	void *ctx;
 } root_event_waiter_t;
 
-static list_t root_event_list;
+static list_node_t root_event_list;
 static bool root_mounted;
 static mutex_t root_event_mutex;
 
@@ -59,7 +59,7 @@ void vfs_root_event_signal(void) {
 	root_mounted = true;
 	MUTEX_RELEASE(&root_event_mutex);
 
-	list_for_each_safe (&root_event_list, node) {
+	list_drain_front (&root_event_list, node) {
 		root_event_waiter_t *rew = (root_event_waiter_t *)node;
 		rew->fn(rew->ctx);
 		free(rew);

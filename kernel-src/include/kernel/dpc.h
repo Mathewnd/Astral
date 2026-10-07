@@ -3,13 +3,13 @@
 
 #include <arch/context.h>
 #include <stdbool.h>
+#include <list.h>
 
 typedef void * dpcarg_t;
 typedef void (*dpcfn_t)(context_t *, dpcarg_t);
 
 typedef struct _dpc_t {
-	struct _dpc_t *next;
-	struct _dpc_t *prev;
+	list_node_t list_node;
 	bool enqueued;
 	dpcfn_t fn;
 	dpcarg_t arg;
