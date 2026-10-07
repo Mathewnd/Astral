@@ -5,8 +5,7 @@
 
 
 static void isrfn(isr_t *self, context_t *context) {
-	list_node_t *node;
-	while ((node = list_pop_front(&current_cpu()->dpcqueue)) != NULL) {
+	list_drain_front (&current_cpu()->dpcqueue, node) {
 		dpc_t *dpc = (dpc_t *)node;
 		dpcarg_t arg = dpc->arg;
 
@@ -34,7 +33,7 @@ void dpc_enqueue(dpc_t *dpc, dpcarg_t arg) {
 
 	dpc->arg = arg;
 	dpc->enqueued = true;
-	list_push_front(&current_cpu()->dpcqueue, &dpc->list_node);
+	list_push_back(&current_cpu()->dpcqueue, &dpc->list_node);
 	interrupt_raise(current_cpu()->dpcisr);
 
 	cleanup:
