@@ -10,6 +10,7 @@ typedef struct _list_node {
 } list_node_t;
 
 #define LIST_INIT_VALUE(NAME) ((list_node_t) {.prev = &(NAME), .next = &(NAME)})
+#define LIST_DEFINE(NAME) list_node_t NAME = LIST_INIT_VALUE(NAME)
 
 static inline void list_init(list_node_t *list) {
 	list->prev = list;
@@ -72,5 +73,11 @@ static inline list_node_t *list_pop_back(list_node_t *list) {
 	for (list_node_t *ITER = (LIST)->next, *NEXT = ITER->next; \
 		 ITER != (LIST); \
 		 ITER = NEXT, NEXT = ITER->next)
+
+#define list_drain_front(LIST, ITER) \
+	for (list_node_t *ITER = list_pop_front(LIST); ITER != NULL; ITER = list_pop_front(LIST))
+
+#define list_drain_back(LIST, ITER) \
+	for (list_node_t *ITER = list_pop_back(LIST); ITER != NULL; ITER = list_pop_back(LIST))
 
 #endif
