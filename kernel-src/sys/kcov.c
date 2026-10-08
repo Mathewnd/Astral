@@ -69,8 +69,7 @@ KCOV_DISABLED static int resize_buffer(kcov_t *kcov, unsigned int entry_count) {
 	return 0;
 }
 
-KCOV_DISABLED int kcov_set_mode(unsigned int mode) {
-	kcov_t *kcov = current_thread()->kcov;
+KCOV_DISABLED int kcov_set_mode(kcov_t *kcov, unsigned int mode) {
 	__assert(kcov);
 
 	if (mode != KCOV_MODE_DISABLED &&
@@ -78,25 +77,43 @@ KCOV_DISABLED int kcov_set_mode(unsigned int mode) {
 	    mode != KCOV_MODE_CMP)
 		return EINVAL;
 
-	if (mode == KCOV_MODE_DISABLED && kcov->mode == KCOV_MODE_DISABLED)
-		return EINVAL;
+	MUTEX_ACQUIRE(&kcov->mapping_mutex);
+	int error = 0;
+	if (mode == KCOV_MODE_DISABLED) {
+		if (current_thread()->kcov != kcov) {
+			error = EINVAL;
+			goto cleanup;
+		}
 
-	if (mode != KCOV_MODE_DISABLED && kcov->mode != KCOV_MODE_DISABLED)
-		return EINVAL;
+		current_thread()->kcov = NULL;
+	} else {
+		if (current_thread()->kcov || kcov->mode != KCOV_MODE_DISABLED) {
+			error = EBUSY;
+			goto cleanup;
+		}
 
-	if (kcov->buffer == NULL)
-		return EINVAL;
+		if (kcov->buffer == NULL) {
+			error = EINVAL;
+			goto cleanup;
+		}
+
+		kcov_hold(kcov);
+	}
 
 	kcov->mode = mode;
-	return 0;
+	if (mode != KCOV_MODE_DISABLED)
+		current_thread()->kcov = kcov;
+
+	cleanup:
+	MUTEX_RELEASE(&kcov->mapping_mutex);
+	if (error == 0 && mode == KCOV_MODE_DISABLED)
+		kcov_release(kcov);
+	return error;
 }
 
-KCOV_DISABLED int kcov_set_buffer_size(unsigned int entry_count) {
+KCOV_DISABLED int kcov_set_buffer_size(kcov_t *kcov, unsigned int entry_count) {
 	if (entry_count < 0 || entry_count > MAX_ENTRIES)
 		return EINVAL;
-
-	kcov_t *kcov = current_thread()->kcov;
-	__assert(kcov);
 
 	MUTEX_ACQUIRE(&kcov->mapping_mutex);
 	int error = 0;

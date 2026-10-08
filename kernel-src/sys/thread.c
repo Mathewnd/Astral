@@ -57,10 +57,6 @@ thread_t *sched_newthread(void *ip, size_t kstacksize, int nice, proc_t *proc, v
 }
 
 void sched_destroythread(thread_t *thread) {
-#ifdef KCOV_ENABLED
-	if (thread->kcov)
-		kcov_release(thread->kcov);
-#endif
 	mm_unmap(thread->kernelstack, thread->kernelstacksize, 0);
 	arch_extracontext_free(&thread->extracontext);
 	slab_free(thread_cache, thread);
@@ -88,6 +84,11 @@ __attribute__((noreturn)) void sched_threadexit() {
 	thread_t *thread = current_thread();
 	proc_t *proc = thread->proc;
 
+#ifdef KCOV_ENABLED
+	if (thread->kcov)
+		kcov_set_mode(thread->kcov, KCOV_MODE_DISABLED);
+#endif
+
 	mm_context_t *oldctx = thread->mmctx;
 	mm_switch_context(&mm_kernel_ctx);
 
@@ -104,11 +105,6 @@ __attribute__((noreturn)) void sched_threadexit() {
 
 		PROC_RELEASE(proc);
 	}
-
-#ifdef KCOV_ENABLED
-	if (current_thread()->kcov)
-		kcov_set_mode(KCOV_MODE_DISABLED);
-#endif
 
 	interrupt_set(false);
 	arch_context_saveandcall(threadexit_internal, current_cpu()->schedulerstack, NULL);

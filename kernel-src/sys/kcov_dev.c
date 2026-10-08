@@ -89,10 +89,6 @@ static int create_node_for_kcov(kcov_t *kcov, int minor, vnode_t **vnodep) {
 	kcov->vnode_handle = vnode;
 	devfs_remove_anonymous(DEV_MAJOR_KCOV, minor);
 
-	// a kcov will have two references initially:
-	// - one for the thread holding it
-	// - one for the vnode
-	kcov_hold(kcov);
 	*vnodep = vnode;
 	return 0;
 }
@@ -102,18 +98,6 @@ static int open(int oldminor, vnode_t **vnodep, int flags) {
 
 	if (oldminor != KCOV_MAX)
 		return ENODEV;
-
-	// if the thread already has a kcov attached, return it
-	if (current_thread()->kcov) {
-		kcov_t *kcov = current_thread()->kcov;
-
-		int error = create_node_for_kcov(kcov, kcov->minor, vnodep);
-		if (error)
-			return error;
-
-		VOP_RELEASE(old);
-		return 0;
-	}
 
 	int minor;
 	int error = allocate_kcov(&minor);
@@ -127,7 +111,6 @@ static int open(int oldminor, vnode_t **vnodep, int flags) {
 		return error;
 	}
 
-	current_thread()->kcov = kcov;
 	VOP_RELEASE(old);
 	return 0;
 }
@@ -137,8 +120,8 @@ static int open(int oldminor, vnode_t **vnodep, int flags) {
 #define IOCTL_REQUEST_SET_SIZE 0xF1177200
 
 static int ioctl(int minor, unsigned long request, void *arg, int *result, cred_t *cred) {
-	kcov_t *kcov = current_thread()->kcov;
-	if (kcov == NULL || kcov->minor != minor)
+	kcov_t *kcov = get_kcov(minor);
+	if (kcov == NULL)
 		return EINVAL;
 
 	switch (request) {
@@ -148,24 +131,21 @@ static int ioctl(int minor, unsigned long request, void *arg, int *result, cred_
 			if (error)
 				return error;
 
-			return kcov_set_buffer_size(size);
+			return kcov_set_buffer_size(kcov, size);
 		}
 		case IOCTL_REQUEST_START: {
-			if (kcov->mode != KCOV_MODE_DISABLED)
-				return EBUSY;
-
-			if (kcov->buffer == NULL)
-				return EINVAL;
-
 			int mode;
 			int error = USERCOPY_POSSIBLY_FROM_USER(&mode, arg, sizeof(mode));
 			if (error)
 				return error;
 
-			return kcov_set_mode(mode);
+			if (mode != KCOV_MODE_PC && mode != KCOV_MODE_CMP)
+				return EINVAL;
+
+			return kcov_set_mode(kcov, mode);
 		}
 		case IOCTL_REQUEST_STOP:
-			return kcov_set_mode(KCOV_MODE_DISABLED);
+			return kcov_set_mode(kcov, KCOV_MODE_DISABLED);
 		default:
 			return ENOTTY;
 	}
