@@ -660,6 +660,7 @@ static int tcp_transmitnextsegment(tcb_t *tcb) {
 	itimer_pause(&tcb->itimer, NULL, NULL);
 	uint32_t self = ipv4_getnetdevip(tcb->key.peer);
 	tcpheader_t *header = tcb->retransmitbuffer;
+	bool was_full = RINGBUFFER_DATACOUNT(&tcb->transmitbuffer) == TCB_RINGBUFFER_SIZE;
 	tcb->retransmitpacketlen = ringbuffer_read(&tcb->transmitbuffer, header + 1, tcb->sndmss) + sizeof(tcpheader_t);
 	__assert(tcb->retransmitpacketlen > sizeof(tcpheader_t));
 	tcp_createheader(header, tcb, tcb->retransmitpacketlen, NULL, 0, CONTROL_ACK | CONTROL_PSH, 0);
@@ -670,6 +671,8 @@ static int tcp_transmitnextsegment(tcb_t *tcb) {
 	tcb->lastsend = timekeeper_timefromboot();
 	itimer_set(&tcb->itimer, RTO_START_SEC * 1000000, 0);
 	itimer_resume(&tcb->itimer);
+	if (was_full)
+		poll_event(&tcb->pollheader, POLLOUT);
 
 	return error;
 }
