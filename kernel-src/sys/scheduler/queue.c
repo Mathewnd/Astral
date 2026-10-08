@@ -1,6 +1,3 @@
-#ifdef PIAB_TEST_HOOKS
-#include "../../tests/piab_hooks.h"
-#endif
 #include <kernel/scheduler.h>
 #include <arch/cpu.h>
 #include <arch/smp.h>
@@ -306,9 +303,7 @@ void sched_insert_in_cpu_queue(cpu_t *cpu, thread_t *thread) {
 	// Publish the destination before reading priority. An updater either
 	// locks this CPU or changes priority before the loads below.
 	__atomic_store_n(&thread->cpu, cpu, __ATOMIC_SEQ_CST);
-#ifdef PIAB_TEST_HOOKS
-	piab_test_cpu_published(thread);
-#endif
+
 	base = __atomic_load_n(&thread->base_priority, __ATOMIC_SEQ_CST);
 	floor = __atomic_load_n(&thread->priority_floor, __ATOMIC_SEQ_CST);
 	priority = max(base, floor);
@@ -461,9 +456,7 @@ void sched_priority_changed(thread_t *thread) {
 
 	for (;;) {
 		cpu = __atomic_load_n(&thread->cpu, __ATOMIC_SEQ_CST);
-#ifdef PIAB_TEST_HOOKS
-		piab_test_cpu_loaded(thread);
-#endif
+
 		if (cpu == NULL)
 			break;
 

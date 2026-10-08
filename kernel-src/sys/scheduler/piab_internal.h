@@ -52,8 +52,6 @@ typedef struct piab_records {
 	piab_record_t slots[PIAB_RECORD_COUNT];
 } piab_records_t;
 
-// Allocated with the first record array and retained until thread destruction.
-// Queued update references keep this state and all record arrays alive.
 typedef struct piab_thread_state {
 	piab_records_t *records;		// Interlocked publication, immutable next links
 	piab_records_t *available;
@@ -68,6 +66,7 @@ typedef struct piab_thread_state {
 	piab_records_t initial_records;
 } piab_thread_state_t;
 
+#ifdef PIAB_INSTRUMENTATION
 typedef struct {
 	size_t owners;
 	size_t shared_owners;
@@ -79,5 +78,6 @@ typedef struct {
 int piab_reserve_records(thread_t *thread, unsigned count);
 
 void piab_get_lock_state(const void *lock, piab_lock_state_t *state);
+#endif
 
 #endif // _PIAB_INTERNAL_H
