@@ -205,10 +205,15 @@ int sched_yield() {
 	// Finish run/sleep accounting before allowing a remote wake.
 	sched_thread_stopping_callback(thread, sleeping);
 
-	// TODO: Give the scheduler a prepare/commit wait path for early wakeups.
+	// TODO: Replace this window with the generic wait protocol and explicit
+	// wait states. PIAB registration should be outside the wait locks. Wait
+	// completion should be separate from run queue insertion, including for
+	// signals from device ISRs.
 	//
-	// A device ISR can interrupt a partition holder and block on sleeplock.
-	// Drop it before registration so the interrupted holder can make progress.
+	// piab_pre_switch can wait for a PIAB hash bucket lock held on another CPU.
+	// If a device ISR on that CPU tries to wake this thread, it'll wait for sleeplock
+	// and prevent the interrupted code from releasing the PIAB lock. THREAD_FLAGS_SLEEP_PREPARING
+	// lets sched_wakeup record the wakeup without queueing a running thread.
 	if (sleeping) {
 		thread->flags |= THREAD_FLAGS_SLEEP_PREPARING;
 		spinlock_release(&thread->sleeplock);
