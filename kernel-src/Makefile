@@ -23,6 +23,10 @@ endif
 ASFLAGS=-felf64
 DEPS=$(CSOURCES:.c=.d)
 
+ifeq ($(TARGET),x86-64)
+KERNEL_BASE=0xffffffff80000000
+endif
+
 .PHONY: all
 all:
 	# build build.h file
@@ -33,7 +37,15 @@ all:
 	echo "#endif" >> include/build.h 
 	make astral
 
-astral:	$(OBJS)
+astral.tmp: $(OBJS)
+	@echo [LD] $@
+	@$(LD) $(LDFLAGS) -o $@ $^
+
+astral.sym.o: astral.tmp
+	@echo [GEN] $@
+	@python3 gen_fn_sym.py $< $(KERNEL_BASE) $(shell pwd)/ $@
+
+astral: $(OBJS) astral.sym.o
 	@echo [LD] $@
 	@$(LD) $(LDFLAGS) -o $@ $^
 
