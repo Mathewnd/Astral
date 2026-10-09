@@ -52,22 +52,18 @@ syscallret_t syscall_pipe2(context_t *, int flags) {
 	ret.ret = (uint64_t)readfd | ((uint64_t)writefd << 32);
 
 	return ret;
-
 	error:
-
 	if (readfile) {
 		fd_release(readfile);
 		fd_close(readfd);
+	} else if (node) {
+		VOP_RELEASE(node);
 	}
 
 	if (writefile) {
 		fd_release(writefile);
 		fd_close(writefd);
-	}
-
-	if (node) {
-		// released twice because of two holds (one at pipefs_newpipe and the manual hold)
-		VOP_RELEASE(node);
+	} if (node) {
 		VOP_RELEASE(node);
 	}
 
