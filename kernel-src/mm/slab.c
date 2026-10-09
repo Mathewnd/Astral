@@ -126,8 +126,10 @@ static inline int get_index(void *p) {
 static void *allocate_from_slab(scache_t *cache) {
 	MUTEX_ACQUIRE(&cache->mutex);
 	// if there is no slab or only an empty one, grow the cache
-	if ((cache->list == NULL || cache->list->reference_count == cache->slab_object_count) && unlikely(grow_cache(cache) == false))
+	if ((cache->list == NULL || cache->list->reference_count == cache->slab_object_count) && unlikely(grow_cache(cache) == false)) {
+		MUTEX_RELEASE(&cache->mutex);
 		return NULL;
+	}
 
 	slab_t *slab = cache->list;
 

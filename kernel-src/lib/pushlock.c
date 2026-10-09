@@ -2,23 +2,29 @@
 #include <arch/smp.h>
 #include <semaphore.h>
 #include <logging.h>
+#include <kernel/piab.h>
+#include <errno.h>
 #include <util.h>
 
+//
+// Push locks
+// ~~~~~~~~~~
+//
 // A push lock is exactly one pointer-sized word.
 //
-// Without PUSHLOCK_FLAGS_CONTENDED, the high bits contain the shared owner
+// Without PUSHLOCK_STATE_CONTENDED, the high bits contain the shared owner
 // count:
 //
 //   0                                 unlocked
 //   ACQUIRED                          exclusive owner
 //   ACQUIRED | n*SHARED_INC           n shared owners
 //
-// With PUSHLOCK_FLAGS_CONTENDED, the high bits point at the newest stack
+// With PUSHLOCK_STATE_CONTENDED, the high bits point at the newest stack
 // allocated waiter. Waiters link toward older waiters. `newer` and `oldest` are
-// populated lazily by the owner of PUSHLOCK_FLAGS_WAKING so releases don't
+// populated lazily by the owner of PUSHLOCK_STATE_WAKING so releases don't
 // repeatedly scan the whole chain.
 //
-// PUSHLOCK_FLAGS_WAKING allows one thread to update queue links and choose whom
+// PUSHLOCK_STATE_WAKING allows one thread to update queue links and choose whom
 // to wake. It doesn't grant lock ownership. Other threads may still add
 // waiters, and an exclusive acquirer may set ACQUIRED while maintenance is in
 // progress. Shared releasers may walk the chain while their displaced ownership
@@ -32,21 +38,22 @@
 // Every waiter, including its semaphore, is initialized before its address is
 // stored in the lock word. The semaphore retains an early signal, so
 // semaphore_signal() may safely finish before semaphore_wait() starts.
+//
 
-#define PUSHLOCK_FLAGS_ACQUIRED  ((pushlock_t)1u << 0)
-#define PUSHLOCK_FLAGS_CONTENDED ((pushlock_t)1u << 1)
-#define PUSHLOCK_FLAGS_WAKING    ((pushlock_t)1u << 2)
+#define PUSHLOCK_STATE_ACQUIRED  ((pushlock_t)1u << 0)
+#define PUSHLOCK_STATE_CONTENDED ((pushlock_t)1u << 1)
+#define PUSHLOCK_STATE_WAKING    ((pushlock_t)1u << 2)
 #define PUSHLOCK_SHARED_INC      ((pushlock_t)1u << 3)
 
 #define PUSHLOCK_BACKOFF_MAX     64u
 #define PUSHLOCK_BACKOFF_BATCH   16u
 #define PUSHLOCK_SPIN_MAX        128u
 
-#define PUSHLOCK_MASK_FLAGS \
-	(PUSHLOCK_FLAGS_ACQUIRED | PUSHLOCK_FLAGS_CONTENDED | PUSHLOCK_FLAGS_WAKING)
+#define PUSHLOCK_STATE_MASK \
+	(PUSHLOCK_STATE_ACQUIRED | PUSHLOCK_STATE_CONTENDED | PUSHLOCK_STATE_WAKING)
 
-#define PUSHLOCK_VALUE_ALIGNMENT (PUSHLOCK_MASK_FLAGS + 1)
-#define PUSHLOCK_MASK_POINTER_SHARED_COUNT (~PUSHLOCK_MASK_FLAGS)
+#define PUSHLOCK_VALUE_ALIGNMENT (PUSHLOCK_STATE_MASK + 1)
+#define PUSHLOCK_MASK_POINTER_SHARED_COUNT (~PUSHLOCK_STATE_MASK)
 
 #define PUSHLOCK_GET_POINTER(state) \
 	((pushlock_wait_block_t *)((state) & PUSHLOCK_MASK_POINTER_SHARED_COUNT))
@@ -61,6 +68,7 @@ typedef struct pushlock_wait_block_t {
 	size_t shared_count;
 	semaphore_t semaphore;
 	bool exclusive;
+	piab_record_t *piab_record;
 	bool spinning;
 } __attribute__((aligned(PUSHLOCK_VALUE_ALIGNMENT))) pushlock_wait_block_t;
 
@@ -77,23 +85,25 @@ static inline pushlock_t pushlock_load(const pushlock_t *pushlock) {
 	return __atomic_load_n(pushlock, __ATOMIC_ACQUIRE);
 }
 
-static inline bool pushlock_cas_acquire(pushlock_t *pushlock, pushlock_t *expected,
-	pushlock_t desired) {
-	return __atomic_compare_exchange_n(pushlock, expected, desired, false,
-		__ATOMIC_ACQUIRE, __ATOMIC_ACQUIRE);
+// ACQUIRING and RETRYING already use the owner tree if a switch occurs between the cmpxchg and post_acquire
+static inline bool pushlock_cas_acquire(pushlock_t *pushlock, pushlock_t *expected, pushlock_t desired, piab_record_t *record) {
+	bool acquired;
+
+	acquired = __atomic_compare_exchange_n(pushlock, expected, desired, false, __ATOMIC_ACQUIRE, __ATOMIC_ACQUIRE);
+	if (acquired && record)
+		piab_post_acquire(record);
+	return acquired;
 }
 
-static inline bool pushlock_cas_acq_rel(pushlock_t *pushlock, pushlock_t *expected,
-	pushlock_t desired) {
-	return __atomic_compare_exchange_n(pushlock, expected, desired, false,
-		__ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE);
+static inline bool pushlock_cas_acq_rel(pushlock_t *pushlock, pushlock_t *expected, pushlock_t desired) {
+	return __atomic_compare_exchange_n(pushlock, expected, desired, false, __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE);
 }
 
 static inline void pushlock_assert_state(pushlock_t state) {
 #ifdef DEBUG_LOCKS
-	if ((state & PUSHLOCK_FLAGS_CONTENDED) == 0) {
-		__assert((state & PUSHLOCK_FLAGS_WAKING) == 0);
-		if ((state & PUSHLOCK_FLAGS_ACQUIRED) == 0)
+	if ((state & PUSHLOCK_STATE_CONTENDED) == 0) {
+		__assert((state & PUSHLOCK_STATE_WAKING) == 0);
+		if ((state & PUSHLOCK_STATE_ACQUIRED) == 0)
 			__assert(state == 0);
 	} else {
 		__assert(PUSHLOCK_GET_POINTER(state) != NULL);
@@ -112,7 +122,9 @@ static pushlock_wait_block_t *pushlock_find_oldest(pushlock_wait_block_t *waiter
 			return cached;
 
 		waiter = waiter->older;
+#ifdef DEBUG_LOCKS
 		__assert(waiter != NULL);
+#endif
 	}
 }
 
@@ -130,7 +142,9 @@ static pushlock_wait_block_t *pushlock_complete_waiter_links(pushlock_wait_block
 		}
 
 		pushlock_wait_block_t *older = waiter->older;
+#ifdef DEBUG_LOCKS
 		__assert(older != NULL);
+#endif
 
 		older->newer = waiter;
 		waiter = older;
@@ -140,6 +154,9 @@ static pushlock_wait_block_t *pushlock_complete_waiter_links(pushlock_wait_block
 // A spinner may return as soon as its flag clears, so only signal the
 // semaphore if the waiter cleared the flag before waiting on it.
 static inline void pushlock_wake_waiter(pushlock_wait_block_t *waiter) {
+	// The spinner can reuse its record as soon as spinning becomes false
+	piab_pre_wakeup(waiter->piab_record);
+
 	if (!__atomic_exchange_n(&waiter->spinning, false, __ATOMIC_RELEASE))
 		semaphore_signal(&waiter->semaphore);
 }
@@ -156,17 +173,17 @@ static void pushlock_update_waiters(pushlock_t *pushlock, pushlock_t state) {
 	for (;;) {
 		pushlock_assert_state(state);
 #ifdef DEBUG_LOCKS
-		__assert(state & PUSHLOCK_FLAGS_CONTENDED);
-		__assert(state & PUSHLOCK_FLAGS_WAKING);
+		__assert(state & PUSHLOCK_STATE_CONTENDED);
+		__assert(state & PUSHLOCK_STATE_WAKING);
 #endif
 
 		head = PUSHLOCK_GET_POINTER(state);
 		oldest = pushlock_complete_waiter_links(head);
 
-		if (state & PUSHLOCK_FLAGS_ACQUIRED) {
+		if (state & PUSHLOCK_STATE_ACQUIRED) {
 			// Recheck both the head and ACQUIRED. A release may leave wakeup to us
 			// while a newly inserted head still needs its links completed.
-			desired = state & ~PUSHLOCK_FLAGS_WAKING;
+			desired = state & ~PUSHLOCK_STATE_WAKING;
 			if (pushlock_cas_acq_rel(pushlock, &state, desired))
 				return;
 			continue;
@@ -195,12 +212,11 @@ static void pushlock_update_waiters(pushlock_t *pushlock, pushlock_t state) {
 			oldest->newer = NULL;
 
 			// Preserve a concurrently inserted head or exclusive acquisition
-			previous = __atomic_fetch_and(pushlock, ~PUSHLOCK_FLAGS_WAKING,
-				__ATOMIC_RELEASE);
+			previous = __atomic_fetch_and(pushlock, ~PUSHLOCK_STATE_WAKING, __ATOMIC_RELEASE);
 			(void)previous;
 #ifdef DEBUG_LOCKS
-			__assert(previous & PUSHLOCK_FLAGS_WAKING);
-			__assert(previous & PUSHLOCK_FLAGS_CONTENDED);
+			__assert(previous & PUSHLOCK_STATE_WAKING);
+			__assert(previous & PUSHLOCK_STATE_CONTENDED);
 #endif
 			pushlock_wake_waiter(oldest);
 			return;
@@ -224,11 +240,11 @@ static void pushlock_update_waiters(pushlock_t *pushlock, pushlock_t state) {
 // With CONTENDED set, the high bits hold a waiter pointer instead of a
 // shared count. New readers queue rather than becoming an uncounted owner.
 static inline bool pushlock_shared_acquire_value(pushlock_t state, pushlock_t *desired) {
-	if (state & PUSHLOCK_FLAGS_CONTENDED)
+	if (state & PUSHLOCK_STATE_CONTENDED)
 		return false;
 
-	if ((state & PUSHLOCK_FLAGS_ACQUIRED) == 0) {
-		*desired = state | PUSHLOCK_FLAGS_ACQUIRED | PUSHLOCK_SHARED_INC;
+	if ((state & PUSHLOCK_STATE_ACQUIRED) == 0) {
+		*desired = state | PUSHLOCK_STATE_ACQUIRED | PUSHLOCK_SHARED_INC;
 		return true;
 	}
 
@@ -243,7 +259,7 @@ static inline bool pushlock_shared_acquire_value(pushlock_t state, pushlock_t *d
 	return false;
 }
 
-static pushlock_t pushlock_queue_and_wait(pushlock_t *pushlock, pushlock_t state, bool exclusive) {
+static pushlock_t pushlock_queue_and_wait(pushlock_t *pushlock, pushlock_t state, bool exclusive, piab_record_t *record) {
 	pushlock_wait_block_t waiter;
 	pushlock_t desired;
 	size_t readers;
@@ -253,6 +269,7 @@ static pushlock_t pushlock_queue_and_wait(pushlock_t *pushlock, pushlock_t state
 
 	waiter.newer = NULL;
 	waiter.exclusive = exclusive;
+	waiter.piab_record = record;
 	waiter.spinning = true;
 	// A releaser may signal as soon as the publication CMPXCHG succeeds
 	SEMAPHORE_INIT(&waiter.semaphore, 0);
@@ -261,27 +278,30 @@ static pushlock_t pushlock_queue_and_wait(pushlock_t *pushlock, pushlock_t state
 		spins = PUSHLOCK_SPIN_MAX;
 
 #ifdef DEBUG_LOCKS
-	__assert(((uintptr_t)&waiter & PUSHLOCK_MASK_FLAGS) == 0);
+	__assert(((uintptr_t)&waiter & PUSHLOCK_STATE_MASK) == 0);
 #endif
 
 	for (;;) {
 		acquired_waking = false;
 
 		pushlock_assert_state(state);
-		if (exclusive ? (state & PUSHLOCK_FLAGS_ACQUIRED) == 0 : pushlock_shared_acquire_value(state, &desired))
+		if (exclusive) {
+			if (!(state & PUSHLOCK_STATE_ACQUIRED))
+				return state;
+		} else if (pushlock_shared_acquire_value(state, &desired)) {
 			return state;
+		}
+
 		// A failed CMPXCHG may return a different queue head, so rebuild from state
 		waiter.older = NULL;
 		__atomic_store_n(&waiter.oldest, NULL, __ATOMIC_RELAXED);
 		__atomic_store_n(&waiter.shared_count, 0, __ATOMIC_RELAXED);
 
-		if (state & PUSHLOCK_FLAGS_CONTENDED) {
+		if (state & PUSHLOCK_STATE_CONTENDED) {
 			// Link this waiter to the current queue head before publishing it
 			waiter.older = PUSHLOCK_GET_POINTER(state);
-			desired = (pushlock_t)(uintptr_t)&waiter |
-					  (state & PUSHLOCK_MASK_FLAGS) |
-					  PUSHLOCK_FLAGS_CONTENDED | PUSHLOCK_FLAGS_WAKING;
-			acquired_waking = !(state & PUSHLOCK_FLAGS_WAKING);
+			desired = (pushlock_t)(uintptr_t)&waiter | (state & PUSHLOCK_STATE_MASK) | PUSHLOCK_STATE_CONTENDED | PUSHLOCK_STATE_WAKING;
+			acquired_waking = !(state & PUSHLOCK_STATE_WAKING);
 		} else {
 			readers = PUSHLOCK_GET_SHARED_COUNT(state);
 #ifdef DEBUG_LOCKS
@@ -290,17 +310,19 @@ static pushlock_t pushlock_queue_and_wait(pushlock_t *pushlock, pushlock_t state
 #endif
 
 			__atomic_store_n(&waiter.oldest, &waiter, __ATOMIC_RELAXED);
-			desired = (pushlock_t)(uintptr_t)&waiter |
-					  PUSHLOCK_FLAGS_ACQUIRED |
-					  PUSHLOCK_FLAGS_CONTENDED;
+			desired = (pushlock_t)(uintptr_t)&waiter | PUSHLOCK_STATE_ACQUIRED | PUSHLOCK_STATE_CONTENDED;
 
 			// Multiple existing readers need their count moved into the wait block
 			if (readers > 1)
 				__atomic_store_n(&waiter.shared_count, readers, __ATOMIC_RELAXED);
 		}
 
-		if (!pushlock_cas_acq_rel(pushlock, &state, desired))
+		// A releaser can wake this waiter as soon as the cmpxchg succeeds
+		piab_pre_wait(record);
+		if (!pushlock_cas_acq_rel(pushlock, &state, desired)) {
+			piab_prepare_retry(record);
 			continue;
+		}
 
 		if (acquired_waking)
 			pushlock_update_waiters(pushlock, desired);
@@ -328,50 +350,49 @@ static pushlock_t pushlock_queue_and_wait(pushlock_t *pushlock, pushlock_t state
 	}
 }
 
-bool pushlock_try_acquire_exclusive(pushlock_t *pushlock) {
+static inline __attribute__((always_inline)) bool pushlock_try_exclusive(pushlock_t *pushlock, piab_record_t *record) {
 	pushlock_t state = 0;
 
-	if (pushlock_cas_acquire(pushlock, &state, PUSHLOCK_FLAGS_ACQUIRED))
+	if (pushlock_cas_acquire(pushlock, &state, PUSHLOCK_STATE_ACQUIRED, record))
 		return true;
 
 	for (;;) {
 		pushlock_assert_state(state);
 
-		if (state & PUSHLOCK_FLAGS_ACQUIRED)
+		if (state & PUSHLOCK_STATE_ACQUIRED)
 			return false;
 
-		pushlock_t desired = state | PUSHLOCK_FLAGS_ACQUIRED;
-		if (pushlock_cas_acquire(pushlock, &state, desired))
+		pushlock_t desired = state | PUSHLOCK_STATE_ACQUIRED;
+		if (pushlock_cas_acquire(pushlock, &state, desired, record))
 			return true;
 	}
 }
 
-void pushlock_acquire_exclusive(pushlock_t *pushlock) {
+static inline __attribute__((always_inline)) void pushlock_exclusive(pushlock_t *pushlock, piab_record_t *record) {
 	pushlock_t state = 0;
 
-	if (pushlock_cas_acquire(pushlock, &state, PUSHLOCK_FLAGS_ACQUIRED))
+	if (pushlock_cas_acquire(pushlock, &state, PUSHLOCK_STATE_ACQUIRED, record))
 		return;
 
 	for (;;) {
 		pushlock_assert_state(state);
 
-		if ((state & PUSHLOCK_FLAGS_ACQUIRED) == 0) {
-			pushlock_t desired = state | PUSHLOCK_FLAGS_ACQUIRED;
-			if (pushlock_cas_acquire(pushlock, &state, desired))
+		if ((state & PUSHLOCK_STATE_ACQUIRED) == 0) {
+			pushlock_t desired = state | PUSHLOCK_STATE_ACQUIRED;
+			if (pushlock_cas_acquire(pushlock, &state, desired, record))
 				return;
 
 			continue;
 		}
 
-		state = pushlock_queue_and_wait(pushlock, state, true);
+		state = pushlock_queue_and_wait(pushlock, state, true, record);
 	}
 }
 
-bool pushlock_try_acquire_shared(pushlock_t *pushlock) {
+static inline __attribute__((always_inline)) bool pushlock_try_shared(pushlock_t *pushlock, piab_record_t *record) {
 	pushlock_t state = 0;
 
-	if (pushlock_cas_acquire(pushlock, &state,
-		PUSHLOCK_FLAGS_ACQUIRED | PUSHLOCK_SHARED_INC))
+	if (pushlock_cas_acquire(pushlock, &state, PUSHLOCK_STATE_ACQUIRED | PUSHLOCK_SHARED_INC, record))
 		return true;
 
 	for (;;) {
@@ -381,18 +402,17 @@ bool pushlock_try_acquire_shared(pushlock_t *pushlock) {
 		if (!pushlock_shared_acquire_value(state, &desired))
 			return false;
 
-		if (pushlock_cas_acquire(pushlock, &state, desired))
+		if (pushlock_cas_acquire(pushlock, &state, desired, record))
 			return true;
 	}
 }
 
-void pushlock_acquire_shared(pushlock_t *pushlock) {
+static inline __attribute__((always_inline)) void pushlock_shared(pushlock_t *pushlock, piab_record_t *record) {
 	pushlock_t state = 0;
 	unsigned backoff = 1;
 	unsigned i, remaining, pauses;
 
-	if (pushlock_cas_acquire(pushlock, &state,
-							 PUSHLOCK_FLAGS_ACQUIRED | PUSHLOCK_SHARED_INC))
+	if (pushlock_cas_acquire(pushlock, &state, PUSHLOCK_STATE_ACQUIRED | PUSHLOCK_SHARED_INC, record))
 		return;
 
 	for (;;) {
@@ -400,7 +420,7 @@ void pushlock_acquire_shared(pushlock_t *pushlock) {
 
 		pushlock_t desired;
 		if (pushlock_shared_acquire_value(state, &desired)) {
-			if (pushlock_cas_acquire(pushlock, &state, desired))
+			if (pushlock_cas_acquire(pushlock, &state, desired, record))
 				return;
 
 			// Readers racing to update the count can keep bouncing the cache line,
@@ -426,7 +446,7 @@ void pushlock_acquire_shared(pushlock_t *pushlock) {
 			continue;
 		}
 
-		state = pushlock_queue_and_wait(pushlock, state, false);
+		state = pushlock_queue_and_wait(pushlock, state, false, record);
 		backoff = 1;
 	}
 }
@@ -440,13 +460,13 @@ static void pushlock_release_contended(pushlock_t *pushlock, pushlock_t state) {
 	for (;;) {
 		pushlock_assert_state(state);
 #ifdef DEBUG_LOCKS
-		__assert(state & PUSHLOCK_FLAGS_ACQUIRED);
-		__assert(state & PUSHLOCK_FLAGS_CONTENDED);
+		__assert(state & PUSHLOCK_STATE_ACQUIRED);
+		__assert(state & PUSHLOCK_STATE_CONTENDED);
 #endif
-		acquired_waking = !(state & PUSHLOCK_FLAGS_WAKING);
-		desired = state & ~PUSHLOCK_FLAGS_ACQUIRED;
+		acquired_waking = !(state & PUSHLOCK_STATE_WAKING);
+		desired = state & ~PUSHLOCK_STATE_ACQUIRED;
 		if (acquired_waking)
-			desired |= PUSHLOCK_FLAGS_WAKING;
+			desired |= PUSHLOCK_STATE_WAKING;
 
 		if (!pushlock_cas_acq_rel(pushlock, &state, desired))
 			continue;
@@ -457,8 +477,8 @@ static void pushlock_release_contended(pushlock_t *pushlock, pushlock_t state) {
 	}
 }
 
-void pushlock_release_exclusive(pushlock_t *pushlock) {
-	pushlock_t state = PUSHLOCK_FLAGS_ACQUIRED;
+static void pushlock_release_exclusive_internal(pushlock_t *pushlock) {
+	pushlock_t state = PUSHLOCK_STATE_ACQUIRED;
 
 	if (pushlock_cas_acq_rel(pushlock, &state, 0))
 		return;
@@ -466,8 +486,8 @@ void pushlock_release_exclusive(pushlock_t *pushlock) {
 	pushlock_release_contended(pushlock, state);
 }
 
-void pushlock_release_shared(pushlock_t *pushlock) {
-	pushlock_t state = PUSHLOCK_FLAGS_ACQUIRED | PUSHLOCK_SHARED_INC;
+static void pushlock_release_shared_internal(pushlock_t *pushlock) {
+	pushlock_t state = PUSHLOCK_STATE_ACQUIRED | PUSHLOCK_SHARED_INC;
 
 	if (pushlock_cas_acq_rel(pushlock, &state, 0))
 		return;
@@ -475,10 +495,10 @@ void pushlock_release_shared(pushlock_t *pushlock) {
 	for (;;) {
 		pushlock_assert_state(state);
 #ifdef DEBUG_LOCKS
-		__assert(state & PUSHLOCK_FLAGS_ACQUIRED);
+		__assert(state & PUSHLOCK_STATE_ACQUIRED);
 #endif
 
-		if ((state & PUSHLOCK_FLAGS_CONTENDED) == 0) {
+		if ((state & PUSHLOCK_STATE_CONTENDED) == 0) {
 			size_t readers = PUSHLOCK_GET_SHARED_COUNT(state);
 #ifdef DEBUG_LOCKS
 			__assert(readers != 0);
@@ -509,4 +529,121 @@ void pushlock_release_shared(pushlock_t *pushlock) {
 		pushlock_release_contended(pushlock, state);
 		return;
 	}
+}
+
+bool pushlock_try_acquire_exclusive(pushlock_t *pushlock) {
+	return pushlock_try_acquire_flags(pushlock, PUSHLOCK_FLAGS_EXCLUSIVE) == 0;
+}
+
+bool pushlock_try_acquire_shared(pushlock_t *pushlock) {
+	return pushlock_try_acquire_flags(pushlock, 0) == 0;
+}
+
+void pushlock_acquire_exclusive(pushlock_t *pushlock) {
+	(void)pushlock_acquire_flags(pushlock, PUSHLOCK_FLAGS_EXCLUSIVE);
+}
+
+void pushlock_acquire_shared(pushlock_t *pushlock) {
+	(void)pushlock_acquire_flags(pushlock, 0);
+}
+
+int pushlock_acquire_fast(pushlock_t *pushlock, unsigned flags, piab_record_t **result) {
+	piab_record_t *record = NULL;
+
+#ifdef DEBUG_LOCKS
+	__assert(result);
+#endif
+	*result = NULL;
+	if (flags & ~PUSHLOCK_VALID_FLAGS)
+		return EINVAL;
+
+	if (!(flags & PUSHLOCK_FLAGS_DISABLE_PIAB_TRACKING))
+		record = piab_pre_acquire(pushlock, flags & PUSHLOCK_FLAGS_EXCLUSIVE);
+
+	if (flags & PUSHLOCK_FLAGS_EXCLUSIVE)
+		pushlock_exclusive(pushlock, record);
+	else
+		pushlock_shared(pushlock, record);
+
+	// Exhaustion permits an acquisition without a record.
+	// Explicitly disabled tracking must not set piab_tracking_exhausted.
+	if (!(flags & PUSHLOCK_FLAGS_DISABLE_PIAB_TRACKING) && record == NULL)
+		piab_post_acquire(NULL);
+	*result = record;
+	return 0;
+}
+
+int pushlock_try_acquire_fast(pushlock_t *pushlock, unsigned flags, piab_record_t **result) {
+	piab_record_t *record = NULL;
+	bool acquired;
+
+#ifdef DEBUG_LOCKS
+	__assert(result);
+#endif
+	*result = NULL;
+	if (flags & ~PUSHLOCK_VALID_FLAGS)
+		return EINVAL;
+
+	if (!(flags & PUSHLOCK_FLAGS_DISABLE_PIAB_TRACKING))
+		record = piab_pre_acquire(pushlock, flags & PUSHLOCK_FLAGS_EXCLUSIVE);
+
+	if (flags & PUSHLOCK_FLAGS_EXCLUSIVE)
+		acquired = pushlock_try_exclusive(pushlock, record);
+	else
+		acquired = pushlock_try_shared(pushlock, record);
+
+	if (!acquired) {
+		piab_cancel_acquire(record);
+		return EBUSY;
+	}
+
+	if (!(flags & PUSHLOCK_FLAGS_DISABLE_PIAB_TRACKING) && record == NULL)
+		piab_post_acquire(NULL);
+	*result = record;
+	return 0;
+}
+
+int pushlock_acquire_flags(pushlock_t *pushlock, unsigned flags) {
+	piab_record_t *record;
+	return pushlock_acquire_fast(pushlock, flags, &record);
+}
+
+int pushlock_try_acquire_flags(pushlock_t *pushlock, unsigned flags) {
+	piab_record_t *record;
+	return pushlock_try_acquire_fast(pushlock, flags, &record);
+}
+
+void pushlock_release_flags(pushlock_t *pushlock, unsigned flags) {
+#ifdef DEBUG_LOCKS
+	__assert((flags & ~PUSHLOCK_VALID_FLAGS) == 0);
+#endif
+	if (flags & PUSHLOCK_FLAGS_EXCLUSIVE)
+		pushlock_release_exclusive_internal(pushlock);
+	else
+		pushlock_release_shared_internal(pushlock);
+
+	if (!(flags & PUSHLOCK_FLAGS_DISABLE_PIAB_TRACKING))
+		piab_post_release(pushlock, flags & PUSHLOCK_FLAGS_EXCLUSIVE);
+}
+
+void pushlock_release_fast(pushlock_t *pushlock, unsigned flags, piab_record_t *record) {
+#ifdef DEBUG_LOCKS
+	__assert((flags & ~PUSHLOCK_VALID_FLAGS) == 0);
+	__assert(!(flags & PUSHLOCK_FLAGS_DISABLE_PIAB_TRACKING) || record == NULL);
+#endif
+	if (flags & PUSHLOCK_FLAGS_EXCLUSIVE)
+		pushlock_release_exclusive_internal(pushlock);
+	else
+		pushlock_release_shared_internal(pushlock);
+
+	if (!(flags & PUSHLOCK_FLAGS_DISABLE_PIAB_TRACKING))
+		piab_post_release_fast(pushlock, flags & PUSHLOCK_FLAGS_EXCLUSIVE, record);
+}
+
+void pushlock_release_exclusive(pushlock_t *pushlock) {
+	pushlock_release_flags(pushlock, PUSHLOCK_FLAGS_EXCLUSIVE);
+}
+
+void pushlock_release_shared(pushlock_t *pushlock) {
+	pushlock_release_flags(pushlock, 0);
 }

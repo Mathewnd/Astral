@@ -1,11 +1,13 @@
 #ifndef _THREAD_H
 #define _THREAD_H
 
+#include <stdint.h>
 #include <arch/context.h>
 #include <kernel/mm.h>
 #include <kernel/abi.h>
 #include <kernel/signal.h>
 #include <kernel/event.h>
+#include <kernel/piab.h>
 #include <kernel/kcov.h>
 #include <list.h>
 
@@ -15,8 +17,20 @@
 #define THREAD_FLAGS_INTERRUPTIBLE 8
 #define THREAD_FLAGS_PREEMPTED 16
 #define THREAD_FLAGS_DEAD 32
+// sched_yield queues the thread if a wake arrives here
+#define THREAD_FLAGS_SLEEP_PREPARING 64
 
 struct proc_t;
+
+// Scores range from 0 to SCHED_MAX_INTERACTIVITY - 1
+#define SCHED_MAX_INTERACTIVITY 100
+#define SCHED_PRIORITY_MAX (3 * SCHED_MAX_INTERACTIVITY)
+
+// Higher values select higher priority across the scheduler queues
+typedef uint16_t sched_priority_t;
+
+_Static_assert(SCHED_PRIORITY_MAX <= UINT16_MAX,
+	"SCHED_PRIORITY_MAX doesn't fit sched_priority_t");
 
 #define THREAD_CLASS_TIMESHARE 0
 #define THREAD_CLASS_REAL_TIME 1
@@ -32,6 +46,8 @@ typedef struct thread_t {
 	struct cpu_t *cpu;
 	struct cpu_t *cputarget;
 	struct cpu_t *last_cpu;
+	sched_priority_t queued_priority;
+	unsigned queue_index;
 #ifdef KCOV_ENABLED
 	kcov_t *kcov;
 #endif
@@ -50,6 +66,12 @@ typedef struct thread_t {
 	context_t *usercopyctx;
 	int class;
 	int nice;
+	spinlock_t priority_lock;
+	sched_priority_t base_priority;
+	sched_priority_t priority_floor;
+	uint16_t priority_floor_counts[SCHED_PRIORITY_MAX + 1];
+	struct piab_thread_state *piab_state;
+	bool piab_tracking_exhausted;
 	struct {
 		spinlock_t lock;
 		eventheader_t waitpendingevent;

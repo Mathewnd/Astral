@@ -19,8 +19,10 @@ static cpu_t *pick_cpu(thread_t *thread) {
 
 	// find the closest cpu in the hierarchy that the thread can run immediatelly in
 	cpu_t *closest = NULL;
-	if (thread->last_cpu)
-		closest = topology_find_next_cpu_to_run(thread->last_cpu->topology_node, thread, thread->metrics.last_sleep_duration_us);
+	if (thread->last_cpu) {
+		closest = topology_find_next_cpu_to_run(thread->last_cpu->topology_node, thread,
+		                                        thread->metrics.last_sleep_duration_us);
+	}
 	if (closest)
 		return closest;
 
@@ -40,67 +42,34 @@ static cpu_t *pick_cpu(thread_t *thread) {
 	// TODO: possibly could benefit from making the last queue and interactivity a single integer which would allow
 	// atomic operations on these
 	for (int i = 0; i < arch_smp_cpusawake; ++i) {
-		if (least_loaded == NULL || smp_cpus[i]->thread_count < least_loaded->thread_count)
+		if (least_loaded == NULL || smp_cpus[i]->thread_count < least_loaded->thread_count) {
 			least_loaded = smp_cpus[i];
-		
-		if (sched_thread_can_run_in_cpu(thread, smp_cpus[i]->last_queue, smp_cpus[i]->last_interactivity) &&
-				(least_loaded_can_run == NULL || least_loaded_can_run->thread_count > smp_cpus[i]->thread_count))
+		}
+
+		if (sched_thread_can_run_in_cpu(thread, smp_cpus[i]->last_queue,
+		                                smp_cpus[i]->last_interactivity) &&
+		    (least_loaded_can_run == NULL ||
+		     least_loaded_can_run->thread_count > smp_cpus[i]->thread_count)) {
 			least_loaded_can_run = smp_cpus[i];
+		}
 	}
 
 	return least_loaded_can_run ? least_loaded_can_run : least_loaded;
 }
 
-static void insert_in_run_queue(sched_run_queue_t *run_queue, thread_t *thread) {
-	int idx = sched_thread_run_queue_index(thread->metrics.interactivity_score);
-
-	list_push_back(&run_queue->queues[idx], &thread->queue_node);
-	bitmap_set(&run_queue->thread_bitmap, idx, 1);
-}
-
-static thread_t *pop_from_run_queue(sched_run_queue_t *run_queue) {
+static thread_t *sched_pop_from_run_queue(sched_run_queue_t *run_queue) {
 	long idx = bitmap_find_first_set(&run_queue->thread_bitmap);
 	if (idx == -1)
 		return NULL;
 
-	list_node_t *node = run_queue->queues[idx].next;
-	thread_t *thread = container_of(node, thread_t, queue_node);
-
-	list_remove(node);
-
-	if (list_is_empty(&run_queue->queues[idx])) {
+	list_node_t *node = list_pop_front(&run_queue->queues[idx]);
+	if (list_is_empty(&run_queue->queues[idx]))
 		bitmap_set(&run_queue->thread_bitmap, idx, 0);
-	}
 
-	return thread;
+	return container_of(node, thread_t, queue_node);
 }
 
-static thread_t *steal_from_calendar_queue(sched_calendar_queue_t *calendar_queue) {
-	if (calendar_queue->thread_count == 0)
-		return NULL;
-
-	int run = calendar_queue->run;
-
-	do {
-		list_for_each (&calendar_queue->queues[run], node) {
-			thread_t *thread = container_of(node, thread_t, queue_node);
-			if (thread->cputarget) {
-				continue;
-			}
-
-			list_remove(node);
-			--calendar_queue->thread_count;
-			return thread;
-		}
-
-		run = (run + 1) % SCHED_RUN_QUEUE_SIZE;
-	} while (run != calendar_queue->run);
-
-	// no thread found to steal
-	return NULL;
-}
-
-static thread_t *steal_from_run_queue(sched_run_queue_t *run_queue) {
+static thread_t *sched_steal_from_run_queue(sched_run_queue_t *run_queue) {
 	long idx = bitmap_find_first_set(&run_queue->thread_bitmap);
 	if (idx == -1)
 		return NULL;
@@ -108,14 +77,12 @@ static thread_t *steal_from_run_queue(sched_run_queue_t *run_queue) {
 	for (; idx < SCHED_RUN_QUEUE_SIZE; ++idx) {
 		list_for_each (&run_queue->queues[idx], node) {
 			thread_t *thread = container_of(node, thread_t, queue_node);
-			if (thread->cputarget) {
+			if (thread->cputarget)
 				continue;
-			}
 
 			list_remove(node);
-			if (list_is_empty(&run_queue->queues[idx])) {
+			if (list_is_empty(&run_queue->queues[idx]))
 				bitmap_set(&run_queue->thread_bitmap, idx, 0);
-			}
 
 			return thread;
 		}
@@ -125,14 +92,7 @@ static thread_t *steal_from_run_queue(sched_run_queue_t *run_queue) {
 	return NULL;
 }
 
-static void insert_in_calendar_queue(sched_calendar_queue_t *calendar_queue, thread_t *thread) {
-	int idx = (calendar_queue->ins + thread->metrics.interactivity_score - SCHED_INTERACTIVITY_LIMIT) % SCHED_RUN_QUEUE_SIZE;
-
-	list_push_front(&calendar_queue->queues[idx], &thread->queue_node);
-	++calendar_queue->thread_count;
-}
-
-static thread_t *pop_from_calendar_queue(sched_calendar_queue_t *calendar_queue) {
+static thread_t *sched_pop_from_calendar_queue(sched_calendar_queue_t *calendar_queue) {
 	if (calendar_queue->thread_count == 0)
 		return NULL;
 
@@ -140,30 +100,50 @@ static thread_t *pop_from_calendar_queue(sched_calendar_queue_t *calendar_queue)
 
 	do {
 		node = list_pop_front(&calendar_queue->queues[calendar_queue->run]);
-		if (node == NULL) {
+		if (node == NULL)
 			calendar_queue->run = (calendar_queue->run + 1) % SCHED_RUN_QUEUE_SIZE;
-		}
 
 		if (calendar_queue->run == calendar_queue->ins)
 			calendar_queue->ins = (calendar_queue->ins + 1) % SCHED_RUN_QUEUE_SIZE;
 	} while (node == NULL);
 
 	--calendar_queue->thread_count;
-
 	return container_of(node, thread_t, queue_node);
+}
+
+static thread_t *sched_steal_from_calendar_queue(sched_calendar_queue_t *calendar_queue) {
+	if (calendar_queue->thread_count == 0)
+		return NULL;
+
+	int run = calendar_queue->run;
+
+	do {
+		list_for_each (&calendar_queue->queues[run], node) {
+			thread_t *thread = container_of(node, thread_t, queue_node);
+			if (thread->cputarget == NULL) {
+				list_remove(node);
+				--calendar_queue->thread_count;
+				return thread;
+			}
+		}
+
+		run = (run + 1) % SCHED_RUN_QUEUE_SIZE;
+	} while (run != calendar_queue->run);
+
+	return NULL;
 }
 
 // requires cpu queue to be locked
 thread_t *sched_steal_work_from_cpu(cpu_t *cpu) {
-	thread_t *thread = steal_from_run_queue(&cpu->rt_queue);
+	thread_t *thread = sched_steal_from_run_queue(&cpu->rt_queue);
 	if (thread)
 		goto found;
 
-	thread = steal_from_calendar_queue(&cpu->ts_queue);
+	thread = sched_steal_from_calendar_queue(&cpu->ts_queue);
 	if (thread)
 		goto found;
 
-	thread = steal_from_run_queue(&cpu->idle_queue);
+	thread = sched_steal_from_run_queue(&cpu->idle_queue);
 	found:
 
 	if (thread == NULL)
@@ -223,26 +203,26 @@ leave:
 
 // requires cpu queue to be locked
 thread_t *sched_select_next_thread(void) {
-	thread_t *thread = pop_from_run_queue(&current_cpu()->rt_queue);
+	sched_priority_t priority;
+	thread_t *thread = sched_pop_from_run_queue(&current_cpu()->rt_queue);
 	if (thread) {
-		current_cpu()->last_queue = 0;
 		goto found;
 	}
 
-	thread = pop_from_calendar_queue(&current_cpu()->ts_queue);
+	thread = sched_pop_from_calendar_queue(&current_cpu()->ts_queue);
 	if (thread) {
-		current_cpu()->last_queue = 1;
 		goto found;
 	}
 
-	thread = pop_from_run_queue(&current_cpu()->idle_queue);
+	thread = sched_pop_from_run_queue(&current_cpu()->idle_queue);
 	if (thread == NULL)
 		return NULL;
-	current_cpu()->last_queue = 2;
 found:
 	thread->flags &= ~THREAD_FLAGS_QUEUED;
 
-	current_cpu()->last_interactivity = thread->metrics.interactivity_score;
+	priority = sched_thread_priority(thread);
+	current_cpu()->last_queue = sched_priority_queue(priority);
+	current_cpu()->last_interactivity = sched_priority_score(priority);
 	thread->last_cpu = current_cpu();
 	--current_cpu()->thread_count;
 	if (thread->cputarget == NULL)
@@ -254,31 +234,80 @@ found:
 		spinlock_release(&sched_idle_cpu_bitmap_lock);
 	}
 
-	__assert((thread->flags & THREAD_FLAGS_QUEUED) == 0);
 	__assert((thread->flags & THREAD_FLAGS_RUNNING) == 0);
 	return thread;
 }
 
+static inline void sched_insert_in_queue(cpu_t *cpu, thread_t *thread, sched_priority_t base,
+                                         sched_priority_t priority) {
+	unsigned queue_class = sched_priority_queue(priority);
+	unsigned effective_score = sched_priority_score(priority);
+	unsigned idx;
+
+	thread->queued_priority = priority;
+
+	if (queue_class == SCHED_QUEUE_TIMESHARE) {
+		sched_calendar_queue_t *calendar_queue = &cpu->ts_queue;
+		idx = calendar_queue->run;
+
+		if (priority > base) {
+			// The owner still needs the boost after a wakeup or migration.
+			// Put it at the tail so yielding gives other threads a turn.
+			list_push_back(&calendar_queue->queues[idx], &thread->queue_node);
+		} else {
+			unsigned range = SCHED_MAX_INTERACTIVITY - SCHED_INTERACTIVITY_LIMIT - 1;
+
+			// Round up so scores just above the interactive limit advance past
+			// ins instead of rounding down to the insertion queue.
+			idx = effective_score - SCHED_INTERACTIVITY_LIMIT;
+			idx *= SCHED_RUN_QUEUE_SIZE - 1;
+			idx = (idx + range - 1) / range;
+
+			idx += calendar_queue->ins;
+			if (calendar_queue->ins < calendar_queue->run) {
+				idx += SCHED_RUN_QUEUE_SIZE;
+			}
+
+			// Without the clamp a low priority thread can wrap back into a
+			// queue that runs sooner.
+			idx = min(idx, calendar_queue->run + SCHED_RUN_QUEUE_SIZE - 1);
+			idx %= SCHED_RUN_QUEUE_SIZE;
+			list_push_front(&calendar_queue->queues[idx], &thread->queue_node);
+		}
+
+		++calendar_queue->thread_count;
+	} else {
+		sched_run_queue_t *run_queue;
+
+		if (queue_class == SCHED_QUEUE_REALTIME) {
+			run_queue = &cpu->rt_queue;
+		} else {
+			run_queue = &cpu->idle_queue;
+		}
+
+		idx = sched_thread_run_queue_index(effective_score);
+		list_push_back(&run_queue->queues[idx], &thread->queue_node);
+		bitmap_set(&run_queue->thread_bitmap, idx, 1);
+	}
+
+	thread->queue_index = idx;
+}
+
 // requires cpu queue to be locked
 void sched_insert_in_cpu_queue(cpu_t *cpu, thread_t *thread) {
+	sched_priority_t base, floor, priority;
+
 	__assert((thread->flags & THREAD_FLAGS_RUNNING) == 0);
 	thread->flags |= THREAD_FLAGS_QUEUED;
 
-	switch (thread->class) {
-		case THREAD_CLASS_TIMESHARE:
-			if (thread->metrics.interactivity_score > SCHED_INTERACTIVITY_LIMIT) {
-				// thread is not interactive
-				insert_in_calendar_queue(&cpu->ts_queue, thread);
-				break;
-			}
-		case THREAD_CLASS_REAL_TIME:
-			insert_in_run_queue(&cpu->rt_queue, thread);
-			break;
-		case THREAD_CLASS_IDLE:
-			insert_in_run_queue(&cpu->idle_queue, thread);
-			
-			break;
-	}
+	// Publish the destination before reading priority. An updater either
+	// locks this CPU or changes priority before the loads below.
+	__atomic_store_n(&thread->cpu, cpu, __ATOMIC_SEQ_CST);
+
+	base = __atomic_load_n(&thread->base_priority, __ATOMIC_SEQ_CST);
+	floor = __atomic_load_n(&thread->priority_floor, __ATOMIC_SEQ_CST);
+	priority = max(base, floor);
+	sched_insert_in_queue(cpu, thread, base, priority);
 
 	++cpu->thread_count;
 	if (thread->cputarget == NULL)
@@ -293,11 +322,13 @@ void sched_insert_in_cpu_queue(cpu_t *cpu, thread_t *thread) {
 
 void sched_queue(thread_t *thread) {
 	bool status = interrupt_set(false);
+	sched_update_base_priority(thread);
 	cpu_t *cpu = pick_cpu(thread);
 
 	spinlock_acquire(&cpu->sched_lock);
 
-	__assert((thread->flags & THREAD_FLAGS_QUEUED) == 0 && (thread->flags & THREAD_FLAGS_RUNNING) == 0);
+	__assert((thread->flags & THREAD_FLAGS_QUEUED) == 0 &&
+	         (thread->flags & THREAD_FLAGS_RUNNING) == 0);
 
 	int last_queue = cpu->last_queue;
 	int last_interactivity = cpu->last_interactivity;
@@ -362,7 +393,8 @@ void sched_load_balancer(context_t *, dpcarg_t) {
 	spinlock_acquire(&second->sched_lock);
 
 	// the queues may have changed since the scan, so only move work if it still reduces the imbalance
-	if (most_loaded->stealable_thread_count == 0 || most_loaded->thread_count <= 1 || most_loaded->thread_count <= least_loaded->thread_count)
+	if (most_loaded->stealable_thread_count == 0 || most_loaded->thread_count <= 1 ||
+	    most_loaded->thread_count <= least_loaded->thread_count)
 		goto leave;
 
 	thread_t *thread = sched_steal_work_from_cpu(most_loaded);
@@ -370,10 +402,119 @@ void sched_load_balancer(context_t *, dpcarg_t) {
 
 	sched_insert_in_cpu_queue(least_loaded, thread);
 
-	if (sched_thread_can_run_in_cpu(thread, least_loaded->last_queue, least_loaded->last_interactivity))
+	if (sched_thread_can_run_in_cpu(thread, least_loaded->last_queue,
+	                                least_loaded->last_interactivity)) {
 		sched_preempt_cpu(least_loaded);
+	}
 
 	leave:
 	spinlock_release(&second->sched_lock);
 	spinlock_release(&first->sched_lock);
+}
+
+// Use saved placement as the current priority may already have changed
+static void sched_requeue_thread(cpu_t *cpu, thread_t *thread, sched_priority_t base,
+                                 sched_priority_t priority) {
+	unsigned idx = thread->queue_index;
+	unsigned queue_class = sched_priority_queue(thread->queued_priority);
+	sched_run_queue_t *queue;
+
+	__assert(idx < SCHED_RUN_QUEUE_SIZE);
+
+	list_remove(&thread->queue_node);
+
+	if (queue_class == SCHED_QUEUE_TIMESHARE) {
+		--cpu->ts_queue.thread_count;
+	} else {
+		if (queue_class == SCHED_QUEUE_REALTIME) {
+			queue = &cpu->rt_queue;
+		} else {
+			queue = &cpu->idle_queue;
+		}
+
+		if (list_is_empty(&queue->queues[idx]))
+			bitmap_set(&queue->thread_bitmap, idx, 0);
+	}
+
+	sched_insert_in_queue(cpu, thread, base, priority);
+
+	spinlock_acquire(&sched_idle_cpu_bitmap_lock);
+
+	bitmap_set(&sched_idle_cpu_bitmap, cpu->internal_id, 0);
+
+	spinlock_release(&sched_idle_cpu_bitmap_lock);
+}
+
+// Call after updating base_priority or priority_floor, without holding a CPU queue lock.
+// Sleeping threads use the updated priority when sched_queue runs on wakeup.
+void sched_priority_changed(thread_t *thread) {
+	cpu_t *cpu;
+	sched_priority_t base, floor, priority;
+	unsigned queue, effective_score;
+	bool boosted, changed, lowered;
+	bool irq = interrupt_set(false);
+
+	for (;;) {
+		cpu = __atomic_load_n(&thread->cpu, __ATOMIC_SEQ_CST);
+
+		if (cpu == NULL)
+			break;
+
+		// Retry if the thread migrated while we were acquiring the CPU lock
+		spinlock_acquire(&cpu->sched_lock);
+		if (__atomic_load_n(&thread->cpu, __ATOMIC_SEQ_CST) != cpu) {
+			spinlock_release(&cpu->sched_lock);
+			continue;
+		}
+
+		base = __atomic_load_n(&thread->base_priority, __ATOMIC_SEQ_CST);
+		floor = __atomic_load_n(&thread->priority_floor, __ATOMIC_SEQ_CST);
+		priority = max(base, floor);
+		queue = sched_priority_queue(priority);
+		boosted = priority > base;
+
+		if (thread->flags & THREAD_FLAGS_QUEUED) {
+			changed = priority != thread->queued_priority;
+
+			if (queue == SCHED_QUEUE_TIMESHARE &&
+			    sched_priority_queue(thread->queued_priority) == SCHED_QUEUE_TIMESHARE) {
+				// Boosted threads can run now without waiting for the calendar
+				if ((priority > thread->queued_priority || boosted) &&
+				    thread->queue_index != (unsigned)cpu->ts_queue.run) {
+					list_remove(&thread->queue_node);
+					thread->queue_index = cpu->ts_queue.run;
+					list_push_front(&cpu->ts_queue.queues[thread->queue_index],
+					                &thread->queue_node);
+
+					changed = true;
+				}
+
+				// Keep the thread's place if its priority drops before it runs
+				thread->queued_priority = priority;
+			} else if (changed) {
+				sched_requeue_thread(cpu, thread, base, priority);
+			}
+
+			if (changed && sched_thread_can_run_in_cpu(thread, cpu->last_queue,
+			                                           cpu->last_interactivity)) {
+				sched_preempt_cpu(cpu);
+			}
+		} else if (cpu->thread == thread) {
+			effective_score = sched_priority_score(priority);
+			lowered = queue > cpu->last_queue ||
+			          (queue == cpu->last_queue && effective_score > cpu->last_interactivity);
+
+			cpu->last_queue = queue;
+			cpu->last_interactivity = effective_score;
+
+			// Only a decrease can put a queued thread ahead of this one
+			if (lowered)
+				sched_preempt_cpu(cpu);
+		}
+
+		spinlock_release(&cpu->sched_lock);
+		break;
+	}
+
+	interrupt_set(irq);
 }
