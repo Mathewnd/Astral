@@ -34,6 +34,11 @@ syscallret_t syscall_mknodat(context_t *, int dirfd, char *upath, mode_t mode, d
 		goto cleanup;
 
 	int type = vfs_getsystemtype(GETTYPE(mode));
+	if (type == V_TYPE_LINK) {
+		ret.errno = EINVAL;
+		goto cleanup;
+	}
+
 	mode = GETMODE(mode);
 
 	vattr_t attr = {
