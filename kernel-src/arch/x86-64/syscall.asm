@@ -375,4 +375,4 @@ arch_syscall_entry:
 	push 0 ; error code
 	swapgs
 	extern isr_table
-	jmp [isr_table + 13 * 8] ; jump to the #GP handler with the user interrupt frame
+	jmp [abs isr_table + 13 * 8] ; jump to the #GP handler with the user interrupt frame
