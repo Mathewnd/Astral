@@ -68,6 +68,25 @@ SECTIONS
 		*(.bss .bss.*)
 	} :data
 
+	. = ALIGN(4);
+	.dbg_sym_table : {
+		dbg_sym_table = .;
+		KEEP(*(.dbg_sym_table));
+		dbg_sym_table_end = .;
+	} :data
+
+	.dbg_fn_name_table : {
+		dbg_fn_name_table = .;
+		KEEP(*(.dbg_fn_name_table));
+		dbg_fn_name_table_end = .;
+	} :data
+
+	.dbg_file_name_table : {
+		dbg_file_name_table = .;
+		KEEP(*(.dbg_file_name_table));
+		dbg_file_name_table_end = .;
+	} :data
+
 	. = ALIGN(4K);
 	_data_end = .;
 }
