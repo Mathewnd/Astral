@@ -4,11 +4,17 @@
 #include <printf.h>
 #include <kernel/interrupt.h>
 #include <arch/backtrace.h>
+#include <dbg.h>
 
 static bool paniced = false;
 
 static bool step_backtrace(void *, void *ip) {
-	printf("%p\n", ip);
+	char *fn, *file;
+	size_t off;
+
+	dbg_get_symbol(ip, &fn, &file, &off);
+
+	printf("%p: %s:%s+%x\n", ip, file, fn, off);
 	return true;
 }
 
