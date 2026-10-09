@@ -26,6 +26,7 @@ syscallret_t syscall_readlinkat(context_t *, int dirfd, char *upath, char *ubuff
 		return ret;
 	}
 
+	vnode_t *node = NULL;
 	file_t *file = NULL;
 	vnode_t *dirnode = NULL;
 	char *buffer = NULL;
@@ -33,7 +34,6 @@ syscallret_t syscall_readlinkat(context_t *, int dirfd, char *upath, char *ubuff
 	if (ret.errno)
 		goto cleanup;
 
-	vnode_t *node = NULL;
 	ret.errno = vfs_lookup(&node, dirnode, path, NULL, VFS_LOOKUP_NOLINK);
 	if (ret.errno)
 		goto cleanup;
