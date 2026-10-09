@@ -68,39 +68,27 @@ static void init_intel_pmc(void) {
 	arch_apic_init_perf();
 }
 
-static uint8_t get_backtrace(context_t *context, uintptr_t *data) {
-	if (IS_USER_ADDRESS(context->rip))
-		return 0;
+static bool backtrace_fn(void *context, void *ip) {
+	uint8_t *data = context;
 
-	data[0] = context->rip;
+	if (data[0] == 255)
+		return false;
 
-	uint64_t *rbp = (uint64_t *)context->rbp;
-	uint8_t done = 1;
+	uintptr_t *trace = (uintptr_t *)&data[1];
+	trace[data[0]] = (uintptr_t)ip;
+	data[0] += 1;
 
-	for (;;) {
-		if (IS_USER_ADDRESS(rbp) || done == 255)
-			break;
-
-		uint64_t rip = *(rbp + 1);
-		if (IS_USER_ADDRESS(rip))
-			break;
-
-		data[done++] = rip - 1;
-		rbp = (uint64_t *)*rbp;
-	}
-
-	return done;
+	return true;
 }
 
 static bool intel_irq(context_t *context) {
 	if ((rdmsr(MSR_PERF_GLOBAL_STATUS) & INTEL_TSC_INDEX_OFFSET) == 0)
 		return false;
 
-	uint8_t data[1 + sizeof(uintptr_t) * 256];
-
-	uint8_t size = get_backtrace(context, (uintptr_t *)(data + 1));
-	*data = size;
-	profiling_insert(size, data);
+	uint8_t data[1 + sizeof(uintptr_t) * 255];
+	data[0] = 0;
+	arch_get_backtrace(context, backtrace_fn, data);
+	profiling_insert(data[0], data);
 
 	arch_apic_init_perf(); // SDM LVT figure says a PMC irq masks itself, so unmask it
 	reset_intel_pmc();
