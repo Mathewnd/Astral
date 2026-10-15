@@ -184,7 +184,6 @@ static bool try_to_set_dirty_flag(abc_block_t *abc_block) {
 }
 
 void abc_make_dirty(abc_t *abc, abc_block_t *abc_block) {
-	// TODO: fix this race
 	pushlock_acquire_exclusive(&abc->dirty_list_lock);
 
 	if (!try_to_set_dirty_flag(abc_block)) {
