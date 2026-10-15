@@ -183,7 +183,6 @@ static size_t write_tty(void *internal, char *str, size_t size) {
 	return size;
 }
 
-// TODO enqueue dpc and call tty_process directly from it once it is safe to be called from an interrupt context
 static void irq(isr_t *self, context_t *) {
 	pc_com_t *pc_com = self->priv;
 

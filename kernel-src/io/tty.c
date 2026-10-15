@@ -43,14 +43,6 @@ static int setforeground(tty_t *tty, proc_t *proc) {
 	return ENOTTY;
 }
 
-// TODO: make this interrupt safe
-// this would mean:
-// - preventing the leaders from reaching refcnt = 1 during the getforeground() call until it is done
-// - list mutex -> list spinlock
-//
-// however, for it to truly be interrupt safe, the tty->writetodevice callback would also need to be interrupt safe,
-// which means that any drivers expecting to call this from an interrupt context would REQUIRE to have the callback to also be interrupt safe
-// the main console is an example of a driver which would not be able to do so.
 void tty_process(tty_t *tty, char c) {
 	if (c == '\r' && (tty->termios.c_iflag & IGNCR))
 		return;
