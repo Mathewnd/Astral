@@ -1,25 +1,10 @@
 #include <resource_allocator.h>
 #include <arch/cpu.h>
-
-static void insert(resource_allocator_t *allocator, resource_allocator_waiter_t *node) {
-	if (allocator->queue) {
-		allocator->tail->next = node;
-		allocator->tail = node;
-	} else {
-		allocator->queue = node;
-		allocator->tail = node;
-	}
-}
-
-static void pop(resource_allocator_t *allocator) {
-	resource_allocator_waiter_t *w = allocator->queue;
-	allocator->queue = w->next;
-	sched_wakeup(w->thread, 0);
-}
+#include <util.h>
 
 void resource_allocator_init(resource_allocator_t *allocator, size_t resource_total, size_t allocate_max) {
 	SPINLOCK_INIT(allocator->spinlock);
-	allocator->queue = allocator->tail = NULL;
+	list_init(&allocator->queue);
 	allocator->resource_current = resource_total;
 	allocator->allocate_max = allocate_max;
 }
@@ -28,14 +13,13 @@ size_t resource_allocate(resource_allocator_t *allocator, size_t count) {
 	count = min(allocator->allocate_max, count);
 	bool status = spinlock_acquire_irq_clear(&allocator->spinlock);
 
-	if (allocator->queue || allocator->resource_current < count) {
+	if (!list_is_empty(&allocator->queue) || allocator->resource_current < count) {
 		resource_allocator_waiter_t waiter = {
 			.requested = count,
-			.thread = current_thread(),
-			.next = NULL
+			.thread = current_thread()
 		};
 
-		insert(allocator, &waiter);
+		list_push_back(&allocator->queue, &waiter.list_node);
 		sched_prepare_sleep(false);
 		spinlock_release(&allocator->spinlock);
 		sched_yield();
@@ -54,10 +38,14 @@ void resource_free(resource_allocator_t *allocator, size_t count) {
 
 	allocator->resource_current += count;
 
-	while (allocator->queue && allocator->queue->requested <= allocator->resource_current) {
-		allocator->resource_current -= allocator->queue->requested;
+	while (!list_is_empty(&allocator->queue)) {
+		resource_allocator_waiter_t *waiter = container_of(list_get_first(&allocator->queue), resource_allocator_waiter_t, list_node);
+		if (waiter->requested > allocator->resource_current)
+			break;
+		allocator->resource_current -= waiter->requested;
 
-		pop(allocator);
+		list_remove(&waiter->list_node);
+		sched_wakeup(waiter->thread, 0);
 	}
 	
 	spinlock_release_irq_restore(&allocator->spinlock, status);
