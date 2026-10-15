@@ -47,11 +47,11 @@ void console_putc(char c) {
 }
 
 size_t console_write(char *str, size_t count) {
-	MUTEX_ACQUIRE(&writemutex);
+	MUTEX_ACQUIRE_FLAGS(&writemutex, PUSHLOCK_FLAGS_DISABLE_PIAB_TRACKING);
 
 	term_write(str, count);
 
-	MUTEX_RELEASE(&writemutex);
+	MUTEX_RELEASE_FLAGS(&writemutex, PUSHLOCK_FLAGS_DISABLE_PIAB_TRACKING);
 	return count;
 }
 

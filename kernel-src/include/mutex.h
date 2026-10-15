@@ -17,6 +17,15 @@ typedef pushlock_t mutex_t;
 #define MUTEX_TRY(m) \
 	pushlock_try_acquire_exclusive(m)
 
+#define MUTEX_ACQUIRE_FLAGS(m, flags) \
+	((void)pushlock_acquire_flags(m, PUSHLOCK_FLAGS_EXCLUSIVE | (flags)))
+
+#define MUTEX_RELEASE_FLAGS(m, flags) \
+	pushlock_release_flags(m, PUSHLOCK_FLAGS_EXCLUSIVE | (flags))
+
+#define MUTEX_TRY_FLAGS(m, flags) \
+	(pushlock_try_acquire_flags(m, PUSHLOCK_FLAGS_EXCLUSIVE | (flags)) == 0)
+
 #define MUTEX_DEFINE(x) pushlock_t x = 0;
 
 #endif

@@ -44,9 +44,9 @@ static struct flanterm_context *term_ctx;
 static mutex_t term_mutex;
 
 void term_write(char *str, size_t count) {
-	MUTEX_ACQUIRE(&term_mutex);
+	MUTEX_ACQUIRE_FLAGS(&term_mutex, PUSHLOCK_FLAGS_DISABLE_PIAB_TRACKING);
 	flanterm_write(term_ctx, str, count);
-	MUTEX_RELEASE(&term_mutex);
+	MUTEX_RELEASE_FLAGS(&term_mutex, PUSHLOCK_FLAGS_DISABLE_PIAB_TRACKING);
 }
 
 void term_putchar(char c) {

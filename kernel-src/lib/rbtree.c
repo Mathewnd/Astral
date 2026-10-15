@@ -115,6 +115,28 @@ rbtree_t *rbtree_lookup(rbtree_t *rbtree, void *key, rbtree_value_compare_fn_t c
 	}
 }
 
+// replacement must have the same key as node and must not be in a tree
+void rbtree_replace(rbtree_t **rbtreep, rbtree_t *node, rbtree_t *replacement) {
+	rbtree_t *parent = RBTREE_NODE_GET_PARENT(node);
+
+	__assert(node != replacement);
+	*replacement = *node;
+	if (parent == NULL) {
+		__assert(*rbtreep == node);
+		*rbtreep = replacement;
+	} else if (parent->left == node) {
+		parent->left = replacement;
+	} else {
+		__assert(parent->right == node);
+		parent->right = replacement;
+	}
+
+	if (replacement->left)
+		RBTREE_NODE_SET_PARENT(replacement->left, replacement);
+	if (replacement->right)
+		RBTREE_NODE_SET_PARENT(replacement->right, replacement);
+}
+
 void rbtree_insert(rbtree_t **rbtreep, rbtree_t *node, rbtree_compare_fn_t compare_fn) {
 	rbtree_t *rbtree = *rbtreep;
 	if (rbtree == NULL) {

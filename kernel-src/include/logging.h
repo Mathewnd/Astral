@@ -19,12 +19,12 @@ extern mutex_t printf_mutex;
 
 #define printf(...) { \
 	if (likely(current_thread())) {\
-		MUTEX_ACQUIRE(&printf_mutex); \
+		MUTEX_ACQUIRE_FLAGS(&printf_mutex, PUSHLOCK_FLAGS_DISABLE_PIAB_TRACKING); \
 	} else { \
-		while (MUTEX_TRY(&printf_mutex) == false) CPU_PAUSE(); \
+		while (MUTEX_TRY_FLAGS(&printf_mutex, PUSHLOCK_FLAGS_DISABLE_PIAB_TRACKING) == false) CPU_PAUSE(); \
 	} \
 	printf_(__VA_ARGS__); \
-	MUTEX_RELEASE(&printf_mutex); \
+	MUTEX_RELEASE_FLAGS(&printf_mutex, PUSHLOCK_FLAGS_DISABLE_PIAB_TRACKING); \
 }
 
 #define __assert(x) \

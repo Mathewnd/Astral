@@ -243,6 +243,7 @@ int sockfs_inactive(vnode_t *node) {
 	socketnode_t *socketnode = (socketnode_t *)node;
 	INTERNAL_LOCK(node);
 	socket->ops->destroy(socket);
+	INTERNAL_UNLOCK(node);
 	memset(node, 0, sizeof(socketnode_t));
 	VOP_INIT(&socketnode->vnode, &vnops, 0, V_TYPE_SOCKET, NULL);
 	//socketnode->attr.inode = ++currentinode;
