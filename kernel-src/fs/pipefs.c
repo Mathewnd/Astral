@@ -344,17 +344,23 @@ int pipefs_setattr(vnode_t *node, vattr_t *attr, int which, cred_t *cred) {
 	return 0;
 }
 
+static void reset_pipenode(pipenode_t *node) {
+	VOP_INIT(&node->vnode, &vnops, 0, V_TYPE_FIFO, NULL);
+	memset(&node->attr, 0, sizeof(vattr_t));
+	node->data.read = 0;
+	node->data.write = 0;
+	node->readers = 0;
+	node->writers = 0;
+	node->open = false;
+	POLL_INITHEADER(&node->pollheader);
+	EVENT_INITHEADER(&node->writeopenevent);
+	EVENT_INITHEADER(&node->readopenevent);
+}
+
 int pipefs_inactive(vnode_t *node) {
 	pipenode_t *pipenode = (pipenode_t *)node;
 	INTERNAL_LOCK(node);
-	ringbuffer_destroy(&pipenode->data);
-	// TODO write this properly using cache ctor and dtor
-	memset(node, 0, sizeof(pipenode_t));
-	VOP_INIT(node, &vnops, 0, V_TYPE_FIFO, NULL);
-	pipenode->attr.inode = ++currentinode;
-	POLL_INITHEADER(&pipenode->pollheader);
-	EVENT_INITHEADER(&pipenode->writeopenevent);
-	EVENT_INITHEADER(&pipenode->readopenevent);
+	reset_pipenode(pipenode);
 	slab_free(nodecache, node);
 	return 0;
 }
@@ -429,16 +435,17 @@ static vops_t vnops = {
 static bool ctor(scache_t *cache, void *obj) {
 	pipenode_t *node = obj;
 	memset(node, 0, sizeof(pipenode_t));
-	VOP_INIT(&node->vnode, &vnops, 0, V_TYPE_FIFO, NULL);
-	node->attr.inode = ++currentinode;
-	POLL_INITHEADER(&node->pollheader);
-	EVENT_INITHEADER(&node->writeopenevent);
-	EVENT_INITHEADER(&node->readopenevent);
-	return true;
+	reset_pipenode(node);
+	return ringbuffer_init(&node->data, BUFFER_SIZE) == 0;
+}
+
+static void dtor(scache_t *cache, void *obj) {
+	pipenode_t *node = obj;
+	ringbuffer_destroy(&node->data);
 }
 
 void pipefs_init() {
-	nodecache = slab_newcache(sizeof(pipenode_t), 0, ctor, NULL);
+	nodecache = slab_newcache(sizeof(pipenode_t), 0, ctor, dtor);
 	__assert(nodecache);
 }
 
@@ -450,13 +457,7 @@ int pipefs_newpipe(vnode_t **nodep) {
 	if (node == NULL)
 		return ENOMEM;
 
-	int e = ringbuffer_init(&node->data, BUFFER_SIZE);
-	if (e) {
-		ctor(nodecache, vnode);
-		slab_free(nodecache, vnode);
-		return e;
-	}
-
+	node->attr.inode = ++currentinode;
 	*nodep = vnode;
 
 	return 0;
