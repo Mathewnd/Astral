@@ -7,8 +7,13 @@ static inline bool iovec_iterator_finished(iovec_iterator_t *iovec_iterator) {
 }
 
 bool iovec_user_check(iovec_t *iovec, size_t count) {
-	// TODO add size overflow check
+	size_t total_len = 0;
 	for (int i = 0; i < count; ++i) {
+		// Size overflow check
+		if (SIZE_MAX - iovec[i].len < total_len)
+			return false;
+		total_len += iovec[i].len;
+
 		// POSIX says that when len is zero, the addr can be an invalid buffer
 		if (iovec[i].len && IS_USER_ADDRESS(iovec[i].addr) == false)
 			return false;
