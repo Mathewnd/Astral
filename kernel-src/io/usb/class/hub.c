@@ -163,8 +163,8 @@ static void get_status_callback(usb_device_t *dev, void *ctx, usb_status_t statu
 	uint16_t port_status = data->status_buffer[port] & 0xffff;
 	uint16_t port_change = data->status_buffer[port] >> 16;
 
-	handle_port_change(data, port, port_status, port_change);
 	clear_port_changes(data, port, port_change);
+	handle_port_change(data, port, port_status, port_change);
 
 out:
 	free(ctx);
@@ -209,6 +209,7 @@ static void interrupt_in_callback(usb_device_t *dev, void *ctx, usb_status_t sta
 	}
 
 	data->in_buffer = 0;
+	// TODO: add deferred work after a few sec to try recovery?
 	if (insert_in_transfer(dev, data)) {
 		printf("hub: failed to insert in trasnfer during callback. hub will not be functional.\n");
 	}
@@ -250,15 +251,19 @@ static void init_status_get_callback(usb_device_t *dev, void *ctx, usb_status_t 
 	uint16_t port_status = data->status_buffer[port] & 0xffff;
 	uint16_t port_change = data->status_buffer[port] >> 16;
 
+	// Acknowledge old changes before starting a reset that can set new ones.
+	clear_port_changes(data, port, port_change);
 	if (port_status & USB_HUB_PORT_STATUS_PORT_CONNECTION)
 		usb_hub_event_connect(data->usb_hub, port);
-
-	clear_port_changes(data, port, port_change);
 
 	if (++data->ports_initialized != data->usb_hub->port_count) {
 		if (get_status_cmd(dev, data, data->ports_initialized, init_status_get_callback, data)) {
 			printf("hub: get_status_cmd() failed\n");
 		}
+	} else {
+		// Keep interrupt handling from racing the startup scan and resetting ports twice.
+		if (insert_in_transfer(dev, data))
+			printf("hub: failed to insert first IN transfer\n");
 	}
 }
 
@@ -369,9 +374,10 @@ static int hub_attach(usb_device_t *dev, usb_interface_t *interface) {
 
 	interface->driver_data = hub_driver_data;
 
-	int error = insert_in_transfer(dev, hub_driver_data);
+	// Some hubs emulate power switching but still require PORT_POWER requests.
+	int error = power_port(dev, 0, hub_driver_data);
 	if (error) {
-		printf("hub: failed to insert first IN transfer\n");
+		printf("hub: failed to power first port\n");
 		interface->driver_data = NULL;
 		free(hub_driver_data->status_buffer);
 		free(hub_driver_data->usb_hub->ports);
@@ -379,10 +385,6 @@ static int hub_attach(usb_device_t *dev, usb_interface_t *interface) {
 		free(hub_driver_data);
 		return error;
 	}
-
-	// Some hubs emulate power switching but still require PORT_POWER requests.
-	if (power_port(dev, 0, hub_driver_data))
-		printf("hub: failed to power first port\n");
 
 	return 0;
 }
