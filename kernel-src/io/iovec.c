@@ -1,16 +1,22 @@
 #include <kernel/iovec.h>
 #include <kernel/mm.h>
 #include <kernel/usercopy.h>
+#include <stdint.h>
 
 static inline bool iovec_iterator_finished(iovec_iterator_t *iovec_iterator) {
 	return iovec_iterator->total_size == iovec_iterator->total_offset;
 }
 
 bool iovec_user_check(iovec_t *iovec, size_t count) {
-	// TODO add size overflow check
+	size_t total = 0;
+
 	for (int i = 0; i < count; ++i) {
 		// POSIX says that when len is zero, the addr can be an invalid buffer
 		if (iovec[i].len && IS_USER_ADDRESS(iovec[i].addr) == false)
+			return false;
+
+		// The total size has to fit in the ssize_t returned to userspace
+		if (__builtin_add_overflow(total, iovec[i].len, &total) || total > SIZE_MAX / 2)
 			return false;
 	}
 

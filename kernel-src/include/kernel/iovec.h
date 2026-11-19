@@ -21,7 +21,7 @@ typedef struct {
 	size_t total_size;
 } iovec_iterator_t;
 
-// checks if all iovec[x].addr is an userspace address
+// checks if all iovec[x].addr is an userspace address and that the total size fits in an ssize_t
 bool iovec_user_check(iovec_t *iovec, size_t count);
 
 // returns the sum of the size of all iovecs
