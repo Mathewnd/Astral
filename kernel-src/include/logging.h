@@ -29,8 +29,9 @@ extern mutex_t printf_mutex;
 
 #define __assert(x) \
 	if (unlikely(!(x))){ \
-		printf("\e[91m%s:%s:%d: %s failed\n\e[0m", __FILE__, __func__, __LINE__, #x); \
-		_panic(NULL, NULL); \
+		char reason[sizeof(__FILE__) + sizeof(__func__) + sizeof(#x) + 32]; \
+		snprintf(reason, sizeof(reason), "\e[91m%s:%s:%d: %s failed\e[0m", __FILE__, __func__, __LINE__, #x); \
+		_panic(reason, NULL); \
 	};
 
 
