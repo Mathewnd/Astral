@@ -359,7 +359,6 @@ static void reset_pipenode(pipenode_t *node) {
 
 int pipefs_inactive(vnode_t *node) {
 	pipenode_t *pipenode = (pipenode_t *)node;
-	INTERNAL_LOCK(node);
 	reset_pipenode(pipenode);
 	slab_free(nodecache, node);
 	return 0;
