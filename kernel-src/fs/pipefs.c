@@ -457,7 +457,7 @@ int pipefs_newpipe(vnode_t **nodep) {
 	if (node == NULL)
 		return ENOMEM;
 
-	node->attr.inode = ++currentinode;
+	node->attr.inode = __atomic_add_fetch(&currentinode, 1, __ATOMIC_RELAXED);
 	*nodep = vnode;
 
 	return 0;
